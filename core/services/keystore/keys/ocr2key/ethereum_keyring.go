@@ -27,30 +27,27 @@ func newEthereumKeyring(material io.Reader) (*EthereumKeyring, error) {
 
 // XXX: PublicKey returns the address of the public key not the public key itself
 func (ok *EthereumKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	publicKey := (*ecdsa.PrivateKey)(&ok.privateKey).Public().(*ecdsa.PublicKey)
-	address := crypto.PubkeyToAddress(*publicKey)
+	address := ok.SigningAddress()
 	return address[:]
 }
 
-func (ok *EthereumKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+func (ok *EthereumKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
 	sigData := crypto.Keccak256(report)
 	sigData = append(sigData, rawReportContext[0][:]...)
 	sigData = append(sigData, rawReportContext[1][:]...)
 	sigData = append(sigData, rawReportContext[2][:]...)
-	return crypto.Sign(crypto.Keccak256(sigData), &ok.privateKey)
+	return crypto.Keccak256(sigData)
+}
+
+func (ok *EthereumKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+	return crypto.Sign(ok.reportToSigData(reportCtx, report), &ok.privateKey)
 
 }
 
 func (ok *EthereumKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
-	rawReportContext := evmutil.RawReportContext(reportCtx)
-	sigData := crypto.Keccak256(report)
-	sigData = append(sigData, rawReportContext[0][:]...)
-	sigData = append(sigData, rawReportContext[1][:]...)
-	sigData = append(sigData, rawReportContext[2][:]...)
-	hash := crypto.Keccak256(sigData)
+	hash := ok.reportToSigData(reportCtx, report)
 	authorPubkey, err := crypto.SigToPub(hash, signature)
-
 	if err != nil {
 		return false
 	}
@@ -63,7 +60,7 @@ func (ok *EthereumKeyring) MaxSignatureLength() int {
 }
 
 func (ok *EthereumKeyring) SigningAddress() common.Address {
-	return crypto.PubkeyToAddress(*(*ecdsa.PrivateKey)(&ok.privateKey).Public().(*ecdsa.PublicKey))
+	return crypto.PubkeyToAddress(*(&ok.privateKey).Public().(*ecdsa.PublicKey))
 }
 
 func (ok *EthereumKeyring) marshal() ([]byte, error) {

@@ -2048,20 +2048,6 @@ func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// P2PBootstrapCheckInterval provides a mock function with given fields:
-func (_m *GeneralConfig) P2PBootstrapCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRContractPollInterval provides a mock function with given fields:
 func (_m *GeneralConfig) OCRContractPollInterval() time.Duration {
 	ret := _m.Called()
@@ -2104,20 +2090,6 @@ func (_m *GeneralConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
 	return r0
 }
 
-// OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *GeneralConfig) P2PDHTLookupInterval() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
 // OCRDatabaseTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) OCRDatabaseTimeout() time.Duration {
 	ret := _m.Called()
@@ -2141,20 +2113,6 @@ func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) P2PIncomingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2195,20 +2153,6 @@ func (_m *GeneralConfig) OCRMonitoringEndpoint() string {
 	return r0
 }
 
-// OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) P2PNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRObservationGracePeriod provides a mock function with given fields:
 func (_m *GeneralConfig) OCRObservationGracePeriod() time.Duration {
 	ret := _m.Called()
@@ -2232,20 +2176,6 @@ func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) P2POutgoingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2358,6 +2288,20 @@ func (_m *GeneralConfig) P2PAnnouncePort() uint16 {
 	return r0
 }
 
+// P2PBootstrapCheckInterval provides a mock function with given fields:
+func (_m *GeneralConfig) P2PBootstrapCheckInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // P2PBootstrapPeers provides a mock function with given fields:
 func (_m *GeneralConfig) P2PBootstrapPeers() ([]string, error) {
 	ret := _m.Called()
@@ -2390,6 +2334,34 @@ func (_m *GeneralConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// P2PDHTLookupInterval provides a mock function with given fields:
+func (_m *GeneralConfig) P2PDHTLookupInterval() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// P2PIncomingMessageBufferSize provides a mock function with given fields:
+func (_m *GeneralConfig) P2PIncomingMessageBufferSize() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2462,6 +2434,34 @@ func (_m *GeneralConfig) P2PNetworkingStackRaw() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// P2PNewStreamTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) P2PNewStreamTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// P2POutgoingMessageBufferSize provides a mock function with given fields:
+func (_m *GeneralConfig) P2POutgoingMessageBufferSize() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
 	}
 
 	return r0

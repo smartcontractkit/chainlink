@@ -87,10 +87,7 @@ func (oc *OCRContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtyp
 func (oc *OCRContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
-	if err != nil {
-		return ocrtypes.ConfigDigest{}, 0, errors.Wrap(err, "error getting LatestTransmissionDetails")
-	}
-	return result.ConfigDigest, result.Epoch, nil
+	return result.ConfigDigest, result.Epoch, errors.Wrap(err, "error getting LatestTransmissionDetails")
 }
 
 func (oc *OCRContractTransmitter) FromAccount() ocrtypes.Account {
@@ -100,10 +97,7 @@ func (oc *OCRContractTransmitter) FromAccount() ocrtypes.Account {
 func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
-	if err != nil {
-		return ocrtypes.ConfigDigest{}, 0, 0, nil, time.Time{}, errors.Wrap(err, "error getting LatestTransmissionDetails")
-	}
-	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), nil
+	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
 }
 
 // LatestRoundRequested returns the configDigest, epoch, and round from the latest

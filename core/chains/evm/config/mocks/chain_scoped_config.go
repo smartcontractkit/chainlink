@@ -2690,20 +2690,6 @@ func (_m *ChainScopedConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// P2PBootstrapCheckInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PBootstrapCheckInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRContractConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRContractConfirmations() uint16 {
 	ret := _m.Called()
@@ -2760,20 +2746,6 @@ func (_m *ChainScopedConfig) OCRContractTransmitterTransmitTimeout() time.Durati
 	return r0
 }
 
-// OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PDHTLookupInterval() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
 // OCRDatabaseTimeout provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRDatabaseTimeout() time.Duration {
 	ret := _m.Called()
@@ -2797,20 +2769,6 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-// OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PIncomingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2851,20 +2809,6 @@ func (_m *ChainScopedConfig) OCRMonitoringEndpoint() string {
 	return r0
 }
 
-// OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRObservationGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRObservationGracePeriod() time.Duration {
 	ret := _m.Called()
@@ -2888,20 +2832,6 @@ func (_m *ChainScopedConfig) OCRObservationTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2POutgoingMessageBufferSize() int {
-	ret := _m.Called()
-
-	var r0 int
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -3014,6 +2944,20 @@ func (_m *ChainScopedConfig) P2PAnnouncePort() uint16 {
 	return r0
 }
 
+// P2PBootstrapCheckInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2PBootstrapCheckInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // P2PBootstrapPeers provides a mock function with given fields:
 func (_m *ChainScopedConfig) P2PBootstrapPeers() ([]string, error) {
 	ret := _m.Called()
@@ -3046,6 +2990,34 @@ func (_m *ChainScopedConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// P2PDHTLookupInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2PDHTLookupInterval() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// P2PIncomingMessageBufferSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2PIncomingMessageBufferSize() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -3118,6 +3090,34 @@ func (_m *ChainScopedConfig) P2PNetworkingStackRaw() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// P2PNewStreamTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2PNewStreamTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// P2POutgoingMessageBufferSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2POutgoingMessageBufferSize() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
 	}
 
 	return r0
