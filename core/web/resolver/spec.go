@@ -440,6 +440,11 @@ func (r *VRFSpecResolver) RequestedConfsDelay() int32 {
 	return int32(r.spec.RequestedConfsDelay)
 }
 
+// RequestTimeout resolves the spec's request timeout.
+func (r *VRFSpecResolver) RequestTimeout() string {
+	return r.spec.RequestTimeout.String()
+}
+
 type WebhookSpecResolver struct {
 	spec job.WebhookSpec
 }
