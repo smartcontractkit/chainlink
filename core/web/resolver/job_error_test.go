@@ -148,7 +148,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 				{
 					"dismissJobError": {
 						"code": "NOT_FOUND",
-						"message": "PipelineJobSpecError not found"
+						"message": "JobSpecError not found"
 					}
 				}
 			`,
@@ -167,7 +167,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 				{
 					"dismissJobError": {
 						"code": "NOT_FOUND",
-						"message": "PipelineJobSpecError not found"
+						"message": "JobSpecError not found"
 					}
 				}
 			`,
