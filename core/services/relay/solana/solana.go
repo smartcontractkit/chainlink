@@ -55,7 +55,7 @@ func (r relayer) Healthy() error {
 type OCR2Spec struct {
 	ID                      int32
 	ContractAddress         string
-	EncryptedOCRKeyBundleID null.String
+	KeyBundleID             null.String
 	TransmitterAddress      string
 	ChainID                 *utils.Big
 	NodeEndpointRPC         string
@@ -70,7 +70,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 	}
 
 	// TODO [relay]: solana OCR2 keys ('ocr2key.KeyBundle' is Ethereum specific)
-	kb, err := r.keystore.OCR2().Get(spec.EncryptedOCRKeyBundleID.ValueOrZero())
+	kb, err := r.keystore.OCR2().Get(spec.KeyBundleID.ValueOrZero())
 	if err != nil {
 		return nil, err
 	}

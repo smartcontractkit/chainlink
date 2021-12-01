@@ -67,12 +67,11 @@ func (r relayer) Healthy() error {
 	return nil
 }
 
-// TODO: TransmitterAddress is a pointer while ContractAddress is not?
 type OCR2Spec struct {
 	ID                      int32
 	ContractAddress         ethkey.EIP55Address
-	EncryptedOCRKeyBundleID null.String
-	TransmitterAddress      *ethkey.EIP55Address
+	KeyBundleID             null.String
+	TransmitterAddress      ethkey.EIP55Address
 	ChainID                 *utils.Big
 	IsBootstrap             bool
 }
@@ -123,7 +122,9 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		ChainID:         chain.Config().ChainID().Uint64(),
 		ContractAddress: spec.ContractAddress.Address(),
 	}
+
 	if spec.IsBootstrap {
+		// Return early if bootstrap node (doesn't require the full OCR2 provider)
 		return &ocr2Provider{
 			tracker:                tracker,
 			offchainConfigDigester: offchainConfigDigester,
@@ -137,20 +138,8 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 
-	if spec.TransmitterAddress == nil {
+	if spec.TransmitterAddress != "" {
 		return nil, errors.New("transmitter address is required")
-	}
-
-	var kbID string
-	if spec.EncryptedOCRKeyBundleID.Valid {
-		kbID = spec.EncryptedOCRKeyBundleID.String
-	} else if kbID, err = chain.Config().OCR2KeyBundleID(); err != nil {
-		return nil, err
-	}
-
-	kb, err := r.keystore.OCR2().Get(kbID)
-	if err != nil {
-		return nil, err
 	}
 
 	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
@@ -165,6 +154,19 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		r.lggr,
 	)
 
+	// Fetch the specified OCR2 key bundle
+	var kbID string
+	if spec.KeyBundleID.Valid {
+		kbID = spec.KeyBundleID.String
+	} else if kbID, err = chain.Config().OCR2KeyBundleID(); err != nil {
+		return nil, err
+	}
+
+	kb, err := r.keystore.OCR2().Get(kbID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ocr2Provider{
 		tracker:                tracker,
 		offchainConfigDigester: offchainConfigDigester,
@@ -172,7 +174,6 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		contractTransmitter:    contractTransmitter,
 		keyBundle:              kb,
 	}, nil
-
 }
 
 var _ service.Service = (*ocr2Provider)(nil)
