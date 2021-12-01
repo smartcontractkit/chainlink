@@ -9,10 +9,10 @@ import (
 	solanaGo "github.com/gagliardetto/solana-go"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/ethereum"
-	"github.com/smartcontractkit/chainlink/core/services/relay/solana"
 	"go.uber.org/multierr"
 )
 
