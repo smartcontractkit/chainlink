@@ -211,14 +211,15 @@ func (r *CreateJobSuccessResolver) Job() *JobResolver {
 // -- DeleteJob Mutation --
 
 type DeleteJobPayloadResolver struct {
-	j *job.Job
+	app chainlink.Application
+	j   *job.Job
 	NotFoundErrorUnionType
 }
 
-func NewDeleteJobPayload(j *job.Job, err error) *DeleteJobPayloadResolver {
+func NewDeleteJobPayload(app chainlink.Application, j *job.Job, err error) *DeleteJobPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "job not found"}
 
-	return &DeleteJobPayloadResolver{j: j, NotFoundErrorUnionType: e}
+	return &DeleteJobPayloadResolver{app: app, j: j, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteJobPayloadResolver) ToDeleteJobSuccess() (*DeleteJobSuccessResolver, bool) {
@@ -226,17 +227,18 @@ func (r *DeleteJobPayloadResolver) ToDeleteJobSuccess() (*DeleteJobSuccessResolv
 		return nil, false
 	}
 
-	return NewDeleteJobSuccess(r.j), true
+	return NewDeleteJobSuccess(r.app, r.j), true
 }
 
 type DeleteJobSuccessResolver struct {
-	j *job.Job
+	app chainlink.Application
+	j   *job.Job
 }
 
-func NewDeleteJobSuccess(job *job.Job) *DeleteJobSuccessResolver {
-	return &DeleteJobSuccessResolver{j: job}
+func NewDeleteJobSuccess(app chainlink.Application, job *job.Job) *DeleteJobSuccessResolver {
+	return &DeleteJobSuccessResolver{app: app, j: job}
 }
 
 func (r *DeleteJobSuccessResolver) Job() *JobResolver {
-	return NewJob(*r.j)
+	return NewJob(r.app, *r.j)
 }

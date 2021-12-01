@@ -994,7 +994,7 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 	j, err := r.App.JobORM().FindJobTx(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewDeleteJobPayload(nil, err), nil
+			return NewDeleteJobPayload(r.App, nil, err), nil
 		}
 
 		return nil, err
@@ -1003,11 +1003,11 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 	err = r.App.DeleteJob(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewDeleteJobPayload(nil, err), nil
+			return NewDeleteJobPayload(r.App, nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	return NewDeleteJobPayload(&j, nil), nil
+	return NewDeleteJobPayload(r.App, &j, nil), nil
 }
