@@ -472,7 +472,8 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	owner := newIdentity(t)
 	random := newIdentity(t)
 	genesisData := core.GenesisAlloc{
-		owner.From: {Balance: assets.Ether(10)},
+		owner.From:  {Balance: assets.Ether(10)},
+		random.From: {Balance: assets.Ether(10)},
 	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
@@ -488,7 +489,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	})
 	require.NoError(t, err)
 	backend.Commit()
-	consumerAddress, _, consumer, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(owner, backend, coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{})
+	consumerAddress, _, consumer, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(owner, backend, coordinatorAddress, linkAddress)
 	require.NoError(t, err)
 	backend.Commit()
 	_, err = linkContract.Transfer(owner, consumerAddress, assets.Ether(2))
@@ -506,13 +507,17 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 	_, err = coordinator.AddConsumer(owner, 1, consumerAddress)
 	require.NoError(t, err)
-	_, err = consumer.SetSubscriptionID(random, 1)
+	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{})
 	require.Error(t, err)
-	_, err = consumer.SetSubscriptionID(owner, 1)
+	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{})
 	require.NoError(t, err)
-	_, err = consumer.RequestRandomWords(random)
+
+	// Reassign ownership, check that only new owner can request
+	_, err = consumer.TransferOwnership(owner, random.From)
+	require.NoError(t, err)
+	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{})
 	require.Error(t, err)
-	_, err = consumer.RequestRandomWords(owner)
+	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{})
 	require.NoError(t, err)
 }
 

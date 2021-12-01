@@ -2,15 +2,22 @@ package resolver
 
 import (
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
+	gqlerrors "github.com/graph-gophers/graphql-go/errors"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 )
 
 // This tests the main fields on the job results. Embedded spec testing is done
@@ -33,10 +40,13 @@ func TestResolver_Jobs(t *testing.T) {
 							__typename
 						}
 						runs {
-							id
-							allErrors
-							outputs
-							createdAt
+							__typename
+							results {
+								id
+							}
+							metadata {
+								total
+							}
 						}
 						observationSource
 					}
@@ -56,17 +66,6 @@ func TestResolver_Jobs(t *testing.T) {
 				plnSpecID := int32(12)
 
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("PipelineRunsByJobsIDs", []int32{plnSpecID}).Return([]pipeline.Run{
-					{
-						ID:             int64(1),
-						PipelineSpecID: plnSpecID,
-						State:          pipeline.RunStatusRunning,
-						Outputs:        pipeline.JSONSerializable{Valid: false},
-						AllErrors:      pipeline.RunErrors{},
-						CreatedAt:      f.Timestamp(),
-						FinishedAt:     null.Time{},
-					},
-				}, nil)
 				f.Mocks.jobORM.On("FindJobs", 0, 50).Return([]job.Job{
 					{
 						ID:                          1,
@@ -83,6 +82,15 @@ func TestResolver_Jobs(t *testing.T) {
 						},
 					},
 				}, 1, nil)
+				f.Mocks.jobORM.
+					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
+					Return([]int64{200}, nil)
+				f.Mocks.jobORM.
+					On("FindPipelineRunsByIDs", []int64{200}).
+					Return([]pipeline.Run{{ID: 200}}, nil)
+				f.Mocks.jobORM.
+					On("CountPipelineRunsByJobID", int32(1)).
+					Return(int32(1), nil)
 			},
 			query: query,
 			result: `
@@ -98,14 +106,15 @@ func TestResolver_Jobs(t *testing.T) {
 							"spec": {
 								"__typename": "OCRSpec"
 							},
-							"runs": [
-								{
-									"id": "1",
-									"allErrors": [],
-									"outputs": ["error: unable to retrieve outputs"],
-									"createdAt": "2021-01-01T00:00:00Z"
+							"runs": {
+								"__typename": "JobRunsPayload",
+								"results": [{
+									"id": "200"
+								}],
+								"metadata": {
+									"total": 1
 								}
-							],
+							},
 							"observationSource": "ds1 [type=bridge name=voter_turnout];"
 						}],
 						"metadata": {
@@ -136,6 +145,15 @@ func TestResolver_Job(t *testing.T) {
 						schemaVersion
 						spec {
 							__typename
+						}
+						runs {
+							__typename
+							results {
+								id
+							}
+							metadata {
+								total
+							}
 						}
 						observationSource
 					}
@@ -168,6 +186,15 @@ func TestResolver_Job(t *testing.T) {
 						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 					},
 				}, nil)
+				f.Mocks.jobORM.
+					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
+					Return([]int64{200}, nil)
+				f.Mocks.jobORM.
+					On("FindPipelineRunsByIDs", []int64{200}).
+					Return([]pipeline.Run{{ID: 200}}, nil)
+				f.Mocks.jobORM.
+					On("CountPipelineRunsByJobID", int32(1)).
+					Return(int32(1), nil)
 			},
 			query: query,
 			result: `
@@ -181,6 +208,15 @@ func TestResolver_Job(t *testing.T) {
 						"schemaVersion": 1,
 						"spec": {
 							"__typename": "OCRSpec"
+						},
+						"runs": {
+							"__typename": "JobRunsPayload",
+							"results": [{
+								"id": "200"
+							}],
+							"metadata": {
+								"total": 1
+							}
 						},
 						"observationSource": "ds1 [type=bridge name=voter_turnout];"
 					}
@@ -203,6 +239,114 @@ func TestResolver_Job(t *testing.T) {
 					}
 				}
 			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_CreateJob(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation CreateJob($input: CreateJobInput!) {
+			createJob(input: $input) {
+				... on CreateJobSuccess {
+					job {
+						id
+						createdAt
+						externalJobID
+						maxTaskDuration
+						name
+						schemaVersion
+					}
+				}
+				... on InputErrors {
+					errors {
+						path
+						message
+						code
+					}
+				}
+			}
+		}`
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"TOML": testspecs.DirectRequestSpec,
+		},
+	}
+	invalid := map[string]interface{}{
+		"input": map[string]interface{}{
+			"TOML": "some wrong value",
+		},
+	}
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	assert.NoError(t, err)
+
+	d, err := json.Marshal(map[string]interface{}{
+		"createJob": map[string]interface{}{
+			"job": map[string]interface{}{
+				"id":              "0",
+				"maxTaskDuration": "0s",
+				"name":            jb.Name,
+				"schemaVersion":   1,
+				"createdAt":       "0001-01-01T00:00:00Z",
+				"externalJobID":   jb.ExternalJobID.String(),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "createJob"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+				f.App.On("AddJobV2", mock.Anything, &jb).Return(nil)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "invalid TOML error",
+			authenticated: true,
+			query:         mutation,
+			variables:     invalid,
+			result: `
+				{
+					"createJob": {
+						"errors": [{
+							"code": "INVALID_INPUT",
+							"message": "failed to parse TOML: (1, 6): was expecting token =, but got \"wrong\" instead",
+							"path": "TOML spec"
+						}]
+					}
+				}`,
+		},
+		{
+			name:          "generic error when adding the job",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+				f.App.On("AddJobV2", mock.Anything, &jb).Return(gError)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"createJob"},
+					Message:       gError.Error(),
+				},
+			},
 		},
 	}
 

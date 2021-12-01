@@ -165,29 +165,6 @@ declare module 'core/store/models' {
   export type RunStatusCollection = RunStatus[]
 
   //#endregion  bulk.go
-  //#region ocrkey/key_bundle.go
-
-  /**
-   * OcrKey represents the bundle of keys needed for OCR
-   */
-
-  export interface OcrKey {
-    configPublicKey: string
-    offChainPublicKey: string
-    onChainSigningAddress: common.Address
-  }
-  //#endregion ocrkey/key_bundle.go
-  //#region p2pKey/p2p_key.go
-
-  /**
-   * P2P represents the bundle of keys needed for P2P
-   */
-
-  export interface P2PKey {
-    peerId: string
-    publicKey: string
-  }
-  //#endregion p2pKey/p2p_key.go
 
   /**
    * CreateJobRequest represents a schema for the create job request as used by
@@ -435,10 +412,6 @@ declare module 'core/store/models' {
   export interface LogConfigRequest {
     level: LogConfigLevel
     sqlEnabled: boolean
-  }
-
-  export interface CSAKey {
-    publicKey: string
   }
 
   /**

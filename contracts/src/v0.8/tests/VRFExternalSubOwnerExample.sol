@@ -9,35 +9,13 @@ contract VRFExternalSubOwnerExample is VRFConsumerBaseV2 {
   VRFCoordinatorV2Interface COORDINATOR;
   LinkTokenInterface LINKTOKEN;
 
-  struct RequestConfig {
-    uint64 subId;
-    uint32 callbackGasLimit;
-    uint16 requestConfirmations;
-    uint32 numWords;
-    bytes32 keyHash;
-  }
-  RequestConfig public s_requestConfig;
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   address s_owner;
 
-  constructor(
-    address vrfCoordinator,
-    address link,
-    uint32 callbackGasLimit,
-    uint16 requestConfirmations,
-    uint32 numWords,
-    bytes32 keyHash
-  ) VRFConsumerBaseV2(vrfCoordinator) {
+  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
-    s_requestConfig = RequestConfig({
-      subId: 0, // Initially unset
-      callbackGasLimit: callbackGasLimit,
-      requestConfirmations: requestConfirmations,
-      numWords: numWords,
-      keyHash: keyHash
-    });
     s_owner = msg.sender;
   }
 
@@ -48,20 +26,19 @@ contract VRFExternalSubOwnerExample is VRFConsumerBaseV2 {
     s_randomWords = randomWords;
   }
 
-  function requestRandomWords() external onlyOwner {
-    RequestConfig memory rc = s_requestConfig;
-    // Will revert if subscription is not set and funded.
-    s_requestId = COORDINATOR.requestRandomWords(
-      rc.keyHash,
-      rc.subId,
-      rc.requestConfirmations,
-      rc.callbackGasLimit,
-      rc.numWords
-    );
+  function requestRandomWords(
+    uint64 subId,
+    uint32 callbackGasLimit,
+    uint16 requestConfirmations,
+    uint32 numWords,
+    bytes32 keyHash
+  ) external onlyOwner {
+    // Will revert if subscription is not funded.
+    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, requestConfirmations, callbackGasLimit, numWords);
   }
 
-  function setSubscriptionID(uint64 subId) external onlyOwner {
-    s_requestConfig.subId = subId;
+  function transferOwnership(address newOwner) external onlyOwner {
+    s_owner = newOwner;
   }
 
   modifier onlyOwner() {
