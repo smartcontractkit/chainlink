@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -72,7 +73,7 @@ func newSplunkSink() (*splunkSink, error) {
 	s.Index = os.Getenv("SPLUNK_INDEX")
 	s.Hostname = os.Getenv("SPLUNK_HOSTNAME")
 	s.Token = os.Getenv("SPLUNK_TOKEN")
-	s.SkipTLSVerify = "true" == os.Getenv("SPLUNK_SKIP_TLS_VERIFY")
+	s.SkipTLSVerify, _ = strconv.ParseBool(os.Getenv("SPLUNK_SKIP_TLS_VERIFY"))
 
 	return initialize(s), nil
 }
