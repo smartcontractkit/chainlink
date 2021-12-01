@@ -248,7 +248,7 @@ func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error)
 		return nil, err
 	}
 
-	return NewP2PKeysPayloadResolver(p2pKeys), nil
+	return NewP2PKeysPayload(p2pKeys), nil
 }
 
 // VRFKeys fetches all VRF keys.
