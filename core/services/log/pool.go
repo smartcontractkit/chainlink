@@ -14,7 +14,7 @@ type logPool struct {
 	// the logs in the pool.
 	hashesByBlockNumbers map[uint64]map[common.Hash]struct{}
 	// A mapping of blockhashes to logs
-	logsByBlockHash map[common.Hash][]types.Log
+	logsByBlockHash map[common.Hash]map[uint]types.Log
 	// This min-heap maintains block numbers of logs in the pool.
 	// it helps us easily determine the minimum log block number
 	// in the pool (while the set of log block numbers is dynamically changing).
@@ -24,7 +24,7 @@ type logPool struct {
 func newLogPool() *logPool {
 	return &logPool{
 		hashesByBlockNumbers: make(map[uint64]map[common.Hash]struct{}),
-		logsByBlockHash:      make(map[common.Hash][]types.Log),
+		logsByBlockHash:      make(map[common.Hash]map[uint]types.Log),
 		heap:                 pairingHeap.New(),
 	}
 }
@@ -36,7 +36,10 @@ func (pool *logPool) addLog(log types.Log) bool {
 		pool.hashesByBlockNumbers[log.BlockNumber] = make(map[common.Hash]struct{})
 	}
 	pool.hashesByBlockNumbers[log.BlockNumber][log.BlockHash] = struct{}{}
-	pool.logsByBlockHash[log.BlockHash] = append(pool.logsByBlockHash[log.BlockHash], log)
+	if _, exists := pool.logsByBlockHash[log.BlockHash]; !exists {
+		pool.logsByBlockHash[log.BlockHash] = make(map[uint]types.Log)
+	}
+	pool.logsByBlockHash[log.BlockHash][log.Index] = log
 	min := pool.heap.FindMin()
 	pool.heap.Insert(Uint64(log.BlockNumber))
 	// first or new min
@@ -64,7 +67,7 @@ func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
 				highest = int64(blockNum)
 			}
 			for hash := range hashes {
-				logsToReturn = append(logsToReturn, logsOnBlock{blockNum, pool.logsByBlockHash[hash]})
+				logsToReturn = append(logsToReturn, newLogsOnBlock(blockNum, pool.logsByBlockHash[hash]))
 				delete(pool.hashesByBlockNumbers[blockNum], hash)
 				delete(pool.logsByBlockHash, hash)
 			}
@@ -87,7 +90,7 @@ func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) 
 
 	for num := minBlockNumToSend; num <= latestBlockNum; num++ {
 		for hash := range pool.hashesByBlockNumbers[uint64(num)] {
-			logsToReturn = append(logsToReturn, logsOnBlock{uint64(num), pool.logsByBlockHash[hash]})
+			logsToReturn = append(logsToReturn, newLogsOnBlock(uint64(num), pool.logsByBlockHash[hash]))
 		}
 	}
 	return logsToReturn, minBlockNumToSend
@@ -138,4 +141,12 @@ func (a Uint64) Compare(b heaps.Item) int {
 type logsOnBlock struct {
 	BlockNumber uint64
 	Logs        []types.Log
+}
+
+func newLogsOnBlock(num uint64, logsMap map[uint]types.Log) logsOnBlock {
+	logs := make([]types.Log, 0, len(logsMap))
+	for _, l := range logsMap {
+		logs = append(logs, l)
+	}
+	return logsOnBlock{num, logs}
 }
