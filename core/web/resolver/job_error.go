@@ -55,7 +55,7 @@ type DismissJobErrorPayloadResolver struct {
 }
 
 func NewDismissJobErrorPayload(specError *job.SpecError, err error) *DismissJobErrorPayloadResolver {
-	e := NotFoundErrorUnionType{err: err, message: "PipelineJobSpecError not found"}
+	e := NotFoundErrorUnionType{err: err, message: "JobSpecError not found"}
 
 	return &DismissJobErrorPayloadResolver{specError: specError, NotFoundErrorUnionType: e}
 }
