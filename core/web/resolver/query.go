@@ -437,10 +437,7 @@ func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
 	}
 
 	cfg := r.App.GetConfig()
-	printer, err := config.NewConfigPrinter(cfg)
-	if err != nil {
-		return nil, err
-	}
+	printer := config.NewConfigPrinter(cfg)
 
 	return NewConfigPayload(printer.EnvPrinter), nil
 }
