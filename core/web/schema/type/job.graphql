@@ -29,3 +29,9 @@ type CreateJobSuccess {
 }
 
 union CreateJobPayload = CreateJobSuccess | InputErrors
+
+type DeleteJobSuccess {
+    job: Job!
+}
+
+union DeleteJobPayload = DeleteJobSuccess | NotFoundError
