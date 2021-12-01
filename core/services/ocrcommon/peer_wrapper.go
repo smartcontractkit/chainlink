@@ -1,7 +1,6 @@
 package ocrcommon
 
 import (
-	"io"
 	"net"
 
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
@@ -30,13 +29,11 @@ type PeerWrapperConfig interface {
 
 type (
 	peerAdapter struct {
-		io.Closer
 		ocrtypes.BinaryNetworkEndpointFactory
 		ocrtypes.BootstrapperFactory
 	}
 
 	peerAdapter2 struct {
-		io.Closer
 		ocr2types.BinaryNetworkEndpointFactory
 		ocr2types.BootstrapperFactory
 	}
@@ -107,7 +104,8 @@ func (p *SingletonPeerWrapper) IsStarted() bool {
 func (p *SingletonPeerWrapper) Start() error {
 	return p.StartOnce("SingletonPeerWrapper", func() error {
 		// If there are no keys, permit the peer to start without a key
-		// TODO: This appears only a requirement for the tests, normally the node
+		// TODO(https://app.shortcut.com/chainlinklabs/story/22677):
+		// This appears only a requirement for the tests, normally the node
 		// always ensures a key is available on boot. We should update the tests
 		// but there is a lot of them...
 		if ks, err := p.keyStore.P2P().GetAll(); err == nil && len(ks) == 0 {
@@ -191,17 +189,16 @@ func (p *SingletonPeerWrapper) Start() error {
 		}
 
 		p.lggr.Debugw("Creating OCR/OCR2 Peer", "config", peerConfig)
+		// Note: creates and starts the peer
 		peer, err := ocrnetworking.NewPeer(peerConfig)
 		if err != nil {
 			return errors.Wrap(err, "error calling NewPeer")
 		}
 		p.Peer = &peerAdapter{
-			peer,
 			peer.OCR1BinaryNetworkEndpointFactory(),
 			peer.OCR1BootstrapperFactory(),
 		}
 		p.Peer2 = &peerAdapter2{
-			peer,
 			peer.OCR2BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
@@ -212,17 +209,9 @@ func (p *SingletonPeerWrapper) Start() error {
 // Close closes the peer and peerstore
 func (p *SingletonPeerWrapper) Close() error {
 	return p.StopOnce("SingletonPeerWrapper", func() (err error) {
-		if p.Peer != nil {
-			err = p.Peer.Close()
-		}
-		if p.Peer2 != nil {
-			err = p.Peer2.Close()
-		}
-
 		if p.pstoreWrapper != nil {
 			err = multierr.Combine(err, p.pstoreWrapper.Close())
 		}
-
 		return err
 	})
 }

@@ -17,11 +17,11 @@ import (
 
 type ValidationConfig interface {
 	Dev() bool
-	OCRBlockchainTimeout() time.Duration
-	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
+	OCR2BlockchainTimeout() time.Duration
+	OCR2ContractConfirmations() uint16
+	OCR2ContractPollInterval() time.Duration
+	OCR2ContractTransmitterTransmitTimeout() time.Duration
+	OCR2DatabaseTimeout() time.Duration
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
@@ -48,7 +48,6 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		jb.Offchainreporting2OracleSpec.P2PBootstrapPeers = pq.StringArray{}
 	}
 
-	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
 	if jb.Type != job.OffchainReporting2 {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting2', got %s", jb.Type)
 	}

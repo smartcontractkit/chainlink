@@ -524,7 +524,8 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -579,7 +580,8 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})

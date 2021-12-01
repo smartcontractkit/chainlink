@@ -12,8 +12,18 @@ import (
 )
 
 type OCRConfig interface {
-	// Common to both OCR1 and OCR2, can override
-	// with job specific values.
+	// OCR2 config, can override in jobs, all chains
+	OCR2ContractPollInterval() time.Duration
+	OCR2ContractSubscribeInterval() time.Duration
+	OCR2ContractTransmitterTransmitTimeout() time.Duration
+	OCR2BlockchainTimeout() time.Duration
+	OCR2DatabaseTimeout() time.Duration
+	OCR2MonitoringEndpoint() string
+	OCR2KeyBundleID() (string, error)
+	// OCR2 config, cannot override in jobs
+	OCR2TraceLogging() bool
+
+	// OCR1 config, can override in jobs, only ethereum.
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
@@ -21,21 +31,56 @@ type OCRConfig interface {
 	OCRDatabaseTimeout() time.Duration
 	OCRMonitoringEndpoint() string
 	OCRKeyBundleID() (string, error)
-
-	// Common to both OCR1 and OCR2, cannot override
-	// with job specific values.
-	OCRDefaultTransactionQueueDepth() uint32
-	OCRTraceLogging() bool
-
-	// OCR1 specific.
 	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRSimulateTransactions() bool
 	OCRTransmitterAddress() (ethkey.EIP55Address, error) // OCR2 can support non-evm changes
+	// OCR1 config, cannot override in jobs
+	OCRTraceLogging() bool
+	OCRDefaultTransactionQueueDepth() uint32
 }
 
 func (c *generalConfig) getDuration(field string) time.Duration {
 	return c.getWithFallback(field, ParseDuration).(time.Duration)
+}
+
+func (c *generalConfig) OCR2ContractPollInterval() time.Duration {
+	return c.getDuration("OCR2ContractPollInterval")
+}
+
+func (c *generalConfig) OCR2ContractSubscribeInterval() time.Duration {
+	return c.getDuration("OCR2ContractSubscribeInterval")
+}
+
+func (c *generalConfig) OCR2ContractTransmitterTransmitTimeout() time.Duration {
+	return c.getWithFallback("OCR2ContractTransmitterTransmitTimeout", ParseDuration).(time.Duration)
+}
+
+func (c *generalConfig) OCR2BlockchainTimeout() time.Duration {
+	return c.getDuration("OCR2BlockchainTimeout")
+}
+
+func (c *generalConfig) OCR2DatabaseTimeout() time.Duration {
+	return c.getWithFallback("OCR2DatabaseTimeout", ParseDuration).(time.Duration)
+}
+
+func (c *generalConfig) OCR2MonitoringEndpoint() string {
+	return c.viper.GetString(EnvVarName("OCR2MonitoringEndpoint"))
+}
+
+func (c *generalConfig) OCR2KeyBundleID() (string, error) {
+	kbStr := c.viper.GetString(EnvVarName("OCR2KeyBundleID"))
+	if kbStr != "" {
+		_, err := models.Sha256HashFromHex(kbStr)
+		if err != nil {
+			return "", errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
+		}
+	}
+	return kbStr, nil
+}
+
+func (c *generalConfig) OCR2TraceLogging() bool {
+	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
 }
 
 func (c *generalConfig) OCRContractPollInterval() time.Duration {
@@ -121,6 +166,8 @@ type P2PNetworking interface {
 
 	P2PV1Networking
 	P2PV2Networking
+
+	P2PDeprecated
 }
 
 // P2PNetworkingStack returns the preferred networking stack for libocr
@@ -158,9 +205,50 @@ func (c *generalConfig) P2PPeerIDRaw() string {
 }
 
 func (c *generalConfig) P2PIncomingMessageBufferSize() int {
+	if c.OCRIncomingMessageBufferSize() != 0 {
+		return c.OCRIncomingMessageBufferSize()
+	}
 	return int(c.getWithFallback("P2PIncomingMessageBufferSize", ParseUint16).(uint16))
 }
 
 func (c *generalConfig) P2POutgoingMessageBufferSize() int {
+	if c.OCROutgoingMessageBufferSize() != 0 {
+		return c.OCRIncomingMessageBufferSize()
+	}
 	return int(c.getWithFallback("P2PIncomingMessageBufferSize", ParseUint16).(uint16))
+}
+
+type P2PDeprecated interface {
+	// DEPRECATED - HERE FOR BACKWARDS COMPATABILITY
+	OCRNewStreamTimeout() time.Duration
+	OCRBootstrapCheckInterval() time.Duration
+	OCRDHTLookupInterval() int
+	OCRIncomingMessageBufferSize() int
+	OCROutgoingMessageBufferSize() int
+}
+
+// DEPRECATED, do not use defaults, use only if specified and the
+// newer env vars is not
+func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
+	return c.viper.GetDuration("OCRBootstrapCheckInterval")
+}
+
+// DEPRECATED
+func (c *generalConfig) OCRDHTLookupInterval() int {
+	return c.viper.GetInt("OCRDHTLookupInterval")
+}
+
+// DEPRECATED
+func (c *generalConfig) OCRNewStreamTimeout() time.Duration {
+	return c.viper.GetDuration("OCRNewStreamTimeout")
+}
+
+// DEPRECATED
+func (c *generalConfig) OCRIncomingMessageBufferSize() int {
+	return c.viper.GetInt("OCRIncomingMessageBufferSize")
+}
+
+// DEPRECATED
+func (c *generalConfig) OCROutgoingMessageBufferSize() int {
+	return c.viper.GetInt("OCRIncomingMessageBufferSize")
 }

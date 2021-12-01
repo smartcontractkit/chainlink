@@ -2662,6 +2662,20 @@ func (_m *ChainScopedConfig) MinimumContractPayment() *assets.Link {
 	return r0
 }
 
+// OCR2BlockchainTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2BlockchainTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // OCR2ContractConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCR2ContractConfirmations() uint16 {
 	ret := _m.Called()
@@ -2676,8 +2690,127 @@ func (_m *ChainScopedConfig) OCR2ContractConfirmations() uint16 {
 	return r0
 }
 
+// OCR2ContractPollInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2ContractPollInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ContractSubscribeInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2ContractSubscribeInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ContractTransmitterTransmitTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2ContractTransmitterTransmitTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2DatabaseTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2DatabaseTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2KeyBundleID provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2KeyBundleID() (string, error) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// OCR2MonitoringEndpoint provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2MonitoringEndpoint() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// OCR2TraceLogging provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCR2TraceLogging() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCRBlockchainTimeout provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRBlockchainTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCRBootstrapCheckInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRBootstrapCheckInterval() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -2746,6 +2879,20 @@ func (_m *ChainScopedConfig) OCRContractTransmitterTransmitTimeout() time.Durati
 	return r0
 }
 
+// OCRDHTLookupInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRDHTLookupInterval() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
 // OCRDatabaseTimeout provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRDatabaseTimeout() time.Duration {
 	ret := _m.Called()
@@ -2769,6 +2916,20 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// OCRIncomingMessageBufferSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRIncomingMessageBufferSize() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -2809,6 +2970,20 @@ func (_m *ChainScopedConfig) OCRMonitoringEndpoint() string {
 	return r0
 }
 
+// OCRNewStreamTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRNewStreamTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // OCRObservationGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) OCRObservationGracePeriod() time.Duration {
 	ret := _m.Called()
@@ -2832,6 +3007,20 @@ func (_m *ChainScopedConfig) OCRObservationTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCROutgoingMessageBufferSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCROutgoingMessageBufferSize() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
 	}
 
 	return r0
@@ -3167,22 +3356,6 @@ func (_m *ChainScopedConfig) P2PPeerstoreWriteInterval() time.Duration {
 
 // P2PV2AnnounceAddresses provides a mock function with given fields:
 func (_m *ChainScopedConfig) P2PV2AnnounceAddresses() []string {
-	ret := _m.Called()
-
-	var r0 []string
-	if rf, ok := ret.Get(0).(func() []string); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-
-	return r0
-}
-
-// P2PV2AnnounceAddressesRaw provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2AnnounceAddressesRaw() []string {
 	ret := _m.Called()
 
 	var r0 []string

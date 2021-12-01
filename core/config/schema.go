@@ -157,7 +157,18 @@ type ConfigSchema struct {
 	UnAuthenticatedRateLimitPeriod             time.Duration   `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
 	UseLegacyEthEnvVars                        bool            `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 
-	// OCR V1 and V2
+	// OCR V2
+	OCR2BlockchainTimeout                  time.Duration `env:"OCR2_BLOCKCHAIN_TIMEOUT" default:"20s"`
+	OCR2ContractConfirmations              uint          `env:"OCR2_CONTRACT_CONFIRMATIONS"`
+	OCR2ContractPollInterval               time.Duration `env:"OCR2_CONTRACT_POLL_INTERVAL" default:"1m"`
+	OCR2ContractSubscribeInterval          time.Duration `env:"OCR2_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
+	OCR2ContractTransmitterTransmitTimeout time.Duration `env:"OCR2_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
+	OCR2DatabaseTimeout                    time.Duration `env:"OCR2_DATABASE_TIMEOUT" default:"10s"`
+	OCR2DefaultTransactionQueueDepth       uint32        `env:"OCR2_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
+	OCR2KeyBundleID                        string        `env:"OCR2_KEY_BUNDLE_ID"`
+	OCR2MonitoringEndpoint                 string        `env:"OCR2_MONITORING_ENDPOINT"`
+
+	// OCR V1
 	OCRBlockchainTimeout                  time.Duration `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`
 	OCRContractConfirmations              uint          `env:"OCR_CONTRACT_CONFIRMATIONS"`
 	OCRContractPollInterval               time.Duration `env:"OCR_CONTRACT_POLL_INTERVAL" default:"1m"`
@@ -169,11 +180,9 @@ type ConfigSchema struct {
 	OCRMonitoringEndpoint                 string        `env:"OCR_MONITORING_ENDPOINT"`
 	OCRSimulateTransactions               bool          `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
 	OCRTraceLogging                       bool          `env:"OCR_TRACE_LOGGING" default:"false"`
-
-	// OCR V1
-	OCRObservationGracePeriod time.Duration `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"1s"`
-	OCRObservationTimeout     time.Duration `env:"OCR_OBSERVATION_TIMEOUT" default:"5s"`
-	OCRTransmitterAddress     string        `env:"OCR_TRANSMITTER_ADDRESS"`
+	OCRObservationGracePeriod             time.Duration `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"1s"`
+	OCRObservationTimeout                 time.Duration `env:"OCR_OBSERVATION_TIMEOUT" default:"5s"`
+	OCRTransmitterAddress                 string        `env:"OCR_TRANSMITTER_ADDRESS"`
 
 	// V1 and V2 p2p networking
 	P2PNetworkingStack           ocrnetworking.NetworkingStack `env:"P2P_NETWORKING_STACK" default:"V1"`
@@ -199,6 +208,13 @@ type ConfigSchema struct {
 	P2PV2DeltaDial         models.Duration `env:"P2PV2_DELTA_DIAL" default:"15s"`
 	P2PV2DeltaReconcile    models.Duration `env:"P2PV2_DELTA_RECONCILE" default:"1m"`
 	P2PV2ListenAddresses   []string        `env:"P2PV2_LISTEN_ADDRESSES"`
+
+	// DEPRECATED
+	OCROutgoingMessageBufferSize int           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
+	OCRIncomingMessageBufferSize int           `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
+	OCRDHTLookupInterval         int           `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
+	OCRBootstrapCheckInterval    time.Duration `env:"OCR_BOOTSTRAP_CHECK_INTERVAL" default:"20s"`
+	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field
