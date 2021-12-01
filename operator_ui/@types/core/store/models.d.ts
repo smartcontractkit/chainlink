@@ -453,10 +453,6 @@ declare module 'core/store/models' {
   export interface UpdateJobProposalSpecRequest {
     spec: string
   }
-
-  export interface FeatureFlag {
-    enabled: boolean
-  }
 }
 
 export interface PipelineTaskRun {
