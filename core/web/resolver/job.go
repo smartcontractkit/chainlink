@@ -2,27 +2,28 @@ package resolver
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
 
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 // JobResolver resolves the Job type.
 type JobResolver struct {
-	j job.Job
+	app chainlink.Application
+	j   job.Job
 }
 
-func NewJob(j job.Job) *JobResolver {
-	return &JobResolver{j: j}
+func NewJob(app chainlink.Application, j job.Job) *JobResolver {
+	return &JobResolver{app: app, j: j}
 }
 
-func NewJobs(jobs []job.Job) []*JobResolver {
+func NewJobs(app chainlink.Application, jobs []job.Job) []*JobResolver {
 	var resolvers []*JobResolver
 	for _, j := range jobs {
-		resolvers = append(resolvers, NewJob(j))
+		resolvers = append(resolvers, NewJob(app, j))
 	}
 
 	return resolvers
@@ -83,31 +84,55 @@ func (r *JobResolver) Spec() *SpecResolver {
 	return NewSpec(r.j)
 }
 
-func (r *JobResolver) Runs(ctx context.Context) ([]*JobRunResolver, error) {
-	runs, err := loader.GetJobRunsByPipelineSpecID(ctx, strconv.Itoa(int(r.j.PipelineSpecID)))
+// Runs fetches the runs for a Job.
+func (r *JobResolver) Runs(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*JobRunsPayloadResolver, error) {
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	//
+	if limit > 100 {
+		limit = 100
+	}
+
+	ids, err := r.app.JobORM().FindPipelineRunIDsByJobID(r.j.ID, offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewJobRuns(runs), nil
+	runs, err := loader.GetJobRunsByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	count, err := r.app.JobORM().CountPipelineRunsByJobID(r.j.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobRunsPayload(runs, count), nil
 }
 
 // JobsPayloadResolver resolves a page of jobs
 type JobsPayloadResolver struct {
+	app   chainlink.Application
 	jobs  []job.Job
 	total int32
 }
 
-func NewJobsPayload(jobs []job.Job, total int32) *JobsPayloadResolver {
+func NewJobsPayload(app chainlink.Application, jobs []job.Job, total int32) *JobsPayloadResolver {
 	return &JobsPayloadResolver{
+		app:   app,
 		jobs:  jobs,
 		total: total,
 	}
 }
 
-// Results returns the bridges.
+// Results returns the jobs.
 func (r *JobsPayloadResolver) Results() []*JobResolver {
-	return NewJobs(r.jobs)
+	return NewJobs(r.app, r.jobs)
 }
 
 // Metadata returns the pagination metadata.
@@ -116,19 +141,21 @@ func (r *JobsPayloadResolver) Metadata() *PaginationMetadataResolver {
 }
 
 type JobPayloadResolver struct {
+	app chainlink.Application
 	job *job.Job
 	NotFoundErrorUnionType
 }
 
-func NewJobPayload(j *job.Job, err error) *JobPayloadResolver {
+func NewJobPayload(app chainlink.Application, j *job.Job, err error) *JobPayloadResolver {
 	e := NotFoundErrorUnionType{err, "job not found", nil}
-	return &JobPayloadResolver{job: j, NotFoundErrorUnionType: e}
+
+	return &JobPayloadResolver{app: app, job: j, NotFoundErrorUnionType: e}
 }
 
 // ToJob implements the JobPayload union type of the payload
 func (r *JobPayloadResolver) ToJob() (*JobResolver, bool) {
 	if r.job != nil {
-		return NewJob(*r.job), true
+		return NewJob(r.app, *r.job), true
 	}
 
 	return nil, false
@@ -137,12 +164,13 @@ func (r *JobPayloadResolver) ToJob() (*JobResolver, bool) {
 // -- CreateJob Mutation --
 
 type CreateJobPayloadResolver struct {
+	app       chainlink.Application
 	j         *job.Job
 	inputErrs map[string]string
 }
 
-func NewCreateJobPayload(job *job.Job, inputErrs map[string]string) *CreateJobPayloadResolver {
-	return &CreateJobPayloadResolver{j: job, inputErrs: inputErrs}
+func NewCreateJobPayload(app chainlink.Application, job *job.Job, inputErrs map[string]string) *CreateJobPayloadResolver {
+	return &CreateJobPayloadResolver{app: app, j: job, inputErrs: inputErrs}
 }
 
 func (r *CreateJobPayloadResolver) ToCreateJobSuccess() (*CreateJobSuccessResolver, bool) {
@@ -150,7 +178,7 @@ func (r *CreateJobPayloadResolver) ToCreateJobSuccess() (*CreateJobSuccessResolv
 		return nil, false
 	}
 
-	return NewCreateJobSuccess(r.j), true
+	return NewCreateJobSuccess(r.app, r.j), true
 }
 
 func (r *CreateJobPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
@@ -168,13 +196,14 @@ func (r *CreateJobPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) 
 }
 
 type CreateJobSuccessResolver struct {
-	j *job.Job
+	app chainlink.Application
+	j   *job.Job
 }
 
-func NewCreateJobSuccess(job *job.Job) *CreateJobSuccessResolver {
-	return &CreateJobSuccessResolver{j: job}
+func NewCreateJobSuccess(app chainlink.Application, job *job.Job) *CreateJobSuccessResolver {
+	return &CreateJobSuccessResolver{app: app, j: job}
 }
 
 func (r *CreateJobSuccessResolver) Job() *JobResolver {
-	return NewJob(*r.j)
+	return NewJob(r.app, *r.j)
 }

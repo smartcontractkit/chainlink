@@ -1,13 +1,15 @@
 package pipeline_test
 
 import (
-	"errors"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func TestRunStatus(t *testing.T) {
@@ -72,4 +74,13 @@ func TestRun_Status(t *testing.T) {
 			assert.Equal(t, tc.want, tc.run.Status())
 		})
 	}
+}
+
+func TestRunErrors_ToError(t *testing.T) {
+	runErrors := pipeline.RunErrors{}
+	runErrors = append(runErrors, null.NewString("bad thing happened", true))
+	runErrors = append(runErrors, null.NewString("pretty bad thing happened", true))
+	runErrors = append(runErrors, null.NewString("", false))
+	expected := errors.New("bad thing happened; pretty bad thing happened")
+	require.Equal(t, expected.Error(), runErrors.ToError().Error())
 }

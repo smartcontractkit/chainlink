@@ -50,7 +50,10 @@ type ORM interface {
 	DismissError(ctx context.Context, errorID int32) error
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
-	PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error)
+
+	FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []int64, err error)
+	FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error)
+	CountPipelineRunsByJobID(jobID int32) (count int32, err error)
 }
 
 type orm struct {
@@ -594,12 +597,11 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 }
 
 // PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
-func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error) {
+func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id WHERE jobs.id = ANY($1)
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC;`
-
-		if err = tx.Select(&runs, stmt, jobsIDs); err != nil {
+		if err = tx.Select(&runs, stmt, ids); err != nil {
 			return errors.Wrap(err, "error loading runs")
 		}
 
@@ -608,7 +610,67 @@ func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err e
 		return err
 	})
 
-	return runs, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+}
+
+// FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.
+func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []int64, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT pipeline_runs.id
+FROM pipeline_runs
+WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS WHERE jobs.id = $1)
+ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC
+OFFSET $2
+LIMIT $3
+`
+		if err = tx.Select(&ids, stmt, jobID, offset, limit); err != nil {
+			return errors.Wrap(err, "error loading runs")
+		}
+
+		return err
+	})
+
+	return ids, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+}
+
+// FindPipelineRunsByIDs returns pipeline runs with the ids.
+func (o *orm) FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT pipeline_runs.*
+FROM pipeline_runs
+WHERE id = ANY($1)
+`
+
+		if err = tx.Select(&runs, stmt, ids); err != nil {
+			return errors.Wrap(err, "error loading runs")
+		}
+
+		runs, err = o.loadPipelineRunsRelations(runs, tx)
+
+		return err
+	})
+
+	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+}
+
+// CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
+func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT COUNT(*)
+FROM pipeline_runs
+WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS WHERE jobs.id = $1)
+`
+		if err = tx.Get(&count, stmt, jobID); err != nil {
+			return errors.Wrap(err, "error counting runs")
+		}
+
+		return err
+	})
+
+	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
