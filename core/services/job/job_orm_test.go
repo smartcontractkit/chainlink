@@ -325,6 +325,71 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
+func Test_FindJobs(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb1, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              uuid.NewV4().String(),
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb1)
+	require.NoError(t, err)
+
+	jb2, err := directrequest.ValidatedDirectRequestSpec(
+		testspecs.DirectRequestSpec,
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb2)
+	require.NoError(t, err)
+
+	t.Run("jobs are ordered by latest first", func(t *testing.T) {
+		jobs, count, err := orm.FindJobs(0, 2)
+		require.NoError(t, err)
+		require.Len(t, jobs, 2)
+		assert.Equal(t, count, 2)
+
+		expectedJobs := []job.Job{jb2, jb1}
+
+		for i, exp := range expectedJobs {
+			assert.Equal(t, exp.ID, jobs[i].ID)
+		}
+	})
+
+	t.Run("jobs respect pagination", func(t *testing.T) {
+		jobs, count, err := orm.FindJobs(0, 1)
+		require.NoError(t, err)
+		require.Len(t, jobs, 1)
+		assert.Equal(t, count, 2)
+
+		expectedJobs := []job.Job{jb2}
+
+		for i, exp := range expectedJobs {
+			assert.Equal(t, exp.ID, jobs[i].ID)
+		}
+	})
+
+}
+
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 

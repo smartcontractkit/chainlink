@@ -391,8 +391,9 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 
 	require.Len(t, resources, 2)
 
-	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[0])
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[1])
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[0])
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[1])
+
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
