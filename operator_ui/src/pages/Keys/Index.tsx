@@ -6,7 +6,7 @@ import { AccountAddresses } from './AccountAddresses'
 import Content from 'components/Content'
 import { CSAKeys } from 'src/screens/KeyManagement/CSAKeys'
 import { OCRKeys } from 'src/screens/KeyManagement/OCRKeys'
-import { P2PKeys } from './P2PKeys'
+import { P2PKeys } from 'src/screens/KeyManagement/P2PKeys'
 import { Feature, useFeature } from 'src/hooks/useFeatureFlag'
 
 export const KeysIndex = () => {
@@ -19,7 +19,10 @@ export const KeysIndex = () => {
           <OCRKeys />
         </Grid>
 
-        <P2PKeys />
+        <Grid item xs={12}>
+          <P2PKeys />
+        </Grid>
+
         <AccountAddresses />
 
         <Grid item xs={12}>
