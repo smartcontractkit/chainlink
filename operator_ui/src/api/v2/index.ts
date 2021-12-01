@@ -2,7 +2,6 @@ import { Api } from 'utils/json-api-client'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
 import { Chains } from './chains'
 import { Config } from './config'
-import { Features } from './features'
 import { Jobs } from './jobs'
 import { Runs } from './runs'
 import { Transactions } from './transactions'
@@ -17,7 +16,6 @@ export class V2 {
   public bulkDeleteRuns = new BulkDeleteRuns(this.api)
   public chains = new Chains(this.api)
   public config = new Config(this.api)
-  public features = new Features(this.api)
   public logConfig = new LogConfig(this.api)
   public nodes = new Nodes(this.api)
   public jobs = new Jobs(this.api)
