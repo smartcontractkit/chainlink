@@ -934,7 +934,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 
 	jbt, err := job.ValidateSpec(args.Input.TOML)
 	if err != nil {
-		return NewCreateJobPayload(nil, map[string]string{
+		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"TOML spec": errors.Wrap(err, "failed to parse TOML").Error(),
 		}), nil
 	}
@@ -960,7 +960,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
 	default:
-		return NewCreateJobPayload(nil, map[string]string{
+		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),
 		}), nil
 	}
@@ -976,5 +976,5 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewCreateJobPayload(&jb, nil), nil
+	return NewCreateJobPayload(r.App, &jb, nil), nil
 }
