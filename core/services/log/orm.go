@@ -214,10 +214,10 @@ type LogBroadcastAsKey struct {
 	JobId     int32
 }
 
-func NewLogBroadcastAsKey(log types.Log, listener Listener) LogBroadcastAsKey {
+func NewLogBroadcastAsKey(log types.Log, jobID int32) LogBroadcastAsKey {
 	return LogBroadcastAsKey{
 		log.BlockHash,
 		log.Index,
-		listener.JobID(),
+		jobID,
 	}
 }

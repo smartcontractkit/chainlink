@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -44,7 +45,7 @@ type (
 	}
 
 	subscribers struct {
-		handlers   map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
+		handlers   map[common.Address]map[common.Hash]map[int32]*listenerMetadata // contractAddress => logTopic => Listener.JobID
 		evmChainID big.Int
 	}
 
@@ -56,8 +57,9 @@ type (
 
 	// Metadata structure maintained per listener
 	listenerMetadata struct {
-		opts    ListenerOpts
-		filters [][]Topic
+		listener Listener
+		opts     ListenerOpts
+		filters  [][]Topic
 	}
 )
 
@@ -72,6 +74,7 @@ func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 
 func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) {
 	addr := reg.opts.Contract
+	r.logger.Debugw("Adding subscriber", "jobID", reg.listener.JobID(), "contract", addr)
 	r.decoders[addr] = reg.opts.ParseLog
 
 	if _, exists := r.subscribers[reg.opts.MinIncomingConfirmations]; !exists {
@@ -89,6 +92,7 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 }
 
 func (r *registrations) removeSubscriber(reg registration) (needsResubscribe bool) {
+	r.logger.Debugw("Removing subscriber", "jobID", reg.listener.JobID(), "contract", reg.opts.Contract)
 	subscribers, exists := r.subscribers[reg.opts.MinIncomingConfirmations]
 	if !exists {
 		return
@@ -185,12 +189,13 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 
 func newSubscribers(evmChainID big.Int) *subscribers {
 	return &subscribers{
-		handlers:   make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
+		handlers:   make(map[common.Address]map[common.Hash]map[int32]*listenerMetadata),
 		evmChainID: evmChainID,
 	}
 }
 
 func (r *subscribers) addSubscriber(reg registration) (needsResubscribe bool) {
+	jobId := reg.listener.JobID()
 	addr := reg.opts.Contract
 
 	if reg.opts.MinIncomingConfirmations <= 0 {
@@ -198,18 +203,21 @@ func (r *subscribers) addSubscriber(reg registration) (needsResubscribe bool) {
 	}
 
 	if _, exists := r.handlers[addr]; !exists {
-		r.handlers[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
+		r.handlers[addr] = make(map[common.Hash]map[int32]*listenerMetadata)
 	}
 
 	for topic, topicValueFilters := range reg.opts.LogsWithTopics {
 		if _, exists := r.handlers[addr][topic]; !exists {
-			r.handlers[addr][topic] = make(map[Listener]*listenerMetadata)
+			r.handlers[addr][topic] = make(map[int32]*listenerMetadata)
 			needsResubscribe = true
 		}
-
-		r.handlers[addr][topic][reg.listener] = &listenerMetadata{
-			opts:    reg.opts,
-			filters: topicValueFilters,
+		if _, ok := r.handlers[addr][topic][jobId]; ok {
+			panic(fmt.Sprintf("Duplicate listener registered for job ID %d, contract %s, topic %s", jobId, addr, topic))
+		}
+		r.handlers[addr][topic][jobId] = &listenerMetadata{
+			listener: reg.listener,
+			opts:     reg.opts,
+			filters:  topicValueFilters,
 		}
 	}
 	return
@@ -227,7 +235,7 @@ func (r *subscribers) removeSubscriber(reg registration) (needsResubscribe bool)
 			continue
 		}
 
-		delete(topicMap, reg.listener)
+		delete(topicMap, reg.listener.JobID())
 
 		if len(topicMap) == 0 {
 			needsResubscribe = true
@@ -271,10 +279,10 @@ func (r *subscribers) sendLog(log types.Log, latestHead eth.Head,
 
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
-	for listener, metadata := range r.handlers[log.Address][log.Topics[0]] {
-		listener := listener
+	for jobID, metadata := range r.handlers[log.Address][log.Topics[0]] {
+		listener := metadata.listener
 
-		currentBroadcast := NewLogBroadcastAsKey(log, listener)
+		currentBroadcast := NewLogBroadcastAsKey(log, jobID)
 		consumed, exists := broadcasts[currentBroadcast]
 		if exists && consumed {
 			continue
