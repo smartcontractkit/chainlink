@@ -68,12 +68,12 @@ func (r relayer) Healthy() error {
 }
 
 type OCR2Spec struct {
-	ID                      int32
-	ContractAddress         ethkey.EIP55Address
-	KeyBundleID             null.String
-	TransmitterAddress      ethkey.EIP55Address
-	ChainID                 *utils.Big
-	IsBootstrap             bool
+	ID                 int32
+	ContractAddress    ethkey.EIP55Address
+	KeyBundleID        null.String
+	TransmitterAddress ethkey.EIP55Address
+	ChainID            *utils.Big
+	IsBootstrap        bool
 }
 
 func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {

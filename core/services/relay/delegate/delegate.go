@@ -75,22 +75,22 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 	case relay.Ethereum:
 		// TODO: TransmitterAddress is a pointer while ContractAddress is not?
 		return d.relayers[choice].NewOCR2Provider(externalJobID, ethereum.OCR2Spec{
-			ID:                      spec.ID,
-			ChainID:                 spec.EVMChainID,
-			ContractAddress:         spec.ContractAddress,
-			KeyBundleID:             spec.EncryptedOCRKeyBundleID,
-			TransmitterAddress:      *spec.TransmitterAddress,
-			IsBootstrap:             spec.IsBootstrapPeer,
+			ID:                 spec.ID,
+			ChainID:            spec.EVMChainID,
+			ContractAddress:    spec.ContractAddress,
+			KeyBundleID:        spec.EncryptedOCRKeyBundleID,
+			TransmitterAddress: *spec.TransmitterAddress,
+			IsBootstrap:        spec.IsBootstrapPeer,
 		})
 	case relay.Solana:
 		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
-			ID:                      spec.ID,
-			ChainID:                 spec.EVMChainID,
-			NodeEndpointRPC:         "", // TODO [relay]: add validator url from job spec
-			NodeEndpointWS:          "", // TODO [relay]: add validator url from job spec
-			ContractAddress:         "", // TODO [relay]: add contract address from job spec
-			KeyBundleID:             spec.EncryptedOCRKeyBundleID,
-			TransmitterAddress:      "", // TODO [relay]: add transmitter address from job spec
+			ID:                 spec.ID,
+			ChainID:            spec.EVMChainID,
+			NodeEndpointRPC:    "", // TODO [relay]: add validator url from job spec
+			NodeEndpointWS:     "", // TODO [relay]: add validator url from job spec
+			ContractAddress:    "", // TODO [relay]: add contract address from job spec
+			KeyBundleID:        spec.EncryptedOCRKeyBundleID,
+			TransmitterAddress: "", // TODO [relay]: add transmitter address from job spec
 		})
 	default:
 		return nil, fmt.Errorf("unknown relayer network type: %s", network)

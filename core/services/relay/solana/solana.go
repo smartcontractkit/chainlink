@@ -53,13 +53,13 @@ func (r relayer) Healthy() error {
 }
 
 type OCR2Spec struct {
-	ID                      int32
-	ContractAddress         string
-	KeyBundleID             null.String
-	TransmitterAddress      string
-	ChainID                 *utils.Big
-	NodeEndpointRPC         string
-	NodeEndpointWS          string
+	ID                 int32
+	ContractAddress    string
+	KeyBundleID        null.String
+	TransmitterAddress string
+	ChainID            *utils.Big
+	NodeEndpointRPC    string
+	NodeEndpointWS     string
 }
 
 // TODO [relay]: import from smartcontractkit/solana-integration impl
