@@ -157,7 +157,18 @@ func TestConfigSchema(t *testing.T) {
 		"UnAuthenticatedRateLimitPeriod":             "UNAUTHENTICATED_RATE_LIMIT_PERIOD",
 		"UseLegacyEthEnvVars":                        "USE_LEGACY_ETH_ENV_VARS",
 
-		// OCR v1 and v2
+		// OCR v2
+		"OCR2BlockchainTimeout":                  "OCR2_BLOCKCHAIN_TIMEOUT",
+		"OCR2ContractPollInterval":               "OCR2_CONTRACT_POLL_INTERVAL",
+		"OCR2ContractSubscribeInterval":          "OCR2_CONTRACT_SUBSCRIBE_INTERVAL",
+		"OCR2ContractTransmitterTransmitTimeout": "OCR2_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT",
+		"OCR2DatabaseTimeout":                    "OCR2_DATABASE_TIMEOUT",
+		"OCR2ContractConfirmations":              "OCR2_CONTRACT_CONFIRMATIONS",
+		"OCR2KeyBundleID":                        "OCR2_KEY_BUNDLE_ID",
+		"OCR2MonitoringEndpoint":                 "OCR2_MONITORING_ENDPOINT",
+		"OCR2TraceLogging":                       "OCR2_TRACE_LOGGING",
+
+		// OCR v1
 		"OCRBlockchainTimeout":                  "OCR_BLOCKCHAIN_TIMEOUT",
 		"OCRContractPollInterval":               "OCR_CONTRACT_POLL_INTERVAL",
 		"OCRContractSubscribeInterval":          "OCR_CONTRACT_SUBSCRIBE_INTERVAL",
@@ -168,12 +179,10 @@ func TestConfigSchema(t *testing.T) {
 		"OCRMonitoringEndpoint":                 "OCR_MONITORING_ENDPOINT",
 		"OCRDefaultTransactionQueueDepth":       "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"OCRTraceLogging":                       "OCR_TRACE_LOGGING",
-
-		// OCR v1
-		"OCRObservationGracePeriod": "OCR_OBSERVATION_GRACE_PERIOD",
-		"OCRObservationTimeout":     "OCR_OBSERVATION_TIMEOUT",
-		"OCRTransmitterAddress":     "OCR_TRANSMITTER_ADDRESS",
-		"OCRSimulateTransactions":   "OCR_SIMULATE_TRANSACTIONS",
+		"OCRObservationGracePeriod":             "OCR_OBSERVATION_GRACE_PERIOD",
+		"OCRObservationTimeout":                 "OCR_OBSERVATION_TIMEOUT",
+		"OCRTransmitterAddress":                 "OCR_TRANSMITTER_ADDRESS",
+		"OCRSimulateTransactions":               "OCR_SIMULATE_TRANSACTIONS",
 
 		// P2P v1 and v2 networking
 		"P2PNetworkingStack":           "P2P_NETWORKING_STACK",
@@ -200,6 +209,13 @@ func TestConfigSchema(t *testing.T) {
 		"P2PV2DeltaDial":         "P2PV2_DELTA_DIAL",
 		"P2PV2DeltaReconcile":    "P2PV2_DELTA_RECONCILE",
 		"P2PV2ListenAddresses":   "P2PV2_LISTEN_ADDRESSES",
+
+		// P2P deprecated
+		"OCRNewStreamTimeout":          "OCR_NEW_STREAM_TIMEOUT",
+		"OCRBootstrapCheckInterval":    "OCR_BOOTSTRAP_CHECK_INTERVAL",
+		"OCRDHTLookupInterval":         "OCR_DHT_LOOKUP_INTERVAL",
+		"OCRIncomingMessageBufferSize": "OCR_INCOMING_MESSAGE_BUFFER_SIZE",
+		"OCROutgoingMessageBufferSize": "OCR_OUTGOING_MESSAGE_BUFFER_SIZE",
 	}
 
 	schemaT := reflect.TypeOf(ConfigSchema{})

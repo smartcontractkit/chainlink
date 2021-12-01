@@ -290,7 +290,7 @@ answer1      [type=median index=0];
 			},
 			setGlobals: func(t *testing.T, c *configtest.TestGeneralConfig) {
 				to := 20 * time.Minute
-				c.Overrides.OCRDatabaseTimeout = &to
+				c.Overrides.OCR2DatabaseTimeout = &to
 			},
 		},
 		{

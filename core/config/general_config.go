@@ -324,6 +324,22 @@ func (c *generalConfig) Validate() error {
 			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 	}
+	// Warn on legacy OCR env vars
+	if c.OCRDHTLookupInterval() != 0 {
+		logger.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
+	}
+	if c.OCRBootstrapCheckInterval() != 0 {
+		logger.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
+	}
+	if c.OCRIncomingMessageBufferSize() != 0 {
+		logger.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
+	}
+	if c.OCROutgoingMessageBufferSize() != 0 {
+		logger.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
+	}
+	if c.OCRNewStreamTimeout() != 0 {
+		logger.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
+	}
 
 	switch c.DatabaseLockingMode() {
 	case "dual", "lease", "advisorylock", "none":

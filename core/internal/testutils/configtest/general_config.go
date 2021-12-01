@@ -93,11 +93,12 @@ type GeneralConfigOverrides struct {
 	FeatureOffchainReporting                  null.Bool
 	FeatureOffchainReporting2                 null.Bool
 
-	// OCR v1 and v2
-	OCRKeyBundleID     null.String
-	OCRDatabaseTimeout *time.Duration
+	// OCR v2
+	OCR2DatabaseTimeout *time.Duration
 
 	// OCR v1
+	OCRKeyBundleID            null.String
+	OCRDatabaseTimeout        *time.Duration
 	OCRObservationGracePeriod *time.Duration
 	OCRObservationTimeout     *time.Duration
 	OCRTransmitterAddress     *ethkey.EIP55Address

@@ -189,7 +189,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		var kb string
 		if spec.EncryptedOCRKeyBundleID.Valid {
 			kb = spec.EncryptedOCRKeyBundleID.String
-		} else if kb, err = chain.Config().OCRKeyBundleID(); err != nil {
+		} else if kb, err = chain.Config().OCR2KeyBundleID(); err != nil {
 			return nil, err
 		}
 
@@ -203,11 +203,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		}
 
 		var ta ethkey.EIP55Address
-		if spec.TransmitterAddress != nil {
-			ta = *spec.TransmitterAddress
-		} else if ta, err = chain.Config().OCRTransmitterAddress(); err != nil {
-			return nil, err
+		if spec.TransmitterAddress == nil {
+			return nil, errors.New("transmitter address is required")
 		}
+		ta = *spec.TransmitterAddress
 
 		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
 
@@ -280,29 +279,29 @@ func computeLocalConfig(config ValidationConfig, spec job.OffchainReporting2Orac
 	if spec.BlockchainTimeout != 0 {
 		blockchainTimeout = time.Duration(spec.BlockchainTimeout)
 	} else {
-		blockchainTimeout = config.OCRBlockchainTimeout()
+		blockchainTimeout = config.OCR2BlockchainTimeout()
 	}
 
 	var contractConfirmations uint16
 	if spec.ContractConfigConfirmations != 0 {
 		contractConfirmations = spec.ContractConfigConfirmations
 	} else {
-		contractConfirmations = config.OCRContractConfirmations()
+		contractConfirmations = config.OCR2ContractConfirmations()
 	}
 
 	var contractConfigTrackerPollInterval time.Duration
 	if spec.ContractConfigTrackerPollInterval != 0 {
 		contractConfigTrackerPollInterval = time.Duration(spec.ContractConfigTrackerPollInterval)
 	} else {
-		contractConfigTrackerPollInterval = config.OCRContractPollInterval()
+		contractConfigTrackerPollInterval = config.OCR2ContractPollInterval()
 	}
 
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                  blockchainTimeout,
 		ContractConfigConfirmations:        contractConfirmations,
 		ContractConfigTrackerPollInterval:  contractConfigTrackerPollInterval,
-		ContractTransmitterTransmitTimeout: config.OCRContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                    config.OCRDatabaseTimeout(),
+		ContractTransmitterTransmitTimeout: config.OCR2ContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                    config.OCR2DatabaseTimeout(),
 	}
 	if config.Dev() {
 		// Skips config validation so we can use any config parameters we want.

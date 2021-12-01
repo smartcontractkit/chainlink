@@ -11,6 +11,13 @@ import (
 
 var _ config.OCRConfig = &TestGeneralConfig{}
 
+func (c *TestGeneralConfig) OCR2DatabaseTimeout() time.Duration {
+	if c.Overrides.OCR2DatabaseTimeout != nil {
+		return *c.Overrides.OCR2DatabaseTimeout
+	}
+	return c.GeneralConfig.OCR2DatabaseTimeout()
+}
+
 func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {
 	if c.Overrides.OCRKeyBundleID.Valid {
 		return c.Overrides.OCRKeyBundleID.String, nil
