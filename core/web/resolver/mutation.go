@@ -448,7 +448,7 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 		return nil, err
 	}
 
-	return NewCreateP2PKeyPayloadResolver(key), nil
+	return NewCreateP2PKeyPayload(key), nil
 }
 
 func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
@@ -466,12 +466,12 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 	key, err := r.App.GetKeyStore().P2P().Delete(keyID)
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
-			return NewDeleteP2PKeyPayloadResolver(p2pkey.KeyV2{}, err), nil
+			return NewDeleteP2PKeyPayload(p2pkey.KeyV2{}, err), nil
 		}
 		return nil, err
 	}
 
-	return NewDeleteP2PKeyPayloadResolver(key, nil), nil
+	return NewDeleteP2PKeyPayload(key, nil), nil
 }
 
 func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolver, error) {

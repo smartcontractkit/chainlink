@@ -165,17 +165,6 @@ declare module 'core/store/models' {
   export type RunStatusCollection = RunStatus[]
 
   //#endregion  bulk.go
-  //#region p2pKey/p2p_key.go
-
-  /**
-   * P2P represents the bundle of keys needed for P2P
-   */
-
-  export interface P2PKey {
-    peerId: string
-    publicKey: string
-  }
-  //#endregion p2pKey/p2p_key.go
 
   /**
    * CreateJobRequest represents a schema for the create job request as used by
