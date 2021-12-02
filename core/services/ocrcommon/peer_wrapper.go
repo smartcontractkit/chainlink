@@ -23,6 +23,8 @@ import (
 
 type PeerWrapperConfig interface {
 	config.P2PNetworking
+	config.P2PV1Networking
+	config.P2PV2Networking
 	OCRTraceLogging() bool
 	LogSQL() bool
 }
