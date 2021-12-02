@@ -50,7 +50,10 @@ type ORM interface {
 	DismissError(ctx context.Context, errorID int32) error
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
-	PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error)
+
+	FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []int64, err error)
+	FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error)
+	CountPipelineRunsByJobID(jobID int32) (count int32, err error)
 }
 
 type orm struct {
@@ -162,6 +165,33 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec")
 			}
 			jb.OffchainreportingOracleSpecID = &specID
+		case OffchainReporting2:
+			var specID int32
+			if jb.Offchainreporting2OracleSpec.EncryptedOCRKeyBundleID.Valid {
+				_, err := o.keyStore.OCR2().Get(jb.Offchainreporting2OracleSpec.EncryptedOCRKeyBundleID.String)
+				if err != nil {
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.Offchainreporting2OracleSpec.EncryptedOCRKeyBundleID)
+				}
+			}
+			if jb.Offchainreporting2OracleSpec.TransmitterAddress != nil {
+				_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterAddress.Hex())
+				if err != nil {
+					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jb.Offchainreporting2OracleSpec.TransmitterAddress)
+				}
+			}
+
+			sql := `INSERT INTO offchainreporting2_oracle_specs (contract_address, p2p_peer_id, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
+					blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id, juels_per_fee_coin_pipeline,
+					created_at, updated_at)
+			VALUES (:contract_address, :p2p_peer_id, :p2p_bootstrap_peers, :is_bootstrap_peer, :encrypted_ocr_key_bundle_id, :transmitter_address,
+					 :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id, :juels_per_fee_coin_pipeline,
+					NOW(), NOW())
+			RETURNING id;`
+			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.Offchainreporting2OracleSpec)
+			if err != nil {
+				return errors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
+			}
+			jb.Offchainreporting2OracleSpecID = &specID
 		case Keeper:
 			var specID int32
 			sql := `INSERT INTO keeper_specs (contract_address, from_address, evm_chain_id, created_at, updated_at)
@@ -248,9 +278,9 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	query := `INSERT INTO jobs (pipeline_spec_id, offchainreporting_oracle_spec_id, name, schema_version, type, max_task_duration, direct_request_spec_id, flux_monitor_spec_id,
+	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, offchainreporting_oracle_spec_id, offchainreporting2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, external_job_id, created_at)
-		VALUES (:pipeline_spec_id, :offchainreporting_oracle_spec_id, :name, :schema_version, :type, :max_task_duration, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :offchainreporting_oracle_spec_id, :offchainreporting2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :external_job_id, NOW())
 		RETURNING *;`
 	return q.GetNamed(query, job, job)
@@ -264,6 +294,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 			DELETE FROM jobs WHERE id = $1 RETURNING
 				pipeline_spec_id,
 				offchainreporting_oracle_spec_id,
+				offchainreporting2_oracle_spec_id,
 				keeper_spec_id,
 				cron_spec_id,
 				flux_monitor_spec_id,
@@ -273,6 +304,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_oracle_specs AS (
 			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+		),
+		deleted_oracle2_specs AS (
+			DELETE FROM offchainreporting2_oracle_specs WHERE id IN (SELECT offchainreporting2_oracle_spec_id FROM deleted_jobs)
 		),
 		deleted_keeper_specs AS (
 			DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
@@ -594,12 +628,11 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 }
 
 // PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
-func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error) {
+func (o *orm) PipelineRunsByJobsIDs(ids []int32) (runs []pipeline.Run, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id WHERE jobs.id = ANY($1)
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC;`
-
-		if err = tx.Select(&runs, stmt, jobsIDs); err != nil {
+		if err = tx.Select(&runs, stmt, ids); err != nil {
 			return errors.Wrap(err, "error loading runs")
 		}
 
@@ -608,7 +641,67 @@ func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err e
 		return err
 	})
 
-	return runs, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+}
+
+// FindPipelineRunIDsByJobID fetches the ids of pipeline runs for a job.
+func (o *orm) FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []int64, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT pipeline_runs.id
+FROM pipeline_runs
+WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS WHERE jobs.id = $1)
+ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC
+OFFSET $2
+LIMIT $3
+`
+		if err = tx.Select(&ids, stmt, jobID, offset, limit); err != nil {
+			return errors.Wrap(err, "error loading runs")
+		}
+
+		return err
+	})
+
+	return ids, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+}
+
+// FindPipelineRunsByIDs returns pipeline runs with the ids.
+func (o *orm) FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT pipeline_runs.*
+FROM pipeline_runs
+WHERE id = ANY($1)
+`
+
+		if err = tx.Select(&runs, stmt, ids); err != nil {
+			return errors.Wrap(err, "error loading runs")
+		}
+
+		runs, err = o.loadPipelineRunsRelations(runs, tx)
+
+		return err
+	})
+
+	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
+}
+
+// CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
+func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT COUNT(*)
+FROM pipeline_runs
+WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS WHERE jobs.id = $1)
+`
+		if err = tx.Get(&count, stmt, jobID); err != nil {
+			return errors.Wrap(err, "error counting runs")
+		}
+
+		return err
+	})
+
+	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
@@ -707,6 +800,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
 		loadJobType(tx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),
 		loadJobType(tx, job, "OffchainreportingOracleSpec", "offchainreporting_oracle_specs", job.OffchainreportingOracleSpecID),
+		loadJobType(tx, job, "Offchainreporting2OracleSpec", "offchainreporting2_oracle_specs", job.Offchainreporting2OracleSpecID),
 		loadJobType(tx, job, "KeeperSpec", "keeper_specs", job.KeeperSpecID),
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
