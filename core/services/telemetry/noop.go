@@ -2,7 +2,7 @@ package telemetry
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 type NoopAgent struct {
