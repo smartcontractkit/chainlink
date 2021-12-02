@@ -322,9 +322,8 @@ func convertToETHABIInteger(val interface{}, abiType abi.Type) (interface{}, err
 		// the relevant code.
 		if ty == reflect.TypeOf(&big.Int{}) {
 			return i, nil
-		} else {
-			return nil, fmt.Errorf("unknown Go type %+v for abi type %+v", ty.String(), abiType)
 		}
+		return nil, fmt.Errorf("unknown Go type %+v for abi type %+v", ty.String(), abiType)
 	}
 
 	return converted.Interface(), nil
