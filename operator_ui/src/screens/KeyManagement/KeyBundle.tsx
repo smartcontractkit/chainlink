@@ -1,17 +1,18 @@
 import React from 'react'
-import Typography from '@material-ui/core/Typography'
-import VpnKeyRoundedIcon from '@material-ui/icons/VpnKeyRounded'
+
+import Avatar from '@material-ui/core/Avatar'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import ListItemIcon from '@material-ui/core/ListItemIcon'
 import ListItemText from '@material-ui/core/ListItemText'
-import Avatar from '@material-ui/core/Avatar'
 import {
   createStyles,
   withStyles,
   WithStyles,
   Theme,
 } from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
+import VpnKeyRoundedIcon from '@material-ui/icons/VpnKeyRounded'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -26,15 +27,15 @@ const styles = (theme: Theme) =>
     },
   })
 
+interface Props extends WithStyles<typeof styles> {
+  primary: React.ReactNode
+  secondary: React.ReactNode[]
+}
+
+// KeyBundle provides a component which styles the key bundle information in a
+// cell.
 export const KeyBundle = withStyles(styles)(
-  ({
-    classes,
-    primary,
-    secondary,
-  }: WithStyles<typeof styles> & {
-    primary: React.ReactNode
-    secondary: React.ReactNode[]
-  }) => {
+  ({ classes, primary, secondary }: Props) => {
     return (
       <List dense={true}>
         <ListItem>

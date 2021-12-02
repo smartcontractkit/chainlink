@@ -33,6 +33,7 @@ type Mutation {
     createChain(input: CreateChainInput!): CreateChainPayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createJob(input: CreateJobInput!): CreateJobPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
     createP2PKey: CreateP2PKeyPayload!
@@ -40,6 +41,7 @@ type Mutation {
     deleteBridge(id: ID!): DeleteBridgePayload!
     deleteChain(id: ID!): DeleteChainPayload!
     deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
