@@ -74,6 +74,7 @@ type GeneralConfigOverrides struct {
 	GlobalMinIncomingConfirmations            null.Int
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
+	GlobalOCRObservationGracePeriod           time.Duration
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
@@ -83,7 +84,6 @@ type GeneralConfigOverrides struct {
 	LogToDisk                                 null.Bool
 	OCRBootstrapCheckInterval                 *time.Duration
 	OCRKeyBundleID                            null.String
-	OCRObservationGracePeriod                 *time.Duration
 	OCRObservationTimeout                     *time.Duration
 	OCRTransmitterAddress                     *ethkey.EIP55Address
 	P2PBootstrapPeers                         []string
@@ -101,9 +101,6 @@ func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duratio
 }
 func (o *GeneralConfigOverrides) SetOCRBootstrapCheckInterval(d time.Duration) {
 	o.OCRBootstrapCheckInterval = &d
-}
-func (o *GeneralConfigOverrides) SetOCRObservationGracePeriod(d time.Duration) {
-	o.OCRObservationGracePeriod = &d
 }
 func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 	o.OCRObservationTimeout = &d
@@ -285,13 +282,6 @@ func (c *TestGeneralConfig) OCRBootstrapCheckInterval() time.Duration {
 		return *c.Overrides.OCRBootstrapCheckInterval
 	}
 	return c.GeneralConfig.OCRBootstrapCheckInterval()
-}
-
-func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
-	if c.Overrides.OCRObservationGracePeriod != nil {
-		return *c.Overrides.OCRObservationGracePeriod
-	}
-	return c.GeneralConfig.OCRObservationGracePeriod()
 }
 
 func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
