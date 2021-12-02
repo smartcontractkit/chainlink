@@ -118,6 +118,8 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
+	LeaseLockRefreshInterval() time.Duration
+	LeaseLockDuration() time.Duration
 	LogLevel() zapcore.Level
 	DefaultLogLevel() zapcore.Level
 	LogSQLMigrations() bool
@@ -129,15 +131,12 @@ type GeneralOnlyConfig interface {
 	OCRBootstrapCheckInterval() time.Duration
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDHTLookupInterval() int
-	OCRDatabaseTimeout() time.Duration
 	OCRDefaultTransactionQueueDepth() uint32
 	OCRIncomingMessageBufferSize() int
 	OCRKeyBundleID() (string, error)
 	OCRMonitoringEndpoint() string
 	OCRNewStreamTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCROutgoingMessageBufferSize() int
 	OCRSimulateTransactions() bool
@@ -238,6 +237,9 @@ type GlobalConfig interface {
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
 	GlobalOCRContractConfirmations() (uint16, bool)
+	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
+	GlobalOCRDatabaseTimeout() (time.Duration, bool)
+	GlobalOCRObservationGracePeriod() (time.Duration, bool)
 }
 
 type GeneralConfig interface {
@@ -368,6 +370,11 @@ func (c *generalConfig) Validate() error {
 	default:
 		return errors.Errorf("unrecognised value for DATABASE_LOCKING_MODE: %s (valid options are 'dual', 'lease', 'advisorylock' or 'none')", c.DatabaseLockingMode())
 	}
+
+	if c.LeaseLockRefreshInterval() > c.LeaseLockDuration()/2 {
+		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
+	}
+
 	return nil
 }
 
@@ -812,20 +819,12 @@ func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
 	return c.getWithFallback("OCRBootstrapCheckInterval", ParseDuration).(time.Duration)
 }
 
-func (c *generalConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.getWithFallback("OCRContractTransmitterTransmitTimeout", ParseDuration).(time.Duration)
-}
-
 func (c *generalConfig) getDuration(field string) time.Duration {
 	return c.getWithFallback(field, ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRObservationTimeout() time.Duration {
 	return c.getDuration("OCRObservationTimeout")
-}
-
-func (c *generalConfig) OCRObservationGracePeriod() time.Duration {
-	return c.getWithFallback("OCRObservationGracePeriod", ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -838,10 +837,6 @@ func (c *generalConfig) OCRContractSubscribeInterval() time.Duration {
 
 func (c *generalConfig) OCRContractPollInterval() time.Duration {
 	return c.getDuration("OCRContractPollInterval")
-}
-
-func (c *generalConfig) OCRDatabaseTimeout() time.Duration {
-	return c.getWithFallback("OCRDatabaseTimeout", ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRDHTLookupInterval() int {
@@ -1585,6 +1580,27 @@ func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 	}
 	return val.(*assets.Link), ok
 }
+func (*generalConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRContractTransmitterTransmitTimeout"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+func (*generalConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRDatabaseTimeout"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+func (*generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRObservationGracePeriod"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
 func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	val, ok := lookupEnv(EnvVarName("OCRContractConfirmations"), ParseUint16)
 	if val == nil {
@@ -1624,4 +1640,16 @@ func (c *generalConfig) UseLegacyEthEnvVars() bool {
 // It controls which mode to use to enforce that only one Chainlink application can use the database
 func (c *generalConfig) DatabaseLockingMode() string {
 	return c.getWithFallback("DatabaseLockingMode", ParseString).(string)
+}
+
+// LeaseLockRefreshInterval controls how often the node should attempt to
+// refresh the lease lock
+func (c *generalConfig) LeaseLockRefreshInterval() time.Duration {
+	return c.getDuration("LeaseLockRefreshInterval")
+}
+
+// LeaseLockDuration controls when the lock is set to expire on each refresh
+// (this many seconds from now in the future)
+func (c *generalConfig) LeaseLockDuration() time.Duration {
+	return c.getDuration("LeaseLockDuration")
 }

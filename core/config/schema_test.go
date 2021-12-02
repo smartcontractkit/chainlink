@@ -119,6 +119,8 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperRegistryPerformGasOverhead":           "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
 		"KeeperRegistrySyncInterval":                 "KEEPER_REGISTRY_SYNC_INTERVAL",
 		"KeeperRegistrySyncUpkeepQueueSize":          "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
+		"LeaseLockDuration":                          "LEASE_LOCK_DURATION",
+		"LeaseLockRefreshInterval":                   "LEASE_LOCK_REFRESH_INTERVAL",
 		"LinkContractAddress":                        "LINK_CONTRACT_ADDRESS",
 		"LogLevel":                                   "LOG_LEVEL",
 		"LogSQLMigrations":                           "LOG_SQL_MIGRATIONS",

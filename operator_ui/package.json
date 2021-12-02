@@ -94,7 +94,7 @@
     "@types/jest": "^26.0.8",
     "@types/lodash": "^4.14.171",
     "@types/node": "^13.9.1",
-    "@types/numeral": "^0.0.27",
+    "@types/numeral": "^2.0.2",
     "@types/path-to-regexp": "^1.7.0",
     "@types/react": "^16.9.34",
     "@types/react-dom": "^16.9.8",
