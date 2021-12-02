@@ -6,8 +6,10 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -97,6 +99,24 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 	})
+}
+
+func TestChainScopedConfig_BSCDefaults(t *testing.T) {
+	orm := new(evmmocks.ORM)
+	orm.Test(t)
+	chainID := big.NewInt(56)
+	gcfg := configtest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t).With("evmChainID", chainID.String())
+	cfg := evmconfig.NewChainScopedConfig(chainID, evmtypes.ChainCfg{
+		KeySpecific: make(map[string]evmtypes.ChainCfg),
+	}, orm, lggr, gcfg)
+
+	timeout := cfg.OCRDatabaseTimeout()
+	require.Equal(t, 2*time.Second, timeout)
+	timeout = cfg.OCRContractTransmitterTransmitTimeout()
+	require.Equal(t, 2*time.Second, timeout)
+	timeout = cfg.OCRObservationGracePeriod()
+	require.Equal(t, 500*time.Millisecond, timeout)
 }
 
 func TestChainScopedConfig_Profiles(t *testing.T) {

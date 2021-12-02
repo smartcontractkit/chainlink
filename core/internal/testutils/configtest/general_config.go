@@ -80,6 +80,7 @@ type GeneralConfigOverrides struct {
 	GlobalMinIncomingConfirmations            null.Int
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
+	GlobalOCRObservationGracePeriod           time.Duration
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
@@ -127,9 +128,6 @@ func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duratio
 }
 func (o *GeneralConfigOverrides) SetOCRBootstrapCheckInterval(d time.Duration) {
 	o.P2PBootstrapCheckInterval = &d
-}
-func (o *GeneralConfigOverrides) SetOCRObservationGracePeriod(d time.Duration) {
-	o.OCRObservationGracePeriod = &d
 }
 func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 	o.OCRObservationTimeout = &d
