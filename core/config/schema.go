@@ -156,9 +156,9 @@ type ConfigSchema struct {
 	UnAuthenticatedRateLimit                   int64           `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
 	UnAuthenticatedRateLimitPeriod             time.Duration   `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
 	UseLegacyEthEnvVars                        bool            `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
-	LeaseLockRefreshInterval                   time.Duration                 `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
-	LeaseLockDuration                          time.Duration                 `env:"LEASE_LOCK_DURATION" default:"30s"`
-  
+	LeaseLockRefreshInterval                   time.Duration   `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
+	LeaseLockDuration                          time.Duration   `env:"LEASE_LOCK_DURATION" default:"30s"`
+
 	// OCR V2
 	OCR2BlockchainTimeout                  time.Duration `env:"OCR2_BLOCKCHAIN_TIMEOUT" default:"20s"`
 	OCR2ContractConfirmations              uint          `env:"OCR2_CONTRACT_CONFIRMATIONS"`
