@@ -537,7 +537,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 			nil,
 			"",
 			pipeline.ErrBadInput,
-			"",
+			pipeline.ErrOverflow.Error(),
 		},
 		{
 			"encode 1 to uint8",
@@ -549,7 +549,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 			nil,
 			"",
 			pipeline.ErrBadInput,
-			"",
+			pipeline.ErrOverflow.Error(),
 		},
 	}
 
