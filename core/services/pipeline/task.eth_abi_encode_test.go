@@ -515,3 +515,67 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 		})
 	}
 }
+
+func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
+	testCases := []struct {
+		name                  string
+		abi                   string
+		data                  string
+		vars                  pipeline.Vars
+		inputs                []pipeline.Result
+		expected              string
+		expectedErrorCause    error
+		expectedErrorContains string
+	}{
+		{
+			"encode 1 to int8",
+			"asdf(int8 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int16(129),
+			}),
+			nil,
+			"",
+			pipeline.ErrBadInput,
+			"",
+		},
+		{
+			"encode 1 to uint8",
+			"asdf(uint8 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint16(257),
+			}),
+			nil,
+			"",
+			pipeline.ErrBadInput,
+			"",
+		},
+	}
+
+	for _, test := range testCases {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			task := pipeline.ETHABIEncodeTask{
+				BaseTask: pipeline.NewBaseTask(0, "encode", nil, nil, 0),
+				ABI:      test.abi,
+				Data:     test.data,
+			}
+
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+
+			if test.expectedErrorCause != nil {
+				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
+				require.Nil(t, result.Value)
+				if test.expectedErrorContains != "" {
+					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
+				}
+			} else {
+				require.NoError(t, result.Error)
+				assert.Equal(t, test.expected, result.Value, fmt.Sprintf("test: %s", test.name))
+			}
+		})
+	}
+}
