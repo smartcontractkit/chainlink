@@ -1712,6 +1712,69 @@ func (_m *GeneralConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	return r0, r1
 }
 
+// GlobalOCRContractTransmitterTransmitTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalOCRDatabaseTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalOCRObservationGracePeriod provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // HTTPServerWriteTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) HTTPServerWriteTimeout() time.Duration {
 	ret := _m.Called()
@@ -1945,6 +2008,34 @@ func (_m *GeneralConfig) KeyFile() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// LeaseLockDuration provides a mock function with given fields:
+func (_m *GeneralConfig) LeaseLockDuration() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// LeaseLockRefreshInterval provides a mock function with given fields:
+func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

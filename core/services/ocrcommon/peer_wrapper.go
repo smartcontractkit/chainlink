@@ -112,7 +112,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			p.lggr.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 			return nil
 		}
-		key, err := p.keyStore.P2P().Get(p.config.P2PPeerID())
+		key, err := p.keyStore.P2P().GetOrFirst(p.config.P2PPeerID())
 		if err != nil {
 			return err
 		}
