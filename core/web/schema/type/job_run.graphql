@@ -15,5 +15,11 @@ type JobRunsPayload implements PaginatedPayload {
     metadata: PaginationMetadata!
 }
 
+# JobRunsPayload defines the response when fetching all jobs runs
+type JobsRunsPayload implements PaginatedPayload {
+    results: [JobRun!]!
+    metadata: PaginationMetadata!
+}
+
 union JobRunPayload = JobRun | NotFoundError
 
