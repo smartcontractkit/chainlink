@@ -374,18 +374,6 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "10s"
-			        },
-			        "key": "OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"
-			      },
-			      {
-			        "config": {
-			          "value": "10s"
-			        },
-			        "key": "OCR_DATABASE_TIMEOUT"
-			      },
-			      {
-			        "config": {
 			          "value": "1"
 			        },
 			        "key": "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH"
