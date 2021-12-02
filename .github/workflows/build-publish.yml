@@ -1,0 +1,79 @@
+name: 'Build Publish Chainlink'
+
+on:
+  push:
+    branches:
+      - 'release/**'
+
+jobs:
+
+  build-publish-chainlink:
+    # buildjet-2vcpu-ubuntu-1804
+    runs-on: ubuntu-1804
+    steps:
+      - uses: actions/checkout@v2
+      - name: 'Install AWS CLI'
+        run: |
+          if [[ -z "$BUILDER" ]]; then
+            exit 0
+          fi
+
+          curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          rm awscliv2.zip
+          aws --version
+
+      - name: 'Docker login for ECR using temporary creds'
+        run: |
+          if [[ -z "$BUILDER" ]]; then
+            exit 0
+          fi
+
+          # Get temporary credentials to access resoures available to specific role
+          temporaryCredentials=$(
+            aws sts assume-role \
+              --role-arn "${AWS_ROLE_TO_ASSUME}" \
+              --role-session-name "cirlceci-${CIRCLE_PROJECT_REPONAME}-${CIRCLE_TAG}"
+          )
+          # Deconstruct json response, extracting aws credentials
+          accessKeyID=$(echo $temporaryCredentials | jq .Credentials.AccessKeyId | xargs)
+          secretAccessKey=$(echo $temporaryCredentials | jq .Credentials.SecretAccessKey | xargs)
+          sessionToken=$(echo $temporaryCredentials | jq .Credentials.SessionToken | xargs)
+          # Store aws creds in .aws folder
+          aws configure set aws_access_key_id ${accessKeyID}
+          aws configure set aws_secret_access_key ${secretAccessKey}
+          aws configure set aws_session_token ${sessionToken}
+          # Use temporary keys to get account ID
+          accountID=$(aws sts get-caller-identity --output text --query 'Account')
+          # docker cli login to ECR
+          aws ecr-public get-login-password --region "us-east-1" --profile "default" | docker login --username AWS --password-stdin "public.ecr.aws"
+          # docker login to private ECR
+          aws ecr get-login-password --region us-west-2 --profile "default" | docker login --username AWS --password-stdin "${AWS_ECR_URL}"
+
+      - name: 'Docker build'
+        run: |
+          # If BUILDER is not defined (i.e. the user who submitted the PR is
+          # probably not on the chainlink team) short circuit this step and
+          # succed
+          if [[ -z "$BUILDER" ]]; then
+            exit 0
+          fi
+
+          DOCKER_TAG=gha BUILDER="${AWS_ECR_URL}/builder" make docker
+
+      - name: 'Docker build non-root'
+        run: |
+          if [[ -z "$BUILDER" ]]; then
+            exit 0
+          fi
+
+          DOCKER_TAG=gha-nonroot CHAINLINK_USER=chainlink make docker
+
+      - name: 'Docker push, if applicable'
+        run: |
+          if [[ -z "$BUILDER" ]]; then
+            exit 0
+          fi
+
+          tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" "${CIRCLE_SHA1}"
