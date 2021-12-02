@@ -118,6 +118,8 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
+	LeaseLockRefreshInterval() time.Duration
+	LeaseLockDuration() time.Duration
 	LogLevel() zapcore.Level
 	DefaultLogLevel() zapcore.Level
 	LogSQLMigrations() bool
@@ -368,6 +370,11 @@ func (c *generalConfig) Validate() error {
 	default:
 		return errors.Errorf("unrecognised value for DATABASE_LOCKING_MODE: %s (valid options are 'dual', 'lease', 'advisorylock' or 'none')", c.DatabaseLockingMode())
 	}
+
+	if c.LeaseLockRefreshInterval() > c.LeaseLockDuration()/2 {
+		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
+	}
+
 	return nil
 }
 
@@ -1624,4 +1631,16 @@ func (c *generalConfig) UseLegacyEthEnvVars() bool {
 // It controls which mode to use to enforce that only one Chainlink application can use the database
 func (c *generalConfig) DatabaseLockingMode() string {
 	return c.getWithFallback("DatabaseLockingMode", ParseString).(string)
+}
+
+// LeaseLockRefreshInterval controls how often the node should attempt to
+// refresh the lease lock
+func (c *generalConfig) LeaseLockRefreshInterval() time.Duration {
+	return c.getDuration("LeaseLockRefreshInterval")
+}
+
+// LeaseLockDuration controls when the lock is set to expire on each refresh
+// (this many seconds from now in the future)
+func (c *generalConfig) LeaseLockDuration() time.Duration {
+	return c.getDuration("LeaseLockDuration")
 }

@@ -1915,6 +1915,34 @@ func (_m *GeneralConfig) KeyFile() string {
 	return r0
 }
 
+// LeaseLockDuration provides a mock function with given fields:
+func (_m *GeneralConfig) LeaseLockDuration() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// LeaseLockRefreshInterval provides a mock function with given fields:
+func (_m *GeneralConfig) LeaseLockRefreshInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // LogLevel provides a mock function with given fields:
 func (_m *GeneralConfig) LogLevel() zapcore.Level {
 	ret := _m.Called()
