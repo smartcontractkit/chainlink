@@ -53,8 +53,6 @@ type ConfigSchema struct {
 	DatabaseListenerMaxReconnectDuration       time.Duration   `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
 	DatabaseListenerMinReconnectInterval       time.Duration   `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
 	DatabaseLockingMode                        string          `env:"DATABASE_LOCKING_MODE" default:"dual"`
-	DatabaseMaximumTxDuration                  time.Duration   `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
-	DatabaseTimeout                            models.Duration `env:"DATABASE_TIMEOUT" default:"0"`
 	DatabaseURL                                string          `env:"DATABASE_URL"`
 	DefaultChainID                             *big.Int        `env:"ETH_CHAIN_ID"`
 	DefaultHTTPAllowUnrestrictedNetworkAccess  bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`

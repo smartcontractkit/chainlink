@@ -35,8 +35,6 @@ type EnvPrinter struct {
 	ClientNodeURL                              string          `json:"CLIENT_NODE_URL"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
-	DatabaseMaximumTxDuration                  time.Duration   `json:"DATABASE_MAXIMUM_TX_DURATION"`
-	DatabaseTimeout                            models.Duration `json:"DATABASE_TIMEOUT"`
 	DatabaseLockingMode                        string          `json:"DATABASE_LOCKING_MODE"`
 	DefaultChainID                             string          `json:"ETH_CHAIN_ID"`
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
@@ -138,8 +136,6 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			DatabaseBackupFrequency:            cfg.DatabaseBackupFrequency(),
 			DatabaseBackupMode:                 string(cfg.DatabaseBackupMode()),
 			DatabaseLockingMode:                cfg.DatabaseLockingMode(),
-			DatabaseMaximumTxDuration:          cfg.DatabaseMaximumTxDuration(),
-			DatabaseTimeout:                    cfg.DatabaseTimeout(),
 			DefaultChainID:                     cfg.DefaultChainID().String(),
 			DefaultHTTPLimit:                   cfg.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                 cfg.DefaultHTTPTimeout(),

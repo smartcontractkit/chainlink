@@ -42,7 +42,6 @@ type GeneralConfigOverrides struct {
 	BlockBackfillDepth                        null.Int
 	BlockBackfillSkip                         null.Bool
 	ClientNodeURL                             null.String
-	DatabaseTimeout                           *time.Duration
 	DatabaseURL                               null.String
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
@@ -215,13 +214,6 @@ func (c *TestGeneralConfig) SessionTimeout() models.Duration {
 
 func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
-}
-
-func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
-	if c.Overrides.DatabaseTimeout != nil {
-		return models.MustMakeDuration(*c.Overrides.DatabaseTimeout)
-	}
-	return models.MustMakeDuration(5 * time.Second)
 }
 
 func (c *TestGeneralConfig) GlobalLockRetryInterval() models.Duration {
