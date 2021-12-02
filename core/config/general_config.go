@@ -1636,11 +1636,11 @@ func (c *generalConfig) DatabaseLockingMode() string {
 // LeaseLockRefreshInterval controls how often the node should attempt to
 // refresh the lease lock
 func (c *generalConfig) LeaseLockRefreshInterval() time.Duration {
-	return c.getWithFallback("LeaseLockRefreshInterval", ParseDuration).(time.Duration)
+	return c.getDuration("LeaseLockRefreshInterval")
 }
 
 // LeaseLockDuration controls when the lock is set to expire on each refresh
 // (this many seconds from now in the future)
 func (c *generalConfig) LeaseLockDuration() time.Duration {
-	return c.getWithFallback("LeaseLockDuration", ParseDuration).(time.Duration)
+	return c.getDuration("LeaseLockDuration")
 }

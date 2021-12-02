@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
 )
 
 // LeaseLock handles taking an exclusive lease on database access. This is not
@@ -60,6 +61,7 @@ type leaseLock struct {
 	// https://app.shortcut.com/chainlinklabs/story/20770/application-should-have-base-context-that-cancels-on-stop
 	id              uuid.UUID
 	db              *sqlx.DB
+	conn            *sqlx.Conn
 	refreshInterval time.Duration
 	leaseDuration   time.Duration
 	logger          logger.Logger
@@ -73,22 +75,40 @@ func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, refreshInter
 	if refreshInterval > leaseDuration/2 {
 		panic("refresh interval must be <= half the lease duration")
 	}
-	return &leaseLock{appID, db, refreshInterval, leaseDuration, lggr.Named("LeaseLock").With("appID", appID), make(chan struct{}), sync.WaitGroup{}}
+	return &leaseLock{appID, db, nil, refreshInterval, leaseDuration, lggr.Named("LeaseLock").With("appID", appID), make(chan struct{}), sync.WaitGroup{}}
 }
 
 // TakeAndHold will block and wait indefinitely until it can get its first lock
-func (l *leaseLock) TakeAndHold() error {
+// NOT THREAD SAFE
+func (l *leaseLock) TakeAndHold() (err error) {
 	l.logger.Debug("Taking initial lease...")
 	retryCount := 0
 	isInitial := true
+
 	for {
 		ctx, cancel := utils.ContextFromChan(l.chStop)
 		ctx, cancel2 := DefaultQueryCtxWithParent(ctx)
+		if l.conn == nil {
+			// check out initial connection and use dedicated connection for lease lock to bypass any DB contention
+			l.conn, err = l.db.Connx(ctx)
+			if err != nil {
+				return errors.Wrap(err, "failed checking out connection")
+			}
+			if err = l.setInitialTimeouts(ctx); err != nil {
+				return multierr.Combine(
+					errors.Wrap(err, "failed to set initial timeouts"),
+					l.conn.Close(),
+				)
+			}
+		}
 		gotLease, err := l.getLease(ctx, isInitial)
 		cancel2()
 		cancel()
 		if err != nil {
-			return errors.Wrap(err, "failed to get lock")
+			return multierr.Combine(
+				errors.Wrap(err, "failed to get lock"),
+				l.conn.Close(),
+			)
 		}
 		if gotLease {
 			break
@@ -98,7 +118,10 @@ func (l *leaseLock) TakeAndHold() error {
 		retryCount++
 		select {
 		case <-l.chStop:
-			return errors.New("stopped")
+			return multierr.Combine(
+				errors.New("stopped"),
+				l.conn.Close(),
+			)
 		case <-time.After(l.refreshInterval):
 		}
 	}
@@ -106,6 +129,17 @@ func (l *leaseLock) TakeAndHold() error {
 	l.wg.Add(1)
 	go l.loop()
 	return nil
+}
+
+func (l *leaseLock) setInitialTimeouts(ctx context.Context) error {
+	// Set short timeouts to prevent some kind of pathological situation
+	// occurring where we get stuck waiting for the table lock, or hang during
+	// the transaction - we do not want to leave rows locked if this process is
+	// dead
+	return multierr.Combine(
+		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION lock_timeout = %d`, l.leaseDuration.Milliseconds()))),
+		utils.JustError(l.conn.ExecContext(ctx, fmt.Sprintf(`SET SESSION idle_in_transaction_session_timeout = %d`, l.leaseDuration.Milliseconds()))),
+	)
 }
 
 func (l *leaseLock) logRetry(count int) {
@@ -128,7 +162,12 @@ func (l *leaseLock) loop() {
 	for {
 		select {
 		case <-l.chStop:
-			_, err := l.db.Exec(`UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)
+			ctx, cancel := DefaultQueryCtx()
+			err := multierr.Combine(
+				utils.JustError(l.conn.ExecContext(ctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
+				l.conn.Close(),
+			)
+			cancel()
 			if err != nil {
 				l.logger.Warn("Error trying to release lease on shutdown", "err", err)
 			}
@@ -160,15 +199,9 @@ var initialSQL = []string{
 func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool, err error) {
 	leaseDuration := fmt.Sprintf("%f seconds", l.leaseDuration.Seconds())
 
-	// Set short timeouts to prevent some kind of pathological situation
-	// occurring where we get stuck waiting for the table lock, or hang during
-	// the transaction - we do not want to leave rows locked if this process is
-	// dead
-	opts := TxOptions{LockTimeout: l.refreshInterval, IdleInTxSessionTimeout: l.refreshInterval}
-
 	// NOTE: Uses database time for all calculations since it's conceivable
 	// that node local times might be skewed compared to each other
-	err = SqlxTransaction(ctx, l.db, l.logger, func(tx Queryer) error {
+	err = sqlxTransactionQ(ctx, l.conn, l.logger, func(tx Queryer) error {
 		if isInitial {
 			for _, query := range initialSQL {
 				if _, err = tx.Exec(query); err != nil {
@@ -210,7 +243,7 @@ WHERE (
 			gotLease = true
 		}
 		return nil
-	}, opts)
+	})
 	return gotLease, errors.Wrap(err, "leaseLock#GetLease failed")
 }
 
