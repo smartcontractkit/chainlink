@@ -121,6 +121,8 @@ type ConfigSchema struct {
 	KeeperRegistryPerformGasOverhead           uint64                        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval                 time.Duration                 `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32                        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
+	LeaseLockRefreshInterval                   time.Duration                 `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
+	LeaseLockDuration                          time.Duration                 `env:"LEASE_LOCK_DURATION" default:"30s"`
 	LinkContractAddress                        string                        `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel                      `env:"LOG_LEVEL"`
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`
