@@ -85,7 +85,6 @@ func TestResolver_Config(t *testing.T) {
 					LogToDisk:                                 null.BoolFrom(true),
 					OCRBootstrapCheckInterval:                 nil,
 					OCRKeyBundleID:                            null.StringFrom("test"),
-					OCRObservationGracePeriod:                 nil,
 					OCRObservationTimeout:                     nil,
 					OCRTransmitterAddress:                     nil,
 					P2PBootstrapPeers:                         nil,

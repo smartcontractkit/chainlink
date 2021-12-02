@@ -8,7 +8,6 @@ import (
 
 func TestNewConfigPrinter(t *testing.T) {
 	cfg := NewGeneralConfig()
-	printer, err := NewConfigPrinter(cfg)
-	require.NoError(t, err)
+	printer := NewConfigPrinter(cfg)
 	require.NotNil(t, printer)
 }
