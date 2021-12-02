@@ -130,6 +130,39 @@ func TestORM(t *testing.T) {
 		require.Len(t, jobSpecErrors, 2)
 	})
 
+	t.Run("finds job spec error by ID", func(t *testing.T) {
+		jb3 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
+		err := orm.CreateJob(jb3)
+		require.NoError(t, err)
+		var jobSpec job.Job
+		err = db.Get(&jobSpec, "SELECT * FROM jobs")
+		require.NoError(t, err)
+
+		var specErrors []job.SpecError
+		err = db.Select(&specErrors, "SELECT * FROM job_spec_errors")
+		require.NoError(t, err)
+		require.Len(t, specErrors, 2)
+
+		ocrSpecError1 := "ocr spec 3 errored"
+		ocrSpecError2 := "ocr spec 4 errored"
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError2))
+
+		expected1ID := specErrors[1].ID + 1
+		expected2ID := specErrors[1].ID + 2
+		specErr1, err := orm.FindSpecError(expected1ID)
+		require.NoError(t, err)
+		specErr2, err := orm.FindSpecError(expected2ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, specErr1.ID, expected1ID)
+		assert.Equal(t, specErr2.ID, expected2ID)
+		assert.Equal(t, specErr1.Occurrences, uint(1))
+		assert.Equal(t, specErr2.Occurrences, uint(1))
+		assert.Equal(t, specErr1.Description, ocrSpecError1)
+		assert.Equal(t, specErr2.Description, ocrSpecError2)
+	})
+
 	t.Run("creates a job with a direct request spec", func(t *testing.T) {
 		tree, err := toml.LoadFile("../../testdata/tomlspecs/direct-request-spec.toml")
 		require.NoError(t, err)

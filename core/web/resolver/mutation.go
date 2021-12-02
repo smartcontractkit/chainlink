@@ -1011,3 +1011,36 @@ func (r *Resolver) DeleteJob(ctx context.Context, args struct {
 
 	return NewDeleteJobPayload(r.App, &j, nil), nil
 }
+
+func (r *Resolver) DismissJobError(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DismissJobErrorPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	specErr, err := r.App.JobORM().FindSpecError(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDismissJobErrorPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.JobORM().DismissError(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDismissJobErrorPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDismissJobErrorPayload(&specErr, nil), nil
+}
