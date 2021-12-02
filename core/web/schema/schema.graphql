@@ -17,6 +17,7 @@ type Query {
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
+    jobsRuns(offset: Int, limit: Int): JobsRunsPayload!
     node(id: ID!): NodePayload!
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
@@ -41,6 +42,7 @@ type Mutation {
     deleteBridge(id: ID!): DeleteBridgePayload!
     deleteChain(id: ID!): DeleteChainPayload!
     deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
