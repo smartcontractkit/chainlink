@@ -48,6 +48,10 @@ func (ol *ocrWrapper) Error(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Errorw(msg, toKeysAndValues(fields)...)
 }
 
+func (ol *ocrWrapper) Critical(msg string, fields ocrtypes.LogFields) {
+	ol.internal.CriticalW(msg, toKeysAndValues(fields)...)
+}
+
 func toKeysAndValues(fields ocrtypes.LogFields) []interface{} {
 	out := []interface{}{}
 	for key, val := range fields {
