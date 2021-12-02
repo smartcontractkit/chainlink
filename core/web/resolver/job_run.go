@@ -96,3 +96,26 @@ func (r *JobRunResolver) CreatedAt() graphql.Time {
 func (r *JobRunResolver) FinishedAt() *graphql.Time {
 	return &graphql.Time{Time: r.run.FinishedAt.ValueOrZero()}
 }
+
+// JobRunsPayloadResolver resolves a page of job runs
+type JobRunsPayloadResolver struct {
+	runs  []pipeline.Run
+	total int32
+}
+
+func NewJobRunsPayload(runs []pipeline.Run, total int32) *JobRunsPayloadResolver {
+	return &JobRunsPayloadResolver{
+		runs:  runs,
+		total: total,
+	}
+}
+
+// Results returns the job runs.
+func (r *JobRunsPayloadResolver) Results() []*JobRunResolver {
+	return NewJobRuns(r.runs)
+}
+
+// Metadata returns the pagination metadata.
+func (r *JobRunsPayloadResolver) Metadata() *PaginationMetadataResolver {
+	return NewPaginationMetadata(r.total)
+}

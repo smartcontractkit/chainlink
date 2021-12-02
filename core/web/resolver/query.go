@@ -151,14 +151,14 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 	j, err := r.App.JobORM().FindJobTx(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewJobPayload(nil, err), nil
+			return NewJobPayload(r.App, nil, err), nil
 
 		}
 
 		return nil, err
 	}
 
-	return NewJobPayload(&j, nil), nil
+	return NewJobPayload(r.App, &j, nil), nil
 }
 
 // Jobs fetches a paginated list of jobs
@@ -178,7 +178,7 @@ func (r *Resolver) Jobs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewJobsPayload(jobs, int32(count)), nil
+	return NewJobsPayload(r.App, jobs, int32(count)), nil
 }
 
 func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
@@ -248,7 +248,7 @@ func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error)
 		return nil, err
 	}
 
-	return NewP2PKeysPayloadResolver(p2pKeys), nil
+	return NewP2PKeysPayload(p2pKeys), nil
 }
 
 // VRFKeys fetches all VRF keys.
