@@ -207,6 +207,13 @@ For this reason, we have introduced a new locking mode, `lease`, which is likely
 
 The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
 
+Lease locking can be configured using the following ENV vars:
+
+`LEASE_LOCK_REFRESH_INTERVAL` (default 1s)
+`LEASE_LOCK_DURATION` (default 30s)
+
+It is recommended to leave these set to the default values.
+
 #### Duplicate Job Configuration
 
 When duplicating a job, the new job's configuration settings that have not been overridden by the user can still reflect the chainlink node configuration.
