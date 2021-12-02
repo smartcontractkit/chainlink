@@ -63,6 +63,8 @@ type EnvPrinter struct {
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
+	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
+	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
@@ -124,9 +126,9 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			ClientNodeURL:                      cfg.ClientNodeURL(),
 			DatabaseBackupFrequency:            cfg.DatabaseBackupFrequency(),
 			DatabaseBackupMode:                 string(cfg.DatabaseBackupMode()),
+			DatabaseLockingMode:                cfg.DatabaseLockingMode(),
 			DatabaseMaximumTxDuration:          cfg.DatabaseMaximumTxDuration(),
 			DatabaseTimeout:                    cfg.DatabaseTimeout(),
-			DatabaseLockingMode:                cfg.DatabaseLockingMode(),
 			DefaultChainID:                     cfg.DefaultChainID().String(),
 			DefaultHTTPLimit:                   cfg.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                 cfg.DefaultHTTPTimeout(),
@@ -146,9 +148,11 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			KeeperDefaultTransactionQueueDepth: cfg.KeeperDefaultTransactionQueueDepth(),
 			KeeperGasPriceBufferPercent:        cfg.KeeperGasPriceBufferPercent(),
 			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
+			LeaseLockDuration:                  cfg.LeaseLockDuration(),
+			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
 			LogLevel:                           LogLevel{Level: cfg.LogLevel()},
-			LogSQLMigrations:                   cfg.LogSQLMigrations(),
 			LogSQL:                             cfg.LogSQL(),
+			LogSQLMigrations:                   cfg.LogSQLMigrations(),
 			LogToDisk:                          cfg.LogToDisk(),
 			OCRBootstrapCheckInterval:          cfg.OCRBootstrapCheckInterval(),
 			OCRDHTLookupInterval:               cfg.OCRDHTLookupInterval(),
