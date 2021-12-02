@@ -328,3 +328,22 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	return NewNodesPayload(nodes, int32(count)), nil
 }
+
+func (r *Resolver) JobsRuns(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*JobRunsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	limit := pageLimit(args.Limit)
+	offset := pageOffset(args.Offset)
+
+	runs, count, err := r.App.JobORM().PipelineRuns(nil, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobRunsPayload(runs, int32(count)), nil
+}
