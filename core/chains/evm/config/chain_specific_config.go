@@ -58,6 +58,7 @@ type (
 		minimumContractPayment                     *assets.Link
 		nonceAutoSync                              bool
 		ocrContractConfirmations                   uint16
+		ocr2ContractConfirmations                  uint16
 		ocrContractTransmitterTransmitTimeout      time.Duration
 		ocrDatabaseTimeout                         time.Duration
 		ocrObservationGracePeriod                  time.Duration
@@ -126,6 +127,7 @@ func setChainSpecificConfigDefaultSets() {
 		minimumContractPayment:                DefaultMinimumContractPayment,
 		nonceAutoSync:                         true,
 		ocrContractConfirmations:              4,
+		ocr2ContractConfirmations:             4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
 		ocrObservationGracePeriod:             1 * time.Second,
