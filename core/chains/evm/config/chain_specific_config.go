@@ -57,14 +57,18 @@ type (
 		minRequiredOutgoingConfirmations           uint64
 		minimumContractPayment                     *assets.Link
 		nonceAutoSync                              bool
-		ocrContractConfirmations                   uint16
-		ocr2ContractConfirmations                  uint16
-		ocrContractTransmitterTransmitTimeout      time.Duration
-		ocrDatabaseTimeout                         time.Duration
-		ocrObservationGracePeriod                  time.Duration
 		rpcDefaultBatchSize                        uint32
 		// set true if fully configured
 		complete bool
+
+		// Chain specific OCR2 config
+		ocr2ContractConfirmations uint16
+
+		// Chain specific OCR1 config
+		ocrContractConfirmations              uint16
+		ocrContractTransmitterTransmitTimeout time.Duration
+		ocrDatabaseTimeout                    time.Duration
+		ocrObservationGracePeriod             time.Duration
 	}
 )
 
