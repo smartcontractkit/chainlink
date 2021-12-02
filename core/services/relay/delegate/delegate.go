@@ -73,13 +73,12 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 
 	switch choice {
 	case relay.Ethereum:
-		// TODO: TransmitterAddress is a pointer while ContractAddress is not?
 		return d.relayers[choice].NewOCR2Provider(externalJobID, ethereum.OCR2Spec{
 			ID:                 spec.ID,
 			ChainID:            spec.EVMChainID,
 			ContractAddress:    spec.ContractAddress,
 			KeyBundleID:        spec.EncryptedOCRKeyBundleID,
-			TransmitterAddress: *spec.TransmitterAddress,
+			TransmitterAddress: spec.TransmitterAddress,
 			IsBootstrap:        spec.IsBootstrapPeer,
 		})
 	case relay.Solana:

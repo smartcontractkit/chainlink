@@ -71,7 +71,7 @@ type OCR2Spec struct {
 	ID                 int32
 	ContractAddress    ethkey.EIP55Address
 	KeyBundleID        null.String
-	TransmitterAddress ethkey.EIP55Address
+	TransmitterAddress *ethkey.EIP55Address
 	ChainID            *utils.Big
 	IsBootstrap        bool
 }
@@ -138,7 +138,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 
-	if spec.TransmitterAddress != "" {
+	if spec.TransmitterAddress == nil {
 		return nil, errors.New("transmitter address is required")
 	}
 
