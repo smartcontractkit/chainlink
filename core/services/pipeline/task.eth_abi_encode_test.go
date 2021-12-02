@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -219,6 +220,297 @@ func TestETHABIEncodeTask(t *testing.T) {
 			} else {
 				require.NoError(t, result.Error)
 				require.Equal(t, test.expected, result.Value)
+			}
+		})
+	}
+}
+
+func TestETHABIEncode_EncodeIntegers(t *testing.T) {
+	testCases := []struct {
+		name                  string
+		abi                   string
+		data                  string
+		vars                  pipeline.Vars
+		inputs                []pipeline.Result
+		expected              string
+		expectedErrorCause    error
+		expectedErrorContains string
+	}{
+		// no overflow cases
+		// 8 bit ints.
+		{
+			"encode 1 to int8",
+			"asdf(int8 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int8(1),
+			}),
+			nil,
+			"0xa8d7f3cd0000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint8",
+			"asdf(uint8 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint8(1),
+			}),
+			nil,
+			"0x6b377be20000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// 16 bit ints.
+		{
+			"encode 1 to int16",
+			"asdf(int16 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int16(1),
+			}),
+			nil,
+			"0xabd195460000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint16",
+			"asdf(uint16 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint16(1),
+			}),
+			nil,
+			"0x8f3294d20000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// 24 bit ints.
+		{
+			"encode 1 to int24",
+			"asdf(int24 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int32(1),
+			}),
+			nil,
+			"0xfdc8ca190000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint24",
+			"asdf(uint24 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint32(1),
+			}),
+			nil,
+			"0xd3f78f380000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// 32 bit ints.
+		{
+			"encode 1 to int32",
+			"asdf(int32 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int32(1),
+			}),
+			nil,
+			"0x5124903a0000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint32",
+			"asdf(uint32 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint32(1),
+			}),
+			nil,
+			"0xeea24d600000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// 40 bit ints.
+		{
+			"encode 1 to int40",
+			"asdf(int40 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int64(1),
+			}),
+			nil,
+			"0x8fdcab050000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint40",
+			"asdf(uint40 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint64(1),
+			}),
+			nil,
+			"0xcb53df3b0000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// 48 bit ints.
+		{
+			"encode 1 to int48",
+			"asdf(int48 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int64(1),
+			}),
+			nil,
+			"0xeeab50db0000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint48",
+			"asdf(uint48 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint64(1),
+			}),
+			nil,
+			"0x2d4a67fd0000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// 56 bit ints.
+		{
+			"encode 1 to int56",
+			"asdf(int56 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int64(1),
+			}),
+			nil,
+			"0x5f4d36420000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint56",
+			"asdf(uint56 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint64(1),
+			}),
+			nil,
+			"0xfe0d590c0000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// 64 bit ints.
+		{
+			"encode 1 to int64",
+			"asdf(int64 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": int64(1),
+			}),
+			nil,
+			"0x9089b4180000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint64",
+			"asdf(uint64 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": uint64(1),
+			}),
+			nil,
+			"0x237643700000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		// Integer sizes strictly larger than 64 bits should resolve in convertToETHABIType rather than
+		// in convertToETHABIInteger, since geth uses big.Int to represent integers larger than 64 bits.
+		{
+			"encode 1 to int96",
+			"asdf(int96 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": big.NewInt(1),
+			}),
+			nil,
+			"0x7d14efc00000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint96",
+			"asdf(uint96 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": big.NewInt(1),
+			}),
+			nil,
+			"0x605171600000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to int128",
+			"asdf(int128 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": big.NewInt(1),
+			}),
+			nil,
+			"0x633a67090000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+		{
+			"encode 1 to uint128",
+			"asdf(uint128 i)",
+			`{ "i": $(foo) }`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": big.NewInt(1),
+			}),
+			nil,
+			"0x8209afa10000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
+		},
+	}
+
+	for _, test := range testCases {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			task := pipeline.ETHABIEncodeTask{
+				BaseTask: pipeline.NewBaseTask(0, "encode", nil, nil, 0),
+				ABI:      test.abi,
+				Data:     test.data,
+			}
+
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
+
+			if test.expectedErrorCause != nil {
+				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
+				require.Nil(t, result.Value)
+				if test.expectedErrorContains != "" {
+					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
+				}
+			} else {
+				require.NoError(t, result.Error)
+				assert.Equal(t, test.expected, result.Value, fmt.Sprintf("test: %s", test.name))
 			}
 		})
 	}

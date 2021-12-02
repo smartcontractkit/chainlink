@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"bytes"
+	"fmt"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -299,17 +301,31 @@ func convertToETHABIInteger(val interface{}, abiType abi.Type) (interface{}, err
 	}
 
 	converted := reflect.New(abiType.GetType()).Elem()
-	if i.IsUint64() {
+	// switch on signed/unsignedness of the abi type.
+	ty := abiType.GetType()
+	switch ty.Kind() {
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
 		if converted.OverflowUint(i.Uint64()) {
 			return nil, ErrOverflow
 		}
 		converted.SetUint(i.Uint64())
-
-	} else {
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
 		if converted.OverflowInt(i.Int64()) {
 			return nil, ErrOverflow
 		}
 		converted.SetInt(i.Int64())
+	default:
+		// go-ethereum handles in-betweener sizes, i.e 24, 40, 48, and 56 bit integers,
+		// as if they were big.Int, instead of the next largest native integer type that
+		// could hold it. Unsure of why this decision was taken.
+		// See https://github.com/ethereum/go-ethereum/blob/master/accounts/abi/reflect.go#L61 for
+		// the relevant code.
+		if ty == reflect.TypeOf(&big.Int{}) {
+			return i, nil
+		} else {
+			return nil, fmt.Errorf("unknown type: %+v", ty.String())
+		}
 	}
+
 	return converted.Interface(), nil
 }
