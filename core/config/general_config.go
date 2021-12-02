@@ -131,15 +131,12 @@ type GeneralOnlyConfig interface {
 	OCRBootstrapCheckInterval() time.Duration
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDHTLookupInterval() int
-	OCRDatabaseTimeout() time.Duration
 	OCRDefaultTransactionQueueDepth() uint32
 	OCRIncomingMessageBufferSize() int
 	OCRKeyBundleID() (string, error)
 	OCRMonitoringEndpoint() string
 	OCRNewStreamTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCROutgoingMessageBufferSize() int
 	OCRSimulateTransactions() bool
@@ -240,6 +237,9 @@ type GlobalConfig interface {
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
 	GlobalOCRContractConfirmations() (uint16, bool)
+	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
+	GlobalOCRDatabaseTimeout() (time.Duration, bool)
+	GlobalOCRObservationGracePeriod() (time.Duration, bool)
 }
 
 type GeneralConfig interface {
@@ -819,20 +819,12 @@ func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
 	return c.getWithFallback("OCRBootstrapCheckInterval", ParseDuration).(time.Duration)
 }
 
-func (c *generalConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.getWithFallback("OCRContractTransmitterTransmitTimeout", ParseDuration).(time.Duration)
-}
-
 func (c *generalConfig) getDuration(field string) time.Duration {
 	return c.getWithFallback(field, ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRObservationTimeout() time.Duration {
 	return c.getDuration("OCRObservationTimeout")
-}
-
-func (c *generalConfig) OCRObservationGracePeriod() time.Duration {
-	return c.getWithFallback("OCRObservationGracePeriod", ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -845,10 +837,6 @@ func (c *generalConfig) OCRContractSubscribeInterval() time.Duration {
 
 func (c *generalConfig) OCRContractPollInterval() time.Duration {
 	return c.getDuration("OCRContractPollInterval")
-}
-
-func (c *generalConfig) OCRDatabaseTimeout() time.Duration {
-	return c.getWithFallback("OCRDatabaseTimeout", ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRDHTLookupInterval() int {
@@ -1591,6 +1579,27 @@ func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 		return nil, false
 	}
 	return val.(*assets.Link), ok
+}
+func (*generalConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRContractTransmitterTransmitTimeout"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+func (*generalConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRDatabaseTimeout"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+func (*generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRObservationGracePeriod"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
 }
 func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	val, ok := lookupEnv(EnvVarName("OCRContractConfirmations"), ParseUint16)
