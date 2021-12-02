@@ -567,11 +567,13 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx
 			"attemptGasFeeCap", attempt.GasFeeCap,
 			"attemptGasPrice", attempt.GasPrice,
 			"attemptGasTipCap", attempt.GasTipCap,
+			"maxGasPriceConfig", eb.config.EvmMaxGasPriceWei(),
 		).
 		Errorf("attempt gas price %v wei was rejected by the eth node for being too low. "+
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
-			"Consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice, sendError.Error(), bumpedGasPrice)
+			"Consider increasing ETH_GAS_PRICE_DEFAULT (current value: %s)",
+			attempt.GasPrice, sendError.Error(), bumpedGasPrice, eb.config.EvmGasPriceDefault().String())
 	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EvmMaxGasPriceWei()) == 0 {
 		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
 	}

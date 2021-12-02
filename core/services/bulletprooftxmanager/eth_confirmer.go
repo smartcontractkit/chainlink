@@ -1032,6 +1032,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 		ec.lggr.With(
 			"sendError", sendError,
+			"maxGasPriceConfig", ec.config.EvmMaxGasPriceWei(),
 			"previousAttemptGasPrice", attempt.GasPrice,
 			"previousAttemptGasFeeCap", attempt.GasFeeCap,
 			"previousAttemptGasTipCap", attempt.GasTipCap,
