@@ -129,6 +129,8 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 	if cfg.TelemetryIngressURL() != nil {
 		telemetryIngressURL = cfg.TelemetryIngressURL().String()
 	}
+	ocrTransmitTimeout, _ := cfg.GlobalOCRContractTransmitterTransmitTimeout()
+	ocrDatabaseTimeout, _ := cfg.GlobalOCRDatabaseTimeout()
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                       cfg.AllowOrigins(),
@@ -167,8 +169,8 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			LogToDisk:                          cfg.LogToDisk(),
 
 			// OCRV1
-			OCRContractTransmitterTransmitTimeout: cfg.OCRContractTransmitterTransmitTimeout(),
-			OCRDatabaseTimeout:                    cfg.OCRDatabaseTimeout(),
+			OCRContractTransmitterTransmitTimeout: ocrTransmitTimeout,
+			OCRDatabaseTimeout:                    ocrDatabaseTimeout,
 			OCRDefaultTransactionQueueDepth:       cfg.OCRDefaultTransactionQueueDepth(),
 			OCRTraceLogging:                       cfg.OCRTraceLogging(),
 
