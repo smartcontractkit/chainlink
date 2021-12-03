@@ -56,23 +56,6 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
   }
 
   /**
-   * @notice transfer ownership of this account to a new L1 owner
-   * @param to new L1 owner that will be allowed to call the forward fn
-   * @inheritdoc CrossDomainOwnable
-   */
-  function transferL1Ownership(address to) public override onlyL1Owner {
-    super.transferL1Ownership(to);
-  }
-
-  /**
-   * @notice accept ownership of this account to a new L1 owner
-   * @inheritdoc CrossDomainOwnable
-   */
-  function acceptL1Ownership() public virtual override onlyProposedL1Owner {
-    super.acceptL1Ownership();
-  }
-
-  /**
    * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
    */
   modifier onlyL1Owner() override {
