@@ -215,9 +215,10 @@ type OffchainReportingOracleSpec struct {
 	ContractConfigConfirmations               uint16 `toml:"contractConfigConfirmations"`
 	ContractConfigConfirmationsEnv            bool
 	EVMChainID                                *utils.Big      `toml:"evmChainID" db:"evm_chain_id"`
-	OCRDatabaseTimeout                        models.Interval `toml:"ocrDatabaseTimeout"`
-	CreatedAt                                 time.Time       `toml:"-"`
-	UpdatedAt                                 time.Time       `toml:"-"`
+	DatabaseTimeout                           models.Interval `toml:"databaseTimeout"`
+	DatabaseTimeoutEnv                        bool
+	CreatedAt                                 time.Time `toml:"-"`
+	UpdatedAt                                 time.Time `toml:"-"`
 }
 
 func (s OffchainReportingOracleSpec) GetID() string {
@@ -254,7 +255,7 @@ type OffchainReporting2OracleSpec struct {
 	JuelsPerFeeCoinPipeline                string               `toml:"juelsPerFeeCoinSource"`
 	CreatedAt                              time.Time            `toml:"-"`
 	UpdatedAt                              time.Time            `toml:"-"`
-	OCRDatabaseTimeout                     models.Interval      `toml:"ocrDatabaseTimeout"`
+	DatabaseTimeout                        models.Interval      `toml:"databaseTimeout"`
 }
 
 func (s OffchainReporting2OracleSpec) GetID() string {

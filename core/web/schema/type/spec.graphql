@@ -58,6 +58,8 @@ type OCRSpec {
     p2pPeerIDEnv: Boolean!
     p2pBootstrapPeers: [String!]!
     transmitterAddress: String
+    databaseTimeout: String!
+    databaseTimeoutEnv: Boolean!
 }
 
 type VRFSpec {

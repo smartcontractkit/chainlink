@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -47,7 +48,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		select {
 		case <-started2:
-		case <-time.After(5 * time.Second):
+		case <-time.After(cltest.WaitTimeout(t)):
 			t.Fatal("timed out waiting for leaseLock2 to start")
 		}
 

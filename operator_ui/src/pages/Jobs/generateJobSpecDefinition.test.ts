@@ -35,7 +35,7 @@ describe('generateTOMLDefinition', () => {
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
         evmChainID: '42',
-        ocrDatabaseTimeout: '2s',
+        databaseTimeout: '2s',
       },
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -62,7 +62,7 @@ contractConfigTrackerSubscribeInterval = "2m0s"
 contractConfigTrackerPollInterval = "1m0s"
 contractConfigConfirmations = 3
 evmChainID = "42"
-ocrDatabaseTimeout = "2s"
+databaseTimeout = "2s"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
@@ -402,7 +402,7 @@ evmChainID = "42"
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
         evmChainID: '42',
-        ocrDatabaseTimeout: '2s',
+        databaseTimeout: '2s',
       },
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -425,7 +425,7 @@ monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 contractConfigConfirmations = 3
 evmChainID = "42"
-ocrDatabaseTimeout = "2s"
+databaseTimeout = "2s"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];

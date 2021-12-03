@@ -512,8 +512,9 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec
 		os.ContractConfigConfirmationsEnv = true
 		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
 	}
-	if os.OCRDatabaseTimeout == 0 {
-		os.OCRDatabaseTimeout = models.Interval(cfg.OCRDatabaseTimeout())
+	if os.DatabaseTimeout == 0 {
+		os.DatabaseTimeoutEnv = true
+		os.DatabaseTimeout = models.Interval(cfg.OCRDatabaseTimeout())
 	}
 	return &os
 }

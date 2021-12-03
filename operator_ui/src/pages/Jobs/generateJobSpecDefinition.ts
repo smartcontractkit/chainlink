@@ -93,7 +93,7 @@ function generateOCRDefinition(
       observationSource: attrs.pipelineSpec.dotDagSource,
       maxTaskDuration: attrs.maxTaskDuration,
       externalJobID: attrs.externalJobID,
-      ocrDatabaseTimeout: attrs.offChainReportingOracleSpec.ocrDatabaseTimeout,
+      databaseTimeout: attrs.offChainReportingOracleSpec.databaseTimeout,
     },
   })
 

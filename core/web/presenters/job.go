@@ -137,7 +137,8 @@ type OffChainReportingSpec struct {
 	CreatedAt                                 time.Time            `json:"createdAt"`
 	UpdatedAt                                 time.Time            `json:"updatedAt"`
 	EVMChainID                                *utils.Big           `json:"evmChainID"`
-	OCRDatabaseTimeout                        models.Interval      `json:"ocrDatabaseTimeout"`
+	DatabaseTimeout                           models.Interval      `json:"databaseTimeout"`
+	DatabaseTimeoutEnv                        bool                 `json:"databaseTimeoutEnv,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -164,7 +165,8 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 		CreatedAt:                                 spec.CreatedAt,
 		UpdatedAt:                                 spec.UpdatedAt,
 		EVMChainID:                                spec.EVMChainID,
-		OCRDatabaseTimeout:                        spec.OCRDatabaseTimeout,
+		DatabaseTimeout:                           spec.DatabaseTimeout,
+		DatabaseTimeoutEnv:                        spec.DatabaseTimeoutEnv,
 	}
 }
 
@@ -183,7 +185,7 @@ type OffChainReporting2Spec struct {
 	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
 	CreatedAt                              time.Time            `json:"createdAt"`
 	UpdatedAt                              time.Time            `json:"updatedAt"`
-	OCRDatabaseTimeout                     models.Interval      `json:"ocrDatabaseTimeout"`
+	DatabaseTimeout                        models.Interval      `json:"databaseTimeout"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -202,7 +204,7 @@ func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChain
 		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
 		CreatedAt:                              spec.CreatedAt,
 		UpdatedAt:                              spec.UpdatedAt,
-		OCRDatabaseTimeout:                     spec.OCRDatabaseTimeout,
+		DatabaseTimeout:                        spec.DatabaseTimeout,
 	}
 }
 
