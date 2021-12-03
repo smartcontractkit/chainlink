@@ -323,8 +323,8 @@ func main() {
 		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
 		numWords := request.Uint("num-words", 3, "number of words to request")
 		keyHash := request.String("key-hash", "", "key hash")
-		keyHashBytes := common.HexToHash(*keyHash)
 		panicErr(request.Parse(os.Args[2:]))
+		keyHashBytes := common.HexToHash(*keyHash)
 		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(
 			common.HexToAddress(*consumerAddress),
 			ec)
