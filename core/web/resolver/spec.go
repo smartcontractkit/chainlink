@@ -54,6 +54,14 @@ func (r *SpecResolver) ToOCRSpec() (*OCRSpecResolver, bool) {
 	return &OCRSpecResolver{spec: *r.j.OffchainreportingOracleSpec}, true
 }
 
+func (r *SpecResolver) ToOCR2Spec() (*OCR2SpecResolver, bool) {
+	if r.j.Type != job.OffchainReporting2 {
+		return nil, false
+	}
+
+	return &OCR2SpecResolver{spec: *r.j.Offchainreporting2OracleSpec}, true
+}
+
 func (r *SpecResolver) ToVRFSpec() (*VRFSpecResolver, bool) {
 	if r.j.Type != job.VRF {
 		return nil, false
@@ -376,6 +384,101 @@ func (r *OCRSpecResolver) P2PBootstrapPeers() []string {
 
 // TransmitterAddress resolves the spec's transmitter address
 func (r *OCRSpecResolver) TransmitterAddress() *string {
+	if r.spec.TransmitterAddress == nil {
+		return nil
+	}
+
+	addr := r.spec.TransmitterAddress.String()
+	return &addr
+}
+
+type OCR2SpecResolver struct {
+	spec job.OffchainReporting2OracleSpec
+}
+
+// BlockchainTimeout resolves the spec's blockchain timeout.
+func (r *OCR2SpecResolver) BlockchainTimeout() string {
+	return r.spec.BlockchainTimeout.Duration().String()
+}
+
+// ContractAddress resolves the spec's contract address.
+func (r *OCR2SpecResolver) ContractAddress() string {
+	return r.spec.ContractAddress.String()
+}
+
+// ContractConfigConfirmations resolves the spec's confirmations config.
+func (r *OCR2SpecResolver) ContractConfigConfirmations() int32 {
+	return int32(r.spec.ContractConfigConfirmations)
+}
+
+// ContractConfigTrackerPollInterval resolves the spec's contract tracker poll
+// interval config.
+func (r *OCR2SpecResolver) ContractConfigTrackerPollInterval() string {
+	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+}
+
+// ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
+// interval config.
+func (r *OCR2SpecResolver) ContractConfigTrackerSubscribeInterval() string {
+	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+// EVMChainID resolves the spec's evm chain id.
+func (r *OCR2SpecResolver) EVMChainID() *string {
+	if r.spec.EVMChainID == nil {
+		return nil
+	}
+
+	chainID := r.spec.EVMChainID.String()
+
+	return &chainID
+}
+
+// IsBootstrapPeer resolves whether spec is a bootstrap peer.
+func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
+	return r.spec.IsBootstrapPeer
+}
+
+// JuelsPerFeeCoinSource resolves the spec's jeuls per fee coin source
+func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() string {
+	return r.spec.JuelsPerFeeCoinPipeline
+}
+
+// KeyBundleID resolves the spec's key bundle id.
+func (r *OCR2SpecResolver) KeyBundleID() *string {
+	if !r.spec.EncryptedOCRKeyBundleID.Valid {
+		return nil
+	}
+
+	return &r.spec.EncryptedOCRKeyBundleID.String
+}
+
+// MonitoringEndpoint resolves the spec's monitoring endpoint
+func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
+	if !r.spec.MonitoringEndpoint.Valid {
+		return nil
+	}
+
+	return &r.spec.MonitoringEndpoint.String
+}
+
+// P2PPeerID resolves the spec's p2p peer id
+func (r *OCR2SpecResolver) P2PPeerID() string {
+	return r.spec.P2PPeerID.String()
+}
+
+// P2PBootstrapPeers resolves the spec's p2p bootstrap peers
+func (r *OCR2SpecResolver) P2PBootstrapPeers() []string {
+	return r.spec.P2PBootstrapPeers
+}
+
+// TransmitterAddress resolves the spec's transmitter address
+func (r *OCR2SpecResolver) TransmitterAddress() *string {
 	if r.spec.TransmitterAddress == nil {
 		return nil
 	}

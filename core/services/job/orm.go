@@ -401,7 +401,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 
-		sql = `SELECT * FROM jobs ORDER BY id ASC OFFSET $1 LIMIT $2;`
+		sql = `SELECT * FROM jobs ORDER BY created_at, id DESC OFFSET $1 LIMIT $2;`
 		err = tx.Select(&jobs, sql, offset, limit)
 		if err != nil {
 			return err
