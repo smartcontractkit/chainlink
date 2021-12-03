@@ -143,7 +143,7 @@ func (pr *promReporter) eventLoop() {
 			}
 			head, ok := item.(*eth.Head)
 			if !ok {
-				panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
+				panic(fmt.Sprintf("expected `*eth.Head`, got %T", item))
 			}
 			pr.reportHeadMetrics(ctx, head)
 		case <-time.After(pr.reportPeriod):

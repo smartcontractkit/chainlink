@@ -127,7 +127,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 	}
 	head, ok := item.(*eth.Head)
 	if !ok {
-		hb.logger.Errorf("Expected `eth.Head`, got %T", head)
+		hb.logger.Errorf("Expected `*eth.Head`, got %T", item)
 		return
 	}
 	hb.mutex.Lock()
