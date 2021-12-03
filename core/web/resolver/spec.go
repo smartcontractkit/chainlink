@@ -279,8 +279,14 @@ type OCRSpecResolver struct {
 }
 
 // BlockchainTimeout resolves the spec's blockchain timeout.
-func (r *OCRSpecResolver) BlockchainTimeout() string {
-	return r.spec.BlockchainTimeout.Duration().String()
+func (r *OCRSpecResolver) BlockchainTimeout() *string {
+	if r.spec.BlockchainTimeout.Duration() == 0 {
+		return nil
+	}
+
+	timeout := r.spec.BlockchainTimeout.Duration().String()
+
+	return &timeout
 }
 
 // BlockchainTimeoutEnv resolves whether the spec's blockchain timeout comes
@@ -295,8 +301,14 @@ func (r *OCRSpecResolver) ContractAddress() string {
 }
 
 // ContractConfigConfirmations resolves the spec's confirmations config.
-func (r *OCRSpecResolver) ContractConfigConfirmations() int32 {
-	return int32(r.spec.ContractConfigConfirmations)
+func (r *OCRSpecResolver) ContractConfigConfirmations() *int32 {
+	if r.spec.ContractConfigConfirmations == 0 {
+		return nil
+	}
+
+	confirmations := int32(r.spec.ContractConfigConfirmations)
+
+	return &confirmations
 }
 
 // ContractConfigConfirmationsEnv resolves whether spec's confirmations
@@ -307,8 +319,14 @@ func (r *OCRSpecResolver) ContractConfigConfirmationsEnv() bool {
 
 // ContractConfigTrackerPollInterval resolves the spec's contract tracker poll
 // interval config.
-func (r *OCRSpecResolver) ContractConfigTrackerPollInterval() string {
-	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+func (r *OCRSpecResolver) ContractConfigTrackerPollInterval() *string {
+	if r.spec.ContractConfigTrackerPollInterval.Duration() == 0 {
+		return nil
+	}
+
+	interval := r.spec.ContractConfigTrackerPollInterval.Duration().String()
+
+	return &interval
 }
 
 // ContractConfigTrackerPollIntervalEnv resolves the whether spec's tracker poll
@@ -319,8 +337,14 @@ func (r *OCRSpecResolver) ContractConfigTrackerPollIntervalEnv() bool {
 
 // ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
 // interval config.
-func (r *OCRSpecResolver) ContractConfigTrackerSubscribeInterval() string {
-	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+func (r *OCRSpecResolver) ContractConfigTrackerSubscribeInterval() *string {
+	if r.spec.ContractConfigTrackerSubscribeInterval.Duration() == 0 {
+		return nil
+	}
+
+	interval := r.spec.ContractConfigTrackerSubscribeInterval.Duration().String()
+
+	return &interval
 }
 
 // ContractConfigTrackerSubscribeIntervalEnv resolves whether spec's tracker
@@ -362,8 +386,14 @@ func (r *OCRSpecResolver) KeyBundleID() *string {
 }
 
 // ObservationTimeout resolves the spec's observation timeout
-func (r *OCRSpecResolver) ObservationTimeout() string {
-	return r.spec.ObservationTimeout.Duration().String()
+func (r *OCRSpecResolver) ObservationTimeout() *string {
+	if r.spec.ObservationTimeout.Duration() == 0 {
+		return nil
+	}
+
+	timeout := r.spec.ObservationTimeout.Duration().String()
+
+	return &timeout
 }
 
 // ObservationTimeoutEnv resolves whether spec's observation timeout comes
@@ -385,8 +415,14 @@ func (r *OCRSpecResolver) P2PPeerIDEnv() bool {
 }
 
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers
-func (r *OCRSpecResolver) P2PBootstrapPeers() []string {
-	return r.spec.P2PBootstrapPeers
+func (r *OCRSpecResolver) P2PBootstrapPeers() *[]string {
+	if len(r.spec.P2PBootstrapPeers) == 0 {
+		return nil
+	}
+
+	peers := []string(r.spec.P2PBootstrapPeers)
+
+	return &peers
 }
 
 // TransmitterAddress resolves the spec's transmitter address
@@ -404,8 +440,14 @@ type OCR2SpecResolver struct {
 }
 
 // BlockchainTimeout resolves the spec's blockchain timeout.
-func (r *OCR2SpecResolver) BlockchainTimeout() string {
-	return r.spec.BlockchainTimeout.Duration().String()
+func (r *OCR2SpecResolver) BlockchainTimeout() *string {
+	if r.spec.BlockchainTimeout.Duration() == 0 {
+		return nil
+	}
+
+	timeout := r.spec.BlockchainTimeout.Duration().String()
+
+	return &timeout
 }
 
 // ContractAddress resolves the spec's contract address.
@@ -414,20 +456,38 @@ func (r *OCR2SpecResolver) ContractAddress() string {
 }
 
 // ContractConfigConfirmations resolves the spec's confirmations config.
-func (r *OCR2SpecResolver) ContractConfigConfirmations() int32 {
-	return int32(r.spec.ContractConfigConfirmations)
+func (r *OCR2SpecResolver) ContractConfigConfirmations() *int32 {
+	if r.spec.ContractConfigConfirmations == 0 {
+		return nil
+	}
+
+	confirmations := int32(r.spec.ContractConfigConfirmations)
+
+	return &confirmations
 }
 
 // ContractConfigTrackerPollInterval resolves the spec's contract tracker poll
 // interval config.
-func (r *OCR2SpecResolver) ContractConfigTrackerPollInterval() string {
-	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+func (r *OCR2SpecResolver) ContractConfigTrackerPollInterval() *string {
+	if r.spec.ContractConfigTrackerPollInterval.Duration() == 0 {
+		return nil
+	}
+
+	interval := r.spec.ContractConfigTrackerPollInterval.Duration().String()
+
+	return &interval
 }
 
 // ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
 // interval config.
-func (r *OCR2SpecResolver) ContractConfigTrackerSubscribeInterval() string {
-	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+func (r *OCR2SpecResolver) ContractConfigTrackerSubscribeInterval() *string {
+	if r.spec.ContractConfigTrackerSubscribeInterval.Duration() == 0 {
+		return nil
+	}
+
+	interval := r.spec.ContractConfigTrackerSubscribeInterval.Duration().String()
+
+	return &interval
 }
 
 // CreatedAt resolves the spec's created at timestamp.
@@ -452,8 +512,12 @@ func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
 }
 
 // JuelsPerFeeCoinSource resolves the spec's jeuls per fee coin source
-func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() string {
-	return r.spec.JuelsPerFeeCoinPipeline
+func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() *string {
+	if r.spec.JuelsPerFeeCoinPipeline == "" {
+		return nil
+	}
+
+	return &r.spec.JuelsPerFeeCoinPipeline
 }
 
 // KeyBundleID resolves the spec's key bundle id.
@@ -486,8 +550,14 @@ func (r *OCR2SpecResolver) P2PPeerID() *string {
 }
 
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers
-func (r *OCR2SpecResolver) P2PBootstrapPeers() []string {
-	return r.spec.P2PBootstrapPeers
+func (r *OCR2SpecResolver) P2PBootstrapPeers() *[]string {
+	if len(r.spec.P2PBootstrapPeers) == 0 {
+		return nil
+	}
+
+	peers := []string(r.spec.P2PBootstrapPeers)
+
+	return &peers
 }
 
 // TransmitterAddress resolves the spec's transmitter address

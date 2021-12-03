@@ -57,7 +57,8 @@ export const JobScreen = () => {
 
   // This doesn't use useQueryParms because we only want to use the initial page
   // load query param to fetch the data.
-  const qp = React.useMemo(() => new URLSearchParams(search), []) // eslint-disable-next-line react-hooks/exhaustive-deps
+  //eslint-disable-next-line react-hooks/exhaustive-deps
+  const qp = React.useMemo(() => new URLSearchParams(search), [])
   const page = parseInt(qp.get('page') || '1', 10)
   const pageSize = parseInt(
     qp.get('per') || RECENT_RUNS_PAGE_SIZE.toString(),

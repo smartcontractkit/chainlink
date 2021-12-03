@@ -47,41 +47,41 @@ type KeeperSpec {
 }
 
 type OCRSpec {
-    blockchainTimeout: String!
+    blockchainTimeout: String
     blockchainTimeoutEnv: Boolean!
     contractAddress: String!
-    contractConfigConfirmations: Int!
+    contractConfigConfirmations: Int
     contractConfigConfirmationsEnv: Boolean!
-    contractConfigTrackerPollInterval: String!
+    contractConfigTrackerPollInterval: String
     contractConfigTrackerPollIntervalEnv: Boolean!
-    contractConfigTrackerSubscribeInterval: String!
+    contractConfigTrackerSubscribeInterval: String
     contractConfigTrackerSubscribeIntervalEnv: Boolean!
     createdAt: Time!
     evmChainID: String
     isBootstrapPeer: Boolean!
     keyBundleID: String
-    observationTimeout: String!
+    observationTimeout: String
     observationTimeoutEnv: Boolean!
     p2pPeerID: String
     p2pPeerIDEnv: Boolean!
-    p2pBootstrapPeers: [String!]!
+    p2pBootstrapPeers: [String!]
     transmitterAddress: String
 }
 
 type OCR2Spec {
-    blockchainTimeout: String!
+    blockchainTimeout: String
     contractAddress: String!
-    contractConfigConfirmations: Int!
-    contractConfigTrackerPollInterval: String!
-    contractConfigTrackerSubscribeInterval: String!
+    contractConfigConfirmations: Int
+    contractConfigTrackerPollInterval: String
+    contractConfigTrackerSubscribeInterval: String
     createdAt: Time!
     evmChainID: String
     isBootstrapPeer: Boolean!
-    juelsPerFeeCoinSource: String!
+    juelsPerFeeCoinSource: String
     keyBundleID: String
     monitoringEndpoint: String
     p2pPeerID: String
-    p2pBootstrapPeers: [String!]!
+    p2pBootstrapPeers: [String!]
     transmitterAddress: String
 }
 
