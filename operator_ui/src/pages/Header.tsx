@@ -29,7 +29,7 @@ import BaseLink from '../components/BaseLink'
 import LoadingBar from '../components/LoadingBar'
 import MainLogo from '../components/Logos/Main'
 import fetchCountSelector from '../selectors/fetchCount'
-import { Feature, useFeature } from 'src/hooks/useFeatureFlag'
+import { Feature, useFeatureFlag } from 'src/hooks/useFeatureFlag'
 
 const NAV_ITEMS = [
   ['/jobs', 'Jobs'],
@@ -151,7 +151,7 @@ interface NavProps extends WithStyles<typeof navStyles> {
 
 const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
   const { pathname } = useLocation()
-  const isFeedsManagerFeatureEnabled = useFeature(Feature.FeedsManager)
+  const isFeedsManagerFeatureEnabled = useFeatureFlag(Feature.FeedsManager)
 
   return (
     <Typography variant="body1" component="div">

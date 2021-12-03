@@ -34,6 +34,27 @@ func (_m *ORM) Close() error {
 	return r0
 }
 
+// CountPipelineRunsByJobID provides a mock function with given fields: jobID
+func (_m *ORM) CountPipelineRunsByJobID(jobID int32) (int32, error) {
+	ret := _m.Called(jobID)
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func(int32) int32); ok {
+		r0 = rf(jobID)
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int32) error); ok {
+		r1 = rf(jobID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateJob provides a mock function with given fields: jb, qopts
 func (_m *ORM) CreateJob(jb *job.Job, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -77,11 +98,11 @@ func (_m *ORM) DeleteJob(id int32, qopts ...pg.QOpt) error {
 }
 
 // DismissError provides a mock function with given fields: ctx, errorID
-func (_m *ORM) DismissError(ctx context.Context, errorID int32) error {
+func (_m *ORM) DismissError(ctx context.Context, errorID int64) error {
 	ret := _m.Called(ctx, errorID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
 		r0 = rf(ctx, errorID)
 	} else {
 		r0 = ret.Error(0)
@@ -213,6 +234,80 @@ func (_m *ORM) FindJobs(offset int, limit int) ([]job.Job, int, error) {
 	return r0, r1, r2
 }
 
+// FindPipelineRunIDsByJobID provides a mock function with given fields: jobID, offset, limit
+func (_m *ORM) FindPipelineRunIDsByJobID(jobID int32, offset int, limit int) ([]int64, error) {
+	ret := _m.Called(jobID, offset, limit)
+
+	var r0 []int64
+	if rf, ok := ret.Get(0).(func(int32, int, int) []int64); ok {
+		r0 = rf(jobID, offset, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int64)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int32, int, int) error); ok {
+		r1 = rf(jobID, offset, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindPipelineRunsByIDs provides a mock function with given fields: ids
+func (_m *ORM) FindPipelineRunsByIDs(ids []int64) ([]pipeline.Run, error) {
+	ret := _m.Called(ids)
+
+	var r0 []pipeline.Run
+	if rf, ok := ret.Get(0).(func([]int64) []pipeline.Run); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]pipeline.Run)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindSpecError provides a mock function with given fields: id, qopts
+func (_m *ORM) FindSpecError(id int64, qopts ...pg.QOpt) (job.SpecError, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 job.SpecError
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) job.SpecError); ok {
+		r0 = rf(id, qopts...)
+	} else {
+		r0 = ret.Get(0).(job.SpecError)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, ...pg.QOpt) error); ok {
+		r1 = rf(id, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // InsertJob provides a mock function with given fields: _a0, qopts
 func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
@@ -283,29 +378,6 @@ func (_m *ORM) PipelineRuns(jobID *int32, offset int, size int) ([]pipeline.Run,
 	}
 
 	return r0, r1, r2
-}
-
-// PipelineRunsByJobsIDs provides a mock function with given fields: jobsIDs
-func (_m *ORM) PipelineRunsByJobsIDs(jobsIDs []int32) ([]pipeline.Run, error) {
-	ret := _m.Called(jobsIDs)
-
-	var r0 []pipeline.Run
-	if rf, ok := ret.Get(0).(func([]int32) []pipeline.Run); ok {
-		r0 = rf(jobsIDs)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]pipeline.Run)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func([]int32) error); ok {
-		r1 = rf(jobsIDs)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // RecordError provides a mock function with given fields: jobID, description, qopts

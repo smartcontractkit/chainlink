@@ -20,7 +20,7 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 			p2pKeys {
 				results {
 					id
-					peerId
+					peerID
 					publicKey
 				}
 			}
@@ -34,7 +34,7 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 		fakeKeys = append(fakeKeys, k)
 		expectedKeys = append(expectedKeys, map[string]string{
 			"id":        k.ID(),
-			"peerId":    k.PeerID().String(),
+			"peerID":    k.PeerID().String(),
 			"publicKey": k.PublicKeyHex(),
 		})
 	}
@@ -71,10 +71,12 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 	query := `
 		mutation CreateP2PKey {
 			createP2PKey {
-				key {
-					id
-					peerId
-					publicKey
+				... on CreateP2PKeySuccess {
+					p2pKey {
+						id
+						peerID
+						publicKey
+					}
 				}
 			}
 		}
@@ -84,9 +86,9 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 
 	d, err := json.Marshal(map[string]interface{}{
 		"createP2PKey": map[string]interface{}{
-			"key": map[string]interface{}{
+			"p2pKey": map[string]interface{}{
 				"id":        fakeKey.ID(),
-				"peerId":    fakeKey.PeerID().String(),
+				"peerID":    fakeKey.PeerID().String(),
 				"publicKey": fakeKey.PublicKeyHex(),
 			},
 		},
@@ -121,9 +123,9 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 		mutation DeleteP2PKey($id: ID!) {
 			deleteP2PKey(id: $id) {
 				... on DeleteP2PKeySuccess {
-					key {
+					p2pKey {
 						id
-						peerId
+						peerID
 						publicKey
 					}
 				}
@@ -145,9 +147,9 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 
 	d, err := json.Marshal(map[string]interface{}{
 		"deleteP2PKey": map[string]interface{}{
-			"key": map[string]interface{}{
+			"p2pKey": map[string]interface{}{
 				"id":        fakeKey.ID(),
-				"peerId":    fakeKey.PeerID().String(),
+				"peerID":    fakeKey.PeerID().String(),
 				"publicKey": fakeKey.PublicKeyHex(),
 			},
 		},
