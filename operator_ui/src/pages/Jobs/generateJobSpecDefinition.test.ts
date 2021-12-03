@@ -35,7 +35,7 @@ describe('generateTOMLDefinition', () => {
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
         evmChainID: '42',
-        ocrDatabaseTimeout: '2s'
+        ocrDatabaseTimeout: '2s',
       },
       maxTaskDuration: '10s',
       pipelineSpec: {
