@@ -38,7 +38,7 @@ const extractSpecFields = <T extends {}, K extends keyof T>(
   // with an 'Env' suffix
   const scopedKeys = keys.filter((key) => {
     const envKey = `${key}Env` as K
-    if (spec.hasOwnProperty(envKey)) {
+    if (Object.prototype.hasOwnProperty.call(spec, envKey)) {
       // We are relying on this always being a boolean but we can't guarantee it
       return !spec[envKey]
     }
@@ -64,7 +64,7 @@ const extractEnvValues = <T extends {}, K extends keyof T>(spec: T) => {
       // We are relying on this always being a boolean but we can't guarantee it
       if (spec[envKey]) {
         // Check that the key without the 'Env' suffix exists
-        if (spec.hasOwnProperty(match[1])) {
+        if (Object.prototype.hasOwnProperty.call(spec, match[1])) {
           envValueKeys.push(match[1] as K)
         }
       }

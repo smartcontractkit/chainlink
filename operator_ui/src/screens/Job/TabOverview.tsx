@@ -50,7 +50,7 @@ export const TabOverview = withStyles(chartCardStyles)(
           jobId: job.id,
         }),
       )
-    }, [job.runs])
+    }, [job.runs, job.id])
 
     return (
       <Grid container spacing={32}>

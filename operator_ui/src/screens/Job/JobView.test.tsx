@@ -50,7 +50,7 @@ describe('JobView', () => {
   it('renders the job view', async () => {
     const job = buildJob()
 
-    renderComponent({ job: job, runsCount: 1 })
+    renderComponent({ job, runsCount: 1 })
 
     expect(queryByText(job.name)).toBeInTheDocument()
     expect(queryByText(/recent job runs/i)).toBeInTheDocument()
@@ -65,7 +65,7 @@ describe('JobView', () => {
   it('display -- for an empty job name', async () => {
     const job = buildJob({ name: '' })
 
-    renderComponent({ job: job, runsCount: 1 })
+    renderComponent({ job, runsCount: 1 })
 
     expect(queryByText('--')).toBeInTheDocument()
   })
@@ -73,7 +73,7 @@ describe('JobView', () => {
   it('does not display the run button for other jobs', async () => {
     const job = buildJob({ name: '' })
 
-    renderComponent({ job: job, runsCount: 1 })
+    renderComponent({ job, runsCount: 1 })
 
     expect(queryByRole('button', { name: /run/i })).toBeNull()
   })
@@ -87,7 +87,7 @@ describe('JobView', () => {
       },
     })
 
-    renderComponent({ job: job, runsCount: 1 })
+    renderComponent({ job, runsCount: 1 })
 
     userEvent.click(getByRole('button', { name: /run/i }))
     userEvent.paste(getByRole('textbox'), '{someinput}')
@@ -117,7 +117,7 @@ describe('JobView', () => {
       },
     })
 
-    renderComponent({ job: job, runsCount: 1 }, '/jobs/1/runs?page=1&per=1')
+    renderComponent({ job, runsCount: 1 }, '/jobs/1/runs?page=1&per=1')
 
     userEvent.click(getByRole('button', { name: /next-page/i }))
 
@@ -127,7 +127,7 @@ describe('JobView', () => {
   it('handles refetchRecentRuns on tab change', async () => {
     const job = buildJob()
 
-    renderComponent({ job: job, runsCount: 1 }, '/jobs/1/definition')
+    renderComponent({ job, runsCount: 1 }, '/jobs/1/definition')
 
     userEvent.click(getByRole('tab', { name: 'Overview' }))
 

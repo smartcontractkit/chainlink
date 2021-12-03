@@ -25,7 +25,7 @@ export const TabRuns: React.FC<Props> = ({ fetchMore, job }) => {
 
   React.useEffect(() => {
     fetchMore(page, pageSize)
-  }, [page, pageSize])
+  }, [fetchMore, page, pageSize])
 
   React.useEffect(() => {
     history.replace({
@@ -41,7 +41,7 @@ export const TabRuns: React.FC<Props> = ({ fetchMore, job }) => {
       finishedAt,
       jobId: job.id,
     }))
-  }, [job.runs])
+  }, [job.runs, job.id])
 
   return (
     <>
@@ -55,7 +55,7 @@ export const TabRuns: React.FC<Props> = ({ fetchMore, job }) => {
           rowsPerPageOptions={[10, 25, 50, 100]}
           page={page - 1}
           onChangePage={(_, p) => {
-            setPagination({ page: p + 1, pageSize: pageSize })
+            setPagination({ page: p + 1, pageSize })
           }}
           onChangeRowsPerPage={(e) => {
             setPagination({ page: 1, pageSize: parseInt(e.target.value, 10) })
