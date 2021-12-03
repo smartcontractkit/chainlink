@@ -168,31 +168,31 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
-	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
-	P2PPeerID                              *p2pkey.PeerID       `json:"p2pPeerID"`
-	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
-	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                null.String          `json:"keyBundleID"`
-	TransmitterAddress                     *ethkey.EIP55Address `json:"transmitterAddress"`
-	ObservationTimeout                     models.Interval      `json:"observationTimeout"`
-	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval      `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
-	CreatedAt                              time.Time            `json:"createdAt"`
-	UpdatedAt                              time.Time            `json:"updatedAt"`
+	ContractAddress                        null.String     `json:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID  `json:"p2pPeerID"`
+	P2PBootstrapPeers                      pq.StringArray  `json:"p2pBootstrapPeers"`
+	IsBootstrapPeer                        bool            `json:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                null.String     `json:"keyBundleID"`
+	TransmitterAddress                     null.String     `json:"transmitterAddress"`
+	ObservationTimeout                     models.Interval `json:"observationTimeout"`
+	BlockchainTimeout                      models.Interval `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16          `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time       `json:"createdAt"`
+	UpdatedAt                              time.Time       `json:"updatedAt"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
 // job.OffchainReporting2OracleSpec
 func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChainReporting2Spec {
 	return &OffChainReporting2Spec{
-		ContractAddress:                        spec.ContractAddress,
+		ContractAddress:                        spec.ContractID,
 		P2PPeerID:                              spec.P2PPeerID,
 		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
 		IsBootstrapPeer:                        spec.IsBootstrapPeer,
-		EncryptedOCRKeyBundleID:                spec.EncryptedOCRKeyBundleID,
-		TransmitterAddress:                     spec.TransmitterAddress,
+		EncryptedOCRKeyBundleID:                spec.OCRKeyBundleID,
+		TransmitterAddress:                     spec.TransmitterID,
 		BlockchainTimeout:                      spec.BlockchainTimeout,
 		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval,
 		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval,

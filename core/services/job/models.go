@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
@@ -236,23 +238,25 @@ func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
+// Relay config is chain specific config for a relay (chain adapter).
 type OffchainReporting2OracleSpec struct {
-	ID                                     int32                `toml:"-"`
-	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
-	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID"`
-	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers"`
-	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                null.String          `toml:"keyBundleID"`
-	MonitoringEndpoint                     null.String          `toml:"monitoringEndpoint"`
-	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
-	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
-	EVMChainID                             *utils.Big           `toml:"evmChainID"`
-	JuelsPerFeeCoinPipeline                string               `toml:"juelsPerFeeCoinSource"`
-	CreatedAt                              time.Time            `toml:"-"`
-	UpdatedAt                              time.Time            `toml:"-"`
+	ID                                     int32           `toml:"-"`
+	ContractID                             null.String     `toml:"contractID"`
+	Relay                                  relay.Network   `toml:"relay"`
+	RelayConfig                            models.JSON     `toml:"relayConfig"`
+	P2PPeerID                              *p2pkey.PeerID  `toml:"p2pPeerID"`
+	P2PBootstrapPeers                      pq.StringArray  `toml:"p2pBootstrapPeers"`
+	IsBootstrapPeer                        bool            `toml:"isBootstrapPeer"`
+	OCRKeyBundleID                         null.String     `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                     null.String     `toml:"monitoringEndpoint"`
+	TransmitterID                          null.String     `toml:"transmitterID"`
+	BlockchainTimeout                      models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval `toml:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16          `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline                string          `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                              time.Time       `toml:"-"`
+	UpdatedAt                              time.Time       `toml:"-"`
 }
 
 func (s OffchainReporting2OracleSpec) GetID() string {

@@ -313,6 +313,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
+			cfg,
 			relay,
 		)
 	} else {

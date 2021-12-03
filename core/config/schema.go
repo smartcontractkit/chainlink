@@ -160,9 +160,8 @@ type ConfigSchema struct {
 	LeaseLockDuration                          time.Duration   `env:"LEASE_LOCK_DURATION" default:"30s"`
 
 	// OCR V2
-	// Per-chain defaults
-	OCR2ContractConfirmations uint `env:"OCR2_CONTRACT_CONFIRMATIONS"`
 	// Global defaults
+	OCR2ContractConfirmations              uint          `env:"OCR2_CONTRACT_CONFIRMATIONS" default:"3"`
 	OCR2BlockchainTimeout                  time.Duration `env:"OCR2_BLOCKCHAIN_TIMEOUT" default:"20s"`
 	OCR2ContractPollInterval               time.Duration `env:"OCR2_CONTRACT_POLL_INTERVAL" default:"1m"`
 	OCR2ContractSubscribeInterval          time.Duration `env:"OCR2_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`

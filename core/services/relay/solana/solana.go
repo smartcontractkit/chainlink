@@ -3,6 +3,8 @@ package solana
 import (
 	"errors"
 
+	"github.com/smartcontractkit/chainlink/core/config"
+
 	"github.com/gagliardetto/solana-go/rpc"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
@@ -133,5 +135,9 @@ func (p ocr2Provider) ReportCodec() median.ReportCodec {
 }
 
 func (p ocr2Provider) MedianContract() median.MedianContract {
+	return nil
+}
+
+func (p ocr2Provider) OCRConfig() config.OCR2Config {
 	return nil
 }

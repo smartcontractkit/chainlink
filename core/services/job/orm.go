@@ -27,9 +27,9 @@ import (
 )
 
 var (
-	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
-	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
-	ErrNoSuchPublicKey          = errors.New("no such public key exists")
+	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
+	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
+	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -150,7 +150,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OffchainreportingOracleSpec.TransmitterAddress != nil {
 				_, err := o.keyStore.Eth().Get(jb.OffchainreportingOracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jb.OffchainreportingOracleSpec.TransmitterAddress)
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OffchainreportingOracleSpec.TransmitterAddress)
 				}
 			}
 
@@ -168,24 +168,26 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.OffchainreportingOracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
-			if jb.Offchainreporting2OracleSpec.EncryptedOCRKeyBundleID.Valid {
-				_, err := o.keyStore.OCR2().Get(jb.Offchainreporting2OracleSpec.EncryptedOCRKeyBundleID.String)
+			if jb.Offchainreporting2OracleSpec.OCRKeyBundleID.Valid {
+				// TODO: lookup should work for solana too depending how the keystore changes are done?
+				_, err := o.keyStore.OCR2().Get(jb.Offchainreporting2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.Offchainreporting2OracleSpec.EncryptedOCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.Offchainreporting2OracleSpec.OCRKeyBundleID)
 				}
 			}
-			if jb.Offchainreporting2OracleSpec.TransmitterAddress != nil {
-				_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterAddress.Hex())
+			if jb.Offchainreporting2OracleSpec.TransmitterID.Valid {
+				// TODO: Need to lookup key store
+				_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jb.Offchainreporting2OracleSpec.TransmitterAddress)
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
 				}
 			}
 
-			sql := `INSERT INTO offchainreporting2_oracle_specs (contract_address, p2p_peer_id, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
-					blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id, juels_per_fee_coin_pipeline,
+			sql := `INSERT INTO offchainreporting2_oracle_specs (contract_id, relay, relay_config, p2p_peer_id, p2p_bootstrap_peers, is_bootstrap_peer, ocr_key_bundle_id, transmitter_id,
+					blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline,
 					created_at, updated_at)
-			VALUES (:contract_address, :p2p_peer_id, :p2p_bootstrap_peers, :is_bootstrap_peer, :encrypted_ocr_key_bundle_id, :transmitter_address,
-					 :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id, :juels_per_fee_coin_pipeline,
+			VALUES (:contract_id, :relay, :relay_config, :p2p_peer_id, :p2p_bootstrap_peers, :is_bootstrap_peer, :ocr_key_bundle_id, :transmitter_id,
+					 :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :juels_per_fee_coin_pipeline,
 					NOW(), NOW())
 			RETURNING id;`
 			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.Offchainreporting2OracleSpec)

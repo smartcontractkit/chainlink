@@ -71,7 +71,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			pid:         p2pkey.PeerID(peerID),
 			kb:          cltest.DefaultOCRKeyBundleID,
 			taExists:    false,
-			expectedErr: job.ErrNoSuchTransmitterAddress,
+			expectedErr: job.ErrNoSuchTransmitterKey,
 		},
 	}
 	for _, tc := range tt {

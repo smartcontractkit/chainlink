@@ -1,31 +1,19 @@
 package offchainreporting2
 
 import (
-	"time"
-
 	"github.com/lib/pq"
 
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"go.uber.org/multierr"
 )
 
-type ValidationConfig interface {
-	Dev() bool
-	OCR2BlockchainTimeout() time.Duration
-	OCR2ContractConfirmations() uint16
-	OCR2ContractPollInterval() time.Duration
-	OCR2ContractTransmitterTransmitTimeout() time.Duration
-	OCR2DatabaseTimeout() time.Duration
-}
-
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OffchainReporting2OracleSpec
 	tree, err := toml.Load(tomlString)
@@ -60,19 +48,14 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		}
 	}
 
-	chain, err := chainSet.Get(jb.Offchainreporting2OracleSpec.EVMChainID.ToInt())
-	if err != nil {
-		return jb, err
-	}
-
 	if spec.IsBootstrapPeer {
-		if err := validateBootstrapSpec(tree, jb); err != nil {
+		if err := validateBootstrapSpec(tree); err != nil {
 			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, chain.Config(), jb); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, jb); err != nil {
 		return jb, err
 	}
-	if err := validateTimingParameters(chain.Config(), spec); err != nil {
+	if err := validateTimingParameters(config, spec); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -84,14 +67,15 @@ var (
 	params = map[string]struct{}{
 		"type":            {},
 		"schemaVersion":   {},
-		"contractAddress": {},
+		"contractID":      {},
 		"isBootstrapPeer": {},
 	}
 	// Boostrap and non-bootstrap parameters
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
-		"observationSource": {},
+		"observationSource":     {},
+		"juelsPerFeeCoinSource": {},
 	}
 )
 
@@ -103,12 +87,12 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(config ValidationConfig, spec job.OffchainReporting2OracleSpec) error {
+func validateTimingParameters(config Config, spec job.OffchainReporting2OracleSpec) error {
 	lc := toLocalConfig(config, spec)
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 
-func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
+func validateBootstrapSpec(tree *toml.Tree) error {
 	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
@@ -116,7 +100,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	return validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job.Job) error {
+func validateNonBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
@@ -126,9 +110,6 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 	}
 	if spec.Pipeline.Source == "" {
 		return errors.New("no pipeline specified")
-	}
-	if spec.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline == "" {
-		return errors.New("no juelsPerFeeCoinSource specified")
 	}
 	// validate that the JuelsPerFeeCoinPipeline is valid (not checked later because it's not a normal pipeline)
 	if _, err := pipeline.Parse(spec.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline); err != nil {

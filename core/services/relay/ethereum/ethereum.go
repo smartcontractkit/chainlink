@@ -1,7 +1,12 @@
 package ethereum
 
 import (
+	"encoding/json"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
@@ -14,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/service"
 	txm "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	ocr2 "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
@@ -67,13 +71,17 @@ func (r relayer) Healthy() error {
 	return nil
 }
 
+type Config struct {
+	ChainID utils.Big `json:"chainID"`
+}
+
 type OCR2Spec struct {
-	ID                 int32
-	ContractAddress    ethkey.EIP55Address
-	KeyBundleID        null.String
-	TransmitterAddress *ethkey.EIP55Address
-	ChainID            *utils.Big
-	IsBootstrap        bool
+	ID             int32
+	ContractID     null.String
+	OCRKeyBundleID null.String
+	TransmitterID  null.String
+	IsBootstrap    bool
+	RelayConfig    models.JSON
 }
 
 func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
@@ -81,23 +89,30 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 	if !ok {
 		return nil, errors.New("unsuccessful cast to 'ethereum.OCR2Spec'")
 	}
-
-	chain, err := r.chainSet.Get(spec.ChainID.ToInt())
+	var c Config
+	err := json.Unmarshal(spec.RelayConfig.Bytes(), &c)
 	if err != nil {
 		return nil, err
 	}
 
-	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(spec.ContractAddress.Address(), chain.Client())
+	chain, err := r.chainSet.Get(c.ChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
+	// TODO: more validation
+	contractAddress := common.HexToAddress(spec.ContractID.String)
+
+	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
 	}
 
-	contractFilterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(spec.ContractAddress.Address(), chain.Client())
+	contractFilterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
 	}
 
-	contractCaller, err := ocr2aggregator.NewOCR2AggregatorCaller(spec.ContractAddress.Address(), chain.Client())
+	contractCaller, err := ocr2aggregator.NewOCR2AggregatorCaller(contractAddress, chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
@@ -120,7 +135,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         chain.Config().ChainID().Uint64(),
-		ContractAddress: spec.ContractAddress.Address(),
+		ContractAddress: contractAddress,
 	}
 
 	if spec.IsBootstrap {
@@ -128,6 +143,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		return &ocr2Provider{
 			tracker:                tracker,
 			offchainConfigDigester: offchainConfigDigester,
+			config:                 chain.Config(),
 		}, nil
 	}
 
@@ -138,17 +154,18 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 
-	if spec.TransmitterAddress == nil {
+	if !spec.TransmitterID.Valid {
 		return nil, errors.New("transmitter address is required")
 	}
 
+	transmitterAddress := common.HexToAddress(spec.TransmitterID.String)
 	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
 
 	contractTransmitter := ocr2.NewOCRContractTransmitter(
 		contract.Address(),
 		contractCaller,
 		contractABI,
-		ocrcommon.NewTransmitter(chain.TxManager(), spec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy),
+		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy),
 		chain.LogBroadcaster(),
 		tracker,
 		r.lggr,
@@ -156,8 +173,8 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 
 	// Fetch the specified OCR2 key bundle
 	var kbID string
-	if spec.KeyBundleID.Valid {
-		kbID = spec.KeyBundleID.String
+	if spec.OCRKeyBundleID.Valid {
+		kbID = spec.OCRKeyBundleID.String
 	} else if kbID, err = chain.Config().OCR2KeyBundleID(); err != nil {
 		return nil, err
 	}
@@ -173,6 +190,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		reportCodec:            reportCodec,
 		contractTransmitter:    contractTransmitter,
 		keyBundle:              kb,
+		config:                 chain.Config(),
 	}, nil
 }
 
@@ -184,6 +202,7 @@ type ocr2Provider struct {
 	reportCodec            median.ReportCodec
 	contractTransmitter    *ocr2.OCRContractTransmitter
 	keyBundle              ocr2key.KeyBundle
+	config                 config.OCR2Config
 }
 
 // On start, an ethereum ocr2 provider will start the contract tracker.
@@ -232,4 +251,8 @@ func (p ocr2Provider) ReportCodec() median.ReportCodec {
 
 func (p ocr2Provider) MedianContract() median.MedianContract {
 	return p.contractTransmitter
+}
+
+func (p ocr2Provider) OCRConfig() config.OCR2Config {
+	return p.config
 }

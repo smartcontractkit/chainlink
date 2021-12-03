@@ -214,11 +214,13 @@ func TestIntegration_OCR2(t *testing.T) {
 
 	chainSet := appBootstrap.GetChainSet()
 	require.NotNil(t, chainSet)
-	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(chainSet, fmt.Sprintf(`
+	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
 type               = "offchainreporting2"
+relay = "ethereum"
+relayConfig = '{"chainID": 1337}'
 schemaVersion      = 1
 name               = "boot"
-contractAddress    = "%s"
+contractID = "%s"
 isBootstrapPeer    = true
 `, ocrContractAddress))
 	require.NoError(t, err)
@@ -269,14 +271,16 @@ isBootstrapPeer    = true
 			URL:  models.WebURL(*u),
 		})
 
-		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
+		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
+relay = "ethereum"
+relayConfig = '{"chainID": 1337}'
 schemaVersion      = 1
 name               = "web oracle spec"
-contractAddress    = "%s"
+contractID = "%s"
 isBootstrapPeer    = false
-keyBundleID        = "%s"
-transmitterAddress = "%s"
+ocrKeyBundleID        = "%s"
+transmitterID = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """

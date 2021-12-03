@@ -2,27 +2,27 @@
 -- +goose StatementBegin
 CREATE TABLE offchainreporting2_oracle_specs (
      id SERIAL PRIMARY KEY,
-     contract_address bytea NOT NULL,
+     contract_id text NOT NULL,
+     relay text NOT NULL,
+     relay_config jsonb NOT NULL,
      p2p_peer_id text,
      p2p_bootstrap_peers text[] NOT NULL DEFAULT '{}',
      is_bootstrap_peer boolean NOT NULL,
-     encrypted_ocr_key_bundle_id bytea,
+     ocr_key_bundle_id bytea,
+     transmitter_id bytea,
      monitoring_endpoint text,
-     transmitter_address bytea,
      blockchain_timeout bigint,
-     evm_chain_id numeric(78,0) REFERENCES evm_chains (id),
      contract_config_tracker_subscribe_interval bigint,
      contract_config_tracker_poll_interval bigint,
      contract_config_confirmations integer NOT NULL,
      juels_per_fee_coin_pipeline text NOT NULL,
      created_at timestamp with time zone NOT NULL,
-     updated_at timestamp with time zone NOT NULL,
-     CONSTRAINT chk_contract_address_length CHECK ((octet_length(contract_address) = 20))
+     updated_at timestamp with time zone NOT NULL
 );
 
 ALTER TABLE ONLY offchainreporting2_oracle_specs
-    ADD CONSTRAINT offchainreporting2_oracle_specs_unique_contract_addr
-        UNIQUE (contract_address);
+        ADD CONSTRAINT offchainreporting2_oracle_specs_unique_contract_addr
+            UNIQUE (contract_id);
 
 CREATE INDEX idx_offchainreporting2_oracle_specs_created_at
     ON offchainreporting2_oracle_specs USING brin (created_at);

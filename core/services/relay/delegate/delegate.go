@@ -74,21 +74,22 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 	switch choice {
 	case relay.Ethereum:
 		return d.relayers[choice].NewOCR2Provider(externalJobID, ethereum.OCR2Spec{
-			ID:                 spec.ID,
-			ChainID:            spec.EVMChainID,
-			ContractAddress:    spec.ContractAddress,
-			KeyBundleID:        spec.EncryptedOCRKeyBundleID,
-			TransmitterAddress: spec.TransmitterAddress,
-			IsBootstrap:        spec.IsBootstrapPeer,
+			ID: spec.ID,
+			//ChainID:            spec.EVMChainID,
+			ContractID:     spec.ContractID,
+			OCRKeyBundleID: spec.OCRKeyBundleID,
+			TransmitterID:  spec.TransmitterID,
+			IsBootstrap:    spec.IsBootstrapPeer,
+			RelayConfig:    spec.RelayConfig,
 		})
 	case relay.Solana:
 		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
-			ID:                 spec.ID,
-			ChainID:            spec.EVMChainID,
+			ID: spec.ID,
+			//ChainID:            spec.EVMChainID,
 			NodeEndpointRPC:    "", // TODO [relay]: add validator url from job spec
 			NodeEndpointWS:     "", // TODO [relay]: add validator url from job spec
 			ContractAddress:    "", // TODO [relay]: add contract address from job spec
-			KeyBundleID:        spec.EncryptedOCRKeyBundleID,
+			KeyBundleID:        spec.OCRKeyBundleID,
 			TransmitterAddress: "", // TODO [relay]: add transmitter address from job spec
 		})
 	default:
