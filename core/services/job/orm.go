@@ -55,6 +55,9 @@ type ORM interface {
 	FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []int64, err error)
 	FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error)
 	CountPipelineRunsByJobID(jobID int32) (count int32, err error)
+
+	FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error)
+	FindPipelineRunByID(id int64) (pipeline.Run, error)
 }
 
 type orm struct {
@@ -696,6 +699,31 @@ WHERE id = ANY($1)
 	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
 }
 
+// FindPipelineRunByID returns pipeline run with the id.
+func (o *orm) FindPipelineRunByID(id int64) (pipeline.Run, error) {
+	var run pipeline.Run
+
+	err := o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT pipeline_runs.*
+FROM pipeline_runs
+WHERE id = $1
+`
+
+		if err := tx.Get(&run, stmt, id); err != nil {
+			return errors.Wrap(err, "error loading run")
+		}
+
+		runs, err := o.loadPipelineRunsRelations([]pipeline.Run{run}, tx)
+
+		run = runs[0]
+
+		return err
+	})
+
+	return run, errors.Wrap(err, "FindPipelineRunByID failed")
+}
+
 // CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
 func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
@@ -712,6 +740,33 @@ WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS W
 	})
 
 	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+}
+
+func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
+	var jbs []Job
+
+	err := o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM jobs WHERE jobs.pipeline_spec_id = ANY($1) ORDER BY id ASC
+`
+		if err := tx.Select(&jbs, stmt, ids); err != nil {
+			return errors.Wrap(err, "error fetching jobs by pipeline spec IDs")
+		}
+
+		err := LoadAllJobsTypes(tx, jbs)
+		if err != nil {
+			return err
+		}
+		for i := range jbs {
+			err = o.LoadEnvConfigVars(&jbs[i])
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return jbs, errors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
