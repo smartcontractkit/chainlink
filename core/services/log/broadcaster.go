@@ -427,11 +427,7 @@ func (b *broadcaster) onNewHeads() {
 		if item == nil {
 			break
 		}
-		head, ok := item.(*eth.Head)
-		if !ok {
-			b.logger.Errorf("expected `*eth.Head`, got %T", item)
-			continue
-		}
+		head := eth.AsHead(item)
 		latestHead = head
 	}
 
