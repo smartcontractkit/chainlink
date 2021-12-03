@@ -83,6 +83,8 @@ type GeneralConfigOverrides struct {
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
+	LeaseLockDuration                         *time.Duration
+	LeaseLockRefreshInterval                  *time.Duration
 	LogLevel                                  *config.LogLevel
 	DefaultLogLevel                           *config.LogLevel
 	LogSQL                                    null.Bool
@@ -602,4 +604,18 @@ func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
 // There is no need for any database application locking in tests
 func (c *TestGeneralConfig) DatabaseLockingMode() string {
 	return "none"
+}
+
+func (c *TestGeneralConfig) LeaseLockRefreshInterval() time.Duration {
+	if c.Overrides.LeaseLockRefreshInterval != nil {
+		return *c.Overrides.LeaseLockRefreshInterval
+	}
+	return c.GeneralConfig.LeaseLockRefreshInterval()
+}
+
+func (c *TestGeneralConfig) LeaseLockDuration() time.Duration {
+	if c.Overrides.LeaseLockDuration != nil {
+		return *c.Overrides.LeaseLockDuration
+	}
+	return c.GeneralConfig.LeaseLockDuration()
 }
