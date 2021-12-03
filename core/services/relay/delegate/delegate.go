@@ -1,8 +1,12 @@
 package delegate
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
+
+	"github.com/pkg/errors"
+
+	solanaGo "github.com/gagliardetto/solana-go"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -67,32 +71,54 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		return nil, errors.New("unsuccessful cast to 'job.OffchainReporting2OracleSpec'")
 	}
 
-	// TODO [relay]: make a relay network choice depending on job spec
-	network := "ethereum"
-	choice := relay.Network(network)
-
+	choice := relay.Network(spec.Relay)
 	switch choice {
 	case relay.Ethereum:
+		// Notice: we don't use the 'spec.RelayConfig' ATM for 'relay.Ethereum'
 		return d.relayers[choice].NewOCR2Provider(externalJobID, ethereum.OCR2Spec{
-			ID: spec.ID,
+			ID:          spec.ID,
+			IsBootstrap: spec.IsBootstrapPeer,
 			//ChainID:            spec.EVMChainID,
 			ContractID:     spec.ContractID,
 			OCRKeyBundleID: spec.OCRKeyBundleID,
 			TransmitterID:  spec.TransmitterID,
-			IsBootstrap:    spec.IsBootstrapPeer,
-			RelayConfig:    spec.RelayConfig,
+			RelayConfig:    spec.RelayConfig, // TODO: don't send 'spec.RelayConfig' but unmarshal and copy to 'ethereum.OCR2Spec'
 		})
 	case relay.Solana:
+		var config solana.RelayConfig
+		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
+		}
+
+		programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID.ValueOrZero())
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.ContractID")
+		}
+
+		stateID, err := solanaGo.PublicKeyFromBase58(config.StateID)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
+		}
+
+		transmissionsID, err := solanaGo.PublicKeyFromBase58(config.TransmissionsID)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
+		}
+
 		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
-			ID: spec.ID,
-			//ChainID:            spec.EVMChainID,
-			NodeEndpointRPC:    "", // TODO [relay]: add validator url from job spec
-			NodeEndpointWS:     "", // TODO [relay]: add validator url from job spec
-			ContractAddress:    "", // TODO [relay]: add contract address from job spec
-			KeyBundleID:        spec.OCRKeyBundleID,
-			TransmitterAddress: "", // TODO [relay]: add transmitter address from job spec
+			ID:          spec.ID,
+			IsBootstrap: spec.IsBootstrapPeer,
+			//ChainID:            spec.EVMChainID, // TODO: from jobSpec or config?
+			NodeEndpointRPC: config.NodeEndpointRPC,
+			NodeEndpointWS:  config.NodeEndpointWS,
+			ProgramID:       programID,
+			StateID:         stateID,
+			TransmissionsID: transmissionsID,
+			// Transmitter: TODO: solana.PrivateKey (?)
+			KeyBundleID: spec.OCRKeyBundleID,
 		})
 	default:
-		return nil, fmt.Errorf("unknown relayer network type: %s", network)
+		return nil, fmt.Errorf("unknown relayer network type: %s", spec.Relay)
 	}
 }

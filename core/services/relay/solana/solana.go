@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/config"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
@@ -54,14 +55,36 @@ func (r relayer) Healthy() error {
 	return nil
 }
 
+// CL Core OCR2 job spec RelayConfig member for Solana
+type RelayConfig struct {
+	// network data
+	NodeEndpointRPC string `json:"nodeEndpointRPC"`
+	NodeEndpointWS  string `json:"nodeEndpointWS"`
+
+	// on-chain program + 2x state accounts (state + transmissions)
+	StateID         string `json:"stateID"`
+	TransmissionsID string `json:"transmissionsID"`
+}
+
 type OCR2Spec struct {
-	ID                 int32
-	ContractAddress    string
-	KeyBundleID        null.String
-	TransmitterAddress string
-	ChainID            *utils.Big
-	NodeEndpointRPC    string
-	NodeEndpointWS     string
+	ID          int32
+	IsBootstrap bool
+
+	// network data
+	ChainID         *utils.Big
+	NodeEndpointRPC string
+	NodeEndpointWS  string
+
+	// on-chain program + 2x state accounts (state + transmissions)
+	ProgramID       solana.PublicKey
+	StateID         solana.PublicKey
+	TransmissionsID solana.PublicKey
+
+	// private key for the transmission signing
+	Transmitter solana.PrivateKey
+
+	// OCR key bundle (off/on-chain keys) id
+	KeyBundleID null.String
 }
 
 // TODO [relay]: import from smartcontractkit/solana-integration impl
