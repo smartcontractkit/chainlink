@@ -168,7 +168,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	// Take the lease before any other DB operations
 	var leaseLock pg.LeaseLock
 	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
-		leaseLock = pg.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
+		leaseLock = pg.NewLeaseLock(db, appID, appLggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
 		if err = leaseLock.TakeAndHold(); err != nil {
 			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
