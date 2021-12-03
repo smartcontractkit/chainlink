@@ -209,7 +209,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 			}
 			h, is := head.(*eth.Head)
 			if !is {
-				panic(fmt.Sprintf("invariant violation, expected %T but got %T", eth.Head{}, head))
+				panic(fmt.Sprintf("invariant violation, expected `*eth.Head` but got %T", head))
 			}
 			b.FetchBlocksAndRecalculate(b.ctx, h)
 		}

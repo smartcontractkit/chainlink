@@ -92,7 +92,7 @@ func (ex *UpkeepExecuter) Start() error {
 		go ex.run()
 		latestHead, unsubscribeHeads := ex.headBroadcaster.Subscribe(ex)
 		if latestHead != nil {
-			ex.mailbox.Deliver(*latestHead)
+			ex.mailbox.Deliver(latestHead)
 		}
 		go func() {
 			defer unsubscribeHeads()
@@ -140,7 +140,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 
 	head, ok := item.(*eth.Head)
 	if !ok {
-		ex.logger.Errorf("expected `eth.Head`, got %T", head)
+		ex.logger.Errorf("expected `*eth.Head`, got %T", item)
 		return
 	}
 

@@ -429,7 +429,7 @@ func (b *broadcaster) onNewHeads() {
 		}
 		head, ok := item.(*eth.Head)
 		if !ok {
-			b.logger.Errorf("expected `eth.Head`, got %T", item)
+			b.logger.Errorf("expected `*eth.Head`, got %T", item)
 			continue
 		}
 		latestHead = head

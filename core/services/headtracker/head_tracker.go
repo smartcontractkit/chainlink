@@ -218,7 +218,7 @@ func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 
 	head, ok := item.(*eth.Head)
 	if !ok {
-		panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
+		panic(fmt.Sprintf("expected `*eth.Head`, got %T", item))
 	}
 
 	ht.headBroadcaster.OnNewLongestChain(ctx, head)
