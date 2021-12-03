@@ -38,7 +38,7 @@ type Config interface {
 	ChainType() chains.ChainType
 }
 
-func parseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.BootstrapperLocator, err error) {
+func ParseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.BootstrapperLocator, err error) {
 	for _, bs := range peers {
 		var bsl ocrcommontypes.BootstrapperLocator
 		err = bsl.UnmarshalText([]byte(bs))
@@ -52,7 +52,7 @@ func parseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.Bootst
 
 // Will error unless at least one valid bootstrap peer is found
 func GetValidatedBootstrapPeers(specPeers []string, configPeers []ocrcommontypes.BootstrapperLocator) ([]ocrcommontypes.BootstrapperLocator, error) {
-	bootstrapPeers, err := parseBootstrapPeers(specPeers)
+	bootstrapPeers, err := ParseBootstrapPeers(specPeers)
 	if err != nil {
 		return nil, err
 	}

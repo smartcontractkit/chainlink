@@ -14,8 +14,12 @@ import (
 type Network string
 
 var (
-	Ethereum = Network("ethereum")
-	Solana   = Network("solana")
+	Ethereum          Network = "ethereum"
+	Solana            Network = "solana"
+	SupportedRelayers         = map[Network]struct{}{
+		Ethereum: {},
+		Solana:   {},
+	}
 )
 
 type Relayers map[Network]Relayer

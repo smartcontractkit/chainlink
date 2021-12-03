@@ -2,8 +2,9 @@ package offchainreporting2
 
 import (
 	"github.com/lib/pq"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 
-	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -42,9 +43,13 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 	if !tree.Has("isBootstrapPeer") {
 		return jb, errors.New("isBootstrapPeer is not defined")
 	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, aerr := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); aerr != nil {
-			return jb, errors.Wrapf(aerr, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
+	if _, ok := relay.SupportedRelayers[spec.Relay]; !ok {
+		return jb, errors.Errorf("no such relay %v supported", spec.Relay)
+	}
+	if len(spec.P2PBootstrapPeers) > 0 {
+		_, err := ocrcommon.ParseBootstrapPeers(spec.P2PBootstrapPeers)
+		if err != nil {
+			return jb, err
 		}
 	}
 
@@ -69,6 +74,8 @@ var (
 		"schemaVersion":   {},
 		"contractID":      {},
 		"isBootstrapPeer": {},
+		"relay":           {},
+		"relayConfig":     {},
 	}
 	// Boostrap and non-bootstrap parameters
 	// are mutually exclusive.
