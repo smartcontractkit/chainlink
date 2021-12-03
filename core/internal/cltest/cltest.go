@@ -60,8 +60,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -104,10 +106,12 @@ var (
 	FixtureChainID   = *big.NewInt(0)
 	source           rand.Source
 
-	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCRKey = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultP2PKey = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultVRFKey = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCRKey    = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCR2Key   = ocr2key.MustNewInsecure(NewRandReaderFromSeed(1), "evm")
+	DefaultP2PKey    = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultSolanaKey = solkey.MustNewInsecure(NewRandReaderFromSeed(1))
+	DefaultVRFKey    = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 
 func init() {
@@ -1048,13 +1052,13 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 			assert.FailNowf(t, "Unable to read body", err.Error())
 		}
 
-		var result map[string][]string
+		var result *models.JSONAPIErrors
 		err = json.Unmarshal(b, &result)
 		if err != nil {
 			assert.FailNowf(t, fmt.Sprintf("Unable to unmarshal json from body '%s'", string(b)), err.Error())
 		}
 
-		assert.FailNowf(t, "Request failed", "Expected %d response, got %d with errors: %s", expectedStatusCode, resp.StatusCode, result["errors"])
+		assert.FailNowf(t, "Request failed", "Expected %d response, got %d with errors: %s", expectedStatusCode, resp.StatusCode, result.Errors)
 	} else {
 		assert.FailNowf(t, "Unexpected response", "Expected %d response, got %d", expectedStatusCode, resp.StatusCode)
 	}

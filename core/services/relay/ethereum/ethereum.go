@@ -218,7 +218,7 @@ func (p ocr2Provider) OffchainKeyring() types.OffchainKeyring {
 }
 
 func (p ocr2Provider) OnchainKeyring() types.OnchainKeyring {
-	return &p.keyBundle.OnchainKeyring
+	return p.keyBundle.OnchainKeyring()
 }
 
 func (p ocr2Provider) ContractTransmitter() types.ContractTransmitter {

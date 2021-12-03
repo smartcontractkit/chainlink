@@ -1,6 +1,7 @@
 package ocr2key
 
 import (
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
@@ -8,14 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/crypto/curve25519"
 )
@@ -24,29 +23,17 @@ type (
 	// KeyBundle represents the bundle of keys needed for OCR
 	KeyBundle struct {
 		id              models.Sha256Hash
+		ChainType       chaintype.ChainType
 		OffchainKeyring OffchainKeyring
-		OnchainKeyring  EthereumKeyring
-	}
-
-	// EncryptedKeyBundle holds an encrypted KeyBundle
-	EncryptedKeyBundle struct {
-		ID models.Sha256Hash
-
-		OnchainPublicKey      []byte
-		OnchainSigningAddress common.Address
-
-		OffchainSigningPublicKey    []byte
-		OffchainEncryptionPublicKey []byte
-
-		EncryptedPrivateKeys []byte
-		CreatedAt            time.Time
-		UpdatedAt            time.Time
-		DeletedAt            time.Time
+		evmKeyring      EVMKeyring
+		solanaKeyring   SolanaKeyring
 	}
 
 	KeyBundleRawData struct {
+		ChainType       chaintype.ChainType
 		OffchainKeyring []byte
-		OnchainKeyring  []byte
+		EVMKeyring      []byte
+		SolanaKeyring   []byte
 	}
 )
 
@@ -54,15 +41,11 @@ var (
 	curve = secp256k1.S256()
 )
 
-func (EncryptedKeyBundle) TableName() string {
-	return "encrypted_ocr2_key_bundles"
+func (kb KeyBundle) GetID() string {
+	return kb.ID()
 }
 
-func (ekb EncryptedKeyBundle) GetID() string {
-	return ekb.ID.String()
-}
-
-func (ekb *EncryptedKeyBundle) SetID(value string) error {
+func (kb *KeyBundle) SetID(value string) error {
 	var result models.Sha256Hash
 	decodedString, err := hex.DecodeString(value)
 
@@ -71,27 +54,68 @@ func (ekb *EncryptedKeyBundle) SetID(value string) error {
 	}
 
 	copy(result[:], decodedString[:32])
-	ekb.ID = result
+	kb.id = result
 	return nil
 }
 
-// NewKeyBundle makes a new set of OCR key bundles from cryptographically secure entropy
-func NewKeyBundle() (*KeyBundle, error) {
-	return newKeyBundleFrom(cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
+// New makes a new set of OCR key bundles from cryptographically secure entropy
+func New(chainType chaintype.ChainType) (*KeyBundle, error) {
+	return newKeyBundleFrom(chainType, cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
 }
 
-func newKeyBundleFrom(onchainSigningKeyMaterial, onchainEncryptionKeyMaterial, offchainKeyMaterial io.Reader) (*KeyBundle, error) {
-	onchainKeyring, err := newEthereumKeyring(offchainKeyMaterial)
-	if err != nil {
-		return nil, err
+func NewFromOCR1Key(v1key ocrkey.KeyV2) (KeyBundle, error) {
+	evmKeyring := EVMKeyring{
+		privateKey: ecdsa.PrivateKey(*v1key.OnChainSigning),
 	}
+	offChainKeyRing := OffchainKeyring{
+		signingKey:    ed25519.PrivateKey(*v1key.OffChainSigning),
+		encryptionKey: *v1key.OffChainEncryption,
+	}
+	k := KeyBundle{
+		ChainType:       chaintype.EVM,
+		evmKeyring:      evmKeyring,
+		OffchainKeyring: offChainKeyRing,
+	}
+	marshalledPrivK, err := k.Marshal()
+	if err != nil {
+		return KeyBundle{}, err
+	}
+	k.id = sha256.Sum256(marshalledPrivK)
+	return k, nil
+}
+
+func MustNewInsecure(reader io.Reader, chainType chaintype.ChainType) KeyBundle {
+	key, err := newKeyBundleFrom(chainType, reader, reader, reader)
+	if err != nil {
+		panic(errors.Wrap(err, "failed to generate new OCR2 Key"))
+	}
+	return *key
+}
+
+func newKeyBundleFrom(chainType chaintype.ChainType, onchainSigningKeyMaterial, onchainEncryptionKeyMaterial, offchainKeyMaterial io.Reader) (*KeyBundle, error) {
 	offchainKeyring, err := newOffchainKeyring(onchainSigningKeyMaterial, onchainEncryptionKeyMaterial)
 	if err != nil {
 		return nil, err
 	}
 	k := &KeyBundle{
-		OnchainKeyring:  *onchainKeyring,
+		ChainType:       chainType,
 		OffchainKeyring: *offchainKeyring,
+	}
+	switch chainType {
+	case chaintype.EVM:
+		evmKeyRing, err2 := newEVMKeyring(onchainSigningKeyMaterial)
+		if err2 != nil {
+			return nil, err2
+		}
+		k.evmKeyring = *evmKeyRing
+	case chaintype.Solana:
+		solanaKeyRing, err2 := newSolanaKeyring(onchainSigningKeyMaterial)
+		if err2 != nil {
+			return nil, err2
+		}
+		k.solanaKeyring = *solanaKeyRing
+	default:
+		return nil, chaintype.NewErrInvalidChainType(chainType)
 	}
 	marshalledPrivK, err := k.Marshal()
 	if err != nil {
@@ -105,15 +129,47 @@ func (kb KeyBundle) ID() string {
 	return hex.EncodeToString(kb.id[:])
 }
 
+func (kb KeyBundle) OnchainKeyring() ocrtypes.OnchainKeyring {
+	switch kb.ChainType {
+	case chaintype.EVM:
+		return &kb.evmKeyring
+	case chaintype.Solana:
+		return &kb.solanaKeyring
+	default:
+		panic(errors.Wrap(chaintype.NewErrInvalidChainType(kb.ChainType), "invariant"))
+	}
+}
+
 // ConfigDiffieHellman returns the shared point obtained by multiplying someone's
 // public key by a secret scalar ( in this case, the offChainEncryption key.)
 func (kb *KeyBundle) ConfigDiffieHellman(base [curve25519.PointSize]byte) ([curve25519.PointSize]byte, error) {
 	return kb.OffchainKeyring.ConfigDiffieHellman(base)
 }
 
-// PublicKeyAddressOnChain returns public component of the keypair used in
-func (kb *KeyBundle) PublicKeyAddressOnChain() common.Address {
-	return kb.OnchainKeyring.SigningAddress()
+// PublicKeyAddressOnChain returns public component of the keypair used on chain
+func (kb *KeyBundle) PublicKeyAddressOnChain() string {
+	switch kb.ChainType {
+	case chaintype.EVM:
+		return kb.evmKeyring.SigningAddress().Hex()
+	case chaintype.Solana:
+		return kb.solanaKeyring.SigningAddress().Hex()
+	default:
+		panic(errors.Wrap(chaintype.NewErrInvalidChainType(kb.ChainType), "invariant"))
+	}
+}
+
+// PublicKeyAddressOnChainRaw returns public component of the keypair used on chain
+func (kb *KeyBundle) PublicKeyAddressOnChainRaw() []byte {
+	switch kb.ChainType {
+	case chaintype.EVM:
+		result := kb.evmKeyring.SigningAddress()
+		return result[:]
+	case chaintype.Solana:
+		result := kb.solanaKeyring.SigningAddress()
+		return result[:]
+	default:
+		panic(errors.Wrap(chaintype.NewErrInvalidChainType(kb.ChainType), "invariant"))
+	}
 }
 
 // PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
@@ -126,78 +182,30 @@ func (kb *KeyBundle) PublicKeyConfig() [curve25519.PointSize]byte {
 	return kb.OffchainKeyring.ConfigEncryptionPublicKey()
 }
 
-// Encrypt combines the KeyBundle into a single json-serialized
-// bytes array and then encrypts
-func (kb *KeyBundle) Encrypt(auth string, scryptParams utils.ScryptParams) (*EncryptedKeyBundle, error) {
-	return kb.encrypt(auth, scryptParams)
-}
-
-// encrypt combines the KeyBundle into a single json-serialized
-// bytes array and then encrypts, using the provided scrypt params
-// separated into a different function so that scryptParams can be
-// weakened in tests
-func (kb *KeyBundle) encrypt(auth string, scryptParams utils.ScryptParams) (*EncryptedKeyBundle, error) {
-	marshalledPrivK, err := kb.Marshal()
-	if err != nil {
-		return nil, err
-	}
-	cryptoJSON, err := keystore.EncryptDataV3(
-		marshalledPrivK,
-		[]byte(adulteratedPassword(auth)),
-		scryptParams.N,
-		scryptParams.P,
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt ocr key")
-	}
-	encryptedPrivKeys, err := json.Marshal(&cryptoJSON)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not encode cryptoJSON")
-	}
-	pk := &EncryptedKeyBundle{
-		ID:                          kb.id,
-		OnchainPublicKey:            kb.OnchainKeyring.PublicKey(),
-		OnchainSigningAddress:       kb.OnchainKeyring.SigningAddress(),
-		OffchainSigningPublicKey:    kb.OffchainKeyring.OffchainPublicKey(),
-		OffchainEncryptionPublicKey: make([]byte, ed25519.PublicKeySize),
-		EncryptedPrivateKeys:        encryptedPrivKeys,
-	}
-	configEncryptionPublicKey := kb.OffchainKeyring.ConfigEncryptionPublicKey()
-	copy(pk.OffchainEncryptionPublicKey[:], configEncryptionPublicKey[:])
-	return pk, nil
-}
-
-// Decrypt returns the PrivateKeys in e, decrypted via auth, or an error
-func (ekb *EncryptedKeyBundle) Decrypt(auth string) (*KeyBundle, error) {
-	var cryptoJSON keystore.CryptoJSON
-	err := json.Unmarshal(ekb.EncryptedPrivateKeys, &cryptoJSON)
-	if err != nil {
-		return nil, errors.Wrapf(err, "invalid cryptoJSON for OCR2 key bundle")
-	}
-	marshalledPrivK, err := keystore.DecryptDataV3(cryptoJSON, adulteratedPassword(auth))
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not decrypt OCR2 key bundle")
-	}
-	var pk KeyBundle
-	err = pk.Unmarshal(marshalledPrivK)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not Unmarshal OCR2 key bundle")
-	}
-	return &pk, nil
-}
-
 func (kb *KeyBundle) Marshal() ([]byte, error) {
-	onchainKeyringBytes, err := kb.OnchainKeyring.marshal()
-	if err != nil {
-		return nil, err
-	}
 	offchainKeyringBytes, err := kb.OffchainKeyring.marshal()
 	if err != nil {
 		return nil, err
 	}
 	rawKeyData := KeyBundleRawData{
+		ChainType:       kb.ChainType,
 		OffchainKeyring: offchainKeyringBytes,
-		OnchainKeyring:  onchainKeyringBytes,
+	}
+	switch kb.ChainType {
+	case chaintype.EVM:
+		evmKeyringBytes, err := kb.evmKeyring.marshal()
+		if err != nil {
+			return nil, err
+		}
+		rawKeyData.EVMKeyring = evmKeyringBytes
+	case chaintype.Solana:
+		solanaKeyringBytes, err := kb.solanaKeyring.marshal()
+		if err != nil {
+			return nil, err
+		}
+		rawKeyData.SolanaKeyring = solanaKeyringBytes
+	default:
+		panic(errors.Wrap(chaintype.NewErrInvalidChainType(kb.ChainType), "invariant"))
 	}
 	return json.Marshal(&rawKeyData)
 }
@@ -208,14 +216,25 @@ func (kb *KeyBundle) Unmarshal(b []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	err = kb.OnchainKeyring.unmarshal(rawKeyData.OnchainKeyring)
-	if err != nil {
-		return err
-	}
 	err = kb.OffchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
 	if err != nil {
 		return err
 	}
+	switch rawKeyData.ChainType {
+	case chaintype.EVM:
+		err = kb.evmKeyring.unmarshal(rawKeyData.EVMKeyring)
+		if err != nil {
+			return err
+		}
+	case chaintype.Solana:
+		err = kb.solanaKeyring.unmarshal(rawKeyData.SolanaKeyring)
+		if err != nil {
+			return err
+		}
+	default:
+		panic(errors.Wrap(chaintype.NewErrInvalidChainType(kb.ChainType), "invariant"))
+	}
+	kb.ChainType = rawKeyData.ChainType
 	kb.id = sha256.Sum256(b)
 	return nil
 }
@@ -225,7 +244,7 @@ func (kb KeyBundle) String() string {
 	addressOnChain := kb.PublicKeyAddressOnChain()
 	return fmt.Sprintf(
 		"KeyBundle{PublicKeyAddressOnChain: %s, PublicKeyOffChain: %s}",
-		hex.EncodeToString(addressOnChain[:]),
+		addressOnChain,
 		hex.EncodeToString(kb.PublicKeyOffChain()),
 	)
 }

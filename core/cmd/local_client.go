@@ -106,12 +106,29 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 	}
 
+	solanaKey, didExist, err := app.GetKeyStore().Solana().EnsureKey()
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "failed to ensure solana key"))
+	}
+	if !didExist {
+		lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
+	}
+
 	ocrKey, didExist, err := app.GetKeyStore().OCR().EnsureKey()
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr key"))
 	}
 	if !didExist {
 		lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
+	}
+	ocr2Keys, didKeysExist, err := app.GetKeyStore().OCR2().EnsureKeys()
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr2 keys"))
+	}
+	for chainType, didExist := range didKeysExist {
+		if !didExist {
+			lggr.Infof("Created OCR2 %s key with ID %s", chainType, ocr2Keys[chainType].ID())
+		}
 	}
 	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
 	if err != nil {

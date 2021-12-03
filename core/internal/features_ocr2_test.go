@@ -124,7 +124,7 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 	require.NoError(t, err)
 	b.Commit()
 
-	kb, err := app.GetKeyStore().OCR2().Create()
+	kb, err := app.GetKeyStore().OCR2().Create("evm")
 	require.NoError(t, err)
 	return app, peerID.Raw(), transmitter, kb, config
 }
@@ -159,7 +159,7 @@ func TestIntegration_OCR2(t *testing.T) {
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  kb.OnchainKeyring.SigningAddress().Bytes(),
+				OnchainPublicKey:  kb.PublicKeyAddressOnChainRaw(),
 				TransmitAccount:   ocrtypes2.Account(transmitter.String()),
 				OffchainPublicKey: kb.OffchainKeyring.OffchainPublicKey(),
 				PeerID:            peerID,
