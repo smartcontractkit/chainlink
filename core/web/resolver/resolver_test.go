@@ -35,6 +35,7 @@ type mocks struct {
 	ocr         *keystoreMocks.OCR
 	csa         *keystoreMocks.CSA
 	keystore    *keystoreMocks.Master
+	ethKs       *keystoreMocks.Eth
 	p2p         *keystoreMocks.P2P
 	vrf         *keystoreMocks.VRF
 	chainSet    *evmORMMocks.ChainSet
@@ -83,6 +84,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ocr:         &keystoreMocks.OCR{},
 		csa:         &keystoreMocks.CSA{},
 		keystore:    &keystoreMocks.Master{},
+		ethKs:       &keystoreMocks.Eth{},
 		p2p:         &keystoreMocks.P2P{},
 		vrf:         &keystoreMocks.VRF{},
 		chainSet:    &evmORMMocks.ChainSet{},
@@ -102,6 +104,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.ocr,
 			m.csa,
 			m.keystore,
+			m.ethKs,
 			m.p2p,
 			m.vrf,
 			m.chainSet,

@@ -3,12 +3,14 @@ package resolver
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
@@ -370,4 +372,41 @@ func (r *Resolver) JobRun(ctx context.Context, args struct {
 	}
 
 	return NewJobRunPayload(&jr, r.App, err), nil
+}
+
+func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	ks := r.App.GetKeyStore().Eth()
+
+	var keys []ethkey.KeyV2
+	var err error
+	if r.App.GetConfig().Dev() {
+		keys, err = ks.GetAll()
+	} else {
+		keys, err = ks.SendingKeys()
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
+	}
+
+	states, err := ks.GetStatesForKeys(keys)
+	if err != nil {
+		return nil, fmt.Errorf("error getting key states: %v", err)
+	}
+
+	var ethKeys []ETHKey
+
+	for _, state := range states {
+		k, err := ks.Get(state.Address.Hex())
+		if err != nil {
+			return nil, err
+		}
+
+		ethKeys = append(ethKeys, ETHKey{addr: k.Address, state: state})
+	}
+
+	return NewETHKeysPayload(ethKeys), nil
 }

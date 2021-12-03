@@ -1,0 +1,11 @@
+type EthKey {
+    evmChainID: ID!
+    address: String!
+    isFunding: Boolean!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+type EthKeysPayload {
+    keys: [EthKey!]!
+}
