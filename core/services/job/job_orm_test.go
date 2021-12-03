@@ -464,19 +464,7 @@ func Test_JobsByPipelineSpecIDs(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-
-	externalJobID := uuid.NewV4()
-	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
-		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-			JobID:              externalJobID.String(),
-			TransmitterAddress: address.Hex(),
-			DS1BridgeName:      bridge.Name.String(),
-			DS2BridgeName:      bridge2.Name.String(),
-		}).Toml(),
-	)
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jb)
@@ -493,8 +481,6 @@ func Test_JobsByPipelineSpecIDs(t *testing.T) {
 		require.Greater(t, jbs[0].PipelineSpecID, int32(0))
 		require.Equal(t, jb.PipelineSpecID, jbs[0].PipelineSpecID)
 		require.NotNil(t, jbs[0].PipelineSpec)
-		require.NotNil(t, jbs[0].OffchainreportingOracleSpecID)
-		require.NotNil(t, jbs[0].OffchainreportingOracleSpec)
 	})
 
 	t.Run("without jobs", func(t *testing.T) {
@@ -739,19 +725,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-
-	externalJobID := uuid.NewV4()
-	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
-		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-			JobID:              externalJobID.String(),
-			TransmitterAddress: address.Hex(),
-			DS1BridgeName:      bridge.Name.String(),
-			DS2BridgeName:      bridge2.Name.String(),
-		}).Toml(),
-	)
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jb)
