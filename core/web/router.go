@@ -95,10 +95,20 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	rootSchema := schema.MustGetRootSchema()
 
+	// Disable introspection and set a max query depth in production.
+	schemaOpts := []graphql.SchemaOpt{}
+	if !app.GetConfig().Dev() {
+		schemaOpts = append(schemaOpts,
+			graphql.DisableIntrospection(),
+			graphql.MaxDepth(10),
+		)
+	}
+
 	schema := graphql.MustParseSchema(rootSchema,
 		&resolver.Resolver{
 			App: app,
 		},
+		schemaOpts...,
 	)
 
 	h := relay.Handler{Schema: schema}

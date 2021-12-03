@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
@@ -450,6 +451,103 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"observationTimeoutEnv": false,
 							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
 							"p2pPeerIDEnv": true,
+							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
+							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_OCR2Spec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+	contractAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	require.NoError(t, err)
+
+	transmitterAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	require.NoError(t, err)
+
+	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+
+	p2pPeerID, err := p2pkey.MakePeerID("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
+	require.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "OCR 2 spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
+					Type: job.OffchainReporting2,
+					Offchainreporting2OracleSpec: &job.OffchainReporting2OracleSpec{
+						BlockchainTimeout:                      models.Interval(1 * time.Minute),
+						ContractAddress:                        contractAddress,
+						ContractConfigConfirmations:            1,
+						ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+						ContractConfigTrackerSubscribeInterval: models.Interval(1 * time.Minute),
+						CreatedAt:                              f.Timestamp(),
+						EVMChainID:                             utils.NewBigI(42),
+						IsBootstrapPeer:                        false,
+						JuelsPerFeeCoinPipeline:                "100000000",
+						EncryptedOCRKeyBundleID:                null.StringFrom(keyBundleID.String()),
+						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
+						P2PPeerID:                              &p2pPeerID,
+						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
+						TransmitterAddress:                     &transmitterAddress,
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on OCR2Spec {
+									blockchainTimeout
+									contractAddress
+									contractConfigConfirmations
+									contractConfigTrackerPollInterval
+									contractConfigTrackerSubscribeInterval
+									createdAt
+									evmChainID
+									isBootstrapPeer
+									juelsPerFeeCoinSource
+									keyBundleID
+									monitoringEndpoint
+									p2pPeerID
+									p2pBootstrapPeers
+									transmitterAddress
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "OCR2Spec",
+							"blockchainTimeout": "1m0s",
+							"contractAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"contractConfigConfirmations": 1,
+							"contractConfigTrackerPollInterval": "1m0s",
+							"contractConfigTrackerSubscribeInterval": "1m0s",
+							"createdAt": "2021-01-01T00:00:00Z",
+							"evmChainID": "42",
+							"isBootstrapPeer": false,
+							"juelsPerFeeCoinSource": "100000000",
+							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
+							"monitoringEndpoint": "https://monitor.endpoint",
+							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
