@@ -200,6 +200,7 @@ func TestJob(t *testing.T) {
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
 					EVMChainID:                             evmChainID,
+					OCRDatabaseTimeout:                     models.Interval(2 * time.Second),
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -241,7 +242,8 @@ func TestJob(t *testing.T) {
 							"contractConfigConfirmations": 1,
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z",
-							"evmChainID": "42"
+							"evmChainID": "42",
+							"ocrDatabaseTimeout": "2s"
 						},
 						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,

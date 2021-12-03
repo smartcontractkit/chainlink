@@ -332,6 +332,11 @@ func (r *OCRSpecResolver) EVMChainID() *string {
 	return &chainID
 }
 
+// ContractConfigTrackerPollInterval resolves the spec's database timeout.
+func (r *OCRSpecResolver) OCRDatabaseTimeout() string {
+	return r.spec.OCRDatabaseTimeout.Duration().String()
+}
+
 // IsBootstrapPeer resolves whether spec is a bootstrap peer.
 func (r *OCRSpecResolver) IsBootstrapPeer() bool {
 	return r.spec.IsBootstrapPeer

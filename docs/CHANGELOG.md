@@ -118,6 +118,8 @@ Tasks that support the `evmChainID` parameter are as follows:
 - `estimategaslimit`
 - `ethtx`
 
+For OCR jobs, `ocrDatabaseTimeout` can be specified to override chain-specific default timeout. However, remember that global variable `OCR_DATABASE_TIMEOUT` (if set) overrides chain specific config which, in turn, will override this this job specific parameter.
+
 ###### Defaults
 
 If the job- or task-specific `evmChainID` is _not_ given, the job/task will simply use the default as specified by the `ETH_CHAIN_ID` env variable.

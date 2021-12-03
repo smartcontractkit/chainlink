@@ -272,6 +272,7 @@ declare module 'core/store/models' {
       createdAt: time.Time
       updatedAt: time.Time
       evmChainID: string
+      ocrDatabaseTimeout: string
     }
     cronSpec: null
     webhookSpec: null

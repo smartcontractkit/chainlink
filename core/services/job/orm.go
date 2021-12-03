@@ -486,6 +486,7 @@ type OCRSpecConfig interface {
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
 	OCRObservationTimeout() time.Duration
+	OCRDatabaseTimeout() time.Duration
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	OCRKeyBundleID() (string, error)
 }
@@ -510,6 +511,9 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec
 	if os.ContractConfigConfirmations == 0 {
 		os.ContractConfigConfirmationsEnv = true
 		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
+	}
+	if os.OCRDatabaseTimeout == 0 {
+		os.OCRDatabaseTimeout = models.Interval(cfg.OCRDatabaseTimeout())
 	}
 	return &os
 }

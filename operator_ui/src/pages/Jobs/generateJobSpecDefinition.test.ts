@@ -35,6 +35,7 @@ describe('generateTOMLDefinition', () => {
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
         evmChainID: '42',
+        ocrDatabaseTimeout: '2s'
       },
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -61,6 +62,7 @@ contractConfigTrackerSubscribeInterval = "2m0s"
 contractConfigTrackerPollInterval = "1m0s"
 contractConfigConfirmations = 3
 evmChainID = "42"
+ocrDatabaseTimeout = "2s"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
@@ -82,6 +84,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       schemaVersion: 1,
       type: 'fluxmonitor',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      ocrDatabaseTimeout: null,
       fluxMonitorSpec: {
         absoluteThreshold: 1,
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
@@ -149,6 +152,7 @@ evmChainID = "42"
       schemaVersion: 1,
       type: 'directrequest',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
@@ -199,6 +203,7 @@ evmChainID = "42"
       schemaVersion: 1,
       type: 'keeper',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: {
         contractAddress: '0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba',
@@ -241,6 +246,7 @@ evmChainID = "42"
       type: 'cron',
       fluxMonitorSpec: null,
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      ocrDatabaseTimeout: null,
       keeperSpec: null,
       vrfSpec: null,
       cronSpec: {
@@ -283,6 +289,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       schemaVersion: 1,
       type: 'webhook',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: null,
       vrfSpec: null,
@@ -323,6 +330,7 @@ observationSource = """
       schemaVersion: 1,
       type: 'vrf',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
@@ -400,6 +408,7 @@ evmChainID = "42"
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
         evmChainID: '42',
+        ocrDatabaseTimeout: '2s',
       },
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -422,6 +431,7 @@ monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 contractConfigConfirmations = 3
 evmChainID = "42"
+ocrDatabaseTimeout = "2s"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
