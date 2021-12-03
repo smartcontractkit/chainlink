@@ -46,7 +46,6 @@ type (
 
 	Config interface {
 		BridgeResponseURL() *url.URL
-		DatabaseMaximumTxDuration() time.Duration
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
