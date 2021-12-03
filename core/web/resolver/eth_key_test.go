@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -48,8 +47,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 	keysError := fmt.Errorf("error getting unlocked keys: %v", gError)
 	statesError := fmt.Errorf("error getting key states: %v", gError)
 	chainError := fmt.Errorf("error getting EVM Chain: %v", gError)
-	ethBalError := fmt.Errorf("error calling getEthBalance on Ethereum node: %v", gError)
-	linkBalError := fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", gError)
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "ethKeys"),
@@ -74,9 +71,10 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
-				f.Mocks.ethClient.On("BalanceAt", mock.Anything, address.Address(), (*big.Int)(nil)).Return(big.NewInt(1), nil)
 				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address.Address()).Return(assets.NewLinkFromJuels(12), nil)
+				f.Mocks.balM.On("GetEthBalance", address.Address()).Return(assets.NewEth(1))
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
+				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
@@ -133,10 +131,11 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
-				f.Mocks.ethClient.On("BalanceAt", mock.Anything, address.Address(), (*big.Int)(nil)).Return(big.NewInt(1), nil)
 				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address.Address()).Return(assets.NewLinkFromJuels(12), nil)
 				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
+				f.Mocks.balM.On("GetEthBalance", address.Address()).Return(assets.NewEth(1))
+				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
@@ -210,9 +209,9 @@ func TestResolver_ETHKeys(t *testing.T) {
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,
-								"ethBalance": "0",
-								"linkBalance": "0",
-								"maxGasPriceWei": "0",
+								"ethBalance": null,
+								"linkBalance": null,
+								"maxGasPriceWei": null,
 								"createdAt": "2021-01-01T00:00:00Z",
 								"updatedAt": "2021-01-01T00:00:00Z",
 								"chain": {
@@ -356,43 +355,6 @@ func TestResolver_ETHKeys(t *testing.T) {
 			},
 		},
 		{
-			name:          "generic error on BalanceAt()",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				states := []ethkey.State{
-					{
-						Address:    address,
-						EVMChainID: *utils.NewBigI(12),
-						IsFunding:  false,
-						CreatedAt:  f.Timestamp(),
-						UpdatedAt:  f.Timestamp(),
-					},
-				}
-
-				f.Mocks.cfg.On("Dev").Return(false)
-				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
-				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
-				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(ethkey.KeyV2{}, nil)
-				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
-				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
-				f.Mocks.ethClient.On("BalanceAt", mock.Anything, address.Address(), (*big.Int)(nil)).Return(big.NewInt(1), gError)
-				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
-				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
-			},
-			query:  query,
-			result: `null`,
-			errors: []*gqlerrors.QueryError{
-				{
-					Extensions:    nil,
-					ResolverError: ethBalError,
-					Path:          []interface{}{"ethKeys"},
-					Message:       ethBalError.Error(),
-				},
-			},
-		},
-		{
 			name:          "generic error on GetLINKBalance()",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
@@ -405,33 +367,52 @@ func TestResolver_ETHKeys(t *testing.T) {
 						UpdatedAt:  f.Timestamp(),
 					},
 				}
+				chainID := *utils.NewBigI(12)
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
-				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(ethkey.KeyV2{}, nil)
+				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address.Address()).Return(assets.NewLinkFromJuels(12), gError)
 				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
-				f.Mocks.ethClient.On("BalanceAt", mock.Anything, address.Address(), (*big.Int)(nil)).Return(big.NewInt(1), nil)
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
+				f.Mocks.balM.On("GetEthBalance", address.Address()).Return(assets.NewEth(1))
+				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
+				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
+					{
+						ID: chainID,
+					},
+				}, nil)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
-			query:  query,
-			result: `null`,
-			errors: []*gqlerrors.QueryError{
+			query: query,
+			result: `
 				{
-					Extensions:    nil,
-					ResolverError: linkBalError,
-					Path:          []interface{}{"ethKeys"},
-					Message:       linkBalError.Error(),
-				},
-			},
+					"ethKeys": {
+						"keys": [
+							{
+								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
+								"isFunding": false,
+								"ethBalance": "0.000000000000000001",
+								"linkBalance": null,
+								"maxGasPriceWei": "1",
+								"createdAt": "2021-01-01T00:00:00Z",
+								"updatedAt": "2021-01-01T00:00:00Z",
+								"chain": {
+									"id": "12"
+								}
+							}
+						]
+					}
+				}`,
 		},
 	}
 

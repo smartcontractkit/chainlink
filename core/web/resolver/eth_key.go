@@ -2,21 +2,19 @@ package resolver
 
 import (
 	"context"
-	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 type ETHKey struct {
-	state     ethkey.State
-	addr      ethkey.EIP55Address
-	ethBal    *assets.Eth
-	linkBal   *assets.Link
-	maxGPrice *big.Int
+	state ethkey.State
+	addr  ethkey.EIP55Address
+	chain evm.Chain
 }
 
 type ETHKeyResolver struct {
@@ -54,28 +52,54 @@ func (r *ETHKeyResolver) IsFunding() bool {
 	return r.key.state.IsFunding
 }
 
-func (r *ETHKeyResolver) ETHBalance() string {
-	if r.key.ethBal != nil {
-		return r.key.ethBal.String()
+func (r *ETHKeyResolver) ETHBalance() *string {
+	if r.key.chain == nil {
+		return nil
 	}
 
-	return "0"
+	balance := r.key.chain.BalanceMonitor().GetEthBalance(r.key.state.Address.Address())
+
+	if balance != nil {
+		val := balance.String()
+		return &val
+	}
+
+	return nil
 }
 
-func (r *ETHKeyResolver) LINKBalance() string {
-	if r.key.linkBal != nil {
-		return r.key.linkBal.String()
+func (r *ETHKeyResolver) LINKBalance() *string {
+	if r.key.chain == nil {
+		return nil
 	}
 
-	return "0"
+	client := r.key.chain.Client()
+	addr := common.HexToAddress(r.key.chain.Config().LinkContractAddress())
+	balance, err := client.GetLINKBalance(addr, r.key.state.Address.Address())
+	if err != nil {
+		return nil
+	}
+
+	if balance != nil {
+		val := balance.String()
+		return &val
+	}
+
+	return nil
 }
 
-func (r *ETHKeyResolver) MaxGasPriceWei() string {
-	if r.key.maxGPrice != nil {
-		return r.key.maxGPrice.String()
+func (r *ETHKeyResolver) MaxGasPriceWei() *string {
+	if r.key.chain == nil {
+		return nil
 	}
 
-	return "0"
+	gasPrice := r.key.chain.Config().KeySpecificMaxGasPriceWei(r.key.addr.Address())
+
+	if gasPrice != nil {
+		val := gasPrice.String()
+		return &val
+	}
+
+	return nil
 }
 
 func (r *ETHKeyResolver) CreatedAt() graphql.Time {

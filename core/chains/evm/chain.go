@@ -37,6 +37,7 @@ type Chain interface {
 	TxManager() bulletprooftxmanager.TxManager
 	HeadTracker() httypes.Tracker
 	Logger() logger.Logger
+	BalanceMonitor() services.BalanceMonitor
 }
 
 var _ Chain = &chain{}
@@ -282,6 +283,7 @@ func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadc
 func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
 func (c *chain) HeadTracker() httypes.Tracker              { return c.headTracker }
 func (c *chain) Logger() logger.Logger                     { return c.logger }
+func (c *chain) BalanceMonitor() services.BalanceMonitor   { return c.balanceMonitor }
 
 var ErrNoPrimaryNode = errors.New("no primary node found")
 

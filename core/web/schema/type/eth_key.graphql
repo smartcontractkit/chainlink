@@ -4,9 +4,9 @@ type EthKey {
     createdAt: Time!
     updatedAt: Time!
     chain: Chain!
-    ethBalance: String!
-    linkBalance: String!
-    maxGasPriceWei: String!
+    ethBalance: String
+    linkBalance: String
+    maxGasPriceWei: String
 }
 
 type EthKeysPayload {
