@@ -403,7 +403,7 @@ func (r *OCR2SpecResolver) BlockchainTimeout() string {
 
 // ContractAddress resolves the spec's contract address.
 func (r *OCR2SpecResolver) ContractAddress() string {
-	return r.spec.ContractAddress.String()
+	return r.spec.ContractID.String
 }
 
 // ContractConfigConfirmations resolves the spec's confirmations config.
@@ -428,17 +428,6 @@ func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
-// EVMChainID resolves the spec's evm chain id.
-func (r *OCR2SpecResolver) EVMChainID() *string {
-	if r.spec.EVMChainID == nil {
-		return nil
-	}
-
-	chainID := r.spec.EVMChainID.String()
-
-	return &chainID
-}
-
 // IsBootstrapPeer resolves whether spec is a bootstrap peer.
 func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
 	return r.spec.IsBootstrapPeer
@@ -451,11 +440,11 @@ func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() string {
 
 // KeyBundleID resolves the spec's key bundle id.
 func (r *OCR2SpecResolver) KeyBundleID() *string {
-	if !r.spec.EncryptedOCRKeyBundleID.Valid {
+	if !r.spec.OCRKeyBundleID.Valid {
 		return nil
 	}
 
-	return &r.spec.EncryptedOCRKeyBundleID.String
+	return &r.spec.OCRKeyBundleID.String
 }
 
 // MonitoringEndpoint resolves the spec's monitoring endpoint
@@ -477,13 +466,13 @@ func (r *OCR2SpecResolver) P2PBootstrapPeers() []string {
 	return r.spec.P2PBootstrapPeers
 }
 
-// TransmitterAddress resolves the spec's transmitter address
-func (r *OCR2SpecResolver) TransmitterAddress() *string {
-	if r.spec.TransmitterAddress == nil {
+// TransmitterAddress resolves the spec's transmitter id
+func (r *OCR2SpecResolver) TransmitterID() *string {
+	if !r.spec.TransmitterID.Valid {
 		return nil
 	}
 
-	addr := r.spec.TransmitterAddress.String()
+	addr := r.spec.TransmitterID.String
 	return &addr
 }
 

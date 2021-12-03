@@ -71,10 +71,9 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		return nil, errors.New("unsuccessful cast to 'job.OffchainReporting2OracleSpec'")
 	}
 
-	choice := relay.Network(spec.Relay)
+	choice := spec.Relay
 	switch choice {
 	case relay.Ethereum:
-		// Notice: we don't use the 'spec.RelayConfig' ATM for 'relay.Ethereum'
 		var config ethereum.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
@@ -112,15 +111,14 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		}
 
 		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
-			ID:          spec.ID,
-			IsBootstrap: spec.IsBootstrapPeer,
-			//ChainID:            spec.EVMChainID, // TODO: from jobSpec or config?
+			ID:              spec.ID,
+			IsBootstrap:     spec.IsBootstrapPeer,
 			NodeEndpointRPC: config.NodeEndpointRPC,
 			NodeEndpointWS:  config.NodeEndpointWS,
 			ProgramID:       programID,
 			StateID:         stateID,
 			TransmissionsID: transmissionsID,
-			// Transmitter: TODO: solana.PrivateKey (?)
+			// Transmitter: TODO: get solana.PrivateKey from keystore using spec specified transmitterID
 			KeyBundleID: spec.OCRKeyBundleID,
 		})
 	default:

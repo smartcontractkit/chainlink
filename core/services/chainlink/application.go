@@ -299,7 +299,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		// master/delegate relay is started once, on app start, as root subservice
 		// TODO [relay]: move relayers creation outside OCR2 context (relayers will be multi-protocol)
 		relay := delegate.NewRelayer(relay.Config{
-			Db:       db,
+			DB:       db,
 			Keystore: keyStore,
 			ChainSet: chainSet,
 			Lggr:     globalLogger,

@@ -42,7 +42,7 @@ type relayer struct {
 
 func NewRelayer(config relay.Config) *relayer {
 	return &relayer{
-		db:       config.Db,
+		db:       config.DB,
 		keystore: config.Keystore,
 		chainSet: config.ChainSet,
 		lggr:     config.Lggr,

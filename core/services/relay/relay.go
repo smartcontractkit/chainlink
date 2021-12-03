@@ -39,7 +39,7 @@ type OCR2Provider interface {
 }
 
 type Config struct {
-	Db       *sqlx.DB
+	DB       *sqlx.DB
 	Keystore keystore.Master
 	ChainSet evm.ChainSet
 	Lggr     logger.Logger

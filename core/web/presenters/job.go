@@ -3,6 +3,8 @@ package presenters
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/lib/pq"
@@ -168,12 +170,14 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
-	ContractAddress                        null.String     `json:"contractAddress"`
+	ContractID                             null.String     `json:"contractID"`
+	Relay                                  relay.Network   `json:"relay"`
+	RelayConfig                            models.JSON     `json:"relayConfig"`
 	P2PPeerID                              *p2pkey.PeerID  `json:"p2pPeerID"`
 	P2PBootstrapPeers                      pq.StringArray  `json:"p2pBootstrapPeers"`
 	IsBootstrapPeer                        bool            `json:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                null.String     `json:"keyBundleID"`
-	TransmitterAddress                     null.String     `json:"transmitterAddress"`
+	OCRKeyBundleID                         null.String     `json:"ocrKeyBundleID"`
+	TransmitterID                          null.String     `json:"transmitterID"`
 	ObservationTimeout                     models.Interval `json:"observationTimeout"`
 	BlockchainTimeout                      models.Interval `json:"blockchainTimeout"`
 	ContractConfigTrackerSubscribeInterval models.Interval `json:"contractConfigTrackerSubscribeInterval"`
@@ -187,12 +191,14 @@ type OffChainReporting2Spec struct {
 // job.OffchainReporting2OracleSpec
 func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChainReporting2Spec {
 	return &OffChainReporting2Spec{
-		ContractAddress:                        spec.ContractID,
+		ContractID:                             spec.ContractID,
+		Relay:                                  spec.Relay,
+		RelayConfig:                            spec.RelayConfig,
 		P2PPeerID:                              spec.P2PPeerID,
 		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
 		IsBootstrapPeer:                        spec.IsBootstrapPeer,
-		EncryptedOCRKeyBundleID:                spec.OCRKeyBundleID,
-		TransmitterAddress:                     spec.TransmitterID,
+		OCRKeyBundleID:                         spec.OCRKeyBundleID,
+		TransmitterID:                          spec.TransmitterID,
 		BlockchainTimeout:                      spec.BlockchainTimeout,
 		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval,
 		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval,
