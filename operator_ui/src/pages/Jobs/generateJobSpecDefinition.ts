@@ -190,7 +190,8 @@ function generateDirectRequestDefinition(
 function generateKeeperDefinition(
   attrs: ApiResponse<KeeperJob>['data']['attributes'],
 ): GeneratedTOMLDefinition {
-  const { keeperSpec, name, schemaVersion, type, externalJobID } = attrs
+  const { keeperSpec, pipelineSpec, name, schemaVersion, type, externalJobID } =
+    attrs
   const { contractAddress, fromAddress, evmChainID } = keeperSpec
 
   const definition = stringifyJobSpec({
@@ -202,6 +203,7 @@ function generateKeeperDefinition(
       fromAddress,
       externalJobID,
       evmChainID,
+      observationSource: pipelineSpec.dotDagSource,
     },
   })
 
