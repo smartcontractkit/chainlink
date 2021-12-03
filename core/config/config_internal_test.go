@@ -22,6 +22,33 @@ func TestGeneralConfig_Defaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 }
 
+func TestGeneralConfig_GlobalOCRDatabaseTimeout(t *testing.T) {
+	t.Setenv(EnvVarName("OCRDatabaseTimeout"), "3s")
+	config := NewGeneralConfig()
+
+	timeout, ok := config.GlobalOCRDatabaseTimeout()
+	require.True(t, ok)
+	require.Equal(t, 3*time.Second, timeout)
+}
+
+func TestGeneralConfig_GlobalOCRObservationGracePeriod(t *testing.T) {
+	t.Setenv(EnvVarName("OCRObservationGracePeriod"), "3s")
+	config := NewGeneralConfig()
+
+	timeout, ok := config.GlobalOCRObservationGracePeriod()
+	require.True(t, ok)
+	require.Equal(t, 3*time.Second, timeout)
+}
+
+func TestGeneralConfig_GlobalOCRContractTransmitterTransmitTimeout(t *testing.T) {
+	t.Setenv(EnvVarName("OCRContractTransmitterTransmitTimeout"), "3s")
+	config := NewGeneralConfig()
+
+	timeout, ok := config.GlobalOCRContractTransmitterTransmitTimeout()
+	require.True(t, ok)
+	require.Equal(t, 3*time.Second, timeout)
+}
+
 func TestGeneralConfig_sessionSecret(t *testing.T) {
 	t.Parallel()
 	config := NewGeneralConfig()

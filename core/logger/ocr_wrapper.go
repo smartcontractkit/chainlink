@@ -1,7 +1,7 @@
 package logger
 
 import (
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 var _ ocrtypes.Logger = &ocrWrapper{}
@@ -46,6 +46,10 @@ func (ol *ocrWrapper) Warn(msg string, fields ocrtypes.LogFields) {
 func (ol *ocrWrapper) Error(msg string, fields ocrtypes.LogFields) {
 	ol.saveError(msg)
 	ol.internal.Errorw(msg, toKeysAndValues(fields)...)
+}
+
+func (ol *ocrWrapper) Critical(msg string, fields ocrtypes.LogFields) {
+	ol.internal.CriticalW(msg, toKeysAndValues(fields)...)
 }
 
 func toKeysAndValues(fields ocrtypes.LogFields) []interface{} {

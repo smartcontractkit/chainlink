@@ -98,11 +98,11 @@ func (_m *ORM) DeleteJob(id int32, qopts ...pg.QOpt) error {
 }
 
 // DismissError provides a mock function with given fields: ctx, errorID
-func (_m *ORM) DismissError(ctx context.Context, errorID int32) error {
+func (_m *ORM) DismissError(ctx context.Context, errorID int64) error {
 	ret := _m.Called(ctx, errorID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
 		r0 = rf(ctx, errorID)
 	} else {
 		r0 = ret.Error(0)
@@ -273,6 +273,34 @@ func (_m *ORM) FindPipelineRunsByIDs(ids []int64) ([]pipeline.Run, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func([]int64) error); ok {
 		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindSpecError provides a mock function with given fields: id, qopts
+func (_m *ORM) FindSpecError(id int64, qopts ...pg.QOpt) (job.SpecError, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 job.SpecError
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) job.SpecError); ok {
+		r0 = rf(id, qopts...)
+	} else {
+		r0 = ret.Get(0).(job.SpecError)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, ...pg.QOpt) error); ok {
+		r1 = rf(id, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

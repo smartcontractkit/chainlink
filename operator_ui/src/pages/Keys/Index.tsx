@@ -7,10 +7,10 @@ import Content from 'components/Content'
 import { CSAKeys } from 'src/screens/KeyManagement/CSAKeys'
 import { OCRKeys } from 'src/screens/KeyManagement/OCRKeys'
 import { P2PKeys } from 'src/screens/KeyManagement/P2PKeys'
-import { Feature, useFeature } from 'src/hooks/useFeatureFlag'
+import { Feature, useFeatureFlag } from 'src/hooks/useFeatureFlag'
 
 export const KeysIndex = () => {
-  const isCSAKeysFeatureEnabled = useFeature(Feature.CSA)
+  const isCSAKeysFeatureEnabled = useFeatureFlag(Feature.CSA)
 
   return (
     <Content>
