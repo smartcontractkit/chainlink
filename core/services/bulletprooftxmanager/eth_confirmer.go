@@ -173,11 +173,7 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h, is := head.(*eth.Head)
-				if !is {
-					ec.lggr.Errorf("Invariant violation, expected %T but got %T", eth.Head{}, head)
-					continue
-				}
+				h := eth.AsHead(head)
 				if err := ec.ProcessHead(ec.ctx, h); err != nil {
 					ec.lggr.Errorw("Error processing head", "err", err)
 					continue

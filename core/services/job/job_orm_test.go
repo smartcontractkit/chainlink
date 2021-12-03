@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -34,7 +35,8 @@ func TestORM(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 
@@ -129,6 +131,39 @@ func TestORM(t *testing.T) {
 		require.Len(t, jobSpecErrors, 2)
 	})
 
+	t.Run("finds job spec error by ID", func(t *testing.T) {
+		jb3 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
+		err := orm.CreateJob(jb3)
+		require.NoError(t, err)
+		var jobSpec job.Job
+		err = db.Get(&jobSpec, "SELECT * FROM jobs")
+		require.NoError(t, err)
+
+		var specErrors []job.SpecError
+		err = db.Select(&specErrors, "SELECT * FROM job_spec_errors")
+		require.NoError(t, err)
+		require.Len(t, specErrors, 2)
+
+		ocrSpecError1 := "ocr spec 3 errored"
+		ocrSpecError2 := "ocr spec 4 errored"
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError2))
+
+		expected1ID := specErrors[1].ID + 1
+		expected2ID := specErrors[1].ID + 2
+		specErr1, err := orm.FindSpecError(expected1ID)
+		require.NoError(t, err)
+		specErr2, err := orm.FindSpecError(expected2ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, specErr1.ID, expected1ID)
+		assert.Equal(t, specErr2.ID, expected2ID)
+		assert.Equal(t, specErr1.Occurrences, uint(1))
+		assert.Equal(t, specErr2.Occurrences, uint(1))
+		assert.Equal(t, specErr1.Description, ocrSpecError1)
+		assert.Equal(t, specErr2.Description, ocrSpecError2)
+	})
+
 	t.Run("creates a job with a direct request spec", func(t *testing.T) {
 		tree, err := toml.LoadFile("../../testdata/tomlspecs/direct-request-spec.toml")
 		require.NoError(t, err)
@@ -162,7 +197,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -290,13 +326,80 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
+func Test_FindJobs(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb1, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              uuid.NewV4().String(),
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb1)
+	require.NoError(t, err)
+
+	jb2, err := directrequest.ValidatedDirectRequestSpec(
+		testspecs.DirectRequestSpec,
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb2)
+	require.NoError(t, err)
+
+	t.Run("jobs are ordered by latest first", func(t *testing.T) {
+		jobs, count, err := orm.FindJobs(0, 2)
+		require.NoError(t, err)
+		require.Len(t, jobs, 2)
+		assert.Equal(t, count, 2)
+
+		expectedJobs := []job.Job{jb2, jb1}
+
+		for i, exp := range expectedJobs {
+			assert.Equal(t, exp.ID, jobs[i].ID)
+		}
+	})
+
+	t.Run("jobs respect pagination", func(t *testing.T) {
+		jobs, count, err := orm.FindJobs(0, 1)
+		require.NoError(t, err)
+		require.Len(t, jobs, 1)
+		assert.Equal(t, count, 2)
+
+		expectedJobs := []job.Job{jb2}
+
+		for i, exp := range expectedJobs {
+			assert.Equal(t, exp.ID, jobs[i].ID)
+		}
+	})
+
+}
+
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -349,13 +452,52 @@ func Test_FindJob(t *testing.T) {
 	})
 }
 
-func Test_FindPipelineRuns(t *testing.T) {
+func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	t.Parallel()
 
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+
+	t.Run("with jobs", func(t *testing.T) {
+		jbs, err := orm.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
+		require.NoError(t, err)
+		assert.Len(t, jbs, 1)
+
+		assert.Equal(t, jb.ID, jbs[0].ID)
+		assert.Equal(t, jb.Name, jbs[0].Name)
+
+		require.Greater(t, jbs[0].PipelineSpecID, int32(0))
+		require.Equal(t, jb.PipelineSpecID, jbs[0].PipelineSpecID)
+		require.NotNil(t, jbs[0].PipelineSpec)
+	})
+
+	t.Run("without jobs", func(t *testing.T) {
+		jbs, err := orm.FindJobsByPipelineSpecIDs([]int32{-1})
+		require.NoError(t, err)
+		assert.Len(t, jbs, 0)
+	})
+}
+
+func Test_FindPipelineRuns(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -414,6 +556,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 
 	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -470,7 +613,8 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -518,7 +662,8 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -566,6 +711,49 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	})
 }
 
+func Test_FindPipelineRunByID(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db, config)
+	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, err)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+
+	t.Run("with no pipeline run", func(t *testing.T) {
+		run, err := orm.FindPipelineRunByID(-1)
+		assert.Equal(t, run, pipeline.Run{})
+		require.ErrorIs(t, err, sql.ErrNoRows)
+	})
+
+	t.Run("with a pipeline run", func(t *testing.T) {
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
+
+		actual, err := orm.FindPipelineRunByID(run.ID)
+		require.NoError(t, err)
+
+		actualRun := actual
+		// Test pipeline run fields
+		assert.Equal(t, run.State, actualRun.State)
+		assert.Equal(t, run.PipelineSpecID, actualRun.PipelineSpecID)
+
+		// Test preloaded pipeline spec
+		assert.Equal(t, jb.PipelineSpec.ID, actualRun.PipelineSpec.ID)
+		assert.Equal(t, jb.ID, actualRun.PipelineSpec.JobID)
+	})
+}
+
 func Test_CountPipelineRunsByJobID(t *testing.T) {
 	t.Parallel()
 
@@ -573,7 +761,8 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})

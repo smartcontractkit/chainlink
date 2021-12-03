@@ -345,5 +345,29 @@ func (r *Resolver) JobsRuns(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewJobRunsPayload(runs, int32(count)), nil
+	return NewJobRunsPayload(runs, int32(count), r.App), nil
+}
+
+func (r *Resolver) JobRun(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*JobRunPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	jr, err := r.App.JobORM().FindPipelineRunByID(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewJobRunPayload(nil, r.App, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewJobRunPayload(&jr, r.App, err), nil
 }
