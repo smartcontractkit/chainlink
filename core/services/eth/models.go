@@ -43,6 +43,14 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 	}
 }
 
+func AsHead(i interface{}) *Head {
+	head, ok := i.(*Head)
+	if !ok {
+		panic(fmt.Sprintf("invariant violation: expected `*eth.Head`, got %T", i))
+	}
+	return head
+}
+
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() *Head {
 	for h.Parent != nil {
