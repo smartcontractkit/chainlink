@@ -3,7 +3,6 @@ package relay
 import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -35,7 +34,6 @@ type OCR2Provider interface {
 	OffchainConfigDigester() types.OffchainConfigDigester
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
-	OCRConfig() config.OCR2Config
 }
 
 type Config struct {

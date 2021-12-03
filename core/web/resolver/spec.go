@@ -402,7 +402,7 @@ func (r *OCR2SpecResolver) BlockchainTimeout() string {
 }
 
 // ContractAddress resolves the spec's contract address.
-func (r *OCR2SpecResolver) ContractAddress() string {
+func (r *OCR2SpecResolver) ContractID() string {
 	return r.spec.ContractID.String
 }
 
@@ -439,7 +439,7 @@ func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() string {
 }
 
 // KeyBundleID resolves the spec's key bundle id.
-func (r *OCR2SpecResolver) KeyBundleID() *string {
+func (r *OCR2SpecResolver) OcrKeyBundleID() *string {
 	if !r.spec.OCRKeyBundleID.Valid {
 		return nil
 	}

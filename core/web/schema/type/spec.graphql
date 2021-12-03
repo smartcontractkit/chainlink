@@ -70,19 +70,18 @@ type OCRSpec {
 
 type OCR2Spec {
     blockchainTimeout: String!
-    contractAddress: String!
+    contractID: String!
     contractConfigConfirmations: Int!
     contractConfigTrackerPollInterval: String!
     contractConfigTrackerSubscribeInterval: String!
     createdAt: Time!
-    evmChainID: String
     isBootstrapPeer: Boolean!
     juelsPerFeeCoinSource: String!
-    keyBundleID: String
+    ocrKeyBundleID: String
     monitoringEndpoint: String
     p2pPeerID: String!
     p2pBootstrapPeers: [String!]!
-    transmitterAddress: String
+    transmitterID: String
 }
 
 type VRFSpec {

@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -136,7 +135,6 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		return &ocr2Provider{
 			tracker:                tracker,
 			offchainConfigDigester: offchainConfigDigester,
-			config:                 chain.Config(),
 		}, nil
 	}
 
@@ -183,7 +181,6 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		reportCodec:            reportCodec,
 		contractTransmitter:    contractTransmitter,
 		keyBundle:              kb,
-		config:                 chain.Config(),
 	}, nil
 }
 
@@ -195,7 +192,6 @@ type ocr2Provider struct {
 	reportCodec            median.ReportCodec
 	contractTransmitter    *ocr2.OCRContractTransmitter
 	keyBundle              ocr2key.KeyBundle
-	config                 config.OCR2Config
 }
 
 // On start, an ethereum ocr2 provider will start the contract tracker.
@@ -244,8 +240,4 @@ func (p ocr2Provider) ReportCodec() median.ReportCodec {
 
 func (p ocr2Provider) MedianContract() median.MedianContract {
 	return p.contractTransmitter
-}
-
-func (p ocr2Provider) OCRConfig() config.OCR2Config {
-	return p.config
 }
