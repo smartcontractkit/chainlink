@@ -257,7 +257,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)}
 		job3 := job.Job{ID: int32(4), PipelineSpecID: int32(3)}
 
-		jobsORM.On("JobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{
+		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{
 			job1, job2, job3,
 		}, nil)
 		app.On("JobORM").Return(jobsORM)
@@ -284,7 +284,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 			mock.AssertExpectationsForObjects(t, app, jobsORM)
 		})
 
-		jobsORM.On("JobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
+		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
 
 		batcher := jobBatcher{app}

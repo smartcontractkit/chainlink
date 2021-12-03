@@ -28,7 +28,7 @@ func (b *jobBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader.Ke
 	}
 
 	// Fetch the jobs
-	jobs, err := b.app.JobORM().JobsByPipelineSpecIDs(plSpecIDs)
+	jobs, err := b.app.JobORM().FindJobsByPipelineSpecIDs(plSpecIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

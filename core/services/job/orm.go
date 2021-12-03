@@ -56,7 +56,7 @@ type ORM interface {
 	FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error)
 	CountPipelineRunsByJobID(jobID int32) (count int32, err error)
 
-	JobsByPipelineSpecIDs(ids []int32) ([]Job, error)
+	FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error)
 	FindPipelineRunByID(id int64) (pipeline.Run, error)
 }
 
@@ -742,7 +742,7 @@ WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS W
 	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
-func (o *orm) JobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
+func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 	var jbs []Job
 
 	err := o.q.Transaction(func(tx pg.Queryer) error {
@@ -766,7 +766,7 @@ func (o *orm) JobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 		return nil
 	})
 
-	return jbs, errors.Wrap(err, "JobsByPipelineSpecIDs failed")
+	return jbs, errors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first

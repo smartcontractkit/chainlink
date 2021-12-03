@@ -452,7 +452,7 @@ func Test_FindJob(t *testing.T) {
 	})
 }
 
-func Test_JobsByPipelineSpecIDs(t *testing.T) {
+func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	t.Parallel()
 
 	config := cltest.NewTestGeneralConfig(t)
@@ -471,7 +471,7 @@ func Test_JobsByPipelineSpecIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with jobs", func(t *testing.T) {
-		jbs, err := orm.JobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
+		jbs, err := orm.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
 		require.NoError(t, err)
 		assert.Len(t, jbs, 1)
 
@@ -484,7 +484,7 @@ func Test_JobsByPipelineSpecIDs(t *testing.T) {
 	})
 
 	t.Run("without jobs", func(t *testing.T) {
-		jbs, err := orm.JobsByPipelineSpecIDs([]int32{-1})
+		jbs, err := orm.FindJobsByPipelineSpecIDs([]int32{-1})
 		require.NoError(t, err)
 		assert.Len(t, jbs, 0)
 	})

@@ -234,6 +234,29 @@ func (_m *ORM) FindJobs(offset int, limit int) ([]job.Job, int, error) {
 	return r0, r1, r2
 }
 
+// FindJobsByPipelineSpecIDs provides a mock function with given fields: ids
+func (_m *ORM) FindJobsByPipelineSpecIDs(ids []int32) ([]job.Job, error) {
+	ret := _m.Called(ids)
+
+	var r0 []job.Job
+	if rf, ok := ret.Get(0).(func([]int32) []job.Job); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]job.Job)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int32) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindPipelineRunByID provides a mock function with given fields: id
 func (_m *ORM) FindPipelineRunByID(id int64) (pipeline.Run, error) {
 	ret := _m.Called(id)
@@ -369,29 +392,6 @@ func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...pg.QOpt)
 	}
 
 	return r0
-}
-
-// JobsByPipelineSpecIDs provides a mock function with given fields: ids
-func (_m *ORM) JobsByPipelineSpecIDs(ids []int32) ([]job.Job, error) {
-	ret := _m.Called(ids)
-
-	var r0 []job.Job
-	if rf, ok := ret.Get(0).(func([]int32) []job.Job); ok {
-		r0 = rf(ids)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]job.Job)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func([]int32) error); ok {
-		r1 = rf(ids)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }
 
 // PipelineRuns provides a mock function with given fields: jobID, offset, size

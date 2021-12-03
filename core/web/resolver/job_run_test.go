@@ -114,7 +114,7 @@ func TestResolver_JobRun(t *testing.T) {
 					ID:             2,
 					PipelineSpecID: 5,
 				}, nil)
-				f.Mocks.jobORM.On("JobsByPipelineSpecIDs", []int32{5}).Return([]job.Job{
+				f.Mocks.jobORM.On("FindJobsByPipelineSpecIDs", []int32{5}).Return([]job.Job{
 					{
 						ID:             1,
 						PipelineSpecID: 2,
