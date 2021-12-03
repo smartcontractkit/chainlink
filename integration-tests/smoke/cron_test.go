@@ -1,4 +1,3 @@
-//go:build smoke
 package smoke
 
 import (
@@ -11,6 +10,7 @@ import (
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
+	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
 var _ = Describe("Cronjob suite @cron", func() {
@@ -77,7 +77,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nil, "../")
+			err = actions.TeardownSuite(e, nil, utils.ProjectRoot)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

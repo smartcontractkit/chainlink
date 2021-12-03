@@ -298,8 +298,8 @@ require (
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shirou/gopsutil v3.21.10+incompatible // indirect
-	github.com/smartcontractkit/helmenv v1.0.16
-	github.com/smartcontractkit/integrations-framework v0.0.29
+	github.com/smartcontractkit/helmenv v1.0.17
+	github.com/smartcontractkit/integrations-framework v0.0.32
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.6.0 // indirect

@@ -1,22 +1,24 @@
-//go:build smoke
 package smoke
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/helmenv/environment"
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
+	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
-var _ = Describe("Keeper suite @keeper", func() {
+var _ = FDescribe("Keeper suite @keeper", func() {
 	var (
 		err           error
 		nets          *client.Networks
@@ -55,7 +57,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 		})
 
 		By("Funding Chainlink nodes", func() {
-			txCost, err := nets.Default.EstimateCostForChainlinkOperations(10)
+			txCost, err := nets.Default.EstimateCostForChainlinkOperations(1000)
 			Expect(err).ShouldNot(HaveOccurred())
 			err = actions.FundChainlinkNodes(cls, nets.Default, txCost)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -144,10 +146,14 @@ var _ = Describe("Keeper suite @keeper", func() {
 			}
 			err = registry.SetKeepers(nodeAddressesStr, payees)
 			Expect(err).ShouldNot(HaveOccurred())
-			_, err = cls[0].CreateJob(&client.KeeperJobSpec{
-				Name:            "keeper",
-				ContractAddress: registry.Address(),
-				FromAddress:     na,
+			jobUUID := uuid.NewV4()
+			_, err = cls[0].CreateJob(&client.KeeperV2JobSpec{
+				Name:                     fmt.Sprintf("keeper-%s", jobUUID.String()),
+				ContractAddress:          registry.Address(),
+				FromAddress:              na,
+				MinIncomingConfirmations: 1,
+				ExternalJobID:            jobUUID.String(),
+				ObservationSource:        client.ObservationSourceKeeperDefault(),
 			})
 			Expect(err).ShouldNot(HaveOccurred())
 			err = nets.Default.WaitForEvents()
@@ -171,7 +177,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 			nets.Default.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nets, "../")
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

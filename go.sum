@@ -2039,10 +2039,10 @@ github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
-github.com/smartcontractkit/helmenv v1.0.16 h1:fXUdTwgeyIsEhFz3L82UShXKmgGh6yZGqH+5r8qEdJg=
-github.com/smartcontractkit/helmenv v1.0.16/go.mod h1:iVGF9XLyRF5Ai52JM44m6hRWHIBfDPhspW1WXOwlsmM=
-github.com/smartcontractkit/integrations-framework v0.0.29 h1:kUr8mxqS6PYn2cLBOenQjtoHfCPqzmyluCpHUs9kbUA=
-github.com/smartcontractkit/integrations-framework v0.0.29/go.mod h1:M+3iTEW4YxrbIjEIGiljX/iujlP8hcm5u44vcA4AiBI=
+github.com/smartcontractkit/helmenv v1.0.17 h1:yTtSIhfYJQKa4T8wO1s61IyjV28GCyISuh3PGRwKUNU=
+github.com/smartcontractkit/helmenv v1.0.17/go.mod h1:oFDq/QeOcHMJ8Cl+UEOA3tAmYMHo2ONxOsMYvbzg91E=
+github.com/smartcontractkit/integrations-framework v0.0.32 h1:DM8Tp5HpmqCV5sQvn+faR9W1Jb6e3T/Qao70yQo4C4g=
+github.com/smartcontractkit/integrations-framework v0.0.32/go.mod h1:/9unyuRHLAsiR2DvBR5DDvyS8qcAN4CUpn8drYvtEiw=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
 github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12/go.mod h1:AQktwBooI+Y/8NWdvIzU+EgGoLzpe3mo+o+jluMonTw=
 github.com/smartcontractkit/libocr v0.0.0-20211202172717-e8b0536a572e h1:c1OfJa821ud8dbI+hR7N2YMi8SeJ2HyDojU7dRlmmOg=

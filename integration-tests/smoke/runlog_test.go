@@ -1,4 +1,3 @@
-//go:build smoke
 package smoke
 
 import (
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
+	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
 var _ = Describe("Direct request suite @runlog", func() {
@@ -126,10 +126,8 @@ var _ = Describe("Direct request suite @runlog", func() {
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
 			nets.Default.GasStats().PrintStats()
-			err = actions.TeardownSuite(e, nets, "../")
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
 			Expect(err).ShouldNot(HaveOccurred())
-			//err = e.Disconnect()
-			//Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
 })

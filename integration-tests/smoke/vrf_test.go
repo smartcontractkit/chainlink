@@ -1,4 +1,3 @@
-//go:build smoke
 package smoke
 
 import (
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
+	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
 var _ = Describe("VRF suite @vrf", func() {
@@ -91,12 +91,12 @@ var _ = Describe("VRF suite @vrf", func() {
 				ost, err := os.String()
 				Expect(err).ShouldNot(HaveOccurred())
 				job, err = n.CreateJob(&client.VRFJobSpec{
-					Name:               fmt.Sprintf("vrf-%s", jobUUID),
-					CoordinatorAddress: coordinator.Address(),
-					PublicKey:          pubKeyCompressed,
-					Confirmations:      1,
-					ExternalJobID:      jobUUID.String(),
-					ObservationSource:  ost,
+					Name:                     fmt.Sprintf("vrf-%s", jobUUID),
+					CoordinatorAddress:       coordinator.Address(),
+					MinIncomingConfirmations: 1,
+					PublicKey:                pubKeyCompressed,
+					ExternalJobID:            jobUUID.String(),
+					ObservationSource:        ost,
 				})
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -150,7 +150,7 @@ var _ = Describe("VRF suite @vrf", func() {
 			nets.Default.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nets, "../")
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
