@@ -160,8 +160,10 @@ type ConfigSchema struct {
 	LeaseLockDuration                          time.Duration   `env:"LEASE_LOCK_DURATION" default:"30s"`
 
 	// OCR V2
+	// Per-chain defaults
+	OCR2ContractConfirmations uint `env:"OCR2_CONTRACT_CONFIRMATIONS"`
+	// Global defaults
 	OCR2BlockchainTimeout                  time.Duration `env:"OCR2_BLOCKCHAIN_TIMEOUT" default:"20s"`
-	OCR2ContractConfirmations              uint          `env:"OCR2_CONTRACT_CONFIRMATIONS"`
 	OCR2ContractPollInterval               time.Duration `env:"OCR2_CONTRACT_POLL_INTERVAL" default:"1m"`
 	OCR2ContractSubscribeInterval          time.Duration `env:"OCR2_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
 	OCR2ContractTransmitterTransmitTimeout time.Duration `env:"OCR2_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
@@ -170,20 +172,23 @@ type ConfigSchema struct {
 	OCR2MonitoringEndpoint                 string        `env:"OCR2_MONITORING_ENDPOINT"`
 
 	// OCR V1
-	OCRBlockchainTimeout                  time.Duration `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`
+	// Per-chain defaults
 	OCRContractConfirmations              uint          `env:"OCR_CONTRACT_CONFIRMATIONS"`
-	OCRContractPollInterval               time.Duration `env:"OCR_CONTRACT_POLL_INTERVAL" default:"1m"`
-	OCRContractSubscribeInterval          time.Duration `env:"OCR_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
-	OCRContractTransmitterTransmitTimeout time.Duration `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
-	OCRDatabaseTimeout                    time.Duration `env:"OCR_DATABASE_TIMEOUT" default:"10s"`
-	OCRDefaultTransactionQueueDepth       uint32        `env:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
-	OCRKeyBundleID                        string        `env:"OCR_KEY_BUNDLE_ID"`
-	OCRMonitoringEndpoint                 string        `env:"OCR_MONITORING_ENDPOINT"`
-	OCRSimulateTransactions               bool          `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
-	OCRTraceLogging                       bool          `env:"OCR_TRACE_LOGGING" default:"false"`
-	OCRObservationGracePeriod             time.Duration `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"1s"`
-	OCRObservationTimeout                 time.Duration `env:"OCR_OBSERVATION_TIMEOUT" default:"5s"`
-	OCRTransmitterAddress                 string        `env:"OCR_TRANSMITTER_ADDRESS"`
+	OCRContractTransmitterTransmitTimeout time.Duration `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
+	OCRDatabaseTimeout                    time.Duration `env:"OCR_DATABASE_TIMEOUT"`
+	OCRObservationGracePeriod             time.Duration `env:"OCR_OBSERVATION_GRACE_PERIOD"`
+	// Global defaults
+	OCRObservationTimeout           time.Duration `env:"OCR_OBSERVATION_TIMEOUT" default:"5s"`
+	OCRBlockchainTimeout            time.Duration `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`
+	OCRContractPollInterval         time.Duration `env:"OCR_CONTRACT_POLL_INTERVAL" default:"1m"`
+	OCRContractSubscribeInterval    time.Duration `env:"OCR_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
+	OCRDefaultTransactionQueueDepth uint32        `env:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
+	// Optional
+	OCRKeyBundleID          string `env:"OCR_KEY_BUNDLE_ID"`
+	OCRMonitoringEndpoint   string `env:"OCR_MONITORING_ENDPOINT"`
+	OCRSimulateTransactions bool   `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
+	OCRTraceLogging         bool   `env:"OCR_TRACE_LOGGING" default:"false"`
+	OCRTransmitterAddress   string `env:"OCR_TRANSMITTER_ADDRESS"`
 
 	// V1 and V2 p2p networking
 	P2PNetworkingStack           ocrnetworking.NetworkingStack `env:"P2P_NETWORKING_STACK" default:"V1"`
