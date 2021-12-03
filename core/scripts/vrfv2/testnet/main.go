@@ -262,7 +262,7 @@ func main() {
 		tx, err := coordinator.CreateSubscription(owner)
 		panicErr(err)
 		fmt.Println("Create subscription", "TX hash", tx.Hash())
-	case "add-sub-consumer":
+	case "eoa-add-sub-consumer":
 		addSubConsCmd := flag.NewFlagSet("eoa-add-sub-consumer", flag.ExitOnError)
 		coordinatorAddress := addSubConsCmd.String("coordinator-address", "", "coordinator address")
 		subID := addSubConsCmd.Uint64("sub-id", 0, "subID")
@@ -273,7 +273,7 @@ func main() {
 		txadd, err := coordinator.AddConsumer(owner, *subID, common.HexToAddress(*consumerAddress))
 		panicErr(err)
 		fmt.Println("Adding consumer", "TX hash", txadd.Hash())
-	case "eoa-create-fund-add-sub":
+	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
 		coordinatorAddress := cfaSubCmd.String("coordinator-address", "", "coordinator address")
