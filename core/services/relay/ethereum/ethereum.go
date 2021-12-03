@@ -1,16 +1,14 @@
 package ethereum
 
 import (
-	"encoding/json"
+	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -71,7 +69,7 @@ func (r relayer) Healthy() error {
 	return nil
 }
 
-type Config struct {
+type RelayConfig struct {
 	ChainID utils.Big `json:"chainID"`
 }
 
@@ -81,7 +79,8 @@ type OCR2Spec struct {
 	OCRKeyBundleID null.String
 	TransmitterID  null.String
 	IsBootstrap    bool
-	RelayConfig    models.JSON
+	//RelayConfig    models.JSON
+	ChainID *big.Int
 }
 
 func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
@@ -89,13 +88,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 	if !ok {
 		return nil, errors.New("unsuccessful cast to 'ethereum.OCR2Spec'")
 	}
-	var c Config
-	err := json.Unmarshal(spec.RelayConfig.Bytes(), &c)
-	if err != nil {
-		return nil, err
-	}
-
-	chain, err := r.chainSet.Get(c.ChainID.ToInt())
+	chain, err := r.chainSet.Get(spec.ChainID)
 	if err != nil {
 		return nil, err
 	}

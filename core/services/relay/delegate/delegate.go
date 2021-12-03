@@ -75,14 +75,19 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 	switch choice {
 	case relay.Ethereum:
 		// Notice: we don't use the 'spec.RelayConfig' ATM for 'relay.Ethereum'
+		var config ethereum.RelayConfig
+		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
+		if err != nil {
+			return nil, err
+		}
+
 		return d.relayers[choice].NewOCR2Provider(externalJobID, ethereum.OCR2Spec{
-			ID:          spec.ID,
-			IsBootstrap: spec.IsBootstrapPeer,
-			//ChainID:            spec.EVMChainID,
+			ID:             spec.ID,
+			IsBootstrap:    spec.IsBootstrapPeer,
 			ContractID:     spec.ContractID,
 			OCRKeyBundleID: spec.OCRKeyBundleID,
 			TransmitterID:  spec.TransmitterID,
-			RelayConfig:    spec.RelayConfig, // TODO: don't send 'spec.RelayConfig' but unmarshal and copy to 'ethereum.OCR2Spec'
+			ChainID:        config.ChainID.ToInt(),
 		})
 	case relay.Solana:
 		var config solana.RelayConfig
