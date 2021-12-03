@@ -448,7 +448,7 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 		return nil, err
 	}
 
-	return NewCreateP2PKeyPayloadResolver(key), nil
+	return NewCreateP2PKeyPayload(key), nil
 }
 
 func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
@@ -466,12 +466,12 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 	key, err := r.App.GetKeyStore().P2P().Delete(keyID)
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
-			return NewDeleteP2PKeyPayloadResolver(p2pkey.KeyV2{}, err), nil
+			return NewDeleteP2PKeyPayload(p2pkey.KeyV2{}, err), nil
 		}
 		return nil, err
 	}
 
-	return NewDeleteP2PKeyPayloadResolver(key, nil), nil
+	return NewDeleteP2PKeyPayload(key, nil), nil
 }
 
 func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolver, error) {
@@ -934,7 +934,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 
 	jbt, err := job.ValidateSpec(args.Input.TOML)
 	if err != nil {
-		return NewCreateJobPayload(nil, map[string]string{
+		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"TOML spec": errors.Wrap(err, "failed to parse TOML").Error(),
 		}), nil
 	}
@@ -960,7 +960,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
 	default:
-		return NewCreateJobPayload(nil, map[string]string{
+		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),
 		}), nil
 	}
@@ -976,5 +976,71 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewCreateJobPayload(&jb, nil), nil
+	return NewCreateJobPayload(r.App, &jb, nil), nil
+}
+
+func (r *Resolver) DeleteJob(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt32(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	j, err := r.App.JobORM().FindJobTx(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteJobPayload(r.App, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.DeleteJob(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteJobPayload(r.App, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteJobPayload(r.App, &j, nil), nil
+}
+
+func (r *Resolver) DismissJobError(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DismissJobErrorPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	specErr, err := r.App.JobORM().FindSpecError(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDismissJobErrorPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.JobORM().DismissError(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDismissJobErrorPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDismissJobErrorPayload(&specErr, nil), nil
 }

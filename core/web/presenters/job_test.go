@@ -100,6 +100,7 @@ func TestJob(t *testing.T) {
 							"evmChainID": "42"
 						},
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
@@ -169,6 +170,7 @@ func TestJob(t *testing.T) {
 							"evmChainID": "42"
 						},
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
@@ -241,6 +243,7 @@ func TestJob(t *testing.T) {
 							"updatedAt":"2000-01-01T00:00:00Z",
 							"evmChainID": "42"
 						},
+						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
@@ -301,6 +304,7 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
 						"errors": []
@@ -352,6 +356,7 @@ func TestJob(t *testing.T) {
                         "directRequestSpec": null,
                         "keeperSpec": null,
                         "offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
                         "webhookSpec": null,
                         "errors": []
@@ -402,6 +407,7 @@ func TestJob(t *testing.T) {
 						"keeperSpec": null,
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
                         "vrfSpec": null,
 						"errors": []
 					}
@@ -467,6 +473,7 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
 						"errors": [{
 							"id": 200,
