@@ -138,11 +138,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		return
 	}
 
-	head, ok := item.(*eth.Head)
-	if !ok {
-		ex.logger.Errorf("expected `*eth.Head`, got %T", item)
-		return
-	}
+	head := eth.AsHead(item)
 
 	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 

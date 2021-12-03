@@ -125,11 +125,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 		hb.logger.Info("No head to retrieve. It might have been skipped")
 		return
 	}
-	head, ok := item.(*eth.Head)
-	if !ok {
-		hb.logger.Errorf("Expected `*eth.Head`, got %T", item)
-		return
-	}
+	head := eth.AsHead(item)
 	hb.mutex.Lock()
 	callbacks := hb.callbacks.clone()
 	hb.latest = head

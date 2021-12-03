@@ -216,10 +216,7 @@ func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	head, ok := item.(*eth.Head)
-	if !ok {
-		panic(fmt.Sprintf("expected `*eth.Head`, got %T", item))
-	}
+	head := eth.AsHead(item)
 
 	ht.headBroadcaster.OnNewLongestChain(ctx, head)
 }
@@ -236,10 +233,7 @@ func (ht *HeadTracker) backfiller() {
 				if !exists {
 					break
 				}
-				h, is := head.(*eth.Head)
-				if !is {
-					panic(fmt.Sprintf("expected `*eth.Head`, got %T", head))
-				}
+				h := eth.AsHead(head)
 				{
 					ctx, cancel := eth.DefaultQueryCtx()
 					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
