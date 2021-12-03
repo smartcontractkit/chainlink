@@ -122,7 +122,7 @@ sub id <YOUR SUB ID> balance: <YOUR SUB BALANCE>
 In order to authorize the consumer contract to use the new subscription, run the
 command:
 ```shell
-go run main.go add-sub-consumer --coordinator-address $COORDINATOR --sub-id=$SUB_ID --consumer-address=$CONSUMER
+go run main.go eoa-add-sub-consumer --coordinator-address $COORDINATOR --sub-id=$SUB_ID --consumer-address=$CONSUMER
 ```
 
 ### Requesting Randomness
