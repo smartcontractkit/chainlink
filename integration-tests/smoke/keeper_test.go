@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
-var _ = FDescribe("Keeper suite @keeper", func() {
+var _ = Describe("Keeper suite @keeper", func() {
 	var (
 		err           error
 		nets          *client.Networks
@@ -178,7 +178,7 @@ var _ = FDescribe("Keeper suite @keeper", func() {
 			nets.Default.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
+			err = actions.TeardownSuite(e, nets, "../")
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
