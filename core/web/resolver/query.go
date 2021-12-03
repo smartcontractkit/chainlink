@@ -4,11 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -405,7 +409,51 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			return nil, err
 		}
 
-		ethKeys = append(ethKeys, ETHKey{addr: k.Address, state: state})
+		var gPrice *big.Int
+		var ethBalance *assets.Eth
+		var linkBalance *assets.Link
+
+		chain, err := r.App.GetChainSet().Get(state.EVMChainID.ToInt())
+		if errors.Cause(err) == evm.ErrNoChains {
+			ethKeys = append(ethKeys, ETHKey{
+				addr:      k.Address,
+				state:     state,
+				ethBal:    ethBalance,
+				linkBal:   linkBalance,
+				maxGPrice: gPrice,
+			})
+
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error getting EVM Chain: %v", err)
+		}
+
+		ethClient := chain.Client()
+		ethBal, err := ethClient.BalanceAt(ctx, state.Address.Address(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
+		}
+
+		ethBalance = (*assets.Eth)(ethBal)
+
+		addr := common.HexToAddress(chain.Config().LinkContractAddress())
+		linkBal, err := ethClient.GetLINKBalance(addr, state.Address.Address())
+		if err != nil {
+			return nil, fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
+		}
+
+		linkBalance = linkBal
+
+		gPrice = chain.Config().KeySpecificMaxGasPriceWei(k.Address.Address())
+
+		ethKeys = append(ethKeys, ETHKey{
+			addr:      k.Address,
+			state:     state,
+			ethBal:    ethBalance,
+			linkBal:   linkBalance,
+			maxGPrice: gPrice,
+		})
 	}
 
 	return NewETHKeysPayload(ethKeys), nil

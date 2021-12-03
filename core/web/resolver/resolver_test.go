@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
+	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -32,13 +34,16 @@ type mocks struct {
 	sessionsORM *sessionsMocks.ORM
 	feedsSvc    *feedsMocks.Service
 	cfg         *configMocks.GeneralConfig
+	scfg        *evmConfigMocks.ChainScopedConfig
 	ocr         *keystoreMocks.OCR
 	csa         *keystoreMocks.CSA
 	keystore    *keystoreMocks.Master
 	ethKs       *keystoreMocks.Eth
 	p2p         *keystoreMocks.P2P
 	vrf         *keystoreMocks.VRF
+	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
+	ethClient   *ethmocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 }
 
@@ -47,7 +52,7 @@ type mocks struct {
 type gqlTestFramework struct {
 	t *testing.T
 
-	// The mocked chainlink.Application
+	// The mocked chainlf.Mocks.chainSetink.Application
 	App *coremocks.Application
 
 	// The root GQL schema
@@ -81,13 +86,16 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		feedsSvc:    &feedsMocks.Service{},
 		sessionsORM: &sessionsMocks.ORM{},
 		cfg:         &configMocks.GeneralConfig{},
+		scfg:        &evmConfigMocks.ChainScopedConfig{},
 		ocr:         &keystoreMocks.OCR{},
 		csa:         &keystoreMocks.CSA{},
 		keystore:    &keystoreMocks.Master{},
 		ethKs:       &keystoreMocks.Eth{},
 		p2p:         &keystoreMocks.P2P{},
 		vrf:         &keystoreMocks.VRF{},
+		chain:       &evmORMMocks.Chain{},
 		chainSet:    &evmORMMocks.ChainSet{},
+		ethClient:   &ethmocks.Client{},
 		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
 	}
 
@@ -101,13 +109,16 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.sessionsORM,
 			m.feedsSvc,
 			m.cfg,
+			m.scfg,
 			m.ocr,
 			m.csa,
 			m.keystore,
 			m.ethKs,
 			m.p2p,
 			m.vrf,
+			m.chain,
 			m.chainSet,
+			m.ethClient,
 			m.eIMgr,
 		)
 	})

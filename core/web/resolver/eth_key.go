@@ -2,16 +2,21 @@ package resolver
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/graph-gophers/graphql-go"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 type ETHKey struct {
-	state ethkey.State
-	addr  ethkey.EIP55Address
+	state     ethkey.State
+	addr      ethkey.EIP55Address
+	ethBal    *assets.Eth
+	linkBal   *assets.Link
+	maxGPrice *big.Int
 }
 
 type ETHKeyResolver struct {
@@ -47,6 +52,30 @@ func (r *ETHKeyResolver) Address() string {
 
 func (r *ETHKeyResolver) IsFunding() bool {
 	return r.key.state.IsFunding
+}
+
+func (r *ETHKeyResolver) ETHBalance() string {
+	if r.key.ethBal != nil {
+		return r.key.ethBal.String()
+	}
+
+	return "0"
+}
+
+func (r *ETHKeyResolver) LINKBalance() string {
+	if r.key.linkBal != nil {
+		return r.key.linkBal.String()
+	}
+
+	return "0"
+}
+
+func (r *ETHKeyResolver) MaxGasPriceWei() string {
+	if r.key.maxGPrice != nil {
+		return r.key.maxGPrice.String()
+	}
+
+	return "0"
 }
 
 func (r *ETHKeyResolver) CreatedAt() graphql.Time {
