@@ -13,18 +13,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
-	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/sqlx"
@@ -139,10 +140,13 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
+	k, err := app.KeyStore.P2P().GetAll()
+	require.NoError(t, err)
+	require.Len(t, k, 1)
 
 	jorm := app.JobORM()
 	var tt = []struct {
@@ -170,7 +174,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
 				assert.NotEmpty(t, resource.OffChainReportingSpec.P2PPeerID)
-				assert.True(t, resource.OffChainReportingSpec.P2PPeerIDEnv)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
@@ -506,7 +509,6 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	app := cltest.NewApplicationWithKey(t)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	require.NoError(t, app.Start())
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())

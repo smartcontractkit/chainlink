@@ -82,10 +82,16 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn fu
 	return sqlxTransactionQ(ctx, db, lggr, wrapFn, optss...)
 }
 
-func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn func(q Queryer) error, optss ...TxOptions) (err error) {
+// TxBeginner can be a db or a conn, anything that implements BeginTxx
+type TxBeginner interface {
+	BeginTxx(context.Context, *sql.TxOptions) (*sqlx.Tx, error)
+}
+
+func sqlxTransactionQ(ctx context.Context, db TxBeginner, lggr logger.Logger, fn func(q Queryer) error, optss ...TxOptions) (err error) {
 	lockTimeout, idleInTxSessionTimeout, txOpts := applyDefaults(optss)
 
-	tx, err := db.BeginTxx(ctx, &txOpts)
+	var tx *sqlx.Tx
+	tx, err = db.BeginTxx(ctx, &txOpts)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction")
 	}

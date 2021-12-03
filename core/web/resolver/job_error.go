@@ -1,11 +1,10 @@
 package resolver
 
 import (
-	"strconv"
-
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 // JobErrorResolver resolves a Job Error
@@ -30,7 +29,7 @@ func NewJobErrors(specErrors []job.SpecError) []*JobErrorResolver {
 
 // ID resolves the job error's id.
 func (r *JobErrorResolver) ID() graphql.ID {
-	return graphql.ID(strconv.FormatInt(r.specError.ID, 10))
+	return graphql.ID(stringutils.FromInt64(r.specError.ID))
 }
 
 // Description resolves the job error's description.
@@ -46,4 +45,37 @@ func (r *JobErrorResolver) Occurrences() int32 {
 // CreatedAt resolves the job error's created at timestamp.
 func (r *JobErrorResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.specError.CreatedAt}
+}
+
+// -- DismissJobError Mutation --
+
+type DismissJobErrorPayloadResolver struct {
+	specError *job.SpecError
+	NotFoundErrorUnionType
+}
+
+func NewDismissJobErrorPayload(specError *job.SpecError, err error) *DismissJobErrorPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "JobSpecError not found"}
+
+	return &DismissJobErrorPayloadResolver{specError: specError, NotFoundErrorUnionType: e}
+}
+
+func (r *DismissJobErrorPayloadResolver) ToDismissJobErrorSuccess() (*DismissJobErrorSuccessResolver, bool) {
+	if r.err != nil {
+		return nil, false
+	}
+
+	return NewDismissJobErrorSuccess(r.specError), true
+}
+
+type DismissJobErrorSuccessResolver struct {
+	specError *job.SpecError
+}
+
+func NewDismissJobErrorSuccess(specError *job.SpecError) *DismissJobErrorSuccessResolver {
+	return &DismissJobErrorSuccessResolver{specError: specError}
+}
+
+func (r *DismissJobErrorSuccessResolver) JobError() *JobErrorResolver {
+	return NewJobError(*r.specError)
 }

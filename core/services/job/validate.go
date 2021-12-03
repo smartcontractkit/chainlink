@@ -12,13 +12,14 @@ var (
 	ErrInvalidJobType       = errors.New("invalid job type")
 	ErrInvalidSchemaVersion = errors.New("invalid schema version")
 	jobTypes                = map[Type]struct{}{
-		Cron:              {},
-		DirectRequest:     {},
-		FluxMonitor:       {},
-		OffchainReporting: {},
-		Keeper:            {},
-		VRF:               {},
-		Webhook:           {},
+		Cron:               {},
+		DirectRequest:      {},
+		FluxMonitor:        {},
+		OffchainReporting:  {},
+		OffchainReporting2: {},
+		Keeper:             {},
+		VRF:                {},
+		Webhook:            {},
 	}
 )
 
