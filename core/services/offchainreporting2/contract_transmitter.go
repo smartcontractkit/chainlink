@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -20,36 +19,33 @@ import (
 )
 
 var (
-	_ ocrtypes.ContractTransmitter = &OCRContractTransmitter{}
-	_ median.MedianContract        = &OCRContractTransmitter{}
+	_ ocrtypes.ContractTransmitter = &ContractTransmitter{}
+	_ median.MedianContract        = &ContractTransmitter{}
 )
 
-type (
-	OCRContractTransmitter struct {
-		contractAddress gethCommon.Address
-		contractABI     abi.ABI
-		transmitter     Transmitter
-		contractCaller  *ocr2aggregator.OCR2AggregatorCaller
-		tracker         *OCRContractTracker
-		lggr            logger.Logger
-	}
+type Transmitter interface {
+	CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error
+	FromAddress() gethCommon.Address
+}
 
-	Transmitter interface {
-		CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error
-		FromAddress() gethCommon.Address
-	}
-)
+type ContractTransmitter struct {
+	contractAddress gethCommon.Address
+	contractABI     abi.ABI
+	transmitter     Transmitter
+	contractCaller  *ocr2aggregator.OCR2AggregatorCaller
+	tracker         *ContractTracker
+	lggr            logger.Logger
+}
 
 func NewOCRContractTransmitter(
 	address gethCommon.Address,
 	contractCaller *ocr2aggregator.OCR2AggregatorCaller,
 	contractABI abi.ABI,
 	transmitter Transmitter,
-	logBroadcaster log.Broadcaster,
-	tracker *OCRContractTracker,
+	tracker *ContractTracker,
 	lggr logger.Logger,
-) *OCRContractTransmitter {
-	return &OCRContractTransmitter{
+) *ContractTransmitter {
+	return &ContractTransmitter{
 		contractAddress: address,
 		contractABI:     contractABI,
 		transmitter:     transmitter,
@@ -59,7 +55,7 @@ func NewOCRContractTransmitter(
 	}
 }
 
-func (oc *OCRContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
+func (oc *ContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signatures []ocrtypes.AttributedOnchainSignature) error {
 	var rs [][32]byte
 	var ss [][32]byte
 	var vs [32]byte
@@ -84,17 +80,17 @@ func (oc *OCRContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtyp
 	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
 }
 
-func (oc *OCRContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
+func (oc *ContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
 	return result.ConfigDigest, result.Epoch, errors.Wrap(err, "error getting LatestTransmissionDetails")
 }
 
-func (oc *OCRContractTransmitter) FromAccount() ocrtypes.Account {
+func (oc *ContractTransmitter) FromAccount() ocrtypes.Account {
 	return ocrtypes.Account(oc.transmitter.FromAddress().String())
 }
 
-func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
+func (oc *ContractTransmitter) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
 	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
@@ -111,6 +107,6 @@ func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context)
 //
 // As an optimization, this function may also return zero values, if no
 // RoundRequested event has been emitted after the latest NewTransmission event.
-func (oc *OCRContractTransmitter) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
+func (oc *ContractTransmitter) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
 	return oc.tracker.LatestRoundRequested(ctx, lookback)
 }

@@ -157,7 +157,6 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		contractCaller,
 		contractABI,
 		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy),
-		chain.LogBroadcaster(),
 		tracker,
 		r.lggr,
 	)
@@ -187,10 +186,10 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 var _ service.Service = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
-	tracker                *ocr2.OCRContractTracker
+	tracker                *ocr2.ContractTracker
 	offchainConfigDigester types.OffchainConfigDigester
 	reportCodec            median.ReportCodec
-	contractTransmitter    *ocr2.OCRContractTransmitter
+	contractTransmitter    *ocr2.ContractTransmitter
 	keyBundle              ocr2key.KeyBundle
 }
 

@@ -46,7 +46,7 @@ type contractTrackerUni struct {
 	lb      *logmocks.Broadcaster
 	hb      *htmocks.HeadBroadcaster
 	ec      *ethmocks.Client
-	tracker *offchainreporting.OCRContractTracker
+	tracker *offchainreporting.ContractTracker
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
