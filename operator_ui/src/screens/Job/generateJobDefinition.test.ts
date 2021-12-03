@@ -261,77 +261,6 @@ observationSource = """
     expect(output.envDefinition).toEqual('blockchainTimeout = "20s"\n')
   })
 
-  it('generates a valid OCR 2 definition', () => {
-    const job: JobPayload_Fields = {
-      id: '1',
-      type: 'offchainreporting2',
-      schemaVersion: 1,
-      name: 'ocr 2 job',
-      externalJobID: '00000000-0000-0000-0000-0000000000001',
-      maxTaskDuration: '10s',
-      spec: {
-        __typename: 'OCR2Spec',
-        blockchainTimeout: '20s',
-        contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
-        contractConfigConfirmations: 3,
-        contractConfigTrackerPollInterval: '1m0s',
-        contractConfigTrackerSubscribeInterval: '2m0s',
-        evmChainID: '42',
-        juelsPerFeeCoinSource: '1000000000',
-        keyBundleID:
-          '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
-        isBootstrapPeer: false,
-        monitoringEndpoint: 'https://monitoring.endpoint',
-        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
-        p2pBootstrapPeers: [
-          '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
-        ],
-        transmitterAddress: '0x01010CaB43e77116c95745D219af1069fE050d7A',
-      },
-      runs: {
-        results: [],
-        metadata: { total: 0 },
-      },
-      observationSource:
-        '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
-      createdAt: new Date(),
-      errors: [],
-    }
-
-    const expectedOutput = `type = "offchainreporting"
-schemaVersion = 1
-name = "ocr job"
-externalJobID = "00000000-0000-0000-0000-0000000000001"
-maxTaskDuration = "10s"
-blockchainTimeout = "20s"
-contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
-contractConfigConfirmations = 3
-contractConfigTrackerPollInterval = "1m0s"
-contractConfigTrackerSubscribeInterval = "2m0s"
-evmChainID = "42"
-isBootstrapPeer = false
-juelsPerFeeCoinSource = "1000000000"
-keyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
-observationTimeout = "10s"
-monitoringEndpoint = https://monitoring.endpoint'
-p2pBootstrapPeers = [
-  "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
-]
-p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
-transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
-observationSource = """
-    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
-    parse    [type=jsonparse path="data,result"];
-    multiply [type=multiply times=100];
-    fetch -> parse -> multiply;
-"""
-`
-
-    const output = generateJobDefinition(job)
-    expect(output.definition).toEqual(expectedOutput)
-    expect(output.envDefinition).toEqual('')
-  })
-
   it('generates a valid OCR Bootstrap definition', () => {
     const job: JobPayload_Fields = {
       id: '1',
@@ -405,6 +334,76 @@ p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
     const output = generateJobDefinition(job)
     expect(output.definition).toEqual(expectedOutput)
     expect(output.envDefinition).toEqual(expectedEnvDefinition)
+  })
+
+  it('generates a valid OCR 2 definition', () => {
+    const job: JobPayload_Fields = {
+      id: '1',
+      type: 'offchainreporting2',
+      schemaVersion: 1,
+      name: 'ocr 2 job',
+      externalJobID: '00000000-0000-0000-0000-0000000000001',
+      maxTaskDuration: '10s',
+      spec: {
+        __typename: 'OCR2Spec',
+        blockchainTimeout: '20s',
+        contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
+        contractConfigConfirmations: 3,
+        contractConfigTrackerPollInterval: '1m0s',
+        contractConfigTrackerSubscribeInterval: '2m0s',
+        evmChainID: '42',
+        juelsPerFeeCoinSource: '1000000000',
+        keyBundleID:
+          '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
+        isBootstrapPeer: false,
+        monitoringEndpoint: 'https://monitoring.endpoint',
+        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
+        p2pBootstrapPeers: [
+          '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
+        ],
+        transmitterAddress: '0x01010CaB43e77116c95745D219af1069fE050d7A',
+      },
+      runs: {
+        results: [],
+        metadata: { total: 0 },
+      },
+      observationSource:
+        '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
+      createdAt: new Date(),
+      errors: [],
+    }
+
+    const expectedOutput = `type = "offchainreporting2"
+schemaVersion = 1
+name = "ocr 2 job"
+externalJobID = "00000000-0000-0000-0000-0000000000001"
+maxTaskDuration = "10s"
+blockchainTimeout = "20s"
+contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
+contractConfigConfirmations = 3
+contractConfigTrackerPollInterval = "1m0s"
+contractConfigTrackerSubscribeInterval = "2m0s"
+evmChainID = "42"
+isBootstrapPeer = false
+juelsPerFeeCoinSource = "1000000000"
+keyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
+monitoringEndpoint = "https://monitoring.endpoint"
+p2pBootstrapPeers = [
+  "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
+]
+p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
+transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
+observationSource = """
+    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
+    parse    [type=jsonparse path="data,result"];
+    multiply [type=multiply times=100];
+    fetch -> parse -> multiply;
+"""
+`
+
+    const output = generateJobDefinition(job)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envDefinition).toEqual('')
   })
 
   it('generates a valid VRF definition', () => {
