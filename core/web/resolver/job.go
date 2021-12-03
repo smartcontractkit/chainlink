@@ -92,7 +92,6 @@ func (r *JobResolver) Runs(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	//
 	if limit > 100 {
 		limit = 100
 	}
@@ -112,7 +111,7 @@ func (r *JobResolver) Runs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewJobRunsPayload(runs, count), nil
+	return NewJobRunsPayload(runs, count, r.app), nil
 }
 
 // JobsPayloadResolver resolves a page of jobs
