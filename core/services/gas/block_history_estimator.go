@@ -207,10 +207,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Info("No head to retrieve. It might have been skipped")
 				continue
 			}
-			h, is := head.(*eth.Head)
-			if !is {
-				panic(fmt.Sprintf("invariant violation, expected %T but got %T", eth.Head{}, head))
-			}
+			h := eth.AsHead(head)
 			b.FetchBlocksAndRecalculate(b.ctx, h)
 		}
 	}
