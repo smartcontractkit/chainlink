@@ -83,7 +83,6 @@ func TestResolver_Config(t *testing.T) {
 					DefaultLogLevel:                           nil,
 					LogSQL:                                    null.BoolFrom(true),
 					LogToDisk:                                 null.BoolFrom(true),
-					OCRBootstrapCheckInterval:                 nil,
 					OCRKeyBundleID:                            null.StringFrom("test"),
 					OCRObservationTimeout:                     nil,
 					OCRTransmitterAddress:                     nil,
@@ -326,6 +325,18 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
+			          "value": "30s"
+			        },
+			        "key": "LEASE_LOCK_DURATION"
+			      },
+			      {
+			        "config": {
+			          "value": "1s"
+			        },
+			        "key": "LEASE_LOCK_REFRESH_INTERVAL"
+			      },
+			      {
+			        "config": {
 			          "value": ""
 			        },
 			        "key": "LINK_CONTRACT_ADDRESS"
@@ -362,12 +373,6 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "20s"
-			        },
-			        "key": "OCR_BOOTSTRAP_CHECK_INTERVAL"
-			      },
-			      {
-			        "config": {
 			          "value": "30s"
 			        },
 			        "key": "TRIGGER_FALLBACK_DB_POLL_INTERVAL"
@@ -380,9 +385,33 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
+			          "value": "false"
+			        },
+			        "key": "OCR_TRACE_LOGGING"
+			      },
+			      {
+			        "config": {
+			          "value": "V1"
+			        },
+			        "key": "P2P_NETWORKING_STACK"
+			      },
+			      {
+			        "config": {
+			          "value": ""
+			        },
+			        "key": "P2P_PEER_ID"
+			      },
+			      {
+			        "config": {
 			          "value": "10"
 			        },
-			        "key": "OCR_INCOMING_MESSAGE_BUFFER_SIZE"
+			        "key": "P2P_INCOMING_MESSAGE_BUFFER_SIZE"
+			      },
+			      {
+			        "config": {
+			          "value": "10"
+			        },
+			        "key": "P2P_OUTGOING_MESSAGE_BUFFER_SIZE"
 			      },
 			      {
 			        "config": {
@@ -404,15 +433,21 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "V1"
+			          "value": "10s"
 			        },
-			        "key": "P2P_NETWORKING_STACK"
+			        "key": "P2P_NEW_STREAM_TIMEOUT"
 			      },
 			      {
 			        "config": {
-			          "value": ""
+			          "value": "10"
 			        },
-			        "key": "P2P_PEER_ID"
+			        "key": "P2P_DHT_LOOKUP_INTERVAL"
+			      },
+			      {
+			        "config": {
+			          "value": "20s"
+			        },
+			        "key": "P2P_BOOTSTRAP_CHECK_INTERVAL"
 			      },
 			      {
 			        "config": {
@@ -443,30 +478,6 @@ func TestResolver_Config(t *testing.T) {
 			          "value": "[]"
 			        },
 			        "key": "P2PV2_LISTEN_ADDRESSES"
-			      },
-			      {
-			        "config": {
-			          "value": "10"
-			        },
-			        "key": "OCR_OUTGOING_MESSAGE_BUFFER_SIZE"
-			      },
-			      {
-			        "config": {
-			          "value": "10s"
-			        },
-			        "key": "OCR_NEW_STREAM_TIMEOUT"
-			      },
-			      {
-			        "config": {
-			          "value": "10"
-			        },
-			        "key": "OCR_DHT_LOOKUP_INTERVAL"
-			      },
-			      {
-			        "config": {
-			          "value": "false"
-			        },
-			        "key": "OCR_TRACE_LOGGING"
 			      },
 			      {
 			        "config": {
