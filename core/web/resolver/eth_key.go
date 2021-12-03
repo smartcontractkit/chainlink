@@ -1,9 +1,12 @@
 package resolver
 
 import (
+	"context"
+
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 type ETHKey struct {
@@ -29,8 +32,13 @@ func NewETHKeys(keys []ETHKey) []*ETHKeyResolver {
 	return resolvers
 }
 
-func (r *ETHKeyResolver) EVMChainID() graphql.ID {
-	return graphql.ID(r.key.state.EVMChainID.String())
+func (r *ETHKeyResolver) Chain(ctx context.Context) (*ChainResolver, error) {
+	chain, err := loader.GetChainByID(ctx, r.key.state.EVMChainID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return NewChain(*chain), nil
 }
 
 func (r *ETHKeyResolver) Address() string {

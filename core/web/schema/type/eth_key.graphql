@@ -1,9 +1,9 @@
 type EthKey {
-    evmChainID: ID!
     address: String!
     isFunding: Boolean!
     createdAt: Time!
     updatedAt: Time!
+    chain: Chain!
 }
 
 type EthKeysPayload {

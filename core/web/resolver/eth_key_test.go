@@ -7,6 +7,7 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -19,10 +20,12 @@ func TestResolver_ETHKeys(t *testing.T) {
 			ethKeys {
 				keys {
 					address
-					evmChainID
 					isFunding
 					createdAt
 					updatedAt
+					chain {
+						id
+					}
 				}
 			}
 		}`
@@ -52,14 +55,21 @@ func TestResolver_ETHKeys(t *testing.T) {
 						UpdatedAt:  f.Timestamp(),
 					},
 				}
+				chainID := *utils.NewBigI(12)
 
 				f.Mocks.cfg.On("Dev").Return(true)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
+				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
+					{
+						ID: chainID,
+					},
+				}, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query: query,
 			result: `
@@ -68,10 +78,12 @@ func TestResolver_ETHKeys(t *testing.T) {
 						"keys": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
-								"evmChainID": "12",
 								"isFunding": true,
 								"createdAt": "2021-01-01T00:00:00Z",
-								"updatedAt": "2021-01-01T00:00:00Z"
+								"updatedAt": "2021-01-01T00:00:00Z",
+								"chain": {
+									"id": "12"
+								}
 							}
 						]
 					}
@@ -90,14 +102,21 @@ func TestResolver_ETHKeys(t *testing.T) {
 						UpdatedAt:  f.Timestamp(),
 					},
 				}
+				chainID := *utils.NewBigI(12)
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
+				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
+					{
+						ID: chainID,
+					},
+				}, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query: query,
 			result: `
@@ -106,10 +125,12 @@ func TestResolver_ETHKeys(t *testing.T) {
 						"keys": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
-								"evmChainID": "12",
 								"isFunding": false,
 								"createdAt": "2021-01-01T00:00:00Z",
-								"updatedAt": "2021-01-01T00:00:00Z"
+								"updatedAt": "2021-01-01T00:00:00Z",
+								"chain": {
+									"id": "12"
+								}
 							}
 						]
 					}
