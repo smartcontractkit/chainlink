@@ -150,9 +150,6 @@ type GeneralOnlyConfig interface {
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	UseLegacyEthEnvVars() bool
 	Validate() error
-
-	OCRConfig
-	P2PNetworking
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -198,11 +195,12 @@ type GlobalConfig interface {
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
-	GlobalOCRContractConfirmations() (uint16, bool)
-	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
-	GlobalOCRDatabaseTimeout() (time.Duration, bool)
-	GlobalOCRObservationGracePeriod() (time.Duration, bool)
-	GlobalOCR2ContractConfirmations() (uint16, bool)
+
+	OCR1Config
+	OCR2Config
+	P2PNetworking
+	P2PV1Networking
+	P2PV2Networking
 }
 
 type GeneralConfig interface {
@@ -1306,41 +1304,6 @@ func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 		return nil, false
 	}
 	return val.(*assets.Link), ok
-}
-func (*generalConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRContractTransmitterTransmitTimeout"), ParseDuration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
-}
-func (*generalConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRDatabaseTimeout"), ParseDuration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
-}
-func (*generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRObservationGracePeriod"), ParseDuration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
-}
-func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRContractConfirmations"), ParseUint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
-}
-func (*generalConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("OCR2ContractConfirmations"), ParseUint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
 }
 func (*generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
 	val, ok := lookupEnv(EnvVarName("EvmEIP1559DynamicFees"), ParseBool)
