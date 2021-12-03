@@ -2,9 +2,7 @@ import { Api } from 'utils/json-api-client'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
 import { Chains } from './chains'
 import { Config } from './config'
-import { Features } from './features'
 import { Jobs } from './jobs'
-import { P2PKeys } from './p2pKeys'
 import { Runs } from './runs'
 import { Transactions } from './transactions'
 import { User } from './user'
@@ -18,11 +16,9 @@ export class V2 {
   public bulkDeleteRuns = new BulkDeleteRuns(this.api)
   public chains = new Chains(this.api)
   public config = new Config(this.api)
-  public features = new Features(this.api)
   public logConfig = new LogConfig(this.api)
   public nodes = new Nodes(this.api)
   public jobs = new Jobs(this.api)
-  public p2pKeys = new P2PKeys(this.api)
   public runs = new Runs(this.api)
   public transactions = new Transactions(this.api)
   public user = new User(this.api)
