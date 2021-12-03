@@ -84,7 +84,6 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       schemaVersion: 1,
       type: 'fluxmonitor',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
-      ocrDatabaseTimeout: null,
       fluxMonitorSpec: {
         absoluteThreshold: 1,
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
@@ -152,7 +151,6 @@ evmChainID = "42"
       schemaVersion: 1,
       type: 'directrequest',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
-      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
@@ -203,7 +201,6 @@ evmChainID = "42"
       schemaVersion: 1,
       type: 'keeper',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
-      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: {
         contractAddress: '0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba',
@@ -246,7 +243,6 @@ evmChainID = "42"
       type: 'cron',
       fluxMonitorSpec: null,
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
-      ocrDatabaseTimeout: null,
       keeperSpec: null,
       vrfSpec: null,
       cronSpec: {
@@ -289,7 +285,6 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
       schemaVersion: 1,
       type: 'webhook',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
-      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: null,
       vrfSpec: null,
@@ -330,7 +325,6 @@ observationSource = """
       schemaVersion: 1,
       type: 'vrf',
       externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
-      ocrDatabaseTimeout: null,
       fluxMonitorSpec: null,
       keeperSpec: null,
       cronSpec: null,
