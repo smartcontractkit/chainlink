@@ -40,23 +40,6 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
   }
 
   /**
-   * @notice transfer ownership of this account to a new L1 owner
-   * @param to new L1 owner that will be allowed to call the forward fn
-   * @inheritdoc CrossDomainOwnable
-   */
-  function transferL1Ownership(address to) public virtual override onlyL1Owner {
-    super.transferL1Ownership(to);
-  }
-
-  /**
-   * @notice accept ownership of this account to a new L1 owner
-   * @inheritdoc CrossDomainOwnable
-   */
-  function acceptL1Ownership() public virtual override onlyProposedL1Owner {
-    super.acceptL1Ownership();
-  }
-
-  /**
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address
    * @inheritdoc ForwarderInterface
    */
