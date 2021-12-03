@@ -217,31 +217,22 @@ func TestLoader_JobRuns(t *testing.T) {
 		mock.AssertExpectationsForObjects(t, app, jobsORM)
 	})
 
-	run1 := pipeline.Run{
-		ID:             int64(1),
-		PipelineSpecID: int32(2),
-	}
-	run2 := pipeline.Run{
-		ID:             int64(2),
-		PipelineSpecID: int32(2),
-	}
-	run3 := pipeline.Run{
-		ID:             int64(3),
-		PipelineSpecID: int32(1),
-	}
+	run1 := pipeline.Run{ID: int64(1)}
+	run2 := pipeline.Run{ID: int64(2)}
+	run3 := pipeline.Run{ID: int64(3)}
 
-	jobsORM.On("PipelineRunsByJobsIDs", []int32{3, 1, 2}).Return([]pipeline.Run{
-		run1, run2, run3,
+	jobsORM.On("FindPipelineRunsByIDs", []int64{3, 1, 2}).Return([]pipeline.Run{
+		run3, run1, run2,
 	}, nil)
 	app.On("JobORM").Return(jobsORM)
 
 	batcher := jobRunBatcher{app}
 
 	keys := dataloader.NewKeysFromStrings([]string{"3", "1", "2"})
-	found := batcher.loadByPipelineSpecIDs(ctx, keys)
+	found := batcher.loadByIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []pipeline.Run{}, found[0].Data)
-	assert.Equal(t, []pipeline.Run{run3}, found[1].Data)
-	assert.Equal(t, []pipeline.Run{run1, run2}, found[2].Data)
+	assert.Equal(t, run3, found[0].Data)
+	assert.Equal(t, run1, found[1].Data)
+	assert.Equal(t, run2, found[2].Data)
 }

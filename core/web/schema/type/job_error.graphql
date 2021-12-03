@@ -4,3 +4,9 @@ type JobError {
 	occurrences: Int!
 	createdAt: Time!
 }
+
+type DismissJobErrorSuccess {
+	jobError: JobError!
+}
+
+union DismissJobErrorPayload = DismissJobErrorSuccess | NotFoundError

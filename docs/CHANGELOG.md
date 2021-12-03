@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - .........
+
 ### Added
 
 - Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
@@ -204,6 +206,13 @@ For this reason, we have introduced a new locking mode, `lease`, which is likely
 - If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will panic and quit immediately
 
 The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
+
+Lease locking can be configured using the following ENV vars:
+
+`LEASE_LOCK_REFRESH_INTERVAL` (default 1s)
+`LEASE_LOCK_DURATION` (default 30s)
+
+It is recommended to leave these set to the default values.
 
 #### Duplicate Job Configuration
 

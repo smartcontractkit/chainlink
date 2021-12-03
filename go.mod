@@ -41,14 +41,14 @@ require (
 	github.com/onsi/gomega v1.17.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/pkg/errors v0.9.1
-	github.com/pressly/goose/v3 v3.1.0
+	github.com/pressly/goose/v3 v3.4.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.26.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12
+	github.com/smartcontractkit/libocr v0.0.0-20211202172717-e8b0536a572e
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.3.5
 	github.com/spf13/viper v1.9.0
@@ -335,7 +335,3 @@ require (
 // If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
 // for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
 replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
-
-// Use our fork that supports out-of-order migrations
-// https://github.com/pressly/goose/issues/262
-replace github.com/pressly/goose/v3 => github.com/smartcontractkit/goose/v3 v3.1.1-0.20210921045349-e8cd8fc6557b

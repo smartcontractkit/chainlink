@@ -1191,8 +1191,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	logsA := make(map[uint]types.Log)
 	logsB := make(map[uint]types.Log)
 	for n := 1; n < 18; n++ {
-		logsA[uint(n)] = blocks.LogOnBlockNum(uint64(n), addrA)
-		logsB[uint(n)] = blocks.LogOnBlockNum(uint64(n), addrB)
+		logsA[uint(n)] = blocks.LogOnBlockNumWithIndex(uint64(n), 0, addrA)
+		logsB[uint(n)] = blocks.LogOnBlockNumWithIndex(uint64(n), 1, addrB)
 	}
 
 	tests := []struct {
