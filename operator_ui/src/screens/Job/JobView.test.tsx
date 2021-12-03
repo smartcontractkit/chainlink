@@ -99,7 +99,7 @@ describe('JobView', () => {
   it('handles delete', async () => {
     const job = buildJob({})
 
-    renderComponent({ job: job, runsCount: 1 })
+    renderComponent({ job, runsCount: 1 })
 
     userEvent.click(getByRole('button', { name: /open-menu/i }))
     userEvent.click(getByRole('menuitem', { name: /delete/i }))
