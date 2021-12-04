@@ -1,6 +1,6 @@
 import { parseDot } from './parseDot'
 
-describe('components/Jobs/parseDot', () => {
+describe('parseDot', () => {
   it('correctly adds node attributes', () => {
     const digraph1 = `digraph {
       fetch [type=http method=POST url="http://localhost:8001" params="{\\"hi\\": \\"hello\\"}"];
