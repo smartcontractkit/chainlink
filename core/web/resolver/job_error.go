@@ -47,6 +47,11 @@ func (r *JobErrorResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.specError.CreatedAt}
 }
 
+// UpdatedAt resolves the job error's updated at timestamp.
+func (r *JobErrorResolver) UpdatedAt() graphql.Time {
+	return graphql.Time{Time: r.specError.UpdatedAt}
+}
+
 // -- DismissJobError Mutation --
 
 type DismissJobErrorPayloadResolver struct {

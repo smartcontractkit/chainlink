@@ -59,10 +59,6 @@ func (r *JobResolver) MaxTaskDuration() string {
 
 // Name resolves the job's name.
 func (r *JobResolver) Name() string {
-	if r.j.Name.IsZero() {
-		return "undefined"
-	}
-
 	return r.j.Name.ValueOrZero()
 }
 
@@ -77,6 +73,11 @@ func (r *JobResolver) ObservationSource() string {
 // SchemaVersion resolves the job's schema version.
 func (r *JobResolver) SchemaVersion() int32 {
 	return int32(r.j.SchemaVersion)
+}
+
+// Type resolves the job's type.
+func (r *JobResolver) Type() string {
+	return string(r.j.Type)
 }
 
 // Spec resolves the job's spec.
