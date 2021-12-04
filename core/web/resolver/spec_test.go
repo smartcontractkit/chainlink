@@ -382,7 +382,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ContractConfigConfirmationsEnv:            true,
 						ContractConfigTrackerPollInterval:         models.Interval(1 * time.Minute),
 						ContractConfigTrackerPollIntervalEnv:      false,
-						ContractConfigTrackerSubscribeInterval:    models.Interval(1 * time.Minute),
+						ContractConfigTrackerSubscribeInterval:    models.Interval(2 * time.Minute),
 						ContractConfigTrackerSubscribeIntervalEnv: true,
 						CreatedAt:               f.Timestamp(),
 						EVMChainID:              utils.NewBigI(42),
@@ -441,7 +441,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"contractConfigConfirmationsEnv": true,
 							"contractConfigTrackerPollInterval": "1m0s",
 							"contractConfigTrackerPollIntervalEnv": false,
-							"contractConfigTrackerSubscribeInterval": "1m0s",
+							"contractConfigTrackerSubscribeInterval": "2m0s",
 							"contractConfigTrackerSubscribeIntervalEnv": true,
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
@@ -575,7 +575,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 
 	testCases := []GQLTestCase{
 		{
-			name:          "keeper spec",
+			name:          "vrf spec",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
@@ -590,6 +590,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						PollPeriod:               1 * time.Minute,
 						PublicKey:                pubKey,
 						RequestedConfsDelay:      10,
+						RequestTimeout:           24 * time.Hour,
 					},
 				}, nil)
 			},
@@ -608,6 +609,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									pollPeriod
 									publicKey
 									requestedConfsDelay
+									requestTimeout
 								}
 							}
 						}
@@ -626,7 +628,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"minIncomingConfirmations": 1,
 							"pollPeriod": "1m0s",
 							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01",
-							"requestedConfsDelay": 10
+							"requestedConfsDelay": 10,
+							"requestTimeout": "24h0m0s"
 						}
 					}
 				}
