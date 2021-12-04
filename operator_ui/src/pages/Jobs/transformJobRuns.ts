@@ -1,6 +1,6 @@
 import { ApiResponse } from 'utils/json-api-client'
 import { JobRunV2 } from 'core/store/models'
-import { parseDot, Stratify } from './parseDot'
+import { parseDot, Stratify } from 'utils/parseDot'
 import { PipelineJobRun, PipelineTaskRun } from './sharedTypes'
 import { getJobStatus } from './utils'
 

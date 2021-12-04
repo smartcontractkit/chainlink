@@ -13,8 +13,10 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 
-import { ErrorRow, LoadingRow, NoContentRow } from './Rows'
 import { CSAKeyRow } from './CSAKeyRow'
+import { ErrorRow } from 'src/components/TableRow/ErrorRow'
+import { LoadingRow } from 'src/components/TableRow/LoadingRow'
+import { NoContentRow } from 'src/components/TableRow/NoContentRow'
 
 export const CSA_KEYS_PAYLOAD__RESULTS_FIELDS = gql`
   fragment CSAKeysPayload_ResultsFields on CSAKey {
