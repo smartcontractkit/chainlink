@@ -95,6 +95,7 @@ type VRFSpec {
     pollPeriod: String!
     publicKey: String!
     requestedConfsDelay: Int!
+    requestTimeout: String!
 }
 
 type WebhookSpec {

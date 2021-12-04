@@ -44,8 +44,6 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseListenerMaxReconnectDuration":       "DATABASE_LISTENER_MAX_RECONNECT_DURATION",
 		"DatabaseListenerMinReconnectInterval":       "DATABASE_LISTENER_MIN_RECONNECT_INTERVAL",
 		"DatabaseLockingMode":                        "DATABASE_LOCKING_MODE",
-		"DatabaseMaximumTxDuration":                  "DATABASE_MAXIMUM_TX_DURATION",
-		"DatabaseTimeout":                            "DATABASE_TIMEOUT",
 		"DatabaseURL":                                "DATABASE_URL",
 		"DefaultChainID":                             "ETH_CHAIN_ID",
 		"DefaultHTTPAllowUnrestrictedNetworkAccess":  "DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS",
