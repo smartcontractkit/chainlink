@@ -65,11 +65,16 @@ type ChainScopedOnlyConfig interface {
 	MinIncomingConfirmations() uint32
 	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
-	OCRContractConfirmations() uint16
+
+	// OCR2 chain specific config
 	OCR2ContractConfirmations() uint16
+
+	// OCR1 chain specific config
+	OCRContractConfirmations() uint16
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
 	OCRDatabaseTimeout() time.Duration
+
 	SetEvmGasPriceDefault(value *big.Int) error
 }
 
@@ -702,51 +707,6 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 		return val
 	}
 	return c.defaultSet.linkContractAddress
-}
-
-func (c *chainScopedConfig) OCRContractConfirmations() uint16 {
-	val, ok := c.GeneralConfig.GlobalOCRContractConfirmations()
-	if ok {
-		c.logEnvOverrideOnce("OCRContractConfirmations", val)
-		return val
-	}
-	return c.defaultSet.ocrContractConfirmations
-}
-
-func (c *chainScopedConfig) OCR2ContractConfirmations() uint16 {
-	val, ok := c.GeneralConfig.GlobalOCR2ContractConfirmations()
-	if ok {
-		c.logEnvOverrideOnce("OCR2ContractConfirmations", val)
-		return val
-	}
-	return c.defaultSet.ocr2ContractConfirmations
-}
-
-func (c *chainScopedConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	val, ok := c.GeneralConfig.GlobalOCRContractTransmitterTransmitTimeout()
-	if ok {
-		c.logEnvOverrideOnce("OCRContractTransmitterTransmitTimeout", val)
-		return val
-	}
-	return c.defaultSet.ocrContractTransmitterTransmitTimeout
-}
-
-func (c *chainScopedConfig) OCRDatabaseTimeout() time.Duration {
-	val, ok := c.GeneralConfig.GlobalOCRDatabaseTimeout()
-	if ok {
-		c.logEnvOverrideOnce("OCRDatabaseTimeout", val)
-		return val
-	}
-	return c.defaultSet.ocrDatabaseTimeout
-}
-
-func (c *chainScopedConfig) OCRObservationGracePeriod() time.Duration {
-	val, ok := c.GeneralConfig.GlobalOCRObservationGracePeriod()
-	if ok {
-		c.logEnvOverrideOnce("OCRObservationGracePeriod", val)
-		return val
-	}
-	return c.defaultSet.ocrObservationGracePeriod
 }
 
 // MinIncomingConfirmations represents the minimum number of block

@@ -69,8 +69,6 @@ type GeneralOnlyConfig interface {
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
-	DatabaseMaximumTxDuration() time.Duration
-	DatabaseTimeout() models.Duration
 	DatabaseURL() url.URL
 	DefaultChainID() *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
@@ -152,9 +150,6 @@ type GeneralOnlyConfig interface {
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	UseLegacyEthEnvVars() bool
 	Validate() error
-
-	OCRConfig
-	P2PNetworking
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -200,11 +195,12 @@ type GlobalConfig interface {
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
-	GlobalOCRContractConfirmations() (uint16, bool)
-	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
-	GlobalOCRDatabaseTimeout() (time.Duration, bool)
-	GlobalOCRObservationGracePeriod() (time.Duration, bool)
-	GlobalOCR2ContractConfirmations() (uint16, bool)
+
+	OCR1Config
+	OCR2Config
+	P2PNetworking
+	P2PV1Networking
+	P2PV2Networking
 }
 
 type GeneralConfig interface {
@@ -487,10 +483,6 @@ func (c *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
 	return c.getWithFallback("DatabaseListenerMaxReconnectDuration", ParseDuration).(time.Duration)
 }
 
-func (c *generalConfig) DatabaseMaximumTxDuration() time.Duration {
-	return c.getWithFallback("DatabaseMaximumTxDuration", ParseDuration).(time.Duration)
-}
-
 // DatabaseBackupMode sets the database backup mode
 func (c *generalConfig) DatabaseBackupMode() DatabaseBackupMode {
 	return c.getWithFallback("DatabaseBackupMode", parseDatabaseBackupMode).(DatabaseBackupMode)
@@ -519,11 +511,6 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
 func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
-}
-
-// DatabaseTimeout represents how long to tolerate non-response from the DB.
-func (c *generalConfig) DatabaseTimeout() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", ParseDuration).(time.Duration))
 }
 
 // GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
@@ -1317,41 +1304,6 @@ func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 		return nil, false
 	}
 	return val.(*assets.Link), ok
-}
-func (*generalConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRContractTransmitterTransmitTimeout"), ParseDuration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
-}
-func (*generalConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRDatabaseTimeout"), ParseDuration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
-}
-func (*generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRObservationGracePeriod"), ParseDuration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
-}
-func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRContractConfirmations"), ParseUint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
-}
-func (*generalConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("OCR2ContractConfirmations"), ParseUint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
 }
 func (*generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
 	val, ok := lookupEnv(EnvVarName("EvmEIP1559DynamicFees"), ParseBool)

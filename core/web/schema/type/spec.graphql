@@ -1,4 +1,12 @@
-union JobSpec = CronSpec | DirectRequestSpec | KeeperSpec | FluxMonitorSpec | OCRSpec | VRFSpec | WebhookSpec
+union JobSpec =
+    CronSpec |
+    DirectRequestSpec |
+    KeeperSpec |
+    FluxMonitorSpec |
+    OCRSpec |
+    OCR2Spec |
+    VRFSpec |
+    WebhookSpec
 
 type CronSpec {
     schedule: String!
@@ -60,6 +68,23 @@ type OCRSpec {
     transmitterAddress: String
 }
 
+type OCR2Spec {
+    blockchainTimeout: String!
+    contractAddress: String!
+    contractConfigConfirmations: Int!
+    contractConfigTrackerPollInterval: String!
+    contractConfigTrackerSubscribeInterval: String!
+    createdAt: Time!
+    evmChainID: String
+    isBootstrapPeer: Boolean!
+    juelsPerFeeCoinSource: String!
+    keyBundleID: String
+    monitoringEndpoint: String
+    p2pPeerID: String!
+    p2pBootstrapPeers: [String!]!
+    transmitterAddress: String
+}
+
 type VRFSpec {
     coordinatorAddress: String!
     createdAt: Time!
@@ -69,6 +94,7 @@ type VRFSpec {
     pollPeriod: String!
     publicKey: String!
     requestedConfsDelay: Int!
+    requestTimeout: String!
 }
 
 type WebhookSpec {

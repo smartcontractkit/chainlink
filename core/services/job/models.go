@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 const (
@@ -162,6 +163,17 @@ type SpecError struct {
 
 func (SpecError) TableName() string {
 	return "job_spec_errors"
+}
+
+// SetID takes the id as a string and attempts to convert it to an int32. If
+// it succeeds, it will set it as the id on the job
+func (j *SpecError) SetID(value string) error {
+	id, err := stringutils.ToInt64(value)
+	if err != nil {
+		return err
+	}
+	j.ID = id
+	return nil
 }
 
 type PipelineRun struct {
@@ -393,7 +405,8 @@ type VRFSpec struct {
 	FromAddress              *ethkey.EIP55Address `toml:"fromAddress"`
 	PollPeriod               time.Duration        `toml:"pollPeriod"` // For v2 jobs
 	PollPeriodEnv            bool
-	RequestedConfsDelay      int64     `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
-	CreatedAt                time.Time `toml:"-"`
-	UpdatedAt                time.Time `toml:"-"`
+	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
+	RequestTimeout           time.Duration `toml:"requestTimeout"`      // For v2 jobs. Optional, defaults to 24hr if not provided.
+	CreatedAt                time.Time     `toml:"-"`
+	UpdatedAt                time.Time     `toml:"-"`
 }

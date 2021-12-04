@@ -47,13 +47,17 @@ type ORM interface {
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
 	// TryRecordError is a helper which calls RecordError and logs the returned error if present.
 	TryRecordError(jobID int32, description string, qopts ...pg.QOpt)
-	DismissError(ctx context.Context, errorID int32) error
+	DismissError(ctx context.Context, errorID int64) error
+	FindSpecError(id int64, qopts ...pg.QOpt) (SpecError, error)
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
 
 	FindPipelineRunIDsByJobID(jobID int32, offset, limit int) (ids []int64, err error)
 	FindPipelineRunsByIDs(ids []int64) (runs []pipeline.Run, err error)
 	CountPipelineRunsByJobID(jobID int32) (count int32, err error)
+
+	FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error)
+	FindPipelineRunByID(id int64) (pipeline.Run, error)
 }
 
 type orm struct {
@@ -212,8 +216,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.CronSpecID = &specID
 		case VRF:
 			var specID int32
-			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_address, poll_period, requested_confs_delay, created_at, updated_at)
-			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, :requested_confs_delay, NOW(), NOW())
+			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_address, poll_period, requested_confs_delay, request_timeout, created_at, updated_at)
+			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, :requested_confs_delay, :request_timeout, NOW(), NOW())
 			RETURNING id;`
 			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.VRFSpec)
 			pqErr, ok := err.(*pgconn.PgError)
@@ -364,7 +368,7 @@ func (o *orm) TryRecordError(jobID int32, description string, qopts ...pg.QOpt) 
 	o.lggr.ErrorIf(err, fmt.Sprintf("Error creating SpecError %v", description))
 }
 
-func (o *orm) DismissError(ctx context.Context, ID int32) error {
+func (o *orm) DismissError(ctx context.Context, ID int64) error {
 	q := o.q.WithOpts(pg.WithParentCtx(ctx))
 	res, cancel, err := q.ExecQIter("DELETE FROM job_spec_errors WHERE id = $1", ID)
 	defer cancel()
@@ -381,6 +385,15 @@ func (o *orm) DismissError(ctx context.Context, ID int32) error {
 	return nil
 }
 
+func (o *orm) FindSpecError(id int64, qopts ...pg.QOpt) (SpecError, error) {
+	stmt := `SELECT * FROM job_spec_errors WHERE id = $1;`
+
+	specErr := new(SpecError)
+	err := o.q.WithOpts(qopts...).Get(specErr, stmt, id)
+
+	return *specErr, errors.Wrap(err, "FindSpecError failed")
+}
+
 func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT count(*) FROM jobs;`
@@ -389,7 +402,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 
-		sql = `SELECT * FROM jobs ORDER BY id ASC OFFSET $1 LIMIT $2;`
+		sql = `SELECT * FROM jobs ORDER BY created_at, id DESC OFFSET $1 LIMIT $2;`
 		err = tx.Select(&jobs, sql, offset, limit)
 		if err != nil {
 			return err
@@ -686,6 +699,31 @@ WHERE id = ANY($1)
 	return runs, errors.Wrap(err, "GetPipelineRunsByIDs failed")
 }
 
+// FindPipelineRunByID returns pipeline run with the id.
+func (o *orm) FindPipelineRunByID(id int64) (pipeline.Run, error) {
+	var run pipeline.Run
+
+	err := o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT pipeline_runs.*
+FROM pipeline_runs
+WHERE id = $1
+`
+
+		if err := tx.Get(&run, stmt, id); err != nil {
+			return errors.Wrap(err, "error loading run")
+		}
+
+		runs, err := o.loadPipelineRunsRelations([]pipeline.Run{run}, tx)
+
+		run = runs[0]
+
+		return err
+	})
+
+	return run, errors.Wrap(err, "FindPipelineRunByID failed")
+}
+
 // CountPipelineRunsByJobID returns the total number of pipeline runs for a job.
 func (o *orm) CountPipelineRunsByJobID(jobID int32) (count int32, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
@@ -702,6 +740,33 @@ WHERE pipeline_runs.pipeline_spec_id = (SELECT jobs.pipeline_spec_id FROM JOBS W
 	})
 
 	return count, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+}
+
+func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
+	var jbs []Job
+
+	err := o.q.Transaction(func(tx pg.Queryer) error {
+		stmt := `SELECT * FROM jobs WHERE jobs.pipeline_spec_id = ANY($1) ORDER BY id ASC
+`
+		if err := tx.Select(&jbs, stmt, ids); err != nil {
+			return errors.Wrap(err, "error fetching jobs by pipeline spec IDs")
+		}
+
+		err := LoadAllJobsTypes(tx, jbs)
+		if err != nil {
+			return err
+		}
+		for i := range jbs {
+			err = o.LoadEnvConfigVars(&jbs[i])
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return jbs, errors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first

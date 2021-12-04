@@ -20,7 +20,11 @@ func newLeaseLock(t *testing.T, db *sqlx.DB) pg.LeaseLock {
 
 func Test_LeaseLock(t *testing.T) {
 	t.Run("on migrated database", func(t *testing.T) {
-		_, db := heavyweight.FullTestDB(t, "leaselock", true, false)
+		cfg, db := heavyweight.FullTestDB(t, "leaselock", true, false)
+		duration := 15 * time.Second
+		refresh := 100 * time.Millisecond
+		cfg.Overrides.LeaseLockDuration = &duration
+		cfg.Overrides.LeaseLockRefreshInterval = &refresh
 
 		leaseLock1 := newLeaseLock(t, db)
 
