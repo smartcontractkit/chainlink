@@ -30,11 +30,12 @@ func panicErr(err error) {
 
 func failIfRequiredArgumentsAreEmpty(required []string) {
 	flag.Parse()
+
 	seen := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) { seen[f.Name] = true })
 	for _, req := range required {
 		if !seen[req] {
-			panicErr(fmt.Errorf("missing required -%s argument/flag\n", req))
+			panicErr(fmt.Errorf("missing required -%s argument/flag", req))
 		}
 	}
 }
@@ -269,7 +270,7 @@ func main() {
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		panicErr(consumerDeployCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address","link-address"})
+		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "link-address"})
 		consumerAddress, tx, _, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 			owner,
 			ec,

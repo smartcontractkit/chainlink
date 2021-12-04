@@ -31,7 +31,7 @@ func failIfRequiredArgumentsAreEmpty(required []string) {
 	flag.Visit(func(f *flag.Flag) { seen[f.Name] = true })
 	for _, req := range required {
 		if !seen[req] {
-			panicErr(fmt.Errorf("missing required -%s argument/flag\n", req))
+			panicErr(fmt.Errorf("missing required -%s argument/flag", req))
 		}
 	}
 }
