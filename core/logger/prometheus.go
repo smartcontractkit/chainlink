@@ -196,5 +196,5 @@ func (s *prometheusLogger) Sync() error {
 }
 
 func (s *prometheusLogger) Helper(add int) Logger {
-	return s.h.Helper(add)
+	return &prometheusLogger{s.h.Helper(add)}
 }
