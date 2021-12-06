@@ -274,5 +274,65 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const tx = await _tx.wait(1)
       expect(tx.cumulativeGasUsed).to.equal(28292)
     })
+
+    it('should consume a known amount of gas for latestTimestamp() @skip-coverage', async () => {
+      // Initialise a round
+      await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, now())
+
+      const _tx = await l2Messenger.sendTransaction(
+        await arbitrumSequencerUptimeFeed
+          .connect(l2Messenger)
+          .populateTransaction.latestTimestamp(),
+      )
+      const tx = await _tx.wait(1)
+      expect(tx.cumulativeGasUsed).to.equal(28191)
+    })
+
+    it('should consume a known amount of gas for latestRound() @skip-coverage', async () => {
+      // Initialise a round
+      await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, now())
+
+      const _tx = await l2Messenger.sendTransaction(
+        await arbitrumSequencerUptimeFeed
+          .connect(l2Messenger)
+          .populateTransaction.latestRound(),
+      )
+      const tx = await _tx.wait(1)
+      expect(tx.cumulativeGasUsed).to.equal(28207)
+    })
+
+    it('should consume a known amount of gas for getAnswer(roundId) @skip-coverage', async () => {
+      // Initialise a round
+      await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, now())
+
+      const _tx = await l2Messenger.sendTransaction(
+        await arbitrumSequencerUptimeFeed
+          .connect(l2Messenger)
+          .populateTransaction.getAnswer(1),
+      )
+      const tx = await _tx.wait(1)
+      expect(tx.cumulativeGasUsed).to.equal(30825)
+    })
+
+    it('should consume a known amount of gas for getTimestamp(roundId) @skip-coverage', async () => {
+      // Initialise a round
+      await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, now())
+
+      const _tx = await l2Messenger.sendTransaction(
+        await arbitrumSequencerUptimeFeed
+          .connect(l2Messenger)
+          .populateTransaction.getTimestamp(1),
+      )
+      const tx = await _tx.wait(1)
+      expect(tx.cumulativeGasUsed).to.equal(30691)
+    })
   })
 })
