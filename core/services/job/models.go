@@ -20,16 +20,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 const (
-	Cron              Type = "cron"
-	DirectRequest     Type = "directrequest"
-	FluxMonitor       Type = "fluxmonitor"
-	OffchainReporting Type = "offchainreporting"
-	Keeper            Type = "keeper"
-	VRF               Type = "vrf"
-	Webhook           Type = "webhook"
+	Cron               Type = "cron"
+	DirectRequest      Type = "directrequest"
+	FluxMonitor        Type = "fluxmonitor"
+	OffchainReporting  Type = "offchainreporting"
+	OffchainReporting2 Type = "offchainreporting2"
+	Keeper             Type = "keeper"
+	VRF                Type = "vrf"
+	Webhook            Type = "webhook"
 )
 
 //revive:disable:redefines-builtin-id
@@ -53,60 +55,65 @@ func (t Type) SchemaVersion() uint32 {
 
 var (
 	requiresPipelineSpec = map[Type]bool{
-		Cron:              true,
-		DirectRequest:     true,
-		FluxMonitor:       true,
-		OffchainReporting: false, // bootstrap jobs do not require it
-		Keeper:            true,
-		VRF:               true,
-		Webhook:           true,
+		Cron:               true,
+		DirectRequest:      true,
+		FluxMonitor:        true,
+		OffchainReporting:  false, // bootstrap jobs do not require it
+		OffchainReporting2: false, // bootstrap jobs do not require it
+		Keeper:             true,
+		VRF:                true,
+		Webhook:            true,
 	}
 	supportsAsync = map[Type]bool{
-		Cron:              true,
-		DirectRequest:     true,
-		FluxMonitor:       false,
-		OffchainReporting: false,
-		Keeper:            true,
-		VRF:               true,
-		Webhook:           true,
+		Cron:               true,
+		DirectRequest:      true,
+		FluxMonitor:        false,
+		OffchainReporting:  false,
+		OffchainReporting2: false,
+		Keeper:             true,
+		VRF:                true,
+		Webhook:            true,
 	}
 	schemaVersions = map[Type]uint32{
-		Cron:              1,
-		DirectRequest:     1,
-		FluxMonitor:       1,
-		OffchainReporting: 1,
-		Keeper:            2,
-		VRF:               1,
-		Webhook:           1,
+		Cron:               1,
+		DirectRequest:      1,
+		FluxMonitor:        1,
+		OffchainReporting:  1,
+		OffchainReporting2: 1,
+		Keeper:             2,
+		VRF:                1,
+		Webhook:            1,
 	}
 )
 
 type Job struct {
-	ID                            int32     `toml:"-"`
-	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
-	OffchainreportingOracleSpecID *int32
-	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
-	CronSpecID                    *int32
-	CronSpec                      *CronSpec
-	DirectRequestSpecID           *int32
-	DirectRequestSpec             *DirectRequestSpec
-	FluxMonitorSpecID             *int32
-	FluxMonitorSpec               *FluxMonitorSpec
-	KeeperSpecID                  *int32
-	KeeperSpec                    *KeeperSpec
-	VRFSpecID                     *int32
-	VRFSpec                       *VRFSpec
-	WebhookSpecID                 *int32
-	WebhookSpec                   *WebhookSpec
-	PipelineSpecID                int32
-	PipelineSpec                  *pipeline.Spec
-	JobSpecErrors                 []SpecError
-	Type                          Type
-	SchemaVersion                 uint32
-	Name                          null.String
-	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt                     time.Time
+	ID                             int32     `toml:"-"`
+	ExternalJobID                  uuid.UUID `toml:"externalJobID"`
+	OffchainreportingOracleSpecID  *int32
+	OffchainreportingOracleSpec    *OffchainReportingOracleSpec
+	Offchainreporting2OracleSpecID *int32
+	Offchainreporting2OracleSpec   *OffchainReporting2OracleSpec
+	CronSpecID                     *int32
+	CronSpec                       *CronSpec
+	DirectRequestSpecID            *int32
+	DirectRequestSpec              *DirectRequestSpec
+	FluxMonitorSpecID              *int32
+	FluxMonitorSpec                *FluxMonitorSpec
+	KeeperSpecID                   *int32
+	KeeperSpec                     *KeeperSpec
+	VRFSpecID                      *int32
+	VRFSpec                        *VRFSpec
+	WebhookSpecID                  *int32
+	WebhookSpec                    *WebhookSpec
+	PipelineSpecID                 int32
+	PipelineSpec                   *pipeline.Spec
+	JobSpecErrors                  []SpecError
+	Type                           Type
+	SchemaVersion                  uint32
+	Name                           null.String
+	MaxTaskDuration                models.Interval
+	Pipeline                       pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt                      time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -156,6 +163,17 @@ type SpecError struct {
 
 func (SpecError) TableName() string {
 	return "job_spec_errors"
+}
+
+// SetID takes the id as a string and attempts to convert it to an int32. If
+// it succeeds, it will set it as the id on the job
+func (j *SpecError) SetID(value string) error {
+	id, err := stringutils.ToInt64(value)
+	if err != nil {
+		return err
+	}
+	j.ID = id
+	return nil
 }
 
 type PipelineRun struct {
@@ -216,6 +234,42 @@ func (s *OffchainReportingOracleSpec) SetID(value string) error {
 
 func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
+}
+
+type OffchainReporting2OracleSpec struct {
+	ID                                     int32                `toml:"-"`
+	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID"`
+	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers"`
+	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                null.String          `toml:"keyBundleID"`
+	MonitoringEndpoint                     null.String          `toml:"monitoringEndpoint"`
+	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
+	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
+	EVMChainID                             *utils.Big           `toml:"evmChainID"`
+	JuelsPerFeeCoinPipeline                string               `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                              time.Time            `toml:"-"`
+	UpdatedAt                              time.Time            `toml:"-"`
+}
+
+func (s OffchainReporting2OracleSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *OffchainReporting2OracleSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
+}
+
+func (OffchainReporting2OracleSpec) TableName() string {
+	return "offchainreporting2_oracle_specs"
 }
 
 type ExternalInitiatorWebhookSpec struct {
@@ -351,7 +405,8 @@ type VRFSpec struct {
 	FromAddress              *ethkey.EIP55Address `toml:"fromAddress"`
 	PollPeriod               time.Duration        `toml:"pollPeriod"` // For v2 jobs
 	PollPeriodEnv            bool
-	RequestedConfsDelay      int64     `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
-	CreatedAt                time.Time `toml:"-"`
-	UpdatedAt                time.Time `toml:"-"`
+	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
+	RequestTimeout           time.Duration `toml:"requestTimeout"`      // For v2 jobs. Optional, defaults to 24hr if not provided.
+	CreatedAt                time.Time     `toml:"-"`
+	UpdatedAt                time.Time     `toml:"-"`
 }

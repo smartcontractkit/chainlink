@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
@@ -19,7 +20,7 @@ type PipelineJobSpecErrorsController struct {
 // Destroy deletes a PipelineJobSpecError record from the database, effectively
 // silencing the error notification
 func (psec *PipelineJobSpecErrorsController) Destroy(c *gin.Context) {
-	jobSpec := job.Job{}
+	jobSpec := job.SpecError{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

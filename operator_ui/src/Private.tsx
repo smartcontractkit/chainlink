@@ -11,7 +11,6 @@ import PrivateRoute from './PrivateRoute'
 
 import DashboardIndex from 'pages/Dashboards/Index'
 import Configuration from 'pages/Configuration/Index'
-import JobsShow from 'pages/Jobs/Show'
 import JobsNew from 'pages/Jobs/New'
 import JobRunsIndex from 'pages/JobRuns/Index'
 import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
@@ -75,10 +74,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 component={JobRunsShowOverview}
               />
 
-              <PrivateRoute path="/jobs/:jobId">
-                <JobsShow />
-              </PrivateRoute>
-
               <PrivateRoute
                 exact
                 path="/runs"
@@ -135,7 +130,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <JobProposalsPage />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/jobs">
+              <PrivateRoute path="/jobs">
                 <JobsPage />
               </PrivateRoute>
 

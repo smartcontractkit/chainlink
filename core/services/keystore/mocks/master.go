@@ -97,6 +97,22 @@ func (_m *Master) OCR() keystore.OCR {
 	return r0
 }
 
+// OCR2 provides a mock function with given fields:
+func (_m *Master) OCR2() keystore.OCR2 {
+	ret := _m.Called()
+
+	var r0 keystore.OCR2
+	if rf, ok := ret.Get(0).(func() keystore.OCR2); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.OCR2)
+		}
+	}
+
+	return r0
+}
+
 // P2P provides a mock function with given fields:
 func (_m *Master) P2P() keystore.P2P {
 	ret := _m.Called()

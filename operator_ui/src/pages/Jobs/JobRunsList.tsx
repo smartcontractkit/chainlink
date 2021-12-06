@@ -8,7 +8,6 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import { RunStatus } from 'core/store/models'
 import titleize from 'utils/titleize'
 import { PipelineTaskRunStatus } from './sharedTypes'
 
@@ -77,7 +76,7 @@ interface Props extends WithStyles<typeof styles> {
   runs: {
     createdAt: string
     id: string
-    status: RunStatus | PipelineTaskRunStatus
+    status: PipelineTaskRunStatus
     jobId: string
   }[]
 }

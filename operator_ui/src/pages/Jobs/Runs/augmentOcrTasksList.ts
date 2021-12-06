@@ -1,5 +1,5 @@
 import { PipelineTaskError, PipelineTaskOutput } from 'core/store/models'
-import { parseDot, Stratify } from '../parseDot'
+import { parseDot, Stratify } from 'utils/parseDot'
 import { PipelineJobRun } from '../sharedTypes'
 
 type AugmentedStratify = Stratify & {

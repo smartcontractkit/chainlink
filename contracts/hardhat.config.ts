@@ -1,5 +1,6 @@
 import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
+import '@nomiclabs/hardhat-etherscan'
 import '@nomiclabs/hardhat-waffle'
 import 'hardhat-contract-sizer'
 import 'hardhat-abi-exporter'
