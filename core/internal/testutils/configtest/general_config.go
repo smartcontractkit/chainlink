@@ -42,7 +42,6 @@ type GeneralConfigOverrides struct {
 	BlockBackfillDepth                        null.Int
 	BlockBackfillSkip                         null.Bool
 	ClientNodeURL                             null.String
-	DatabaseTimeout                           *time.Duration
 	DatabaseURL                               null.String
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
@@ -84,6 +83,8 @@ type GeneralConfigOverrides struct {
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
+	LeaseLockDuration                         *time.Duration
+	LeaseLockRefreshInterval                  *time.Duration
 	LogLevel                                  *config.LogLevel
 	DefaultLogLevel                           *config.LogLevel
 	LogSQL                                    null.Bool
@@ -215,13 +216,6 @@ func (c *TestGeneralConfig) SessionTimeout() models.Duration {
 
 func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
-}
-
-func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
-	if c.Overrides.DatabaseTimeout != nil {
-		return models.MustMakeDuration(*c.Overrides.DatabaseTimeout)
-	}
-	return models.MustMakeDuration(5 * time.Second)
 }
 
 func (c *TestGeneralConfig) GlobalLockRetryInterval() models.Duration {
@@ -610,4 +604,18 @@ func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
 // There is no need for any database application locking in tests
 func (c *TestGeneralConfig) DatabaseLockingMode() string {
 	return "none"
+}
+
+func (c *TestGeneralConfig) LeaseLockRefreshInterval() time.Duration {
+	if c.Overrides.LeaseLockRefreshInterval != nil {
+		return *c.Overrides.LeaseLockRefreshInterval
+	}
+	return c.GeneralConfig.LeaseLockRefreshInterval()
+}
+
+func (c *TestGeneralConfig) LeaseLockDuration() time.Duration {
+	if c.Overrides.LeaseLockDuration != nil {
+		return *c.Overrides.LeaseLockDuration
+	}
+	return c.GeneralConfig.LeaseLockDuration()
 }

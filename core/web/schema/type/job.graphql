@@ -4,6 +4,7 @@ type Job {
     schemaVersion: Int!
     maxTaskDuration: String!
     externalJobID: String!
+    type: String!
     spec: JobSpec!
     runs(offset: Int, limit: Int): JobRunsPayload!
     observationSource: String!

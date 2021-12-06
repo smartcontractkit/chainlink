@@ -41,10 +41,6 @@ const (
 		2*2100 + 20000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
 		4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
 		6685 // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
-
-	// maximum request age of requests that continuously fail to fulfill
-	// due to not enough balance in the subscription.
-	maxRequestAge = 24 * time.Hour
 )
 
 type pendingRequest struct {
@@ -319,7 +315,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		)
 
 		// Check if we can ignore the request due to it's age.
-		if time.Now().UTC().Sub(req.utcTimestamp) >= maxRequestAge {
+		if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
 			rlog.Infow("Request too old, dropping it")
 			lsn.markLogAsConsumed(req.lb)
 			processed[vrfRequest.RequestId.String()] = struct{}{}

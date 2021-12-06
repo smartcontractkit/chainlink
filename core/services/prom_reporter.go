@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -141,10 +140,7 @@ func (pr *promReporter) eventLoop() {
 			if !exists {
 				continue
 			}
-			head, ok := item.(*eth.Head)
-			if !ok {
-				panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
-			}
+			head := eth.AsHead(item)
 			pr.reportHeadMetrics(ctx, head)
 		case <-time.After(pr.reportPeriod):
 			if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
