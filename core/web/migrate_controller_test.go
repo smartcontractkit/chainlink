@@ -412,6 +412,14 @@ func TestMigrateController_MigrateCron(t *testing.T) {
     },
     {
       "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "ethbool"
+    },
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "ethbytes32"
+    },
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
       "type": "multiply",
       "params": {
         "times": 100000000
@@ -439,7 +447,7 @@ func TestMigrateController_MigrateCron(t *testing.T) {
 	path="data,BNT,quote,USD,price"
 	type=jsonparse
 	];
-	multiply_2 [
+	multiply_4 [
 	input="$(jsonparse_1)"
 	times=100000000
 	type=multiply
@@ -447,7 +455,7 @@ func TestMigrateController_MigrateCron(t *testing.T) {
 	
 	// Edge definitions.
 	http_get_0 -> jsonparse_1;
-	jsonparse_1 -> multiply_2;
+	jsonparse_1 -> multiply_4;
 	`
 
 	// Migrate it
