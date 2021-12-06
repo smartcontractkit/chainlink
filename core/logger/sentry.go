@@ -302,7 +302,7 @@ func (s *sentryLogger) Sync() error {
 }
 
 func (s *sentryLogger) Helper(add int) Logger {
-	return s.h.Helper(add)
+	return &sentryLogger{s.h.Helper(add)}
 }
 
 func toMap(args ...interface{}) (m map[string]interface{}) {

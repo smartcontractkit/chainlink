@@ -14,9 +14,10 @@ var _ Logger = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	config zap.Config
-	name   string
-	fields []interface{}
+	config     zap.Config
+	name       string
+	fields     []interface{}
+	callerSkip int
 }
 
 func newZapLogger(cfg zap.Config) (Logger, error) {
@@ -68,6 +69,7 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	if err != nil {
 		return nil, err
 	}
+	zl = zl.WithOptions(zap.AddCallerSkip(l.callerSkip))
 	newLogger.SugaredLogger = zl.Named(l.name).Sugar().With(l.fields...)
 	return &newLogger, nil
 }
@@ -75,6 +77,7 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 func (l *zapLogger) Helper(skip int) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.sugaredHelper(skip)
+	newLogger.callerSkip += skip
 	return &newLogger
 }
 
