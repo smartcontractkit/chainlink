@@ -180,18 +180,6 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 			return err
 		}
 	}
-	// migrate all ocr1 keys to ocr2
-	for _, ocrKey := range ks.keyRing.OCR {
-		ocr2Key, err := ocr2key.NewFromOCR1Key(ocrKey)
-		if err != nil {
-			return errors.Wrap(err, "unable to convert ocr1 key to ocr2")
-		}
-		if _, exists := ks.keyRing.OCR2[ocr2Key.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating OCR1 key to OCR2 %s", ocrKey.ID())
-		ks.keyRing.OCR2[ocr2Key.ID()] = ocr2Key
-	}
 	return nil
 }
 
