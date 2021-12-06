@@ -162,7 +162,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
     it('should raise from #getRoundData when round does not exist', async () => {
       await expect(
         arbitrumSequencerUptimeFeed.getRoundData(2),
-      ).to.be.revertedWith('No data present')
+      ).to.be.revertedWith('NoDataPresent')
     })
   })
 
@@ -218,7 +218,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const noUpdateTx = await _noUpdateTx.wait(1)
       // Assert no update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(0)
-      expect(noUpdateTx.cumulativeGasUsed).to.equal(26269)
+      expect(noUpdateTx.cumulativeGasUsed).to.equal(26363)
 
       // Gas for update
       const _updateTx = await arbitrumSequencerUptimeFeed
@@ -227,7 +227,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const updateTx = await _updateTx.wait(1)
       // Assert update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
-      expect(updateTx.cumulativeGasUsed).to.equal(93029)
+      expect(updateTx.cumulativeGasUsed).to.equal(93123)
     })
 
     it('should consume a known amount of gas for getRoundData(uint80) @skip-coverage', async () => {
@@ -242,7 +242,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.getRoundData(1),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(31086)
+      expect(tx.cumulativeGasUsed).to.equal(31104)
     })
 
     it('should consume a known amount of gas for latestRoundData() @skip-coverage', async () => {
@@ -257,7 +257,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.latestRoundData(),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28486)
+      expect(tx.cumulativeGasUsed).to.equal(28485)
     })
 
     it('should consume a known amount of gas for latestAnswer() @skip-coverage', async () => {
@@ -272,7 +272,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.latestAnswer(),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28292)
+      expect(tx.cumulativeGasUsed).to.equal(28276)
     })
 
     it('should consume a known amount of gas for latestTimestamp() @skip-coverage', async () => {
@@ -287,7 +287,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.latestTimestamp(),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28191)
+      expect(tx.cumulativeGasUsed).to.equal(28169)
     })
 
     it('should consume a known amount of gas for latestRound() @skip-coverage', async () => {
@@ -302,7 +302,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.latestRound(),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28207)
+      expect(tx.cumulativeGasUsed).to.equal(28180)
     })
 
     it('should consume a known amount of gas for getAnswer(roundId) @skip-coverage', async () => {
@@ -317,7 +317,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.getAnswer(1),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(30825)
+      expect(tx.cumulativeGasUsed).to.equal(30827)
     })
 
     it('should consume a known amount of gas for getTimestamp(roundId) @skip-coverage', async () => {
@@ -332,7 +332,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.getTimestamp(1),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(30691)
+      expect(tx.cumulativeGasUsed).to.equal(30693)
     })
   })
 })

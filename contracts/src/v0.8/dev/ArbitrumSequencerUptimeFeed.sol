@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import {AddressAliasHelper} from "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import {ForwarderInterface} from "./interfaces/ForwarderInterface.sol";
@@ -37,10 +37,18 @@ contract ArbitrumSequencerUptimeFeed is
     uint64 latestTimestamp;
   }
 
+  /// @notice Contract is not yet initialized
+  error Uninitialized();
+  /// @notice Contract is already initialized
+  error AlreadyInitialized();
+  /// @notice Sender is not the L2 messenger
+  error InvalidSender();
+  /// @notice Replacement for AggregatorV3Interface "No data present"
+  error NoDataPresent();
+
   event Initialized();
   event L1SenderTransferred(address indexed from, address indexed to);
 
-  string private constant V3_NO_DATA_ERROR = "No data present";
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
   address public constant FLAG_L2_SEQ_OFFLINE =
     address(bytes20(bytes32(uint256(keccak256("chainlink.flags.l2-seq-offline")) - 1)));
@@ -68,13 +76,37 @@ contract ArbitrumSequencerUptimeFeed is
   }
 
   /**
+   * @notice Check if a roundId is valid in this current contract state
+   * @dev Mainly used for AggregatorV2V3Interface functions
+   * @param roundId Round ID to check
+   */
+  function isValidRound(uint256 roundId) private view returns (bool) {
+    return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
+  }
+
+  /// @notice Check if this contract is ready to be consumed
+  function isInitialized() private view returns (bool) {
+    return s_feedState.latestRoundId > 0;
+  }
+
+  /// @notice Ensures the contract is ready to be consumed, or throws
+  modifier ensureInitialized() {
+    if (!isInitialized()) {
+      revert Uninitialized();
+    }
+    _;
+  }
+
+  /**
    * @notice Initialise the first round. Can't be done in the constructor,
    *    because this contract's address must be permissioned by the the Flags contract
    *    (The Flags contract itself is a SimpleReadAccessController).
    */
   function initialize() external onlyOwner {
     FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId == 0, "Already initialised");
+    if (feedState.latestRoundId != 0) {
+      revert AlreadyInitialized();
+    }
 
     uint64 timestamp = uint64(block.timestamp);
     bool currentStatus = FLAGS.getFlag(FLAG_L2_SEQ_OFFLINE);
@@ -175,11 +207,12 @@ contract ArbitrumSequencerUptimeFeed is
    * @param status Sequencer status
    * @param timestamp Block timestamp of status update
    */
-  function updateStatus(bool status, uint64 timestamp) external override {
-    FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId > 0, "ArbitrumSequencerUptimeFeed has not been initialized");
-    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
+  function updateStatus(bool status, uint64 timestamp) external override ensureInitialized {
+    if (msg.sender != crossDomainMessenger()) {
+      revert InvalidSender();
+    }
 
+    FeedState memory feedState = s_feedState;
     // Ignore if status did not change
     if (feedState.latestStatus == status) {
       return;
@@ -193,31 +226,23 @@ contract ArbitrumSequencerUptimeFeed is
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestAnswer() external view override checkAccess returns (int256) {
-    FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId > 0, "ArbitrumSequencerUptimeFeed has not been initialized");
-    return getStatusAnswer(feedState.latestStatus);
+  function latestAnswer() external view override checkAccess ensureInitialized returns (int256) {
+    return getStatusAnswer(s_feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestTimestamp() external view override checkAccess returns (uint256) {
-    FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId > 0, "ArbitrumSequencerUptimeFeed has not been initialized");
-    return feedState.latestTimestamp;
+  function latestTimestamp() external view override checkAccess ensureInitialized returns (uint256) {
+    return s_feedState.latestTimestamp;
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestRound() external view override checkAccess returns (uint256) {
-    FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId > 0, "ArbitrumSequencerUptimeFeed has not been initialized");
-    return feedState.latestRoundId;
+  function latestRound() external view override checkAccess ensureInitialized returns (uint256) {
+    return s_feedState.latestRoundId;
   }
 
   /// @inheritdoc AggregatorInterface
-  function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
-    FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId > 0, "ArbitrumSequencerUptimeFeed has not been initialized");
-    if (roundId > 0 && roundId <= type(uint80).max && feedState.latestRoundId >= roundId) {
+  function getAnswer(uint256 roundId) external view override checkAccess ensureInitialized returns (int256) {
+    if (isValidRound(roundId)) {
       return getStatusAnswer(s_rounds[uint80(roundId)].status);
     }
 
@@ -225,10 +250,8 @@ contract ArbitrumSequencerUptimeFeed is
   }
 
   /// @inheritdoc AggregatorInterface
-  function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
-    FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId > 0, "ArbitrumSequencerUptimeFeed has not been initialized");
-    if (roundId > 0 && roundId <= type(uint80).max && feedState.latestRoundId >= roundId) {
+  function getTimestamp(uint256 roundId) external view override checkAccess ensureInitialized returns (uint256) {
+    if (isValidRound(roundId)) {
       return s_rounds[uint80(roundId)].timestamp;
     }
 
@@ -249,8 +272,9 @@ contract ArbitrumSequencerUptimeFeed is
       uint80 answeredInRound
     )
   {
-    FeedState memory feedState = s_feedState;
-    require(_roundId > 0 && feedState.latestRoundId > 0 && feedState.latestRoundId >= _roundId, "No data present");
+    if (!isInitialized() || !isValidRound(_roundId)) {
+      revert NoDataPresent();
+    }
 
     Round memory round = s_rounds[_roundId];
     roundId = _roundId;
@@ -275,7 +299,9 @@ contract ArbitrumSequencerUptimeFeed is
     )
   {
     FeedState memory feedState = s_feedState;
-    require(feedState.latestRoundId > 0, "No data present");
+    if (!isInitialized()) {
+      revert NoDataPresent();
+    }
 
     roundId = feedState.latestRoundId;
     answer = getStatusAnswer(feedState.latestStatus);
