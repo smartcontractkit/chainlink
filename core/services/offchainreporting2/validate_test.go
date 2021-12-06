@@ -234,20 +234,6 @@ monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 			},
 		},
 		{
-			name: "invalid peer ID",
-			toml: `
-type               = "offchainreporting2"
-schemaVersion      = 1
-contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pPeerID = "blah"
-isBootstrapPeer    = true
-`,
-			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "failed to parse peer ID")
-			},
-		},
-		{
 			name: "toml parse doesn't panic",
 			toml: string(hexutil.MustDecode("0x2222220d5c22223b22225c0d21222222")),
 			assertion: func(t *testing.T, os job.Job, err error) {
