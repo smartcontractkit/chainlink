@@ -53,12 +53,12 @@ func (r OCR2KeysBundleResource) GetName() string {
 }
 
 func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
-	configPublic := key.PublicKeyConfig()
+	configPublic := key.ConfigEncryptionPublicKey()
 	return &OCR2KeysBundleResource{
 		JAID:                  NewJAID(key.ID()),
-		ChainType:             string(key.ChainType),
+		ChainType:             string(key.ChainType()),
 		OnChainSigningAddress: key.PublicKeyAddressOnChain(),
-		OffChainPublicKey:     hex.EncodeToString(key.OffchainKeyring.OffchainPublicKey()),
+		OffChainPublicKey:     hex.EncodeToString(key.OffchainPublicKey()),
 		ConfigPublicKey:       hex.EncodeToString(configPublic[:]),
 	}
 }

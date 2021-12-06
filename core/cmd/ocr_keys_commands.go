@@ -77,8 +77,7 @@ func (cli *Client) ListOCRKeyBundles(c *cli.Context) error {
 	return cli.renderAPIResponse(resp, &presenters)
 }
 
-// CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_key_bundles,
-// protected by the password in the password file
+// CreateOCR2KeyBundle creates an OCR key bundle and saves it to the keystore
 func (cli *Client) CreateOCRKeyBundle(c *cli.Context) error {
 	resp, err := cli.HTTP.Post("/v2/keys/ocr", nil)
 	if err != nil {
@@ -94,8 +93,7 @@ func (cli *Client) CreateOCRKeyBundle(c *cli.Context) error {
 	return cli.renderAPIResponse(resp, &presenter, "Created OCR key bundle")
 }
 
-// DeleteOCRKeyBundle creates a key and inserts it into encrypted_ocr_keys,
-// protected by the password in the password file
+// DeleteOCR2KeyBundle deletes an OCR key bundle
 func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
@@ -128,8 +126,7 @@ func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
 	return cli.renderAPIResponse(resp, &presenter, "OCR key bundle deleted")
 }
 
-// ImportOCRKey imports OCR key bundle,
-// file path must be passed
+// ImportOCR2Key imports OCR key bundle
 func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
@@ -165,8 +162,7 @@ func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
 	return cli.renderAPIResponse(resp, &presenter, "Imported OCR key bundle")
 }
 
-// ExportOCRKey exports OCR key bundles by ID
-// ID of the key must be passed
+// ExportOCR2Key exports an OCR key bundle by ID
 func (cli *Client) ExportOCRKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))

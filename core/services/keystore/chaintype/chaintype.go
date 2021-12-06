@@ -1,9 +1,14 @@
 package chaintype
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+)
 
 type ChainType string
-type ErrInvalidChainType error
+
+var ErrInvalidChainType = fmt.Errorf(`invalid chain type: valid types include: "%s" and "%s"`, EVM, Solana)
 
 const (
 	EVM    ChainType = "evm"
@@ -21,8 +26,6 @@ func IsSupportedChainType(chainType ChainType) bool {
 	return false
 }
 
-func NewErrInvalidChainType(chainType ChainType) ErrInvalidChainType {
-	return ErrInvalidChainType(
-		fmt.Errorf(`invalid chain type "%s", valid types include: "%s" and "%s"`, chainType, EVM, Solana),
-	)
+func NewErrInvalidChainType(chainType ChainType) error {
+	return errors.Wrapf(ErrInvalidChainType, "unknown chain type: %s", chainType)
 }

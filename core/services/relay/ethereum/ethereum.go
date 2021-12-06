@@ -214,11 +214,11 @@ func (p ocr2Provider) Healthy() error {
 }
 
 func (p ocr2Provider) OffchainKeyring() types.OffchainKeyring {
-	return &p.keyBundle.OffchainKeyring
+	return p.keyBundle
 }
 
 func (p ocr2Provider) OnchainKeyring() types.OnchainKeyring {
-	return p.keyBundle.OnchainKeyring()
+	return p.keyBundle
 }
 
 func (p ocr2Provider) ContractTransmitter() types.ContractTransmitter {

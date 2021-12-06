@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func assertKeyBundlesNotEqual(t *testing.T, pk1 *ocr2key.KeyBundle, pk2 *ocr2key.KeyBundle) {
+func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.KeyBundle) {
 	assert.NotEqual(t, pk1.ID(), pk2.ID())
-	assert.NotEqualValues(t, pk1.OffchainKeyring, pk2.OffchainKeyring)
-	assert.NotEqualValues(t, pk1.OnchainKeyring(), pk2.OnchainKeyring())
+	assert.NotEqualValues(t, pk1.OffchainPublicKey(), pk2.OffchainPublicKey())
+	assert.NotEqualValues(t, pk1.PublicKeyAddressOnChain(), pk2.PublicKeyAddressOnChain())
 }
 
 func TestOCR2keys_New(t *testing.T) {
@@ -20,9 +20,14 @@ func TestOCR2keys_New(t *testing.T) {
 	require.NoError(t, err)
 	pk2, err := ocr2key.New("evm")
 	require.NoError(t, err)
-	pk3, err := ocr2key.New("evm")
+	pk3, err := ocr2key.New("solana")
+	require.NoError(t, err)
+	pk4, err := ocr2key.New("solana")
 	require.NoError(t, err)
 	assertKeyBundlesNotEqual(t, pk1, pk2)
+	assertKeyBundlesNotEqual(t, pk3, pk4)
 	assertKeyBundlesNotEqual(t, pk1, pk3)
-	assertKeyBundlesNotEqual(t, pk2, pk3)
+	require.Equal(t, pk1.ChainType(), pk2.ChainType())
+	require.Equal(t, pk3.ChainType(), pk4.ChainType())
+	require.NotEqual(t, pk1.ChainType(), pk3.ChainType())
 }

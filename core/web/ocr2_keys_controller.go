@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -33,7 +34,7 @@ func (ocr2kc *OCR2KeysController) Index(c *gin.Context) {
 func (ocr2kc *OCR2KeysController) Create(c *gin.Context) {
 	chainType := chaintype.ChainType(c.Param("chainType"))
 	key, err := ocr2kc.App.GetKeyStore().OCR2().Create(chainType)
-	if _, is := err.(chaintype.ErrInvalidChainType); is {
+	if errors.Cause(err) == chaintype.ErrInvalidChainType {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}

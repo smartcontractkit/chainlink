@@ -159,12 +159,12 @@ func TestIntegration_OCR2(t *testing.T) {
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  kb.PublicKeyAddressOnChainRaw(),
+				OnchainPublicKey:  kb.PublicKey(),
 				TransmitAccount:   ocrtypes2.Account(transmitter.String()),
-				OffchainPublicKey: kb.OffchainKeyring.OffchainPublicKey(),
+				OffchainPublicKey: kb.OffchainPublicKey(),
 				PeerID:            peerID,
 			},
-			ConfigEncryptionPublicKey: kb.OffchainKeyring.ConfigEncryptionPublicKey(),
+			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
 	}
 

@@ -12,30 +12,30 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-var _ ocrtypes.OnchainKeyring = &SolanaKeyring{}
+var _ ocrtypes.OnchainKeyring = &solanaKeyring{}
 
-type SolanaKeyring struct {
+type solanaKeyring struct {
 	privateKey ecdsa.PrivateKey
 }
 
-func newSolanaKeyring(material io.Reader) (*SolanaKeyring, error) {
+func newSolanaKeyring(material io.Reader) (*solanaKeyring, error) {
 	ecdsaKey, err := ecdsa.GenerateKey(curve, material)
 	if err != nil {
 		return nil, err
 	}
-	return &SolanaKeyring{privateKey: *ecdsaKey}, nil
+	return &solanaKeyring{privateKey: *ecdsaKey}, nil
 }
 
 // XXX: PublicKey returns the address of the public key not the public key itself
-func (ok *SolanaKeyring) PublicKey() ocrtypes.OnchainPublicKey {
+func (ok *solanaKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 	address := ok.SigningAddress()
 	return address[:]
 }
 
-func (ok *SolanaKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
+func (ok *solanaKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
 	sigData := make([]byte, len(report))
-	copy(sigData, report)
+	sigData = append(sigData, report...)
 	sigData = append(sigData, rawReportContext[0][:]...)
 	sigData = append(sigData, rawReportContext[1][:]...)
 	sigData = append(sigData, rawReportContext[2][:]...)
@@ -43,12 +43,12 @@ func (ok *SolanaKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, repor
 	return result[:]
 }
 
-func (ok *SolanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+func (ok *solanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	return crypto.Sign(ok.reportToSigData(reportCtx, report), &ok.privateKey)
 
 }
 
-func (ok *SolanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+func (ok *solanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	hash := ok.reportToSigData(reportCtx, report)
 	authorPubkey, err := crypto.SigToPub(hash, signature)
 	if err != nil {
@@ -58,19 +58,19 @@ func (ok *SolanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx o
 	return bytes.Equal(publicKey[:], authorAddress[:])
 }
 
-func (ok *SolanaKeyring) MaxSignatureLength() int {
+func (ok *solanaKeyring) MaxSignatureLength() int {
 	return 65
 }
 
-func (ok *SolanaKeyring) SigningAddress() common.Address {
+func (ok *solanaKeyring) SigningAddress() common.Address {
 	return crypto.PubkeyToAddress(*(&ok.privateKey).Public().(*ecdsa.PublicKey))
 }
 
-func (ok *SolanaKeyring) marshal() ([]byte, error) {
+func (ok *solanaKeyring) marshal() ([]byte, error) {
 	return crypto.FromECDSA(&ok.privateKey), nil
 }
 
-func (ok *SolanaKeyring) unmarshal(in []byte) error {
+func (ok *solanaKeyring) unmarshal(in []byte) error {
 	privateKey, err := crypto.ToECDSA(in)
 	ok.privateKey = *privateKey
 	return err

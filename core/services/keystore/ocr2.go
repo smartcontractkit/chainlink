@@ -38,7 +38,7 @@ func (ks ocr2) Get(id string) (ocr2key.KeyBundle, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
-		return ocr2key.KeyBundle{}, ErrLocked
+		return nil, ErrLocked
 	}
 	return ks.getByID(id)
 }
@@ -70,7 +70,7 @@ func (ks ocr2) Create(chainType chaintype.ChainType) (ocr2key.KeyBundle, error) 
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return ocr2key.KeyBundle{}, ErrLocked
+		return nil, ErrLocked
 	}
 	return ks.create(chainType)
 }
@@ -105,14 +105,14 @@ func (ks ocr2) Import(keyJSON []byte, password string) (ocr2key.KeyBundle, error
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return ocr2key.KeyBundle{}, ErrLocked
+		return nil, ErrLocked
 	}
 	key, err := ocr2key.FromEncryptedJSON(keyJSON, password)
 	if err != nil {
-		return ocr2key.KeyBundle{}, errors.Wrap(err, "OCRKeyStore#ImportKey failed to decrypt key")
+		return nil, errors.Wrap(err, "OCRKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.OCR[key.ID()]; found {
-		return ocr2key.KeyBundle{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return nil, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
 	return key, ks.keyManager.safeAddKey(key)
 }
@@ -127,7 +127,7 @@ func (ks ocr2) Export(id string, password string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return key.ToEncryptedJSON(password, ks.scryptParams)
+	return ocr2key.ToEncryptedJSON(key, password, ks.scryptParams)
 }
 
 func (ks ocr2) EnsureKeys() (map[chaintype.ChainType]ocr2key.KeyBundle, map[chaintype.ChainType]bool, error) {
@@ -161,7 +161,7 @@ func (ks ocr2) EnsureKeys() (map[chaintype.ChainType]ocr2key.KeyBundle, map[chai
 func (ks ocr2) getByID(id string) (ocr2key.KeyBundle, error) {
 	key, found := ks.keyRing.OCR2[id]
 	if !found {
-		return ocr2key.KeyBundle{}, fmt.Errorf("unable to find OCR key with id %s", id)
+		return nil, fmt.Errorf("unable to find OCR key with id %s", id)
 	}
 	return key, nil
 }
@@ -169,7 +169,7 @@ func (ks ocr2) getByID(id string) (ocr2key.KeyBundle, error) {
 func (ks ocr2) getAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle, error) {
 	keys := []ocr2key.KeyBundle{}
 	for _, key := range ks.keyRing.OCR2 {
-		if key.ChainType == chainType {
+		if key.ChainType() == chainType {
 			keys = append(keys, key)
 		}
 	}
@@ -178,12 +178,11 @@ func (ks ocr2) getAllOfType(chainType chaintype.ChainType) ([]ocr2key.KeyBundle,
 
 func (ks ocr2) create(chainType chaintype.ChainType) (ocr2key.KeyBundle, error) {
 	if !chaintype.IsSupportedChainType(chainType) {
-		return ocr2key.KeyBundle{},
-			chaintype.NewErrInvalidChainType(chainType)
+		return nil, chaintype.NewErrInvalidChainType(chainType)
 	}
 	key, err := ocr2key.New(chainType)
 	if err != nil {
-		return ocr2key.KeyBundle{}, err
+		return nil, err
 	}
-	return *key, ks.safeAddKey(*key)
+	return key, ks.safeAddKey(key)
 }

@@ -106,7 +106,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		defer reset()
 		newKey, err := ocr2key.New("evm")
 		require.NoError(t, err)
-		err = ks.Add(*newKey)
+		err = ks.Add(newKey)
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)

@@ -63,7 +63,7 @@ func (ps OCR2KeyBundlePresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-// ListOCR2KeyBundles lists the available OCR Key Bundles
+// ListOCR2KeyBundles lists the available OCR2 Key Bundles
 func (cli *Client) ListOCR2KeyBundles(c *cli.Context) error {
 	resp, err := cli.HTTP.Get("/v2/keys/ocr2", nil)
 	if err != nil {
@@ -79,8 +79,7 @@ func (cli *Client) ListOCR2KeyBundles(c *cli.Context) error {
 	return cli.renderAPIResponse(resp, &presenters)
 }
 
-// CreateOCR2KeyBundle creates a key and inserts it into encrypted_ocr_key_bundles,
-// protected by the password in the password file
+// CreateOCR2KeyBundle creates an OCR2 key bundle and saves it to the keystore
 func (cli *Client) CreateOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(
@@ -102,8 +101,7 @@ func (cli *Client) CreateOCR2KeyBundle(c *cli.Context) error {
 	return cli.renderAPIResponse(resp, &presenter, "Created OCR key bundle")
 }
 
-// DeleteOCR2KeyBundle creates a key and inserts it into encrypted_ocr_keys,
-// protected by the password in the password file
+// DeleteOCR2KeyBundle deletes an OCR2 key bundle
 func (cli *Client) DeleteOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
@@ -136,8 +134,7 @@ func (cli *Client) DeleteOCR2KeyBundle(c *cli.Context) error {
 	return cli.renderAPIResponse(resp, &presenter, "OCR key bundle deleted")
 }
 
-// ImportOCR2Key imports OCR key bundle,
-// file path must be passed
+// ImportOCR2Key imports OCR2 key bundle
 func (cli *Client) ImportOCR2Key(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
@@ -173,8 +170,7 @@ func (cli *Client) ImportOCR2Key(c *cli.Context) (err error) {
 	return cli.renderAPIResponse(resp, &presenter, "Imported OCR key bundle")
 }
 
-// ExportOCR2Key exports OCR key bundles by ID
-// ID of the key must be passed
+// ExportOCR2Key exports an OCR2 key bundle by ID
 func (cli *Client) ExportOCR2Key(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
