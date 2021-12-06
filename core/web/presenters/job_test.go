@@ -200,9 +200,9 @@ func TestJob(t *testing.T) {
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
 					EVMChainID:                             evmChainID,
-					DatabaseTimeout:                        models.Interval(2 * time.Second),
-					ObservationGracePeriod:                 models.Interval(3 * time.Second),
-					ContractTransmitterTransmitTimeout:     models.Interval(444 * time.Millisecond),
+					DatabaseTimeout:                        models.NewInterval(2 * time.Second),
+					ObservationGracePeriod:                 models.NewInterval(3 * time.Second),
+					ContractTransmitterTransmitTimeout:     models.NewInterval(444 * time.Millisecond),
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{

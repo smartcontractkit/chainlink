@@ -137,11 +137,11 @@ type OffChainReportingSpec struct {
 	CreatedAt                                 time.Time            `json:"createdAt"`
 	UpdatedAt                                 time.Time            `json:"updatedAt"`
 	EVMChainID                                *utils.Big           `json:"evmChainID"`
-	DatabaseTimeout                           models.Interval      `json:"databaseTimeout"`
+	DatabaseTimeout                           *models.Interval     `json:"databaseTimeout"`
 	DatabaseTimeoutEnv                        bool                 `json:"databaseTimeoutEnv,omitempty"`
-	ObservationGracePeriod                    models.Interval      `json:"observationGracePeriod"`
+	ObservationGracePeriod                    *models.Interval     `json:"observationGracePeriod"`
 	ObservationGracePeriodEnv                 bool                 `json:"observationGracePeriodEnv,omitempty"`
-	ContractTransmitterTransmitTimeout        models.Interval      `json:"contractTransmitterTransmitTimeout"`
+	ContractTransmitterTransmitTimeout        *models.Interval     `json:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool                 `json:"contractTransmitterTransmitTimeoutEnv,omitempty"`
 }
 

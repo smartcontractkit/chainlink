@@ -517,17 +517,17 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec
 		os.ContractConfigConfirmationsEnv = true
 		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
 	}
-	if os.DatabaseTimeout == 0 {
+	if os.DatabaseTimeout == nil {
 		os.DatabaseTimeoutEnv = true
-		os.DatabaseTimeout = models.Interval(cfg.OCRDatabaseTimeout())
+		os.DatabaseTimeout = models.NewInterval(cfg.OCRDatabaseTimeout())
 	}
-	if os.ObservationGracePeriod == 0 {
+	if os.ObservationGracePeriod == nil {
 		os.ObservationGracePeriodEnv = true
-		os.ObservationGracePeriod = models.Interval(cfg.OCRObservationGracePeriod())
+		os.ObservationGracePeriod = models.NewInterval(cfg.OCRObservationGracePeriod())
 	}
-	if os.ContractTransmitterTransmitTimeout == 0 {
+	if os.ContractTransmitterTransmitTimeout == nil {
 		os.ContractTransmitterTransmitTimeoutEnv = true
-		os.ContractTransmitterTransmitTimeout = models.Interval(cfg.OCRContractTransmitterTransmitTimeout())
+		os.ContractTransmitterTransmitTimeout = models.NewInterval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
 	return &os
 }
