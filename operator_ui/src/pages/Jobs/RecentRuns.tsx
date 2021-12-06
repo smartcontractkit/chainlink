@@ -13,7 +13,7 @@ import JobRunsList from './JobRunsList'
 import TaskListDag from './TaskListDag'
 import React from 'react'
 import { JobData } from './sharedTypes'
-import { parseDot } from './parseDot'
+import { parseDot } from 'utils/parseDot'
 
 const chartCardStyles = ({ spacing, palette }: Theme) =>
   createStyles({

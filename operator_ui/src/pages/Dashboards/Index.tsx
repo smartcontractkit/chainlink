@@ -7,42 +7,14 @@ import Footer from 'components/Footer'
 import Content from 'components/Content'
 import { fetchAccountBalance } from 'actionCreators'
 import accountBalanceSelector from 'selectors/accountBalance'
-import RecentlyCreated from 'components/Jobs/RecentlyCreated'
 import { v2 } from 'api'
 import { JobRunV2, Resource } from 'core/store/models'
+
+import { RecentJobs } from 'src/screens/Dashboard/RecentJobs'
 
 type Props = {
   recentJobRunsCount: number
   recentlyCreatedPageSize: number
-}
-
-const fetchJobs = async (pageSize: number) => {
-  const jobs = await v2.jobs.getJobSpecs()
-
-  return jobs.data
-    .reverse()
-    .slice(0, pageSize)
-    .map(({ attributes, id }) => {
-      let createdAt = ''
-
-      if (attributes.directRequestSpec) {
-        createdAt = attributes.directRequestSpec.createdAt
-      } else if (attributes.fluxMonitorSpec) {
-        createdAt = attributes.fluxMonitorSpec.createdAt
-      } else if (attributes.offChainReportingOracleSpec) {
-        createdAt = attributes.offChainReportingOracleSpec.createdAt
-      } else if (attributes.keeperSpec) {
-        createdAt = attributes.keeperSpec.createdAt
-      } else if (attributes.cronSpec) {
-        createdAt = attributes.cronSpec.createdAt
-      } else if (attributes.webhookSpec) {
-        createdAt = attributes.webhookSpec.createdAt
-      } else if (attributes.vrfSpec) {
-        createdAt = attributes.vrfSpec.createdAt
-      }
-
-      return { id, createdAt, name: attributes.name }
-    })
 }
 
 const fetchRuns = async (
@@ -60,9 +32,6 @@ export const Index = ({
   recentJobRunsCount = 2,
   recentlyCreatedPageSize,
 }: Props) => {
-  const [jobs, setJobs] = useState<
-    { id: string; name: string | null; createdAt: string }[]
-  >([])
   const [runs, setRuns] = useState<Resource<JobRunV2>[]>([])
   const [count, setCount] = useState(0)
   const dispatch = useDispatch()
@@ -74,9 +43,6 @@ export const Index = ({
 
   React.useEffect(() => {
     dispatch(fetchAccountBalance())
-    fetchJobs(recentlyCreatedPageSize).then((fetchedJobs) =>
-      setJobs(fetchedJobs),
-    )
     fetchRuns(recentJobRunsCount).then((data) => {
       setRuns(data.runs)
       setCount(data.count)
@@ -86,10 +52,10 @@ export const Index = ({
   return (
     <Content>
       <Grid container>
-        <Grid item xs={9}>
+        <Grid item xs={8}>
           <Activity runs={runs} pageSize={recentJobRunsCount} count={count} />
         </Grid>
-        <Grid item xs={3}>
+        <Grid item xs={4}>
           <Grid container>
             <Grid item xs={12}>
               <TokenBalanceCard
@@ -104,7 +70,7 @@ export const Index = ({
               />
             </Grid>
             <Grid item xs={12}>
-              <RecentlyCreated jobs={jobs} />
+              <RecentJobs />
             </Grid>
           </Grid>
         </Grid>

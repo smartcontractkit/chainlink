@@ -32,20 +32,6 @@ func (_m *Config) BridgeResponseURL() *url.URL {
 	return r0
 }
 
-// DatabaseMaximumTxDuration provides a mock function with given fields:
-func (_m *Config) DatabaseMaximumTxDuration() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // DatabaseURL provides a mock function with given fields:
 func (_m *Config) DatabaseURL() url.URL {
 	ret := _m.Called()
