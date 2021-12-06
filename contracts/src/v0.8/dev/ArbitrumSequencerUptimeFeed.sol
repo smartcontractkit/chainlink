@@ -84,17 +84,11 @@ contract ArbitrumSequencerUptimeFeed is
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
-  /// @notice Check if this contract is ready to be consumed
-  function isInitialized() private view returns (bool) {
-    return s_feedState.latestRoundId > 0;
-  }
-
-  /// @notice Ensures the contract is ready to be consumed, or throws
-  modifier ensureInitialized() {
-    if (!isInitialized()) {
+  /// @notice Check that this contract is initialised, otherwise throw
+  function requireInitialized(uint80 latestRoundId) private pure {
+    if (latestRoundId == 0) {
       revert Uninitialized();
     }
-    _;
   }
 
   /**
@@ -207,12 +201,13 @@ contract ArbitrumSequencerUptimeFeed is
    * @param status Sequencer status
    * @param timestamp Block timestamp of status update
    */
-  function updateStatus(bool status, uint64 timestamp) external override ensureInitialized {
+  function updateStatus(bool status, uint64 timestamp) external override {
+    FeedState memory feedState = s_feedState;
+    requireInitialized(feedState.latestRoundId);
     if (msg.sender != crossDomainMessenger()) {
       revert InvalidSender();
     }
 
-    FeedState memory feedState = s_feedState;
     // Ignore if status did not change
     if (feedState.latestStatus == status) {
       return;
@@ -226,22 +221,29 @@ contract ArbitrumSequencerUptimeFeed is
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestAnswer() external view override checkAccess ensureInitialized returns (int256) {
-    return getStatusAnswer(s_feedState.latestStatus);
+  function latestAnswer() external view override checkAccess returns (int256) {
+    FeedState memory feedState = s_feedState;
+    requireInitialized(feedState.latestRoundId);
+    return getStatusAnswer(feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestTimestamp() external view override checkAccess ensureInitialized returns (uint256) {
-    return s_feedState.latestTimestamp;
+  function latestTimestamp() external view override checkAccess returns (uint256) {
+    FeedState memory feedState = s_feedState;
+    requireInitialized(feedState.latestRoundId);
+    return feedState.latestTimestamp;
   }
 
   /// @inheritdoc AggregatorInterface
-  function latestRound() external view override checkAccess ensureInitialized returns (uint256) {
-    return s_feedState.latestRoundId;
+  function latestRound() external view override checkAccess returns (uint256) {
+    FeedState memory feedState = s_feedState;
+    requireInitialized(feedState.latestRoundId);
+    return feedState.latestRoundId;
   }
 
   /// @inheritdoc AggregatorInterface
-  function getAnswer(uint256 roundId) external view override checkAccess ensureInitialized returns (int256) {
+  function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
+    requireInitialized(s_feedState.latestRoundId);
     if (isValidRound(roundId)) {
       return getStatusAnswer(s_rounds[uint80(roundId)].status);
     }
@@ -250,7 +252,8 @@ contract ArbitrumSequencerUptimeFeed is
   }
 
   /// @inheritdoc AggregatorInterface
-  function getTimestamp(uint256 roundId) external view override checkAccess ensureInitialized returns (uint256) {
+  function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
+    requireInitialized(s_feedState.latestRoundId);
     if (isValidRound(roundId)) {
       return s_rounds[uint80(roundId)].timestamp;
     }
@@ -272,9 +275,7 @@ contract ArbitrumSequencerUptimeFeed is
       uint80 answeredInRound
     )
   {
-    if (!isInitialized()) {
-      revert NoDataPresent();
-    }
+    requireInitialized(s_feedState.latestRoundId);
 
     if (isValidRound(_roundId)) {
       Round memory round = s_rounds[_roundId];
@@ -304,9 +305,7 @@ contract ArbitrumSequencerUptimeFeed is
     )
   {
     FeedState memory feedState = s_feedState;
-    if (!isInitialized()) {
-      revert NoDataPresent();
-    }
+    requireInitialized(feedState.latestRoundId);
 
     roundId = feedState.latestRoundId;
     answer = getStatusAnswer(feedState.latestStatus);
