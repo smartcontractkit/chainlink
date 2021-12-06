@@ -159,10 +159,14 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       )
     })
 
-    it('should raise from #getRoundData when round does not exist', async () => {
-      await expect(
-        arbitrumSequencerUptimeFeed.getRoundData(2),
-      ).to.be.revertedWith('NoDataPresent')
+    it('should return 0 from #getRoundData when round does not yet exist (future roundId)', async () => {
+      const [roundId, answer, startedAt, updatedAt, answeredInRound] =
+        await arbitrumSequencerUptimeFeed.getRoundData(2)
+      expect(roundId).to.equal(2)
+      expect(answer).to.equal(0)
+      expect(startedAt).to.equal(0)
+      expect(updatedAt).to.equal(0)
+      expect(answeredInRound).to.equal(2)
     })
   })
 
@@ -242,7 +246,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
           .populateTransaction.getRoundData(1),
       )
       const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(31104)
+      expect(tx.cumulativeGasUsed).to.equal(31097)
     })
 
     it('should consume a known amount of gas for latestRoundData() @skip-coverage', async () => {
