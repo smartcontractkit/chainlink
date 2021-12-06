@@ -185,7 +185,6 @@ type OffChainReporting2Spec struct {
 	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
 	CreatedAt                              time.Time            `json:"createdAt"`
 	UpdatedAt                              time.Time            `json:"updatedAt"`
-	DatabaseTimeout                        models.Interval      `json:"databaseTimeout"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -204,7 +203,6 @@ func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChain
 		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
 		CreatedAt:                              spec.CreatedAt,
 		UpdatedAt:                              spec.UpdatedAt,
-		DatabaseTimeout:                        spec.DatabaseTimeout,
 	}
 }
 

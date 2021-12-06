@@ -255,7 +255,6 @@ type OffchainReporting2OracleSpec struct {
 	JuelsPerFeeCoinPipeline                string               `toml:"juelsPerFeeCoinSource"`
 	CreatedAt                              time.Time            `toml:"-"`
 	UpdatedAt                              time.Time            `toml:"-"`
-	DatabaseTimeout                        models.Interval      `toml:"databaseTimeout"`
 }
 
 func (s OffchainReporting2OracleSpec) GetID() string {

@@ -66,6 +66,8 @@ type OCRSpec {
     p2pPeerIDEnv: Boolean!
     p2pBootstrapPeers: [String!]
     transmitterAddress: String
+    databaseTimeout: String!
+    databaseTimeoutEnv: Boolean!
 }
 
 type OCR2Spec {
@@ -83,8 +85,6 @@ type OCR2Spec {
     p2pPeerID: String
     p2pBootstrapPeers: [String!]
     transmitterAddress: String
-    databaseTimeout: String!
-    databaseTimeoutEnv: Boolean!
 }
 
 type VRFSpec {
