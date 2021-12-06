@@ -1925,7 +1925,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	// Use a mock keystore for this test
 	ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, kst, keys, nil)
 	currentHead := int64(30)
-	// oldEnough := int64(19)
 	nonce := int64(0)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
@@ -1935,8 +1934,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	attempt := etx.EthTxAttempts[0]
 	signedTx, err := attempt.GetSignedTx()
 	require.NoError(t, err)
-	// require.NoError(t, db.Get(&attempt1_1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
-	// var err error
 
 	t.Run("terminally underpriced transactions are retried with more gas", func(t *testing.T) {
 		// Fail the first time with terminally underpriced.
