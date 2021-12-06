@@ -170,6 +170,9 @@ export const generateJobDefinition = (
 
       break
     case 'OCR2Spec':
+      // RelayConfig is a JSON object which we want to render as a string
+      const relayConfig = JSON.stringify(job.spec.relayConfig)
+
       values = {
         ...extractJobFields(job, 'maxTaskDuration'),
         ...extractSpecFields(
@@ -186,8 +189,11 @@ export const generateJobDefinition = (
           'p2pBootstrapPeers',
           'p2pPeerID',
           'relay',
-          'transmitterID',
         ),
+        relayConfig,
+        // We need to call 'extractSpecFields' again here so we get the spec
+        // fields displaying in alphabetical order.
+        ...extractSpecFields(job.spec, 'transmitterID'),
         ...extractObservationSourceField(job),
       }
 

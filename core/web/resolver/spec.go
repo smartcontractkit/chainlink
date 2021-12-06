@@ -4,6 +4,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/web/gqlscalar"
 )
 
 type SpecResolver struct {
@@ -549,9 +550,14 @@ func (r *OCR2SpecResolver) P2PBootstrapPeers() *[]string {
 	return &peers
 }
 
-// P2PBootstrapPeers resolves the spec's relay
+// Relay resolves the spec's relay
 func (r *OCR2SpecResolver) Relay() string {
 	return string(r.spec.Relay)
+}
+
+// RelayConfig resolves the spec's relay config
+func (r *OCR2SpecResolver) RelayConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.RelayConfig)
 }
 
 // TransmitterAddress resolves the spec's transmitter id

@@ -361,6 +361,9 @@ p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
         relay: 'ethereum',
+        relayConfig: {
+          chainID: 1337,
+        },
         transmitterID: '0x01010CaB43e77116c95745D219af1069fE050d7A',
       },
       runs: {
@@ -392,6 +395,7 @@ p2pBootstrapPeers = [
 ]
 p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
 relay = "ethereum"
+relayConfig = '{"chainID":1337}'
 transmitterID = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];

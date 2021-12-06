@@ -82,6 +82,7 @@ type OCR2Spec {
     p2pPeerID: String
     p2pBootstrapPeers: [String!]
     relay: String!
+    relayConfig: Map!
     transmitterID: String
 }
 

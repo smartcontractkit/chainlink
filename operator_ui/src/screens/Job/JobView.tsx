@@ -82,6 +82,7 @@ const JOB_PAYLOAD__SPEC = gql`
       p2pPeerID
       p2pBootstrapPeers
       relay
+      relayConfig
       transmitterID
     }
     ... on VRFSpec {

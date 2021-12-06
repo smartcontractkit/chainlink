@@ -479,6 +479,9 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	p2pPeerID, err := p2pkey.MakePeerID("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
 	require.NoError(t, err)
 
+	relayConfig, err := models.ParseJSON([]byte(`{"chainID": 1337}`))
+	require.NoError(t, err)
+
 	testCases := []GQLTestCase{
 		{
 			name:          "OCR 2 spec",
@@ -500,7 +503,8 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
 						P2PPeerID:                              &p2pPeerID,
 						P2PBootstrapPeers:                      pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                                  relay.Solana,
+						Relay:                                  relay.Ethereum,
+						RelayConfig:                            relayConfig,
 						TransmitterID:                          null.StringFrom(transmitterAddress.String()),
 					},
 				}, nil)
@@ -525,6 +529,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									p2pPeerID
 									p2pBootstrapPeers
 									relay
+									relayConfig
 									transmitterID
 								}
 							}
@@ -549,7 +554,10 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"monitoringEndpoint": "https://monitor.endpoint",
 							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
 							"p2pBootstrapPeers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
-							"relay": "solana",
+							"relay": "ethereum",
+							"relayConfig": {
+								"chainID": 1337
+							},
 							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
 					}
