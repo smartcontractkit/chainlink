@@ -17,6 +17,7 @@ type Query {
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
+    jobRun(id: ID!): JobRunPayload!
     jobsRuns(offset: Int, limit: Int): JobsRunsPayload!
     node(id: ID!): NodePayload!
     nodes(offset: Int, limit: Int): NodesPayload!

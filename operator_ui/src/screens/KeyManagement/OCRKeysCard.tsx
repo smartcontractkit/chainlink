@@ -15,8 +15,10 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 
 import { ConfirmationDialog } from 'src/components/Dialogs/ConfirmationDialog'
+import { ErrorRow } from 'src/components/TableRow/ErrorRow'
+import { LoadingRow } from 'src/components/TableRow/LoadingRow'
+import { NoContentRow } from 'src/components/TableRow/NoContentRow'
 import { OCRKeyBundleRow } from './OCRKeyBundleRow'
-import { ErrorRow, LoadingRow, NoContentRow } from './Rows'
 
 export const OCR_KEY_BUNDLES_PAYLOAD__RESULTS_FIELDS = gql`
   fragment OCRKeyBundlesPayload_ResultsFields on OCRKeyBundle {
