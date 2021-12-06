@@ -302,7 +302,7 @@ func (s *sentryLogger) Sync() error {
 }
 
 func (s *sentryLogger) Helper(add int) Logger {
-	return s.h.Helper(add)
+	return &sentryLogger{s.h.Helper(add)}
 }
 
 func toMap(args ...interface{}) (m map[string]interface{}) {
@@ -322,4 +322,11 @@ func toMap(args ...interface{}) (m map[string]interface{}) {
 		i += 2
 	}
 	return m
+}
+
+func (s *sentryLogger) Recover(panicErr interface{}) {
+	sentry.CurrentHub().Recover(panicErr)
+	sentry.Flush(SentryFlushDeadline)
+
+	s.h.Recover(panicErr)
 }

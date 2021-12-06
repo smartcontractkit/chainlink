@@ -309,11 +309,14 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var requestedConfsDelay int64
 	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
 	require.Equal(t, int64(10), requestedConfsDelay)
+	var requestTimeout time.Duration
+	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 24*time.Hour, requestTimeout)
 	jobORM.DeleteJob(jb.ID)
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 
-	jb, err = vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{}).Toml())
+	jb, err = vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestTimeout: 1 * time.Hour}).Toml())
 	require.NoError(t, err)
 	err = jobORM.CreateJob(&jb)
 	require.NoError(t, err)
@@ -321,6 +324,8 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 1)
 	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
 	require.Equal(t, int64(0), requestedConfsDelay)
+	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 1*time.Hour, requestTimeout)
 	jobORM.DeleteJob(jb.ID)
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)

@@ -84,6 +84,10 @@ type Logger interface {
 	// Helper creates a new logger with the number of callers skipped by caller annotation increased by skip.
 	// This allows wrappers and helpers to point higher up the stack (like testing.T.Helper()).
 	Helper(skip int) Logger
+
+	// Recover reports recovered panics; this is useful because it avoids
+	// double-reporting to sentry
+	Recover(panicErr interface{})
 }
 
 // Constants for service names for package specific logging configuration

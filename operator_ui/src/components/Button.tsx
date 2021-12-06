@@ -100,6 +100,7 @@ interface Props extends WithStyles<typeof styles> {
   className?: string
   variant?: ButtonVariant
   size?: 'small' | 'medium' | 'large'
+  onMouseLeave?: () => void
   // Ideally this would be typed as below. However the MuiButton type annotations
   // don't allow an object to be passed through.
   //
@@ -122,10 +123,11 @@ const Button = ({
   className,
   children,
   onClick,
+  onMouseLeave,
   size,
 }: Props) => {
   const curryProps = Object.assign(
-    { component, disabled, href, onClick, type, size },
+    { component, disabled, href, onClick, type, size, onMouseLeave },
     muiProps(variant, classes),
   )
   const cn = classNames(classes[variant as keyof typeof classes], className)
