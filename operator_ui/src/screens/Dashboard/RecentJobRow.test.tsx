@@ -19,7 +19,6 @@ describe('RecentJobRow', () => {
               <RecentJobRow job={job} />
             </tbody>
           </table>
-          ,
         </Route>
 
         <Route path="/jobs/:id">Job Page</Route>
