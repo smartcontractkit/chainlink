@@ -28,14 +28,13 @@ func panicErr(err error) {
 	}
 }
 
-func failIfRequiredArgumentsAreEmpty(required []string) {
-	flag.Parse()
-
-	seen := make(map[string]bool)
-	flag.Visit(func(f *flag.Flag) { seen[f.Name] = true })
-	for _, req := range required {
+func parseArgs(fset *flag.FlagSet, args []string, requiredArgs []string) {
+	panicErr(fset.Parse(args))
+	seen := map[string]bool{}
+	fset.Visit(func(f *flag.Flag) { seen[f.Name] = true })
+	for _, req := range requiredArgs {
 		if !seen[req] {
-			panicErr(fmt.Errorf("missing required -%s argument/flag", req))
+			panic(fmt.Errorf("missing required -%s argument/flag", req))
 		}
 	}
 }
@@ -92,8 +91,7 @@ func main() {
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
 		coordinatorDeployBHSAddress := coordinatorDeployCmd.String("bhs-address", "", "address of bhs")
 		coordinatorDeployLinkEthFeedAddress := coordinatorDeployCmd.String("link-eth-feed", "", "address of link-eth-feed")
-		panicErr(coordinatorDeployCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"link-address", "bhs-address", "link-eth-feed"})
+		parseArgs(coordinatorDeployCmd, os.Args[2:], []string{"link-address", "bhs-address", "link-eth-feed"})
 		coordinatorAddress, tx, _, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
 			owner,
 			ec,
@@ -109,7 +107,7 @@ func main() {
 		panicErr(coordinatorSetConfigCmd.Parse(os.Args[2:]))
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
 		panicErr(err)
-		failIfRequiredArgumentsAreEmpty([]string{"address"})
+		parseArgs(coordinatorSetConfigCmd, os.Args[2:], []string{"address"})
 		tx, err := coordinator.SetConfig(owner,
 			uint16(1),                              // minRequestConfirmations
 			uint32(1000000),                        // max gas limit
@@ -135,8 +133,7 @@ func main() {
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
 		registerKeyUncompressedPubKey := coordinatorRegisterKey.String("pubkey", "", "uncompressed pubkey")
 		registerKeyOracleAddress := coordinatorRegisterKey.String("oracle-address", "", "oracle address")
-		panicErr(coordinatorRegisterKey.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"address", "pubkey", "oracle-address"})
+		parseArgs(coordinatorRegisterKey, os.Args[2:], []string{"address", "pubkey", "oracle-address"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*registerKeyAddress), ec)
 		panicErr(err)
 		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
@@ -152,8 +149,7 @@ func main() {
 		coordinatorSub := flag.NewFlagSet("coordinator-subscription", flag.ExitOnError)
 		address := coordinatorSub.String("address", "", "coordinator address")
 		subID := coordinatorSub.Int64("sub", 0, "subID")
-		panicErr(coordinatorSub.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"address", "pubkey"})
+		parseArgs(coordinatorSub, os.Args[2:], []string{"address", "pubkey"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*address), ec)
 		panicErr(err)
 		fmt.Println("subID", *subID, "address", *address, coordinator.Address())
@@ -166,8 +162,7 @@ func main() {
 		keyHash := consumerDeployCmd.String("key-hash", "", "key hash")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		// TODO: add other params
-		panicErr(consumerDeployCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "key-hash", "link-address"})
+		parseArgs(consumerDeployCmd, os.Args[2:], []string{"coordinator-address", "key-hash", "link-address"})
 		keyHashBytes := common.HexToHash(*keyHash)
 		consumerAddress, tx, _, err := vrf_single_consumer_example.DeployVRFSingleConsumerExample(
 			owner,
@@ -183,8 +178,7 @@ func main() {
 	case "consumer-subscribe":
 		consumerSubscribeCmd := flag.NewFlagSet("consumer-subscribe", flag.ExitOnError)
 		consumerSubscribeAddress := consumerSubscribeCmd.String("address", "", "consumer address")
-		panicErr(consumerSubscribeCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"address"})
+		parseArgs(consumerSubscribeCmd, os.Args[2:], []string{"address"})
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerSubscribeAddress), ec)
 		panicErr(err)
 		tx, err := consumer.Subscribe(owner)
@@ -194,8 +188,7 @@ func main() {
 		linkBalanceCmd := flag.NewFlagSet("link-balance", flag.ExitOnError)
 		linkAddress := linkBalanceCmd.String("link-address", "", "link-address")
 		address := linkBalanceCmd.String("address", "", "address")
-		panicErr(linkBalanceCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"link-address", "address"})
+		parseArgs(linkBalanceCmd, os.Args[2:], []string{"link-address", "address"})
 		lt, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), ec)
 		panicErr(err)
 		b, err := lt.BalanceOf(nil, common.HexToAddress(*address))
@@ -204,8 +197,7 @@ func main() {
 	case "consumer-cancel":
 		consumerCancelCmd := flag.NewFlagSet("consumer-cancel", flag.ExitOnError)
 		consumerCancelAddress := consumerCancelCmd.String("address", "", "consumer address")
-		panicErr(consumerCancelCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"address"})
+		parseArgs(consumerCancelCmd, os.Args[2:], []string{"address"})
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerCancelAddress), ec)
 		panicErr(err)
 		tx, err := consumer.Unsubscribe(owner, owner.From)
@@ -216,8 +208,7 @@ func main() {
 		consumerTopupCmd := flag.NewFlagSet("consumer-topup", flag.ExitOnError)
 		consumerTopupAmount := consumerTopupCmd.String("amount", "", "amount")
 		consumerTopupAddress := consumerTopupCmd.String("address", "", "consumer address")
-		panicErr(consumerTopupCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"amount", "address"})
+		parseArgs(consumerTopupCmd, os.Args[2:], []string{"amount", "address"})
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerTopupAddress), ec)
 		panicErr(err)
 		amount, s := big.NewInt(0).SetString(*consumerTopupAmount, 10)
@@ -230,8 +221,7 @@ func main() {
 	case "consumer-request":
 		consumerRequestCmd := flag.NewFlagSet("consumer-request", flag.ExitOnError)
 		consumerRequestAddress := consumerRequestCmd.String("address", "", "consumer address")
-		panicErr(consumerRequestCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"address"})
+		parseArgs(consumerRequestCmd, os.Args[2:], []string{"address"})
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerRequestAddress), ec)
 		panicErr(err)
 		// Fund and request 1 link
@@ -241,8 +231,7 @@ func main() {
 	case "consumer-fund-and-request":
 		consumerRequestCmd := flag.NewFlagSet("consumer-request", flag.ExitOnError)
 		consumerRequestAddress := consumerRequestCmd.String("address", "", "consumer address")
-		panicErr(consumerRequestCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"address"})
+		parseArgs(consumerRequestCmd, os.Args[2:], []string{"address"})
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerRequestAddress), ec)
 		panicErr(err)
 		// Fund and request 3 link
@@ -252,8 +241,7 @@ func main() {
 	case "consumer-print":
 		consumerPrint := flag.NewFlagSet("consumer-print", flag.ExitOnError)
 		address := consumerPrint.String("address", "", "consumer address")
-		panicErr(consumerPrint.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"address"})
+		parseArgs(consumerPrint, os.Args[2:], []string{"address"})
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*address), ec)
 		panicErr(err)
 		rc, err := consumer.SRequestConfig(nil)
@@ -269,8 +257,7 @@ func main() {
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
-		panicErr(consumerDeployCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "link-address"})
+		parseArgs(consumerDeployCmd, os.Args[2:], []string{"coordinator-address", "link-address"})
 		consumerAddress, tx, _, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 			owner,
 			ec,
@@ -281,8 +268,7 @@ func main() {
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
-		panicErr(createSubCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address"})
+		parseArgs(createSubCmd, os.Args[2:], []string{"coordinator-address"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		panicErr(err)
 		tx, err := coordinator.CreateSubscription(owner)
@@ -293,8 +279,7 @@ func main() {
 		coordinatorAddress := addSubConsCmd.String("coordinator-address", "", "coordinator address")
 		subID := addSubConsCmd.Uint64("sub-id", 0, "subID")
 		consumerAddress := addSubConsCmd.String("consumer-address", "", "consumer address")
-		panicErr(addSubConsCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "consumer-address"})
+		parseArgs(addSubConsCmd, os.Args[2:], []string{"coordinator-address", "consumer-address"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		panicErr(err)
 		txadd, err := coordinator.AddConsumer(owner, *subID, common.HexToAddress(*consumerAddress))
@@ -307,8 +292,7 @@ func main() {
 		amountStr := cfaSubCmd.String("amount", "", "amount to fund")
 		consumerAddress := cfaSubCmd.String("consumer-address", "", "consumer address")
 		consumerLinkAddress := cfaSubCmd.String("link-address", "", "link-address")
-		panicErr(cfaSubCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "amount", "consumer-address", "link-address"})
+		parseArgs(cfaSubCmd, os.Args[2:], []string{"coordinator-address", "amount", "consumer-address", "link-address"})
 		amount, s := big.NewInt(0).SetString(*amountStr, 10)
 		if !s {
 			panic(fmt.Sprintf("failed to parse top up amount '%s'", *amountStr))
@@ -351,8 +335,7 @@ func main() {
 		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
 		numWords := request.Uint("num-words", 3, "number of words to request")
 		keyHash := request.String("key-hash", "", "key hash")
-		panicErr(request.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"consumer-address", "key-hash"})
+		parseArgs(request, os.Args[2:], []string{"consumer-address", "key-hash"})
 		keyHashBytes := common.HexToHash(*keyHash)
 		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(
 			common.HexToAddress(*consumerAddress),
@@ -366,8 +349,7 @@ func main() {
 		coordinatorAddress := trans.String("coordinator-address", "", "coordinator address")
 		subID := trans.Int64("subID", 0, "subID")
 		to := trans.String("to", "", "to")
-		panicErr(trans.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "to"})
+		parseArgs(trans, os.Args[2:], []string{"coordinator-address", "to"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		panicErr(err)
 		tx, err := coordinator.RequestSubscriptionOwnerTransfer(owner, uint64(*subID), common.HexToAddress(*to))
@@ -377,8 +359,7 @@ func main() {
 		accept := flag.NewFlagSet("eoa-accept-sub", flag.ExitOnError)
 		coordinatorAddress := accept.String("coordinator-address", "", "coordinator address")
 		subID := accept.Int64("subID", 0, "subID")
-		panicErr(accept.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address"})
+		parseArgs(accept, os.Args[2:], []string{"coordinator-address"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		panicErr(err)
 		tx, err := coordinator.AcceptSubscriptionOwnerTransfer(owner, uint64(*subID))
@@ -388,8 +369,7 @@ func main() {
 		cancel := flag.NewFlagSet("eoa-cancel-sub", flag.ExitOnError)
 		coordinatorAddress := cancel.String("coordinator-address", "", "coordinator address")
 		subID := cancel.Int64("subID", 0, "subID")
-		panicErr(cancel.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address"})
+		parseArgs(cancel, os.Args[2:], []string{"coordinator-address"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		panicErr(err)
 		tx, err := coordinator.CancelSubscription(owner, uint64(*subID), owner.From)
@@ -401,8 +381,7 @@ func main() {
 		amountStr := fund.String("amount", "", "amount to fund")
 		subID := fund.Int64("sub-id", 0, "subID")
 		consumerLinkAddress := fund.String("link-address", "", "link-address")
-		panicErr(fund.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "amount", "link-address"})
+		parseArgs(fund, os.Args[2:], []string{"coordinator-address", "amount", "link-address"})
 		amount, s := big.NewInt(0).SetString(*amountStr, 10)
 		if !s {
 			panic(fmt.Sprintf("failed to parse top up amount '%s'", *amountStr))
@@ -425,8 +404,7 @@ func main() {
 		cancel := flag.NewFlagSet("owner-cancel-sub", flag.ExitOnError)
 		coordinatorAddress := cancel.String("coordinator-address", "", "coordinator address")
 		subID := cancel.Int64("subID", 0, "subID")
-		panicErr(cancel.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address"})
+		parseArgs(cancel, os.Args[2:], []string{"coordinator-address"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		panicErr(err)
 		tx, err := coordinator.OwnerCancelSubscription(owner, uint64(*subID))
@@ -436,8 +414,7 @@ func main() {
 		consumerBalanceCmd := flag.NewFlagSet("sub-balance", flag.ExitOnError)
 		coordinatorAddress := consumerBalanceCmd.String("coordinator-address", "", "coordinator address")
 		subID := consumerBalanceCmd.Uint64("sub-id", 0, "subscription id")
-		panicErr(consumerBalanceCmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address"})
+		parseArgs(consumerBalanceCmd, os.Args[2:], []string{"coordinator-address"})
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
 		panicErr(err)
 		resp, err := coordinator.GetSubscription(nil, *subID)
