@@ -8,7 +8,7 @@ import { P2PKeysCard, Props as P2PKeysProps } from './P2PKeysCard'
 
 const { getAllByRole, getByRole, queryByRole, queryByText } = screen
 
-function renderComponent(cardProps: Omit<P2PKeysProps, 'classes'>) {
+function renderComponent(cardProps: P2PKeysProps) {
   render(<P2PKeysCard {...cardProps} />)
 }
 
