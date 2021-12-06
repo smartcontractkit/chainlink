@@ -13,7 +13,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -363,9 +362,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	p2pPeerID, err := p2pkey.MakePeerID("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
-	require.NoError(t, err)
-
 	testCases := []GQLTestCase{
 		{
 			name:          "OCR spec",
@@ -390,8 +386,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 						EncryptedOCRKeyBundleID: &keyBundleID,
 						ObservationTimeout:      models.Interval(2 * time.Minute),
 						ObservationTimeoutEnv:   false,
-						P2PPeerID:               p2pPeerID,
-						P2PPeerIDEnv:            true,
 						P2PBootstrapPeers:       pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
 						TransmitterAddress:      &transmitterAddress,
 					},
@@ -419,8 +413,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 									keyBundleID
 									observationTimeout
 									observationTimeoutEnv
-									p2pPeerID
-									p2pPeerIDEnv
 									p2pBootstrapPeers
 									transmitterAddress
 								}
@@ -449,8 +441,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"observationTimeout": "2m0s",
 							"observationTimeoutEnv": false,
-							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
-							"p2pPeerIDEnv": true,
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
@@ -475,9 +465,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	p2pPeerID, err := p2pkey.MakePeerID("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
-	require.NoError(t, err)
-
 	testCases := []GQLTestCase{
 		{
 			name:          "OCR 2 spec",
@@ -498,7 +485,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						JuelsPerFeeCoinPipeline:                "100000000",
 						EncryptedOCRKeyBundleID:                null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
-						P2PPeerID:                              &p2pPeerID,
 						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
 						TransmitterAddress:                     &transmitterAddress,
 					},
@@ -522,7 +508,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									juelsPerFeeCoinSource
 									keyBundleID
 									monitoringEndpoint
-									p2pPeerID
 									p2pBootstrapPeers
 									transmitterAddress
 								}
@@ -547,7 +532,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"juelsPerFeeCoinSource": "100000000",
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
-							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}

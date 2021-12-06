@@ -27,7 +27,6 @@ export function ocrJob(
     OffChainReportingJob['offChainReportingOracleSpec']
   >({
     contractAddress: config.contractAddress || generateUuid(),
-    p2pPeerID: config.p2pPeerID || generateUuid(),
     p2pBootstrapPeers: config.p2pBootstrapPeers,
     isBootstrapPeer: config.isBootstrapPeer,
     keyBundleID: config.keyBundleID || generateUuid(),

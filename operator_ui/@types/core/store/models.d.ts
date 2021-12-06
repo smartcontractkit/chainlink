@@ -253,7 +253,6 @@ declare module 'core/store/models' {
     type: 'offchainreporting'
     offChainReportingOracleSpec: {
       contractAddress: common.Address
-      p2pPeerID: string
       p2pBootstrapPeers: string[]
       isBootstrapPeer: boolean
       keyBundleID: string

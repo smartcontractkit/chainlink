@@ -213,8 +213,6 @@ observationSource = """
         isBootstrapPeer: false,
         observationTimeout: '10s',
         observationTimeoutEnv: false,
-        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
-        p2pPeerIDEnv: false,
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
@@ -246,7 +244,6 @@ observationTimeout = "10s"
 p2pBootstrapPeers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
-p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
 transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
@@ -286,8 +283,6 @@ observationSource = """
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
         observationTimeout: '10s',
         observationTimeoutEnv: true,
-        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
-        p2pPeerIDEnv: true,
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
@@ -328,7 +323,6 @@ contractConfigConfirmations = 3
 contractConfigTrackerPollInterval = "1m0s"
 contractConfigTrackerSubscribeInterval = "2m0s"
 observationTimeout = "10s"
-p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
 `
 
     const output = generateJobDefinition(job)
@@ -357,7 +351,6 @@ p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
         isBootstrapPeer: false,
         monitoringEndpoint: 'https://monitoring.endpoint',
-        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
@@ -391,7 +384,6 @@ monitoringEndpoint = "https://monitoring.endpoint"
 p2pBootstrapPeers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
-p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
 transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
