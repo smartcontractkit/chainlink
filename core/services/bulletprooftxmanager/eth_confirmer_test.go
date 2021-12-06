@@ -10,7 +10,16 @@ import (
 	"testing"
 	"time"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -24,15 +33,6 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
@@ -1901,6 +1901,55 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	kst.AssertExpectations(t)
 	ethClient.AssertExpectations(t)
+}
+
+func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesThrough(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(500)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+
+	otherKey, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	keys := []ethkey.State{state, otherKey}
+
+	kst := new(ksmocks.Eth)
+	kst.Test(t)
+	// Use a mock keystore for this test
+	ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, kst, keys, nil)
+	currentHead := int64(30)
+	// oldEnough := int64(19)
+	nonce := int64(0)
+
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx := cltest.MustInsertUnconfrimedEthTxWithAttemptState(t, borm, nonce, fromAddress, bulletprooftxmanager.EthTxAttemptInProgress, originalBroadcastAt)
+	require.Equal(t, originalBroadcastAt, *etx.BroadcastAt)
+	nonce++
+	attempt := etx.EthTxAttempts[0]
+	signedTx, err := attempt.GetSignedTx()
+	require.NoError(t, err)
+	// require.NoError(t, db.Get(&attempt1_1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+	// var err error
+
+	t.Run("terminally underpriced transactions are retried with more gas", func(t *testing.T) {
+		// Fail the first time with terminally underpriced.
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(
+			errors.New("Transaction gas price is too low. It does not satisfy your node's minimal gas price"),
+		).Once()
+		// Succeed the second time after bumping gas.
+		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil)
+		kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Return(
+			signedTx, nil,
+		)
+		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), currentHead))
+	})
 }
 
 func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
