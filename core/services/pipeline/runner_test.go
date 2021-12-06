@@ -276,7 +276,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 					if d, is := expected.Value.(decimal.Decimal); is {
 						require.Equal(t, d.String(), r.Result.Value.(decimal.Decimal).String())
 					} else {
-						require.Equal(t, expected.Value, r.Result.Value)
+						require.Equal(t, expected.Value, r.Result.Value, "Mismatched key: %s", r.Task.DotID())
 					}
 				}
 			}
