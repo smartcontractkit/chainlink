@@ -26,7 +26,7 @@ export const RecentJobs = () => {
     FetchRecentJobsVariables
   >(RECENT_JOBS_QUERY, {
     variables: { offset: 0, limit: RECENT_JOBS_SIZE },
-    fetchPolicy: 'network-only',
+    fetchPolicy: 'cache-and-network',
   })
 
   return (

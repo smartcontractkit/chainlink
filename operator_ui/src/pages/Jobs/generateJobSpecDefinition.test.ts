@@ -18,7 +18,6 @@ describe('generateTOMLDefinition', () => {
       vrfSpec: null,
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
-        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
@@ -47,7 +46,6 @@ describe('generateTOMLDefinition', () => {
     const expectedOutput = `type = "offchainreporting"
 schemaVersion = 1
 contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
-p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
 p2pBootstrapPeers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
@@ -384,7 +382,6 @@ evmChainID = "42"
       vrfSpec: null,
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
-        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
@@ -417,7 +414,6 @@ evmChainID = "42"
     const expectedOutput = `type = "offchainreporting"
 schemaVersion = 1
 contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
-p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
 p2pBootstrapPeers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
