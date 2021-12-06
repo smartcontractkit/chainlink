@@ -25,13 +25,13 @@ func panicErr(err error) {
 	}
 }
 
-func failIfRequiredArgumentsAreEmpty(required []string) {
-	flag.Parse()
-	seen := make(map[string]bool)
-	flag.Visit(func(f *flag.Flag) { seen[f.Name] = true })
-	for _, req := range required {
+func parseArgs(fset *flag.FlagSet, args []string, requiredArgs []string) {
+	panicErr(fset.Parse(args))
+	seen := map[string]bool{}
+	fset.Visit(func(f *flag.Flag) { seen[f.Name] = true })
+	for _, req := range requiredArgs {
 		if !seen[req] {
-			panicErr(fmt.Errorf("missing required -%s argument/flag", req))
+			panic(fmt.Errorf("missing required -%s argument/flag", req))
 		}
 	}
 }
@@ -90,8 +90,7 @@ func main() {
 		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
 		coordAddr := cmd.String("coordinator-address", "", "address of VRF coordinator")
 		linkAddr := cmd.String("link-address", "", "address of link token")
-		panicErr(cmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"coordinator-address", "link-address"})
+		parseArgs(cmd, os.Args[2:], []string{"coordinator-address", "link-address"})
 		consumerAddr, tx, _, err := vrfoc.DeployVRFOwnerlessConsumerExample(
 			account,
 			ec,
@@ -105,8 +104,7 @@ func main() {
 		consumerAddr := cmd.String("consumer-address", "", "address of the deployed ownerless consumer")
 		paymentStr := cmd.String("payment", "100000000000000000" /* 0.1 LINK */, "the payment amount in LINK")
 		keyHash := cmd.String("key-hash", "", "key hash")
-		panicErr(cmd.Parse(os.Args[2:]))
-		failIfRequiredArgumentsAreEmpty([]string{"link-address", "consumer-address", "key-hash"})
+		parseArgs(cmd, os.Args[2:], []string{"link-address", "consumer-address", "key-hash"})
 		payment, ok := big.NewInt(0).SetString(*paymentStr, 10)
 		if !ok {
 			panic(fmt.Sprintf("failed to parse payment amount: %s", *paymentStr))
