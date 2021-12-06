@@ -217,6 +217,10 @@ type OffchainReportingOracleSpec struct {
 	EVMChainID                                *utils.Big      `toml:"evmChainID" db:"evm_chain_id"`
 	DatabaseTimeout                           models.Interval `toml:"databaseTimeout"`
 	DatabaseTimeoutEnv                        bool
+	ObservationGracePeriod                    models.Interval `toml:"observationGracePeriod"`
+	ObservationGracePeriodEnv                 bool
+	ContractTransmitterTransmitTimeout        models.Interval `toml:"contractTransmitterTransmitTimeout"`
+	ContractTransmitterTransmitTimeoutEnv     bool
 	CreatedAt                                 time.Time `toml:"-"`
 	UpdatedAt                                 time.Time `toml:"-"`
 }

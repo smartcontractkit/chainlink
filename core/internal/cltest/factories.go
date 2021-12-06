@@ -482,8 +482,8 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitte
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OffchainReportingOracleSpec{}
-	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations) VALUES (
-NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout) VALUES (
+NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
 ) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec
 }

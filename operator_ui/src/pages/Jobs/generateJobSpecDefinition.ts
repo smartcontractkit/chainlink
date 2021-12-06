@@ -94,6 +94,10 @@ function generateOCRDefinition(
       maxTaskDuration: attrs.maxTaskDuration,
       externalJobID: attrs.externalJobID,
       databaseTimeout: attrs.offChainReportingOracleSpec.databaseTimeout,
+      observationGracePeriod:
+        attrs.offChainReportingOracleSpec.observationGracePeriod,
+      contractTransmitterTransmitTimeout:
+        attrs.offChainReportingOracleSpec.contractTransmitterTransmitTimeout,
     },
   })
 

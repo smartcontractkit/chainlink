@@ -42,6 +42,9 @@ export function ocrJob(
     updatedAt: config.updatedAt || new Date(1600775300410).toISOString(),
     createdAt: config.createdAt || new Date(1600775300410).toISOString(),
     databaseTimeout: config.databaseTimeout,
+    observationGracePeriod: config.observationGracePeriod,
+    contractTransmitterTransmitTimeout:
+      config.contractTransmitterTransmitTimeout,
   })
   return {
     name: config.name || 'V2 job',

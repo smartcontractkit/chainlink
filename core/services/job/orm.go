@@ -159,10 +159,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			sql := `INSERT INTO offchainreporting_oracle_specs (contract_address, p2p_peer_id, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
 					observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id,
-					created_at, updated_at)
+					created_at, updated_at, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout)
 			VALUES (:contract_address, :p2p_peer_id, :p2p_bootstrap_peers, :is_bootstrap_peer, :encrypted_ocr_key_bundle_id, :transmitter_address,
 					:observation_timeout, :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id,
-					NOW(), NOW())
+					NOW(), NOW(), :database_timeout, :observation_grace_period, :contract_transmitter_transmit_timeout)
 			RETURNING id;`
 			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OffchainreportingOracleSpec)
 			if err != nil {
@@ -490,6 +490,8 @@ type OCRSpecConfig interface {
 	OCRContractSubscribeInterval() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
+	OCRObservationGracePeriod() time.Duration
+	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	OCRKeyBundleID() (string, error)
 }
@@ -518,6 +520,14 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec
 	if os.DatabaseTimeout == 0 {
 		os.DatabaseTimeoutEnv = true
 		os.DatabaseTimeout = models.Interval(cfg.OCRDatabaseTimeout())
+	}
+	if os.ObservationGracePeriod == 0 {
+		os.ObservationGracePeriodEnv = true
+		os.ObservationGracePeriod = models.Interval(cfg.OCRObservationGracePeriod())
+	}
+	if os.ContractTransmitterTransmitTimeout == 0 {
+		os.ContractTransmitterTransmitTimeoutEnv = true
+		os.ContractTransmitterTransmitTimeout = models.Interval(cfg.OCRContractTransmitterTransmitTimeout())
 	}
 	return &os
 }
