@@ -28,7 +28,7 @@ import {
 } from '@material-ui/core/styles'
 import { useLocation } from 'react-router-dom'
 import TaskListDag from './TaskListDag'
-import { Stratify } from './parseDot'
+import { Stratify } from 'utils/parseDot'
 
 export const SELECTED_FORMAT = 'persistSpec.format'
 export const PERSIST_SPEC = 'persistSpec.'
