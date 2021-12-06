@@ -272,16 +272,21 @@ contract ArbitrumSequencerUptimeFeed is
       uint80 answeredInRound
     )
   {
-    if (!isInitialized() || !isValidRound(_roundId)) {
+    if (!isInitialized()) {
       revert NoDataPresent();
     }
 
-    Round memory round = s_rounds[_roundId];
+    if (isValidRound(_roundId)) {
+      Round memory round = s_rounds[_roundId];
+      answer = getStatusAnswer(round.status);
+      startedAt = uint256(round.timestamp);
+    } else {
+      answer = 0;
+      startedAt = 0;
+    }
     roundId = _roundId;
-    answer = getStatusAnswer(round.status);
-    startedAt = uint256(round.timestamp);
     updatedAt = startedAt;
-    answeredInRound = _roundId;
+    answeredInRound = roundId;
   }
 
   /// @inheritdoc AggregatorV3Interface
