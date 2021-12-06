@@ -3,18 +3,12 @@ import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 
 export const ENDPOINT = '/v2/jobs'
-const SHOW_ENDPOINT = `${ENDPOINT}/:specId`
 const DESTROY_ENDPOINT = `${ENDPOINT}/:specId`
 const RUN_JOB_ENDPOINT = `${ENDPOINT}/:specId/runs`
 
 // Jobs represents the v2 jobs
 export class Jobs {
   constructor(private api: jsonapi.Api) {}
-
-  @boundMethod
-  public getJobSpec(id: string): Promise<jsonapi.ApiResponse<models.Job>> {
-    return this.show({}, { specId: id })
-  }
 
   @boundMethod
   public createJobSpec(
@@ -39,14 +33,6 @@ export class Jobs {
   private create = this.api.createResource<models.CreateJobRequest, models.Job>(
     ENDPOINT,
   )
-
-  private show = this.api.fetchResource<
-    {},
-    models.Job,
-    {
-      specId: string
-    }
-  >(SHOW_ENDPOINT)
 
   private destroy = this.api.deleteResource<
     undefined,

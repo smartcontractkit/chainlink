@@ -1,16 +1,6 @@
-import { stringifyJobSpec, getTaskList } from './utils'
+import { getTaskList } from './utils'
 
 describe('pages/jobs/utils', () => {
-  describe('stringifyJobSpec', () => {
-    it('stringify TOML spec', () => {
-      expect(
-        stringifyJobSpec({
-          value: { foo: 'bar' },
-        }),
-      ).toEqual(`foo = "bar"\n`)
-    })
-  })
-
   describe('getTaskList', () => {
     it('parse string to Toml Stratify list', () => {
       expect(
