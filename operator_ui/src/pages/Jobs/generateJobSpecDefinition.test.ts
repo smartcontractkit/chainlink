@@ -1,6 +1,6 @@
 /* eslint-enable no-useless-escape */
 
-import { Job, OffChainReportingJob } from 'core/store/models'
+import { Job, OffChainReportingJob, KeeperJob } from 'core/store/models'
 import { generateTOMLDefinition } from './generateJobSpecDefinition'
 
 describe('generateTOMLDefinition', () => {
@@ -193,7 +193,7 @@ evmChainID = "42"
     expect(output.envAttributesDefinition).toBe('')
   })
 
-  it('generates a valid Keeper definition', () => {
+  it.only('generates a valid Keeper definition', () => {
     const jobSpecAttributesInput = {
       name: 'Keeper Job Spec',
       schemaVersion: 1,
@@ -215,10 +215,10 @@ evmChainID = "42"
       maxTaskDuration: '10s',
       pipelineSpec: {
         id: '1',
-        dotDagSource: '',
+        dotDagSource: '  sample\n  dag\n  source\n',
       },
       errors: [],
-    } as Job
+    } as KeeperJob
 
     const expectedOutput = `type = "keeper"
 schemaVersion = 1
@@ -227,6 +227,11 @@ contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 evmChainID = "42"
+observationSource = """
+  sample
+  dag
+  source
+"""
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
