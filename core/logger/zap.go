@@ -115,3 +115,7 @@ func (l *zapLogger) Sync() error {
 	}
 	return err
 }
+
+func (l *zapLogger) Recover(panicErr interface{}) {
+	l.CriticalW("Recovered goroutine panic", "panic", panicErr)
+}
