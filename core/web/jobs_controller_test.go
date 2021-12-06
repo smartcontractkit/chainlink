@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -40,10 +39,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
-	nonExistentP2PPeerID, err := p2ppeer.Decode("12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9")
-	require.NoError(t, err)
 	randomBytes := cltest.Random32Byte()
-	oCRKeyBundleID := "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 
 	var tt = []struct {
 		name        string
@@ -58,13 +54,6 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			kb:          hex.EncodeToString(randomBytes[:]),
 			taExists:    true,
 			expectedErr: job.ErrNoSuchKeyBundle,
-		},
-		{
-			name:        "invalid peerID",
-			pid:         p2pkey.PeerID(nonExistentP2PPeerID),
-			kb:          oCRKeyBundleID,
-			taExists:    true,
-			expectedErr: keystore.KeyNotFoundError{ID: p2pkey.PeerID(nonExistentP2PPeerID).String(), KeyType: "P2P"},
 		},
 		{
 			name:        "invalid transmitter address",
@@ -173,7 +162,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NotNil(t, resource.OffChainReportingSpec)
 
 				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
-				assert.NotEmpty(t, resource.OffChainReportingSpec.P2PPeerID)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
@@ -460,7 +448,6 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobSpecFromServer presenters.JobResource) {
 	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OffchainreportingOracleSpec
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffChainReportingSpec.ContractAddress)
-	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffChainReportingSpec.P2PPeerID)
 	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffChainReportingSpec.P2PBootstrapPeers)
 	assert.Equal(t, ocrJobSpecFromFile.IsBootstrapPeer, ocrJobSpecFromServer.OffChainReportingSpec.IsBootstrapPeer)
 	assert.Equal(t, ocrJobSpecFromFile.EncryptedOCRKeyBundleID, ocrJobSpecFromServer.OffChainReportingSpec.EncryptedOCRKeyBundleID)
