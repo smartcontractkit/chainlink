@@ -323,3 +323,10 @@ func toMap(args ...interface{}) (m map[string]interface{}) {
 	}
 	return m
 }
+
+func (s *sentryLogger) Recover(panicErr interface{}) {
+	sentry.CurrentHub().Recover(panicErr)
+	sentry.Flush(SentryFlushDeadline)
+
+	s.h.Recover(panicErr)
+}
