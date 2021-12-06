@@ -1,26 +1,32 @@
 package resolver
 
 import (
+	"context"
+
 	"github.com/graph-gophers/graphql-go"
 
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 var outputRetrievalErrorStr = "error: unable to retrieve outputs"
 
 type JobRunResolver struct {
 	run pipeline.Run
+	app chainlink.Application
 }
 
-func NewJobRun(run pipeline.Run) *JobRunResolver {
-	return &JobRunResolver{run: run}
+func NewJobRun(run pipeline.Run, app chainlink.Application) *JobRunResolver {
+	return &JobRunResolver{run: run, app: app}
 }
 
-func NewJobRuns(runs []pipeline.Run) []*JobRunResolver {
+func NewJobRuns(runs []pipeline.Run, app chainlink.Application) []*JobRunResolver {
 	var resolvers []*JobRunResolver
 
 	for _, run := range runs {
-		resolvers = append(resolvers, NewJobRun(run))
+		resolvers = append(resolvers, NewJobRun(run, app))
 	}
 
 	return resolvers
@@ -89,10 +95,67 @@ func (r *JobRunResolver) TaskRuns() []*TaskRunResolver {
 	return []*TaskRunResolver{}
 }
 
+func (r *JobRunResolver) Job(ctx context.Context) (*JobResolver, error) {
+	plnSpecID := stringutils.FromInt32(r.run.PipelineSpecID)
+	job, err := loader.GetJobByPipelineSpecID(ctx, plnSpecID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJob(r.app, *job), nil
+}
+
 func (r *JobRunResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.run.CreatedAt}
 }
 
 func (r *JobRunResolver) FinishedAt() *graphql.Time {
 	return &graphql.Time{Time: r.run.FinishedAt.ValueOrZero()}
+}
+
+// -- JobRun query --
+
+type JobRunPayloadResolver struct {
+	jr  *pipeline.Run
+	app chainlink.Application
+	NotFoundErrorUnionType
+}
+
+func NewJobRunPayload(jr *pipeline.Run, app chainlink.Application, err error) *JobRunPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "job run not found", isExpectedErrorFn: nil}
+
+	return &JobRunPayloadResolver{jr: jr, app: app, NotFoundErrorUnionType: e}
+}
+
+func (r *JobRunPayloadResolver) ToJobRun() (*JobRunResolver, bool) {
+	if r.err != nil {
+		return nil, false
+	}
+
+	return NewJobRun(*r.jr, r.app), true
+}
+
+// JobRunsPayloadResolver resolves a page of job runs
+type JobRunsPayloadResolver struct {
+	runs  []pipeline.Run
+	total int32
+	app   chainlink.Application
+}
+
+func NewJobRunsPayload(runs []pipeline.Run, total int32, app chainlink.Application) *JobRunsPayloadResolver {
+	return &JobRunsPayloadResolver{
+		runs:  runs,
+		total: total,
+		app:   app,
+	}
+}
+
+// Results returns the job runs.
+func (r *JobRunsPayloadResolver) Results() []*JobRunResolver {
+	return NewJobRuns(r.runs, r.app)
+}
+
+// Metadata returns the pagination metadata.
+func (r *JobRunsPayloadResolver) Metadata() *PaginationMetadataResolver {
+	return NewPaginationMetadata(r.total)
 }

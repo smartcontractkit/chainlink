@@ -17,7 +17,8 @@ type Dataloader struct {
 	NodesByChainIDLoader          *dataloader.Loader
 	ChainsByIDLoader              *dataloader.Loader
 	FeedsManagersByIDLoader       *dataloader.Loader
-	JobRunsByPipelineIDLoader     *dataloader.Loader
+	JobRunsByIDLoader             *dataloader.Loader
+	JobsByPipelineSpecIDLoader    *dataloader.Loader
 	JobProposalsByManagerIDLoader *dataloader.Loader
 }
 
@@ -25,8 +26,9 @@ func New(app chainlink.Application) *Dataloader {
 	nodes := &nodeBatcher{app: app}
 	chains := &chainBatcher{app: app}
 	mgrs := &feedsBatcher{app: app}
-	jbRuns := &jobRunBatcher{app: app}
+	jobRuns := &jobRunBatcher{app: app}
 	jps := &jobProposalBatcher{app: app}
+	jbs := &jobBatcher{app: app}
 
 	return &Dataloader{
 		app: app,
@@ -34,7 +36,8 @@ func New(app chainlink.Application) *Dataloader {
 		NodesByChainIDLoader:          dataloader.NewBatchedLoader(nodes.loadByChainIDs),
 		ChainsByIDLoader:              dataloader.NewBatchedLoader(chains.loadByIDs),
 		FeedsManagersByIDLoader:       dataloader.NewBatchedLoader(mgrs.loadByIDs),
-		JobRunsByPipelineIDLoader:     dataloader.NewBatchedLoader(jbRuns.loadByPipelineSpecIDs),
+		JobRunsByIDLoader:             dataloader.NewBatchedLoader(jobRuns.loadByIDs),
+		JobsByPipelineSpecIDLoader:    dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
 		JobProposalsByManagerIDLoader: dataloader.NewBatchedLoader(jps.loadByManagersIDs),
 	}
 }

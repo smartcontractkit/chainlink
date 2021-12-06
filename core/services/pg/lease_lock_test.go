@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -20,7 +21,11 @@ func newLeaseLock(t *testing.T, db *sqlx.DB) pg.LeaseLock {
 
 func Test_LeaseLock(t *testing.T) {
 	t.Run("on migrated database", func(t *testing.T) {
-		_, db := heavyweight.FullTestDB(t, "leaselock", true, false)
+		cfg, db := heavyweight.FullTestDB(t, "leaselock", true, false)
+		duration := 15 * time.Second
+		refresh := 100 * time.Millisecond
+		cfg.Overrides.LeaseLockDuration = &duration
+		cfg.Overrides.LeaseLockRefreshInterval = &refresh
 
 		leaseLock1 := newLeaseLock(t, db)
 
@@ -47,7 +52,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		select {
 		case <-started2:
-		case <-time.After(5 * time.Second):
+		case <-time.After(cltest.WaitTimeout(t)):
 			t.Fatal("timed out waiting for leaseLock2 to start")
 		}
 

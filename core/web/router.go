@@ -95,10 +95,20 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	rootSchema := schema.MustGetRootSchema()
 
+	// Disable introspection and set a max query depth in production.
+	schemaOpts := []graphql.SchemaOpt{}
+	if !app.GetConfig().Dev() {
+		schemaOpts = append(schemaOpts,
+			graphql.DisableIntrospection(),
+			graphql.MaxDepth(10),
+		)
+	}
+
 	schema := graphql.MustParseSchema(rootSchema,
 		&resolver.Resolver{
 			App: app,
 		},
+		schemaOpts...,
 	)
 
 	h := relay.Handler{Schema: schema}
@@ -275,6 +285,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/keys/ocr/:keyID", ocrkc.Delete)
 		authv2.POST("/keys/ocr/import", ocrkc.Import)
 		authv2.POST("/keys/ocr/export/:ID", ocrkc.Export)
+
+		ocr2kc := OCR2KeysController{app}
+		authv2.GET("/keys/ocr2", ocr2kc.Index)
+		authv2.POST("/keys/ocr2", ocr2kc.Create)
+		authv2.DELETE("/keys/ocr2/:keyID", ocr2kc.Delete)
 
 		p2pkc := P2PKeysController{app}
 		authv2.GET("/keys/p2p", p2pkc.Index)
