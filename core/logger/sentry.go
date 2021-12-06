@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
+// SentryFlushDeadline indicates the maximum amount of time we allow sentry to
+// flush events on manual flush
 const SentryFlushDeadline = 5 * time.Second
 
 func init() {
@@ -40,18 +42,22 @@ func init() {
 	} else {
 		sentryrelease = static.Version
 	}
-	err := sentry.Init(sentry.ClientOptions{
-		// AttachStacktrace is needed to send stacktrace alongside panics
-		AttachStacktrace: true,
-		Dsn:              sentrydsn,
-		Environment:      sentryenv,
-		Release:          sentryrelease,
-		// Enable printing of SDK debug messages.
-		// Uncomment line below to debug sentry
-		// Debug: true,
-	})
-	if err != nil {
-		log.Fatalf("sentry.Init: %s", err)
+
+	// Do not initialize sentry at all if the DSN is missing
+	if sentrydsn != "" {
+		err := sentry.Init(sentry.ClientOptions{
+			// AttachStacktrace is needed to send stacktrace alongside panics
+			AttachStacktrace: true,
+			Dsn:              sentrydsn,
+			Environment:      sentryenv,
+			Release:          sentryrelease,
+			// Enable printing of SDK debug messages.
+			// Uncomment line below to debug sentry
+			// Debug: true,
+		})
+		if err != nil {
+			log.Fatalf("sentry.Init: %s", err)
+		}
 	}
 }
 
@@ -114,8 +120,8 @@ func (s *sentryLogger) Error(args ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelError)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Error(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Error(args...)
 }
 
 func (s *sentryLogger) Critical(args ...interface{}) {
@@ -127,8 +133,8 @@ func (s *sentryLogger) Critical(args ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Critical(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Critical(args...)
 }
 
 func (s *sentryLogger) Panic(args ...interface{}) {
@@ -140,8 +146,8 @@ func (s *sentryLogger) Panic(args ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Panic(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Panic(args...)
 }
 
 func (s *sentryLogger) Fatal(args ...interface{}) {
@@ -153,8 +159,8 @@ func (s *sentryLogger) Fatal(args ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Fatal(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Fatal(args...)
 }
 
 func (s *sentryLogger) Tracef(format string, values ...interface{}) {
@@ -181,8 +187,8 @@ func (s *sentryLogger) Errorf(format string, values ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelError)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Errorf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Errorf(format, values...)
 }
 
 func (s *sentryLogger) Criticalf(format string, values ...interface{}) {
@@ -194,8 +200,8 @@ func (s *sentryLogger) Criticalf(format string, values ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Criticalf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Criticalf(format, values...)
 }
 
 func (s *sentryLogger) Panicf(format string, values ...interface{}) {
@@ -207,8 +213,8 @@ func (s *sentryLogger) Panicf(format string, values ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Panicf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Panicf(format, values...)
 }
 
 func (s *sentryLogger) Fatalf(format string, values ...interface{}) {
@@ -220,8 +226,8 @@ func (s *sentryLogger) Fatalf(format string, values ...interface{}) {
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Fatalf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Fatalf(format, values...)
 }
 
 func (s *sentryLogger) Tracew(msg string, keysAndValues ...interface{}) {
@@ -246,8 +252,8 @@ func (s *sentryLogger) Errorw(msg string, keysAndValues ...interface{}) {
 		scope.SetContext("logger", toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelError)
 	})
-	hub.CaptureMessage(msg)
-	s.h.Errorw(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.Errorw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) CriticalW(msg string, keysAndValues ...interface{}) {
@@ -257,8 +263,8 @@ func (s *sentryLogger) CriticalW(msg string, keysAndValues ...interface{}) {
 		scope.SetContext("logger", toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(msg)
-	s.h.CriticalW(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.CriticalW(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) Panicw(msg string, keysAndValues ...interface{}) {
@@ -268,8 +274,8 @@ func (s *sentryLogger) Panicw(msg string, keysAndValues ...interface{}) {
 		scope.SetContext("logger", toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(msg)
-	s.h.Panicw(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.Panicw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) Fatalw(msg string, keysAndValues ...interface{}) {
@@ -279,21 +285,21 @@ func (s *sentryLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 		scope.SetContext("logger", toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(msg)
-	s.h.Fatalw(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.Fatalw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) ErrorIf(err error, msg string) {
 	if err != nil {
-		sentry.CaptureException(err)
-		s.h.Errorw(msg, "err", err)
+		eid := sentry.CaptureException(err)
+		s.h.Errorw(msg, "err", err, "sentryEventID", eid)
 	}
 }
 
 func (s *sentryLogger) ErrorIfClosing(c io.Closer, name string) {
 	if err := c.Close(); err != nil {
-		sentry.CaptureException(err)
-		s.h.Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
+		eid := sentry.CaptureException(err)
+		s.h.Errorw(fmt.Sprintf("Error closing %s", name), "err", err, "sentryEventID", eid)
 	}
 }
 
@@ -325,8 +331,8 @@ func toMap(args ...interface{}) (m map[string]interface{}) {
 }
 
 func (s *sentryLogger) Recover(panicErr interface{}) {
-	sentry.CurrentHub().Recover(panicErr)
+	eid := sentry.CurrentHub().Recover(panicErr)
 	sentry.Flush(SentryFlushDeadline)
 
-	s.h.Recover(panicErr)
+	s.h.With("sentryEventID", eid).Recover(panicErr)
 }
