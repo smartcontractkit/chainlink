@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -499,6 +500,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
 						P2PPeerID:                              &p2pPeerID,
 						P2PBootstrapPeers:                      pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
+						Relay:                                  relay.Solana,
 						TransmitterID:                          null.StringFrom(transmitterAddress.String()),
 					},
 				}, nil)
@@ -522,6 +524,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									monitoringEndpoint
 									p2pPeerID
 									p2pBootstrapPeers
+									relay
 									transmitterID
 								}
 							}
@@ -546,6 +549,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"monitoringEndpoint": "https://monitor.endpoint",
 							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
 							"p2pBootstrapPeers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
+							"relay": "solana",
 							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
 					}

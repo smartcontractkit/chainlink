@@ -81,6 +81,7 @@ const JOB_PAYLOAD__SPEC = gql`
       monitoringEndpoint
       p2pPeerID
       p2pBootstrapPeers
+      relay
       transmitterID
     }
     ... on VRFSpec {

@@ -185,6 +185,7 @@ export const generateJobDefinition = (
           'monitoringEndpoint',
           'p2pBootstrapPeers',
           'p2pPeerID',
+          'relay',
           'transmitterID',
         ),
         ...extractObservationSourceField(job),

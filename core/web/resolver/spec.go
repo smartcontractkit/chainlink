@@ -549,6 +549,11 @@ func (r *OCR2SpecResolver) P2PBootstrapPeers() *[]string {
 	return &peers
 }
 
+// P2PBootstrapPeers resolves the spec's relay
+func (r *OCR2SpecResolver) Relay() string {
+	return string(r.spec.Relay)
+}
+
 // TransmitterAddress resolves the spec's transmitter id
 func (r *OCR2SpecResolver) TransmitterID() *string {
 	if !r.spec.TransmitterID.Valid {
