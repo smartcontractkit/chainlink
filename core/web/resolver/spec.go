@@ -402,18 +402,6 @@ func (r *OCRSpecResolver) ObservationTimeoutEnv() bool {
 	return r.spec.ObservationTimeoutEnv
 }
 
-// P2PPeerID resolves the spec's p2p peer id
-func (r *OCRSpecResolver) P2PPeerID() *string {
-	p2pPeerID := r.spec.P2PPeerID.String()
-
-	return &p2pPeerID
-}
-
-// P2PPeerID resolves the whether spec's p2p peer id comes from an env var
-func (r *OCRSpecResolver) P2PPeerIDEnv() bool {
-	return r.spec.P2PPeerIDEnv
-}
-
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers
 func (r *OCRSpecResolver) P2PBootstrapPeers() *[]string {
 	if len(r.spec.P2PBootstrapPeers) == 0 {
@@ -536,17 +524,6 @@ func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
 	}
 
 	return &r.spec.MonitoringEndpoint.String
-}
-
-// P2PPeerID resolves the spec's p2p peer id
-func (r *OCR2SpecResolver) P2PPeerID() *string {
-	if r.spec.P2PPeerID == nil {
-		return nil
-	}
-
-	p2pPeerID := r.spec.P2PPeerID.String()
-
-	return &p2pPeerID
 }
 
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers

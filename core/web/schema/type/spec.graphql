@@ -62,8 +62,6 @@ type OCRSpec {
     keyBundleID: String
     observationTimeout: String
     observationTimeoutEnv: Boolean!
-    p2pPeerID: String
-    p2pPeerIDEnv: Boolean!
     p2pBootstrapPeers: [String!]
     transmitterAddress: String
 }
@@ -80,7 +78,6 @@ type OCR2Spec {
     juelsPerFeeCoinSource: String
     keyBundleID: String
     monitoringEndpoint: String
-    p2pPeerID: String
     p2pBootstrapPeers: [String!]
     transmitterAddress: String
 }

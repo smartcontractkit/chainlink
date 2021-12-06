@@ -332,7 +332,7 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 	return NewNodesPayload(nodes, int32(count)), nil
 }
 
-func (r *Resolver) JobsRuns(ctx context.Context, args struct {
+func (r *Resolver) JobRuns(ctx context.Context, args struct {
 	Offset *int32
 	Limit  *int32
 }) (*JobRunsPayloadResolver, error) {

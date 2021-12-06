@@ -19,7 +19,7 @@ type Query {
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
     jobRun(id: ID!): JobRunPayload!
-    jobsRuns(offset: Int, limit: Int): JobsRunsPayload!
+    jobRuns(offset: Int, limit: Int): JobRunsPayload!
     node(id: ID!): NodePayload!
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!

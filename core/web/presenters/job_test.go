@@ -8,7 +8,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/lib/pq"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -33,13 +31,7 @@ func TestJob(t *testing.T) {
 	evmChainID := utils.NewBigI(42)
 
 	// Used in OCR tests
-	var (
-		peerIDStr      = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
-		ocrKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
-	)
-	p2pPeerID, err := peer.Decode(peerIDStr)
-	require.NoError(t, err)
-	peerID := p2pkey.PeerID(p2pPeerID)
+	var ocrKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	ocrKeyID := models.MustSha256HashFromHex(ocrKeyBundleID)
 	transmitterAddress, err := ethkey.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
 	require.NoError(t, err)
@@ -187,7 +179,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{
 					ContractAddress:                        contractAddress,
-					P2PPeerID:                              peerID,
 					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
@@ -229,7 +220,6 @@ func TestJob(t *testing.T) {
 						},
 						"offChainReportingOracleSpec": {
 							"contractAddress": "%s",
-							"p2pPeerID": "p2p_%s",
 							"p2pBootstrapPeers": ["/dns4/chain.link/tcp/1234/p2p/xxx"],
 							"isBootstrapPeer": true,
 							"keyBundleID": "%s",
@@ -253,7 +243,7 @@ func TestJob(t *testing.T) {
 						"errors": []
 					}
 				}
-			}`, contractAddress, peerIDStr, ocrKeyBundleID, transmitterAddress),
+			}`, contractAddress, ocrKeyBundleID, transmitterAddress),
 		},
 		{
 			name: "keeper spec",
