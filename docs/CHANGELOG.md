@@ -132,9 +132,17 @@ These still work, but if set they will override that value for _all_ chains. Thi
 
 To help you work around this, Chainlink now supports setting per-chain configuration options.
 
-(the full list of chain-specific configuration options can be found in `core/chains/evm/config.go`)
+**Examples**
 
-TODO: https://app.clubhouse.io/chainlinklabs/story/15455/add-cli-api-for-setting-chain-specific-config
+To set initial configuration when creating a chain, pass in the full json string as an optional parameter at the end:
+
+`chainlink evm chains create -id 42 '{"BlockHistoryEstimatorBlockDelay": "100"}'`
+
+To set configuration on an existing chain, specify key values pairs as such:
+
+`chainlink evm chains configure -id 42 BlockHistoryEstimatorBlockDelay=100 GasEstimatorMode=FixedPrice`
+
+The full list of chain-specific configuration options can be found by looking at the `ChainCfg` struct in `core/chains/evm/types/types.go`.
 
 #### Async support in external adapters
 

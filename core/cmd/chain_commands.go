@@ -86,7 +86,7 @@ func (cli *Client) CreateChain(c *cli.Context) (err error) {
 
 	params := map[string]interface{}{
 		"chainID": chainID,
-		"config":  buf,
+		"config":  json.RawMessage(buf.Bytes()),
 	}
 
 	body, err := json.Marshal(params)
@@ -130,11 +130,11 @@ func (cli *Client) RemoveChain(c *cli.Context) (err error) {
 func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 	chainID := c.Int64("id")
 	if chainID == 0 {
-		return cli.errorOut(errors.New("missing chain ID [-id integer]"))
+		return cli.errorOut(errors.New("missing chain ID (usage: chainlink evm chains configure [-id integer] [key1=value1 key2=value2 ...])"))
 	}
 
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass in the chain's parameters [-id integer] [JSON blob | JSON filepath]"))
+		return cli.errorOut(errors.New("must pass in at least one chain configuration parameters (usage: chainlink evm chains configure [-id integer] [key1=value1 key2=value2 ...])"))
 	}
 
 	// Fetch existing config
@@ -158,7 +158,7 @@ func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 	for _, arg := range c.Args() {
 		parts := strings.SplitN(arg, "=", 2)
 		if len(parts) != 2 {
-			return cli.errorOut(errors.New("invalid parameter"))
+			return cli.errorOut(errors.Errorf("invalid parameter: %v", arg))
 		}
 
 		var value interface{}
