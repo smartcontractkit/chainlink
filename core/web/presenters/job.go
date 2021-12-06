@@ -3,6 +3,8 @@ package presenters
 import (
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
 
@@ -164,6 +166,42 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 	}
 }
 
+// OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
+type OffChainReporting2Spec struct {
+	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID       `json:"p2pPeerID"`
+	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
+	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                null.String          `json:"keyBundleID"`
+	TransmitterAddress                     *ethkey.EIP55Address `json:"transmitterAddress"`
+	ObservationTimeout                     models.Interval      `json:"observationTimeout"`
+	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval      `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time            `json:"createdAt"`
+	UpdatedAt                              time.Time            `json:"updatedAt"`
+}
+
+// NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
+// job.OffchainReporting2OracleSpec
+func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChainReporting2Spec {
+	return &OffChainReporting2Spec{
+		ContractAddress:                        spec.ContractAddress,
+		P2PPeerID:                              spec.P2PPeerID,
+		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
+		IsBootstrapPeer:                        spec.IsBootstrapPeer,
+		EncryptedOCRKeyBundleID:                spec.EncryptedOCRKeyBundleID,
+		TransmitterAddress:                     spec.TransmitterAddress,
+		BlockchainTimeout:                      spec.BlockchainTimeout,
+		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval,
+		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval,
+		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
+		CreatedAt:                              spec.CreatedAt,
+		UpdatedAt:                              spec.UpdatedAt,
+	}
+}
+
 // PipelineSpec defines the spec details of the pipeline
 type PipelineSpec struct {
 	ID           int32  `json:"id"`
@@ -276,20 +314,21 @@ func NewJobError(e job.SpecError) JobError {
 // JobResource represents a JobResource
 type JobResource struct {
 	JAID
-	Name                  string                 `json:"name"`
-	Type                  JobSpecType            `json:"type"`
-	SchemaVersion         uint32                 `json:"schemaVersion"`
-	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
-	ExternalJobID         uuid.UUID              `json:"externalJobID"`
-	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
-	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
-	CronSpec              *CronSpec              `json:"cronSpec"`
-	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
-	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
-	VRFSpec               *VRFSpec               `json:"vrfSpec"`
-	WebhookSpec           *WebhookSpec           `json:"webhookSpec"`
-	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
-	Errors                []JobError             `json:"errors"`
+	Name                   string                  `json:"name"`
+	Type                   JobSpecType             `json:"type"`
+	SchemaVersion          uint32                  `json:"schemaVersion"`
+	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
+	ExternalJobID          uuid.UUID               `json:"externalJobID"`
+	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
+	FluxMonitorSpec        *FluxMonitorSpec        `json:"fluxMonitorSpec"`
+	CronSpec               *CronSpec               `json:"cronSpec"`
+	OffChainReportingSpec  *OffChainReportingSpec  `json:"offChainReportingOracleSpec"`
+	OffChainReporting2Spec *OffChainReporting2Spec `json:"offChainReporting2OracleSpec"`
+	KeeperSpec             *KeeperSpec             `json:"keeperSpec"`
+	VRFSpec                *VRFSpec                `json:"vrfSpec"`
+	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
+	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
+	Errors                 []JobError              `json:"errors"`
 }
 
 // NewJobResource initializes a new JSONAPI job resource
@@ -313,6 +352,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.OffchainReporting:
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
+	case job.OffchainReporting2:
+		resource.OffChainReporting2Spec = NewOffChainReporting2Spec(j.Offchainreporting2OracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	case job.VRF:
@@ -328,17 +369,6 @@ func NewJobResource(j job.Job) *JobResource {
 	resource.Errors = jes
 
 	return resource
-}
-
-// NewJobResources initializes a slice of JSONAPI job resources
-func NewJobResources(js []job.Job) []JobResource {
-	rs := []JobResource{}
-
-	for _, j := range js {
-		rs = append(rs, *NewJobResource(j))
-	}
-
-	return rs
 }
 
 // GetName implements the api2go EntityNamer interface

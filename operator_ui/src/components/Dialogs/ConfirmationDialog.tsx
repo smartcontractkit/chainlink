@@ -27,8 +27,8 @@ const DialogActions = withStyles((theme) => ({
   },
 }))(MuiDialogActions)
 
-type Props = Pick<DialogProps, 'open' | 'onClose'> & {
-  body: string
+type Props = Pick<DialogProps, 'open' | 'onClose' | 'maxWidth'> & {
+  body: string | React.ReactNode
   confirmButtonText?: string
   cancelButtonText?: string
   title: string
@@ -40,6 +40,7 @@ export const ConfirmationDialog: React.FC<Props> = ({
   body,
   cancelButtonText,
   confirmButtonText,
+  maxWidth,
   onClose,
   onCancel,
   onConfirm,
@@ -47,12 +48,16 @@ export const ConfirmationDialog: React.FC<Props> = ({
   title,
 }) => {
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth={maxWidth}>
+      <DialogTitle disableTypography>
         <Typography variant="h5"> {title}</Typography>
       </DialogTitle>
       <DialogContent>
-        <DialogContentText color="textPrimary">{body}</DialogContentText>
+        {typeof body === 'string' ? (
+          <DialogContentText color="textPrimary">{body}</DialogContentText>
+        ) : (
+          body
+        )}
       </DialogContent>
       <DialogActions>
         {cancelButtonText && onCancel && (

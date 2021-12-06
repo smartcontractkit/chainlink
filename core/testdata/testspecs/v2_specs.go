@@ -3,8 +3,10 @@ package testspecs
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
@@ -189,6 +191,8 @@ type VRFSpecParams struct {
 	FromAddress              string
 	PublicKey                string
 	ObservationSource        string
+	RequestedConfsDelay      int
+	RequestTimeout           time.Duration
 	V2                       bool
 }
 
@@ -217,6 +221,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	confirmations := 6
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
+	}
+	requestTimeout := 24 * time.Hour
+	if params.RequestTimeout != 0 {
+		requestTimeout = params.RequestTimeout
 	}
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
@@ -259,7 +267,7 @@ estimate_gas [type=estimategaslimit
 simulate [type=ethcall
           to="%s"
 		  gas="$(estimate_gas)"
-		  gasPrice="$(jobSpec.maxGasPrice)" 
+		  gasPrice="$(jobSpec.maxGasPrice)"
 		  extractRevertReason=true
 		  contract="%s"
 		  data="$(vrf.output)"]
@@ -276,12 +284,15 @@ schemaVersion = 1
 name = "%s"
 coordinatorAddress = "%s"
 minIncomingConfirmations = %d
+requestedConfsDelay = %d
+requestTimeout = "%s"
 publicKey = "%s"
 observationSource = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey, observationSource)
+	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay,
+		requestTimeout.String(), publicKey, observationSource)
 	if params.FromAddress != "" {
 		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
 	}
@@ -293,6 +304,8 @@ observationSource = """
 		MinIncomingConfirmations: confirmations,
 		PublicKey:                publicKey,
 		ObservationSource:        observationSource,
+		RequestedConfsDelay:      params.RequestedConfsDelay,
+		RequestTimeout:           requestTimeout,
 	}, toml: toml}
 }
 
@@ -339,6 +352,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 externalJobID      =  "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",

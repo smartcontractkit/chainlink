@@ -1,24 +1,44 @@
 import React from 'react'
-import { useHistory } from 'react-router-dom'
+
+import { gql } from '@apollo/client'
 
 import CancelIcon from '@material-ui/icons/Cancel'
-import Card from '@material-ui/core/Card'
-import CardHeader from '@material-ui/core/CardHeader'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
-import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
-import IconButton from '@material-ui/core/IconButton'
 import EditIcon from '@material-ui/icons/Edit'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
-import TableRow from '@material-ui/core/TableRow'
+import IconButton from '@material-ui/core/IconButton'
+import Grid from '@material-ui/core/Grid'
+import ListItemIcon from '@material-ui/core/ListItemIcon'
+import ListItemText from '@material-ui/core/ListItemText'
+import Menu from '@material-ui/core/Menu'
+import MoreVertIcon from '@material-ui/icons/MoreVert'
+import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
 
-import { FeedsManager } from 'types/generated/graphql'
+import { CopyIconButton } from 'src/components/Copy/CopyIconButton'
+import {
+  DetailsCard,
+  DetailsCardItemTitle,
+  DetailsCardItemValue,
+} from 'src/components/Cards/DetailsCard'
+import { shortenHex } from 'src/utils/shortenHex'
+import { MenuItemLink } from 'src/components/MenuItemLink'
 
-const cardSubheaderStyles = () => {
+export const FEEDS_MANAGER_FIELDS = gql`
+  fragment FeedsManagerFields on FeedsManager {
+    id
+    name
+    uri
+    publicKey
+    jobTypes
+    isBootstrapPeer
+    isConnectionActive
+    bootstrapPeerMultiaddr
+  }
+`
+
+const connectionStatusStyles = () => {
   return createStyles({
     root: {
       display: 'flex',
@@ -35,12 +55,13 @@ const cardSubheaderStyles = () => {
   })
 }
 
-interface CardSubheaderProps extends WithStyles<typeof cardSubheaderStyles> {
+interface ConnectionStatusProps
+  extends WithStyles<typeof connectionStatusStyles> {
   isConnected: boolean
 }
 
-const CardSubheader = withStyles(cardSubheaderStyles)(
-  ({ isConnected, classes }: CardSubheaderProps) => {
+const ConnectionStatus = withStyles(connectionStatusStyles)(
+  ({ isConnected, classes }: ConnectionStatusProps) => {
     return (
       <div className={classes.root}>
         {isConnected ? (
@@ -49,12 +70,7 @@ const CardSubheader = withStyles(cardSubheaderStyles)(
           <CancelIcon fontSize="small" className={classes.disconnectedIcon} />
         )}
 
-        <Typography
-          variant="body1"
-          color="textSecondary"
-          inline
-          className={classes.text}
-        >
+        <Typography variant="body1" inline className={classes.text}>
           {isConnected ? 'Connected' : 'Disconnected'}
         </Typography>
       </div>
@@ -62,87 +78,91 @@ const CardSubheader = withStyles(cardSubheaderStyles)(
   },
 )
 
-const styles = () => {
-  return createStyles({
-    tableRoot: {
-      tableLayout: 'fixed',
-    },
-  })
+interface Props {
+  manager: FeedsManagerFields
 }
 
-interface Props extends WithStyles<typeof styles> {
-  manager: FeedsManager
+export const FeedsManagerCard = ({ manager }: Props) => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
+
+  const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
+
+  const handleClose = () => {
+    setAnchorEl(null)
+  }
+
+  const jobTypes = React.useMemo(() => {
+    return manager.jobTypes
+      .map((type) => {
+        switch (type) {
+          case 'FLUX_MONITOR':
+            return 'Flux Monitor'
+          case 'OCR':
+            return 'OCR'
+        }
+      })
+      .join(', ')
+  }, [manager.jobTypes])
+
+  return (
+    <DetailsCard
+      actions={
+        <div>
+          <IconButton onClick={handleOpen} aria-label="open-menu">
+            <MoreVertIcon />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+          >
+            <MenuItemLink to="/feeds_manager/edit">
+              <ListItemIcon>
+                <EditIcon />
+              </ListItemIcon>
+              <ListItemText>Edit</ListItemText>
+            </MenuItemLink>
+          </Menu>
+        </div>
+      }
+    >
+      <Grid container>
+        <Grid item xs={12} sm={6} md={3}>
+          <DetailsCardItemTitle title="Status" />
+          <ConnectionStatus isConnected={manager.isConnectionActive} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <DetailsCardItemTitle title="Name" />
+          <DetailsCardItemValue value={manager.name} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <DetailsCardItemTitle title="Job Types" />
+          <DetailsCardItemValue value={jobTypes} />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          {manager.isBootstrapPeer && (
+            <>
+              <DetailsCardItemTitle title="Bootstrap Multiaddress" />
+              <DetailsCardItemValue value={manager.bootstrapPeerMultiaddr} />
+            </>
+          )}
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <DetailsCardItemTitle title="CSA Public Key" />
+          <DetailsCardItemValue>
+            {shortenHex(manager.publicKey, { start: 6, end: 6 })}
+            <CopyIconButton data={manager.publicKey} />
+          </DetailsCardItemValue>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <DetailsCardItemTitle title="RPC URL" />
+          <DetailsCardItemValue value={manager.uri} />
+        </Grid>
+      </Grid>
+    </DetailsCard>
+  )
 }
-
-export const FeedsManagerCard = withStyles(styles)(
-  ({ classes, manager }: Props) => {
-    const history = useHistory()
-
-    return (
-      <Card>
-        <CardHeader
-          title="Feeds Manager"
-          subheader={<CardSubheader isConnected={manager.isConnectionActive} />}
-          action={
-            <IconButton
-              onClick={() => history.push('/feeds_manager/edit')}
-              data-testid="edit"
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          }
-        />
-        <Table className={classes.tableRoot}>
-          <TableBody>
-            <TableRow>
-              <TableCell>
-                <Typography>Name</Typography>
-                <Typography variant="subtitle1" color="textSecondary">
-                  {manager.name}
-                </Typography>
-              </TableCell>
-            </TableRow>
-
-            <TableRow>
-              <TableCell>
-                <Typography>URI</Typography>
-                <Typography variant="subtitle1" color="textSecondary">
-                  {manager.uri}
-                </Typography>
-              </TableCell>
-            </TableRow>
-
-            <TableRow>
-              <TableCell>
-                <Typography>Public Key</Typography>
-                <Typography variant="subtitle1" color="textSecondary" noWrap>
-                  {manager.publicKey}
-                </Typography>
-              </TableCell>
-            </TableRow>
-
-            <TableRow>
-              <TableCell>
-                <Typography>Job Types</Typography>
-                <Typography variant="subtitle1" color="textSecondary">
-                  {manager.jobTypes.join(',')}
-                </Typography>
-              </TableCell>
-            </TableRow>
-
-            {manager.isBootstrapPeer && (
-              <TableRow>
-                <TableCell>
-                  <Typography>Bootstrap Peer Multiaddress</Typography>
-                  <Typography variant="subtitle1" color="textSecondary">
-                    {manager.bootstrapPeerMultiaddr}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-    )
-  },
-)

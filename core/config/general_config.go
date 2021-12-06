@@ -1,11 +1,9 @@
 package config
 
 import (
-	"crypto/rand"
 	"fmt"
 	"log"
 	"math/big"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -23,14 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
@@ -75,8 +69,6 @@ type GeneralOnlyConfig interface {
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
-	DatabaseMaximumTxDuration() time.Duration
-	DatabaseTimeout() models.Duration
 	DatabaseURL() url.URL
 	DefaultChainID() *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
@@ -96,6 +88,7 @@ type GeneralOnlyConfig interface {
 	FMSimulateTransactions() bool
 	FeatureExternalInitiators() bool
 	FeatureOffchainReporting() bool
+	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
@@ -118,52 +111,17 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
+	LeaseLockRefreshInterval() time.Duration
+	LeaseLockDuration() time.Duration
 	LogLevel() zapcore.Level
 	DefaultLogLevel() zapcore.Level
 	LogSQLMigrations() bool
-	LogSQLStatements() bool
+	LogSQL() bool
 	LogToDisk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
-	OCRBlockchainTimeout() time.Duration
-	OCRBootstrapCheckInterval() time.Duration
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDHTLookupInterval() int
-	OCRDatabaseTimeout() time.Duration
-	OCRDefaultTransactionQueueDepth() uint32
-	OCRIncomingMessageBufferSize() int
-	OCRKeyBundleID() (string, error)
-	OCRMonitoringEndpoint() string
-	OCRNewStreamTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
-	OCRObservationTimeout() time.Duration
-	OCROutgoingMessageBufferSize() int
-	OCRSimulateTransactions() bool
-	OCRTraceLogging() bool
-	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	ORMMaxIdleConns() int
 	ORMMaxOpenConns() int
-	P2PAnnounceIP() net.IP
-	P2PAnnouncePort() uint16
-	P2PBootstrapPeers() ([]string, error)
-	P2PDHTAnnouncementCounterUserPrefix() uint32
-	P2PListenIP() net.IP
-	P2PListenPort() uint16
-	P2PListenPortRaw() string
-	P2PNetworkingStack() (n ocrnetworking.NetworkingStack)
-	P2PNetworkingStackRaw() string
-	P2PPeerID() p2pkey.PeerID
-	P2PPeerIDRaw() string
-	P2PPeerstoreWriteInterval() time.Duration
-	P2PV2AnnounceAddresses() []string
-	P2PV2AnnounceAddressesRaw() []string
-	P2PV2Bootstrappers() (locators []ocrtypes.BootstrapperLocator)
-	P2PV2BootstrappersRaw() []string
-	P2PV2DeltaDial() models.Duration
-	P2PV2DeltaReconcile() models.Duration
-	P2PV2ListenAddresses() []string
 	Port() uint16
 	RPID() string
 	RPOrigin() string
@@ -176,7 +134,7 @@ type GeneralOnlyConfig interface {
 	SessionTimeout() models.Duration
 	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
-	SetLogSQLStatements(logSQLStatements bool) error
+	SetLogSQL(logSQL bool)
 	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
@@ -237,7 +195,12 @@ type GlobalConfig interface {
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
-	GlobalOCRContractConfirmations() (uint16, bool)
+
+	OCR1Config
+	OCR2Config
+	P2PNetworking
+	P2PV1Networking
+	P2PV2Networking
 }
 
 type GeneralConfig interface {
@@ -259,7 +222,7 @@ type generalConfig struct {
 	advisoryLockID   int64
 	logLevel         zapcore.Level
 	defaultLogLevel  zapcore.Level
-	logSQLStatements bool
+	logSQL           bool
 	logMutex         sync.RWMutex
 }
 
@@ -312,7 +275,7 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 		}
 	}
 	config.logLevel = config.defaultLogLevel
-	config.logSQLStatements = viper.GetBool(EnvVarName("LogSQLStatements"))
+	config.logSQL = viper.GetBool(EnvVarName("LogSQL"))
 	config.logMutex = sync.RWMutex{}
 
 	return config
@@ -362,12 +325,33 @@ func (c *generalConfig) Validate() error {
 			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 	}
+	// Warn on legacy OCR env vars
+	if c.OCRDHTLookupInterval() != 0 {
+		logger.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
+	}
+	if c.OCRBootstrapCheckInterval() != 0 {
+		logger.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
+	}
+	if c.OCRIncomingMessageBufferSize() != 0 {
+		logger.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
+	}
+	if c.OCROutgoingMessageBufferSize() != 0 {
+		logger.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
+	}
+	if c.OCRNewStreamTimeout() != 0 {
+		logger.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
+	}
 
 	switch c.DatabaseLockingMode() {
 	case "dual", "lease", "advisorylock", "none":
 	default:
 		return errors.Errorf("unrecognised value for DATABASE_LOCKING_MODE: %s (valid options are 'dual', 'lease', 'advisorylock' or 'none')", c.DatabaseLockingMode())
 	}
+
+	if c.LeaseLockRefreshInterval() > c.LeaseLockDuration()/2 {
+		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
+	}
+
 	return nil
 }
 
@@ -499,10 +483,6 @@ func (c *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
 	return c.getWithFallback("DatabaseListenerMaxReconnectDuration", ParseDuration).(time.Duration)
 }
 
-func (c *generalConfig) DatabaseMaximumTxDuration() time.Duration {
-	return c.getWithFallback("DatabaseMaximumTxDuration", ParseDuration).(time.Duration)
-}
-
 // DatabaseBackupMode sets the database backup mode
 func (c *generalConfig) DatabaseBackupMode() DatabaseBackupMode {
 	return c.getWithFallback("DatabaseBackupMode", parseDatabaseBackupMode).(DatabaseBackupMode)
@@ -531,11 +511,6 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
 func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
-}
-
-// DatabaseTimeout represents how long to tolerate non-response from the DB.
-func (c *generalConfig) DatabaseTimeout() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", ParseDuration).(time.Duration))
 }
 
 // GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
@@ -599,6 +574,11 @@ func (c *generalConfig) FeatureExternalInitiators() bool {
 // FeatureOffchainReporting enables the OCR job type.
 func (c *generalConfig) FeatureOffchainReporting() bool {
 	return c.getWithFallback("FeatureOffchainReporting", ParseBool).(bool)
+}
+
+// FeatureOffchainReporting2 enables the OCR2 job type.
+func (c *generalConfig) FeatureOffchainReporting2() bool {
+	return c.getWithFallback("FeatureOffchainReporting2", ParseBool).(bool)
 }
 
 // FMDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Flux Monitor
@@ -807,104 +787,6 @@ func (c *generalConfig) TelemetryIngressLogging() bool {
 	return c.getWithFallback("TelemetryIngressLogging", ParseBool).(bool)
 }
 
-// FIXME: Add comments to all of these
-func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
-	return c.getWithFallback("OCRBootstrapCheckInterval", ParseDuration).(time.Duration)
-}
-
-func (c *generalConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.getWithFallback("OCRContractTransmitterTransmitTimeout", ParseDuration).(time.Duration)
-}
-
-func (c *generalConfig) getDuration(field string) time.Duration {
-	return c.getWithFallback(field, ParseDuration).(time.Duration)
-}
-
-func (c *generalConfig) OCRObservationTimeout() time.Duration {
-	return c.getDuration("OCRObservationTimeout")
-}
-
-func (c *generalConfig) OCRObservationGracePeriod() time.Duration {
-	return c.getWithFallback("OCRObservationGracePeriod", ParseDuration).(time.Duration)
-}
-
-func (c *generalConfig) OCRBlockchainTimeout() time.Duration {
-	return c.getDuration("OCRBlockchainTimeout")
-}
-
-func (c *generalConfig) OCRContractSubscribeInterval() time.Duration {
-	return c.getDuration("OCRContractSubscribeInterval")
-}
-
-func (c *generalConfig) OCRContractPollInterval() time.Duration {
-	return c.getDuration("OCRContractPollInterval")
-}
-
-func (c *generalConfig) OCRDatabaseTimeout() time.Duration {
-	return c.getWithFallback("OCRDatabaseTimeout", ParseDuration).(time.Duration)
-}
-
-func (c *generalConfig) OCRDHTLookupInterval() int {
-	return int(c.getWithFallback("OCRDHTLookupInterval", ParseUint16).(uint16))
-}
-
-func (c *generalConfig) OCRIncomingMessageBufferSize() int {
-	return int(c.getWithFallback("OCRIncomingMessageBufferSize", ParseUint16).(uint16))
-}
-
-func (c *generalConfig) OCRNewStreamTimeout() time.Duration {
-	return c.getWithFallback("OCRNewStreamTimeout", ParseDuration).(time.Duration)
-}
-
-func (c *generalConfig) OCROutgoingMessageBufferSize() int {
-	return int(c.getWithFallback("OCRIncomingMessageBufferSize", ParseUint16).(uint16))
-}
-
-// OCRSimulateTransactions enables using eth_call transaction simulation before
-// sending when set to true
-func (c *generalConfig) OCRSimulateTransactions() bool {
-	return c.viper.GetBool(EnvVarName("OCRSimulateTransactions"))
-}
-
-// OCRTraceLogging determines whether OCR logs at TRACE level are enabled. The
-// option to turn them off is given because they can be very verbose
-func (c *generalConfig) OCRTraceLogging() bool {
-	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
-}
-
-func (c *generalConfig) OCRMonitoringEndpoint() string {
-	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
-}
-
-// OCRDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in OCR
-// Set to 0 to use SendEvery strategy instead
-func (c *generalConfig) OCRDefaultTransactionQueueDepth() uint32 {
-	return c.viper.GetUint32(EnvVarName("OCRDefaultTransactionQueueDepth"))
-}
-
-func (c *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
-	if taStr != "" {
-		ta, err := ethkey.NewEIP55Address(taStr)
-		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
-		}
-		return ta, nil
-	}
-	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS env var is not set")
-}
-
-func (c *generalConfig) OCRKeyBundleID() (string, error) {
-	kbStr := c.viper.GetString(EnvVarName("OCRKeyBundleID"))
-	if kbStr != "" {
-		_, err := models.Sha256HashFromHex(kbStr)
-		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
-		}
-	}
-	return kbStr, nil
-}
-
 func (c *generalConfig) ORMMaxOpenConns() int {
 	return int(c.getWithFallback("ORMMaxOpenConns", ParseUint16).(uint16))
 }
@@ -938,19 +820,18 @@ func (c *generalConfig) LogToDisk() bool {
 	return c.viper.GetBool(EnvVarName("LogToDisk"))
 }
 
-// LogSQLStatements tells chainlink to log all SQL statements made using the default logger
-func (c *generalConfig) LogSQLStatements() bool {
+// LogSQL tells chainlink to log all SQL statements made using the default logger
+func (c *generalConfig) LogSQL() bool {
 	c.logMutex.RLock()
 	defer c.logMutex.RUnlock()
-	return c.logSQLStatements
+	return c.logSQL
 }
 
-// SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
-func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) error {
+// SetLogSQL saves a runtime value for enabling/disabling logging all SQL statements on the default logger
+func (c *generalConfig) SetLogSQL(logSQL bool) {
 	c.logMutex.Lock()
 	defer c.logMutex.Unlock()
-	c.logSQLStatements = logSQLStatements
-	return nil
+	c.logSQL = logSQL
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
@@ -961,168 +842,6 @@ func (c *generalConfig) LogSQLMigrations() bool {
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
 	return c.viper.GetBool(EnvVarName("LogUnixTS"))
-}
-
-// P2PListenIP is the ip that libp2p willl bind to and listen on
-func (c *generalConfig) P2PListenIP() net.IP {
-	return c.getWithFallback("P2PListenIP", ParseIP).(net.IP)
-}
-
-// P2PListenPort is the port that libp2p will bind to and listen on
-func (c *generalConfig) P2PListenPort() uint16 {
-	if c.viper.IsSet(EnvVarName("P2PListenPort")) {
-		return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
-	}
-	// Fast path in case it was already set
-	c.randomP2PPortMtx.RLock()
-	if c.randomP2PPort > 0 {
-		c.randomP2PPortMtx.RUnlock()
-		return c.randomP2PPort
-	}
-	c.randomP2PPortMtx.RUnlock()
-	// Path for initial set
-	c.randomP2PPortMtx.Lock()
-	defer c.randomP2PPortMtx.Unlock()
-	if c.randomP2PPort > 0 {
-		return c.randomP2PPort
-	}
-	r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
-	if err != nil {
-		panic(fmt.Errorf("unexpected error generating random port: %w", err))
-	}
-	randPort := uint16(r.Int64() + 1024)
-	logger.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", randPort), "p2pPort", randPort)
-	c.randomP2PPort = randPort
-	return c.randomP2PPort
-}
-
-// P2PListenPortRaw returns the raw string value of P2P_LISTEN_PORT
-func (c *generalConfig) P2PListenPortRaw() string {
-	return c.viper.GetString(EnvVarName("P2PListenPort"))
-}
-
-// P2PAnnounceIP is an optional override. If specified it will force the p2p
-// layer to announce this IP as the externally reachable one to the DHT
-// If this is set, P2PAnnouncePort MUST also be set.
-func (c *generalConfig) P2PAnnounceIP() net.IP {
-	str := c.viper.GetString(EnvVarName("P2PAnnounceIP"))
-	return net.ParseIP(str)
-}
-
-// P2PAnnouncePort is an optional override. If specified it will force the p2p
-// layer to announce this port as the externally reachable one to the DHT.
-// If this is set, P2PAnnounceIP MUST also be set.
-func (c *generalConfig) P2PAnnouncePort() uint16 {
-	return uint16(c.viper.GetUint32(EnvVarName("P2PAnnouncePort")))
-}
-
-// P2PDHTAnnouncementCounterUserPrefix can be used to restore the node's
-// ability to announce its IP/port on the P2P network after a database
-// rollback. Make sure to only increase this value, and *never* decrease it.
-// Don't use this variable unless you really know what you're doing, since you
-// could semi-permanently exclude your node from the P2P network by
-// misconfiguring it.
-func (c *generalConfig) P2PDHTAnnouncementCounterUserPrefix() uint32 {
-	return c.viper.GetUint32(EnvVarName("P2PDHTAnnouncementCounterUserPrefix"))
-}
-
-func (c *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
-	return c.getWithFallback("P2PPeerstoreWriteInterval", ParseDuration).(time.Duration)
-}
-
-// P2PPeerID is the default peer ID that will be used, if not overridden
-func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
-	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
-	if pidStr == "" {
-		return ""
-	}
-	var pid p2pkey.PeerID
-	if err := pid.UnmarshalText([]byte(pidStr)); err != nil {
-		logger.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
-		return ""
-	}
-	return pid
-}
-
-// P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing
-func (c *generalConfig) P2PPeerIDRaw() string {
-	return c.viper.GetString(EnvVarName("P2PPeerID"))
-}
-
-func (c *generalConfig) P2PBootstrapPeers() ([]string, error) {
-	if c.viper.IsSet(EnvVarName("P2PBootstrapPeers")) {
-		bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
-		if bps != nil {
-			return bps, nil
-		}
-		return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS env var is not set")
-	}
-	return []string{}, nil
-}
-
-// P2PNetworkingStack returns the preferred networking stack for libocr
-func (c *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
-	str := c.P2PNetworkingStackRaw()
-	err := n.UnmarshalText([]byte(str))
-	if err != nil {
-		logger.Fatalf("P2PNetworkingStack failed to unmarshal '%s': %s", str, err)
-	}
-	return n
-}
-
-// P2PNetworkingStackRaw returns the raw string passed as networking stack
-func (c *generalConfig) P2PNetworkingStackRaw() string {
-	return c.viper.GetString(EnvVarName("P2PNetworkingStack"))
-}
-
-// P2PV2ListenAddresses contains the addresses the peer will listen to on the network in <host>:<port> form as
-// accepted by net.Listen, but host and port must be fully specified and cannot be empty.
-func (c *generalConfig) P2PV2ListenAddresses() []string {
-	return c.viper.GetStringSlice(EnvVarName("P2PV2ListenAddresses"))
-}
-
-// P2PV2AnnounceAddresses contains the addresses the peer will advertise on the network in <host>:<port> form as
-// accepted by net.Dial. The addresses should be reachable by peers of interest.
-func (c *generalConfig) P2PV2AnnounceAddresses() []string {
-	if c.viper.IsSet(EnvVarName("P2PV2AnnounceAddresses")) {
-		return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
-	}
-	return c.P2PV2ListenAddresses()
-}
-
-// P2PV2AnnounceAddressesRaw returns the raw value passed in
-func (c *generalConfig) P2PV2AnnounceAddressesRaw() []string {
-	return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
-}
-
-// P2PV2Bootstrappers returns the default bootstrapper peers for libocr's v2
-// networking stack
-func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrtypes.BootstrapperLocator) {
-	bootstrappers := c.P2PV2BootstrappersRaw()
-	for _, s := range bootstrappers {
-		var locator ocrtypes.BootstrapperLocator
-		err := locator.UnmarshalText([]byte(s))
-		if err != nil {
-			logger.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)
-		}
-		locators = append(locators, locator)
-	}
-	return
-}
-
-// P2PV2BootstrappersRaw returns the raw strings for v2 bootstrap peers
-func (c *generalConfig) P2PV2BootstrappersRaw() []string {
-	return c.viper.GetStringSlice(EnvVarName("P2PV2Bootstrappers"))
-}
-
-// P2PV2DeltaDial controls how far apart Dial attempts are
-func (c *generalConfig) P2PV2DeltaDial() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaDial", ParseDuration).(time.Duration))
-}
-
-// P2PV2DeltaReconcile controls how often a Reconcile message is sent to every peer.
-func (c *generalConfig) P2PV2DeltaReconcile() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaReconcile", ParseDuration).(time.Duration))
 }
 
 // Port represents the port Chainlink should listen on for client requests.
@@ -1586,13 +1305,6 @@ func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 	}
 	return val.(*assets.Link), ok
 }
-func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("OCRContractConfirmations"), ParseUint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
-}
 func (*generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
 	val, ok := lookupEnv(EnvVarName("EvmEIP1559DynamicFees"), ParseBool)
 	if val == nil {
@@ -1625,4 +1337,16 @@ func (c *generalConfig) UseLegacyEthEnvVars() bool {
 // It controls which mode to use to enforce that only one Chainlink application can use the database
 func (c *generalConfig) DatabaseLockingMode() string {
 	return c.getWithFallback("DatabaseLockingMode", ParseString).(string)
+}
+
+// LeaseLockRefreshInterval controls how often the node should attempt to
+// refresh the lease lock
+func (c *generalConfig) LeaseLockRefreshInterval() time.Duration {
+	return c.getDuration("LeaseLockRefreshInterval")
+}
+
+// LeaseLockDuration controls when the lock is set to expire on each refresh
+// (this many seconds from now in the future)
+func (c *generalConfig) LeaseLockDuration() time.Duration {
+	return c.getDuration("LeaseLockDuration")
 }

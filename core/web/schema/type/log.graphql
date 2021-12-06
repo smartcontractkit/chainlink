@@ -26,3 +26,17 @@ type SetServicesLogLevelsSuccess {
 }
 
 union SetServicesLogLevelsPayload = SetServicesLogLevelsSuccess | InputErrors
+
+type SQLLogging {
+    enabled: Boolean!
+}
+
+input SetSQLLoggingInput {
+    enabled: Boolean!
+}
+
+type SetSQLLoggingSuccess {
+    sqlLogging: SQLLogging!
+}
+
+union SetSQLLoggingPayload = SetSQLLoggingSuccess

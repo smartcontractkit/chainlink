@@ -2,20 +2,20 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
-import Title from 'components/Title'
 import List from 'components/Transactions/List'
 import Content from 'components/Content'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import transactionsSelector from 'selectors/transactions'
 import { fetchTransactions } from 'actionCreators'
+import { Heading1 } from 'src/components/Heading/Heading1'
 
 export const Index = (props) => {
   document.title = 'Transactions'
   return (
     <Content>
-      <Grid container>
+      <Grid container spacing={32}>
         <Grid item xs={12}>
-          <Title>Transactions</Title>
+          <Heading1>Transactions</Heading1>
         </Grid>
         <Grid item xs={12}>
           <List

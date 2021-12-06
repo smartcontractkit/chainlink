@@ -24,6 +24,7 @@ $SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
 $SCRIPTPATH/native_solc7_compile tests/Consumer.sol
+$SCRIPTPATH/native_solc7_compile tests/VRFCoordinatorMock.sol
 
 # Keeper
 $SCRIPTPATH/native_solc7_compile KeeperRegistry.sol
@@ -35,6 +36,7 @@ $SCRIPTPATH/native_solc8_compile VRFRequestIDBase.sol
 $SCRIPTPATH/native_solc8_compile VRFConsumerBase.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFRequestIDBaseTestHelper.sol
+$SCRIPTPATH/native_solc8_compile mocks/VRFCoordinatorMock.sol
 
 # VRF V2
 $SCRIPTPATH/native_solc8_compile dev/VRFConsumerBaseV2.sol
@@ -45,6 +47,7 @@ $SCRIPTPATH/native_solc8_compile tests/VRFTestHelper.sol
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_compile tests/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFSingleConsumerExample.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFOwnerlessConsumerExample.sol
 
 $SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol

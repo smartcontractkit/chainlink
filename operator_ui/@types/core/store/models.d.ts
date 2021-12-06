@@ -70,42 +70,6 @@ declare module 'core/store/models' {
   type AddressCollection = common.Address[]
   //#endregion common.go
 
-  //#region bridge_type.go
-  /**
-   * BridgeTypeRequest is the incoming record used to create a BridgeType
-   */
-  export interface BridgeTypeRequest {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
-   */
-  export interface BridgeTypeAuthentication {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    incomingToken: string
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeType is used for external adapters and has fields for
-   * the name of the adapter and its URL.
-   */
-  export interface BridgeType {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-  //#endregion bridge_type.go
-
   /**
    * Tx contains fields necessary for an Ethereum transaction with
    * an additional field for the TxAttempt.
@@ -201,29 +165,6 @@ declare module 'core/store/models' {
   export type RunStatusCollection = RunStatus[]
 
   //#endregion  bulk.go
-  //#region ocrkey/key_bundle.go
-
-  /**
-   * OcrKey represents the bundle of keys needed for OCR
-   */
-
-  export interface OcrKey {
-    configPublicKey: string
-    offChainPublicKey: string
-    onChainSigningAddress: common.Address
-  }
-  //#endregion ocrkey/key_bundle.go
-  //#region p2pKey/p2p_key.go
-
-  /**
-   * P2P represents the bundle of keys needed for P2P
-   */
-
-  export interface P2PKey {
-    peerId: string
-    publicKey: string
-  }
-  //#endregion p2pKey/p2p_key.go
 
   /**
    * CreateJobRequest represents a schema for the create job request as used by
@@ -473,18 +414,6 @@ declare module 'core/store/models' {
     sqlEnabled: boolean
   }
 
-  export interface CSAKey {
-    publicKey: string
-  }
-
-  export interface JobProposal {
-    spec: string
-    status: string
-    external_job_id: string | null
-    createdAt: time.Time
-    proposedAt: time.Time
-  }
-
   /**
    * Request to begin the process of registering a new MFA token
    */
@@ -523,10 +452,6 @@ declare module 'core/store/models' {
 
   export interface UpdateJobProposalSpecRequest {
     spec: string
-  }
-
-  export interface FeatureFlag {
-    enabled: boolean
   }
 }
 

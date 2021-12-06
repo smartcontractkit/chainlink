@@ -154,10 +154,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, err := pg.NewConnection(uri.String(), string(dialect), pg.Config{
-		Logger:           appLggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+		Logger:       appLggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	})
 	if err != nil {
 		return nil, err
@@ -169,7 +168,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	// Take the lease before any other DB operations
 	var leaseLock pg.LeaseLock
 	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
-		leaseLock = pg.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
+		leaseLock = pg.NewLeaseLock(db, appID, appLggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
 		if err = leaseLock.TakeAndHold(); err != nil {
 			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
@@ -186,7 +185,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr)
+	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)
@@ -257,7 +256,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err != nil {
 		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           shutdownSignal,
@@ -285,6 +284,11 @@ type ChainlinkRunner struct{}
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
+	defer func() {
+		if err := app.GetLogger().Sync(); err != nil {
+			log.Println(err)
+		}
+	}()
 	config := app.GetConfig()
 	mode := gin.ReleaseMode
 	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {

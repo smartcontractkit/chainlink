@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/url"
 	"os"
@@ -139,7 +140,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
-	defer func() { lggr.ErrorIf(app.Stop(), "Error stopping app") }()
+	defer func() {
+		lggr.ErrorIf(app.Stop(), "Error stopping app")
+		if err = lggr.Sync(); err != nil {
+			log.Println(err)
+		}
+	}()
 	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
 		return cli.errorOut(err)
@@ -513,10 +519,9 @@ func newConnection(cfg config.GeneralConfig, lggr logger.Logger) (*sqlx.DB, erro
 		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 	}
 	config := pg.Config{
-		Logger:           lggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	}
 	db, err := pg.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
 	return db, err

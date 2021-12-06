@@ -2,14 +2,14 @@ package vrf
 
 import (
 	"bytes"
-
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	uuid "github.com/satori/go.uuid"
+	"time"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
 
@@ -49,6 +49,13 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	}
 	if spec.CoordinatorAddress.String() == "" {
 		return jb, errors.Wrap(ErrKeyNotSet, "coordinatorAddress")
+	}
+	if spec.RequestedConfsDelay < 0 {
+		return jb, errors.Wrap(ErrKeyNotSet, "requestedConfsDelay must be >= 0")
+	}
+	// If a request timeout is not provided set it to a reasonable default.
+	if spec.RequestTimeout == 0 {
+		spec.RequestTimeout = 24 * time.Hour
 	}
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {

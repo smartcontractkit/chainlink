@@ -92,7 +92,7 @@ func (ex *UpkeepExecuter) Start() error {
 		go ex.run()
 		latestHead, unsubscribeHeads := ex.headBroadcaster.Subscribe(ex)
 		if latestHead != nil {
-			ex.mailbox.Deliver(*latestHead)
+			ex.mailbox.Deliver(latestHead)
 		}
 		go func() {
 			defer unsubscribeHeads()
@@ -113,7 +113,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head eth.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	ex.mailbox.Deliver(head)
 }
 
@@ -138,11 +138,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		return
 	}
 
-	head, ok := item.(eth.Head)
-	if !ok {
-		ex.logger.Errorf("expected `eth.Head`, got %T", head)
-		return
-	}
+	head := eth.AsHead(item)
 
 	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 

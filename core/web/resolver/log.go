@@ -37,7 +37,7 @@ type LogLevelConfigResolver struct {
 }
 
 func NewLogLevelConfig(cfg LogLevelConfig) *LogLevelConfigResolver {
-	return &LogLevelConfigResolver{cfg}
+	return &LogLevelConfigResolver{cfg: cfg}
 }
 
 func (r *LogLevelConfigResolver) HeadTracker() *LogLevel {
@@ -60,7 +60,7 @@ type SetServicesLogLevelsPayloadResolver struct {
 }
 
 func NewSetServicesLogLevelsPayload(cfg *LogLevelConfig, inputErrs map[string]string) *SetServicesLogLevelsPayloadResolver {
-	return &SetServicesLogLevelsPayloadResolver{cfg, inputErrs}
+	return &SetServicesLogLevelsPayloadResolver{cfg: cfg, inputErrs: inputErrs}
 }
 
 func (r *SetServicesLogLevelsPayloadResolver) ToSetServicesLogLevelsSuccess() (*SetServicesLogLevelsSuccessResolver, bool) {
@@ -90,9 +90,49 @@ type SetServicesLogLevelsSuccessResolver struct {
 }
 
 func NewSetServicesLogLevelsSuccess(cfg LogLevelConfig) *SetServicesLogLevelsSuccessResolver {
-	return &SetServicesLogLevelsSuccessResolver{cfg}
+	return &SetServicesLogLevelsSuccessResolver{cfg: cfg}
 }
 
 func (r *SetServicesLogLevelsSuccessResolver) Config() *LogLevelConfigResolver {
 	return NewLogLevelConfig(r.cfg)
+}
+
+// SQL Logging config
+
+type SQLLoggingResolver struct {
+	enabled bool
+}
+
+func NewSQLLogging(enabled bool) *SQLLoggingResolver {
+	return &SQLLoggingResolver{enabled: enabled}
+}
+
+func (r *SQLLoggingResolver) Enabled() bool {
+	return r.enabled
+}
+
+// -- SetSQLLogging Mutation --
+
+type SetSQLLoggingPayloadResolver struct {
+	enabled bool
+}
+
+func NewSetSQLLoggingPayload(enabled bool) *SetSQLLoggingPayloadResolver {
+	return &SetSQLLoggingPayloadResolver{enabled: enabled}
+}
+
+func (r *SetSQLLoggingPayloadResolver) ToSetSQLLoggingSuccess() (*SetSQLLoggingSuccessResolver, bool) {
+	return NewSetSQLLoggingSuccess(r.enabled), true
+}
+
+type SetSQLLoggingSuccessResolver struct {
+	enabled bool
+}
+
+func NewSetSQLLoggingSuccess(enabled bool) *SetSQLLoggingSuccessResolver {
+	return &SetSQLLoggingSuccessResolver{enabled: enabled}
+}
+
+func (r *SetSQLLoggingSuccessResolver) SQLLogging() *SQLLoggingResolver {
+	return NewSQLLogging(r.enabled)
 }

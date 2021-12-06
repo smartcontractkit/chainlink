@@ -116,6 +116,10 @@ const mainTheme: ThemeOptions = {
       body: {
         fontSize: '1rem',
       },
+      head: {
+        fontSize: '1rem',
+        fontWeight: 400,
+      },
     },
     MuiCardHeader: {
       root: {

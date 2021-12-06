@@ -10,12 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -46,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
@@ -62,7 +65,6 @@ type Application interface {
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
-	NewBox() packr.Box
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
@@ -206,12 +208,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger)
-		bridgeORM      = bridges.NewORM(db, globalLogger)
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
-		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger, cfg)
+		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger, cfg)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -238,7 +240,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				pipelineORM,
 				chainSet,
-				globalLogger),
+				globalLogger,
+				cfg),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
 				externalInitiatorManager,
@@ -265,21 +268,44 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	}
 
+	// We need p2p networking if either ocr1 or ocr2 is enabled
+	var peerWrapper *ocrcommon.SingletonPeerWrapper
+	if ((cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting()) || cfg.FeatureOffchainReporting2() {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
+			return nil, err
+		}
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		subservices = append(subservices, peerWrapper)
+	}
+
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
-		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
 			pipelineRunner,
-			concretePW,
+			peerWrapper,
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
+	}
+	if cfg.FeatureOffchainReporting2() {
+		globalLogger.Debug("Off-chain reporting v2 enabled")
+		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
+			db,
+			jobORM,
+			keyStore.OCR2(),
+			pipelineRunner,
+			peerWrapper,
+			monitoringEndpointGen,
+			chainSet,
+			globalLogger,
+		)
+	} else {
+		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
 	var lbs []utils.DependentAwaiter
@@ -289,7 +315,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	feedsORM := feeds.NewORM(db)
+	feedsORM := feeds.NewORM(db, opts.Logger, cfg)
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
@@ -561,7 +587,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 		return errors.New("job must be deleted in the feeds manager")
 	}
 
-	return app.jobSpawner.DeleteJob(ctx, jobID)
+	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
 }
 
 func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
@@ -642,12 +668,6 @@ func (app *ChainlinkApplication) ResumeJobV2(
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
-}
-
-// NewBox returns the packr.Box instance that holds the static assets to
-// be delivered by the router.
-func (app *ChainlinkApplication) NewBox() packr.Box {
-	return packr.NewBox("../../../operator_ui/dist")
 }
 
 func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64) error {

@@ -11,9 +11,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-// AllowUnknownQueryerTypeInTransaction can be set by tests to allow a mock to be passed as a Queryer
-var AllowUnknownQueryerTypeInTransaction bool
-
 //go:generate mockery --name Queryer --output ./mocks/ --case=underscore
 type Queryer interface {
 	sqlx.Ext
@@ -51,12 +48,10 @@ func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func
 		err = fc(db)
 	case *sqlx.DB:
 		err = sqlxTransactionQ(ctx, db, lggr, fc, txOpts...)
+	case Q:
+		err = sqlxTransactionQ(ctx, db.db, lggr, fc, txOpts...)
 	default:
-		if AllowUnknownQueryerTypeInTransaction {
-			err = fc(q)
-		} else {
-			err = errors.Errorf("invalid db type")
-		}
+		err = errors.Errorf("invalid db type: %T", q)
 	}
 
 	return

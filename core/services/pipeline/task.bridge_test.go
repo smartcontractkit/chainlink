@@ -16,7 +16,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tevino/abool"
+	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -126,7 +126,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -179,7 +179,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
@@ -351,7 +351,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
 				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -393,7 +393,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	var empty adapterResponse
 
-	httpCalled := abool.New()
+	var httpCalled atomic.Bool
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req adapterRequest
 		body, _ := ioutil.ReadAll(r.Body)
@@ -403,7 +403,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		require.Equal(t, float64(1616447984), req.Meta["updatedAt"])
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
-		httpCalled.Set()
+		httpCalled.Store(true)
 	})
 
 	metaDataForBridge, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
@@ -415,7 +415,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -428,7 +428,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	res, _ := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
 	assert.Nil(t, res.Error)
 
-	assert.True(t, httpCalled.IsSet())
+	assert.True(t, httpCalled.Load())
 }
 
 func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
@@ -463,7 +463,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
 				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -514,7 +514,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
@@ -548,7 +548,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),

@@ -31,12 +31,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 )
@@ -106,9 +106,9 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // MustCreateBridge creates a bridge
 // Be careful not to specify a name here unless you ABSOLUTELY need to
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
-func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.LogConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
-	orm := bridges.NewORM(db, logger.TestLogger(t))
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 	err := orm.CreateBridgeType(bt)
 	require.NoError(t, err)
 	return bta, bt
@@ -138,21 +138,6 @@ func MustJSONMarshal(t *testing.T, val interface{}) string {
 	bs, err := json.Marshal(val)
 	require.NoError(t, err)
 	return string(bs)
-}
-
-// MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
-// See https://github.com/tidwall/sjson
-func MustJSONSet(t *testing.T, json, path string, value interface{}) string {
-	json, err := sjson.Set(json, path, value)
-	require.NoError(t, err)
-	return json
-}
-
-// MustJSONDel uses sjson.Delete to remove a path from a JSON string and returns the string
-func MustJSONDel(t *testing.T, json, path string) string {
-	json, err := sjson.Delete(json, path)
-	require.NoError(t, err)
-	return json
 }
 
 func EmptyCLIContext() *cli.Context {
@@ -336,14 +321,6 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) bulletprooftxmanager.E
 	}
 }
 
-func MustInsertBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, borm bulletprooftxmanager.ORM, gasPrice int64) bulletprooftxmanager.EthTxAttempt {
-	attempt := NewLegacyEthTxAttempt(t, etxID)
-	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	attempt.GasPrice = utils.NewBig(big.NewInt(gasPrice))
-	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
-	return attempt
-}
-
 func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
 	transactionIndex := uint(NewRandomInt64())
 
@@ -464,11 +441,11 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, number int64) eth.Head {
+func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) eth.Head {
 	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
-	horm := headtracker.NewORM(db, FixtureChainID)
+	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
-	err := horm.IdempotentInsertHead(context.Background(), h)
+	err := horm.IdempotentInsertHead(context.Background(), &h)
 	require.NoError(t, err)
 	return h
 }
@@ -494,7 +471,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:                pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
+	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), NewTestGeneralConfig(t))
 	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -525,11 +502,11 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertKeeperJob(t *testing.T, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
-	err := korm.DB.Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
+	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
@@ -556,7 +533,7 @@ perform_upkeep_tx        [type=ethtx
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\"jobID\":$(jobSpec.jobID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`
-	err = korm.DB.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
+	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
 	require.NoError(t, err)
 
 	jb := job.Job{
@@ -568,18 +545,21 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 		PipelineSpec:   &pipelineSpec,
 		PipelineSpecID: pipelineSpec.ID,
 	}
-	jrm := job.NewORM(korm.DB, nil, pipeline.NewORM(korm.DB, logger.TestLogger(t)), nil, logger.TestLogger(t))
+	cfg := NewTestGeneralConfig(t)
+	tlg := logger.TestLogger(t)
+	prm := pipeline.NewORM(db, tlg, cfg)
+	jrm := job.NewORM(db, nil, prm, nil, tlg, cfg)
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
 }
 
-func MustInsertKeeperRegistry(t *testing.T, korm keeper.ORM, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
+func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
 	from := key.Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, korm, from, contractAddress)
+	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: 20,
@@ -622,30 +602,6 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunI
 	/* #nosec G404 */
 	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.NewV4()))
 	return tr
-}
-
-func MustInsertSampleDirectRequestJob(t *testing.T, db *sqlx.DB) job.Job {
-	t.Helper()
-
-	dds := `
-    // data source 1
-    ds1          [type=bridge name=voter_turnout];
-    ds1_parse    [type=jsonparse path="one,two"];
-    ds1_multiply [type=multiply times=1.23];
-`
-
-	var pspec pipeline.Spec
-	require.NoError(t, db.Get(&pspec, `INSERT INTO pipeline_specs (dot_dag_source, created_at) VALUES ($1, NOW()) RETURNING *`, dds))
-
-	drspec := job.DirectRequestSpec{}
-	require.NoError(t, db.Get(&drspec, `INSERT INTO direct_request_specs ( created_at) VALUES (NOW()) RETURNING *`))
-
-	job := job.Job{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
-	require.NoError(t, db.Get(&drspec, `INSERT INTO jobs (type, schema_version, direct_request_spec_id, pipeline_spec_id, created_at) VALUES ('directrequest', 1, $1, $2, NOW()) RETURNING *`,
-		drspec.ID, pspec.ID,
-	))
-
-	return job
 }
 
 func RandomLog(t *testing.T) types.Log {

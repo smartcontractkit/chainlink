@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -23,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
-	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/sqlx"
@@ -136,12 +138,15 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	b1, b2 := setupBridges(t, app.GetSqlxDB())
+	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
+	k, err := app.KeyStore.P2P().GetAll()
+	require.NoError(t, err)
+	require.Len(t, k, 1)
 
 	jorm := app.JobORM()
 	var tt = []struct {
@@ -169,7 +174,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
 				assert.NotEmpty(t, resource.OffChainReportingSpec.P2PPeerID)
-				assert.True(t, resource.OffChainReportingSpec.P2PPeerIDEnv)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
@@ -334,8 +338,8 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 
 	client := app.NewHTTPClient()
 
@@ -387,8 +391,9 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 
 	require.Len(t, resources, 2)
 
-	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[0])
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[1])
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[0])
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[1])
+
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
@@ -484,9 +489,9 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
-func setupBridges(t *testing.T, db *sqlx.DB) (b1, b2 string) {
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) (b1, b2 string) {
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, cfg)
 	return bridge.Name.String(), bridge2.Name.String()
 }
 
@@ -505,11 +510,10 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	app := cltest.NewApplicationWithKey(t)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 
 	client := app.NewHTTPClient()
 

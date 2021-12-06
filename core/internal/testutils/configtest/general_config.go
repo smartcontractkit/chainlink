@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -26,8 +29,8 @@ import (
 
 const (
 	// RootDir the root directory for test
-	RootDir                    = "/tmp/chainlink_test"
-	HeadSamplingIntervalInTest = 0 * time.Millisecond
+	RootDir       = "/tmp/chainlink_test"
+	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 )
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
@@ -39,7 +42,6 @@ type GeneralConfigOverrides struct {
 	BlockBackfillDepth                        null.Int
 	BlockBackfillSkip                         null.Bool
 	ClientNodeURL                             null.String
-	DatabaseTimeout                           *time.Duration
 	DatabaseURL                               null.String
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
@@ -77,25 +79,48 @@ type GeneralConfigOverrides struct {
 	GlobalMinIncomingConfirmations            null.Int
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
+	GlobalOCRObservationGracePeriod           time.Duration
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
+	LeaseLockDuration                         *time.Duration
+	LeaseLockRefreshInterval                  *time.Duration
 	LogLevel                                  *config.LogLevel
 	DefaultLogLevel                           *config.LogLevel
-	LogSQLStatements                          null.Bool
+	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
-	OCRBootstrapCheckInterval                 *time.Duration
-	OCRKeyBundleID                            null.String
-	OCRObservationGracePeriod                 *time.Duration
-	OCRObservationTimeout                     *time.Duration
-	OCRTransmitterAddress                     *ethkey.EIP55Address
-	P2PBootstrapPeers                         []string
-	P2PListenPort                             null.Int
-	P2PPeerID                                 p2pkey.PeerID
-	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
+	FeatureOffchainReporting                  null.Bool
+	FeatureOffchainReporting2                 null.Bool
+
+	// OCR v2
+	OCR2DatabaseTimeout *time.Duration
+
+	// OCR v1
+	OCRKeyBundleID            null.String
+	OCRDatabaseTimeout        *time.Duration
+	OCRObservationGracePeriod *time.Duration
+	OCRObservationTimeout     *time.Duration
+	OCRTransmitterAddress     *ethkey.EIP55Address
+
+	// P2P v1 and V2
+	P2PPeerID          p2pkey.PeerID
+	P2PPeerIDError     error
+	P2PNetworkingStack ocrnetworking.NetworkingStack
+
+	// P2P v1
+	P2PBootstrapCheckInterval *time.Duration
+	P2PBootstrapPeers         []string
+	P2PListenPort             null.Int
+
+	// P2PV2
+	P2PV2ListenAddresses   []string
+	P2PV2AnnounceAddresses []string
+	P2PV2Bootstrappers     []ocrcommontypes.BootstrapperLocator
+	P2PV2DeltaDial         *time.Duration
+	P2PV2DeltaReconcile    *time.Duration
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
@@ -103,16 +128,19 @@ func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duratio
 	o.TriggerFallbackDBPollInterval = &d
 }
 func (o *GeneralConfigOverrides) SetOCRBootstrapCheckInterval(d time.Duration) {
-	o.OCRBootstrapCheckInterval = &d
-}
-func (o *GeneralConfigOverrides) SetOCRObservationGracePeriod(d time.Duration) {
-	o.OCRObservationGracePeriod = &d
+	o.P2PBootstrapCheckInterval = &d
 }
 func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 	o.OCRObservationTimeout = &d
 }
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
+}
+func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
+	o.P2PV2DeltaDial = &d
+}
+func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
+	o.P2PV2DeltaReconcile = &d
 }
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
@@ -190,27 +218,6 @@ func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
 }
 
-func (c *TestGeneralConfig) P2PListenPort() uint16 {
-	if c.Overrides.P2PListenPort.Valid {
-		return uint16(c.Overrides.P2PListenPort.Int64)
-	}
-	return 12345
-}
-
-func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
-	if c.Overrides.P2PPeerID.String() != "" {
-		return c.Overrides.P2PPeerID
-	}
-	return ""
-}
-
-func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
-	if c.Overrides.DatabaseTimeout != nil {
-		return models.MustMakeDuration(*c.Overrides.DatabaseTimeout)
-	}
-	return models.MustMakeDuration(5 * time.Second)
-}
-
 func (c *TestGeneralConfig) GlobalLockRetryInterval() models.Duration {
 	return models.MustMakeDuration(10 * time.Millisecond)
 }
@@ -276,32 +283,25 @@ func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
 	return c.GeneralConfig.FeatureExternalInitiators()
 }
 
+func (c *TestGeneralConfig) FeatureOffchainReporting() bool {
+	if c.Overrides.FeatureOffchainReporting.Valid {
+		return c.Overrides.FeatureOffchainReporting.Bool
+	}
+	return c.GeneralConfig.FeatureOffchainReporting()
+}
+
+func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
+	if c.Overrides.FeatureOffchainReporting2.Valid {
+		return c.Overrides.FeatureOffchainReporting2.Bool
+	}
+	return c.GeneralConfig.FeatureOffchainReporting2()
+}
+
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
 		return *c.Overrides.TriggerFallbackDBPollInterval
 	}
 	return c.GeneralConfig.TriggerFallbackDBPollInterval()
-}
-
-func (c *TestGeneralConfig) OCRBootstrapCheckInterval() time.Duration {
-	if c.Overrides.OCRBootstrapCheckInterval != nil {
-		return *c.Overrides.OCRBootstrapCheckInterval
-	}
-	return c.GeneralConfig.OCRBootstrapCheckInterval()
-}
-
-func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
-	if c.Overrides.OCRObservationGracePeriod != nil {
-		return *c.Overrides.OCRObservationGracePeriod
-	}
-	return c.GeneralConfig.OCRObservationGracePeriod()
-}
-
-func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
-	if c.Overrides.OCRObservationTimeout != nil {
-		return *c.Overrides.OCRObservationTimeout
-	}
-	return c.GeneralConfig.OCRObservationTimeout()
 }
 
 func (c *TestGeneralConfig) LogToDisk() bool {
@@ -330,27 +330,6 @@ func (c *TestGeneralConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
 		return c.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess.Bool
 	}
 	return c.GeneralConfig.DefaultHTTPAllowUnrestrictedNetworkAccess()
-}
-
-func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
-	if c.Overrides.P2PBootstrapPeers != nil {
-		return c.Overrides.P2PBootstrapPeers, nil
-	}
-	return c.GeneralConfig.P2PBootstrapPeers()
-}
-
-func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {
-	if c.Overrides.OCRKeyBundleID.Valid {
-		return c.Overrides.OCRKeyBundleID.String, nil
-	}
-	return c.GeneralConfig.OCRKeyBundleID()
-}
-
-func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	if c.Overrides.OCRTransmitterAddress != nil {
-		return *c.Overrides.OCRTransmitterAddress, nil
-	}
-	return c.GeneralConfig.OCRTransmitterAddress()
 }
 
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {
@@ -416,11 +395,11 @@ func (c *TestGeneralConfig) DefaultLogLevel() zapcore.Level {
 	return c.GeneralConfig.DefaultLogLevel()
 }
 
-func (c *TestGeneralConfig) LogSQLStatements() bool {
-	if c.Overrides.LogSQLStatements.Valid {
-		return c.Overrides.LogSQLStatements.Bool
+func (c *TestGeneralConfig) LogSQL() bool {
+	if c.Overrides.LogSQL.Valid {
+		return c.Overrides.LogSQL.Bool
 	}
-	return c.GeneralConfig.LogSQLStatements()
+	return c.GeneralConfig.LogSQL()
 }
 
 func (c *TestGeneralConfig) EVMDisabled() bool {
@@ -625,4 +604,18 @@ func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
 // There is no need for any database application locking in tests
 func (c *TestGeneralConfig) DatabaseLockingMode() string {
 	return "none"
+}
+
+func (c *TestGeneralConfig) LeaseLockRefreshInterval() time.Duration {
+	if c.Overrides.LeaseLockRefreshInterval != nil {
+		return *c.Overrides.LeaseLockRefreshInterval
+	}
+	return c.GeneralConfig.LeaseLockRefreshInterval()
+}
+
+func (c *TestGeneralConfig) LeaseLockDuration() time.Duration {
+	if c.Overrides.LeaseLockDuration != nil {
+		return *c.Overrides.LeaseLockDuration
+	}
+	return c.GeneralConfig.LeaseLockDuration()
 }

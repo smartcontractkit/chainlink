@@ -268,17 +268,30 @@ func TestJSON_CBOR(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			encoded, err := test.in.CBOR()
-			assert.NoError(t, err)
+			encoded := mustMarshal(t, test.in)
 
 			var decoded interface{}
-			err = cbor.Unmarshal(encoded, &decoded)
-
-			assert.NoError(t, err)
+			err := cbor.Unmarshal(encoded, &decoded)
+			require.NoError(t, err)
 
 			decoded, err = CoerceInterfaceMapToStringMap(decoded)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.True(t, reflect.DeepEqual(test.in.Result.Value(), decoded))
 		})
+	}
+}
+
+// mustMarshal returns a bytes array of the JSON map or array encoded to CBOR.
+func mustMarshal(t *testing.T, j models.JSON) []byte {
+	switch v := j.Result.Value().(type) {
+	case map[string]interface{}, []interface{}, nil:
+		b, err := cbor.Marshal(v)
+		if err != nil {
+			t.Fatalf("failed to marshal CBOR: %v", err)
+		}
+		return b
+	default:
+		t.Fatalf("unable to coerce JSON to CBOR for type %T", v)
+		return nil
 	}
 }

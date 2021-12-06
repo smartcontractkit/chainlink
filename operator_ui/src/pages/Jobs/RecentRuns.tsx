@@ -9,12 +9,11 @@ import {
 } from '@material-ui/core'
 import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
-import Content from 'components/Content'
 import JobRunsList from './JobRunsList'
 import TaskListDag from './TaskListDag'
 import React from 'react'
 import { JobData } from './sharedTypes'
-import { parseDot } from './parseDot'
+import { parseDot } from 'utils/parseDot'
 
 const chartCardStyles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -72,7 +71,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
     }, [getJobRuns])
 
     return (
-      <Content>
+      <>
         <ErrorComponent />
         <LoadingPlaceholder />
 
@@ -112,7 +111,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
             </Grid>
           </Grid>
         )}
-      </Content>
+      </>
     )
   },
 )

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -18,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -59,7 +62,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 	jobSpec := job.Job{}
 	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
-		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(c.Request.Context(), externalJobID)
+		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
 		jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
@@ -107,6 +110,12 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
+			return
+		}
+	case job.OffchainReporting2:
+		jb, err = offchainreporting2.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
+		if !config.Dev() && !config.FeatureOffchainReporting2() {
+			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
 			return
 		}
 	case job.DirectRequest:

@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -125,7 +124,7 @@ func (pr *promReporter) Close() error {
 	})
 }
 
-func (pr *promReporter) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	pr.newHeads.Deliver(head)
 }
 
@@ -141,10 +140,7 @@ func (pr *promReporter) eventLoop() {
 			if !exists {
 				continue
 			}
-			head, ok := item.(eth.Head)
-			if !ok {
-				panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
-			}
+			head := eth.AsHead(item)
 			pr.reportHeadMetrics(ctx, head)
 		case <-time.After(pr.reportPeriod):
 			if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
@@ -157,7 +153,7 @@ func (pr *promReporter) eventLoop() {
 	}
 }
 
-func (pr *promReporter) reportHeadMetrics(ctx context.Context, head eth.Head) {
+func (pr *promReporter) reportHeadMetrics(ctx context.Context, head *eth.Head) {
 	evmChainID := head.EVMChainID.ToInt()
 	err := multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
@@ -194,7 +190,7 @@ func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID 
 	return nil
 }
 
-func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head eth.Head) (err error) {
+func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *eth.Head) (err error) {
 	var earliestUnconfirmedTxBlock null.Int
 	err = pr.db.QueryRowContext(ctx, `
 SELECT MIN(broadcast_before_block_num) FROM eth_tx_attempts

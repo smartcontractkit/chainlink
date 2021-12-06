@@ -103,7 +103,11 @@ var substrate = ClientErrors{
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)Pool\(AlreadyImported\)$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate}
+var avalanche = ClientErrors{
+	NonceTooLow: regexp.MustCompile(`(: |^)nonce too low: address 0x[0-9a-fA-F]{40} current nonce \([\d]+\) > tx nonce \([\d]+\)$`),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate, avalanche}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -166,10 +170,6 @@ func (s *SendError) IsFeeTooLow() bool {
 // IsFeeTooHigh is an optimism-specific error returned when total fee is too high
 func (s *SendError) IsFeeTooHigh() bool {
 	return s.is(FeeTooHigh)
-}
-
-func NewFatalSendErrorS(s string) *SendError {
-	return &SendError{err: errors.New(s), fatal: true}
 }
 
 func NewFatalSendError(e error) *SendError {

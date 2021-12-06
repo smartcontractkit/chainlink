@@ -5,12 +5,12 @@ import { renderWithRouter, screen } from 'support/test-utils'
 import userEvent from '@testing-library/user-event'
 
 import { FeedsManagerCard } from './FeedsManagerCard'
-import { FeedsManager } from 'types/generated/graphql'
-import { buildFeedsManager } from 'support/factories/feedsManager'
+import { buildFeedsManagerFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import { shortenHex } from 'src/utils/shortenHex'
 
-const { queryByText } = screen
+const { getByRole, queryByText } = screen
 
-function renderComponent(manager: FeedsManager) {
+function renderComponent(manager: FeedsManagerFields) {
   renderWithRouter(
     <>
       <Route path="/">
@@ -23,7 +23,7 @@ function renderComponent(manager: FeedsManager) {
 
 describe('FeedsManagerCard', () => {
   it('renders a disconnected Feeds Manager', () => {
-    const mgr = buildFeedsManager({
+    const mgr = buildFeedsManagerFields({
       isBootstrapPeer: false,
       bootstrapPeerMultiaddr: '/dns4/blah',
     })
@@ -32,8 +32,8 @@ describe('FeedsManagerCard', () => {
 
     expect(queryByText(mgr.name)).toBeInTheDocument()
     expect(queryByText(mgr.uri)).toBeInTheDocument()
-    expect(queryByText(mgr.publicKey)).toBeInTheDocument()
-    expect(queryByText('FLUX_MONITOR')).toBeInTheDocument()
+    expect(queryByText(shortenHex(mgr.publicKey))).toBeInTheDocument()
+    expect(queryByText('Flux Monitor')).toBeInTheDocument()
     expect(queryByText('Disconnected')).toBeInTheDocument()
     // We should not see the multiaddr because isBootstrapPeer is false
     expect(queryByText('/dns4/blah')).toBeNull()
@@ -41,7 +41,7 @@ describe('FeedsManagerCard', () => {
 
   it('renders a connected boostrapper Feeds Manager', () => {
     // Create a new manager with connected bootstrap values
-    const mgr = buildFeedsManager({
+    const mgr = buildFeedsManagerFields({
       jobTypes: [],
       isConnectionActive: true,
       isBootstrapPeer: true,
@@ -52,16 +52,17 @@ describe('FeedsManagerCard', () => {
 
     expect(queryByText(mgr.name)).toBeInTheDocument()
     expect(queryByText(mgr.uri)).toBeInTheDocument()
-    expect(queryByText(mgr.publicKey)).toBeInTheDocument()
-    expect(queryByText('FLUX_MONITOR')).toBeNull()
+    expect(queryByText(shortenHex(mgr.publicKey))).toBeInTheDocument()
+    expect(queryByText('Flux Monitor')).toBeNull()
     expect(queryByText('Connected')).toBeInTheDocument()
     expect(queryByText('/dns4/blah')).toBeInTheDocument()
   })
 
   it('navigates to edit', () => {
-    renderComponent(buildFeedsManager())
+    renderComponent(buildFeedsManagerFields())
 
-    userEvent.click(screen.getByTestId('edit'))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /edit/i }))
 
     expect(queryByText('Redirect Success')).toBeInTheDocument()
   })

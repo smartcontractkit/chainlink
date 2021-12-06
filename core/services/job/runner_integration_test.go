@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -46,17 +48,17 @@ func TestRunner(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t))
-	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
 	runner.Start()
 	defer runner.Close()
@@ -84,8 +86,8 @@ func TestRunner(t *testing.T) {
 		mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 
 		httpURL = mockHTTP.URL
-		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL})
-		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL})
+		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL}, config)
+		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL}, config)
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
@@ -137,7 +139,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
@@ -160,7 +162,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
@@ -364,7 +366,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -416,7 +418,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -450,7 +452,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -478,7 +480,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -508,7 +510,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
@@ -730,7 +732,7 @@ func TestRunner_AsyncJob(t *testing.T) {
 			io.WriteString(w, `{"pending": true}`)
 			bridgeCalled <- struct{}{}
 		}))
-		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL})
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())
 		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
@@ -773,8 +775,8 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t))
-		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore)
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
+		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
 
 		// Trigger v2/resume
 		select {
@@ -808,8 +810,8 @@ observationSource   = """
 	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t))
-		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore)
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
+		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
 
 		// Trigger v2/resume
 		select {

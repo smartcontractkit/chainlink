@@ -75,7 +75,7 @@ func Decrypt(e EncryptedVRFKey, auth string) (*PrivateKey, error) {
 	}
 	gethKey, err := keystore.DecryptKey(keyJSON, adulteratedPassword(auth))
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not decrypt key %s",
+		return nil, errors.Wrapf(err, "could not decrypt VRF key %s",
 			e.PublicKey.String())
 	}
 	return fromGethKey(gethKey), nil

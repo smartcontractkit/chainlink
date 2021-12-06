@@ -13,7 +13,8 @@ func TestKeyStore_SendingKeys(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 
@@ -30,7 +31,8 @@ func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, k0Address := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 

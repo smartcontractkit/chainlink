@@ -2,15 +2,15 @@ package offchainreporting
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,36 +26,12 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-type Config interface {
-	DefaultChainID() *big.Int
-	Dev() bool
-	EvmGasLimitDefault() uint64
-	JobPipelineResultWriteQueueDepth() uint64
-	OCRBlockchainTimeout() time.Duration
-	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
-	OCRDatabaseTimeout() time.Duration
-	OCRDefaultTransactionQueueDepth() uint32
-	OCRKeyBundleID() (string, error)
-	OCRObservationGracePeriod() time.Duration
-	OCRObservationTimeout() time.Duration
-	OCRTraceLogging() bool
-	OCRTransmitterAddress() (ethkey.EIP55Address, error)
-	P2PBootstrapPeers() ([]string, error)
-	P2PPeerID() p2pkey.PeerID
-	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
-	FlagsContractAddress() string
-	ChainType() chains.ChainType
-}
-
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
 	keyStore              keystore.Master
 	pipelineRunner        pipeline.Runner
-	peerWrapper           *SingletonPeerWrapper
+	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
 	lggr                  logger.Logger
@@ -71,7 +46,7 @@ func NewDelegate(
 	jobORM job.ORM,
 	keyStore keystore.Master,
 	pipelineRunner pipeline.Runner,
-	peerWrapper *SingletonPeerWrapper,
+	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
@@ -157,6 +132,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, err
 		}
 	}
+	// TODO: May want to follow up with spec override support for v2 bootstrappers?
 	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
 
 	loggerWith := d.lggr.With(
@@ -165,7 +141,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"jobID", jobSpec.ID,
 	)
 	ocrLogger := logger.NewOCRWrapper(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
-		d.jobORM.RecordError(jobSpec.ID, msg)
+		d.jobORM.TryRecordError(jobSpec.ID, msg)
 	})
 
 	lc := NewLocalConfig(chain.Config(), *concreteSpec)
@@ -179,6 +155,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			V1Bootstrappers:       bootstrapPeers,
+			V2Bootstrappers:       v2BootstrapPeers,
 			ContractConfigTracker: tracker,
 			Database:              ocrdb,
 			LocalConfig:           lc,
@@ -208,7 +185,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy),
+			ocrcommon.NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
@@ -239,13 +216,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
-			Datasource: &dataSource{
-				pipelineRunner: d.pipelineRunner,
-				ocrLogger:      loggerWith,
-				jobSpec:        jobSpec,
-				spec:           *jobSpec.PipelineSpec,
-				runResults:     runResults,
-			},
+			Datasource: ocrcommon.NewDataSourceV1(
+				d.pipelineRunner,
+				jobSpec,
+				*jobSpec.PipelineSpec,
+				loggerWith,
+				runResults,
+			),
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,
@@ -265,7 +242,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
-		services = append([]job.Service{NewResultRunSaver(
+		services = append([]job.Service{ocrcommon.NewResultRunSaver(
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),

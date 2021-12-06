@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/tevino/abool"
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
@@ -71,7 +70,7 @@ type (
 	broadcaster struct {
 		orm        ORM
 		config     Config
-		connected  *abool.AtomicBool
+		connected  atomic.Bool
 		evmChainID big.Int
 
 		// a block number to start backfill from
@@ -141,7 +140,6 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, lggr logger.Lo
 		orm:              orm,
 		config:           config,
 		logger:           lggr,
-		connected:        abool.New(),
 		evmChainID:       *ethClient.ChainID(),
 		ethSubscriber:    newEthSubscriber(ethClient, config, lggr, chStop),
 		registrations:    newRegistrations(lggr, *ethClient.ChainID()),
@@ -222,7 +220,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
 		b.logger.Debugw("TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
@@ -230,7 +228,7 @@ func (b *broadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
 }
 
 func (b *broadcaster) IsConnected() bool {
-	return b.connected.IsSet()
+	return b.connected.Load()
 }
 
 // The subscription is closed in two cases:
@@ -307,17 +305,17 @@ func (b *broadcaster) startResubscribeLoop() {
 		subscription.Unsubscribe()
 		subscription = newSubscription
 
-		b.connected.Set()
+		b.connected.Store(true)
 
 		b.trackedAddressesCount.Store(uint32(len(addresses)))
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
 			b.logger.Warnw("Error in the event loop - will reconnect", "err", err)
-			b.connected.UnSet()
+			b.connected.Store(false)
 			continue
 		} else if !shouldResubscribe {
-			b.connected.UnSet()
+			b.connected.Store(false)
 			return
 		}
 	}
@@ -429,12 +427,8 @@ func (b *broadcaster) onNewHeads() {
 		if item == nil {
 			break
 		}
-		head, ok := item.(eth.Head)
-		if !ok {
-			b.logger.Errorf("expected `eth.Head`, got %T", item)
-			continue
-		}
-		latestHead = &head
+		head := eth.AsHead(item)
+		latestHead = head
 	}
 
 	// latestHead may sometimes be nil on high rate of heads,
@@ -652,12 +646,12 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	close(ch)
 	return ch
 }
-func (n *NullBroadcaster) DependentReady()                             {}
-func (n *NullBroadcaster) Start() error                                { return nil }
-func (n *NullBroadcaster) Close() error                                { return nil }
-func (n *NullBroadcaster) Healthy() error                              { return nil }
-func (n *NullBroadcaster) Ready() error                                { return nil }
-func (n *NullBroadcaster) OnNewLongestChain(context.Context, eth.Head) {}
-func (n *NullBroadcaster) Pause()                                      {}
-func (n *NullBroadcaster) Resume()                                     {}
-func (n *NullBroadcaster) LogsFromBlock(common.Hash) int               { return -1 }
+func (n *NullBroadcaster) DependentReady()                              {}
+func (n *NullBroadcaster) Start() error                                 { return nil }
+func (n *NullBroadcaster) Close() error                                 { return nil }
+func (n *NullBroadcaster) Healthy() error                               { return nil }
+func (n *NullBroadcaster) Ready() error                                 { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, *eth.Head) {}
+func (n *NullBroadcaster) Pause()                                       {}
+func (n *NullBroadcaster) Resume()                                      {}
+func (n *NullBroadcaster) LogsFromBlock(common.Hash) int                { return -1 }

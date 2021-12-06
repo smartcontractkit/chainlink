@@ -121,8 +121,8 @@ func (_m *Service) GetJobProposal(id int64) (*feeds.JobProposal, error) {
 	return r0, r1
 }
 
-// GetJobProposalByManagersIDs provides a mock function with given fields: ids
-func (_m *Service) GetJobProposalByManagersIDs(ids []int64) ([]feeds.JobProposal, error) {
+// GetJobProposalsByManagersIDs provides a mock function with given fields: ids
+func (_m *Service) GetJobProposalsByManagersIDs(ids []int64) ([]feeds.JobProposal, error) {
 	ret := _m.Called(ids)
 
 	var r0 []feeds.JobProposal

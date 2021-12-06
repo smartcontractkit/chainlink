@@ -17,6 +17,10 @@ type erroringNode struct {
 	errMsg string
 }
 
+func (e *erroringNode) ChainID(ctx context.Context) (chainID *big.Int, err error) {
+	return nil, errors.New(e.errMsg)
+}
+
 func (e *erroringNode) Dial(ctx context.Context) error {
 	return errors.New(e.errMsg)
 }
@@ -101,4 +105,8 @@ func (e *erroringNode) EthSubscribe(ctx context.Context, channel interface{}, ar
 
 func (e *erroringNode) String() string {
 	return "<erroring node>"
+}
+
+func (e *erroringNode) State() NodeState {
+	return NodeStateDead
 }

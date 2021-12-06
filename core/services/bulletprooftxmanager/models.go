@@ -15,7 +15,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
@@ -29,6 +28,9 @@ type EthTxMeta struct {
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink string
+	// Used for the VRFv2 - the subscription ID of the
+	// requester of the VRF.
+	SubID uint64 `json:"SubId"`
 }
 
 type EthTxState string
@@ -175,7 +177,6 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 	s := rlp.NewStream(bytes.NewReader(a.SignedRawTx), 0)
 	signedTx := new(types.Transaction)
 	if err := signedTx.DecodeRLP(s); err != nil {
-		logger.Error("could not decode RLP")
 		return nil, err
 	}
 	return signedTx, nil

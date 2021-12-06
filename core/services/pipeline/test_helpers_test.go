@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 )
 
@@ -35,7 +36,7 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) ht
 	})
 }
 
-func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}) (s *httptest.Server, name string) {
+func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}, cfg pg.LogConfig) (s *httptest.Server, name string) {
 	t.Helper()
 
 	server := httptest.NewServer(fakeExternalAdapter(t, expectedRequest, response))
@@ -43,7 +44,7 @@ func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}
 	bridgeFeedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
 
 	return server, bt.Name.String()
 }

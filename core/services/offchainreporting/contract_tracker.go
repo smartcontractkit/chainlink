@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -58,9 +60,9 @@ type (
 		jobID            int32
 		logger           logger.Logger
 		ocrdb            OCRContractTrackerDB
-		db               *sqlx.DB
-		blockTranslator  BlockTranslator
-		cfg              Config
+		q                pg.Q
+		blockTranslator  ocrcommon.BlockTranslator
+		cfg              ocrcommon.Config
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -102,7 +104,7 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	db *sqlx.DB,
 	ocrdb OCRContractTrackerDB,
-	cfg Config,
+	cfg ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -117,8 +119,8 @@ func NewOCRContractTracker(
 		jobID,
 		logger,
 		ocrdb,
-		db,
-		NewBlockTranslator(cfg, ethClient, logger),
+		pg.NewQ(db, logger, cfg),
+		ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
 		headBroadcaster,
 		nil,
@@ -157,7 +159,7 @@ func (t *OCRContractTracker) Start() error {
 		var latestHead *eth.Head
 		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
 		if latestHead != nil {
-			t.setLatestBlockHeight(*latestHead)
+			t.setLatestBlockHeight(latestHead)
 		}
 
 		t.wg.Add(1)
@@ -179,11 +181,11 @@ func (t *OCRContractTracker) Close() error {
 }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h eth.Head) {
+func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *eth.Head) {
 	t.setLatestBlockHeight(h)
 }
 
-func (t *OCRContractTracker) setLatestBlockHeight(h eth.Head) {
+func (t *OCRContractTracker) setLatestBlockHeight(h *eth.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64
@@ -289,7 +291,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = pg.NewQ(t.db).Transaction(t.logger, func(tx pg.Queryer) error {
+			err = t.q.Transaction(func(tx pg.Queryer) error {
 				if err = t.ocrdb.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}
@@ -437,10 +439,6 @@ func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback ti
 	// NOTE: This should be "good enough" 99% of the time.
 	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
 	// Some further improvements could be made:
-	// TODO: Can we increase the backfill depth?
-	// TODO: Can we use the lookback to optimise at all?
-	// TODO: How well can we satisfy the requirements after the latest round of changes to the log broadcaster?
-	// See: https://www.pivotaltracker.com/story/show/177063733
 	t.lrrMu.RLock()
 	defer t.lrrMu.RUnlock()
 	return t.latestRoundRequested.ConfigDigest, t.latestRoundRequested.Epoch, t.latestRoundRequested.Round, nil

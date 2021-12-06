@@ -2,29 +2,28 @@ package resolver
 
 import (
 	"context"
-	"database/sql"
-	"errors"
-	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
 
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 // JobResolver resolves the Job type.
 type JobResolver struct {
-	j job.Job
+	app chainlink.Application
+	j   job.Job
 }
 
-func NewJob(j job.Job) *JobResolver {
-	return &JobResolver{j: j}
+func NewJob(app chainlink.Application, j job.Job) *JobResolver {
+	return &JobResolver{app: app, j: j}
 }
 
-func NewJobs(jobs []job.Job) []*JobResolver {
-	resolvers := []*JobResolver{}
+func NewJobs(app chainlink.Application, jobs []job.Job) []*JobResolver {
+	var resolvers []*JobResolver
 	for _, j := range jobs {
-		resolvers = append(resolvers, NewJob(j))
+		resolvers = append(resolvers, NewJob(app, j))
 	}
 
 	return resolvers
@@ -32,7 +31,7 @@ func NewJobs(jobs []job.Job) []*JobResolver {
 
 // ID resolves the job's id.
 func (r *JobResolver) ID() graphql.ID {
-	return graphql.ID(strconv.FormatInt(int64(r.j.ID), 10))
+	return int32GQLID(r.j.ID)
 }
 
 // CreatedAt resolves the job's created at timestamp.
@@ -60,10 +59,6 @@ func (r *JobResolver) MaxTaskDuration() string {
 
 // Name resolves the job's name.
 func (r *JobResolver) Name() string {
-	if r.j.Name.IsZero() {
-		return "undefined"
-	}
-
 	return r.j.Name.ValueOrZero()
 }
 
@@ -80,36 +75,64 @@ func (r *JobResolver) SchemaVersion() int32 {
 	return int32(r.j.SchemaVersion)
 }
 
+// Type resolves the job's type.
+func (r *JobResolver) Type() string {
+	return string(r.j.Type)
+}
+
 // Spec resolves the job's spec.
 func (r *JobResolver) Spec() *SpecResolver {
 	return NewSpec(r.j)
 }
 
-func (r *JobResolver) Runs(ctx context.Context) ([]*JobRunResolver, error) {
-	runs, err := loader.GetJobRunsByPipelineSpecID(ctx, strconv.Itoa(int(r.j.PipelineSpecID)))
+// Runs fetches the runs for a Job.
+func (r *JobResolver) Runs(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*JobRunsPayloadResolver, error) {
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	if limit > 100 {
+		limit = 100
+	}
+
+	ids, err := r.app.JobORM().FindPipelineRunIDsByJobID(r.j.ID, offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewJobRuns(runs), nil
+	runs, err := loader.GetJobRunsByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	count, err := r.app.JobORM().CountPipelineRunsByJobID(r.j.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobRunsPayload(runs, count, r.app), nil
 }
 
 // JobsPayloadResolver resolves a page of jobs
 type JobsPayloadResolver struct {
+	app   chainlink.Application
 	jobs  []job.Job
 	total int32
 }
 
-func NewJobsPayload(jobs []job.Job, total int32) *JobsPayloadResolver {
+func NewJobsPayload(app chainlink.Application, jobs []job.Job, total int32) *JobsPayloadResolver {
 	return &JobsPayloadResolver{
+		app:   app,
 		jobs:  jobs,
 		total: total,
 	}
 }
 
-// Results returns the bridges.
+// Results returns the jobs.
 func (r *JobsPayloadResolver) Results() []*JobResolver {
-	return NewJobs(r.jobs)
+	return NewJobs(r.app, r.jobs)
 }
 
 // Metadata returns the pagination metadata.
@@ -118,31 +141,104 @@ func (r *JobsPayloadResolver) Metadata() *PaginationMetadataResolver {
 }
 
 type JobPayloadResolver struct {
+	app chainlink.Application
 	job *job.Job
-	err error
+	NotFoundErrorUnionType
 }
 
-func NewJobPayload(j *job.Job, err error) *JobPayloadResolver {
-	return &JobPayloadResolver{
-		job: j,
-		err: err,
-	}
+func NewJobPayload(app chainlink.Application, j *job.Job, err error) *JobPayloadResolver {
+	e := NotFoundErrorUnionType{err, "job not found", nil}
+
+	return &JobPayloadResolver{app: app, job: j, NotFoundErrorUnionType: e}
 }
 
 // ToJob implements the JobPayload union type of the payload
 func (r *JobPayloadResolver) ToJob() (*JobResolver, bool) {
 	if r.job != nil {
-		return NewJob(*r.job), true
+		return NewJob(r.app, *r.job), true
 	}
 
 	return nil, false
 }
 
-// ToNotFoundError implements the NotFoundError union type of the payload
-func (r *JobPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("job not found"), true
+// -- CreateJob Mutation --
+
+type CreateJobPayloadResolver struct {
+	app       chainlink.Application
+	j         *job.Job
+	inputErrs map[string]string
+}
+
+func NewCreateJobPayload(app chainlink.Application, job *job.Job, inputErrs map[string]string) *CreateJobPayloadResolver {
+	return &CreateJobPayloadResolver{app: app, j: job, inputErrs: inputErrs}
+}
+
+func (r *CreateJobPayloadResolver) ToCreateJobSuccess() (*CreateJobSuccessResolver, bool) {
+	if r.inputErrs != nil {
+		return nil, false
 	}
 
-	return nil, false
+	return NewCreateJobSuccess(r.app, r.j), true
+}
+
+func (r *CreateJobPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs == nil {
+		return nil, false
+	}
+
+	var errs []*InputErrorResolver
+
+	for path, message := range r.inputErrs {
+		errs = append(errs, NewInputError(path, message))
+	}
+
+	return NewInputErrors(errs), true
+}
+
+type CreateJobSuccessResolver struct {
+	app chainlink.Application
+	j   *job.Job
+}
+
+func NewCreateJobSuccess(app chainlink.Application, job *job.Job) *CreateJobSuccessResolver {
+	return &CreateJobSuccessResolver{app: app, j: job}
+}
+
+func (r *CreateJobSuccessResolver) Job() *JobResolver {
+	return NewJob(r.app, *r.j)
+}
+
+// -- DeleteJob Mutation --
+
+type DeleteJobPayloadResolver struct {
+	app chainlink.Application
+	j   *job.Job
+	NotFoundErrorUnionType
+}
+
+func NewDeleteJobPayload(app chainlink.Application, j *job.Job, err error) *DeleteJobPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "job not found"}
+
+	return &DeleteJobPayloadResolver{app: app, j: j, NotFoundErrorUnionType: e}
+}
+
+func (r *DeleteJobPayloadResolver) ToDeleteJobSuccess() (*DeleteJobSuccessResolver, bool) {
+	if r.j == nil {
+		return nil, false
+	}
+
+	return NewDeleteJobSuccess(r.app, r.j), true
+}
+
+type DeleteJobSuccessResolver struct {
+	app chainlink.Application
+	j   *job.Job
+}
+
+func NewDeleteJobSuccess(app chainlink.Application, job *job.Job) *DeleteJobSuccessResolver {
+	return &DeleteJobSuccessResolver{app: app, j: job}
+}
+
+func (r *DeleteJobSuccessResolver) Job() *JobResolver {
+	return NewJob(r.app, *r.j)
 }

@@ -23,6 +23,7 @@ func Test_Bridges(t *testing.T) {
 			query GetBridges {
 				bridges {
 					results {
+						id
 						name
 						url
 						confirmations
@@ -63,6 +64,7 @@ func Test_Bridges(t *testing.T) {
 			{
 				"bridges": {
 					"results": [{
+						"id": "bridge1",
 						"name": "bridge1",
 						"url": "https://external.adapter",
 						"confirmations": 1,
@@ -87,8 +89,9 @@ func Test_Bridge(t *testing.T) {
 	var (
 		query = `
 			query GetBridge{
-				bridge(name: "bridge1") {
+				bridge(id: "bridge1") {
 					... on Bridge {
+						id
 						name
 						url
 						confirmations
@@ -127,6 +130,7 @@ func Test_Bridge(t *testing.T) {
 			query: query,
 			result: `{
 				"bridge": {
+					"id": "bridge1",
 					"name": "bridge1",
 					"url": "https://external.adapter",
 					"confirmations": 1,
@@ -166,6 +170,7 @@ func Test_CreateBridge(t *testing.T) {
 				createBridge(input: $input) {
 					... on CreateBridgeSuccess {
 						bridge {
+							id
 							name
 							url
 							confirmations
@@ -218,6 +223,7 @@ func Test_CreateBridge(t *testing.T) {
 				{
 					"createBridge": {
 						"bridge": {
+							"id": "bridge1",
 							"name": "bridge1",
 							"url": "https://external.adapter",
 							"confirmations": 1,
@@ -240,10 +246,11 @@ func Test_UpdateBridge(t *testing.T) {
 	var (
 		name     = bridges.TaskType("bridge1")
 		mutation = `
-			mutation updateBridge($input: UpdateBridgeInput!) {
-				updateBridge(name: "bridge1", input: $input) {
+			mutation updateBridge($id: ID!, $input: UpdateBridgeInput!) {
+				updateBridge(id: $id, input: $input) {
 					... on UpdateBridgeSuccess {
 						bridge {
+							id
 							name
 							url
 							confirmations
@@ -259,6 +266,7 @@ func Test_UpdateBridge(t *testing.T) {
 				}
 			}`
 		variables = map[string]interface{}{
+			"id": "bridge1",
 			"input": map[string]interface{}{
 				"name":                   "bridge-updated",
 				"url":                    "https://external.adapter.new",
@@ -318,6 +326,7 @@ func Test_UpdateBridge(t *testing.T) {
 			result: `{
 				"updateBridge": {
 					"bridge": {
+						"id": "bridge-updated",
 						"name": "bridge-updated",
 						"url": "https://external.adapter.new",
 						"confirmations": 2,
@@ -362,10 +371,11 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 	assert.NoError(t, err)
 
 	mutation := `
-		mutation DeleteBridge($name: String!) {
-			deleteBridge(name: $name) {
+		mutation DeleteBridge($id: ID!) {
+			deleteBridge(id: $id) {
 				... on DeleteBridgeSuccess {
 					bridge {
+						id
 						name
 						url
 						confirmations
@@ -389,7 +399,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 		}`
 
 	variables := map[string]interface{}{
-		"name": name.String(),
+		"id": name.String(),
 	}
 
 	testCases := []GQLTestCase{
@@ -418,6 +428,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 				{
 					"deleteBridge": {
 						"bridge": {
+							"id": "bridge1",
 							"name": "bridge1",
 							"url": "https://test-url.com",
 							"confirmations": 1,
@@ -432,7 +443,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			authenticated: true,
 			query:         mutation,
 			variables: map[string]interface{}{
-				"name": "][]$$$$324adfas",
+				"id": "][]$$$$324adfas",
 			},
 			result: `
 				{
@@ -447,7 +458,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			authenticated: true,
 			query:         mutation,
 			variables: map[string]interface{}{
-				"name": "bridge1",
+				"id": "bridge1",
 			},
 			before: func(f *gqlTestFramework) {
 				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, sql.ErrNoRows)
@@ -466,7 +477,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			authenticated: true,
 			query:         mutation,
 			variables: map[string]interface{}{
-				"name": "bridge1",
+				"id": "bridge1",
 			},
 			before: func(f *gqlTestFramework) {
 				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, nil)

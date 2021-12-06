@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -414,19 +415,21 @@ func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result f
 	return run
 }
 
-func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64) {
+func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.LogConfig) {
 	t.Helper()
-	logger.TestLogger(t).Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
+	lggr := logger.TestLogger(t)
+	lggr.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
-		consumed, err := log.NewORM(db, fa.evmChainID).WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
+		orm := log.NewORM(db, lggr, cfg, fa.evmChainID)
+		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
-	}, cltest.DefaultWaitTimeout, time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -536,7 +539,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			g.Eventually(func() uint32 {
 				lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
 				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-			}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
+			}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 			// Initial Poll
 			receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
@@ -564,7 +567,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock)
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig())
 
 			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
@@ -593,7 +596,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock)
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig())
 
 			// Should not received a submission as it is inside the deviation
 			reportPrice.Store(104)
@@ -683,7 +686,7 @@ ds1 -> ds1_parse
 	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -814,7 +817,7 @@ ds1 -> ds1_parse
 		require.NoError(t, err)
 		logs := cltest.GetLogs(t, nil, ilogs)
 		return len(logs)
-	}, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.Equal(4))
+	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
 
 	// change in price should not trigger run
 	reportPrice.Store(8)

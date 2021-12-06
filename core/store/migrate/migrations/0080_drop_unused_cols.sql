@@ -1,7 +1,7 @@
 -- +goose Up
 ALTER TABLE offchainreporting_oracle_specs DROP COLUMN monitoring_endpoint;
 ALTER TABLE jobs ADD COLUMN created_at timestamptz;
-UPDATE jobs SET created_at = '1970-01-01';
+UPDATE jobs SET created_at = NOW();
 CREATE INDEX idx_jobs_created_at ON jobs USING BRIN (created_at);
 ALTER TABLE jobs ALTER COLUMN created_at SET NOT NULL;
 

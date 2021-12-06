@@ -2,60 +2,54 @@ package loader
 
 import (
 	"context"
-	"strconv"
+	"errors"
 
 	"github.com/graph-gophers/dataloader"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 type jobRunBatcher struct {
 	app chainlink.Application
 }
 
-func (b *jobRunBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobRunBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
-	var plnSpecIDs []int32
+	var runIDs []int64
 	for ix, key := range keys {
-		id, err := strconv.ParseInt(key.String(), 10, 32)
+		id, err := stringutils.ToInt64(key.String())
 		if err == nil {
-			plnSpecIDs = append(plnSpecIDs, int32(id))
+			runIDs = append(runIDs, id)
 		}
+
 		keyOrder[key.String()] = ix
 	}
 
-	// Fetch the job runs
-	jbRuns, err := b.app.JobORM().PipelineRunsByJobsIDs(plnSpecIDs)
+	// Fetch the runs
+	runs, err := b.app.JobORM().FindPipelineRunsByIDs(runIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
 
-	// Generate a map of pipeline runs to pipeline spec id
-	runsForJob := map[string][]pipeline.Run{}
-	for _, jb := range jbRuns {
-		id := strconv.Itoa(int(jb.PipelineSpecID))
-
-		runsForJob[id] = append(runsForJob[id], jb)
-	}
-
 	// Construct the output array of dataloader results
 	results := make([]*dataloader.Result, len(keys))
-	for k, rs := range runsForJob {
-		ix, ok := keyOrder[k]
+	for _, r := range runs {
+		idStr := stringutils.FromInt64(r.ID)
+
+		ix, ok := keyOrder[idStr]
 		// if found, remove from index lookup map, so we know elements were found
 		if ok {
-			results[ix] = &dataloader.Result{Data: rs, Error: nil}
-			delete(keyOrder, k)
+			results[ix] = &dataloader.Result{Data: r, Error: nil}
+			delete(keyOrder, idStr)
 		}
 	}
 
 	// fill array positions without any job runs
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: nil, Error: errors.New("job run not found")}
+		results[ix] = &dataloader.Result{Data: nil, Error: errors.New("run not found")}
 	}
 
 	return results

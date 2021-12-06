@@ -5,13 +5,12 @@ package mocks
 import (
 	context "context"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 	mock "github.com/stretchr/testify/mock"
 
-	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
-	sqlx "github.com/smartcontractkit/sqlx"
+	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	time "time"
 
@@ -70,22 +69,6 @@ func (_m *ORM) CreateSpec(_a0 pipeline.Pipeline, maxTaskTimeout models.Interval,
 	}
 
 	return r0, r1
-}
-
-// DB provides a mock function with given fields:
-func (_m *ORM) DB() *sqlx.DB {
-	ret := _m.Called()
-
-	var r0 *sqlx.DB
-	if rf, ok := ret.Get(0).(func() *sqlx.DB); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*sqlx.DB)
-		}
-	}
-
-	return r0
 }
 
 // DeleteRun provides a mock function with given fields: id
@@ -158,6 +141,20 @@ func (_m *ORM) GetAllRuns() ([]pipeline.Run, error) {
 	}
 
 	return r0, r1
+}
+
+// GetQ provides a mock function with given fields:
+func (_m *ORM) GetQ() pg.Q {
+	ret := _m.Called()
+
+	var r0 pg.Q
+	if rf, ok := ret.Get(0).(func() pg.Q); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(pg.Q)
+	}
+
+	return r0
 }
 
 // GetUnfinishedRuns provides a mock function with given fields: _a0, _a1, _a2

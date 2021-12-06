@@ -10,6 +10,11 @@ type Node {
 
 union NodePayload = Node | NotFoundError
 
+type NodesPayload implements PaginatedPayload {
+    results: [Node!]!
+    metadata: PaginationMetadata!
+}
+
 input CreateNodeInput {
     name: String!
     evmChainID: Int!

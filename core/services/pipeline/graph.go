@@ -73,14 +73,6 @@ type GraphNode struct {
 	attrs map[string]string
 }
 
-func NewGraphNode(n graph.Node, dotID string, attrs map[string]string) *GraphNode {
-	return &GraphNode{
-		Node:  n,
-		attrs: attrs,
-		dotID: dotID,
-	}
-}
-
 func (n *GraphNode) DOTID() string {
 	return n.dotID
 }

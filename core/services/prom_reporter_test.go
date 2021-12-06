@@ -46,7 +46,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer reporter.Close()
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChain(context.Background(), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
@@ -55,8 +55,9 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewBulletproofTxManagerORM(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		cfg := cltest.NewTestGeneralConfig(t)
+		borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32
@@ -84,7 +85,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		require.NoError(t, utils.JustError(db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = $1`, etx.ID)))
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChain(context.Background(), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
@@ -119,7 +120,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer reporter.Close()
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChain(context.Background(), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 

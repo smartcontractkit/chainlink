@@ -58,7 +58,7 @@ type FluxMonitor struct {
 	jobSpec           job.Job
 	spec              pipeline.Spec
 	runner            pipeline.Runner
-	db                *sqlx.DB
+	q                 pg.Q
 	orm               ORM
 	jobORM            job.ORM
 	pipelineORM       pipeline.ORM
@@ -87,7 +87,7 @@ func NewFluxMonitor(
 	pipelineRunner pipeline.Runner,
 	jobSpec job.Job,
 	spec pipeline.Spec,
-	db *sqlx.DB,
+	q pg.Q,
 	orm ORM,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
@@ -104,7 +104,7 @@ func NewFluxMonitor(
 	fmLogger logger.Logger,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
-		db:                db,
+		q:                 q,
 		runner:            pipelineRunner,
 		jobSpec:           jobSpec,
 		spec:              spec,
@@ -233,7 +233,7 @@ func NewFromJobSpec(
 		pipelineRunner,
 		jobSpec,
 		*jobSpec.PipelineSpec,
-		db,
+		pg.NewQ(db, lggr, cfg),
 		orm,
 		jobORM,
 		pipelineORM,
@@ -733,10 +733,10 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
 	}
-	result, err := results.FinalResult().SingularResult()
+	result, err := results.FinalResult(newRoundLogger).SingularResult()
 	if err != nil || result.Error != nil {
 		newRoundLogger.Errorw("can't fetch answer", "err", err, "result", result)
-		fm.jobORM.RecordError(fm.spec.JobID, "Error polling")
+		fm.jobORM.TryRecordError(fm.spec.JobID, "Error polling")
 		return
 	}
 	answer, err := utils.ToDecimal(result.Value)
@@ -753,7 +753,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = pg.NewQ(fm.db).Transaction(newRoundLogger, func(tx pg.Queryer) error {
+	err = fm.q.Transaction(func(tx pg.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, false, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
@@ -835,7 +835,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	roundState, err := fm.roundState(0)
 	if err != nil {
 		l.Errorw("unable to determine eligibility to submit from FluxAggregator contract", "err", err)
-		fm.jobORM.RecordError(
+		fm.jobORM.TryRecordError(
 			fm.spec.JobID,
 			"Unable to call roundState method on provided contract. Check contract address.",
 		)
@@ -856,7 +856,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		roundStateNew, err2 := fm.roundState(roundState.RoundId)
 		if err2 != nil {
 			l.Errorw("unable to determine eligibility to submit from FluxAggregator contract", "err", err2)
-			fm.jobORM.RecordError(
+			fm.jobORM.TryRecordError(
 				fm.spec.JobID,
 				"Unable to call roundState method on provided contract. Check contract address.",
 			)
@@ -933,13 +933,13 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, fm.logger)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
-		fm.jobORM.RecordError(fm.spec.JobID, "Error polling")
+		fm.jobORM.TryRecordError(fm.spec.JobID, "Error polling")
 		return
 	}
-	result, err := results.FinalResult().SingularResult()
+	result, err := results.FinalResult(l).SingularResult()
 	if err != nil || result.Error != nil {
 		l.Errorw("can't fetch answer", "err", err, "result", result)
-		fm.jobORM.RecordError(fm.spec.JobID, "Error polling")
+		fm.jobORM.TryRecordError(fm.spec.JobID, "Error polling")
 		return
 	}
 	answer, err := utils.ToDecimal(result.Value)
@@ -976,7 +976,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = pg.NewQ(fm.db).Transaction(l, func(tx pg.Queryer) error {
+	err = fm.q.Transaction(func(tx pg.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
@@ -1012,7 +1012,7 @@ func (fm *FluxMonitor) isValidSubmission(l logger.Logger, answer decimal.Decimal
 		"max", fm.submissionChecker.Max,
 		"answer", answer,
 	)
-	fm.jobORM.RecordError(fm.spec.JobID, "Answer is outside acceptable range")
+	fm.jobORM.TryRecordError(fm.spec.JobID, "Answer is outside acceptable range")
 
 	jobId := fm.spec.JobID
 	jobName := fm.spec.JobName
@@ -1061,6 +1061,7 @@ func (fm *FluxMonitor) queueTransactionForBPTXM(tx pg.Queryer, runID int64, answ
 	err := fm.contractSubmitter.Submit(
 		new(big.Int).SetInt64(int64(roundID)),
 		answer.BigInt(),
+		pg.WithQueryer(tx),
 	)
 	if err != nil {
 		return err

@@ -35,6 +35,8 @@ jobs:
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
       - name: Run coverage
+        env:
+          NODE_OPTIONS: "--max-old-space-size=5120"
         run: ./tools/ci/solidity_coverage
 
   solidity:
@@ -62,5 +64,9 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
+      - name: Compile all contracts
+        run: ./contracts/scripts/native_solc_compile_all
+      - name: Verify local solc binaries
+        run: ./tools/ci/check_solc_hashes
       - name: Run tests
         run: ./tools/ci/solidity_test_hardhat

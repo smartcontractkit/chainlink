@@ -98,3 +98,47 @@ func TestResolver_SetServiceLogLevel(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_SetSQLLogging(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation SetSQLLogging($input: SetSQLLoggingInput!) {
+			setSQLLogging(input: $input) {
+				... on SetSQLLoggingSuccess {
+					sqlLogging {
+						enabled
+					}
+				}
+			}
+		}`
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"enabled": true,
+		},
+	}
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "setSQLLogging"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.cfg.On("SetLogSQL", true).Return(nil)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"setSQLLogging": {
+						"sqlLogging": {
+							"enabled": true
+						}
+					}
+				}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

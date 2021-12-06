@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -27,6 +29,7 @@ type Master interface {
 	CSA() CSA
 	Eth() Eth
 	OCR() OCR
+	OCR2() OCR2
 	P2P() P2P
 	VRF() VRF
 	Unlock(password string) error
@@ -36,20 +39,21 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	csa *csa
-	eth *eth
-	ocr *ocr
-	p2p *p2p
-	vrf *vrf
+	csa  *csa
+	eth  *eth
+	ocr  *ocr
+	ocr2 ocr2
+	p2p  *p2p
+	vrf  *vrf
 }
 
-func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
-	return newMaster(db, scryptParams, lggr)
+func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
+	return newMaster(db, scryptParams, lggr, cfg)
 }
 
-func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
+func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) *master {
 	km := &keyManager{
-		orm:          NewORM(db, lggr),
+		orm:          NewORM(db, lggr, cfg),
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
 		logger:       lggr.Named("KeyStore"),
@@ -60,6 +64,7 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger)
 		csa:        newCSAKeyStore(km),
 		eth:        newEthKeyStore(km),
 		ocr:        newOCRKeyStore(km),
+		ocr2:       newOCR2KeyStore(km),
 		p2p:        newP2PKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 	}
@@ -77,6 +82,10 @@ func (ks *master) OCR() OCR {
 	return ks.ocr
 }
 
+func (ks *master) OCR2() OCR2 {
+	return ks.ocr2
+}
+
 func (ks *master) P2P() P2P {
 	return ks.p2p
 }
@@ -87,7 +96,7 @@ func (ks *master) VRF() VRF {
 
 func (ks *master) IsEmpty() (bool, error) {
 	var count int64
-	err := ks.orm.db.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
+	err := ks.orm.q.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
 	if err != nil {
 		return false, err
 	}
@@ -276,6 +285,8 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 		return "Eth", nil
 	case ocrkey.KeyV2:
 		return "OCR", nil
+	case ocr2key.KeyBundle:
+		return "OCR2", nil
 	case p2pkey.KeyV2:
 		return "P2P", nil
 	case vrfkey.KeyV2:

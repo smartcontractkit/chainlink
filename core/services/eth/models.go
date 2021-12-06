@@ -43,16 +43,20 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 	}
 }
 
-// EarliestInChain recurses through parents until it finds the earliest one
-func (h *Head) EarliestInChain() Head {
-	for {
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
-			break
-		}
+func AsHead(i interface{}) *Head {
+	head, ok := i.(*Head)
+	if !ok {
+		panic(fmt.Sprintf("invariant violation: expected `*eth.Head`, got %T", i))
 	}
-	return *h
+	return head
+}
+
+// EarliestInChain recurses through parents until it finds the earliest one
+func (h *Head) EarliestInChain() *Head {
+	for h.Parent != nil {
+		h = h.Parent
+	}
+	return h
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
@@ -234,13 +238,6 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-
-var emptyHash = common.Hash{}
-
-// Unconfirmed returns true if the transaction is not confirmed.
-func ReceiptIsUnconfirmed(txr *types.Receipt) bool {
-	return txr == nil || txr.TxHash == emptyHash || txr.BlockNumber == nil
-}
 
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
 // ChainlinkClient.validateChainlinkCallback(requestId). See

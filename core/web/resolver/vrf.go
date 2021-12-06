@@ -2,7 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 )
 
@@ -11,7 +13,7 @@ type VRFKeyResolver struct {
 }
 
 func NewVRFKeyResolver(key vrfkey.KeyV2) VRFKeyResolver {
-	return VRFKeyResolver{key}
+	return VRFKeyResolver{key: key}
 }
 
 // ID returns the ID of the VRF key, which is the public key.
@@ -58,7 +60,7 @@ type VRFKeySuccessResolver struct {
 }
 
 func NewVRFKeySuccessResolver(key vrfkey.KeyV2) *VRFKeySuccessResolver {
-	return &VRFKeySuccessResolver{key}
+	return &VRFKeySuccessResolver{key: key}
 }
 
 func (r *VRFKeySuccessResolver) Key() VRFKeyResolver {
@@ -67,14 +69,19 @@ func (r *VRFKeySuccessResolver) Key() VRFKeyResolver {
 
 type VRFKeyPayloadResolver struct {
 	key vrfkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *VRFKeyPayloadResolver {
-	return &VRFKeyPayloadResolver{
-		key: key,
-		err: err,
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
+			return errors.Cause(err) == keystore.ErrMissingVRFKey
+		}}
 	}
+
+	return &VRFKeyPayloadResolver{key: key, NotFoundErrorUnionType: e}
 }
 
 func (r *VRFKeyPayloadResolver) ToVRFKeySuccess() (*VRFKeySuccessResolver, bool) {
@@ -84,23 +91,16 @@ func (r *VRFKeyPayloadResolver) ToVRFKeySuccess() (*VRFKeySuccessResolver, bool)
 	return nil, false
 }
 
-func (r *VRFKeyPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
-	}
-	return nil, false
-}
-
 type VRFKeysPayloadResolver struct {
 	keys []vrfkey.KeyV2
 }
 
 func NewVRFKeysPayloadResolver(keys []vrfkey.KeyV2) *VRFKeysPayloadResolver {
-	return &VRFKeysPayloadResolver{keys}
+	return &VRFKeysPayloadResolver{keys: keys}
 }
 
 func (r *VRFKeysPayloadResolver) Results() []VRFKeyResolver {
-	results := []VRFKeyResolver{}
+	var results []VRFKeyResolver
 	for _, k := range r.keys {
 		results = append(results, NewVRFKeyResolver(k))
 	}
@@ -112,7 +112,7 @@ type CreateVRFKeyPayloadResolver struct {
 }
 
 func NewCreateVRFKeyPayloadResolver(key vrfkey.KeyV2) *CreateVRFKeyPayloadResolver {
-	return &CreateVRFKeyPayloadResolver{key}
+	return &CreateVRFKeyPayloadResolver{key: key}
 }
 
 func (r *CreateVRFKeyPayloadResolver) Key() VRFKeyResolver {
@@ -124,7 +124,7 @@ type DeleteVRFKeySuccessResolver struct {
 }
 
 func NewDeleteVRFKeySuccessResolver(key vrfkey.KeyV2) *DeleteVRFKeySuccessResolver {
-	return &DeleteVRFKeySuccessResolver{key}
+	return &DeleteVRFKeySuccessResolver{key: key}
 }
 
 func (r *DeleteVRFKeySuccessResolver) Key() VRFKeyResolver {
@@ -133,23 +133,24 @@ func (r *DeleteVRFKeySuccessResolver) Key() VRFKeyResolver {
 
 type DeleteVRFKeyPayloadResolver struct {
 	key vrfkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *DeleteVRFKeyPayloadResolver {
-	return &DeleteVRFKeyPayloadResolver{key, err}
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
+			return errors.Cause(err) == keystore.ErrMissingVRFKey
+		}}
+	}
+
+	return &DeleteVRFKeyPayloadResolver{key: key, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteVRFKeyPayloadResolver) ToDeleteVRFKeySuccess() (*DeleteVRFKeySuccessResolver, bool) {
 	if r.err == nil {
 		return NewDeleteVRFKeySuccessResolver(r.key), true
-	}
-	return nil, false
-}
-
-func (r *DeleteVRFKeyPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }

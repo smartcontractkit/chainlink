@@ -19,7 +19,7 @@ interface Props extends WithStyles<typeof styles> {}
 export const Loading = withStyles(styles)(({ classes }: Props) => (
   <Grid container className={classes.root}>
     <Grid item xs={12} className={classes.gridItem}>
-      <CircularProgress />
+      <CircularProgress data-testid="loading-spinner" />
     </Grid>
   </Grid>
 ))

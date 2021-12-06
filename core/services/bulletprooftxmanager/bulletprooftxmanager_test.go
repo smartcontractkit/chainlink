@@ -36,7 +36,8 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1)
 
-	_, err := bulletprooftxmanager.SendEther(db, big.NewInt(0), from, to, *value, 21000)
+	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	_, err := bulletprooftxmanager.SendEther(q, big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
 }
@@ -45,8 +46,9 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -137,8 +139,9 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -148,7 +151,8 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(db, fromAddress, cltest.FixtureChainID)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
+	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(q, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 3)
 }
@@ -157,8 +161,9 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -168,7 +173,8 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	count, err := bulletprooftxmanager.CountUnstartedTransactions(db, fromAddress, cltest.FixtureChainID)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
+	count, err := bulletprooftxmanager.CountUnstartedTransactions(q, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 2)
 }
@@ -176,9 +182,10 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 	toAddress := cltest.NewAddress()
 	gasLimit := uint64(1000)
@@ -188,6 +195,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
+	config.On("LogSQL").Return(false)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	lggr := logger.TestLogger(t)
@@ -309,8 +317,9 @@ func newMockTxStrategy(t *testing.T) *bptxmmocks.TxStrategy {
 
 func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
-	etKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	etKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
 	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
@@ -323,6 +332,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
+	config.On("LogSQL").Return(false)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
@@ -415,6 +425,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
 	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
+	config.On("LogSQL").Return(false)
 	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})
@@ -425,7 +436,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	head := cltest.Head(42)
 	// It should not hang or panic
-	bptxm.OnNewLongestChain(context.Background(), *head)
+	bptxm.OnNewLongestChain(context.Background(), head)
 
 	sub := new(pgmocks.Subscription)
 	sub.On("Events").Return(make(<-chan pg.Event))
@@ -437,7 +448,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	t.Cleanup(cancel)
-	bptxm.OnNewLongestChain(ctx, *head)
+	bptxm.OnNewLongestChain(ctx, head)
 	require.NoError(t, ctx.Err())
 
 	keyState := cltest.MustGenerateRandomKeyState(t)

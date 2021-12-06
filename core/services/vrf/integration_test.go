@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -95,7 +96,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
-				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(app.GetSqlxDB(), key.Address.Address(), cltest.FixtureChainID)
+				q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
