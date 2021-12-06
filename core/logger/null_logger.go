@@ -56,3 +56,5 @@ func (l *nullLogger) PanicIf(err error, msg string)    {}
 func (l *nullLogger) ErrorIfClosing(io.Closer, string) {}
 func (l *nullLogger) Sync() error                      { return nil }
 func (l *nullLogger) Helper(skip int) Logger           { return l }
+
+func (l *nullLogger) Recover(panicErr interface{}) {}
