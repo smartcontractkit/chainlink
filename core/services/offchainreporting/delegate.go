@@ -231,7 +231,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              bootstrapPeers,
 			V2Bootstrappers:              v2BootstrapPeers,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.Address()),
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String()),
 			ConfigOverrider:              configOverrider,
 		})
 		if err != nil {

@@ -173,12 +173,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
-			// TODO:
-			//MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID),
-			OffchainConfigDigester: offchainConfigDigester,
-			OffchainKeyring:        ocr2Provider.OffchainKeyring(),
-			OnchainKeyring:         ocr2Provider.OnchainKeyring(),
-			ReportingPluginFactory: numericalMedianFactory,
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID.String),
+			OffchainConfigDigester:       offchainConfigDigester,
+			OffchainKeyring:              ocr2Provider.OffchainKeyring(),
+			OnchainKeyring:               ocr2Provider.OnchainKeyring(),
+			ReportingPluginFactory:       numericalMedianFactory,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
