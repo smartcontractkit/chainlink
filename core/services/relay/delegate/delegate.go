@@ -6,10 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	solanaGo "github.com/gagliardetto/solana-go"
-
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/ethereum"
@@ -24,7 +21,7 @@ func NewRelayer(config relay.Config) *delegate {
 	return &delegate{
 		relayers: relay.Relayers{
 			relay.Ethereum: ethereum.NewRelayer(config),
-			relay.Solana:   solana.NewRelayer(config),
+			// relay.Solana:   solana.NewRelayer(config),
 		},
 	}
 }
@@ -88,39 +85,39 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 			TransmitterID:  spec.TransmitterID,
 			ChainID:        config.ChainID.ToInt(),
 		})
-	case relay.Solana:
-		var config solana.RelayConfig
-		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
-		if err != nil {
-			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
-		}
+	// case relay.Solana:
+	// 	var config solana.RelayConfig
+	// 	err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
+	// 	}
 
-		programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID.ValueOrZero())
-		if err != nil {
-			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.ContractID")
-		}
+	// 	programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID.ValueOrZero())
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.ContractID")
+	// 	}
 
-		stateID, err := solanaGo.PublicKeyFromBase58(config.StateID)
-		if err != nil {
-			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
-		}
+	// 	stateID, err := solanaGo.PublicKeyFromBase58(config.StateID)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
+	// 	}
 
-		transmissionsID, err := solanaGo.PublicKeyFromBase58(config.TransmissionsID)
-		if err != nil {
-			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
-		}
+	// 	transmissionsID, err := solanaGo.PublicKeyFromBase58(config.TransmissionsID)
+	// 	if err != nil {
+	// 		return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
+	// 	}
 
-		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
-			ID:              spec.ID,
-			IsBootstrap:     spec.IsBootstrapPeer,
-			NodeEndpointRPC: config.NodeEndpointRPC,
-			NodeEndpointWS:  config.NodeEndpointWS,
-			ProgramID:       programID,
-			StateID:         stateID,
-			TransmissionsID: transmissionsID,
-			// Transmitter: TODO: get solana.PrivateKey from keystore using spec specified transmitterID
-			KeyBundleID: spec.OCRKeyBundleID,
-		})
+	// 	return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
+	// 		ID:              spec.ID,
+	// 		IsBootstrap:     spec.IsBootstrapPeer,
+	// 		NodeEndpointRPC: config.NodeEndpointRPC,
+	// 		NodeEndpointWS:  config.NodeEndpointWS,
+	// 		ProgramID:       programID,
+	// 		StateID:         stateID,
+	// 		TransmissionsID: transmissionsID,
+	// 		// Transmitter: TODO: get solana.PrivateKey from keystore using spec specified transmitterID
+	// 		KeyBundleID: spec.OCRKeyBundleID,
+	// 	})
 	default:
 		return nil, fmt.Errorf("unknown relayer network type: %s", spec.Relay)
 	}

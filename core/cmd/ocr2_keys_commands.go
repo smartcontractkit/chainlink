@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -15,17 +16,17 @@ import (
 	"go.uber.org/multierr"
 )
 
-type OCRKeyBundlePresenter struct {
+type OCR2KeyBundlePresenter struct {
 	JAID // Include this to overwrite the presenter JAID so it can correctly render the ID in JSON
-	presenters.OCRKeysBundleResource
+	presenters.OCR2KeysBundleResource
 }
 
 // RenderTable implements TableRenderer
-func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+func (p *OCR2KeyBundlePresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "Type", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
 	rows := [][]string{p.ToRow()}
 
-	if _, err := rt.Write([]byte("🔑 Legacy OCR Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 OCR Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -33,27 +34,28 @@ func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *OCRKeyBundlePresenter) ToRow() []string {
+func (p *OCR2KeyBundlePresenter) ToRow() []string {
 	return []string{
 		p.ID,
-		p.OnChainSigningAddress.String(),
-		p.OffChainPublicKey.String(),
-		p.ConfigPublicKey.String(),
+		p.ChainType,
+		p.OnChainSigningAddress,
+		p.OffChainPublicKey,
+		p.ConfigPublicKey,
 	}
 }
 
-type OCRKeyBundlePresenters []OCRKeyBundlePresenter
+type OCR2KeyBundlePresenters []OCR2KeyBundlePresenter
 
 // RenderTable implements TableRenderer
-func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+func (ps OCR2KeyBundlePresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "Type", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	if _, err := rt.Write([]byte("🔑 Legacy OCR Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 OCR Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -61,9 +63,9 @@ func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-// ListOCRKeyBundles lists the available OCR Key Bundles
-func (cli *Client) ListOCRKeyBundles(c *cli.Context) error {
-	resp, err := cli.HTTP.Get("/v2/keys/ocr", nil)
+// ListOCR2KeyBundles lists the available OCR2 Key Bundles
+func (cli *Client) ListOCR2KeyBundles(c *cli.Context) error {
+	resp, err := cli.HTTP.Get("/v2/keys/ocr2", nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -73,13 +75,19 @@ func (cli *Client) ListOCRKeyBundles(c *cli.Context) error {
 		}
 	}()
 
-	var presenters OCRKeyBundlePresenters
+	var presenters OCR2KeyBundlePresenters
 	return cli.renderAPIResponse(resp, &presenters)
 }
 
-// CreateOCR2KeyBundle creates an OCR key bundle and saves it to the keystore
-func (cli *Client) CreateOCRKeyBundle(c *cli.Context) error {
-	resp, err := cli.HTTP.Post("/v2/keys/ocr", nil)
+// CreateOCR2KeyBundle creates an OCR2 key bundle and saves it to the keystore
+func (cli *Client) CreateOCR2KeyBundle(c *cli.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(
+			fmt.Errorf(`must pass the type to create, options are: "%s" and "%s"`, chaintype.EVM, chaintype.Solana),
+		)
+	}
+	chainType := c.Args().Get(0)
+	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/keys/ocr2/%s", chainType), nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -89,12 +97,12 @@ func (cli *Client) CreateOCRKeyBundle(c *cli.Context) error {
 		}
 	}()
 
-	var presenter OCRKeyBundlePresenter
+	var presenter OCR2KeyBundlePresenter
 	return cli.renderAPIResponse(resp, &presenter, "Created OCR key bundle")
 }
 
-// DeleteOCR2KeyBundle deletes an OCR key bundle
-func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
+// DeleteOCR2KeyBundle deletes an OCR2 key bundle
+func (cli *Client) DeleteOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
@@ -112,7 +120,7 @@ func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/ocr/%s%s", id, queryStr))
+	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/ocr2/%s%s", id, queryStr))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -122,12 +130,12 @@ func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
 		}
 	}()
 
-	var presenter OCRKeyBundlePresenter
+	var presenter OCR2KeyBundlePresenter
 	return cli.renderAPIResponse(resp, &presenter, "OCR key bundle deleted")
 }
 
-// ImportOCR2Key imports OCR key bundle
-func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
+// ImportOCR2Key imports OCR2 key bundle
+func (cli *Client) ImportOCR2Key(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
@@ -148,7 +156,7 @@ func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/ocr/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := cli.HTTP.Post("/v2/keys/ocr2/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -158,12 +166,12 @@ func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var presenter OCRKeyBundlePresenter
+	var presenter OCR2KeyBundlePresenter
 	return cli.renderAPIResponse(resp, &presenter, "Imported OCR key bundle")
 }
 
-// ExportOCR2Key exports an OCR key bundle by ID
-func (cli *Client) ExportOCRKey(c *cli.Context) (err error) {
+// ExportOCR2Key exports an OCR2 key bundle by ID
+func (cli *Client) ExportOCR2Key(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
@@ -185,7 +193,7 @@ func (cli *Client) ExportOCRKey(c *cli.Context) (err error) {
 	ID := c.Args().Get(0)
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/ocr/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	resp, err := cli.HTTP.Post("/v2/keys/ocr2/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

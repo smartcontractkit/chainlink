@@ -8,24 +8,23 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 )
 
-type OCRKeyBundlePresenter struct {
-	JAID // Include this to overwrite the presenter JAID so it can correctly render the ID in JSON
-	presenters.OCRKeysBundleResource
+type SolanaKeyPresenter struct {
+	JAID
+	presenters.SolanaKeyResource
 }
 
 // RenderTable implements TableRenderer
-func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+func (p *SolanaKeyPresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "Public key"}
 	rows := [][]string{p.ToRow()}
 
-	if _, err := rt.Write([]byte("🔑 Legacy OCR Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 Solana Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -33,27 +32,27 @@ func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *OCRKeyBundlePresenter) ToRow() []string {
-	return []string{
+func (p *SolanaKeyPresenter) ToRow() []string {
+	row := []string{
 		p.ID,
-		p.OnChainSigningAddress.String(),
-		p.OffChainPublicKey.String(),
-		p.ConfigPublicKey.String(),
+		p.PubKey,
 	}
+
+	return row
 }
 
-type OCRKeyBundlePresenters []OCRKeyBundlePresenter
+type SolanaKeyPresenters []SolanaKeyPresenter
 
 // RenderTable implements TableRenderer
-func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+func (ps SolanaKeyPresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "Public key"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	if _, err := rt.Write([]byte("🔑 Legacy OCR Keys\n")); err != nil {
+	if _, err := rt.Write([]byte("🔑 Solana Keys\n")); err != nil {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
@@ -61,9 +60,9 @@ func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-// ListOCRKeyBundles lists the available OCR Key Bundles
-func (cli *Client) ListOCRKeyBundles(c *cli.Context) error {
-	resp, err := cli.HTTP.Get("/v2/keys/ocr", nil)
+// ListSolanaKeys retrieves a list of all Solana keys
+func (cli *Client) ListSolanaKeys(c *cli.Context) (err error) {
+	resp, err := cli.HTTP.Get("/v2/keys/solana", nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -73,13 +72,12 @@ func (cli *Client) ListOCRKeyBundles(c *cli.Context) error {
 		}
 	}()
 
-	var presenters OCRKeyBundlePresenters
-	return cli.renderAPIResponse(resp, &presenters)
+	return cli.renderAPIResponse(resp, &SolanaKeyPresenters{})
 }
 
-// CreateOCR2KeyBundle creates an OCR key bundle and saves it to the keystore
-func (cli *Client) CreateOCRKeyBundle(c *cli.Context) error {
-	resp, err := cli.HTTP.Post("/v2/keys/ocr", nil)
+// CreateSolanaKey creates a new Solana key
+func (cli *Client) CreateSolanaKey(c *cli.Context) (err error) {
+	resp, err := cli.HTTP.Post("/v2/keys/solana", nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -89,19 +87,16 @@ func (cli *Client) CreateOCRKeyBundle(c *cli.Context) error {
 		}
 	}()
 
-	var presenter OCRKeyBundlePresenter
-	return cli.renderAPIResponse(resp, &presenter, "Created OCR key bundle")
+	return cli.renderAPIResponse(resp, &SolanaKeyPresenter{}, "Created Solana keypair")
 }
 
-// DeleteOCR2KeyBundle deletes an OCR key bundle
-func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
+// DeleteSolanaKey deletes a Solana key,
+// key ID must be passed
+func (cli *Client) DeleteSolanaKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
-	id, err := models.Sha256HashFromHex(c.Args().Get(0))
-	if err != nil {
-		return cli.errorOut(err)
-	}
+	id := c.Args().Get(0)
 
 	if !confirmAction(c) {
 		return nil
@@ -112,7 +107,7 @@ func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/ocr/%s%s", id, queryStr))
+	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/solana/%s%s", id, queryStr))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -122,12 +117,12 @@ func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
 		}
 	}()
 
-	var presenter OCRKeyBundlePresenter
-	return cli.renderAPIResponse(resp, &presenter, "OCR key bundle deleted")
+	return cli.renderAPIResponse(resp, &SolanaKeyPresenter{}, "Solana key deleted")
 }
 
-// ImportOCR2Key imports OCR key bundle
-func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
+// ImportSolanaKey imports and stores a Solana key,
+// path to key must be passed
+func (cli *Client) ImportSolanaKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
@@ -148,7 +143,7 @@ func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
 	}
 
 	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/ocr/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	resp, err := cli.HTTP.Post("/v2/keys/solana/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -158,12 +153,12 @@ func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var presenter OCRKeyBundlePresenter
-	return cli.renderAPIResponse(resp, &presenter, "Imported OCR key bundle")
+	return cli.renderAPIResponse(resp, &SolanaKeyPresenter{}, "🔑 Imported Solana key")
 }
 
-// ExportOCR2Key exports an OCR key bundle by ID
-func (cli *Client) ExportOCRKey(c *cli.Context) (err error) {
+// ExportSolanaKey exports a Solana key,
+// key ID must be passed
+func (cli *Client) ExportSolanaKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
@@ -185,7 +180,7 @@ func (cli *Client) ExportOCRKey(c *cli.Context) (err error) {
 	ID := c.Args().Get(0)
 
 	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/ocr/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	resp, err := cli.HTTP.Post("/v2/keys/solana/export/"+ID+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
@@ -209,7 +204,7 @@ func (cli *Client) ExportOCRKey(c *cli.Context) (err error) {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported OCR key bundle %s to %s", ID, filepath))
+	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported Solana key %s to %s\n", ID, filepath))
 	if err != nil {
 		return cli.errorOut(err)
 	}
