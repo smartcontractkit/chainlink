@@ -191,6 +191,9 @@ func TestJob(t *testing.T) {
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
 					EVMChainID:                             evmChainID,
+					DatabaseTimeout:                        models.NewInterval(2 * time.Second),
+					ObservationGracePeriod:                 models.NewInterval(3 * time.Second),
+					ContractTransmitterTransmitTimeout:     models.NewInterval(444 * time.Millisecond),
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -231,7 +234,10 @@ func TestJob(t *testing.T) {
 							"contractConfigConfirmations": 1,
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z",
-							"evmChainID": "42"
+							"evmChainID": "42",
+							"databaseTimeout": "2s",
+							"observationGracePeriod": "3s",
+							"contractTransmitterTransmitTimeout": "444ms"
 						},
 						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,

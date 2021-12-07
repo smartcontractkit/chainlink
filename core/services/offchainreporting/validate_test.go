@@ -62,6 +62,9 @@ keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c389
 monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 observationTimeout = "10s"
+databaseTimeout = "2s"
+observationGracePeriod = "2s"
+contractTransmitterTransmitTimeout = "500ms"
 observationSource = """
 ds1          [type=bridge name=voter_turnout];
 ds1_parse    [type=jsonparse path="one,two"];
@@ -169,7 +172,7 @@ blah
 			},
 		},
 		{
-			name: "non-zero timeouts",
+			name: "non-zero blockchain timeout",
 			toml: `
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -178,6 +181,60 @@ p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 isBootstrapPeer    = false
 blockchainTimeout  = "0s"
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "non-zero database timeout",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+isBootstrapPeer    = false
+databaseTimeout  = "0s"
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "non-zero observation grace period",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+isBootstrapPeer    = false
+observationGracePeriod = "0s"
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "non-zero contract transmitter transmit timeout",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+isBootstrapPeer    = false
+contractTransmitterTransmitTimeout = "0s"
 observationSource = """
 blah
 """
