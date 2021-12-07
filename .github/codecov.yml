@@ -3,3 +3,7 @@ coverage:
     project:
       default:
         threshold: 1%
+
+ignore:
+  - "contracts/src/v0.4"
+  - "contracts/src/v0.5"
