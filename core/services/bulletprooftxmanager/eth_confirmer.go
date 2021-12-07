@@ -1026,10 +1026,18 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		ec.lggr.Errorw(
-			fmt.Sprintf("gas price %v wei was rejected by the eth node for being too low. Eth node returned: '%s'",
-				attempt.GasPrice.String(), sendError.Error()),
-			"previousAttempt", attempt, "replacementAttempt", replacementAttempt)
+		ec.lggr.With(
+			"sendError", sendError,
+			"maxGasPriceConfig", ec.config.EvmMaxGasPriceWei(),
+			"previousAttemptGasPrice", attempt.GasPrice,
+			"previousAttemptGasFeeCap", attempt.GasFeeCap,
+			"previousAttemptGasTipCap", attempt.GasTipCap,
+			"replacementAttemptGasPrice", replacementAttempt.GasPrice,
+			"replacementAttemptGasFeeCap", replacementAttempt.GasFeeCap,
+			"replacementAttemptGasTipCap", replacementAttempt.GasTipCap,
+		).
+			Errorf("gas price %s wei was rejected by the eth node for being too low. Eth node returned: '%s'",
+				attempt.GasPrice.String(), sendError.Error())
 
 		if err := saveReplacementInProgressAttempt(ec.q, attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")

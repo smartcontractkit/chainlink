@@ -253,7 +253,6 @@ declare module 'core/store/models' {
     type: 'offchainreporting'
     offChainReportingOracleSpec: {
       contractAddress: common.Address
-      p2pPeerID: string
       p2pBootstrapPeers: string[]
       isBootstrapPeer: boolean
       keyBundleID: string
@@ -272,6 +271,12 @@ declare module 'core/store/models' {
       createdAt: time.Time
       updatedAt: time.Time
       evmChainID: string
+      databaseTimeout: string
+      databaseTimeoutEnv?: boolean
+      observationGracePeriod: string
+      observationGracePeriodEnv?: boolean
+      contractTransmitterTransmitTimeout: string
+      contractTransmitterTransmitTimeoutEnv?: boolean
     }
     cronSpec: null
     webhookSpec: null

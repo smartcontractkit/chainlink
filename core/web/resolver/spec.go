@@ -369,6 +369,39 @@ func (r *OCRSpecResolver) EVMChainID() *string {
 	return &chainID
 }
 
+// DatabaseTimeout resolves the spec's database timeout.
+func (r *OCRSpecResolver) DatabaseTimeout() string {
+	return r.spec.DatabaseTimeout.Duration().String()
+}
+
+// DatabaseTimeoutEnv resolves resolves the whether spec's database timeout
+// config comes from an env var.
+func (r *OCRSpecResolver) DatabaseTimeoutEnv() bool {
+	return r.spec.DatabaseTimeoutEnv
+}
+
+// ObservationGracePeriod resolves the spec's observation grace period.
+func (r *OCRSpecResolver) ObservationGracePeriod() string {
+	return r.spec.ObservationGracePeriod.Duration().String()
+}
+
+// ObservationGracePeriodEnv resolves resolves the whether spec's observation grace period
+// config comes from an env var.
+func (r *OCRSpecResolver) ObservationGracePeriodEnv() bool {
+	return r.spec.ObservationGracePeriodEnv
+}
+
+// ContractTransmitterTransmitTimeout resolves the spec's contract transmitter transmit timeout.
+func (r *OCRSpecResolver) ContractTransmitterTransmitTimeout() string {
+	return r.spec.ContractTransmitterTransmitTimeout.Duration().String()
+}
+
+// ContractTransmitterTransmitTimeoutEnv resolves resolves the whether spec's
+// contract transmitter transmit timeout config comes from an env var.
+func (r *OCRSpecResolver) ContractTransmitterTransmitTimeoutEnv() bool {
+	return r.spec.ContractTransmitterTransmitTimeoutEnv
+}
+
 // IsBootstrapPeer resolves whether spec is a bootstrap peer.
 func (r *OCRSpecResolver) IsBootstrapPeer() bool {
 	return r.spec.IsBootstrapPeer
@@ -400,18 +433,6 @@ func (r *OCRSpecResolver) ObservationTimeout() *string {
 // from an env var.
 func (r *OCRSpecResolver) ObservationTimeoutEnv() bool {
 	return r.spec.ObservationTimeoutEnv
-}
-
-// P2PPeerID resolves the spec's p2p peer id
-func (r *OCRSpecResolver) P2PPeerID() *string {
-	p2pPeerID := r.spec.P2PPeerID.String()
-
-	return &p2pPeerID
-}
-
-// P2PPeerID resolves the whether spec's p2p peer id comes from an env var
-func (r *OCRSpecResolver) P2PPeerIDEnv() bool {
-	return r.spec.P2PPeerIDEnv
 }
 
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers
@@ -536,17 +557,6 @@ func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
 	}
 
 	return &r.spec.MonitoringEndpoint.String
-}
-
-// P2PPeerID resolves the spec's p2p peer id
-func (r *OCR2SpecResolver) P2PPeerID() *string {
-	if r.spec.P2PPeerID == nil {
-		return nil
-	}
-
-	p2pPeerID := r.spec.P2PPeerID.String()
-
-	return &p2pPeerID
 }
 
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers
