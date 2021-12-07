@@ -57,7 +57,13 @@ func (r *ETHKeyResolver) ETHBalance() *string {
 		return nil
 	}
 
-	balance := r.key.chain.BalanceMonitor().GetEthBalance(r.key.state.Address.Address())
+	balanceMonitor := r.key.chain.BalanceMonitor()
+
+	if balanceMonitor == nil {
+		return nil
+	}
+
+	balance := balanceMonitor.GetEthBalance(r.key.state.Address.Address())
 
 	if balance != nil {
 		val := balance.String()
