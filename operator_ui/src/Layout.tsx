@@ -11,15 +11,6 @@ import { useOperatorUiSelector } from 'reducers'
 import SignIn from 'pages/SignIn'
 
 const Layout = () => {
-  // Remove the server-side injected CSS.
-  const jssStyles = document.getElementById('jss-server-side')
-
-  React.useEffect(() => {
-    if (jssStyles && jssStyles.parentNode) {
-      jssStyles.parentNode.removeChild(jssStyles)
-    }
-  }, [jssStyles])
-
   const redirectTo = useOperatorUiSelector((state) => state.redirect.to)
 
   return (
