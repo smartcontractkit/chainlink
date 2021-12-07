@@ -16,13 +16,13 @@ CREATE TABLE offchainreporting2_oracle_specs (
      contract_config_confirmations integer NOT NULL,
      juels_per_fee_coin_pipeline text NOT NULL,
      created_at timestamp with time zone NOT NULL,
-     updated_at timestamp with time zone NOT NULL
+     updated_at timestamp with time zone NOT NULL,
      CONSTRAINT chk_contract_address_length CHECK ((octet_length(contract_address) = 20))
 );
 
 ALTER TABLE ONLY offchainreporting2_oracle_specs
-        ADD CONSTRAINT offchainreporting2_oracle_specs_unique_contract_addr
-            UNIQUE (contract_address);
+    ADD CONSTRAINT offchainreporting2_oracle_specs_unique_contract_addr
+        UNIQUE (contract_address);
 
 CREATE INDEX idx_offchainreporting2_oracle_specs_created_at
     ON offchainreporting2_oracle_specs USING brin (created_at);
