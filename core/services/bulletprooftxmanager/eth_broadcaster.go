@@ -11,8 +11,9 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -559,10 +560,20 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}
-	eb.logger.Errorw(fmt.Sprintf("default gas price %v wei was rejected by the eth node for being too low. "+
-		"Eth node returned: '%s'. "+
-		"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
-		"Consider increasing ETH_GAS_PRICE_DEFAULT", eb.config.EvmGasPriceDefault(), sendError.Error(), bumpedGasPrice), "err", err)
+	eb.logger.
+		With(
+			"sendError", sendError,
+			"bumpedGasLimit", bumpedGasLimit,
+			"attemptGasFeeCap", attempt.GasFeeCap,
+			"attemptGasPrice", attempt.GasPrice,
+			"attemptGasTipCap", attempt.GasTipCap,
+			"maxGasPriceConfig", eb.config.EvmMaxGasPriceWei(),
+		).
+		Errorf("attempt gas price %v wei was rejected by the eth node for being too low. "+
+			"Eth node returned: '%s'. "+
+			"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
+			"Consider increasing ETH_GAS_PRICE_DEFAULT (current value: %s)",
+			attempt.GasPrice, sendError.Error(), bumpedGasPrice, eb.config.EvmGasPriceDefault().String())
 	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EvmMaxGasPriceWei()) == 0 {
 		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
 	}
