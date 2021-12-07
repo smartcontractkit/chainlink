@@ -37,6 +37,7 @@ const (
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
+	AdvisoryLockCheckInterval                 *time.Duration
 	AdminCredentialsFile                      null.String
 	AdvisoryLockID                            null.Int
 	AllowOrigins                              null.String
@@ -632,4 +633,11 @@ func (c *TestGeneralConfig) LeaseLockDuration() time.Duration {
 		return *c.Overrides.LeaseLockDuration
 	}
 	return c.GeneralConfig.LeaseLockDuration()
+}
+
+func (c *TestGeneralConfig) AdvisoryLockCheckInterval() time.Duration {
+	if c.Overrides.AdvisoryLockCheckInterval != nil {
+		return *c.Overrides.AdvisoryLockCheckInterval
+	}
+	return c.GeneralConfig.AdvisoryLockCheckInterval()
 }

@@ -47,6 +47,11 @@ func ParseUint64(s string) (interface{}, error) {
 	return v, err
 }
 
+func ParseInt64(s string) (interface{}, error) {
+	v, err := strconv.ParseInt(s, 10, 64)
+	return v, err
+}
+
 func ParseF32(s string) (interface{}, error) {
 	v, err := strconv.ParseFloat(s, 32)
 	return float32(v), err

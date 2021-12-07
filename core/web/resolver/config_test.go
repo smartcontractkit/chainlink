@@ -99,7 +99,10 @@ func TestResolver_Config(t *testing.T) {
 			query: query,
 			result: `{
 				"config": {
-					"items": [{
+					"items": [
+					{"config": {"value":"1s"},"key":"ADVISORY_LOCK_CHECK_INTERVAL"},
+					{"config":{"value":"1027321974924625846"},"key":"ADVISORY_LOCK_ID"},
+					{
 						"config": {
 							"value": "test"
 						},
