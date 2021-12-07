@@ -174,15 +174,14 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	defer explorerClient.Close()
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	})
+	}, 5*time.Second)
+
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return explorerClient.Status()
 	}).Should(gomega.Equal(synchronization.ConnectionStatusConnected))
 
 	wsserver.WriteCloseMessage()
 	wsserver.Close()
-
-	time.Sleep(synchronization.CloseTimeout + (100 * time.Millisecond))
 
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return explorerClient.Status()

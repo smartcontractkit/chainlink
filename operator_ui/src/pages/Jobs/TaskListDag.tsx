@@ -4,7 +4,7 @@ import Typography from '@material-ui/core/Typography'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
 import StatusIcon from 'components/StatusIcon'
-import { Stratify } from './parseDot'
+import { Stratify } from 'utils/parseDot'
 
 type Node = {
   x: number

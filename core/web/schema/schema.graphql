@@ -11,12 +11,15 @@ type Query {
     chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
     csaKeys: CSAKeysPayload!
+    ethKeys: EthKeysPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
+    jobRun(id: ID!): JobRunPayload!
+    jobRuns(offset: Int, limit: Int): JobRunsPayload!
     node(id: ID!): NodePayload!
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
@@ -33,6 +36,7 @@ type Mutation {
     createChain(input: CreateChainInput!): CreateChainPayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createJob(input: CreateJobInput!): CreateJobPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
     createP2PKey: CreateP2PKeyPayload!
@@ -40,11 +44,13 @@ type Mutation {
     deleteBridge(id: ID!): DeleteBridgePayload!
     deleteChain(id: ID!): DeleteChainPayload!
     deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
+    dismissJobError(id: ID!): DismissJobErrorPayload!
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!

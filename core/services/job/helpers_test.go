@@ -93,6 +93,7 @@ ds1 -> ds1_parse;
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
+p2pPeerID          = "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
@@ -128,8 +129,9 @@ observationSource = """
 func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 string) *job.Job {
 	t.Helper()
 
+	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), ocrKeyID, transmitterAddress.Hex(), b1, b2)
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), b1, b2)
 
 	dbSpec := job.Job{
 		ExternalJobID: uuid.NewV4(),
@@ -151,7 +153,6 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.NotNil(t, expected.OffchainreportingOracleSpec)
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
-	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PBootstrapPeers, actual.OffchainreportingOracleSpec.P2PBootstrapPeers)
 	require.Equal(t, expected.OffchainreportingOracleSpec.IsBootstrapPeer, actual.OffchainreportingOracleSpec.IsBootstrapPeer)
 	require.Equal(t, expected.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, actual.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)

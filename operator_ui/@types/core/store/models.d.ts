@@ -165,29 +165,6 @@ declare module 'core/store/models' {
   export type RunStatusCollection = RunStatus[]
 
   //#endregion  bulk.go
-  //#region ocrkey/key_bundle.go
-
-  /**
-   * OcrKey represents the bundle of keys needed for OCR
-   */
-
-  export interface OcrKey {
-    configPublicKey: string
-    offChainPublicKey: string
-    onChainSigningAddress: common.Address
-  }
-  //#endregion ocrkey/key_bundle.go
-  //#region p2pKey/p2p_key.go
-
-  /**
-   * P2P represents the bundle of keys needed for P2P
-   */
-
-  export interface P2PKey {
-    peerId: string
-    publicKey: string
-  }
-  //#endregion p2pKey/p2p_key.go
 
   /**
    * CreateJobRequest represents a schema for the create job request as used by
@@ -276,7 +253,6 @@ declare module 'core/store/models' {
     type: 'offchainreporting'
     offChainReportingOracleSpec: {
       contractAddress: common.Address
-      p2pPeerID: string
       p2pBootstrapPeers: string[]
       isBootstrapPeer: boolean
       keyBundleID: string
@@ -295,6 +271,12 @@ declare module 'core/store/models' {
       createdAt: time.Time
       updatedAt: time.Time
       evmChainID: string
+      databaseTimeout: string
+      databaseTimeoutEnv?: boolean
+      observationGracePeriod: string
+      observationGracePeriodEnv?: boolean
+      contractTransmitterTransmitTimeout: string
+      contractTransmitterTransmitTimeoutEnv?: boolean
     }
     cronSpec: null
     webhookSpec: null
@@ -437,10 +419,6 @@ declare module 'core/store/models' {
     sqlEnabled: boolean
   }
 
-  export interface CSAKey {
-    publicKey: string
-  }
-
   /**
    * Request to begin the process of registering a new MFA token
    */
@@ -479,10 +457,6 @@ declare module 'core/store/models' {
 
   export interface UpdateJobProposalSpecRequest {
     spec: string
-  }
-
-  export interface FeatureFlag {
-    enabled: boolean
   }
 }
 
