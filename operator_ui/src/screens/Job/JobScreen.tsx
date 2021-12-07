@@ -1,22 +1,21 @@
 import React from 'react'
 
-import { gql, useQuery } from '@apollo/client'
+import { gql, useMutation, useQuery } from '@apollo/client'
 import { useHistory, useLocation, useParams } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 
 import {
   createJobRunV2,
-  notifyError,
+  notifyErrorMsg,
   notifySuccessMsg,
 } from 'src/actionCreators'
+import BaseLink from 'src/components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { GraphqlErrorHandler } from 'src/components/ErrorHandler/GraphqlErrorHandler'
 import { JobView, JOB_PAYLOAD_FIELDS } from './JobView'
 import { Loading } from 'src/components/Feedback/Loading'
 import NotFound from 'src/pages/NotFound'
-
-import { v2 } from 'api'
-import BaseLink from 'src/components/BaseLink'
+import { useMutationErrorHandler } from 'src/hooks/useMutationErrorHandler'
 
 // Defines the number of records to show on the Overview Tab
 const RECENT_RUNS_PAGE_SIZE = 5
@@ -28,6 +27,21 @@ export const JOB_QUERY = gql`
       __typename
       ... on Job {
         ...JobPayload_Fields
+      }
+      ... on NotFoundError {
+        message
+      }
+    }
+  }
+`
+
+export const DELETE_JOB_MUTATION = gql`
+  mutation DeleteJob($id: ID!) {
+    deleteJob(id: $id) {
+      ... on DeleteJobSuccess {
+        job {
+          id
+        }
       }
       ... on NotFoundError {
         message
@@ -54,6 +68,7 @@ export const JobScreen = () => {
   const dispatch = useDispatch()
   const history = useHistory()
   const { search } = useLocation()
+  const { handleMutationError } = useMutationErrorHandler()
 
   // This doesn't use useQueryParms because we only want to use the initial page
   // load query param to fetch the data.
@@ -73,6 +88,10 @@ export const JobScreen = () => {
     fetchPolicy: 'network-only',
   })
 
+  const [deleteJob] = useMutation<DeleteJob, DeleteJobVariables>(
+    DELETE_JOB_MUTATION,
+  )
+
   if (loading) {
     return <Loading />
   }
@@ -81,21 +100,30 @@ export const JobScreen = () => {
     return <GraphqlErrorHandler error={error} />
   }
 
-  // TODO - Convert this to GQL
   const handleDelete = async () => {
     try {
-      await v2.jobs.destroyJobSpec(id)
+      const result = await deleteJob({
+        variables: { id },
+      })
 
-      history.push('/jobs')
+      const payload = result.data?.deleteJob
+      switch (payload?.__typename) {
+        case 'DeleteJobSuccess':
+          history.push('/jobs')
 
-      // This setTimeout is needed because notifications are cleared on a route
-      // change. Fix this once notifications are refactored.
-      setTimeout(
-        () => dispatch(notifySuccessMsg(`Successfully deleted job ${id}`)),
-        500,
-      )
-    } catch (e: any) {
-      dispatch(notifyError(ErrorMessage, e))
+          setTimeout(
+            () => dispatch(notifySuccessMsg(`Successfully deleted job ${id}`)),
+            200,
+          )
+
+          break
+        case 'NotFoundError':
+          dispatch(notifyErrorMsg(payload.message))
+
+          break
+      }
+    } catch (e) {
+      handleMutationError(e)
     }
   }
 
