@@ -380,6 +380,12 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ContractConfigTrackerPollIntervalEnv:      false,
 						ContractConfigTrackerSubscribeInterval:    models.Interval(2 * time.Minute),
 						ContractConfigTrackerSubscribeIntervalEnv: true,
+						DatabaseTimeout:                           models.NewInterval(3 * time.Second),
+						DatabaseTimeoutEnv:                        true,
+						ObservationGracePeriod:                    models.NewInterval(4 * time.Second),
+						ObservationGracePeriodEnv:                 true,
+						ContractTransmitterTransmitTimeout:        models.NewInterval(555 * time.Millisecond),
+						ContractTransmitterTransmitTimeoutEnv:     true,
 						CreatedAt:               f.Timestamp(),
 						EVMChainID:              utils.NewBigI(42),
 						IsBootstrapPeer:         false,
@@ -407,6 +413,12 @@ func TestResolver_OCRSpec(t *testing.T) {
 									contractConfigTrackerPollIntervalEnv
 									contractConfigTrackerSubscribeInterval
 									contractConfigTrackerSubscribeIntervalEnv
+									databaseTimeout
+									databaseTimeoutEnv
+									observationGracePeriod
+									observationGracePeriodEnv
+									contractTransmitterTransmitTimeout
+									contractTransmitterTransmitTimeoutEnv
 									createdAt
 									evmChainID
 									isBootstrapPeer
@@ -435,6 +447,12 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"contractConfigTrackerPollIntervalEnv": false,
 							"contractConfigTrackerSubscribeInterval": "2m0s",
 							"contractConfigTrackerSubscribeIntervalEnv": true,
+							"databaseTimeout": "3s",
+							"databaseTimeoutEnv": true,
+							"observationGracePeriod": "4s",
+							"observationGracePeriodEnv": true,
+							"contractTransmitterTransmitTimeout": "555ms",
+							"contractTransmitterTransmitTimeoutEnv": true,
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"isBootstrapPeer": false,
