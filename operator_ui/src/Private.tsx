@@ -17,13 +17,13 @@ import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
 import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
-import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
 
 import { BridgesPage } from 'pages/bridges'
 import { JobsPage } from 'pages/JobsIndex'
+import { KeysPage } from 'pages/keys'
 import { FeedsManagerPage } from 'pages/feeds_manager'
 import { JobProposalsPage } from 'pages/job_proposals'
 import { NodesPage } from 'pages/nodes'
@@ -115,7 +115,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 path="/transactions/:transactionId"
                 component={TransactionsShow}
               />
-              <PrivateRoute exact path="/keys" component={KeysIndex} />
               <PrivateRoute exact path="/config" component={Configuration} />
 
               <PrivateRoute path="/bridges">
@@ -132,6 +131,10 @@ const Private = ({ classes }: { classes: { content: string } }) => {
 
               <PrivateRoute path="/jobs">
                 <JobsPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/keys">
+                <KeysPage />
               </PrivateRoute>
 
               <PrivateRoute path="/nodes">

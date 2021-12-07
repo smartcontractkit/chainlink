@@ -22,7 +22,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 	query := `
 		query GetETHKeys {
 			ethKeys {
-				keys {
+				results {
 					address
 					isFunding
 					ethBalance
@@ -93,7 +93,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": true,
@@ -153,7 +153,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,
@@ -205,7 +205,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,
@@ -397,12 +397,71 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,
 								"ethBalance": "0.000000000000000001",
 								"linkBalance": null,
+								"maxGasPriceWei": "1",
+								"createdAt": "2021-01-01T00:00:00Z",
+								"updatedAt": "2021-01-01T00:00:00Z",
+								"chain": {
+									"id": "12"
+								}
+							}
+						]
+					}
+				}`,
+		},
+		{
+			name:          "success with no eth balance",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				states := []ethkey.State{
+					{
+						Address:    address,
+						EVMChainID: *utils.NewBigI(12),
+						IsFunding:  false,
+						CreatedAt:  f.Timestamp(),
+						UpdatedAt:  f.Timestamp(),
+					},
+				}
+				chainID := *utils.NewBigI(12)
+				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
+
+				f.Mocks.cfg.On("Dev").Return(false)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
+				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
+				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address.Address()).Return(assets.NewLinkFromJuels(12), nil)
+				f.Mocks.scfg.On("LinkContractAddress").Return("0x5431F5F973781809D18643b87B44921b11355d81")
+				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
+				f.Mocks.chain.On("BalanceMonitor").Return(nil)
+				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
+				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
+				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
+				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
+					{
+						ID: chainID,
+					},
+				}, nil)
+				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query: query,
+			result: `
+				{
+					"ethKeys": {
+						"results": [
+							{
+								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
+								"isFunding": false,
+								"ethBalance": null,
+								"linkBalance": "12",
 								"maxGasPriceWei": "1",
 								"createdAt": "2021-01-01T00:00:00Z",
 								"updatedAt": "2021-01-01T00:00:00Z",
