@@ -19,9 +19,9 @@ func newLeaseLock(t *testing.T, db *sqlx.DB) pg.LeaseLock {
 }
 
 func Test_LeaseLock(t *testing.T) {
-	t.Run("on migrated database", func(t *testing.T) {
-		_, db := heavyweight.FullTestDB(t, "leaselock", true, false)
+	cfg, db := heavyweight.FullTestDB(t, "leaselock", true, false)
 
+	t.Run("on migrated database", func(t *testing.T) {
 		leaseLock1 := newLeaseLock(t, db)
 
 		err := leaseLock1.TakeAndHold()
@@ -55,6 +55,36 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, leaseLock2.ClientID(), clientID)
 	})
+
+	t.Run("recovers and re-opens connection if it's closed externally", func(t *testing.T) {
+		leaseLock := newLeaseLock(t, db)
+
+		err := leaseLock.TakeAndHold()
+		require.NoError(t, err)
+		defer leaseLock.Release()
+
+		conn := pg.GetConn(leaseLock)
+
+		var prevExpiresAt time.Time
+
+		err = conn.Close()
+		require.NoError(t, err)
+
+		err = db.Get(&prevExpiresAt, `SELECT expires_at FROM lease_lock`)
+		require.NoError(t, err)
+
+		time.Sleep(cfg.LeaseLockRefreshInterval() + 1*time.Second)
+
+		var expiresAt time.Time
+
+		err = db.Get(&expiresAt, `SELECT expires_at FROM lease_lock`)
+		require.NoError(t, err)
+
+		// The lease lock must have recovered and re-opened the connection if the second expires_at is later
+		assert.Greater(t, expiresAt.Unix(), prevExpiresAt.Unix())
+	})
+
+	require.NoError(t, db.Close())
 
 	t.Run("on virgin database", func(t *testing.T) {
 		_, db := heavyweight.FullTestDB(t, "leaselock", false, false)
