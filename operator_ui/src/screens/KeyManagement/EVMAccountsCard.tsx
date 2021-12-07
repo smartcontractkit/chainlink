@@ -2,7 +2,6 @@ import React from 'react'
 
 import { gql } from '@apollo/client'
 
-import Button from '@material-ui/core/Button'
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
 import Table from '@material-ui/core/Table'
@@ -11,57 +10,56 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 
-import { CSAKeyRow } from './CSAKeyRow'
 import { ErrorRow } from 'src/components/TableRow/ErrorRow'
 import { LoadingRow } from 'src/components/TableRow/LoadingRow'
 import { NoContentRow } from 'src/components/TableRow/NoContentRow'
+import { EVMAccountRow } from './EVMAccountRow'
 
-export const CSA_KEYS_PAYLOAD__RESULTS_FIELDS = gql`
-  fragment CSAKeysPayload_ResultsFields on CSAKey {
-    id
-    publicKey
+export const ETH_KEYS_PAYLOAD__RESULTS_FIELDS = gql`
+  fragment ETHKeysPayload_ResultsFields on EthKey {
+    address
+    chain {
+      id
+    }
+    createdAt
+    ethBalance
+    isFunding
+    linkBalance
   }
 `
 
 export interface Props {
   loading: boolean
-  data?: FetchCsaKeys
+  data?: FetchEthKeys
   errorMsg?: string
-  onCreate: () => void
 }
 
-export const CSAKeysCard: React.FC<Props> = ({
+export const EVMAccountsCard: React.FC<Props> = ({
   data,
   errorMsg,
   loading,
-  onCreate,
 }) => {
   return (
     <Card>
-      <CardHeader
-        action={
-          data?.csaKeys.results?.length === 0 && (
-            <Button variant="outlined" color="primary" onClick={onCreate}>
-              New CSA Key
-            </Button>
-          )
-        }
-        title="CSA Key"
-        subheader="Manage your CSA Key"
-      />
+      <CardHeader title="EVM Chain Accounts" />
       <Table>
         <TableHead>
           <TableRow>
-            <TableCell>Public Key</TableCell>
+            <TableCell>Address</TableCell>
+            <TableCell>Chain ID</TableCell>
+            <TableCell>Type</TableCell>
+            <TableCell>LINK Balance</TableCell>
+            <TableCell>ETH Balance</TableCell>
+            <TableCell>Created</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           <LoadingRow visible={loading} />
-          <NoContentRow visible={data?.csaKeys.results?.length === 0} />
+          <NoContentRow visible={data?.ethKeys.results?.length === 0} />
           <ErrorRow msg={errorMsg} />
 
-          {data?.csaKeys.results?.map((key, idx) => (
-            <CSAKeyRow csaKey={key} key={idx} />
+          {data?.ethKeys.results?.map((ethKey, idx) => (
+            <EVMAccountRow ethKey={ethKey} key={idx} />
           ))}
         </TableBody>
       </Table>

@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event'
 
 const { getByRole, queryByRole, queryByText } = screen
 
-function renderComponent(cardProps: Omit<CSAKeysCardProps, 'classes'>) {
+function renderComponent(cardProps: CSAKeysCardProps) {
   render(<CSAKeysCard {...cardProps} />)
 }
 

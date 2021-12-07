@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 
 const { getAllByRole, getByRole, queryByRole, queryByText } = screen
 
-function renderComponent(cardProps: Omit<OCRKeysCardProps, 'classes'>) {
+function renderComponent(cardProps: OCRKeysCardProps) {
   render(<OCRKeysCard {...cardProps} />)
 }
 
