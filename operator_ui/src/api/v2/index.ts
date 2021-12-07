@@ -5,7 +5,6 @@ import { Config } from './config'
 import { Jobs } from './jobs'
 import { Runs } from './runs'
 import { Transactions } from './transactions'
-import { User } from './user'
 import { LogConfig } from './logConfig'
 import { Nodes } from './nodes'
 import { WebAuthn } from './webauthn'
@@ -21,6 +20,5 @@ export class V2 {
   public jobs = new Jobs(this.api)
   public runs = new Runs(this.api)
   public transactions = new Transactions(this.api)
-  public user = new User(this.api)
   public webauthn = new WebAuthn(this.api)
 }

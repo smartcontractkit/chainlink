@@ -5,7 +5,7 @@ import { fetchConfiguration } from 'actionCreators'
 import Content from 'components/Content'
 import { useDispatch, useSelector } from 'react-redux'
 import configurationSelector from 'selectors/configuration'
-import extractBuildInfo from 'utils/extractBuildInfo'
+import { extractBuildInfo } from 'utils/extractBuildInfo'
 
 import { LoggingCard } from './LoggingCard'
 import { NodeInformation } from './NodeInformation'
