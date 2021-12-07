@@ -7,7 +7,7 @@ import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 import userEvent from '@testing-library/user-event'
 
 import { buildJob } from 'support/factories/gql/fetchJob'
-import { JobScreen, JOB_QUERY } from './JobScreen'
+import { JobScreen, JOB_QUERY, DELETE_JOB_MUTATION } from './JobScreen'
 import Notifications from 'pages/Notifications'
 import { waitForLoading } from 'support/test-helpers/wait'
 
@@ -26,6 +26,10 @@ function renderComponent(mocks: MockedResponse[], initialEntry?: string) {
         <MockedProvider mocks={mocks} addTypename={false}>
           <JobScreen />
         </MockedProvider>
+      </Route>
+
+      <Route exact path="/jobs">
+        Jobs Page
       </Route>
     </>,
     { initialEntries },
@@ -101,8 +105,66 @@ describe('JobScreen', () => {
     expect(await findByText('Error: Error!')).toBeInTheDocument()
   })
 
-  it('deletes the bridge', async () => {
-    // TODO - Add a Delete test once we switch over to GQL
+  it('deletes the job', async () => {
+    const payload = buildJob()
+    const mocks: MockedResponse[] = [
+      fetchJobQuery(payload),
+      {
+        request: {
+          query: DELETE_JOB_MUTATION,
+          variables: { id: payload.id },
+        },
+        result: {
+          data: {
+            deleteJob: {
+              __typename: 'DeleteJobSuccess',
+              job: {
+                id: payload.id,
+              },
+            },
+          },
+        },
+      },
+    ]
+
+    renderComponent(mocks)
+
+    await waitForLoading()
+
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /delete/i }))
+
+    expect(await findByText('Jobs Page')).toBeInTheDocument()
+  })
+
+  it('handles not found on job delete', async () => {
+    const payload = buildJob()
+    const mocks: MockedResponse[] = [
+      fetchJobQuery(payload),
+      {
+        request: {
+          query: DELETE_JOB_MUTATION,
+          variables: { id: payload.id },
+        },
+        result: {
+          data: {
+            deleteJob: {
+              __typename: 'NotFoundError',
+              message: 'job not found',
+            },
+          },
+        },
+      },
+    ]
+
+    renderComponent(mocks)
+
+    await waitForLoading()
+
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /delete/i }))
+
+    expect(await findByText('job not found')).toBeInTheDocument()
   })
 
   it('runs a webhook job', async () => {

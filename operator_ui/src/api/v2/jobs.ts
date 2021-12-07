@@ -3,7 +3,6 @@ import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 
 export const ENDPOINT = '/v2/jobs'
-const DESTROY_ENDPOINT = `${ENDPOINT}/:specId`
 const RUN_JOB_ENDPOINT = `${ENDPOINT}/:specId/runs`
 
 // Jobs represents the v2 jobs
@@ -18,11 +17,6 @@ export class Jobs {
   }
 
   @boundMethod
-  public destroyJobSpec(id: string): Promise<jsonapi.ApiResponse<null>> {
-    return this.destroy(undefined, { specId: id })
-  }
-
-  @boundMethod
   public createJobRunV2(
     id: string,
     pipelineInput: string,
@@ -33,14 +27,6 @@ export class Jobs {
   private create = this.api.createResource<models.CreateJobRequest, models.Job>(
     ENDPOINT,
   )
-
-  private destroy = this.api.deleteResource<
-    undefined,
-    null,
-    {
-      specId: string
-    }
-  >(DESTROY_ENDPOINT)
 
   private post = this.api.createResource<
     string,
