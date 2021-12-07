@@ -213,7 +213,10 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 				test.vars["jobRun"] = map[string]interface{}{"meta": test.meta}
 			}
 			if test.includeInputAtKey != "" {
-				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
+				expectedRequestSubmit[test.includeInputAtKey] = map[string]interface{}{
+					"result": "9700",
+					"times":  "1000000000000000000",
+				}
 			}
 
 			// 1. Setup bridge
