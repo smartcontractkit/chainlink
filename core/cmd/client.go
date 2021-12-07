@@ -100,6 +100,7 @@ func retryLogMsg(count int) string {
 
 // Try to immediately acquire an advisory lock. The lock will be released on application stop.
 func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (pg.Locker, error) {
+	lggr = lggr.Named("AdvisoryLock")
 	lockID := int64(1027321974924625846)
 	lockRetryInterval := time.Second
 
@@ -119,6 +120,15 @@ func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout t
 	for {
 		lockCtx, cancel := context.WithTimeout(ctx, timeout)
 		gotLock, err := lock.Lock(lockCtx)
+		if errors.Is(err, sql.ErrConnDone) {
+			lggr.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
+			// Initialize new lock (opening new connection) if the current connection is dead
+			if lock, err = pg.NewLock(initCtx, lockID, db); err != nil {
+				cancel()
+				return nil, err
+			}
+			continue
+		}
 		cancel()
 		if err != nil {
 			return nil, err
