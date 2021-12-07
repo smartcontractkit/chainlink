@@ -456,7 +456,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,
