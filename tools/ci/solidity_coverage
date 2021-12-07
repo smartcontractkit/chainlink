@@ -2,5 +2,8 @@
 
 set -e
 
+# if you experience OOM on your local machine, set NODE_OPTIONS=--max_old_space_size=5120
 yarn workspace @chainlink/contracts compile
 yarn workspace @chainlink/contracts coverage
+
+./tools/bin/codecov -f ./contracts/coverage.json
