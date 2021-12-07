@@ -22,7 +22,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 	query := `
 		query GetETHKeys {
 			ethKeys {
-				keys {
+				results {
 					address
 					isFunding
 					ethBalance
@@ -93,7 +93,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": true,
@@ -153,7 +153,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,
@@ -205,7 +205,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,
@@ -397,7 +397,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			result: `
 				{
 					"ethKeys": {
-						"keys": [
+						"results": [
 							{
 								"address": "0x5431F5F973781809D18643b87B44921b11355d81",
 								"isFunding": false,

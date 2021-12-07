@@ -126,6 +126,6 @@ func NewETHKeysPayload(keys []ETHKey) *ETHKeysPayloadResolver {
 	return &ETHKeysPayloadResolver{keys: keys}
 }
 
-func (r *ETHKeysPayloadResolver) Keys() []*ETHKeyResolver {
+func (r *ETHKeysPayloadResolver) Results() []*ETHKeyResolver {
 	return NewETHKeys(r.keys)
 }
