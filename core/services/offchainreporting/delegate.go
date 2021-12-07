@@ -120,8 +120,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
 	} else if !peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
-	} else if peerWrapper.PeerID.String() != concreteSpec.P2PPeerID.String() {
-		return nil, errors.Errorf("given peer with ID '%s' does not match OCR configured peer with ID: %s", peerWrapper.PeerID.String(), concreteSpec.P2PPeerID.String())
 	}
 	var bootstrapPeers []string
 	if concreteSpec.P2PBootstrapPeers != nil {

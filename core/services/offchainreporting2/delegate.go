@@ -93,8 +93,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
 	} else if !peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
-	} else if spec.P2PPeerID != nil && peerWrapper.PeerID != *spec.P2PPeerID {
-		return nil, errors.Errorf("given peer with ID '%s' does not match OCR2 configured peer with ID: %s", peerWrapper.PeerID.String(), spec.P2PPeerID.String())
 	}
 
 	loggerWith := d.lggr.With(

@@ -64,8 +64,6 @@ const JOB_PAYLOAD__SPEC = gql`
       keyBundleID
       observationTimeout
       observationTimeoutEnv
-      p2pPeerID
-      p2pPeerIDEnv
       p2pBootstrapPeers
       transmitterAddress
     }
@@ -79,7 +77,6 @@ const JOB_PAYLOAD__SPEC = gql`
       juelsPerFeeCoinSource
       ocrKeyBundleID
       monitoringEndpoint
-      p2pPeerID
       p2pBootstrapPeers
       relay
       relayConfig

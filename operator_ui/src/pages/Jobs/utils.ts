@@ -16,21 +16,6 @@ export function isToml({ value }: { value: string }): boolean {
   }
 }
 
-export function stringifyJobSpec({
-  value,
-}: {
-  value: { [key: string]: any }
-}): string {
-  try {
-    return TOML.stringify(value)
-  } catch (e) {
-    console.error(
-      `Failed to stringify job spec with the following error: ${e.message}`,
-    )
-    return ''
-  }
-}
-
 export function getJobStatus({
   finishedAt,
   errors,

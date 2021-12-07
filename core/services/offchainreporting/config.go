@@ -14,7 +14,7 @@ func toLocalConfig(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) o
 		ContractConfigTrackerPollInterval:      concreteSpec.ContractConfigTrackerPollInterval.Duration(),
 		ContractConfigTrackerSubscribeInterval: concreteSpec.ContractConfigTrackerSubscribeInterval.Duration(),
 		ContractTransmitterTransmitTimeout:     cfg.OCRContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                        cfg.OCRDatabaseTimeout(),
+		DatabaseTimeout:                        concreteSpec.DatabaseTimeout.Duration(),
 		DataSourceTimeout:                      concreteSpec.ObservationTimeout.Duration(),
 		DataSourceGracePeriod:                  cfg.OCRObservationGracePeriod(),
 	}

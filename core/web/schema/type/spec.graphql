@@ -62,10 +62,14 @@ type OCRSpec {
     keyBundleID: String
     observationTimeout: String
     observationTimeoutEnv: Boolean!
-    p2pPeerID: String
-    p2pPeerIDEnv: Boolean!
     p2pBootstrapPeers: [String!]
     transmitterAddress: String
+    databaseTimeout: String!
+    databaseTimeoutEnv: Boolean!
+    observationGracePeriod: String!
+    observationGracePeriodEnv: Boolean!
+    contractTransmitterTransmitTimeout: String!
+    contractTransmitterTransmitTimeoutEnv: Boolean!
 }
 
 type OCR2Spec {
@@ -79,7 +83,6 @@ type OCR2Spec {
     juelsPerFeeCoinSource: String
     ocrKeyBundleID: String
     monitoringEndpoint: String
-    p2pPeerID: String
     p2pBootstrapPeers: [String!]
     relay: String!
     relayConfig: Map!
