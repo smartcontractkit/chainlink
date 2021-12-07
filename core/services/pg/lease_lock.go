@@ -176,7 +176,7 @@ func (l *leaseLock) loop() {
 			)
 			cancel()
 			if err != nil {
-				l.logger.Warn("Error trying to release lease on shutdown", "err", err)
+				l.logger.Warnw("Error trying to release lease on shutdown", "err", err)
 			}
 			return
 		case <-ticker.C:

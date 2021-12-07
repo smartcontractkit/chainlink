@@ -7,6 +7,14 @@ type JobRun {
     createdAt: Time!
     finishedAt: Time
     taskRuns: [TaskRun!]!
+    job: Job!
+}
+
+# JobRunsPayload defines the response when fetching a page of runs
+type JobRunsPayload implements PaginatedPayload {
+    results: [JobRun!]!
+    metadata: PaginationMetadata!
 }
 
 union JobRunPayload = JobRun | NotFoundError
+

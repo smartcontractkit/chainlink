@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -210,6 +211,22 @@ func (re RunErrors) HasError() bool {
 		}
 	}
 	return false
+}
+
+// ToError coalesces all non-nil errors into a single error object.
+// This is useful for logging.
+func (re RunErrors) ToError() error {
+	toErr := func(ns null.String) error {
+		if !ns.IsZero() {
+			return errors.New(ns.String)
+		}
+		return nil
+	}
+	errs := []error{}
+	for _, e := range re {
+		errs = append(errs, toErr(e))
+	}
+	return multierr.Combine(errs...)
 }
 
 type ResumeRequest struct {

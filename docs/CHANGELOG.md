@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
 - CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
 - Add partial support for Moonriver chain
+- For OCR jobs, `databaseTimeout`, `observationGracePeriod` and `contractTransmitterTransmitTimeout` can be specified to override chain-specific default values.
 
 Two new log levels have been added.
 
