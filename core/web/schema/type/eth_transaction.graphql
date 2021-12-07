@@ -1,0 +1,17 @@
+type EthTransaction {
+	state: String!
+	data: Bytes!
+	from: String!
+	to: String!
+	gasLimit: String!
+	gasPrice: String!
+	value: String!
+	evmChainID: ID!
+	nonce: String
+	hash: String!
+	hex: String!
+	chain: Chain!
+	sentAt: String
+}
+
+union EthTransactionPayload = EthTransaction | NotFoundError

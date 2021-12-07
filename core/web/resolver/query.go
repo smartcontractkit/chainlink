@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
@@ -440,4 +441,33 @@ func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
 	printer := config.NewConfigPrinter(cfg)
 
 	return NewConfigPayload(printer.EnvPrinter), nil
+}
+
+func (r *Resolver) EthTransaction(ctx context.Context, args struct {
+	Hash graphql.ID
+}) (*EthTransactionPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	hash := common.HexToHash(string(args.Hash))
+	ethTxAttempt, err := r.App.BPTXMORM().FindEthTxAttempt(hash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewEthTransactionPayload(nil, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewEthTransactionPayload(
+		&ethTxAttempt.EthTx,
+		&EthTransactionExtraData{
+			hash:                    ethTxAttempt.Hash,
+			gasPrice:                ethTxAttempt.GasPrice,
+			signedRawTx:             ethTxAttempt.SignedRawTx,
+			broadcastBeforeBlockNum: ethTxAttempt.BroadcastBeforeBlockNum,
+		},
+		err,
+	), nil
 }
