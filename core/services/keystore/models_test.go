@@ -66,8 +66,8 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	require.Equal(t, 2, len(decryptedKeyRing.OCR2))
 	require.Equal(t, originalKeyRing.OCR2[ocr2_1.ID()].ID(), decryptedKeyRing.OCR2[ocr2_1.ID()].ID())
 	require.Equal(t, originalKeyRing.OCR2[ocr2_2.ID()].ID(), decryptedKeyRing.OCR2[ocr2_2.ID()].ID())
-	require.Equal(t, originalKeyRing.OCR2[ocr2_1.ID()].ChainType, decryptedKeyRing.OCR2[ocr2_1.ID()].ChainType)
-	require.Equal(t, originalKeyRing.OCR2[ocr2_2.ID()].ChainType, decryptedKeyRing.OCR2[ocr2_2.ID()].ChainType)
+	require.Equal(t, originalKeyRing.OCR2[ocr2_1.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_1.ID()].ChainType())
+	require.Equal(t, originalKeyRing.OCR2[ocr2_2.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_2.ID()].ChainType())
 	// compare p2p keys
 	require.Equal(t, 2, len(decryptedKeyRing.P2P))
 	require.Equal(t, originalKeyRing.P2P[p2p1.ID()].GetPublic(), decryptedKeyRing.P2P[p2p1.ID()].GetPublic())

@@ -3,9 +3,7 @@ package ocr2key
 import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -25,23 +23,6 @@ type (
 		EVMKeyring      []byte
 	}
 )
-
-// func (kb evmKeyBundle) GetID() string {
-// 	return kb.ID()
-// }
-
-// func (kb *evmKeyBundle) SetID(value string) error {
-// 	var result models.Sha256Hash
-// 	decodedString, err := hex.DecodeString(value)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	copy(result[:], decodedString[:32])
-// 	kb.id = result
-// 	return nil
-// }
 
 var _ KeyBundle = &evmKeyBundle{}
 
@@ -114,24 +95,19 @@ func (kb *evmKeyBundle) Marshal() ([]byte, error) {
 }
 
 func (kb *evmKeyBundle) Unmarshal(b []byte) (err error) {
-	fmt.Println("here 1")
 	var rawKeyData evmKeyBundleRawData
 	err = json.Unmarshal(b, &rawKeyData)
 	if err != nil {
 		return err
 	}
-	fmt.Println("here 2")
 	err = kb.OffchainKeyring.unmarshal(rawKeyData.OffchainKeyring)
 	if err != nil {
 		return err
 	}
-	fmt.Println("here 3")
-	fmt.Println("rawKeyData.evmKeyring", hex.EncodeToString(rawKeyData.EVMKeyring))
 	err = kb.evmKeyring.unmarshal(rawKeyData.EVMKeyring)
 	if err != nil {
 		return err
 	}
-	fmt.Println("here 4")
 	kb.chainType = rawKeyData.ChainType
 	kb.id = sha256.Sum256(b)
 	return nil

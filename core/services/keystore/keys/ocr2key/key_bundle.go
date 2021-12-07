@@ -29,23 +29,6 @@ type KeyBundle interface {
 
 var curve = secp256k1.S256()
 
-// func (kb KeyBundle) GetID() string {
-// 	return kb.ID()
-// }
-
-// func (kb *KeyBundle) SetID(value string) error {
-// 	var result models.Sha256Hash
-// 	decodedString, err := hex.DecodeString(value)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	copy(result[:], decodedString[:32])
-// 	kb.id = result
-// 	return nil
-// }
-
 func New(chainType chaintype.ChainType) (KeyBundle, error) {
 	switch chainType {
 	case chaintype.EVM:

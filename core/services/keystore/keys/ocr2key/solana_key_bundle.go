@@ -24,23 +24,6 @@ type (
 	}
 )
 
-// func (kb solanaKeyBundle) GetID() string {
-// 	return kb.ID()
-// }
-
-// func (kb *solanaKeyBundle) SetID(value string) error {
-// 	var result models.Sha256Hash
-// 	decodedString, err := hex.DecodeString(value)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	copy(result[:], decodedString[:32])
-// 	kb.id = result
-// 	return nil
-// }
-
 var _ KeyBundle = &solanaKeyBundle{}
 
 // New makes a new set of OCR key bundles from cryptographically secure entropy
