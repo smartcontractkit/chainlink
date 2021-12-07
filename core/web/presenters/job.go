@@ -134,6 +134,12 @@ type OffChainReportingSpec struct {
 	CreatedAt                                 time.Time            `json:"createdAt"`
 	UpdatedAt                                 time.Time            `json:"updatedAt"`
 	EVMChainID                                *utils.Big           `json:"evmChainID"`
+	DatabaseTimeout                           *models.Interval     `json:"databaseTimeout"`
+	DatabaseTimeoutEnv                        bool                 `json:"databaseTimeoutEnv,omitempty"`
+	ObservationGracePeriod                    *models.Interval     `json:"observationGracePeriod"`
+	ObservationGracePeriodEnv                 bool                 `json:"observationGracePeriodEnv,omitempty"`
+	ContractTransmitterTransmitTimeout        *models.Interval     `json:"contractTransmitterTransmitTimeout"`
+	ContractTransmitterTransmitTimeoutEnv     bool                 `json:"contractTransmitterTransmitTimeoutEnv,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -158,6 +164,12 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 		CreatedAt:                                 spec.CreatedAt,
 		UpdatedAt:                                 spec.UpdatedAt,
 		EVMChainID:                                spec.EVMChainID,
+		DatabaseTimeout:                           spec.DatabaseTimeout,
+		DatabaseTimeoutEnv:                        spec.DatabaseTimeoutEnv,
+		ObservationGracePeriod:                    spec.ObservationGracePeriod,
+		ObservationGracePeriodEnv:                 spec.ObservationGracePeriodEnv,
+		ContractTransmitterTransmitTimeout:        spec.ContractTransmitterTransmitTimeout,
+		ContractTransmitterTransmitTimeoutEnv:     spec.ContractTransmitterTransmitTimeoutEnv,
 	}
 }
 

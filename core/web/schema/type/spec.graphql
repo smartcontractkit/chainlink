@@ -64,6 +64,12 @@ type OCRSpec {
     observationTimeoutEnv: Boolean!
     p2pBootstrapPeers: [String!]
     transmitterAddress: String
+    databaseTimeout: String!
+    databaseTimeoutEnv: Boolean!
+    observationGracePeriod: String!
+    observationGracePeriodEnv: Boolean!
+    contractTransmitterTransmitTimeout: String!
+    contractTransmitterTransmitTimeoutEnv: Boolean!
 }
 
 type OCR2Spec {

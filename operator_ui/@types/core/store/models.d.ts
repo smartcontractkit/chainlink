@@ -271,6 +271,12 @@ declare module 'core/store/models' {
       createdAt: time.Time
       updatedAt: time.Time
       evmChainID: string
+      databaseTimeout: string
+      databaseTimeoutEnv?: boolean
+      observationGracePeriod: string
+      observationGracePeriodEnv?: boolean
+      contractTransmitterTransmitTimeout: string
+      contractTransmitterTransmitTimeoutEnv?: boolean
     }
     cronSpec: null
     webhookSpec: null
