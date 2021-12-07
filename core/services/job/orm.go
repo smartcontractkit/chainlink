@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -172,17 +174,23 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case OffchainReporting2:
 			var specID int32
 			if jb.Offchainreporting2OracleSpec.OCRKeyBundleID.Valid {
-				// TODO: lookup should work for solana too depending how the keystore changes are done?
 				_, err := o.keyStore.OCR2().Get(jb.Offchainreporting2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.Offchainreporting2OracleSpec.OCRKeyBundleID)
 				}
 			}
 			if jb.Offchainreporting2OracleSpec.TransmitterID.Valid {
-				// TODO: Need to lookup key store
-				_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
-				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
+				switch jb.Offchainreporting2OracleSpec.Relay {
+				case relay.Ethereum:
+					_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
+					}
+				case relay.Solana:
+					_, err := o.keyStore.Solana().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
+					}
 				}
 			}
 

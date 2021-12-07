@@ -4,6 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	solanaGo "github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/pkg/errors"
 
 	uuid "github.com/satori/go.uuid"
@@ -13,15 +20,22 @@ import (
 	"go.uber.org/multierr"
 )
 
+var (
+	_ relay.Relayer = &ethereum.Relayer{}
+	_ relay.Relayer = &solana.Relayer{}
+)
+
 type delegate struct {
-	relayers relay.Relayers
+	relayers map[relay.Network]relay.Relayer
+	ks       keystore.Master
 }
 
-func NewRelayer(config relay.Config) *delegate {
+func NewRelayDelegate(db *sqlx.DB, ks keystore.Master, chainSet evm.ChainSet, lggr logger.Logger) *delegate {
 	return &delegate{
-		relayers: relay.Relayers{
-			relay.Ethereum: ethereum.NewRelayer(config),
-			// relay.Solana:   solana.NewRelayer(config),
+		ks: ks,
+		relayers: map[relay.Network]relay.Relayer{
+			relay.Ethereum: ethereum.NewRelayer(db, chainSet, lggr),
+			relay.Solana:   solana.NewRelayer(lggr),
 		},
 	}
 }
@@ -85,39 +99,45 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 			TransmitterID:  spec.TransmitterID,
 			ChainID:        config.ChainID.ToInt(),
 		})
-	// case relay.Solana:
-	// 	var config solana.RelayConfig
-	// 	err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
-	// 	}
+	case relay.Solana:
+		var config solana.RelayConfig
+		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
+		}
 
-	// 	programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID.ValueOrZero())
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.ContractID")
-	// 	}
+		programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID.ValueOrZero())
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.ContractID")
+		}
 
-	// 	stateID, err := solanaGo.PublicKeyFromBase58(config.StateID)
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
-	// 	}
-
-	// 	transmissionsID, err := solanaGo.PublicKeyFromBase58(config.TransmissionsID)
-	// 	if err != nil {
-	// 		return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
-	// 	}
-
-	// 	return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
-	// 		ID:              spec.ID,
-	// 		IsBootstrap:     spec.IsBootstrapPeer,
-	// 		NodeEndpointRPC: config.NodeEndpointRPC,
-	// 		NodeEndpointWS:  config.NodeEndpointWS,
-	// 		ProgramID:       programID,
-	// 		StateID:         stateID,
-	// 		TransmissionsID: transmissionsID,
-	// 		// Transmitter: TODO: get solana.PrivateKey from keystore using spec specified transmitterID
-	// 		KeyBundleID: spec.OCRKeyBundleID,
-	// 	})
+		stateID, err := solanaGo.PublicKeyFromBase58(config.StateID)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
+		}
+		validatorProgramID, err := solanaGo.PublicKeyFromBase58(config.ValidatorProgramID)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
+		}
+		transmissionsID, err := solanaGo.PublicKeyFromBase58(config.TransmissionsID)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
+		}
+		transmitter, err := d.ks.Solana().Get(transmissionsID.String())
+		if err != nil {
+			return nil, err
+		}
+		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
+			ID:                 spec.ID,
+			IsBootstrap:        spec.IsBootstrapPeer,
+			NodeEndpointRPC:    config.NodeEndpointRPC,
+			NodeEndpointWS:     config.NodeEndpointWS,
+			ProgramID:          programID,
+			StateID:            stateID,
+			ValidatorProgramID: validatorProgramID,
+			TransmissionsID:    transmissionsID,
+			Transmitter:        transmitter,
+		})
 	default:
 		return nil, fmt.Errorf("unknown relayer network type: %s", spec.Relay)
 	}

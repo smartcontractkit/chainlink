@@ -8,81 +8,60 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
+	txm "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
-	txm "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	ocr2 "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 )
 
-var _ service.Service = (*relayer)(nil)
-var _ relay.Relayer = (*relayer)(nil)
-
-type relayer struct {
+type Relayer struct {
 	db       *sqlx.DB
-	keystore keystore.Master
 	chainSet evm.ChainSet
 	lggr     logger.Logger
 }
 
-func NewRelayer(config relay.Config) *relayer {
-	return &relayer{
-		db:       config.DB,
-		keystore: config.Keystore,
-		chainSet: config.ChainSet,
-		lggr:     config.Lggr,
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger) *Relayer {
+	return &Relayer{
+		db:       db,
+		chainSet: chainSet,
+		lggr:     lggr,
 	}
 }
 
 // No subservices started on relay start, but when the first job is started
-func (r relayer) Start() error {
+func (r *Relayer) Start() error {
 	return nil
 }
 
 // No peristent subservices to close on relay close
-func (r relayer) Close() error {
+func (r *Relayer) Close() error {
 	return nil
 }
 
 // Always ready
-func (r relayer) Ready() error {
+func (r *Relayer) Ready() error {
 	return nil
 }
 
 // Always healthy
-func (r relayer) Healthy() error {
+func (r *Relayer) Healthy() error {
 	return nil
 }
 
-type RelayConfig struct {
-	ChainID utils.Big `json:"chainID"`
-}
-
-type OCR2Spec struct {
-	ID             int32
-	ContractID     null.String
-	OCRKeyBundleID null.String
-	TransmitterID  null.String
-	IsBootstrap    bool
-	//RelayConfig    models.JSON
-	ChainID *big.Int
-}
-
-func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
+func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
 	spec, ok := s.(OCR2Spec)
 	if !ok {
 		return nil, errors.New("unsuccessful cast to 'ethereum.OCR2Spec'")
@@ -161,26 +140,25 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		r.lggr,
 	)
 
-	// Fetch the specified OCR2 key bundle
-	var kbID string
-	if spec.OCRKeyBundleID.Valid {
-		kbID = spec.OCRKeyBundleID.String
-	} else if kbID, err = chain.Config().OCR2KeyBundleID(); err != nil {
-		return nil, err
-	}
-
-	kb, err := r.keystore.OCR2().Get(kbID)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ocr2Provider{
 		tracker:                tracker,
 		offchainConfigDigester: offchainConfigDigester,
 		reportCodec:            reportCodec,
 		contractTransmitter:    contractTransmitter,
-		keyBundle:              kb,
 	}, nil
+}
+
+type RelayConfig struct {
+	ChainID utils.Big `json:"chainID"`
+}
+
+type OCR2Spec struct {
+	ID             int32
+	ContractID     null.String
+	OCRKeyBundleID null.String
+	TransmitterID  null.String
+	IsBootstrap    bool
+	ChainID        *big.Int
 }
 
 var _ service.Service = (*ocr2Provider)(nil)
@@ -190,7 +168,6 @@ type ocr2Provider struct {
 	offchainConfigDigester types.OffchainConfigDigester
 	reportCodec            median.ReportCodec
 	contractTransmitter    *ocr2.ContractTransmitter
-	keyBundle              ocr2key.KeyBundle
 }
 
 // On start, an ethereum ocr2 provider will start the contract tracker.
@@ -211,14 +188,6 @@ func (p ocr2Provider) Ready() error {
 // An ethereum ocr2 provider is healthy if the contract tracker is healthy.
 func (p ocr2Provider) Healthy() error {
 	return p.tracker.Healthy()
-}
-
-func (p ocr2Provider) OffchainKeyring() types.OffchainKeyring {
-	return p.keyBundle
-}
-
-func (p ocr2Provider) OnchainKeyring() types.OnchainKeyring {
-	return p.keyBundle
 }
 
 func (p ocr2Provider) ContractTransmitter() types.ContractTransmitter {

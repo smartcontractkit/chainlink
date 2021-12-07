@@ -3,6 +3,8 @@ package offchainreporting2
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 
 	"github.com/smartcontractkit/sqlx"
@@ -36,6 +38,7 @@ type Delegate struct {
 	chainSet              evm.ChainSet
 	cfg                   Config
 	lggr                  logger.Logger
+	ks                    keystore.OCR2
 	relayer               relay.Relayer
 }
 
@@ -50,6 +53,7 @@ func NewDelegate(
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
 	cfg Config,
+	ks keystore.OCR2,
 	relayer relay.Relayer,
 ) *Delegate {
 	return &Delegate{
@@ -61,6 +65,7 @@ func NewDelegate(
 		chainSet,
 		cfg,
 		lggr,
+		ks,
 		relayer,
 	}
 }
@@ -142,6 +147,18 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, err
 		}
 		d.lggr.Debugw("Using bootstrap peers", "peers", bootstrapPeers)
+		// Fetch the specified OCR2 key bundle
+		var kbID string
+		if spec.OCRKeyBundleID.Valid {
+			kbID = spec.OCRKeyBundleID.String
+		} else if kbID, err = d.cfg.OCR2KeyBundleID(); err != nil {
+			return nil, err
+		}
+		kb, err := d.ks.Get(kbID)
+		if err != nil {
+			return nil, err
+		}
+
 		runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 		juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 			ID:           jobSpec.ID,
@@ -173,8 +190,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID.String),
 			OffchainConfigDigester:       offchainConfigDigester,
-			OffchainKeyring:              ocr2Provider.OffchainKeyring(),
-			OnchainKeyring:               ocr2Provider.OnchainKeyring(),
+			OffchainKeyring:              kb,
+			OnchainKeyring:               kb,
 			ReportingPluginFactory:       numericalMedianFactory,
 		})
 		if err != nil {

@@ -1,11 +1,14 @@
 package solkey
 
 import (
+	"crypto"
 	"crypto/ed25519"
-	"crypto/rand"
+	crypto_rand "crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
+
+	"github.com/gagliardetto/solana-go"
 )
 
 type Raw []byte
@@ -34,7 +37,7 @@ type Key struct {
 }
 
 func New() (Key, error) {
-	return newFrom(rand.Reader)
+	return newFrom(crypto_rand.Reader)
 }
 
 func MustNewInsecure(reader io.Reader) Key {
@@ -79,4 +82,13 @@ func (key Key) String() string {
 
 func (key Key) GoString() string {
 	return key.String()
+}
+
+func (key Key) Sign(msg []byte) ([]byte, error) {
+	return key.privkey.Sign(crypto_rand.Reader, msg, crypto.Hash(0))
+}
+
+func (key Key) PublicKey() (pubKey solana.PublicKey) {
+	copy(pubKey[:], key.pubKey)
+	return
 }
