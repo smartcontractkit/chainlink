@@ -6,16 +6,18 @@ CREATE TABLE offchainreporting2_oracle_specs (
      p2p_peer_id text,
      p2p_bootstrap_peers text[] NOT NULL DEFAULT '{}',
      is_bootstrap_peer boolean NOT NULL,
-     key_bundle_id bytea,
-     transmitter_address bytea,
+     encrypted_ocr_key_bundle_id bytea,
      monitoring_endpoint text,
+     transmitter_address bytea,
      blockchain_timeout bigint,
+     evm_chain_id numeric(78,0) REFERENCES evm_chains (id),
      contract_config_tracker_subscribe_interval bigint,
      contract_config_tracker_poll_interval bigint,
      contract_config_confirmations integer NOT NULL,
      juels_per_fee_coin_pipeline text NOT NULL,
      created_at timestamp with time zone NOT NULL,
      updated_at timestamp with time zone NOT NULL
+     CONSTRAINT chk_contract_address_length CHECK ((octet_length(contract_address) = 20))
 );
 
 ALTER TABLE ONLY offchainreporting2_oracle_specs

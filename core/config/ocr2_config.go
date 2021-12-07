@@ -52,7 +52,6 @@ func (c *generalConfig) OCR2MonitoringEndpoint() string {
 func (c *generalConfig) OCR2KeyBundleID() (string, error) {
 	kbStr := c.viper.GetString(EnvVarName("OCR2KeyBundleID"))
 	if kbStr != "" {
-		// TODO: ID may not necesarily be a sha256 hash for solana
 		_, err := models.Sha256HashFromHex(kbStr)
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
