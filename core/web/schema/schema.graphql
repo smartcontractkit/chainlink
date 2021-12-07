@@ -11,6 +11,7 @@ type Query {
     chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
     csaKeys: CSAKeysPayload!
+    ethKeys: EthKeysPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
