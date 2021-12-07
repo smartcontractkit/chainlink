@@ -73,7 +73,10 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require github.com/smartcontractkit/chainlink-solana v0.0.0-20211203133247-1fbcc7f330d5
+require (
+	github.com/minio/sha256-simd v0.1.1
+	github.com/smartcontractkit/chainlink-solana v0.0.0-20211207185700-a24214ba7afd
+)
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -190,7 +193,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
-	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -254,3 +256,4 @@ require (
 // If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
 // for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
 replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
+

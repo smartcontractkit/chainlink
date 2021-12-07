@@ -123,7 +123,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		if err != nil {
 			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
 		}
-		transmitter, err := d.ks.Solana().Get(transmissionsID.String())
+		transmissionSigner, err := d.ks.Solana().Get(transmissionsID.String())
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 			StateID:            stateID,
 			ValidatorProgramID: validatorProgramID,
 			TransmissionsID:    transmissionsID,
-			Transmitter:        transmitter,
+			TransmissionSigner: transmissionSigner,
 		})
 	default:
 		return nil, fmt.Errorf("unknown relayer network type: %s", spec.Relay)
