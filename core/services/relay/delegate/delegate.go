@@ -2,7 +2,6 @@ package delegate
 
 import (
 	"encoding/json"
-	"fmt"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -16,12 +15,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/services/relay/ethereum"
+	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"go.uber.org/multierr"
 )
 
 var (
-	_ relay.Relayer = &ethereum.Relayer{}
+	_ relay.Relayer = &evmrelay.Relayer{}
 	_ relay.Relayer = &solana.Relayer{}
 )
 
@@ -34,8 +33,8 @@ func NewRelayDelegate(db *sqlx.DB, ks keystore.Master, chainSet evm.ChainSet, lg
 	return &delegate{
 		ks: ks,
 		relayers: map[relay.Network]relay.Relayer{
-			relay.Ethereum: ethereum.NewRelayer(db, chainSet, lggr),
-			relay.Solana:   solana.NewRelayer(lggr),
+			relay.EVM:    evmrelay.NewRelayer(db, chainSet, lggr),
+			relay.Solana: solana.NewRelayer(lggr),
 		},
 	}
 }
@@ -77,21 +76,18 @@ func (d delegate) Healthy() error {
 }
 
 func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
-	spec, ok := s.(*job.OffchainReporting2OracleSpec)
-	if !ok {
-		return nil, errors.New("unsuccessful cast to 'job.OffchainReporting2OracleSpec'")
-	}
-
+	// We expect trusted input
+	spec := s.(*job.OffchainReporting2OracleSpec)
 	choice := spec.Relay
 	switch choice {
-	case relay.Ethereum:
-		var config ethereum.RelayConfig
+	case relay.EVM:
+		var config evmrelay.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
 			return nil, err
 		}
 
-		return d.relayers[choice].NewOCR2Provider(externalJobID, ethereum.OCR2Spec{
+		return d.relayers[relay.EVM].NewOCR2Provider(externalJobID, evmrelay.OCR2Spec{
 			ID:             spec.ID,
 			IsBootstrap:    spec.IsBootstrapPeer,
 			ContractID:     spec.ContractID,
@@ -127,7 +123,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		if err != nil {
 			return nil, err
 		}
-		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
+		return d.relayers[relay.Solana].NewOCR2Provider(externalJobID, solana.OCR2Spec{
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
 			NodeEndpointRPC:    config.NodeEndpointRPC,
@@ -139,6 +135,6 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 			TransmissionSigner: transmissionSigner,
 		})
 	default:
-		return nil, fmt.Errorf("unknown relayer network type: %s", spec.Relay)
+		return nil, errors.Errorf("unknown relayer network type: %s", spec.Relay)
 	}
 }

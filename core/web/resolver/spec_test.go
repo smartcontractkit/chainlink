@@ -507,7 +507,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						OCRKeyBundleID:                         null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
 						P2PBootstrapPeers:                      pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                                  relay.Ethereum,
+						Relay:                                  relay.EVM,
 						RelayConfig:                            relayConfig,
 						TransmitterID:                          null.StringFrom(transmitterAddress.String()),
 					},

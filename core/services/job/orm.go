@@ -181,7 +181,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			if jb.Offchainreporting2OracleSpec.TransmitterID.Valid {
 				switch jb.Offchainreporting2OracleSpec.Relay {
-				case relay.Ethereum:
+				case relay.EVM:
 					_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)

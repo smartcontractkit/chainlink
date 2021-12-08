@@ -72,6 +72,8 @@ func NewKeyBundleFromOCR1Key(v1key ocrkey.KeyV2) (evmKeyBundle, error) {
 	return k, nil
 }
 
+var _ fmt.GoStringer = &keyBundleBase{}
+
 type keyBundleBase struct {
 	OffchainKeyring
 	id        models.Sha256Hash
@@ -91,8 +93,8 @@ func (kb keyBundleBase) String() string {
 	return fmt.Sprintf("KeyBundle{chainType: %s, id: %s}", kb.ChainType(), kb.ID())
 }
 
-// GoStringer reduces the risk of accidentally logging the private key
-func (kb keyBundleBase) GoStringer() string {
+// GoString reduces the risk of accidentally logging the private key
+func (kb keyBundleBase) GoString() string {
 	return kb.String()
 }
 

@@ -1,8 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
 ALTER TABLE offchainreporting2_oracle_specs
-    ADD COLUMN relay text,
-    ADD COLUMN relay_config JSONB,
+    ADD COLUMN relay text NOT NULL,
+    ADD COLUMN relay_config JSONB NOT NULL DEFAULT '{}',
     DROP COLUMN evm_chain_id,
     DROP CONSTRAINT chk_contract_address_length;
 ALTER TABLE offchainreporting2_oracle_specs

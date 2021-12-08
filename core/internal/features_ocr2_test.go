@@ -216,7 +216,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NotNil(t, chainSet)
 	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
 type               = "offchainreporting2"
-relay = "ethereum"
+relay = "evm"
 relayConfig = '{"chainID": 1337}'
 schemaVersion      = 1
 name               = "boot"
@@ -273,7 +273,7 @@ isBootstrapPeer    = true
 
 		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
-relay = "ethereum"
+relay = "evm"
 relayConfig = '{"chainID": 1337}'
 schemaVersion      = 1
 name               = "web oracle spec"

@@ -27,7 +27,7 @@ func TestValidateOracleSpec(t *testing.T) {
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 isBootstrapPeer    = false
@@ -62,7 +62,7 @@ answer1      [type=median index=0];
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -100,7 +100,7 @@ answer1      [type=median index=0];
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -118,7 +118,7 @@ isBootstrapPeer    = true
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -148,7 +148,7 @@ answer1      [type=median index=0];
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -164,7 +164,7 @@ isBootstrapPeer    = false
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -183,7 +183,7 @@ observationSource = """
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -202,7 +202,7 @@ blah
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -222,7 +222,7 @@ blah
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -242,7 +242,7 @@ blah
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -267,7 +267,7 @@ monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 type               = "offchainreporting2"
 schemaVersion      = 1
 maxTaskDuration    = "30m"
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
@@ -307,7 +307,7 @@ answer1      [type=median index=0];
 			toml: `
 type               = "offchainreporting2"
 schemaVersion      = 1
-relay              = "ethereum"
+relay              = "evm"
 relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 isBootstrapPeer    = false

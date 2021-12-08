@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type Solana interface {
@@ -88,10 +87,7 @@ func (ks *solana) Delete(id string) (solkey.Key, error) {
 	if err != nil {
 		return solkey.Key{}, err
 	}
-	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
-		_, err2 := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, key.ID())
-		return err2
-	})
+	err = ks.safeRemoveKey(key)
 	return key, err
 }
 

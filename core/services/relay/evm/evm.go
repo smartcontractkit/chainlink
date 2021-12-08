@@ -1,4 +1,4 @@
-package ethereum
+package evm
 
 import (
 	"math/big"
@@ -62,10 +62,8 @@ func (r *Relayer) Healthy() error {
 }
 
 func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
-	spec, ok := s.(OCR2Spec)
-	if !ok {
-		return nil, errors.New("unsuccessful cast to 'ethereum.OCR2Spec'")
-	}
+	// Expect trusted input
+	spec := s.(OCR2Spec)
 	chain, err := r.chainSet.Get(spec.ChainID)
 	if err != nil {
 		return nil, err
@@ -149,7 +147,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 }
 
 type RelayConfig struct {
-	ChainID utils.Big `json:"chainID"`
+	ChainID *utils.Big `json:"chainID"`
 }
 
 type OCR2Spec struct {

@@ -296,7 +296,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		// master/delegate relay is started once, on app start, as root subservice
-		// TODO [relay]: move relayers creation outside OCR2 context (relayers will be multi-protocol)
 		relay := delegate.NewRelayDelegate(
 			db,
 			keyStore,

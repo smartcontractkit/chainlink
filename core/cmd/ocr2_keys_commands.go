@@ -83,7 +83,7 @@ func (cli *Client) ListOCR2KeyBundles(c *cli.Context) error {
 func (cli *Client) CreateOCR2KeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(
-			fmt.Errorf(`must pass the type to create, options are: "%s" and "%s"`, chaintype.EVM, chaintype.Solana),
+			errors.Errorf(`must pass the type to create, options are: "%s" and "%s"`, chaintype.EVM, chaintype.Solana),
 		)
 	}
 	chainType := c.Args().Get(0)

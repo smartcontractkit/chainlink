@@ -10,11 +10,11 @@ import (
 type Network string
 
 var (
-	Ethereum          Network = "ethereum"
+	EVM               Network = "evm"
 	Solana            Network = "solana"
 	SupportedRelayers         = map[Network]struct{}{
-		Ethereum: {},
-		Solana:   {},
+		EVM:    {},
+		Solana: {},
 	}
 )
 
