@@ -300,3 +300,80 @@ func TestResolver_EthTransactions(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_EthTransactionsAttempts(t *testing.T) {
+	t.Parallel()
+
+	query := `
+		query GetEthTransactionsAttempts {
+			ethTransactionsAttempts {
+				results {
+					gasPrice
+					hash
+					hex
+					sentAt
+				}
+				metadata {
+					total
+				}
+			}
+		}`
+	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "ethTransactionsAttempts"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				num := int64(2)
+
+				f.Mocks.bptxmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]bulletprooftxmanager.EthTxAttempt{
+					{
+						Hash:                    hash,
+						GasPrice:                utils.NewBigI(12),
+						SignedRawTx:             []byte("something"),
+						BroadcastBeforeBlockNum: &num,
+					},
+				}, 1, nil)
+				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+			},
+			query: query,
+			result: `
+				{
+					"ethTransactionsAttempts": {
+						"results": [{
+							"gasPrice": "12",
+							"hash": "0x0000000000000000000000005431f5f973781809d18643b87b44921b11355d81",
+							"hex": "0x736f6d657468696e67",
+							"sentAt": "2"
+						}],
+						"metadata": {
+							"total": 1
+						}
+					}
+				}`,
+		},
+		{
+			name:          "generic error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.bptxmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+			},
+			query:  query,
+			result: `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"ethTransactionsAttempts"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

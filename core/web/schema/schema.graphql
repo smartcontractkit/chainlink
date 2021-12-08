@@ -17,6 +17,7 @@ type Query {
     ethKeys: EthKeysPayload!
     ethTransaction(hash: ID!): EthTransactionPayload!
     ethTransactions(offset: Int, limit: Int): EthTransactionsPayload!
+    ethTransactionsAttempts(offset: Int, limit: Int): EthTransactionAttemptsPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!

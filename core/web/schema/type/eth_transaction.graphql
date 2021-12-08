@@ -4,14 +4,14 @@ type EthTransaction {
 	from: String!
 	to: String!
 	gasLimit: String!
-	gasPrice: String!
 	value: String!
 	evmChainID: ID!
 	nonce: String
+	gasPrice: String!
 	hash: String!
 	hex: String!
-	chain: Chain!
 	sentAt: String
+	chain: Chain!
 }
 
 union EthTransactionPayload = EthTransaction | NotFoundError

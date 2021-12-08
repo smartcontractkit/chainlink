@@ -489,3 +489,22 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 
 	return NewEthTransactionsPayload(results, int32(count)), nil
 }
+
+func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*EthTransactionsAttemptsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	attempts, count, err := r.App.BPTXMORM().EthTxAttempts(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEthTransactionsAttemptsPayload(attempts, int32(count)), nil
+}
