@@ -13,13 +13,22 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
   uint64 public s_subId;
   uint256 public s_gasAvailable;
 
+  event FulfillCallbackCalled(uint256 indexed requestId, uint256 indexed numWords);
+  event IncorrectRequestId(uint256 indexed expectedRequestId, uint256 indexed actualRequestId);
+
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-    require(requestId == s_requestId, "request ID is incorrect");
+    emit FulfillCallbackCalled(requestId, randomWords.length);
+
+    if (requestId != s_requestId) {
+      emit IncorrectRequestId(s_requestId, requestId);
+    }
+
+    // require(requestId == s_requestId, "request ID is incorrect");
 
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;

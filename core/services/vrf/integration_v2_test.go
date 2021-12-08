@@ -240,14 +240,18 @@ func subscribeVRF(
 	consumerContract *vrf_consumer_v2.VRFConsumerV2,
 	coordinatorContract *vrf_coordinator_v2.VRFCoordinatorV2,
 	backend *backends.SimulatedBackend,
-) vrf_coordinator_v2.GetSubscription {
-	subFunding := decimal.RequireFromString("1000000000000000000") // juels
-	_, err := consumerContract.TestCreateSubscriptionAndFund(author, subFunding.BigInt())
+	fundingJuels *big.Int,
+) (vrf_coordinator_v2.GetSubscription, uint64) {
+	_, err := consumerContract.TestCreateSubscriptionAndFund(author, fundingJuels)
 	require.NoError(t, err)
 	backend.Commit()
-	sub, err := coordinatorContract.GetSubscription(nil, uint64(1))
+
+	subID, err := consumerContract.SSubId(nil)
 	require.NoError(t, err)
-	return sub
+
+	sub, err := coordinatorContract.GetSubscription(nil, subID)
+	require.NoError(t, err)
+	return sub, subID
 }
 
 func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, uni coordinatorV2Universe) (jobs []job.Job) {
@@ -278,7 +282,7 @@ func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, 
 	// Wait until all jobs are active and listening for logs
 	gomega.NewWithT(t).Eventually(func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
-		return len(jbs) == 2
+		return len(jbs) == len(keys)
 	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
 	// To avoid confirming
@@ -330,6 +334,68 @@ func requestRandomnessAndAssertRequestID(
 	return requestID
 }
 
+func TestIntegrationVRFV2_SingleConsumer_HappyPath(t *testing.T) {
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_sim", true, true)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+
+	// Create a subscription and fund with 5 LINK.
+	sub, subID := subscribeVRF(t, consumer, consumerContract, uni.rootContract, uni.backend, big.NewInt(5e18))
+	require.Equal(t, uint64(1), subID)
+	require.Equal(t, big.NewInt(5e18), sub.Balance)
+
+	// Assert the subscription event in the coordinator contract.
+	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, []uint64{subID})
+	require.NoError(t, err)
+	found := false
+	for iter.Next() {
+		if iter.Event.Owner != consumerContractAddress {
+			require.FailNowf(t, "SubscriptionCreated event contains wrong owner address", "expected: %+v, actual: %+v", consumer.From, iter.Event.Owner)
+		} else {
+			found = true
+		}
+	}
+	require.Truef(t, found, "could not find SubscriptionCreated event for subID %d", subID)
+
+	// Create gas lane.
+	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
+	configureSimChain(app, map[string]types.ChainCfg{
+		key.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
+		},
+	}, big.NewInt(10e9))
+	require.NoError(t, app.Start())
+
+	// Create VRF job.
+	createJobs(t, []ethkey.KeyV2{key}, app, uni)
+
+	requestID := requestRandomnessAndAssertRequestID(t, consumerContract, consumer, subID, uni)
+
+	// Wait for fulfillment.
+	for i := 0; i < 20; i++ {
+		uni.backend.Commit()
+	}
+	c := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, 1)
+	stream, err := uni.rootContract.WatchRandomWordsFulfilled(nil, c, []*big.Int{requestID})
+	require.NoError(t, err)
+	defer stream.Unsubscribe()
+	select {
+	case <-time.After(10 * time.Second):
+		require.FailNow(t, "RandomWordsFulfilled event not emitted")
+	case fulfillmentEvent := <-c:
+		require.True(t, fulfillmentEvent.Success, "fulfillment event not successful")
+		require.Equal(t, requestID, fulfillmentEvent.RequestId)
+	}
+}
+
 func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_sim", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -341,8 +407,8 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	// subscribe the consumers to vrf
 	subs := []vrf_coordinator_v2.GetSubscription{}
 	for i := 0; i < len(uni.vrfConsumers); i++ {
-		subs = append(subs,
-			subscribeVRF(t, uni.vrfConsumers[i], uni.consumerContracts[i], uni.rootContract, uni.backend))
+		sub, _ := subscribeVRF(t, uni.vrfConsumers[i], uni.consumerContracts[i], uni.rootContract, uni.backend, big.NewInt(1e18))
+		subs = append(subs, sub)
 	}
 
 	carol := uni.vrfConsumers[0]
@@ -388,7 +454,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 
 	// enqueue requests for carol, who is our protagonist in this test.
 	sub := subs[0]
-	t.Log("Sub balance", sub.Balance)
+	t.Log("Carol's subscription balance", sub.Balance)
 	for i := 0; i < 5; i++ {
 		rid := requestRandomnessAndAssertRequestID(
 			t,
