@@ -474,7 +474,7 @@ func (r *OCR2SpecResolver) BlockchainTimeout() *string {
 
 // ContractAddress resolves the spec's contract address.
 func (r *OCR2SpecResolver) ContractID() string {
-	return r.spec.ContractID.String
+	return r.spec.ContractID
 }
 
 // ContractConfigConfirmations resolves the spec's confirmations config.

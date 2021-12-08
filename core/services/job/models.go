@@ -1,10 +1,14 @@
 package job
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 
@@ -241,12 +245,31 @@ func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
+type RelayConfig map[string]interface{}
+
+func (r RelayConfig) Bytes() []byte {
+	b, _ := json.Marshal(r)
+	return b
+}
+
+func (r RelayConfig) Value() (driver.Value, error) {
+	return json.Marshal(r)
+}
+
+func (r *RelayConfig) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.Errorf("expected bytes got %T", b)
+	}
+	return json.Unmarshal(b, &r)
+}
+
 // Relay config is chain specific config for a relay (chain adapter).
 type OffchainReporting2OracleSpec struct {
 	ID                                     int32           `toml:"-"`
-	ContractID                             null.String     `toml:"contractID"`
+	ContractID                             string          `toml:"contractID"`
 	Relay                                  relay.Network   `toml:"relay"`
-	RelayConfig                            models.JSON     `toml:"relayConfig"`
+	RelayConfig                            RelayConfig     `toml:"relayConfig"`
 	P2PBootstrapPeers                      pq.StringArray  `toml:"p2pBootstrapPeers"`
 	IsBootstrapPeer                        bool            `toml:"isBootstrapPeer"`
 	OCRKeyBundleID                         null.String     `toml:"ocrKeyBundleID"`

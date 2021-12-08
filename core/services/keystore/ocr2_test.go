@@ -100,6 +100,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
 		require.Equal(t, importedKey, retrievedKey)
+		require.Equal(t, importedKey.ChainType(), retrievedKey.ChainType())
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {

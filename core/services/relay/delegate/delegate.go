@@ -102,7 +102,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
 		}
 
-		programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID.ValueOrZero())
+		programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID)
 		if err != nil {
 			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.ContractID")
 		}

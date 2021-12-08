@@ -484,7 +484,9 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	relayConfig, err := models.ParseJSON([]byte(`{"chainID": 1337}`))
+	relayConfig := map[string]interface{}{
+		"chainID": 1337,
+	}
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -497,7 +499,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 					Type: job.OffchainReporting2,
 					Offchainreporting2OracleSpec: &job.OffchainReporting2OracleSpec{
 						BlockchainTimeout:                      models.Interval(1 * time.Minute),
-						ContractID:                             null.StringFrom(contractAddress.String()),
+						ContractID:                             contractAddress.String(),
 						ContractConfigConfirmations:            1,
 						ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
 						ContractConfigTrackerSubscribeInterval: models.Interval(1 * time.Minute),

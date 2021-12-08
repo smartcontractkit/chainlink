@@ -1,11 +1,12 @@
 package gqlscalar
 
 import (
+	"encoding/json"
+
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type Map models.JSON
+type Map map[string]interface{}
 
 func (Map) ImplementsGraphQLType(name string) bool { return name == "Map" }
 
@@ -20,5 +21,5 @@ func (m *Map) UnmarshalGraphQL(input interface{}) error {
 }
 
 func (m Map) MarshalJSON() ([]byte, error) {
-	return []byte(m.Raw), nil
+	return json.Marshal(m)
 }

@@ -28,7 +28,6 @@ func TestValidateOracleSpec(t *testing.T) {
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 isBootstrapPeer    = false
 observationSource = """
@@ -45,6 +44,8 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -63,7 +64,6 @@ answer1      [type=median index=0];
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = [
@@ -88,6 +88,8 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -101,11 +103,12 @@ answer1      [type=median index=0];
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = true
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -119,7 +122,6 @@ isBootstrapPeer    = true
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = [
@@ -137,6 +139,8 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -149,11 +153,12 @@ answer1      [type=median index=0];
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = false
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -165,7 +170,6 @@ isBootstrapPeer    = false
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
@@ -173,6 +177,8 @@ isBootstrapPeer    = false
 observationSource = """
 ->
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -184,7 +190,6 @@ observationSource = """
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/invalid/peer/address"]
@@ -192,6 +197,8 @@ isBootstrapPeer    = false
 observationSource = """
 blah
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -203,7 +210,6 @@ blah
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
@@ -212,6 +218,8 @@ blockchainTimeout  = "0s"
 observationSource = """
 blah
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -223,7 +231,6 @@ blah
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
@@ -232,6 +239,8 @@ contractConfigTrackerSubscribeInterval = "0s"
 observationSource = """
 blah
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -243,12 +252,13 @@ blah
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = true
 monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.EqualError(t, err, "toml error on load: (10, 23): invalid escape sequence: \\2")
@@ -268,7 +278,6 @@ type               = "offchainreporting2"
 schemaVersion      = 1
 maxTaskDuration    = "30m"
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = [
@@ -292,6 +301,8 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -308,7 +319,6 @@ answer1      [type=median index=0];
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "evm"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 isBootstrapPeer    = false
 observationSource = """
@@ -320,7 +330,10 @@ answer1      [type=median index=0];
 """
 juelsPerFeeCoinSource = """
 ->
-"""
+""
+[relayConfig]
+chainID = 1337
+
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -333,7 +346,6 @@ juelsPerFeeCoinSource = """
 type               = "offchainreporting2"
 schemaVersion      = 1
 relay              = "blerg"
-relayConfig        = '{"chainID": 1337}'
 contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 isBootstrapPeer    = false
 observationSource = """
@@ -346,6 +358,8 @@ answer1      [type=median index=0];
 juelsPerFeeCoinSource = """
 ds1          [type=bridge name=voter_turnout];
 """
+[relayConfig]
+chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				fmt.Println("relay", os.Offchainreporting2OracleSpec.Relay)

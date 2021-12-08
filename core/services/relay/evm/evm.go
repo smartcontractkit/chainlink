@@ -68,8 +68,10 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 	if err != nil {
 		return nil, err
 	}
-	// TODO: more validation
-	contractAddress := common.HexToAddress(spec.ContractID.String)
+	if !common.IsHexAddress(spec.ContractID) {
+		return nil, errors.Errorf("invalid contractID, expected hex address")
+	}
+	contractAddress := common.HexToAddress(spec.ContractID)
 
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
@@ -123,9 +125,8 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 	}
 
 	if !spec.TransmitterID.Valid {
-		return nil, errors.New("transmitter address is required")
+		return nil, errors.New("transmitterID is required for non-bootstrap jobs")
 	}
-
 	transmitterAddress := common.HexToAddress(spec.TransmitterID.String)
 	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
 
@@ -152,9 +153,9 @@ type RelayConfig struct {
 
 type OCR2Spec struct {
 	ID             int32
-	ContractID     null.String
-	OCRKeyBundleID null.String
-	TransmitterID  null.String
+	ContractID     string
+	OCRKeyBundleID null.String // Can be specified with env var.
+	TransmitterID  null.String // Will be null for bootstrap jobs
 	IsBootstrap    bool
 	ChainID        *big.Int
 }

@@ -217,11 +217,12 @@ func TestIntegration_OCR2(t *testing.T) {
 	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
 type               = "offchainreporting2"
 relay = "evm"
-relayConfig = '{"chainID": 1337}'
 schemaVersion      = 1
 name               = "boot"
 contractID = "%s"
 isBootstrapPeer    = true
+[relayConfig]
+chainID = 1337
 `, ocrContractAddress))
 	require.NoError(t, err)
 	err = appBootstrap.AddJobV2(context.Background(), &ocrJob)
@@ -274,7 +275,6 @@ isBootstrapPeer    = true
 		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
 relay = "evm"
-relayConfig = '{"chainID": 1337}'
 schemaVersion      = 1
 name               = "web oracle spec"
 contractID = "%s"
@@ -315,6 +315,8 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)

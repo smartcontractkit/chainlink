@@ -177,20 +177,20 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
-	ContractID                             null.String     `json:"contractID"`
-	Relay                                  relay.Network   `json:"relay"`
-	RelayConfig                            models.JSON     `json:"relayConfig"`
-	P2PBootstrapPeers                      pq.StringArray  `json:"p2pBootstrapPeers"`
-	IsBootstrapPeer                        bool            `json:"isBootstrapPeer"`
-	OCRKeyBundleID                         null.String     `json:"ocrKeyBundleID"`
-	TransmitterID                          null.String     `json:"transmitterID"`
-	ObservationTimeout                     models.Interval `json:"observationTimeout"`
-	BlockchainTimeout                      models.Interval `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16          `json:"contractConfigConfirmations"`
-	CreatedAt                              time.Time       `json:"createdAt"`
-	UpdatedAt                              time.Time       `json:"updatedAt"`
+	ContractID                             string                 `json:"contractID"`
+	Relay                                  relay.Network          `json:"relay"`
+	RelayConfig                            map[string]interface{} `json:"relayConfig"`
+	P2PBootstrapPeers                      pq.StringArray         `json:"p2pBootstrapPeers"`
+	IsBootstrapPeer                        bool                   `json:"isBootstrapPeer"`
+	OCRKeyBundleID                         null.String            `json:"ocrKeyBundleID"`
+	TransmitterID                          null.String            `json:"transmitterID"`
+	ObservationTimeout                     models.Interval        `json:"observationTimeout"`
+	BlockchainTimeout                      models.Interval        `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval        `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval        `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16                 `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time              `json:"createdAt"`
+	UpdatedAt                              time.Time              `json:"updatedAt"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
