@@ -44,9 +44,10 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
   }
 
   function fulfillRandomWords(
-    uint256, /* requestId */
+    uint256 requestId,
     uint256[] memory randomWords
   ) internal override {
+    require(requestId == s_requestId, "request ID is incorrect");
     s_randomWords = randomWords;
   }
 
