@@ -353,7 +353,7 @@ observationTimeout = "10s"
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
-        relay: 'ethereum',
+        relay: 'evm',
         relayConfig: {
           chainID: 1337,
         },
@@ -386,8 +386,7 @@ monitoringEndpoint = "https://monitoring.endpoint"
 p2pBootstrapPeers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
-relay = "ethereum"
-relayConfig = '{"chainID":1337}'
+relay = "evm"
 transmitterID = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
@@ -395,6 +394,9 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+
+[relayConfig]
+chainID = 1_337
 `
 
     const output = generateJobDefinition(job)

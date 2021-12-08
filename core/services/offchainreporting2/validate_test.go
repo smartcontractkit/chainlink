@@ -261,7 +261,8 @@ monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, "toml error on load: (10, 23): invalid escape sequence: \\2")
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "invalid escape sequence")
 			},
 		},
 		{
@@ -330,10 +331,9 @@ answer1      [type=median index=0];
 """
 juelsPerFeeCoinSource = """
 ->
-""
+"""
 [relayConfig]
 chainID = 1337
-
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
