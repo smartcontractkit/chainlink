@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+
 type ORM interface {
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
