@@ -3,6 +3,7 @@ type JobError {
 	description: String!
 	occurrences: Int!
 	createdAt: Time!
+	updatedAt: Time!
 }
 
 type DismissJobErrorSuccess {

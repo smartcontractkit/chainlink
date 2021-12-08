@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -19,13 +20,13 @@ func newLeaseLock(t *testing.T, db *sqlx.DB) pg.LeaseLock {
 }
 
 func Test_LeaseLock(t *testing.T) {
-	t.Run("on migrated database", func(t *testing.T) {
-		cfg, db := heavyweight.FullTestDB(t, "leaselock", true, false)
-		duration := 15 * time.Second
-		refresh := 100 * time.Millisecond
-		cfg.Overrides.LeaseLockDuration = &duration
-		cfg.Overrides.LeaseLockRefreshInterval = &refresh
+	cfg, db := heavyweight.FullTestDB(t, "leaselock", true, false)
+	duration := 15 * time.Second
+	refresh := 100 * time.Millisecond
+	cfg.Overrides.LeaseLockDuration = &duration
+	cfg.Overrides.LeaseLockRefreshInterval = &refresh
 
+	t.Run("on migrated database", func(t *testing.T) {
 		leaseLock1 := newLeaseLock(t, db)
 
 		err := leaseLock1.TakeAndHold()
@@ -51,7 +52,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		select {
 		case <-started2:
-		case <-time.After(5 * time.Second):
+		case <-time.After(cltest.WaitTimeout(t)):
 			t.Fatal("timed out waiting for leaseLock2 to start")
 		}
 
@@ -59,6 +60,36 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, leaseLock2.ClientID(), clientID)
 	})
+
+	t.Run("recovers and re-opens connection if it's closed externally", func(t *testing.T) {
+		leaseLock := newLeaseLock(t, db)
+
+		err := leaseLock.TakeAndHold()
+		require.NoError(t, err)
+		defer leaseLock.Release()
+
+		conn := pg.GetConn(leaseLock)
+
+		var prevExpiresAt time.Time
+
+		err = conn.Close()
+		require.NoError(t, err)
+
+		err = db.Get(&prevExpiresAt, `SELECT expires_at FROM lease_lock`)
+		require.NoError(t, err)
+
+		time.Sleep(cfg.LeaseLockRefreshInterval() + 1*time.Second)
+
+		var expiresAt time.Time
+
+		err = db.Get(&expiresAt, `SELECT expires_at FROM lease_lock`)
+		require.NoError(t, err)
+
+		// The lease lock must have recovered and re-opened the connection if the second expires_at is later
+		assert.Greater(t, expiresAt.Unix(), prevExpiresAt.Unix())
+	})
+
+	require.NoError(t, db.Close())
 
 	t.Run("on virgin database", func(t *testing.T) {
 		_, db := heavyweight.FullTestDB(t, "leaselock", false, false)

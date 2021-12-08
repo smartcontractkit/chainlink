@@ -286,6 +286,12 @@ func (d Duration) Value() (driver.Value, error) {
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
 
+func NewInterval(d time.Duration) *Interval {
+	i := new(Interval)
+	*i = Interval(d)
+	return i
+}
+
 func (i Interval) Duration() time.Duration {
 	return time.Duration(i)
 }

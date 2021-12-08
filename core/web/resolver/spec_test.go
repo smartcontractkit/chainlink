@@ -13,7 +13,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -363,9 +362,6 @@ func TestResolver_OCRSpec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	p2pPeerID, err := p2pkey.MakePeerID("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
-	require.NoError(t, err)
-
 	testCases := []GQLTestCase{
 		{
 			name:          "OCR spec",
@@ -382,16 +378,20 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ContractConfigConfirmationsEnv:            true,
 						ContractConfigTrackerPollInterval:         models.Interval(1 * time.Minute),
 						ContractConfigTrackerPollIntervalEnv:      false,
-						ContractConfigTrackerSubscribeInterval:    models.Interval(1 * time.Minute),
+						ContractConfigTrackerSubscribeInterval:    models.Interval(2 * time.Minute),
 						ContractConfigTrackerSubscribeIntervalEnv: true,
+						DatabaseTimeout:                           models.NewInterval(3 * time.Second),
+						DatabaseTimeoutEnv:                        true,
+						ObservationGracePeriod:                    models.NewInterval(4 * time.Second),
+						ObservationGracePeriodEnv:                 true,
+						ContractTransmitterTransmitTimeout:        models.NewInterval(555 * time.Millisecond),
+						ContractTransmitterTransmitTimeoutEnv:     true,
 						CreatedAt:               f.Timestamp(),
 						EVMChainID:              utils.NewBigI(42),
 						IsBootstrapPeer:         false,
 						EncryptedOCRKeyBundleID: &keyBundleID,
 						ObservationTimeout:      models.Interval(2 * time.Minute),
 						ObservationTimeoutEnv:   false,
-						P2PPeerID:               p2pPeerID,
-						P2PPeerIDEnv:            true,
 						P2PBootstrapPeers:       pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
 						TransmitterAddress:      &transmitterAddress,
 					},
@@ -413,14 +413,18 @@ func TestResolver_OCRSpec(t *testing.T) {
 									contractConfigTrackerPollIntervalEnv
 									contractConfigTrackerSubscribeInterval
 									contractConfigTrackerSubscribeIntervalEnv
+									databaseTimeout
+									databaseTimeoutEnv
+									observationGracePeriod
+									observationGracePeriodEnv
+									contractTransmitterTransmitTimeout
+									contractTransmitterTransmitTimeoutEnv
 									createdAt
 									evmChainID
 									isBootstrapPeer
 									keyBundleID
 									observationTimeout
 									observationTimeoutEnv
-									p2pPeerID
-									p2pPeerIDEnv
 									p2pBootstrapPeers
 									transmitterAddress
 								}
@@ -441,16 +445,20 @@ func TestResolver_OCRSpec(t *testing.T) {
 							"contractConfigConfirmationsEnv": true,
 							"contractConfigTrackerPollInterval": "1m0s",
 							"contractConfigTrackerPollIntervalEnv": false,
-							"contractConfigTrackerSubscribeInterval": "1m0s",
+							"contractConfigTrackerSubscribeInterval": "2m0s",
 							"contractConfigTrackerSubscribeIntervalEnv": true,
+							"databaseTimeout": "3s",
+							"databaseTimeoutEnv": true,
+							"observationGracePeriod": "4s",
+							"observationGracePeriodEnv": true,
+							"contractTransmitterTransmitTimeout": "555ms",
+							"contractTransmitterTransmitTimeoutEnv": true,
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"isBootstrapPeer": false,
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"observationTimeout": "2m0s",
 							"observationTimeoutEnv": false,
-							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
-							"p2pPeerIDEnv": true,
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
@@ -475,9 +483,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	p2pPeerID, err := p2pkey.MakePeerID("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
-	require.NoError(t, err)
-
 	testCases := []GQLTestCase{
 		{
 			name:          "OCR 2 spec",
@@ -498,7 +503,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						JuelsPerFeeCoinPipeline:                "100000000",
 						EncryptedOCRKeyBundleID:                null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
-						P2PPeerID:                              &p2pPeerID,
 						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
 						TransmitterAddress:                     &transmitterAddress,
 					},
@@ -522,7 +526,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									juelsPerFeeCoinSource
 									keyBundleID
 									monitoringEndpoint
-									p2pPeerID
 									p2pBootstrapPeers
 									transmitterAddress
 								}
@@ -547,7 +550,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"juelsPerFeeCoinSource": "100000000",
 							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
-							"p2pPeerID": "p2p_12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw",
 							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
 							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
@@ -575,7 +577,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 
 	testCases := []GQLTestCase{
 		{
-			name:          "keeper spec",
+			name:          "vrf spec",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
@@ -590,6 +592,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						PollPeriod:               1 * time.Minute,
 						PublicKey:                pubKey,
 						RequestedConfsDelay:      10,
+						RequestTimeout:           24 * time.Hour,
 					},
 				}, nil)
 			},
@@ -608,6 +611,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									pollPeriod
 									publicKey
 									requestedConfsDelay
+									requestTimeout
 								}
 							}
 						}
@@ -626,7 +630,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"minIncomingConfirmations": 1,
 							"pollPeriod": "1m0s",
 							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01",
-							"requestedConfsDelay": 10
+							"requestedConfsDelay": 10,
+							"requestTimeout": "24h0m0s"
 						}
 					}
 				}

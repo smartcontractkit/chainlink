@@ -12,7 +12,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -118,8 +117,6 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
 	ContractAddress                           ethkey.EIP55Address  `json:"contractAddress"`
-	P2PPeerID                                 p2pkey.PeerID        `json:"p2pPeerID"`
-	P2PPeerIDEnv                              bool                 `json:"p2pPeerIDEnv,omitempty"`
 	P2PBootstrapPeers                         pq.StringArray       `json:"p2pBootstrapPeers"`
 	IsBootstrapPeer                           bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash   `json:"keyBundleID"`
@@ -137,6 +134,12 @@ type OffChainReportingSpec struct {
 	CreatedAt                                 time.Time            `json:"createdAt"`
 	UpdatedAt                                 time.Time            `json:"updatedAt"`
 	EVMChainID                                *utils.Big           `json:"evmChainID"`
+	DatabaseTimeout                           *models.Interval     `json:"databaseTimeout"`
+	DatabaseTimeoutEnv                        bool                 `json:"databaseTimeoutEnv,omitempty"`
+	ObservationGracePeriod                    *models.Interval     `json:"observationGracePeriod"`
+	ObservationGracePeriodEnv                 bool                 `json:"observationGracePeriodEnv,omitempty"`
+	ContractTransmitterTransmitTimeout        *models.Interval     `json:"contractTransmitterTransmitTimeout"`
+	ContractTransmitterTransmitTimeoutEnv     bool                 `json:"contractTransmitterTransmitTimeoutEnv,omitempty"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -144,8 +147,6 @@ type OffChainReportingSpec struct {
 func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainReportingSpec {
 	return &OffChainReportingSpec{
 		ContractAddress:                           spec.ContractAddress,
-		P2PPeerID:                                 spec.P2PPeerID,
-		P2PPeerIDEnv:                              spec.P2PPeerIDEnv,
 		P2PBootstrapPeers:                         spec.P2PBootstrapPeers,
 		IsBootstrapPeer:                           spec.IsBootstrapPeer,
 		EncryptedOCRKeyBundleID:                   spec.EncryptedOCRKeyBundleID,
@@ -163,13 +164,18 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 		CreatedAt:                                 spec.CreatedAt,
 		UpdatedAt:                                 spec.UpdatedAt,
 		EVMChainID:                                spec.EVMChainID,
+		DatabaseTimeout:                           spec.DatabaseTimeout,
+		DatabaseTimeoutEnv:                        spec.DatabaseTimeoutEnv,
+		ObservationGracePeriod:                    spec.ObservationGracePeriod,
+		ObservationGracePeriodEnv:                 spec.ObservationGracePeriodEnv,
+		ContractTransmitterTransmitTimeout:        spec.ContractTransmitterTransmitTimeout,
+		ContractTransmitterTransmitTimeoutEnv:     spec.ContractTransmitterTransmitTimeoutEnv,
 	}
 }
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
 	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
-	P2PPeerID                              *p2pkey.PeerID       `json:"p2pPeerID"`
 	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
 	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                null.String          `json:"keyBundleID"`
@@ -188,7 +194,6 @@ type OffChainReporting2Spec struct {
 func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChainReporting2Spec {
 	return &OffChainReporting2Spec{
 		ContractAddress:                        spec.ContractAddress,
-		P2PPeerID:                              spec.P2PPeerID,
 		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
 		IsBootstrapPeer:                        spec.IsBootstrapPeer,
 		EncryptedOCRKeyBundleID:                spec.EncryptedOCRKeyBundleID,

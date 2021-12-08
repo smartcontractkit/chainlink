@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -196,11 +195,9 @@ func (pr *PipelineRun) SetID(value string) error {
 type OffchainReportingOracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
-	P2PPeerID                                 p2pkey.PeerID       `toml:"p2pPeerID" db:"p2p_peer_id"`
-	P2PPeerIDEnv                              bool
-	P2PBootstrapPeers                         pq.StringArray     `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
-	IsBootstrapPeer                           bool               `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                   *models.Sha256Hash `toml:"keyBundleID"`
+	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv                bool
 	TransmitterAddress                        *ethkey.EIP55Address `toml:"transmitterAddress"`
 	TransmitterAddressEnv                     bool
@@ -214,9 +211,15 @@ type OffchainReportingOracleSpec struct {
 	ContractConfigTrackerPollIntervalEnv      bool
 	ContractConfigConfirmations               uint16 `toml:"contractConfigConfirmations"`
 	ContractConfigConfirmationsEnv            bool
-	EVMChainID                                *utils.Big `toml:"evmChainID" db:"evm_chain_id"`
-	CreatedAt                                 time.Time  `toml:"-"`
-	UpdatedAt                                 time.Time  `toml:"-"`
+	EVMChainID                                *utils.Big       `toml:"evmChainID" db:"evm_chain_id"`
+	DatabaseTimeout                           *models.Interval `toml:"databaseTimeout"`
+	DatabaseTimeoutEnv                        bool
+	ObservationGracePeriod                    *models.Interval `toml:"observationGracePeriod"`
+	ObservationGracePeriodEnv                 bool
+	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
+	ContractTransmitterTransmitTimeoutEnv     bool
+	CreatedAt                                 time.Time `toml:"-"`
+	UpdatedAt                                 time.Time `toml:"-"`
 }
 
 func (s OffchainReportingOracleSpec) GetID() string {
@@ -239,7 +242,6 @@ func (OffchainReportingOracleSpec) TableName() string {
 type OffchainReporting2OracleSpec struct {
 	ID                                     int32                `toml:"-"`
 	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
-	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID"`
 	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers"`
 	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                null.String          `toml:"keyBundleID"`
@@ -405,7 +407,8 @@ type VRFSpec struct {
 	FromAddress              *ethkey.EIP55Address `toml:"fromAddress"`
 	PollPeriod               time.Duration        `toml:"pollPeriod"` // For v2 jobs
 	PollPeriodEnv            bool
-	RequestedConfsDelay      int64     `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
-	CreatedAt                time.Time `toml:"-"`
-	UpdatedAt                time.Time `toml:"-"`
+	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
+	RequestTimeout           time.Duration `toml:"requestTimeout"`      // For v2 jobs. Optional, defaults to 24hr if not provided.
+	CreatedAt                time.Time     `toml:"-"`
+	UpdatedAt                time.Time     `toml:"-"`
 }
