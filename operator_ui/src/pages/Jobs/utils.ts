@@ -1,5 +1,5 @@
 import TOML from '@iarna/toml'
-import { PipelineTaskError, RunStatus } from 'core/store/models'
+import { RunStatus } from 'core/store/models'
 import { TaskSpec } from 'core/store/models'
 import { parseDot, Stratify } from 'utils/parseDot'
 import { countBy as _countBy } from 'lodash'
@@ -14,22 +14,6 @@ export function isToml({ value }: { value: string }): boolean {
   } catch {
     return false
   }
-}
-
-export function getJobStatus({
-  finishedAt,
-  errors,
-}: {
-  finishedAt: string | null
-  errors: PipelineTaskError[]
-}) {
-  if (finishedAt === null) {
-    return RunStatus.IN_PROGRESS
-  }
-  if (errorsExist(errors)) {
-    return RunStatus.ERRORED
-  }
-  return RunStatus.COMPLETED
 }
 
 // Temporary function until we can come up with a better design
@@ -90,8 +74,4 @@ export function getTaskList({ value }: { value: string }): {
     list,
     error,
   }
-}
-
-function errorsExist(errors: PipelineTaskError[]): boolean {
-  return errors !== null && errors.length > 0 && errors[0] !== null
 }

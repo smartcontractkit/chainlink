@@ -11,6 +11,31 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
+type JobRunStatus string
+
+const (
+	JobRunStatusUnknown   JobRunStatus = "UNKNOWN"
+	JobRunStatusRunning   JobRunStatus = "RUNNING"
+	JobRunStatusSuspended JobRunStatus = "SUSPENDED"
+	JobRunStatusErrored   JobRunStatus = "ERRORED"
+	JobRunStatusCompleted JobRunStatus = "COMPLETED"
+)
+
+func NewJobRunStatus(status pipeline.RunStatus) JobRunStatus {
+	switch status {
+	case pipeline.RunStatusRunning:
+		return JobRunStatusRunning
+	case pipeline.RunStatusSuspended:
+		return JobRunStatusSuspended
+	case pipeline.RunStatusErrored:
+		return JobRunStatusErrored
+	case pipeline.RunStatusCompleted:
+		return JobRunStatusCompleted
+	default:
+		return JobRunStatusUnknown
+	}
+}
+
 var outputRetrievalErrorStr = "error: unable to retrieve outputs"
 
 type JobRunResolver struct {
@@ -58,7 +83,9 @@ func (r *JobRunResolver) FatalErrors() []string {
 	var errs []string
 
 	for _, err := range r.run.StringFatalErrors() {
-		errs = append(errs, *err)
+		if err != nil {
+			errs = append(errs, *err)
+		}
 	}
 
 	return errs
@@ -68,7 +95,9 @@ func (r *JobRunResolver) AllErrors() []string {
 	var errs []string
 
 	for _, err := range r.run.StringAllErrors() {
-		errs = append(errs, *err)
+		if err != nil {
+			errs = append(errs, *err)
+		}
 	}
 
 	return errs
@@ -81,6 +110,10 @@ func (r *JobRunResolver) Inputs() string {
 	}
 
 	return string(val)
+}
+
+func (r *JobRunResolver) Status() JobRunStatus {
+	return NewJobRunStatus(r.run.State)
 }
 
 // TaskRuns resolves the job run's task runs

@@ -11,7 +11,6 @@ import PrivateRoute from './PrivateRoute'
 
 import Configuration from 'pages/Configuration/Index'
 import JobsNew from 'pages/Jobs/New'
-import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
 import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
@@ -66,11 +65,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <JobsNew />
               </PrivateRoute>
 
-              <PrivateRoute
-                path="/jobs/:jobId/runs/:jobRunId"
-                component={JobRunsShowOverview}
-              />
-
               <PrivateRoute exact path="/chains">
                 <ChainsScreen />
               </PrivateRoute>
@@ -115,7 +109,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <JobsPage />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/runs">
+              <PrivateRoute path="/runs">
                 <JobRunsPage />
               </PrivateRoute>
 

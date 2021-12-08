@@ -16,7 +16,7 @@ describe('JobRunsTable', () => {
         <Route exact path="/">
           <JobRunsTable {...props} />
         </Route>
-        <Route path="/jobs/:id/runs/:runId">Run Page</Route>
+        <Route path="/runs/:id">Run Page</Route>
       </>,
     )
   }
@@ -32,7 +32,6 @@ describe('JobRunsTable', () => {
       createdAt: twoMinutesAgo,
       errors: [],
       finishedAt: minuteAgo,
-      jobId: '100',
       ...overrides,
     }
   }

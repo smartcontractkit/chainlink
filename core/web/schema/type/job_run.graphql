@@ -1,3 +1,11 @@
+enum JobRunStatus {
+    UNKNOWN
+    RUNNING
+    SUSPENDED
+    ERRORED
+    COMPLETED
+}
+
 type JobRun {
     id: ID!
     outputs: [String]!
@@ -7,6 +15,7 @@ type JobRun {
     createdAt: Time!
     finishedAt: Time
     taskRuns: [TaskRun!]!
+    status: JobRunStatus!
     job: Job!
 }
 
