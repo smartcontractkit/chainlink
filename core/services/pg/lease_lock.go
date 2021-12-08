@@ -146,13 +146,13 @@ func (l *leaseLock) checkoutConn(ctx context.Context) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "failed checking out connection from pool")
 	}
+	l.conn = newConn
 	if err = l.setInitialTimeouts(ctx); err != nil {
 		return multierr.Combine(
 			errors.Wrap(err, "failed to set initial timeouts"),
 			l.conn.Close(),
 		)
 	}
-	l.conn = newConn
 	return nil
 }
 
