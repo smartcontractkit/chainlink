@@ -298,20 +298,24 @@ func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, 
 // and asserts that the request ID logged by the RandomWordsRequested event
 // matches the request ID that is returned and set by the consumer contract.
 // The request ID is then returned to the caller.
-func requestRandomnessAndAssertRequestID(
+func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	t *testing.T,
 	vrfConsumerHandle *vrf_consumer_v2.VRFConsumerV2,
 	consumerOwner *bind.TransactOpts,
+	keyHash common.Hash,
 	subID uint64,
 	uni coordinatorV2Universe,
 ) *big.Int {
+	cbGasLimit := uint32(500_000)
+	minRequestConfirmations := uint16(2)
+	numWords := uint32(20)
 	_, err := vrfConsumerHandle.TestRequestRandomness(
 		consumerOwner,
 		keyHash,
-		subID,           // subscription id
-		uint16(2),       // min request confirmations - must be >= min request confirmations in coordinator contract
-		uint32(300_000), // callback gas limit
-		uint32(20),      // number of random words
+		subID,
+		minRequestConfirmations,
+		cbGasLimit,
+		numWords,
 	)
 	require.NoError(t, err)
 
@@ -326,10 +330,14 @@ func requestRandomnessAndAssertRequestID(
 	}
 
 	requestID, err := vrfConsumerHandle.SRequestId(nil)
-	t.Log("request ID in consumer contract: ", requestID)
 	require.NoError(t, err)
 
-	require.Equal(t, events[len(events)-1].RequestId, requestID, "request ID in contract does not match request ID in log")
+	event := events[len(events)-1]
+	require.Equal(t, event.RequestId, requestID, "request ID in contract does not match request ID in log")
+	require.Equal(t, keyHash.Bytes(), event.KeyHash[:], "key hash of event (%s) and of request not equal (%s)", hex.EncodeToString(event.KeyHash[:]), keyHash.String())
+	require.Equal(t, cbGasLimit, event.CallbackGasLimit, "callback gas limit of event and of request not equal")
+	require.Equal(t, minRequestConfirmations, event.MinimumRequestConfirmations, "min request confirmations of event and of request not equal")
+	require.Equal(t, numWords, event.NumWords, "num words of event and of request not equal")
 
 	return requestID
 }
@@ -375,16 +383,36 @@ func TestIntegrationVRFV2_SingleConsumer_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// Create VRF job.
-	createJobs(t, []ethkey.KeyV2{key}, app, uni)
+	jbs := createJobs(t, []ethkey.KeyV2{key}, app, uni)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
-	requestID := requestRandomnessAndAssertRequestID(t, consumerContract, consumer, subID, uni)
+	// Make the randomness request.
+	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, uni)
 
-	// Wait for fulfillment.
-	for i := 0; i < 20; i++ {
+	// Wait for fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	uni.backend.Commit()
+
+	// Assert correct state of RandomWordsFulfilled event.
+	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
+	require.NoError(t, err)
+	found = false
+	for fiter.Next() {
+		require.True(t, fiter.Event.Success, "fulfillment event not successful")
+		require.Equal(t, requestID, fiter.Event.RequestId)
+		found = true
 	}
-	c := make(chan *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled, 1)
-	stream, err := uni.rootContract.WatchRandomWordsFulfilled(nil, c, []*big.Int{requestID})
+	require.True(t, found, "RandomWordsFulfilled event not found")
+	t.Log("Done!")
+}
 	require.NoError(t, err)
 	defer stream.Unsubscribe()
 	select {
