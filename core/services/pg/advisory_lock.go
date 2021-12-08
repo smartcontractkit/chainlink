@@ -130,6 +130,9 @@ func (l *advisoryLock) loop() {
 	ticker := time.NewTicker(utils.WithJitter(l.checkInterval))
 	defer ticker.Stop()
 
+	ctxStop, cancel := utils.ContextFromChan(l.chStop)
+	defer cancel()
+
 	for {
 		select {
 		case <-l.chStop:
@@ -146,8 +149,7 @@ func (l *advisoryLock) loop() {
 		case <-ticker.C:
 			var gotLock bool
 
-			ctx, cancel := utils.ContextFromChan(l.chStop)
-			ctx, cancel2 := context.WithTimeout(ctx, l.checkInterval)
+			ctx, cancel := context.WithTimeout(ctxStop, l.checkInterval)
 			l.logger.Trace("Checking advisory lock")
 			err := l.conn.QueryRowContext(ctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
@@ -158,7 +160,6 @@ func (l *advisoryLock) loop() {
 				}
 				gotLock, err = l.getLock(ctx)
 			}
-			cancel2()
 			cancel()
 			if err != nil {
 				l.logger.Errorw("Error while checking advisory lock", "err", err)

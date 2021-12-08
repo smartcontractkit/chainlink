@@ -183,6 +183,9 @@ func (l *leaseLock) loop() {
 	ticker := time.NewTicker(l.refreshInterval)
 	defer ticker.Stop()
 
+	ctxStop, cancel := utils.ContextFromChan(l.chStop)
+	defer cancel()
+
 	for {
 		select {
 		case <-l.chStop:
@@ -197,8 +200,7 @@ func (l *leaseLock) loop() {
 			}
 			return
 		case <-ticker.C:
-			ctx, cancel := utils.ContextFromChan(l.chStop)
-			ctx, cancel2 := context.WithTimeout(ctx, l.leaseDuration)
+			ctx, cancel := context.WithTimeout(ctxStop, l.leaseDuration)
 			gotLease, err := l.getLease(ctx, false)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
@@ -207,7 +209,6 @@ func (l *leaseLock) loop() {
 				}
 				gotLease, err = l.getLease(ctx, false)
 			}
-			cancel2()
 			cancel()
 			if err != nil {
 				l.logger.Errorw("Error trying to refresh database lease", "err", err)
