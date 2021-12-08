@@ -19,10 +19,7 @@ contract VRFExternalSubOwnerExample is VRFConsumerBaseV2 {
     s_owner = msg.sender;
   }
 
-  function fulfillRandomWords(
-    uint256 requestId,
-    uint256[] memory randomWords
-  ) internal override {
+  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     require(requestId == s_requestId, "request ID is incorrect");
     s_randomWords = randomWords;
   }

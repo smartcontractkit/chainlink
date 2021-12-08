@@ -54,8 +54,7 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
     uint32 callbackGasLimit,
     uint32 numWords
   ) external returns (uint256) {
-    s_requestId = COORDINATOR.requestRandomWords(
-      keyHash, subId, minReqConfs, callbackGasLimit, numWords);
+    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords);
     return s_requestId;
   }
 }
