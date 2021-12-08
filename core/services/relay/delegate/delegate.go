@@ -119,9 +119,15 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		if err != nil {
 			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
 		}
-		transmissionSigner, err := d.ks.Solana().Get(transmissionsID.String())
-		if err != nil {
-			return nil, err
+		var transmissionSigner solana.TransmissionSigner
+		if !spec.IsBootstrapPeer {
+			if !spec.TransmitterID.Valid {
+				return nil, errors.New("transmitterID is required for non-bootstrap jobs")
+			}
+			transmissionSigner, err = d.ks.Solana().Get(spec.TransmitterID.String)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return d.relayers[relay.Solana].NewOCR2Provider(externalJobID, solana.OCR2Spec{
 			ID:                 spec.ID,
