@@ -113,7 +113,7 @@ type EnvPrinter struct {
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
-func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
+func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 	explorerURL := ""
 	if cfg.ExplorerURL() != nil {
 		explorerURL = cfg.ExplorerURL().String()
@@ -205,7 +205,7 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			TelemetryIngressURL:           telemetryIngressURL,
 			TriggerFallbackDBPollInterval: cfg.TriggerFallbackDBPollInterval(),
 		},
-	}, nil
+	}
 }
 
 // String returns the values as a newline delimited string
