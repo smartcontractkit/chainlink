@@ -132,28 +132,18 @@ export interface ReceiveSignoutErrorAction
 }
 
 export enum ResourceActionType {
-  DELETE_JOB_SPEC_ERROR = 'DELETE_JOB_SPEC_ERROR',
   RECEIVE_CREATE_ERROR = 'RECEIVE_CREATE_ERROR',
   RECEIVE_CREATE_SUCCESS = 'RECEIVE_CREATE_SUCCESS',
   RECEIVE_DELETE_ERROR = 'RECEIVE_DELETE_ERROR',
   RECEIVE_DELETE_SUCCESS = 'RECEIVE_DELETE_SUCCESS',
   RECEIVE_UPDATE_ERROR = 'RECEIVE_UPDATE_ERROR',
   RECEIVE_UPDATE_SUCCESS = 'RECEIVE_UPDATE_SUCCESS',
-  RESPONSE_ACCOUNT_BALANCE = 'RESPONSE_ACCOUNT_BALANCE',
-  REQUEST_ACCOUNT_BALANCE = 'REQUEST_ACCOUNT_BALANCE',
   REQUEST_CREATE = 'REQUEST_CREATE',
   REQUEST_DELETE = 'REQUEST_DELETE',
   REQUEST_UPDATE = 'REQUEST_UPDATE',
-  UPSERT_ACCOUNT_BALANCE = 'UPSERT_ACCOUNT_BALANCE',
-  UPSERT_BRIDGES = 'UPSERT_BRIDGES',
-  UPSERT_BRIDGE = 'UPSERT_BRIDGE',
   UPSERT_CONFIGURATION = 'UPSERT_CONFIGURATION',
-  UPSERT_JOB = 'UPSERT_JOB',
-  UPSERT_JOBS = 'UPSERT_JOBS',
   UPSERT_JOB_RUN = 'UPSERT_JOB_RUN',
   UPSERT_JOB_RUNS = 'UPSERT_JOB_RUNS',
-  UPSERT_RECENT_JOB_RUNS = 'UPSERT_RECENT_JOB_RUNS',
-  UPSERT_RECENTLY_CREATED_JOBS = 'UPSERT_RECENTLY_CREATED_JOBS',
   UPSERT_TRANSACTION = 'UPSERT_TRANSACTION',
   UPSERT_TRANSACTIONS = 'UPSERT_TRANSACTIONS',
 }
@@ -223,55 +213,6 @@ export interface ReceiveUpdateSuccessAction
 export interface ReceiveUpdateErrorAction
   extends Action<ResourceActionType.RECEIVE_UPDATE_ERROR> {}
 
-/**
- * REQUEST_ACCOUNT_BALANCE
- */
-
-export interface RequestAccountBalanceAction
-  extends Action<ResourceActionType.REQUEST_ACCOUNT_BALANCE> {}
-
-/**
- * UPSERT_ACCOUNT_BALANCE
- */
-
-export interface UpsertAccountBalanceAction
-  extends Action<ResourceActionType.UPSERT_ACCOUNT_BALANCE> {
-  data: {
-    eThKeys: any
-  }
-}
-
-/**
- * RESPONSE_ACCOUNT_BALANCE
- */
-
-export interface ResponseAccountBalanceAction
-  extends Action<ResourceActionType.RESPONSE_ACCOUNT_BALANCE> {}
-
-/**
- * UPSERT_BRIDGES
- */
-
-export interface UpsertBridgesAction
-  extends Action<ResourceActionType.UPSERT_BRIDGES> {
-  data: {
-    bridges: Record<string, any>
-    meta: {
-      currentPageBridges: {
-        data: { id: string }[]
-        meta: { count: number }
-      }
-    }
-  }
-}
-
-export interface UpsertBridgeAction
-  extends Action<ResourceActionType.UPSERT_BRIDGE> {
-  data: {
-    bridges: Record<string, any>
-  }
-}
-
 export type ConfigurationAttribute = string | number | null
 
 export interface UpsertConfigurationAction
@@ -281,56 +222,12 @@ export interface UpsertConfigurationAction
   }
 }
 
-export interface UpsertJobsAction
-  extends Action<ResourceActionType.UPSERT_JOBS> {
-  data: {
-    specs: Record<string, any>
-    meta: {
-      currentPageJobs: {
-        data: { id: string }[]
-        meta: { count: number }
-      }
-    }
-  }
-}
-
-export interface UpsertRecentlyCreatedJobsAction
-  extends Action<ResourceActionType.UPSERT_RECENTLY_CREATED_JOBS> {
-  data: {
-    specs: Record<string, any>
-    meta: {
-      recentlyCreatedJobs: {
-        data: { id: string }[]
-      }
-    }
-  }
-}
-
-export interface UpsertJobAction extends Action<ResourceActionType.UPSERT_JOB> {
-  data: any
-}
-
 export interface UpsertJobRunsAction
   extends Action<ResourceActionType.UPSERT_JOB_RUNS> {
   data: {
     runs: Record<string, any>
     meta: {
       currentPageJobRuns: {
-        data: { id: string }[]
-        meta: {
-          count: number
-        }
-      }
-    }
-  }
-}
-
-export interface UpsertRecentJobRunsAction
-  extends Action<ResourceActionType.UPSERT_RECENT_JOB_RUNS> {
-  data: {
-    runs: Record<string, any>
-    meta: {
-      recentJobRuns: {
         data: { id: string }[]
         meta: {
           count: number
@@ -369,14 +266,6 @@ export interface UpsertTransactionAction
   }
 }
 
-export interface DeleteJobSpecError
-  extends Action<ResourceActionType.DELETE_JOB_SPEC_ERROR> {
-  data: {
-    id: string
-    jobSpecID: string
-  }
-}
-
 export type Actions =
   | InitialStateAction
   | RedirectAction
@@ -400,18 +289,8 @@ export type Actions =
   | RequestUpdateAction
   | ReceiveUpdateSuccessAction
   | ReceiveUpdateErrorAction
-  | RequestAccountBalanceAction
-  | UpsertAccountBalanceAction
-  | ResponseAccountBalanceAction
-  | UpsertBridgesAction
-  | UpsertBridgeAction
   | UpsertConfigurationAction
-  | UpsertJobsAction
-  | UpsertRecentlyCreatedJobsAction
-  | UpsertJobAction
   | UpsertJobRunsAction
-  | UpsertRecentJobRunsAction
   | UpsertJobRunAction
   | UpsertTransactionsAction
   | UpsertTransactionAction
-  | DeleteJobSpecError
