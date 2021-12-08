@@ -1,5 +1,4 @@
 import * as jsonapi from 'utils/json-api-client'
-import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
@@ -481,19 +480,6 @@ function requestDelete(
 ): ReturnType<typeof request> {
   return request(type, 'DELETE', requestData, normalizeData)
 }
-
-export const fetchAccountBalance = requestFetch(
-  'ACCOUNT_BALANCE',
-  api.v2.user.balances.getAccountBalances,
-  (json) =>
-    normalize<{
-      accountBalances: presenters.AccountBalance[]
-    }>(json),
-)
-
-export type NormalizedAccountBalance = GetNormalizedData<
-  typeof fetchAccountBalance
->
 
 export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
