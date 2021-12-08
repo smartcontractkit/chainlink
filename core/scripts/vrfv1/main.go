@@ -16,25 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	linktoken "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	vrfoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_ownerless_consumer_example"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-func panicErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func parseArgs(fset *flag.FlagSet, args []string, requiredArgs []string) {
-	panicErr(fset.Parse(args))
-	seen := map[string]bool{}
-	fset.Visit(func(f *flag.Flag) { seen[f.Name] = true })
-	for _, req := range requiredArgs {
-		if !seen[req] {
-			panic(fmt.Errorf("missing required -%s argument/flag", req))
-		}
-	}
-}
 
 func main() {
 	ethURL, set := os.LookupEnv("ETH_URL")
@@ -58,14 +42,14 @@ func main() {
 	}
 
 	ec, err := ethclient.Dial(ethURL)
-	panicErr(err)
+	helpers.PanicErr(err)
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
-	panicErr(err)
+	helpers.PanicErr(err)
 
 	// Owner key. Make sure it has eth
 	b, err := hex.DecodeString(accountKey)
-	panicErr(err)
+	helpers.PanicErr(err)
 	d := new(big.Int).SetBytes(b)
 
 	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
@@ -78,11 +62,11 @@ func main() {
 		D: d,
 	}
 	account, err := bind.NewKeyedTransactorWithChainID(&privateKey, big.NewInt(chainID))
-	panicErr(err)
+	helpers.PanicErr(err)
 
 	// Explicitly set gas price to ensure non-eip 1559
 	gp, err := ec.SuggestGasPrice(context.Background())
-	panicErr(err)
+	helpers.PanicErr(err)
 	account.GasPrice = gp
 
 	switch os.Args[1] {
@@ -90,13 +74,13 @@ func main() {
 		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
 		coordAddr := cmd.String("coordinator-address", "", "address of VRF coordinator")
 		linkAddr := cmd.String("link-address", "", "address of link token")
-		parseArgs(cmd, os.Args[2:], []string{"coordinator-address", "link-address"})
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
 		consumerAddr, tx, _, err := vrfoc.DeployVRFOwnerlessConsumerExample(
 			account,
 			ec,
 			common.HexToAddress(*coordAddr),
 			common.HexToAddress(*linkAddr))
-		panicErr(err)
+		helpers.PanicErr(err)
 		fmt.Printf("Ownerless Consumer: %s TX Hash: %s\n", consumerAddr, tx.Hash())
 	case "ownerless-consumer-request":
 		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
@@ -104,17 +88,17 @@ func main() {
 		consumerAddr := cmd.String("consumer-address", "", "address of the deployed ownerless consumer")
 		paymentStr := cmd.String("payment", "100000000000000000" /* 0.1 LINK */, "the payment amount in LINK")
 		keyHash := cmd.String("key-hash", "", "key hash")
-		parseArgs(cmd, os.Args[2:], []string{"link-address", "consumer-address", "key-hash"})
+		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "consumer-address", "key-hash")
 		payment, ok := big.NewInt(0).SetString(*paymentStr, 10)
 		if !ok {
 			panic(fmt.Sprintf("failed to parse payment amount: %s", *paymentStr))
 		}
 		link, err := linktoken.NewLinkToken(common.HexToAddress(*linkAddr), ec)
-		panicErr(err)
+		helpers.PanicErr(err)
 		data, err := utils.GenericEncode([]string{"bytes32"}, common.HexToHash(*keyHash))
-		panicErr(err)
+		helpers.PanicErr(err)
 		tx, err := link.TransferAndCall(account, common.HexToAddress(*consumerAddr), payment, data)
-		panicErr(err)
+		helpers.PanicErr(err)
 		fmt.Printf("TX Hash: %s\n", tx.Hash())
 	}
 }
