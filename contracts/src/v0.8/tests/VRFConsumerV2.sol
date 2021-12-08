@@ -19,9 +19,10 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    require(requestId == s_requestId, "request ID is incorrect");
+
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;
-    s_requestId = requestId;
   }
 
   function testCreateSubscriptionAndFund(uint96 amount) external {
@@ -53,6 +54,8 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
     uint32 callbackGasLimit,
     uint32 numWords
   ) external returns (uint256) {
-    return COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords);
+    s_requestId = COORDINATOR.requestRandomWords(
+      keyHash, subId, minReqConfs, callbackGasLimit, numWords);
+    return s_requestId;
   }
 }

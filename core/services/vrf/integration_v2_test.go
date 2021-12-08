@@ -290,6 +290,46 @@ func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, 
 	return
 }
 
+// requestRandomness requests randomness from the given vrf consumer contract
+// and asserts that the request ID logged by the RandomWordsRequested event
+// matches the request ID that is returned and set by the consumer contract.
+// The request ID is then returned to the caller.
+func requestRandomnessAndAssertRequestID(
+	t *testing.T,
+	vrfConsumerHandle *vrf_consumer_v2.VRFConsumerV2,
+	consumerOwner *bind.TransactOpts,
+	subID uint64,
+	uni coordinatorV2Universe,
+) *big.Int {
+	_, err := vrfConsumerHandle.TestRequestRandomness(
+		consumerOwner,
+		keyHash,
+		subID,           // subscription id
+		uint16(2),       // min request confirmations - must be >= min request confirmations in coordinator contract
+		uint32(300_000), // callback gas limit
+		uint32(20),      // number of random words
+	)
+	require.NoError(t, err)
+
+	uni.backend.Commit()
+
+	iter, err := uni.rootContract.FilterRandomWordsRequested(nil, nil, []uint64{subID}, nil)
+	require.NoError(t, err, "could not filter RandomWordsRequested events")
+
+	events := []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}
+	for iter.Next() {
+		events = append(events, iter.Event)
+	}
+
+	requestID, err := vrfConsumerHandle.SRequestId(nil)
+	t.Log("request ID in consumer contract: ", requestID)
+	require.NoError(t, err)
+
+	require.Equal(t, events[len(events)-1].RequestId, requestID, "request ID in contract does not match request ID in log")
+
+	return requestID
+}
+
 func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_sim", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -329,33 +369,37 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 
 	jbs := createJobs(t, []ethkey.KeyV2{key1, key2}, app, uni)
 
+	// Collect all request ID's and assert that we correctly emit RandomWordsFulfilled
+	// after all the requests have been fulfilled on-chain.
+	requestIDs := []*big.Int{}
+
 	// enqueue requests for the other consumers to test that their balance doesn't affect carol's.
 	// These requests will go through but we won't care much about them for this test.
 	for i := 1; i < len(uni.consumerContracts); i++ {
-		_, err := uni.consumerContracts[i].TestRequestRandomness(
+		rid := requestRandomnessAndAssertRequestID(
+			t,
+			uni.consumerContracts[i],
 			uni.vrfConsumers[i],
-			jbs[0].VRFSpec.PublicKey.MustHash(),
-			uint64(i+1),     // subscription id
-			uint16(2),       // min request confirmations
-			uint32(300_000), // callback gas limit
-			uint32(20),      // number of random words
+			uint64(i+1),
+			uni,
 		)
-		require.NoError(t, err)
+		requestIDs = append(requestIDs, rid)
 	}
 
-	// Confirm all those requests
-	for i := 0; i < 10; i++ {
-		uni.backend.Commit()
-	}
-
+	// enqueue requests for carol, who is our protagonist in this test.
 	sub := subs[0]
 	t.Log("Sub balance", sub.Balance)
 	for i := 0; i < 5; i++ {
-		// Request 20 words (all get saved) so we use the full 300k
-		_, err := carolContract.TestRequestRandomness(
-			carol, jbs[0].VRFSpec.PublicKey.MustHash(), uint64(1), uint16(2), uint32(300_000), uint32(20))
-		require.NoError(t, err)
+		rid := requestRandomnessAndAssertRequestID(
+			t,
+			carolContract,
+			carol,
+			1,
+			uni,
+		)
+		requestIDs = append(requestIDs, rid)
 	}
+
 	// Send a requests to the high gas price max keyhash, should remain queued until
 	// a significant topup
 	for i := 0; i < 1; i++ {
@@ -433,6 +477,17 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		uni.backend.Commit()
 		return len(runs) == (6 + len(uni.vrfConsumers) - 1)
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+
+	for _, requestID := range requestIDs {
+		iter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
+		require.NoError(t, err)
+		events := []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}
+		for iter.Next() {
+			events = append(events, iter.Event)
+		}
+		require.Len(t, events, 1)
+		require.True(t, events[0].Success)
+	}
 }
 
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
@@ -485,7 +540,15 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 			owner, backend, linkAddress, common.Address{}, common.Address{})
 	require.NoError(t, err)
 	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-		0, 0, 0, 0, 0, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0),
+		FulfillmentFlatFeeLinkPPMTier1: 0,
+		FulfillmentFlatFeeLinkPPMTier2: 0,
+		FulfillmentFlatFeeLinkPPMTier3: 0,
+		FulfillmentFlatFeeLinkPPMTier4: 0,
+		FulfillmentFlatFeeLinkPPMTier5: 0,
+		ReqsForTier2:                   big.NewInt(0),
+		ReqsForTier3:                   big.NewInt(0),
+		ReqsForTier4:                   big.NewInt(0),
+		ReqsForTier5:                   big.NewInt(0),
 	})
 	require.NoError(t, err)
 	backend.Commit()
