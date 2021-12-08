@@ -22,12 +22,3 @@ func (m *Map) UnmarshalGraphQL(input interface{}) error {
 func (m Map) MarshalJSON() ([]byte, error) {
 	return []byte(m.Raw), nil
 }
-
-// MarshalJSON returns the JSON data if it already exists, returns
-// an empty JSON object as bytes if not.
-// func (j JSON) MarshalJSON() ([]byte, error) {
-// 	if j.Exists() {
-// 		return j.Bytes(), nil
-// 	}
-// 	return []byte("{}"), nil
-// }
