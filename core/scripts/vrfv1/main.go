@@ -83,12 +83,12 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Printf("Ownerless Consumer: %s TX Hash: %s\n", consumerAddr, tx.Hash())
 	case "ownerless-consumer-request":
-		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
+		cmd := flag.NewFlagSet("ownerless-consumer-request", flag.ExitOnError)
 		linkAddr := cmd.String("link-address", "", "address of link token")
 		consumerAddr := cmd.String("consumer-address", "", "address of the deployed ownerless consumer")
-		paymentStr := cmd.String("payment", "100000000000000000" /* 0.1 LINK */, "the payment amount in LINK")
+		paymentStr := cmd.String("payment", "" /* 0.1 LINK */, "the payment amount in LINK")
 		keyHash := cmd.String("key-hash", "", "key hash")
-		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "consumer-address", "key-hash")
+		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "consumer-address", "payment", "key-hash")
 		payment, ok := big.NewInt(0).SetString(*paymentStr, 10)
 		if !ok {
 			panic(fmt.Sprintf("failed to parse payment amount: %s", *paymentStr))
