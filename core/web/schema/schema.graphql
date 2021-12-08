@@ -16,6 +16,7 @@ type Query {
     csaKeys: CSAKeysPayload!
     ethKeys: EthKeysPayload!
     ethTransaction(hash: ID!): EthTransactionPayload!
+    ethTransactions(offset: Int, limit: Int): EthTransactionsPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!

@@ -196,3 +196,107 @@ func TestResolver_EthTransaction(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_EthTransactions(t *testing.T) {
+	t.Parallel()
+
+	query := `
+		query GetEthTransactions {
+			ethTransactions {
+				results {
+					from
+					to
+					state
+					data
+					gasLimit
+					gasPrice
+					value
+					evmChainID
+					nonce
+					hash
+					hex
+					sentAt
+				}
+				metadata {
+					total
+				}
+			}
+		}`
+	hash := common.HexToHash("0x5431F5F973781809D18643b87B44921b11355d81")
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "ethTransactions"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				num := int64(2)
+
+				f.Mocks.bptxmORM.On("EthTransactionsWithAttempts", PageDefaultOffset, PageDefaultLimit).Return([]bulletprooftxmanager.EthTx{
+					{
+						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+						State:          bulletprooftxmanager.EthTxInProgress,
+						EncodedPayload: []byte("encoded payload"),
+						GasLimit:       100,
+						Value:          assets.NewEthValue(100),
+						EVMChainID:     *utils.NewBigI(22),
+						EthTxAttempts: []bulletprooftxmanager.EthTxAttempt{
+							{
+								Hash:                    hash,
+								GasPrice:                utils.NewBigI(12),
+								SignedRawTx:             []byte("something"),
+								BroadcastBeforeBlockNum: &num,
+							},
+						},
+					},
+				}, 1, nil)
+				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+			},
+			query: query,
+			result: `
+				{
+					"ethTransactions": {
+						"results": [{
+							"from": "0x5431F5F973781809D18643b87B44921b11355d81",
+							"to": "0x5431F5F973781809D18643b87B44921b11355d81",
+							"data": "0x656e636f646564207061796c6f6164",
+							"state": "in_progress",
+							"gasLimit": "100",
+							"gasPrice": "12",
+							"value": "0.000000000000000100",
+							"nonce": null,
+							"hash": "0x0000000000000000000000005431f5f973781809d18643b87b44921b11355d81",
+							"hex": "0x736f6d657468696e67",
+							"sentAt": "2",
+							"evmChainID": "22"
+						}],
+						"metadata": {
+							"total": 1
+						}
+					}
+				}`,
+		},
+		{
+			name:          "generic error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.bptxmORM.On("EthTransactionsWithAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+			},
+			query:  query,
+			result: `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"ethTransactions"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

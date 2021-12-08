@@ -454,20 +454,38 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	ethTxAttempt, err := r.App.BPTXMORM().FindEthTxAttempt(hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewEthTransactionPayload(nil, nil, err), nil
+			return NewEthTransactionPayload(nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	return NewEthTransactionPayload(
-		&ethTxAttempt.EthTx,
-		&EthTransactionExtraData{
-			hash:                    ethTxAttempt.Hash,
-			gasPrice:                ethTxAttempt.GasPrice,
-			signedRawTx:             ethTxAttempt.SignedRawTx,
-			broadcastBeforeBlockNum: ethTxAttempt.BroadcastBeforeBlockNum,
-		},
-		err,
-	), nil
+	data := NewEthTransactionData(ethTxAttempt.EthTx, *ethTxAttempt)
+
+	return NewEthTransactionPayload(&data, err), nil
+}
+
+func (r *Resolver) EthTransactions(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*EthTransactionsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	txs, count, err := r.App.BPTXMORM().EthTransactionsWithAttempts(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]EthTransactionData, len(txs))
+
+	for i, tx := range txs {
+		results[i] = NewEthTransactionData(tx, tx.EthTxAttempts[0])
+	}
+
+	return NewEthTransactionsPayload(results, int32(count)), nil
 }

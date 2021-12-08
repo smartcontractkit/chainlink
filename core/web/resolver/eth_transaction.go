@@ -20,68 +20,94 @@ type EthTransactionExtraData struct {
 	broadcastBeforeBlockNum *int64
 }
 
-type EthTransactionResolver struct {
-	tx    *bulletprooftxmanager.EthTx
-	extra *EthTransactionExtraData
+type EthTransactionData struct {
+	tx    bulletprooftxmanager.EthTx
+	extra EthTransactionExtraData
 }
 
-func NewEthTransaction(tx *bulletprooftxmanager.EthTx, extra *EthTransactionExtraData) *EthTransactionResolver {
-	return &EthTransactionResolver{tx: tx, extra: extra}
+func NewEthTransactionData(tx bulletprooftxmanager.EthTx, attmpt bulletprooftxmanager.EthTxAttempt) EthTransactionData {
+	return EthTransactionData{
+		tx: tx,
+		extra: EthTransactionExtraData{
+			hash:                    attmpt.Hash,
+			gasPrice:                attmpt.GasPrice,
+			signedRawTx:             attmpt.SignedRawTx,
+			broadcastBeforeBlockNum: attmpt.BroadcastBeforeBlockNum,
+		},
+	}
+}
+
+type EthTransactionResolver struct {
+	data EthTransactionData
+}
+
+func NewEthTransaction(data EthTransactionData) *EthTransactionResolver {
+	return &EthTransactionResolver{data: data}
+}
+
+func NewEthTransactions(results []EthTransactionData) []*EthTransactionResolver {
+	var resolver []*EthTransactionResolver
+
+	for _, tx := range results {
+		resolver = append(resolver, NewEthTransaction(tx))
+	}
+
+	return resolver
 }
 
 func (r *EthTransactionResolver) State() string {
-	return string(r.tx.State)
+	return string(r.data.tx.State)
 }
 
 func (r *EthTransactionResolver) Data() hexutil.Bytes {
-	return hexutil.Bytes(r.tx.EncodedPayload)
+	return hexutil.Bytes(r.data.tx.EncodedPayload)
 }
 
 func (r *EthTransactionResolver) From() string {
-	return r.tx.FromAddress.String()
+	return r.data.tx.FromAddress.String()
 }
 
 func (r *EthTransactionResolver) To() string {
-	return r.tx.ToAddress.String()
+	return r.data.tx.ToAddress.String()
 }
 
 func (r *EthTransactionResolver) GasLimit() string {
-	return stringutils.FromInt64(int64(r.tx.GasLimit))
+	return stringutils.FromInt64(int64(r.data.tx.GasLimit))
 }
 
 func (r *EthTransactionResolver) GasPrice() string {
-	return r.extra.gasPrice.String()
+	return r.data.extra.gasPrice.String()
 }
 
 func (r *EthTransactionResolver) Value() string {
-	return r.tx.Value.String()
+	return r.data.tx.Value.String()
 }
 
 func (r *EthTransactionResolver) EVMChainID() graphql.ID {
-	return graphql.ID(r.tx.EVMChainID.String())
+	return graphql.ID(r.data.tx.EVMChainID.String())
 }
 
 func (r *EthTransactionResolver) Nonce() *string {
-	if r.tx.Nonce == nil {
+	if r.data.tx.Nonce == nil {
 		return nil
 	}
 
-	value := stringutils.FromInt64(*r.tx.Nonce)
+	value := stringutils.FromInt64(*r.data.tx.Nonce)
 
 	return &value
 }
 
 func (r *EthTransactionResolver) Hash() string {
-	return r.extra.hash.String()
+	return r.data.extra.hash.String()
 }
 
 func (r *EthTransactionResolver) Hex() string {
-	return hexutil.Encode(r.extra.signedRawTx)
+	return hexutil.Encode(r.data.extra.signedRawTx)
 }
 
 // Chain resolves the node's chain object field.
 func (r *EthTransactionResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	chain, err := loader.GetChainByID(ctx, r.tx.EVMChainID.String())
+	chain, err := loader.GetChainByID(ctx, r.data.tx.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -90,11 +116,11 @@ func (r *EthTransactionResolver) Chain(ctx context.Context) (*ChainResolver, err
 }
 
 func (r *EthTransactionResolver) SentAt() *string {
-	if r.extra.broadcastBeforeBlockNum == nil {
+	if r.data.extra.broadcastBeforeBlockNum == nil {
 		return nil
 	}
 
-	value := stringutils.FromInt64(*r.extra.broadcastBeforeBlockNum)
+	value := stringutils.FromInt64(*r.data.extra.broadcastBeforeBlockNum)
 
 	return &value
 }
@@ -102,15 +128,14 @@ func (r *EthTransactionResolver) SentAt() *string {
 // -- EthTransaction Query --
 
 type EthTransactionPayloadResolver struct {
-	tx    *bulletprooftxmanager.EthTx
-	extra *EthTransactionExtraData
+	data *EthTransactionData
 	NotFoundErrorUnionType
 }
 
-func NewEthTransactionPayload(tx *bulletprooftxmanager.EthTx, extra *EthTransactionExtraData, err error) *EthTransactionPayloadResolver {
+func NewEthTransactionPayload(data *EthTransactionData, err error) *EthTransactionPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "transaction not found", isExpectedErrorFn: nil}
 
-	return &EthTransactionPayloadResolver{tx: tx, extra: extra, NotFoundErrorUnionType: e}
+	return &EthTransactionPayloadResolver{data: data, NotFoundErrorUnionType: e}
 }
 
 func (r *EthTransactionPayloadResolver) ToEthTransaction() (*EthTransactionResolver, bool) {
@@ -118,5 +143,24 @@ func (r *EthTransactionPayloadResolver) ToEthTransaction() (*EthTransactionResol
 		return nil, false
 	}
 
-	return NewEthTransaction(r.tx, r.extra), true
+	return NewEthTransaction(*r.data), true
+}
+
+// -- EthTransactions Query --
+
+type EthTransactionsPayloadResolver struct {
+	results []EthTransactionData
+	total   int32
+}
+
+func NewEthTransactionsPayload(results []EthTransactionData, total int32) *EthTransactionsPayloadResolver {
+	return &EthTransactionsPayloadResolver{results: results, total: total}
+}
+
+func (r *EthTransactionsPayloadResolver) Results() []*EthTransactionResolver {
+	return NewEthTransactions(r.results)
+}
+
+func (r *EthTransactionsPayloadResolver) Metadata() *PaginationMetadataResolver {
+	return NewPaginationMetadata(r.total)
 }
