@@ -684,8 +684,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 		carolContractAddress,
 		uni.rootContractAddress,
 	}, []*big.Int{
-		assets.Ether(10), // 10 link
-		big.NewInt(0),    // 0 link
+		assets.Ether(500), // 500 link
+		big.NewInt(0),     // 0 link
 	})
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = carolContract.TestCreateSubscriptionAndFund(carol,
@@ -697,7 +697,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 		uni.nallory.From, // Oracle's own address should have nothing
 	}, []*big.Int{
-		assets.Ether(9),
+		assets.Ether(499),
 		assets.Ether(1),
 		big.NewInt(0),
 	})
@@ -709,7 +709,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// Make a request for random words.
 	// By requesting 500k callback with a configured eth gas limit default of 500k,
 	// we ensure that the job is indeed adjusting the gaslimit to suit the users request.
-	gasRequested := 500000
+	gasRequested := 500_000
 	nw := 10
 	requestedIncomingConfs := 3
 	_, err = carolContract.TestRequestRandomness(carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
@@ -768,7 +768,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// which should be fixed in this test.
 	ga, err := carolContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(1556))
+	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(3679))
 	assert.Equal(t, 0, gaDecoding.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", gaDecoding, gasRequested)
 	t.Log("gas available", ga.String())
 
@@ -808,7 +808,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 		uni.nallory.From, // Oracle's own address should have nothing
 	}, []*big.Int{
-		assets.Ether(9),
+		assets.Ether(499),
 		subFunding.Sub(linkWeiCharged).BigInt(),
 		linkWeiCharged.BigInt(),
 	})
