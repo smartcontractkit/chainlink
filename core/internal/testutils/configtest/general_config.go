@@ -14,6 +14,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -22,9 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
 )
 
 const (
@@ -51,6 +52,7 @@ type GeneralConfigOverrides struct {
 	Dialect                                   dialects.DialectName
 	EVMDisabled                               null.Bool
 	EthereumDisabled                          null.Bool
+	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalChainType                           null.String
@@ -210,6 +212,11 @@ func (c *TestGeneralConfig) RootDir() string {
 	return c.rootdir
 }
 
+// SetRootDir Added in order to not get a different dir on certain tests that validate this value
+func (c *TestGeneralConfig) SetRootDir(dir string) {
+	c.rootdir = dir
+}
+
 func (c *TestGeneralConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(2 * time.Minute)
 }
@@ -242,6 +249,13 @@ func (c *TestGeneralConfig) EthereumDisabled() bool {
 		return c.Overrides.EthereumDisabled.Bool
 	}
 	return c.GeneralConfig.EthereumDisabled()
+}
+
+func (c *TestGeneralConfig) EthereumURL() string {
+	if c.Overrides.EthereumURL.Valid {
+		return c.Overrides.EthereumURL.String
+	}
+	return c.GeneralConfig.EthereumURL()
 }
 
 func (c *TestGeneralConfig) SessionSecret() ([]byte, error) {

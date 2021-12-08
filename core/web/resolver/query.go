@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -427,4 +428,16 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 	}
 
 	return NewETHKeysPayload(ethKeys), nil
+}
+
+// Config retrieves the Chainlink node's configuration
+func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	cfg := r.App.GetConfig()
+	printer := config.NewConfigPrinter(cfg)
+
+	return NewConfigPayload(printer.EnvPrinter), nil
 }
