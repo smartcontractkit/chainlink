@@ -356,6 +356,36 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 				}`,
 		},
 		{
+			name:          "success with nil values",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.bptxmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]bulletprooftxmanager.EthTxAttempt{
+					{
+						Hash:                    hash,
+						GasPrice:                utils.NewBigI(12),
+						SignedRawTx:             []byte("something"),
+						BroadcastBeforeBlockNum: nil,
+					},
+				}, 1, nil)
+				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+			},
+			query: query,
+			result: `
+				{
+					"ethTransactionsAttempts": {
+						"results": [{
+							"gasPrice": "12",
+							"hash": "0x0000000000000000000000005431f5f973781809d18643b87b44921b11355d81",
+							"hex": "0x736f6d657468696e67",
+							"sentAt": null
+						}],
+						"metadata": {
+							"total": 1
+						}
+					}
+				}`,
+		},
+		{
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
