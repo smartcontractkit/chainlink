@@ -556,7 +556,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
 							"p2pBootstrapPeers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
-							"relay": "ethereum",
+							"relay": "evm",
 							"relayConfig": {
 								"chainID": 1337
 							},
