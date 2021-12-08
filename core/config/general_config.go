@@ -42,6 +42,8 @@ var (
 
 type GeneralOnlyConfig interface {
 	AdminCredentialsFile() string
+	AdvisoryLockCheckInterval() time.Duration
+	AdvisoryLockID() int64
 	AllowOrigins() string
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
@@ -1349,4 +1351,17 @@ func (c *generalConfig) LeaseLockRefreshInterval() time.Duration {
 // (this many seconds from now in the future)
 func (c *generalConfig) LeaseLockDuration() time.Duration {
 	return c.getDuration("LeaseLockDuration")
+}
+
+// AdvisoryLockID is the application advisory lock ID. Should match all other
+// chainlink applications that might access this database
+func (c *generalConfig) AdvisoryLockID() int64 {
+	return c.getWithFallback("AdvisoryLockID", ParseInt64).(int64)
+}
+
+// AdvisoryLockCheckInterval controls how often Chainlink will check to make
+// sure it still holds the advisory lock. If it no longer holds it, it will try
+// to re-acquire it and if that fails the application will exit
+func (c *generalConfig) AdvisoryLockCheckInterval() time.Duration {
+	return c.getDuration("AdvisoryLockCheckInterval")
 }

@@ -1,0 +1,10 @@
+scalar ConfigItemValue
+
+type ConfigItem {
+    key: String!
+    config: ConfigItemValue!
+}
+
+type ConfigPayload {
+    items: [ConfigItem!]!
+}

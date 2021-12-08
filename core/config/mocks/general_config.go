@@ -55,6 +55,34 @@ func (_m *GeneralConfig) AdminCredentialsFile() string {
 	return r0
 }
 
+// AdvisoryLockCheckInterval provides a mock function with given fields:
+func (_m *GeneralConfig) AdvisoryLockCheckInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// AdvisoryLockID provides a mock function with given fields:
+func (_m *GeneralConfig) AdvisoryLockID() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
 // AllowOrigins provides a mock function with given fields:
 func (_m *GeneralConfig) AllowOrigins() string {
 	ret := _m.Called()

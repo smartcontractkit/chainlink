@@ -25,6 +25,8 @@ type ConfigPrinter struct {
 
 // EnvPrinter contains the supported environment variables
 type EnvPrinter struct {
+	AdvisoryLockCheckInterval                  time.Duration   `json:"ADVISORY_LOCK_CHECK_INTERVAL"`
+	AdvisoryLockID                             int64           `json:"ADVISORY_LOCK_ID"`
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
@@ -113,7 +115,7 @@ type EnvPrinter struct {
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
-func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
+func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 	explorerURL := ""
 	if cfg.ExplorerURL() != nil {
 		explorerURL = cfg.ExplorerURL().String()
@@ -131,6 +133,8 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 	ocrDatabaseTimeout, _ := cfg.GlobalOCRDatabaseTimeout()
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
+			AdvisoryLockCheckInterval:          cfg.AdvisoryLockCheckInterval(),
+			AdvisoryLockID:                     cfg.AdvisoryLockID(),
 			AllowOrigins:                       cfg.AllowOrigins(),
 			BlockBackfillDepth:                 cfg.BlockBackfillDepth(),
 			BridgeResponseURL:                  cfg.BridgeResponseURL().String(),
@@ -205,7 +209,7 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			TelemetryIngressURL:           telemetryIngressURL,
 			TriggerFallbackDBPollInterval: cfg.TriggerFallbackDBPollInterval(),
 		},
-	}, nil
+	}
 }
 
 // String returns the values as a newline delimited string

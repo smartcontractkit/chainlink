@@ -125,7 +125,7 @@ type ChainlinkApplication struct {
 	Nurse                    *health.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
-	advisoryLock             pg.Locker
+	advisoryLock             pg.AdvisoryLock
 	leaseLock                pg.LeaseLock
 	id                       uuid.UUID
 
@@ -143,7 +143,7 @@ type ApplicationOpts struct {
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
-	AdvisoryLock             pg.Locker
+	AdvisoryLock             pg.AdvisoryLock
 	LeaseLock                pg.LeaseLock
 	ID                       uuid.UUID
 }
@@ -497,9 +497,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 
 			// Clean up the advisory lock if present
 			if app.advisoryLock != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				defer cancel()
-				merr = multierr.Append(merr, app.advisoryLock.Unlock(ctx))
+				app.advisoryLock.Release()
 			}
 
 			// Let go of the lease
