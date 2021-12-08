@@ -100,10 +100,11 @@ func (l *advisoryLock) TakeAndHold() (err error) {
 
 // advisory lock must use one specific connection
 func (l *advisoryLock) checkoutConn(ctx context.Context) (err error) {
-	l.conn, err = l.db.Connx(ctx)
+	newConn, err := l.db.Connx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed checking out connection from pool")
 	}
+	l.conn = newConn
 	return nil
 }
 

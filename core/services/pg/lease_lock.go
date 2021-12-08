@@ -142,7 +142,7 @@ func (l *leaseLock) TakeAndHold() (err error) {
 
 // checkout dedicated connection for lease lock to bypass any DB contention
 func (l *leaseLock) checkoutConn(ctx context.Context) (err error) {
-	l.conn, err = l.db.Connx(ctx)
+	newConn, err := l.db.Connx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed checking out connection from pool")
 	}
@@ -152,6 +152,7 @@ func (l *leaseLock) checkoutConn(ctx context.Context) (err error) {
 			l.conn.Close(),
 		)
 	}
+	l.conn = newConn
 	return nil
 }
 
