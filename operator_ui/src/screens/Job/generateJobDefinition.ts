@@ -184,9 +184,8 @@ export const generateJobDefinition = (
           'monitoringEndpoint',
           'p2pBootstrapPeers',
           'relay',
+          'relayConfig',
         ),
-        // RelayConfig is a JSON object which we want to render as a string
-        relayConfig: JSON.stringify(job.spec.relayConfig),
         // We need to call 'extractSpecFields' again here so we get the spec
         // fields displaying in alphabetical order.
         ...extractSpecFields(job.spec, 'transmitterID'),
