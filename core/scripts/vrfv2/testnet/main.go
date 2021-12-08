@@ -190,7 +190,7 @@ func main() {
 	case "consumer-topup":
 		// NOTE NEED TO FUND CONSUMER WITH LINK FIRST
 		consumerTopupCmd := flag.NewFlagSet("consumer-topup", flag.ExitOnError)
-		consumerTopupAmount := consumerTopupCmd.String("amount", "", "amount")
+		consumerTopupAmount := consumerTopupCmd.String("amount", "", "amount in jules")
 		consumerTopupAddress := consumerTopupCmd.String("address", "", "consumer address")
 		helpers.ParseArgs(consumerTopupCmd, os.Args[2:], "amount", "address")
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerTopupAddress), ec)
@@ -208,7 +208,6 @@ func main() {
 		helpers.ParseArgs(consumerRequestCmd, os.Args[2:], "address")
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerRequestAddress), ec)
 		helpers.PanicErr(err)
-		// Fund and request 1 link
 		tx, err := consumer.RequestRandomWords(owner)
 		helpers.PanicErr(err)
 		fmt.Println("tx", tx.Hash())
@@ -273,7 +272,7 @@ func main() {
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
 		coordinatorAddress := cfaSubCmd.String("coordinator-address", "", "coordinator address")
-		amountStr := cfaSubCmd.String("amount", "", "amount to fund")
+		amountStr := cfaSubCmd.String("amount", "", "amount to fund in jules")
 		consumerAddress := cfaSubCmd.String("consumer-address", "", "consumer address")
 		consumerLinkAddress := cfaSubCmd.String("link-address", "", "link-address")
 		helpers.ParseArgs(cfaSubCmd, os.Args[2:], "coordinator-address", "amount", "consumer-address", "link-address")
@@ -362,7 +361,7 @@ func main() {
 	case "eoa-fund-sub":
 		fund := flag.NewFlagSet("eoa-fund-sub", flag.ExitOnError)
 		coordinatorAddress := fund.String("coordinator-address", "", "coordinator address")
-		amountStr := fund.String("amount", "", "amount to fund")
+		amountStr := fund.String("amount", "", "amount to fund in jules")
 		subID := fund.Int64("sub-id", 0, "sub-id")
 		consumerLinkAddress := fund.String("link-address", "", "link-address")
 		helpers.ParseArgs(fund, os.Args[2:], "coordinator-address", "amount", "sub-id", "link-address")
