@@ -43,12 +43,11 @@ export const JobRunsView: React.FC<Props> = ({
   // JobRunsTable
   const tableRuns = React.useMemo(() => {
     return data?.jobRuns.results.map(
-      ({ allErrors, id, createdAt, finishedAt, job }) => ({
+      ({ allErrors, id, createdAt, finishedAt }) => ({
         id,
         createdAt,
         errors: allErrors,
         finishedAt,
-        jobId: job.id,
       }),
     )
   }, [data])

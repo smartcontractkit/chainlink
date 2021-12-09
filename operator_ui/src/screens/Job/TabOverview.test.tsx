@@ -21,7 +21,7 @@ describe('TabOverview', () => {
           Runs Tab
         </Route>
 
-        <Route exact path="/jobs/:id/runs/:runId">
+        <Route exact path="/runs/:runId">
           Run Page
         </Route>
       </>,
