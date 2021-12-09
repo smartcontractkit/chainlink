@@ -427,6 +427,14 @@ func TestMigrateController_MigrateCron(t *testing.T) {
     },
     {
       "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "copy"
+    },
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "resultcollect"
+    },
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
       "type": "ethint256"
     }
   ]

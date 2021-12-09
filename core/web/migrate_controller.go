@@ -484,6 +484,10 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			// Do nothing. This is implicit in v2.
 		case adapters.TaskTypeEthBool:
 			// Do nothing. This is implicit in v2.
+		case adapters.TaskTypeResultCollect:
+			// Do nothing. This is implicit in v2 - may require using 'merge'
+		case adapters.TaskTypeCopy:
+			// Do nothing. This is implicit in v2 - directly via parameter references
 		case adapters.TaskTypeEthTx:
 			if tpe == job.DirectRequest {
 
