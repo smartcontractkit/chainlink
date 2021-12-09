@@ -1,4 +1,4 @@
-package services
+package balancemonitor
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -21,13 +22,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-//go:generate mockery --name BalanceMonitor --output ./mocks/ --case=underscore
+//go:generate mockery --name BalanceMonitor --output ../mocks/ --case=underscore
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
-		HeadTrackable
+		services.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
-		Service
+		services.Service
 	}
 
 	balanceMonitor struct {

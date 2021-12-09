@@ -5,8 +5,11 @@ package mocks
 import (
 	big "math/big"
 
-	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	balancemonitor "github.com/smartcontractkit/chainlink/core/services/balancemonitor"
+
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+
+	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 
 	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 
@@ -25,15 +28,15 @@ type Chain struct {
 }
 
 // BalanceMonitor provides a mock function with given fields:
-func (_m *Chain) BalanceMonitor() services.BalanceMonitor {
+func (_m *Chain) BalanceMonitor() balancemonitor.BalanceMonitor {
 	ret := _m.Called()
 
-	var r0 services.BalanceMonitor
-	if rf, ok := ret.Get(0).(func() services.BalanceMonitor); ok {
+	var r0 balancemonitor.BalanceMonitor
+	if rf, ok := ret.Get(0).(func() balancemonitor.BalanceMonitor); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(services.BalanceMonitor)
+			r0 = ret.Get(0).(balancemonitor.BalanceMonitor)
 		}
 	}
 
