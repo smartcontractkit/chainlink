@@ -305,7 +305,7 @@ func (s *sentryLogger) Helper(add int) Logger {
 	return &sentryLogger{s.h.Helper(add)}
 }
 
-func toMap(args ...interface{}) (m map[string]interface{}) {
+func toMap(args []interface{}) (m map[string]interface{}) {
 	m = make(map[string]interface{}, len(args)/2)
 	for i := 0; i < len(args); {
 		// Make sure this element isn't a dangling key
