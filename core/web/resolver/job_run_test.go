@@ -6,11 +6,14 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
@@ -223,6 +226,216 @@ func TestResolver_JobRun(t *testing.T) {
 					ResolverError: idError,
 					Path:          []interface{}{"jobRun"},
 					Message:       idError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_RunJob(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation RunJob($id: ID!, $input: RunJobInput) {
+			runJob(id: $id, input: $input) {
+				... on RunJobSuccess {
+					jobRun {
+						id
+						allErrors
+						createdAt
+						fatalErrors
+						finishedAt
+						inputs
+						outputs
+						status
+					}
+				}
+				... on RunJobCannotRunError {
+					code
+					message
+				}
+				... on NotFoundError {
+					code
+					message
+				}
+			}
+		}`
+	id := uuid.NewV4()
+	variables := map[string]interface{}{
+		"id":    id.String(),
+		"input": nil,
+	}
+
+	inputs := pipeline.JSONSerializable{}
+	err := inputs.UnmarshalJSON([]byte(`{"foo": "bar"}`))
+	require.NoError(t, err)
+
+	outputs := pipeline.JSONSerializable{}
+	err = outputs.UnmarshalJSON([]byte(`[{"baz": "bar"}]`))
+	require.NoError(t, err)
+
+	gError := errors.New("error")
+	_, uuidErr := uuid.FromString("some random ID with some specific length that should not work")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "runJob"),
+		{
+			name:          "success without body",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("RunWebhookJobV2", mock.Anything, id, "", pipeline.JSONSerializable{}).Return(int64(25), nil)
+				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{
+					ID:             2,
+					PipelineSpecID: 5,
+					CreatedAt:      f.Timestamp(),
+					FinishedAt:     null.TimeFrom(f.Timestamp()),
+					AllErrors:      pipeline.RunErrors{null.StringFrom("fatal error"), null.String{}},
+					FatalErrors:    pipeline.RunErrors{null.StringFrom("fatal error"), null.String{}},
+					Inputs:         inputs,
+					Outputs:        outputs,
+					State:          pipeline.RunStatusErrored,
+				}, nil)
+				f.App.On("PipelineORM").Return(f.Mocks.pipelineORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"runJob": {
+						"jobRun": {
+							"id": "2",
+							"allErrors": ["fatal error"],
+							"createdAt": "2021-01-01T00:00:00Z",
+							"fatalErrors": ["fatal error"],
+							"finishedAt": "2021-01-01T00:00:00Z",
+							"inputs": "{\"foo\":\"bar\"}",
+							"outputs": ["{\"baz\":\"bar\"}"],
+							"status": "ERRORED"
+						}
+					}
+				}`,
+		},
+		{
+			name:          "success with body",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("RunWebhookJobV2", mock.Anything, id, `{"data":{"result":"123.45"}}`, pipeline.JSONSerializable{}).Return(int64(25), nil)
+				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{
+					ID:             2,
+					PipelineSpecID: 5,
+					CreatedAt:      f.Timestamp(),
+					FinishedAt:     null.TimeFrom(f.Timestamp()),
+					AllErrors:      pipeline.RunErrors{null.StringFrom("fatal error"), null.String{}},
+					FatalErrors:    pipeline.RunErrors{null.StringFrom("fatal error"), null.String{}},
+					Inputs:         inputs,
+					Outputs:        outputs,
+					State:          pipeline.RunStatusErrored,
+				}, nil)
+				f.App.On("PipelineORM").Return(f.Mocks.pipelineORM)
+			},
+			query: mutation,
+			variables: map[string]interface{}{
+				"id": id.String(),
+				"input": map[string]interface{}{
+					"requestBody": `{"data":{"result":"123.45"}}`,
+				},
+			},
+			result: `
+				{
+					"runJob": {
+						"jobRun": {
+							"id": "2",
+							"allErrors": ["fatal error"],
+							"createdAt": "2021-01-01T00:00:00Z",
+							"fatalErrors": ["fatal error"],
+							"finishedAt": "2021-01-01T00:00:00Z",
+							"inputs": "{\"foo\":\"bar\"}",
+							"outputs": ["{\"baz\":\"bar\"}"],
+							"status": "ERRORED"
+						}
+					}
+				}`,
+		},
+		{
+			name:          "invalid UUID error",
+			authenticated: true,
+			query:         mutation,
+			variables: map[string]interface{}{
+				"id":    "some random ID with some specific length that should not work",
+				"input": nil,
+			},
+			result: `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: uuidErr,
+					Path:          []interface{}{"runJob"},
+					Message:       uuidErr.Error(),
+				},
+			},
+		},
+		{
+			name:          "not found job error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("RunWebhookJobV2", mock.Anything, id, "", pipeline.JSONSerializable{}).Return(int64(25), webhook.ErrJobNotExists)
+			},
+			query: mutation,
+			variables: map[string]interface{}{
+				"id":    id.String(),
+				"input": nil,
+			},
+			result: `
+				{
+					"runJob": {
+						"code": "NOT_FOUND",
+						"message": "job does not exist"
+					}
+				}`,
+		},
+		{
+			name:          "generic error on RunWebhookJobV2",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("RunWebhookJobV2", mock.Anything, id, "", pipeline.JSONSerializable{}).Return(int64(25), gError)
+			},
+			query: mutation,
+			variables: map[string]interface{}{
+				"id":    id.String(),
+				"input": nil,
+			},
+			result: `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"runJob"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+		{
+			name:          "generic error on FindRun",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("RunWebhookJobV2", mock.Anything, id, "", pipeline.JSONSerializable{}).Return(int64(25), nil)
+				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{}, gError)
+				f.App.On("PipelineORM").Return(f.Mocks.pipelineORM)
+			},
+			query: mutation,
+			variables: map[string]interface{}{
+				"id":    id.String(),
+				"input": nil,
+			},
+			result: `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"runJob"},
+					Message:       gError.Error(),
 				},
 			},
 		},

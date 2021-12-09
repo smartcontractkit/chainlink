@@ -215,12 +215,12 @@ func NewRunJobPayload(run *pipeline.Run, app chainlink.Application, err error) *
 	return &RunJobPayloadResolver{run: run, app: app, NotFoundErrorUnionType: e}
 }
 
-func (r *RunJobPayloadResolver) ToJobRun() (*JobRunResolver, bool) {
+func (r *RunJobPayloadResolver) ToRunJobSuccess() (*RunJobSuccessResolver, bool) {
 	if r.err != nil {
 		return nil, false
 	}
 
-	return NewJobRun(*r.run, r.app), true
+	return NewRunJobSuccess(*r.run, r.app), true
 }
 
 func (r *RunJobPayloadResolver) ToRunJobCannotRunError() (*RunJobCannotRunErrorResolver, bool) {
@@ -233,6 +233,19 @@ func (r *RunJobPayloadResolver) ToRunJobCannotRunError() (*RunJobCannotRunErrorR
 	}
 
 	return NewRunJobCannotRunError(r.err), true
+}
+
+type RunJobSuccessResolver struct {
+	run pipeline.Run
+	app chainlink.Application
+}
+
+func NewRunJobSuccess(run pipeline.Run, app chainlink.Application) *RunJobSuccessResolver {
+	return &RunJobSuccessResolver{run: run, app: app}
+}
+
+func (r *RunJobSuccessResolver) JobRun() *JobRunResolver {
+	return NewJobRun(r.run, r.app)
 }
 
 type RunJobCannotRunErrorResolver struct {
