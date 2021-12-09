@@ -51,7 +51,7 @@ FROM ubuntu:20.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y ca-certificates wget gnupg lsb-release
+RUN apt-get update && apt-get install -y ca-certificates wget gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN wget --quiet -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
@@ -70,4 +70,7 @@ WORKDIR /home/${CHAINLINK_USER}
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
+
+HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
+
 CMD ["local", "node"]
