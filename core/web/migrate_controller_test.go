@@ -383,7 +383,8 @@ func TestMigrateController_MigrateExternal(t *testing.T) {
       "jobSpecId": "95311d21-7c9f-4f35-b00c-fa32b5ae97e1",
       "type": "external",
       "params": {
-				"name": "some-external-initiator"
+				"name": "some-external-initiator",
+        "body": {"param1": "value"}
 			}
     }
   ],

@@ -72,9 +72,10 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 	}
 
 	if eiwhSpec != nil {
+		logger.Infof("Inserting external_initiator_webhook_specs with spec: %v", eiwhSpec.Spec.String())
 		err := mc.App.GetStore().DB.Exec(
 			`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`,
-			eiwhSpec.ExternalInitiatorID, jb.WebhookSpecID, `{}`).Error
+			eiwhSpec.ExternalInitiatorID, jb.WebhookSpecID, eiwhSpec.Spec.String()).Error
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -315,8 +316,18 @@ func (mc *MigrateController) migrateExternalJob(js models.JobSpec) (job.Job, err
 	if err != nil {
 		return job.Job{}, errors.Wrapf(err, "Failed to find external initiator by name: %v", js.Initiators[0].Name)
 	}
+
+	spec, err := models.ParseJSON([]byte("{}"))
+	if err != nil {
+		return job.Job{}, errors.Wrap(err, "Failed to parse json")
+	}
+
+	if js.Initiators[0].Body != nil {
+		spec = *js.Initiators[0].Body
+	}
 	eiWhSpec := job.ExternalInitiatorWebhookSpec{
 		ExternalInitiatorID: ei.ID,
+		Spec:                spec,
 	}
 
 	jb := job.Job{
