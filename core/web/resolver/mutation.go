@@ -10,6 +10,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -1043,4 +1045,59 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 	}
 
 	return NewDismissJobErrorPayload(&specErr, nil), nil
+}
+
+func (r *Resolver) RunJob(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input *struct {
+		RequestBody *string
+	}
+}) (*RunJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	session, _ := webauth.GetGQLAuthenticatedSession(ctx)
+	eiSession, ok := webauth.GetGQLAuthenticatedExternalInitiatorSession(ctx)
+	if !ok {
+		return nil, unauthorizedError{}
+	}
+
+	ei := eiSession.ExternalInitiator
+	authorizer := webhook.NewAuthorizer(r.App.GetSqlxDB().DB, session.User, ei)
+
+	jobUUID, err := uuid.FromString(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	canRun, err := authorizer.CanRun(ctx, r.App.GetConfig(), jobUUID)
+	if err != nil {
+		return nil, err
+	}
+	if !canRun {
+		return NewRunJobPayload(nil, r.App, fmt.Errorf("external initiator %s is not allowed to run job %s", ei.Name, jobUUID)), nil
+	}
+
+	var requestBody string
+
+	if args.Input != nil && args.Input.RequestBody != nil {
+		requestBody = *args.Input.RequestBody
+	}
+
+	jobRunID, err := r.App.RunWebhookJobV2(ctx, jobUUID, requestBody, pipeline.JSONSerializable{})
+	if err != nil {
+		if errors.Is(err, webhook.ErrJobNotExists) {
+			return NewRunJobPayload(nil, r.App, err), nil
+		}
+
+		return nil, err
+	}
+
+	plnRun, err := r.App.PipelineORM().FindRun(jobRunID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewRunJobPayload(&plnRun, r.App, nil), nil
 }
