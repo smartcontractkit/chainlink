@@ -150,7 +150,7 @@ interface Props {
   stratify: Stratify[]
 }
 
-export const TaskList = ({ stratify }: Props) => {
+export const TaskListDAG = ({ stratify }: Props) => {
   const [tooltip, setTooltip] = React.useState<NodeElement>()
   const [icons, setIcon] = React.useState<TaskNodes>({})
   const graph = React.useRef<HTMLInputElement>(null)
@@ -242,5 +242,3 @@ export const TaskList = ({ stratify }: Props) => {
     </div>
   )
 }
-
-export default TaskList

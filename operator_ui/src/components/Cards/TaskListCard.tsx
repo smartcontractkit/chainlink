@@ -6,7 +6,7 @@ import CardHeader from '@material-ui/core/CardHeader'
 import Typography from '@material-ui/core/Typography'
 
 import { parseDot, Stratify } from 'utils/parseDot'
-import TaskListDag from 'pages/Jobs/TaskListDag'
+import { TaskListDAG } from './TaskListDAG'
 
 interface Props {
   observationSource?: string
@@ -63,7 +63,7 @@ export const TaskListCard: React.FC<Props> = ({
           </Typography>
         )}
 
-        {state && state.graph && <TaskListDag stratify={state.graph} />}
+        {state && state.graph && <TaskListDAG stratify={state.graph} />}
       </CardContent>
     </Card>
   )
