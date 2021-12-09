@@ -3,7 +3,7 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	"gopkg.in/guregu/null.v4"
 
@@ -178,7 +178,7 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
 	ContractID                             string                 `json:"contractID"`
-	Relay                                  relay.Network          `json:"relay"`
+	Relay                                  types.Network          `json:"relay"`
 	RelayConfig                            map[string]interface{} `json:"relayConfig"`
 	P2PBootstrapPeers                      pq.StringArray         `json:"p2pBootstrapPeers"`
 	IsBootstrapPeer                        bool                   `json:"isBootstrapPeer"`

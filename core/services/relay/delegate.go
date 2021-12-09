@@ -1,7 +1,9 @@
-package delegate
+package relay
 
 import (
 	"encoding/json"
+
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -14,27 +16,30 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"go.uber.org/multierr"
 )
 
 var (
-	_ relay.Relayer = &evmrelay.Relayer{}
-	_ relay.Relayer = &solana.Relayer{}
+	SupportedRelayers = map[types.Network]struct{}{
+		types.EVM:    {},
+		types.Solana: {},
+	}
+	_ types.Relayer = &evmrelay.Relayer{}
+	_ types.Relayer = &solana.Relayer{}
 )
 
 type delegate struct {
-	relayers map[relay.Network]relay.Relayer
+	relayers map[types.Network]types.Relayer
 	ks       keystore.Master
 }
 
-func NewRelayDelegate(db *sqlx.DB, ks keystore.Master, chainSet evm.ChainSet, lggr logger.Logger) *delegate {
+func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evm.ChainSet, lggr logger.Logger) *delegate {
 	return &delegate{
 		ks: ks,
-		relayers: map[relay.Network]relay.Relayer{
-			relay.EVM:    evmrelay.NewRelayer(db, chainSet, lggr),
-			relay.Solana: solana.NewRelayer(lggr),
+		relayers: map[types.Network]types.Relayer{
+			types.EVM:    evmrelay.NewRelayer(db, chainSet, lggr),
+			types.Solana: solana.NewRelayer(lggr),
 		},
 	}
 }
@@ -75,19 +80,19 @@ func (d delegate) Healthy() error {
 	return err
 }
 
-func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
+func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2Provider, error) {
 	// We expect trusted input
 	spec := s.(*job.OffchainReporting2OracleSpec)
 	choice := spec.Relay
 	switch choice {
-	case relay.EVM:
+	case types.EVM:
 		var config evmrelay.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
 			return nil, err
 		}
 
-		return d.relayers[relay.EVM].NewOCR2Provider(externalJobID, evmrelay.OCR2Spec{
+		return d.relayers[types.EVM].NewOCR2Provider(externalJobID, evmrelay.OCR2Spec{
 			ID:             spec.ID,
 			IsBootstrap:    spec.IsBootstrapPeer,
 			ContractID:     spec.ContractID,
@@ -95,7 +100,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 			TransmitterID:  spec.TransmitterID,
 			ChainID:        config.ChainID.ToInt(),
 		})
-	case relay.Solana:
+	case types.Solana:
 		var config solana.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
@@ -129,7 +134,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 				return nil, err
 			}
 		}
-		return d.relayers[relay.Solana].NewOCR2Provider(externalJobID, solana.OCR2Spec{
+		return d.relayers[types.Solana].NewOCR2Provider(externalJobID, solana.OCR2Spec{
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
 			NodeEndpointRPC:    config.NodeEndpointRPC,

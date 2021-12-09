@@ -1,9 +1,13 @@
-package offchainreporting2_test
+package evm_test
 
 import (
 	"context"
 	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
+
+	offchainreporting "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -20,7 +24,6 @@ import (
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
-	offchainreporting "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	ocrmocks "github.com/smartcontractkit/chainlink/core/services/offchainreporting2/mocks"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -350,7 +353,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/ocr2_round_requested_log_1_1.json")
 		rr := ocr2aggregator.OCR2AggregatorRoundRequested{
 			Requester:    cltest.NewAddress(),
-			ConfigDigest: MakeConfigDigest(t),
+			ConfigDigest: testhelpers.MakeConfigDigest(t),
 			Epoch:        42,
 			Round:        9,
 			Raw:          rawLog,

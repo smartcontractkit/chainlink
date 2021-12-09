@@ -1,21 +1,20 @@
-package relay
+// Types are shared with external relay libraries so they can implement
+// the interfaces required to run as a core OCR job.
+package types
 
 import (
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/service"
 )
 
 type Network string
 
 var (
-	EVM               Network = "evm"
-	Solana            Network = "solana"
-	SupportedRelayers         = map[Network]struct{}{
-		EVM:    {},
-		Solana: {},
-	}
+	EVM    Network = "evm"
+	Solana Network = "solana"
 )
 
 type Relayer interface {

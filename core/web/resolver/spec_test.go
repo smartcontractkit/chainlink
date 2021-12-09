@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -13,7 +15,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -509,7 +510,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						OCRKeyBundleID:                         null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
 						P2PBootstrapPeers:                      pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                                  relay.EVM,
+						Relay:                                  types.EVM,
 						RelayConfig:                            relayConfig,
 						TransmitterID:                          null.StringFrom(transmitterAddress.String()),
 					},

@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"strings"
 
+	types2 "github.com/smartcontractkit/chainlink/core/services/relay/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -11,7 +13,6 @@ import (
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
 	txm "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
-	ocr2 "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -61,7 +61,7 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
-func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
+func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types2.OCR2Provider, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
 	chain, err := r.chainSet.Get(spec.ChainID)
@@ -88,9 +88,9 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrDB := ocr2.NewDB(r.db.DB, spec.ID, r.lggr)
+	ocrDB := NewContractDB(r.db.DB, spec.ID, r.lggr)
 
-	tracker := ocr2.NewOCRContractTracker(
+	tracker := NewOCRContractTracker(
 		contract,
 		contractFilterer,
 		contractCaller,
@@ -130,7 +130,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 	transmitterAddress := common.HexToAddress(spec.TransmitterID.String)
 	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
 
-	contractTransmitter := ocr2.NewOCRContractTransmitter(
+	contractTransmitter := NewOCRContractTransmitter(
 		contract.Address(),
 		contractCaller,
 		contractABI,
@@ -163,10 +163,10 @@ type OCR2Spec struct {
 var _ service.Service = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
-	tracker                *ocr2.ContractTracker
+	tracker                *ContractTracker
 	offchainConfigDigester types.OffchainConfigDigester
 	reportCodec            median.ReportCodec
-	contractTransmitter    *ocr2.ContractTransmitter
+	contractTransmitter    *ContractTransmitter
 }
 
 // On start, an ethereum ocr2 provider will start the contract tracker.

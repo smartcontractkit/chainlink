@@ -3,6 +3,8 @@ package offchainreporting2
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -16,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -39,7 +40,7 @@ type Delegate struct {
 	cfg                   Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
-	relayer               relay.Relayer
+	relayer               types.Relayer
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -54,7 +55,7 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg Config,
 	ks keystore.OCR2,
-	relayer relay.Relayer,
+	relayer types.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db,

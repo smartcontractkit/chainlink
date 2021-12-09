@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	"go.uber.org/multierr"
 
@@ -181,12 +181,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			if jb.Offchainreporting2OracleSpec.TransmitterID.Valid {
 				switch jb.Offchainreporting2OracleSpec.Relay {
-				case relay.EVM:
+				case relaytypes.EVM:
 					_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
 					}
-				case relay.Solana:
+				case relaytypes.Solana:
 					_, err := o.keyStore.Solana().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)

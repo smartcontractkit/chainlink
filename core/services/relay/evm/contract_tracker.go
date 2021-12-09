@@ -1,4 +1,4 @@
-package offchainreporting2
+package evm
 
 import (
 	"context"
