@@ -2,6 +2,7 @@ package balancemonitor_test
 
 import (
 	"context"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"math/big"
 	"testing"
 	"time"
@@ -22,6 +23,13 @@ import (
 
 var nilBigInt *big.Int
 
+func newEthClientMock(t mock.TestingT) *ethmocks.Client {
+	mockEth := new(ethmocks.Client)
+	mockEth.Test(t)
+	mockEth.On("ChainID").Maybe().Return(big.NewInt(0))
+	return mockEth
+}
+
 func TestBalanceMonitor_Start(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 
@@ -29,7 +37,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -60,7 +68,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -82,7 +90,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -109,7 +117,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -173,7 +181,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := newEthClientMock(t)
 
 	bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
