@@ -48,10 +48,7 @@ func init() {
 	}
 
 	// Set SENTRY_DEBUG=true to enable printing of SDK debug messages
-	var sentrydebug bool
-	if debug := os.Getenv("SENTRY_DEBUG"); debug == "true" {
-		sentrydebug = true
-	}
+	sentrydebug := os.Getenv("SENTRY_DEBUG") == "true"
 
 	// Do not initialize sentry at all if the DSN is missing
 	if sentrydsn != "" {
