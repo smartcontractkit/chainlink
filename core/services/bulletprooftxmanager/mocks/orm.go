@@ -97,6 +97,29 @@ func (_m *ORM) FindEthTxAttempt(hash common.Hash) (*bulletprooftxmanager.EthTxAt
 	return r0, r1
 }
 
+// FindEthTxByHash provides a mock function with given fields: hash
+func (_m *ORM) FindEthTxByHash(hash common.Hash) (*bulletprooftxmanager.EthTx, error) {
+	ret := _m.Called(hash)
+
+	var r0 *bulletprooftxmanager.EthTx
+	if rf, ok := ret.Get(0).(func(common.Hash) *bulletprooftxmanager.EthTx); ok {
+		r0 = rf(hash)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*bulletprooftxmanager.EthTx)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
+		r1 = rf(hash)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindEthTxWithAttempts provides a mock function with given fields: etxID
 func (_m *ORM) FindEthTxWithAttempts(etxID int64) (bulletprooftxmanager.EthTx, error) {
 	ret := _m.Called(etxID)

@@ -36,6 +36,9 @@ func TestResolver_EthTransaction(t *testing.T) {
 					hash
 					hex
 					sentAt
+					attempts {
+						hash
+					}
 				}
 				... on NotFoundError {
 					code
@@ -56,20 +59,22 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("FindEthTxAttempt", hash).Return(&bulletprooftxmanager.EthTxAttempt{
-					Hash:                    hash,
-					GasPrice:                utils.NewBigI(12),
-					SignedRawTx:             []byte("something"),
-					BroadcastBeforeBlockNum: nil,
-					EthTx: bulletprooftxmanager.EthTx{
-						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						State:          bulletprooftxmanager.EthTxInProgress,
-						EncodedPayload: []byte("encoded payload"),
-						GasLimit:       100,
-						Value:          assets.NewEthValue(100),
-						EVMChainID:     *utils.NewBigI(22),
-						Nonce:          nil,
+				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(&bulletprooftxmanager.EthTx{
+					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					State:          bulletprooftxmanager.EthTxInProgress,
+					EncodedPayload: []byte("encoded payload"),
+					GasLimit:       100,
+					Value:          assets.NewEthValue(100),
+					EVMChainID:     *utils.NewBigI(22),
+					Nonce:          nil,
+					EthTxAttempts: []bulletprooftxmanager.EthTxAttempt{
+						{
+							Hash:                    hash,
+							GasPrice:                utils.NewBigI(12),
+							SignedRawTx:             []byte("something"),
+							BroadcastBeforeBlockNum: nil,
+						},
 					},
 				}, nil)
 				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
@@ -99,7 +104,10 @@ func TestResolver_EthTransaction(t *testing.T) {
 						"hash": "0x0000000000000000000000005431f5f973781809d18643b87b44921b11355d81",
 						"hex": "0x736f6d657468696e67",
 						"sentAt": null,
-						"evmChainID": "22"
+						"evmChainID": "22",
+						"attempts": [{
+							"hash": "0x0000000000000000000000005431f5f973781809d18643b87b44921b11355d81"
+						}]
 					}
 				}`,
 		},
@@ -109,20 +117,22 @@ func TestResolver_EthTransaction(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.bptxmORM.On("FindEthTxAttempt", hash).Return(&bulletprooftxmanager.EthTxAttempt{
-					Hash:                    hash,
-					GasPrice:                utils.NewBigI(12),
-					SignedRawTx:             []byte("something"),
-					BroadcastBeforeBlockNum: &num,
-					EthTx: bulletprooftxmanager.EthTx{
-						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						State:          bulletprooftxmanager.EthTxInProgress,
-						EncodedPayload: []byte("encoded payload"),
-						GasLimit:       100,
-						Value:          assets.NewEthValue(100),
-						EVMChainID:     *utils.NewBigI(22),
-						Nonce:          &num,
+				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(&bulletprooftxmanager.EthTx{
+					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+					State:          bulletprooftxmanager.EthTxInProgress,
+					EncodedPayload: []byte("encoded payload"),
+					GasLimit:       100,
+					Value:          assets.NewEthValue(100),
+					EVMChainID:     *utils.NewBigI(22),
+					Nonce:          &num,
+					EthTxAttempts: []bulletprooftxmanager.EthTxAttempt{
+						{
+							Hash:                    hash,
+							GasPrice:                utils.NewBigI(12),
+							SignedRawTx:             []byte("something"),
+							BroadcastBeforeBlockNum: &num,
+						},
 					},
 				}, nil)
 				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
@@ -152,7 +162,10 @@ func TestResolver_EthTransaction(t *testing.T) {
 						"hash": "0x0000000000000000000000005431f5f973781809d18643b87b44921b11355d81",
 						"hex": "0x736f6d657468696e67",
 						"sentAt": "2",
-						"evmChainID": "22"
+						"evmChainID": "22",
+						"attempts": [{
+							"hash": "0x0000000000000000000000005431f5f973781809d18643b87b44921b11355d81"
+						}]
 					}
 				}`,
 		},
@@ -160,7 +173,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("FindEthTxAttempt", hash).Return(nil, sql.ErrNoRows)
+				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(nil, sql.ErrNoRows)
 				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
 			},
 			query:     query,
@@ -177,7 +190,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("FindEthTxAttempt", hash).Return(nil, gError)
+				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(nil, gError)
 				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
 			},
 			query:     query,
@@ -335,6 +348,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 						GasPrice:                utils.NewBigI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
+						EthTx:                   bulletprooftxmanager.EthTx{},
 					},
 				}, 1, nil)
 				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)

@@ -30,7 +30,7 @@ func (r *EthTransactionAttemptResolver) GasPrice() string {
 }
 
 func (r *EthTransactionAttemptResolver) Hash() string {
-	return r.attmpt.Hash.String()
+	return r.attmpt.Hash.Hex()
 }
 
 func (r *EthTransactionAttemptResolver) Hex() string {

@@ -19,6 +19,7 @@ type ORM interface {
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
+	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthReceipt(receipt *EthReceipt) error
@@ -140,6 +141,24 @@ func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 	attempts := []EthTxAttempt{ethTxAttempt}
 	err := o.preloadTxes(attempts)
 	return &attempts[0], err
+}
+
+func (o *orm) FindEthTxByHash(hash common.Hash) (*EthTx, error) {
+	var etx EthTx
+
+	err := o.q.Transaction(func(tx pg.Queryer) error {
+		sql := `SELECT eth_txes.* FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts WHERE hash = $1)`
+		if err := tx.Get(&etx, sql, hash); err != nil {
+			return errors.Wrapf(err, "failed to find eth_tx with hash %d", hash)
+		}
+		if err := loadEthTxAttempts(tx, &etx); err != nil {
+			return errors.Wrapf(err, "failed to load eth_tx_attempts for eth_tx with hash %d", hash)
+		}
+
+		return nil
+	}, pg.OptReadOnlyTx())
+
+	return &etx, errors.Wrap(err, "FindEthTxByHash failed")
 }
 
 // InsertEthTxAttempt inserts a new txAttempt into the database

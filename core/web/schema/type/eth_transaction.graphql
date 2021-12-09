@@ -12,6 +12,7 @@ type EthTransaction {
 	hex: String!
 	sentAt: String
 	chain: Chain!
+	attempts: [EthTransactionAttempt!]!
 }
 
 union EthTransactionPayload = EthTransaction | NotFoundError

@@ -114,4 +114,11 @@ func TestORM(t *testing.T) {
 		require.Len(t, etx.EthTxAttempts[1].EthReceipts, 0)
 		assert.Equal(t, r.BlockHash, etx.EthTxAttempts[0].EthReceipts[0].BlockHash)
 	})
+	t.Run("FindEthTxByHash", func(t *testing.T) {
+		etx, err := orm.FindEthTxByHash(attemptD.Hash)
+		require.NoError(t, err)
+		require.Len(t, etx.EthTxAttempts, 2)
+		assert.Equal(t, etx.EthTxAttempts[0].ID, attemptD.ID)
+		assert.Equal(t, etx.EthTxAttempts[1].ID, attemptL.ID)
+	})
 }

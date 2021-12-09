@@ -451,7 +451,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	ethTxAttempt, err := r.App.BPTXMORM().FindEthTxAttempt(hash)
+	etx, err := r.App.BPTXMORM().FindEthTxByHash(hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil
@@ -460,9 +460,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	data := NewEthTransactionData(ethTxAttempt.EthTx, *ethTxAttempt)
-
-	return NewEthTransactionPayload(&data, err), nil
+	return NewEthTransactionPayload(etx, err), nil
 }
 
 func (r *Resolver) EthTransactions(ctx context.Context, args struct {
@@ -481,13 +479,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	results := make([]EthTransactionData, len(txs))
-
-	for i, tx := range txs {
-		results[i] = NewEthTransactionData(tx, tx.EthTxAttempts[0])
-	}
-
-	return NewEthTransactionsPayload(results, int32(count)), nil
+	return NewEthTransactionsPayload(txs, int32(count)), nil
 }
 
 func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
