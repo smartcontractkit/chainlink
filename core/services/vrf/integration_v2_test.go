@@ -499,6 +499,124 @@ func TestIntegrationVRFV2_SingleConsumer_NeedsTopUp(t *testing.T) {
 	t.Log("Done!")
 }
 
+func TestIntegrationVRFV2_SingleConsumer_MultipleGasLanes(t *testing.T) {
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_sim", true, true)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+
+	// Create a subscription and fund with 5 LINK.
+	sub, subID := subscribeVRF(t, consumer, consumerContract, uni.rootContract, uni.backend, big.NewInt(1e18))
+	require.Equal(t, uint64(1), subID)
+	require.Equal(t, big.NewInt(1e18), sub.Balance)
+
+	// Assert the subscription event in the coordinator contract.
+	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, []uint64{subID})
+	require.NoError(t, err)
+	found := false
+	for iter.Next() {
+		if iter.Event.Owner != consumerContractAddress {
+			require.FailNowf(t, "SubscriptionCreated event contains wrong owner address", "expected: %+v, actual: %+v", consumer.From, iter.Event.Owner)
+		} else {
+			found = true
+		}
+	}
+	require.Truef(t, found, "could not find SubscriptionCreated event for subID %d", subID)
+
+	// Create cheap gas lane.
+	cheapKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, cheapKey.Address.Address(), 10)
+	// Create expensive gas lane.
+	expensiveKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, expensiveKey.Address.Address(), 10)
+	configureSimChain(app, map[string]types.ChainCfg{
+		cheapKey.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
+		},
+		expensiveKey.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000e9)), // 1000 gwei
+		},
+	}, big.NewInt(10e9))
+	require.NoError(t, app.Start())
+
+	// Create VRF job.
+	jbs := createJobs(t, []ethkey.KeyV2{cheapKey, expensiveKey}, app, uni)
+	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
+	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
+
+	cheapRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, cheapHash, subID, uni)
+
+	// Wait for fulfillment to be queued for cheap key hash.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 1", "runs", len(runs))
+		return len(runs) == 1
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	uni.backend.Commit()
+	time.Sleep(2 * time.Second)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{cheapRequestID})
+	require.NoError(t, err)
+	found = false
+	for fiter.Next() {
+		require.True(t, fiter.Event.Success, "cheap gas lane fulfillment event not successful")
+		require.Equal(t, cheapRequestID, fiter.Event.RequestId)
+		found = true
+	}
+	require.True(t, found, "cheap gas lane RandomWordsFulfilled event not found")
+
+	expensiveRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, expensiveHash, subID, uni)
+
+	// We should not have any new fulfillments until a top up.
+	gomega.NewWithT(t).Consistently(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 2", "runs", len(runs))
+		return len(runs) == 1
+	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	// Top up subscription with enough LINK to see the job through. 100 LINK should do the trick.
+	_, err = consumerContract.TopUpSubscription(consumer, decimal.RequireFromString("100e18").BigInt())
+	require.NoError(t, err)
+
+	// Wait for fulfillment to be queued for expensive key hash.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("assert 1", "runs", len(runs))
+		return len(runs) == 2
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	uni.backend.Commit()
+	time.Sleep(2 * time.Second)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	fiter, err = uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{expensiveRequestID})
+	require.NoError(t, err)
+	found = false
+	for fiter.Next() {
+		require.True(t, fiter.Event.Success, "expensive gas lane fulfillment event not successful")
+		require.Equal(t, expensiveRequestID, fiter.Event.RequestId)
+		found = true
+	}
+	require.True(t, found, "RandomWordsFulfilled event not found")
+}
+
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
