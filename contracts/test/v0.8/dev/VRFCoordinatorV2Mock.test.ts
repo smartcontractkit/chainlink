@@ -132,9 +132,12 @@ describe('VRFCoordinatorV2Mock', () => {
 
       // Call requestRandomWords from the consumer contract so that the requestId
       // member variable on the consumer is appropriately set.
-      expect(await vrfConsumerV2.connect(subOwner).testRequestRandomness(
-        keyhash, subId, 3, 500_000, 2,
-      )).to.emit(vrfCoordinatorV2Mock, 'RandomWordsRequested')
+      expect(
+        await vrfConsumerV2
+          .connect(subOwner)
+          .testRequestRandomness(keyhash, subId, 3, 500_000, 2),
+      )
+        .to.emit(vrfCoordinatorV2Mock, 'RandomWordsRequested')
         .withArgs(keyhash, 1, 100, subId, 3, 500_000, 2, vrfConsumerV2.address)
 
       let tx = await vrfCoordinatorV2Mock
