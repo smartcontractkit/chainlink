@@ -21,7 +21,7 @@ describe('TaskRunItemCard', () => {
     renderComponent({ ...run, attrs: { type: run.type, path: 'result,data' } })
 
     // The completed icon
-    expect(queryByTestId('completed')).toBeInTheDocument()
+    expect(queryByTestId('complete-run-icon')).toBeInTheDocument()
     expect(queryByText(run.dotID)).toBeInTheDocument()
     expect(queryByText(run.type)).toBeInTheDocument()
     expect(queryByText(run.output)).toBeInTheDocument()
@@ -34,7 +34,7 @@ describe('TaskRunItemCard', () => {
     renderComponent({ ...run, attrs: { type: run.type, path: 'result,data' } })
 
     // The error icon
-    expect(queryByTestId('errored')).toBeInTheDocument()
+    expect(queryByTestId('error-run-icon')).toBeInTheDocument()
     expect(queryByText(run.dotID)).toBeInTheDocument()
     expect(queryByText(run.type)).toBeInTheDocument()
     expect(queryByText(run.error as string)).toBeInTheDocument()

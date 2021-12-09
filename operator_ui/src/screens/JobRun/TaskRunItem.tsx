@@ -9,6 +9,7 @@ import {
 import Typography from '@material-ui/core/Typography'
 
 import { TaskRunStatusIcon } from 'src/components/Icons/TaskRunStatusIcon'
+import { TaskRunStatus } from 'src/utils/taskRunStatus'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -48,7 +49,7 @@ export interface Props
 
 export const TaskRunItem = withStyles(styles)(
   ({ attrs, classes, dotID, output, error, type }: Props) => {
-    const status = error ? 'errored' : 'completed'
+    const status = error ? TaskRunStatus.ERROR : TaskRunStatus.COMPLETE
 
     return (
       <div className={classes.root}>
@@ -61,9 +62,9 @@ export const TaskRunItem = withStyles(styles)(
             {dotID} <small className={classes.subheading}>{type}</small>
           </Typography>
 
-          {['completed', 'errored'].includes(status) && (
+          {[TaskRunStatus.COMPLETE, TaskRunStatus.ERROR].includes(status) && (
             <Typography className={classes.text} variant="body1">
-              {status === 'completed' ? output : error}
+              {status === TaskRunStatus.COMPLETE ? output : error}
             </Typography>
           )}
 
