@@ -39,9 +39,8 @@ export const TabRuns: React.FC<Props> = ({ fetchMore, job }) => {
       createdAt,
       errors: allErrors,
       finishedAt,
-      jobId: job.id,
     }))
-  }, [job.runs, job.id])
+  }, [job.runs])
 
   return (
     <>

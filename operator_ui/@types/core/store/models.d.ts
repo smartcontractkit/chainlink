@@ -377,21 +377,6 @@ declare module 'core/store/models' {
     updatedAt: time.Time
   }
 
-  export interface JobRunV2 {
-    state: string
-    outputs: PipelineTaskOutput[]
-    errors: PipelineTaskError[]
-    taskRuns: PipelineTaskRun[]
-    createdAt: time.Time
-    finishedAt: nullable.Time
-    pipelineSpec: {
-      ID: number
-      CreatedAt: time.Time
-      dotDagSource: string
-      jobID: string
-    }
-  }
-
   // We really need to change the API for this. It not only returns levels but
   // true/false for IsSQLEnabled
   export type LogConfigLevel =
