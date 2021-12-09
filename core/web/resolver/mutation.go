@@ -1057,26 +1057,9 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	session, _ := webauth.GetGQLAuthenticatedSession(ctx)
-	eiSession, ok := webauth.GetGQLAuthenticatedExternalInitiatorSession(ctx)
-	if !ok {
-		return nil, unauthorizedError{}
-	}
-
-	ei := eiSession.ExternalInitiator
-	authorizer := webhook.NewAuthorizer(r.App.GetSqlxDB().DB, session.User, ei)
-
 	jobUUID, err := uuid.FromString(string(args.ID))
 	if err != nil {
 		return nil, err
-	}
-
-	canRun, err := authorizer.CanRun(ctx, r.App.GetConfig(), jobUUID)
-	if err != nil {
-		return nil, err
-	}
-	if !canRun {
-		return NewRunJobPayload(nil, r.App, fmt.Errorf("external initiator %s is not allowed to run job %s", ei.Name, jobUUID)), nil
 	}
 
 	var requestBody string
