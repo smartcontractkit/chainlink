@@ -343,8 +343,56 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	return requestID
 }
 
-func TestIntegrationVRFV2_SingleConsumer_HappyPath(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_sim", true, true)
+// subscribeAndAssertSubscriptionCreatedEvent subscribes the given consumer contract
+// to VRF and funds the subscription with the given fundingJuels amount. It returns the
+// subscription ID of the resulting subscription.
+func subscribeAndAssertSubscriptionCreatedEvent(
+	t *testing.T,
+	vrfConsumerHandle *vrf_consumer_v2.VRFConsumerV2,
+	consumerOwner *bind.TransactOpts,
+	consumerContractAddress common.Address,
+	fundingJuels *big.Int,
+	uni coordinatorV2Universe,
+) uint64 {
+	// Create a subscription and fund with LINK.
+	sub, subID := subscribeVRF(t, consumerOwner, vrfConsumerHandle, uni.rootContract, uni.backend, fundingJuels)
+	require.Equal(t, uint64(1), subID)
+	require.Equal(t, fundingJuels, sub.Balance)
+
+	// Assert the subscription event in the coordinator contract.
+	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, []uint64{subID})
+	require.NoError(t, err)
+	found := false
+	for iter.Next() {
+		if iter.Event.Owner != consumerContractAddress {
+			require.FailNowf(t, "SubscriptionCreated event contains wrong owner address", "expected: %+v, actual: %+v", consumerContractAddress, iter.Event.Owner)
+		} else {
+			found = true
+		}
+	}
+	require.True(t, found, "could not find SubscriptionCreated event for subID %d", subID)
+
+	return subID
+}
+
+func assertRandomWordsFulfilled(
+	t *testing.T,
+	requestID *big.Int,
+	uni coordinatorV2Universe,
+) {
+	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
+	require.NoError(t, err)
+	found := false
+	for fiter.Next() {
+		require.True(t, fiter.Event.Success, "fulfillment event not successful")
+		require.Equal(t, requestID, fiter.Event.RequestId)
+		found = true
+	}
+	require.True(t, found, "RandomWordsFulfilled event not found")
+}
+
+func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -355,22 +403,7 @@ func TestIntegrationVRFV2_SingleConsumer_HappyPath(t *testing.T) {
 	consumerContractAddress := uni.consumerContractAddresses[0]
 
 	// Create a subscription and fund with 5 LINK.
-	sub, subID := subscribeVRF(t, consumer, consumerContract, uni.rootContract, uni.backend, big.NewInt(5e18))
-	require.Equal(t, uint64(1), subID)
-	require.Equal(t, big.NewInt(5e18), sub.Balance)
-
-	// Assert the subscription event in the coordinator contract.
-	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, []uint64{subID})
-	require.NoError(t, err)
-	found := false
-	for iter.Next() {
-		if iter.Event.Owner != consumerContractAddress {
-			require.FailNowf(t, "SubscriptionCreated event contains wrong owner address", "expected: %+v, actual: %+v", consumer.From, iter.Event.Owner)
-		} else {
-			found = true
-		}
-	}
-	require.Truef(t, found, "could not find SubscriptionCreated event for subID %d", subID)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
 	// Create gas lane.
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -403,20 +436,12 @@ func TestIntegrationVRFV2_SingleConsumer_HappyPath(t *testing.T) {
 	uni.backend.Commit()
 
 	// Assert correct state of RandomWordsFulfilled event.
-	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
-	require.NoError(t, err)
-	found = false
-	for fiter.Next() {
-		require.True(t, fiter.Event.Success, "fulfillment event not successful")
-		require.Equal(t, requestID, fiter.Event.RequestId)
-		found = true
-	}
-	require.True(t, found, "RandomWordsFulfilled event not found")
+	assertRandomWordsFulfilled(t, requestID, uni)
 	t.Log("Done!")
 }
 
-func TestIntegrationVRFV2_SingleConsumer_NeedsTopUp(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_sim", true, true)
+func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -427,22 +452,7 @@ func TestIntegrationVRFV2_SingleConsumer_NeedsTopUp(t *testing.T) {
 	consumerContractAddress := uni.consumerContractAddresses[0]
 
 	// Create a subscription and fund with 1 LINK.
-	sub, subID := subscribeVRF(t, consumer, consumerContract, uni.rootContract, uni.backend, big.NewInt(1e18))
-	require.Equal(t, uint64(1), subID)
-	require.Equal(t, big.NewInt(1e18), sub.Balance)
-
-	// Assert the subscription event in the coordinator contract.
-	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, []uint64{subID})
-	require.NoError(t, err)
-	found := false
-	for iter.Next() {
-		if iter.Event.Owner != consumerContractAddress {
-			require.FailNowf(t, "SubscriptionCreated event contains wrong owner address", "expected: %+v, actual: %+v", consumer.From, iter.Event.Owner)
-		} else {
-			found = true
-		}
-	}
-	require.Truef(t, found, "could not find SubscriptionCreated event for subID %d", subID)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(1e18), uni)
 
 	// Create expensive gas lane.
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -487,20 +497,11 @@ func TestIntegrationVRFV2_SingleConsumer_NeedsTopUp(t *testing.T) {
 	uni.backend.Commit()
 
 	// Assert the state of the RandomWordsFulfilled event.
-	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
-	require.NoError(t, err)
-	found = false
-	for fiter.Next() {
-		require.True(t, fiter.Event.Success, "fulfillment event not successful")
-		require.Equal(t, requestID, fiter.Event.RequestId)
-		found = true
-	}
-	require.True(t, found, "RandomWordsFulfilled event not found")
-	t.Log("Done!")
+	assertRandomWordsFulfilled(t, requestID, uni)
 }
 
-func TestIntegrationVRFV2_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_sim", true, true)
+func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -511,22 +512,7 @@ func TestIntegrationVRFV2_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	consumerContractAddress := uni.consumerContractAddresses[0]
 
 	// Create a subscription and fund with 5 LINK.
-	sub, subID := subscribeVRF(t, consumer, consumerContract, uni.rootContract, uni.backend, big.NewInt(1e18))
-	require.Equal(t, uint64(1), subID)
-	require.Equal(t, big.NewInt(1e18), sub.Balance)
-
-	// Assert the subscription event in the coordinator contract.
-	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, []uint64{subID})
-	require.NoError(t, err)
-	found := false
-	for iter.Next() {
-		if iter.Event.Owner != consumerContractAddress {
-			require.FailNowf(t, "SubscriptionCreated event contains wrong owner address", "expected: %+v, actual: %+v", consumer.From, iter.Event.Owner)
-		} else {
-			found = true
-		}
-	}
-	require.Truef(t, found, "could not find SubscriptionCreated event for subID %d", subID)
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
 	// Create cheap gas lane.
 	cheapKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -567,15 +553,7 @@ func TestIntegrationVRFV2_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{cheapRequestID})
-	require.NoError(t, err)
-	found = false
-	for fiter.Next() {
-		require.True(t, fiter.Event.Success, "cheap gas lane fulfillment event not successful")
-		require.Equal(t, cheapRequestID, fiter.Event.RequestId)
-		found = true
-	}
-	require.True(t, found, "cheap gas lane RandomWordsFulfilled event not found")
+	assertRandomWordsFulfilled(t, cheapRequestID, uni)
 
 	expensiveRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, expensiveHash, subID, uni)
 
@@ -606,15 +584,7 @@ func TestIntegrationVRFV2_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	fiter, err = uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{expensiveRequestID})
-	require.NoError(t, err)
-	found = false
-	for fiter.Next() {
-		require.True(t, fiter.Event.Success, "expensive gas lane fulfillment event not successful")
-		require.Equal(t, expensiveRequestID, fiter.Event.RequestId)
-		found = true
-	}
-	require.True(t, found, "RandomWordsFulfilled event not found")
+	assertRandomWordsFulfilled(t, expensiveRequestID, uni)
 }
 
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
