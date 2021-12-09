@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	pg "github.com/smartcontractkit/chainlink/core/services"
+	services "github.com/smartcontractkit/chainlink/core/services"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -32,15 +32,15 @@ func (_m *Subscription) Close() {
 }
 
 // Events provides a mock function with given fields:
-func (_m *Subscription) Events() <-chan pg.Event {
+func (_m *Subscription) Events() <-chan services.Event {
 	ret := _m.Called()
 
-	var r0 <-chan pg.Event
-	if rf, ok := ret.Get(0).(func() <-chan pg.Event); ok {
+	var r0 <-chan services.Event
+	if rf, ok := ret.Get(0).(func() <-chan services.Event); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(<-chan pg.Event)
+			r0 = ret.Get(0).(<-chan services.Event)
 		}
 	}
 
@@ -48,11 +48,11 @@ func (_m *Subscription) Events() <-chan pg.Event {
 }
 
 // InterestedIn provides a mock function with given fields: event
-func (_m *Subscription) InterestedIn(event pg.Event) bool {
+func (_m *Subscription) InterestedIn(event services.Event) bool {
 	ret := _m.Called(event)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(pg.Event) bool); ok {
+	if rf, ok := ret.Get(0).(func(services.Event) bool); ok {
 		r0 = rf(event)
 	} else {
 		r0 = ret.Get(0).(bool)
@@ -62,6 +62,6 @@ func (_m *Subscription) InterestedIn(event pg.Event) bool {
 }
 
 // Send provides a mock function with given fields: event
-func (_m *Subscription) Send(event pg.Event) {
+func (_m *Subscription) Send(event services.Event) {
 	_m.Called(event)
 }

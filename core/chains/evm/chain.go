@@ -14,12 +14,10 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -28,14 +26,14 @@ import (
 
 //go:generate mockery --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	service.Service
+	services.Service
 	ID() *big.Int
 	Client() eth.Client
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
-	HeadBroadcaster() httypes.HeadBroadcaster
+	HeadBroadcaster() services.HeadBroadcaster
 	TxManager() bulletprooftxmanager.TxManager
-	HeadTracker() httypes.Tracker
+	HeadTracker() services.Tracker
 	Logger() logger.Logger
 	BalanceMonitor() services.BalanceMonitor
 }
@@ -49,8 +47,8 @@ type chain struct {
 	client          eth.Client
 	txm             bulletprooftxmanager.TxManager
 	logger          logger.Logger
-	headBroadcaster httypes.HeadBroadcaster
-	headTracker     httypes.Tracker
+	headBroadcaster services.HeadBroadcaster
+	headTracker     services.Tracker
 	logBroadcaster  log.Broadcaster
 	balanceMonitor  services.BalanceMonitor
 	keyStore        keystore.Eth
@@ -90,7 +88,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	}
 
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
-	var headTracker httypes.Tracker
+	var headTracker services.Tracker
 	if cfg.EthereumDisabled() {
 		headTracker = &headtracker.NullTracker{}
 	} else if opts.GenHeadTracker == nil {
@@ -279,9 +277,9 @@ func (c *chain) ID() *big.Int                              { return c.id }
 func (c *chain) Client() eth.Client                        { return c.client }
 func (c *chain) Config() evmconfig.ChainScopedConfig       { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster           { return c.logBroadcaster }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadcaster }
+func (c *chain) HeadBroadcaster() services.HeadBroadcaster { return c.headBroadcaster }
 func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
-func (c *chain) HeadTracker() httypes.Tracker              { return c.headTracker }
+func (c *chain) HeadTracker() services.Tracker             { return c.headTracker }
 func (c *chain) Logger() logger.Logger                     { return c.logger }
 func (c *chain) BalanceMonitor() services.BalanceMonitor   { return c.balanceMonitor }
 

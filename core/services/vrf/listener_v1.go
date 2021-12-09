@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -48,7 +48,7 @@ type listenerV1 struct {
 	pipelineORM     pipeline.ORM
 	job             job.Job
 	q               pg.Q
-	headBroadcaster httypes.HeadBroadcasterRegistry
+	headBroadcaster services.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
 	vrfks           keystore.VRF
 	gethks          GethKeyStore

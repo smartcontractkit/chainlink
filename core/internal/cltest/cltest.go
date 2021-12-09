@@ -50,12 +50,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
@@ -186,9 +186,9 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore
 		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
 }
 
-func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
+func NewEventBroadcaster(t testing.TB, dbURL url.URL) services.EventBroadcaster {
 	lggr := logger.TestLogger(t)
-	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
+	return services.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
 func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
@@ -363,7 +363,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	lggr := logger.TestLogger(t)
 
-	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
+	var eventBroadcaster services.EventBroadcaster = services.NewNullEventBroadcaster()
 	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
@@ -391,7 +391,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 				panic("cannot set more than one chain")
 			}
 			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
-		case pg.EventBroadcaster:
+		case services.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
 			switch flag {
@@ -1299,7 +1299,7 @@ func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
 
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
-	HeadTrackables       []httypes.HeadTrackable
+	HeadTrackables       []services.HeadTrackable
 	Blocks               *Blocks
 }
 

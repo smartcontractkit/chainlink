@@ -20,10 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -68,8 +67,8 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 
 //go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
-	httypes.HeadTrackable
-	service.Service
+	services.HeadTrackable
+	services.Service
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
@@ -85,7 +84,7 @@ type BulletproofTxManager struct {
 	ethClient        eth.Client
 	config           Config
 	keyStore         KeyStore
-	eventBroadcaster pg.EventBroadcaster
+	eventBroadcaster services.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
@@ -105,7 +104,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster services.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},

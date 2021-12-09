@@ -14,9 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -44,8 +43,8 @@ type (
 	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
-		service.Service
-		httypes.HeadTrackable
+		services.Service
+		services.HeadTrackable
 		ReplayFromBlock(number int64)
 
 		IsConnected() bool

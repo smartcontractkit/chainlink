@@ -18,9 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -84,7 +84,7 @@ type listenerV2 struct {
 	blockNumberToReqID *pairing.PairHeap
 
 	// head tracking data structures
-	headBroadcaster  httypes.HeadBroadcasterRegistry
+	headBroadcaster  services.HeadBroadcasterRegistry
 	latestHeadMu     sync.RWMutex
 	latestHeadNumber uint64
 

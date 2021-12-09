@@ -3,6 +3,7 @@ package vrf
 import (
 	"bytes"
 	"context"
+	httypes "github.com/smartcontractkit/chainlink/core/services"
 	"math/big"
 	"testing"
 	"time"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	eth_mocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"

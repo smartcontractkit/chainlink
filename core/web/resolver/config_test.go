@@ -299,11 +299,6 @@ func TestResolver_Config(t *testing.T) {
 						"key": "FLAGS_CONTRACT_ADDRESS"
 					}, {
 						"config": {
-							"value": "debug"
-						},
-						"key": "LOG_LEVEL"
-					}, {
-						"config": {
 							"value": "false"
 						},
 						"key": "LOG_SQL_MIGRATIONS"

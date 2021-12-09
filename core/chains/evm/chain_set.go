@@ -14,13 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -32,7 +30,7 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 
 //go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
-	service.Service
+	services.Service
 	Get(id *big.Int) (Chain, error)
 	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
 	Remove(id *big.Int) error
@@ -261,13 +259,13 @@ type ChainSetOpts struct {
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Eth
-	EventBroadcaster pg.EventBroadcaster
+	EventBroadcaster services.EventBroadcaster
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(types.Chain) eth.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
-	GenHeadTracker    func(types.Chain) httypes.Tracker
+	GenHeadTracker    func(types.Chain) services.Tracker
 	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager
 }
 

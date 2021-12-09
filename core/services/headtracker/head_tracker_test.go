@@ -3,6 +3,7 @@ package headtracker_test
 import (
 	"context"
 	"errors"
+	httypes "github.com/smartcontractkit/chainlink/core/services"
 	"math/big"
 	"sync"
 	"testing"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

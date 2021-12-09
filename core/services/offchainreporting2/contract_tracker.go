@@ -7,26 +7,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
-
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -37,7 +36,7 @@ const configMailboxSanityLimit = 100
 
 var (
 	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
-	_ httypes.HeadTrackable          = &OCRContractTracker{}
+	_ services.HeadTrackable         = &OCRContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
@@ -63,7 +62,7 @@ type (
 		chain            ocrcommon.Config
 
 		// HeadBroadcaster
-		headBroadcaster  httypes.HeadBroadcaster
+		headBroadcaster  services.HeadBroadcaster
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
@@ -103,7 +102,7 @@ func NewOCRContractTracker(
 	db *sqlx.DB,
 	odb OCRContractTrackerDB,
 	chain ocrcommon.Config,
-	headBroadcaster httypes.HeadBroadcaster,
+	headBroadcaster services.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &OCRContractTracker{
