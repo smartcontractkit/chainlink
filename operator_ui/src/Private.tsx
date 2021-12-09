@@ -9,7 +9,6 @@ import Header from 'pages/Header'
 import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
-import Configuration from 'pages/Configuration/Index'
 import JobsNew from 'pages/Jobs/New'
 import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
@@ -19,6 +18,7 @@ import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
 
 import { BridgesPage } from 'pages/bridges'
+import { ConfigPage } from 'pages/config'
 import { DashboardPage } from 'pages/dashboard'
 import { JobsPage } from 'pages/JobsIndex'
 import { KeysPage } from 'pages/keys'
@@ -91,10 +91,13 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 path="/transactions/:transactionId"
                 component={TransactionsShow}
               />
-              <PrivateRoute exact path="/config" component={Configuration} />
 
               <PrivateRoute path="/bridges">
                 <BridgesPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/config">
+                <ConfigPage />
               </PrivateRoute>
 
               <PrivateRoute path="/feeds_manager">
