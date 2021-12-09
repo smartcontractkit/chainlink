@@ -98,6 +98,7 @@ func TestResolver_JobRun(t *testing.T) {
 						name
 					}
 					outputs
+					status
 				}
 				... on NotFoundError {
 					code
@@ -132,10 +133,11 @@ func TestResolver_JobRun(t *testing.T) {
 					PipelineSpecID: 5,
 					CreatedAt:      f.Timestamp(),
 					FinishedAt:     null.TimeFrom(f.Timestamp()),
-					AllErrors:      pipeline.RunErrors{null.StringFrom("fatal error")},
-					FatalErrors:    pipeline.RunErrors{null.StringFrom("fatal error")},
+					AllErrors:      pipeline.RunErrors{null.StringFrom("fatal error"), null.String{}},
+					FatalErrors:    pipeline.RunErrors{null.StringFrom("fatal error"), null.String{}},
 					Inputs:         inputs,
 					Outputs:        outputs,
+					State:          pipeline.RunStatusErrored,
 				}, nil)
 				f.Mocks.jobORM.On("FindJobsByPipelineSpecIDs", []int32{5}).Return([]job.Job{
 					{
@@ -166,7 +168,8 @@ func TestResolver_JobRun(t *testing.T) {
 							"id": "2",
 							"name": "second-one"
 						},
-						"outputs": ["{\"baz\":\"bar\"}"]
+						"outputs": ["{\"baz\":\"bar\"}"],
+						"status": "ERRORED"
 					}
 				}`,
 		},
