@@ -3,8 +3,10 @@ package resolver
 import (
 	"testing"
 
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
@@ -78,7 +80,7 @@ func TestResolver_Config(t *testing.T) {
 					KeeperMaximumGracePeriod:                  null.IntFrom(1),
 					KeeperRegistrySyncInterval:                nil,
 					KeeperRegistrySyncUpkeepQueueSize:         null.IntFrom(1),
-					LogLevel:                                  nil,
+					LogLevel:                                  &config.LogLevel{zapcore.ErrorLevel},
 					DefaultLogLevel:                           nil,
 					LogSQL:                                    null.BoolFrom(true),
 					LogToDisk:                                 null.BoolFrom(true),
@@ -299,7 +301,7 @@ func TestResolver_Config(t *testing.T) {
 						"key": "FLAGS_CONTRACT_ADDRESS"
 					}, {
 						"config": {
-							"value": "debug"
+							"value": "error"
 						},
 						"key": "LOG_LEVEL"
 					}, {
