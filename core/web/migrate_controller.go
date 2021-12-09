@@ -49,7 +49,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	jbV2, err := MigrateJobSpec(mc.App.GetStore().Config, js)
+	jbV2, err := mc.MigrateJobSpec(mc.App.GetStore().Config, js)
 	if err != nil {
 		if errors.Cause(err) == ErrInvalidInitiatorType {
 			jsonAPIError(c, http.StatusBadRequest, err)
@@ -58,11 +58,29 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	var eiwhSpec *job.ExternalInitiatorWebhookSpec
+	if jbV2.WebhookSpec != nil && len(jbV2.WebhookSpec.ExternalInitiatorWebhookSpecs) > 0 {
+		eiwhSpec = &jbV2.WebhookSpec.ExternalInitiatorWebhookSpecs[0]
+		jbV2.WebhookSpec.ExternalInitiatorWebhookSpecs = make([]job.ExternalInitiatorWebhookSpec, 0)
+	}
+
 	jb, err := mc.App.AddJobV2(c, jbV2, jbV2.Name)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+
+	if eiwhSpec != nil {
+		err := mc.App.GetStore().DB.Exec(
+			`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`,
+			eiwhSpec.ExternalInitiatorID, jb.WebhookSpecID, `{}`).Error
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
 	logger.Infow(fmt.Sprintf("Successfully migrated job %v into %v", js.ID, jb.ID), "v1 job", js, "v2 job", jb)
 	// If the migration went well, archive the v1
 	if err := mc.App.ArchiveJob(js.ID); err != nil {
@@ -73,7 +91,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 }
 
 // Does not support mixed initiator types.
-func MigrateJobSpec(c *config.Config, js models.JobSpec) (job.Job, error) {
+func (mc *MigrateController) MigrateJobSpec(c *config.Config, js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	if len(js.Initiators) == 0 {
 		return jb, errors.New("initiator required to migrate job")
@@ -91,6 +109,8 @@ func MigrateJobSpec(c *config.Config, js models.JobSpec) (job.Job, error) {
 		return migrateRunLogJob(js)
 	case models.InitiatorWeb:
 		return migrateWebJob(js)
+	case models.InitiatorExternal:
+		return mc.migrateExternalJob(js)
 	default:
 		return jb, errors.Wrapf(ErrInvalidInitiatorType, "%v", v1JobType)
 	}
@@ -287,6 +307,38 @@ func migrateWebJob(js models.JobSpec) (job.Job, error) {
 		DotDagSource: ps,
 	}
 	jb.Pipeline = *pd
+	return jb, nil
+}
+
+func (mc *MigrateController) migrateExternalJob(js models.JobSpec) (job.Job, error) {
+	ei, err := mc.App.GetStore().FindExternalInitiatorByName(js.Initiators[0].Name)
+	if err != nil {
+		return job.Job{}, errors.Wrapf(err, "Failed to find external initiator by name: %v", js.Initiators[0].Name)
+	}
+	eiWhSpec := job.ExternalInitiatorWebhookSpec{
+		ExternalInitiatorID: ei.ID,
+	}
+
+	jb := job.Job{
+		Name: null.StringFrom(js.Name),
+		WebhookSpec: &job.WebhookSpec{
+			ExternalInitiatorWebhookSpecs: []job.ExternalInitiatorWebhookSpec{eiWhSpec},
+			CreatedAt:                     js.CreatedAt,
+			UpdatedAt:                     js.UpdatedAt,
+		},
+		Type:          job.Webhook,
+		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
+	}
+	ps, pd, err := BuildTaskDAG(js, job.Webhook)
+	if err != nil {
+		return jb, err
+	}
+	jb.PipelineSpec = &pipeline.Spec{
+		DotDagSource: ps,
+	}
+	jb.Pipeline = *pd
+
 	return jb, nil
 }
 
