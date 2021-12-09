@@ -2,7 +2,7 @@ scalar ConfigItemValue
 
 type ConfigItem {
     key: String!
-    config: ConfigItemValue!
+    value: ConfigItemValue!
 }
 
 type ConfigPayload {

@@ -18,7 +18,7 @@ func TestResolver_Config(t *testing.T) {
 			config {
 				items {
 					key
-					config
+					value
 				}
 			}
 		}`
@@ -80,7 +80,7 @@ func TestResolver_Config(t *testing.T) {
 					KeeperMaximumGracePeriod:                  null.IntFrom(1),
 					KeeperRegistrySyncInterval:                nil,
 					KeeperRegistrySyncUpkeepQueueSize:         null.IntFrom(1),
-					LogLevel:                                  &config.LogLevel{zapcore.ErrorLevel},
+					LogLevel:                                  &config.LogLevel{Level: zapcore.ErrorLevel},
 					DefaultLogLevel:                           nil,
 					LogSQL:                                    null.BoolFrom(true),
 					LogToDisk:                                 null.BoolFrom(true),
@@ -102,372 +102,226 @@ func TestResolver_Config(t *testing.T) {
 			result: `{
 				"config": {
 					"items": [
-					{"config": {"value":"1s"},"key":"ADVISORY_LOCK_CHECK_INTERVAL"},
-					{"config":{"value":"1027321974924625846"},"key":"ADVISORY_LOCK_ID"},
+					{"value":"1s", "key":"ADVISORY_LOCK_CHECK_INTERVAL"},
+					{"value":"1027321974924625846","key":"ADVISORY_LOCK_ID"},
 					{
-						"config": {
-							"value": "test"
-						},
+						"value": "test",
 						"key": "ALLOW_ORIGINS"
 					}, {
-						"config": {
-							"value": "1"
-						},
+						"value": "1",
 						"key": "BLOCK_BACKFILL_DEPTH"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"
 					}, {
-						"config": {
-							"value": "http://localhost:6688"
-						},
+						"value": "http://localhost:6688",
 						"key": "BRIDGE_RESPONSE_URL"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "CHAIN_TYPE"
 					}, {
-						"config": {
-							"value": "test"
-						},
+						"value": "test",
 						"key": "CLIENT_NODE_URL"
 					}, {
-						"config": {
-							"value": "1h0m0s"
-						},
+						"value": "1h0m0s",
 						"key": "DATABASE_BACKUP_FREQUENCY"
 					}, {
-						"config": {
-							"value": "none"
-						},
+						"value": "none",
 						"key": "DATABASE_BACKUP_MODE"
 					}, {
-						"config": {
-							"value": "none"
-						},
+						"value": "none",
 						"key": "DATABASE_LOCKING_MODE"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "ETH_CHAIN_ID"
 					}, {
-						"config": {
-							"value": "32768"
-						},
+						"value": "32768",
 						"key": "DEFAULT_HTTP_LIMIT"
 					}, {
-						"config": {
-							"value": "15s"
-						},
+						"value": "15s",
 						"key": "DEFAULT_HTTP_TIMEOUT"
 					}, {
-						"config": {
-							"value": "true"
-						},
+						"value": "true",
 						"key": "CHAINLINK_DEV"
 					}, {
-						"config": {
-							"value": "true"
-						},
+						"value": "true",
 						"key": "ETH_DISABLED"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "ETH_HTTP_URL"
 					}, {
-						"config": {
-							"value": "[]"
-						},
+						"value": "[]",
 						"key": "ETH_SECONDARY_URLS"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "ETH_URL"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "EXPLORER_URL"
 					}, {
-						"config": {
-							"value": "1"
-						},
+						"value": "1",
 						"key": "FM_DEFAULT_TRANSACTION_QUEUE_DEPTH"
 					}, {
-						"config": {
-							"value": "true"
-						},
+						"value": "true",
 						"key": "FEATURE_EXTERNAL_INITIATORS"
 					}, {
-						"config": {
-							"value": "false"
-						},
+						"value": "false",
 						"key": "FEATURE_OFFCHAIN_REPORTING"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "GAS_ESTIMATOR_MODE"
 					}, {
-						"config": {
-							"value": "true"
-						},
+						"value": "true",
 						"key": "INSECURE_FAST_SCRYPT"
 					}, {
-						"config": {
-							"value": "false"
-						},
+						"value": "false",
 						"key": "JSON_CONSOLE"
 					}, {
-						"config": {
-							"value": "1h0m0s"
-						},
+						"value": "1h0m0s",
 						"key": "JOB_PIPELINE_REAPER_INTERVAL"
 					}, {
-						"config": {
-							"value": "24h0m0s"
-						},
+						"value": "24h0m0s",
 						"key": "JOB_PIPELINE_REAPER_THRESHOLD"
 					}, {
-						"config": {
-							"value": "1"
-						},
+						"value": "1",
 						"key": "KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"
 					}, {
-						"config": {
-							"value": "20"
-						},
+						"value": "20",
 						"key": "KEEPER_GAS_PRICE_BUFFER_PERCENT"
 					}, {
-						"config": {
-							"value": "20"
-						},
+						"value": "20",
 						"key": "KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "KEEPER_MAXIMUM_GRACE_PERIOD"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"
 					}, {
-						"config": {
-							"value": "0"
-						},
+						"value": "0",
 						"key": "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"
 					}, {
-						"config": {
-							"value": "30s"
-						},
+						"value": "30s",
 						"key": "LEASE_LOCK_DURATION"
 					}, {
-						"config": {
-							"value": "1s"
-						},
+						"value": "1s",
 						"key": "LEASE_LOCK_REFRESH_INTERVAL"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "LINK_CONTRACT_ADDRESS"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "FLAGS_CONTRACT_ADDRESS"
 					}, {
-						"config": {
-							"value": "error"
-						},
+						"value": "error",
 						"key": "LOG_LEVEL"
 					}, {
-						"config": {
-							"value": "false"
-						},
+						"value": "false",
 						"key": "LOG_SQL_MIGRATIONS"
 					}, {
-						"config": {
-							"value": "true"
-						},
+						"value": "true",
 						"key": "LOG_SQL"
 					}, {
-						"config": {
-							"value": "true"
-						},
+						"value": "true",
 						"key": "LOG_TO_DISK"
 					}, {
-						"config": {
-							"value": "30s"
-						},
+						"value": "30s",
 						"key": "TRIGGER_FALLBACK_DB_POLL_INTERVAL"
 					}, {
-						"config": {
-							"value": "1"
-						},
+						"value": "1",
 						"key": "OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH"
 					}, {
-						"config": {
-							"value": "false"
-						},
+						"value": "false",
 						"key": "OCR_TRACE_LOGGING"
 					}, {
-						"config": {
-							"value": "V1"
-						},
+						"value": "V1",
 						"key": "P2P_NETWORKING_STACK"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "P2P_PEER_ID"
 					}, {
-						"config": {
-							"value": "10"
-						},
+						"value": "10",
 						"key": "P2P_INCOMING_MESSAGE_BUFFER_SIZE"
 					}, {
-						"config": {
-							"value": "10"
-						},
+						"value": "10",
 						"key": "P2P_OUTGOING_MESSAGE_BUFFER_SIZE"
 					}, {
-						"config": {
-							"value": "[]"
-						},
+						"value": "[]",
 						"key": "P2P_BOOTSTRAP_PEERS"
 					}, {
-						"config": {
-							"value": "0.0.0.0"
-						},
+						"value": "0.0.0.0",
 						"key": "P2P_LISTEN_IP"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "P2P_LISTEN_PORT"
 					}, {
-						"config": {
-							"value": "10s"
-						},
+						"value": "10s",
 						"key": "P2P_NEW_STREAM_TIMEOUT"
 					}, {
-						"config": {
-							"value": "10"
-						},
+						"value": "10",
 						"key": "P2P_DHT_LOOKUP_INTERVAL"
 					}, {
-						"config": {
-							"value": "20s"
-						},
+						"value": "20s",
 						"key": "P2P_BOOTSTRAP_CHECK_INTERVAL"
 					}, {
-						"config": {
-							"value": "[]"
-						},
+						"value": "[]",
 						"key": "P2PV2_ANNOUNCE_ADDRESSES"
 					}, {
-						"config": {
-							"value": "[]"
-						},
+						"value": "[]",
 						"key": "P2PV2_BOOTSTRAPPERS"
 					}, {
-						"config": {
-							"value": "15s"
-						},
+						"value": "15s",
 						"key": "P2PV2_DELTA_DIAL"
 					}, {
-						"config": {
-							"value": "1m0s"
-						},
+						"value": "1m0s",
 						"key": "P2PV2_DELTA_RECONCILE"
 					}, {
-						"config": {
-							"value": "[]"
-						},
+						"value": "[]",
 						"key": "P2PV2_LISTEN_ADDRESSES"
 					}, {
-						"config": {
-							"value": "6688"
-						},
+						"value": "6688",
 						"key": "CHAINLINK_PORT"
 					}, {
-						"config": {
-							"value": "240h0m0s"
-						},
+						"value": "240h0m0s",
 						"key": "REAPER_EXPIRATION"
 					}, {
-						"config": {
-							"value": "-1"
-						},
+						"value": "-1",
 						"key": "REPLAY_FROM_BLOCK"
 					}, {
-						"config": {
-							"value": "/tmp/chainlink_test/gql-test"
-						},
+						"value": "/tmp/chainlink_test/gql-test",
 						"key": "ROOT"
 					}, {
-						"config": {
-							"value": "true"
-						},
+						"value": "true",
 						"key": "SECURE_COOKIES"
 					}, {
-						"config": {
-							"value": "2m0s"
-						},
+						"value": "2m0s",
 						"key": "SESSION_TIMEOUT"
 					}, {
-						"config": {
-							"value": "false"
-						},
+						"value": "false",
 						"key": "TELEMETRY_INGRESS_LOGGING"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "TELEMETRY_INGRESS_SERVER_PUB_KEY"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "TELEMETRY_INGRESS_URL"
 					}, {
-						"config": {
-							"value": ""
-						},
+						"value": "",
 						"key": "CHAINLINK_TLS_HOST"
 					}, {
-						"config": {
-							"value": "6689"
-						},
+						"value": "6689",
 						"key": "CHAINLINK_TLS_PORT"
 					}, {
-						"config": {
-							"value": "false"
-						},
+						"value": "false",
 						"key": "CHAINLINK_TLS_REDIRECT"
 					}]
 				}
