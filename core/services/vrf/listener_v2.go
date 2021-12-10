@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
@@ -54,16 +53,13 @@ type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
 	l              logger.Logger
-	abi            abi.ABI
 	ethClient      eth.Client
 	logBroadcaster log.Broadcaster
 	txm            bulletprooftxmanager.TxManager
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
 	pipelineRunner pipeline.Runner
-	pipelineORM    pipeline.ORM
 	job            job.Job
 	q              pg.Q
-	vrfks          keystore.VRF
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox
 	chStop         chan struct{}

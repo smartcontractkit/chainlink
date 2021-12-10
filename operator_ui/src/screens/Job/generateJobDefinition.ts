@@ -174,18 +174,21 @@ export const generateJobDefinition = (
         ...extractSpecFields(
           job.spec,
           'blockchainTimeout',
-          'contractAddress',
+          'contractID',
           'contractConfigConfirmations',
           'contractConfigTrackerPollInterval',
           'contractConfigTrackerSubscribeInterval',
-          'evmChainID',
           'isBootstrapPeer',
           'juelsPerFeeCoinSource',
-          'keyBundleID',
+          'ocrKeyBundleID',
           'monitoringEndpoint',
           'p2pBootstrapPeers',
-          'transmitterAddress',
+          'relay',
+          'relayConfig',
         ),
+        // We need to call 'extractSpecFields' again here so we get the spec
+        // fields displaying in alphabetical order.
+        ...extractSpecFields(job.spec, 'transmitterID'),
         ...extractObservationSourceField(job),
       }
 

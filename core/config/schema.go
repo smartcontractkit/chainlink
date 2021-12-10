@@ -20,6 +20,8 @@ import (
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
 	AdminCredentialsFile                       string          `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
+	AdvisoryLockCheckInterval                  time.Duration   `env:"ADVISORY_LOCK_CHECK_INTERVAL" default:"1s"`
+	AdvisoryLockID                             int64           `env:"ADVISORY_LOCK_ID" default:"1027321974924625846"`
 	AllowOrigins                               string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	AuthenticatedRateLimit                     int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod               time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
@@ -158,9 +160,8 @@ type ConfigSchema struct {
 	LeaseLockDuration                          time.Duration   `env:"LEASE_LOCK_DURATION" default:"30s"`
 
 	// OCR V2
-	// Per-chain defaults
-	OCR2ContractConfirmations uint `env:"OCR2_CONTRACT_CONFIRMATIONS"`
 	// Global defaults
+	OCR2ContractConfirmations              uint          `env:"OCR2_CONTRACT_CONFIRMATIONS" default:"3"`
 	OCR2BlockchainTimeout                  time.Duration `env:"OCR2_BLOCKCHAIN_TIMEOUT" default:"20s"`
 	OCR2ContractPollInterval               time.Duration `env:"OCR2_CONTRACT_POLL_INTERVAL" default:"1m"`
 	OCR2ContractSubscribeInterval          time.Duration `env:"OCR2_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`

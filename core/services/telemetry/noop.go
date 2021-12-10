@@ -1,9 +1,10 @@
 package telemetry
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
+
+var _ MonitoringEndpointGenerator = &NoopAgent{}
 
 type NoopAgent struct {
 }
@@ -13,6 +14,6 @@ func (t *NoopAgent) SendLog(log []byte) {
 }
 
 // GenMonitoringEndpoint creates a monitoring endpoint for telemetry
-func (t *NoopAgent) GenMonitoringEndpoint(addr common.Address) ocrtypes.MonitoringEndpoint {
+func (t *NoopAgent) GenMonitoringEndpoint(contractID string) ocrtypes.MonitoringEndpoint {
 	return t
 }

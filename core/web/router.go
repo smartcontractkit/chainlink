@@ -288,8 +288,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		ocr2kc := OCR2KeysController{app}
 		authv2.GET("/keys/ocr2", ocr2kc.Index)
-		authv2.POST("/keys/ocr2", ocr2kc.Create)
+		authv2.POST("/keys/ocr2/:chainType", ocr2kc.Create)
 		authv2.DELETE("/keys/ocr2/:keyID", ocr2kc.Delete)
+		authv2.POST("/keys/ocr2/import", ocr2kc.Import)
+		authv2.POST("/keys/ocr2/export/:ID", ocr2kc.Export)
 
 		p2pkc := P2PKeysController{app}
 		authv2.GET("/keys/p2p", p2pkc.Index)
@@ -297,6 +299,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/keys/p2p/:keyID", p2pkc.Delete)
 		authv2.POST("/keys/p2p/import", p2pkc.Import)
 		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
+
+		solkc := SolanaKeysController{app}
+		authv2.GET("/keys/solana", solkc.Index)
+		authv2.POST("/keys/solana", solkc.Create)
+		authv2.DELETE("/keys/solana/:keyID", solkc.Delete)
+		authv2.POST("/keys/solana/import", solkc.Import)
+		authv2.POST("/keys/solana/export/:ID", solkc.Export)
 
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)

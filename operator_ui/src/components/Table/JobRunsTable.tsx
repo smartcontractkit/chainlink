@@ -81,7 +81,6 @@ export interface Props extends WithStyles<typeof styles> {
     id: string
     errors: ReadonlyArray<string>
     finishedAt: string | null
-    jobId: string
   }[]
 }
 
@@ -116,7 +115,7 @@ export const JobRunsTable = withStyles(styles)(({ classes, runs }: Props) => {
               <TableRow
                 key={r.id}
                 style={{ cursor: 'pointer' }}
-                onClick={() => history.push(`/jobs/${r.jobId}/runs/${r.id}`)}
+                onClick={() => history.push(`/runs/${r.id}`)}
               >
                 <TableCell className={classes.idCell} scope="row">
                   <div className={classes.runDetails}>

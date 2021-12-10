@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -386,14 +388,14 @@ func TestResolver_OCRSpec(t *testing.T) {
 						ObservationGracePeriodEnv:                 true,
 						ContractTransmitterTransmitTimeout:        models.NewInterval(555 * time.Millisecond),
 						ContractTransmitterTransmitTimeoutEnv:     true,
-						CreatedAt:               f.Timestamp(),
-						EVMChainID:              utils.NewBigI(42),
-						IsBootstrapPeer:         false,
-						EncryptedOCRKeyBundleID: &keyBundleID,
-						ObservationTimeout:      models.Interval(2 * time.Minute),
-						ObservationTimeoutEnv:   false,
-						P2PBootstrapPeers:       pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
-						TransmitterAddress:      &transmitterAddress,
+						CreatedAt:                                 f.Timestamp(),
+						EVMChainID:                                utils.NewBigI(42),
+						IsBootstrapPeer:                           false,
+						EncryptedOCRKeyBundleID:                   &keyBundleID,
+						ObservationTimeout:                        models.Interval(2 * time.Minute),
+						ObservationTimeoutEnv:                     false,
+						P2PBootstrapPeers:                         pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
+						TransmitterAddress:                        &transmitterAddress,
 					},
 				}, nil)
 			},
@@ -483,6 +485,11 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
+	relayConfig := map[string]interface{}{
+		"chainID": 1337,
+	}
+	require.NoError(t, err)
+
 	testCases := []GQLTestCase{
 		{
 			name:          "OCR 2 spec",
@@ -493,18 +500,19 @@ func TestResolver_OCR2Spec(t *testing.T) {
 					Type: job.OffchainReporting2,
 					Offchainreporting2OracleSpec: &job.OffchainReporting2OracleSpec{
 						BlockchainTimeout:                      models.Interval(1 * time.Minute),
-						ContractAddress:                        contractAddress,
+						ContractID:                             contractAddress.String(),
 						ContractConfigConfirmations:            1,
 						ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
 						ContractConfigTrackerSubscribeInterval: models.Interval(1 * time.Minute),
 						CreatedAt:                              f.Timestamp(),
-						EVMChainID:                             utils.NewBigI(42),
 						IsBootstrapPeer:                        false,
 						JuelsPerFeeCoinPipeline:                "100000000",
-						EncryptedOCRKeyBundleID:                null.StringFrom(keyBundleID.String()),
+						OCRKeyBundleID:                         null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
-						P2PBootstrapPeers:                      pq.StringArray{"/dns4/test.com/tcp/2001/p2pkey"},
-						TransmitterAddress:                     &transmitterAddress,
+						P2PBootstrapPeers:                      pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
+						Relay:                                  types.EVM,
+						RelayConfig:                            relayConfig,
+						TransmitterID:                          null.StringFrom(transmitterAddress.String()),
 					},
 				}, nil)
 			},
@@ -516,18 +524,19 @@ func TestResolver_OCR2Spec(t *testing.T) {
 								__typename
 								... on OCR2Spec {
 									blockchainTimeout
-									contractAddress
+									contractID
 									contractConfigConfirmations
 									contractConfigTrackerPollInterval
 									contractConfigTrackerSubscribeInterval
 									createdAt
-									evmChainID
 									isBootstrapPeer
 									juelsPerFeeCoinSource
-									keyBundleID
+									ocrKeyBundleID
 									monitoringEndpoint
 									p2pBootstrapPeers
-									transmitterAddress
+									relay
+									relayConfig
+									transmitterID
 								}
 							}
 						}
@@ -540,18 +549,21 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						"spec": {
 							"__typename": "OCR2Spec",
 							"blockchainTimeout": "1m0s",
-							"contractAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"contractConfigConfirmations": 1,
 							"contractConfigTrackerPollInterval": "1m0s",
 							"contractConfigTrackerSubscribeInterval": "1m0s",
 							"createdAt": "2021-01-01T00:00:00Z",
-							"evmChainID": "42",
 							"isBootstrapPeer": false,
 							"juelsPerFeeCoinSource": "100000000",
-							"keyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
+							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
-							"p2pBootstrapPeers": ["/dns4/test.com/tcp/2001/p2pkey"],
-							"transmitterAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+							"p2pBootstrapPeers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
+							"relay": "evm",
+							"relayConfig": {
+								"chainID": 1337
+							},
+							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 						}
 					}
 				}

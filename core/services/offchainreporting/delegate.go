@@ -98,7 +98,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrdb := NewDB(d.db.DB, concreteSpec.ID, d.lggr)
+	ocrDB := NewDB(d.db.DB, concreteSpec.ID, d.lggr)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -109,7 +109,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		jobSpec.ID,
 		d.lggr,
 		d.db,
-		ocrdb,
+		ocrDB,
 		chain.Config(),
 		chain.HeadBroadcaster(),
 	)
@@ -142,7 +142,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.jobORM.TryRecordError(jobSpec.ID, msg)
 	})
 
-	lc := NewLocalConfig(chain.Config(), *concreteSpec)
+	lc := toLocalConfig(chain.Config(), *concreteSpec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			V1Bootstrappers:       bootstrapPeers,
 			V2Bootstrappers:       v2BootstrapPeers,
 			ContractConfigTracker: tracker,
-			Database:              ocrdb,
+			Database:              ocrDB,
 			LocalConfig:           lc,
 			Logger:                ocrLogger,
 		})
@@ -213,7 +213,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		}
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
-			Database: ocrdb,
+			Database: ocrDB,
 			Datasource: ocrcommon.NewDataSourceV1(
 				d.pipelineRunner,
 				jobSpec,
@@ -229,7 +229,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              bootstrapPeers,
 			V2Bootstrappers:              v2BootstrapPeers,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.Address()),
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String()),
 			ConfigOverrider:              configOverrider,
 		})
 		if err != nil {
