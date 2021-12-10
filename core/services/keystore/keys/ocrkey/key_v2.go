@@ -47,6 +47,8 @@ func (raw Raw) GoString() string {
 	return raw.String()
 }
 
+var _ fmt.GoStringer = &KeyV2{}
+
 type KeyV2 struct {
 	OnChainSigning     *onChainPrivateKey
 	OffChainSigning    *offChainPrivateKey

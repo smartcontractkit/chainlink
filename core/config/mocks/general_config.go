@@ -1670,27 +1670,6 @@ func (_m *GeneralConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 	return r0, r1
 }
 
-// GlobalOCR2ContractConfirmations provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -2134,6 +2113,20 @@ func (_m *GeneralConfig) OCR2BlockchainTimeout() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ContractConfirmations provides a mock function with given fields:
+func (_m *GeneralConfig) OCR2ContractConfirmations() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
 	}
 
 	return r0

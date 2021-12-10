@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -291,15 +293,25 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
+		// master/delegate relay is started once, on app start, as root subservice
+		relay := relay.NewDelegate(
+			db,
+			keyStore,
+			chainSet,
+			globalLogger,
+		)
+		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR2(),
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
+			cfg,
+			keyStore.OCR2(),
+			relay,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

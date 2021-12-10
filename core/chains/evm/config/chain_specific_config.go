@@ -61,9 +61,6 @@ type (
 		// set true if fully configured
 		complete bool
 
-		// Chain specific OCR2 config
-		ocr2ContractConfirmations uint16
-
 		// Chain specific OCR1 config
 		ocrContractConfirmations              uint16
 		ocrContractTransmitterTransmitTimeout time.Duration
@@ -131,7 +128,6 @@ func setChainSpecificConfigDefaultSets() {
 		minimumContractPayment:                DefaultMinimumContractPayment,
 		nonceAutoSync:                         true,
 		ocrContractConfirmations:              4,
-		ocr2ContractConfirmations:             4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
 		ocrObservationGracePeriod:             1 * time.Second,
