@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -29,8 +29,8 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
 var (
-	_ job.Service            = (*UpkeepExecuter)(nil)
-	_ services.HeadTrackable = (*UpkeepExecuter)(nil)
+	_ job.Service         = (*UpkeepExecuter)(nil)
+	_ types.HeadTrackable = (*UpkeepExecuter)(nil)
 )
 
 var (
@@ -48,7 +48,7 @@ type UpkeepExecuter struct {
 	ethClient       eth.Client
 	config          Config
 	executionQueue  chan struct{}
-	headBroadcaster services.HeadBroadcasterRegistry
+	headBroadcaster types.HeadBroadcasterRegistry
 	gasEstimator    gas.Estimator
 	job             job.Job
 	mailbox         *utils.Mailbox
@@ -65,7 +65,7 @@ func NewUpkeepExecuter(
 	orm ORM,
 	pr pipeline.Runner,
 	ethClient eth.Client,
-	headBroadcaster services.HeadBroadcaster,
+	headBroadcaster types.HeadBroadcaster,
 	gasEstimator gas.Estimator,
 	logger logger.Logger,
 	config Config,

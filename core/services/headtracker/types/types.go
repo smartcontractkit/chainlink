@@ -1,10 +1,11 @@
-package services
+package types
 
 import (
 	"context"
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
@@ -33,7 +34,7 @@ type HeadBroadcasterRegistry interface {
 // HeadBroadcaster is the external interface of headBroadcaster
 //go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
-	Service
+	services.Service
 	HeadTrackable
 	Subscribe(callback HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func())
 }

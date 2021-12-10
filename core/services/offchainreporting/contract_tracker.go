@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -20,9 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -39,7 +38,7 @@ const configMailboxSanityLimit = 100
 var (
 	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
 	_ log.Listener                   = &OCRContractTracker{}
-	_ services.HeadTrackable         = &OCRContractTracker{}
+	_ types.HeadTrackable            = &OCRContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
@@ -65,7 +64,7 @@ type (
 		cfg              ocrcommon.Config
 
 		// HeadBroadcaster
-		headBroadcaster  services.HeadBroadcaster
+		headBroadcaster  types.HeadBroadcaster
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
@@ -105,7 +104,7 @@ func NewOCRContractTracker(
 	db *sqlx.DB,
 	ocrdb OCRContractTrackerDB,
 	cfg ocrcommon.Config,
-	headBroadcaster services.HeadBroadcaster,
+	headBroadcaster types.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger = logger.Named("OCRContractTracker")

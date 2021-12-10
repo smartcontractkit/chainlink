@@ -2,7 +2,7 @@ package log_test
 
 import (
 	"context"
-	httypes "github.com/smartcontractkit/chainlink/core/services"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"math/big"
 	"testing"
 	"time"

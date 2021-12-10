@@ -3,7 +3,7 @@ package vrf
 import (
 	"bytes"
 	"context"
-	httypes "github.com/smartcontractkit/chainlink/core/services"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"math/big"
 	"testing"
 	"time"

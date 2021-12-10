@@ -3,7 +3,7 @@ package headtracker_test
 import (
 	"context"
 	"errors"
-	httypes "github.com/smartcontractkit/chainlink/core/services"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"math/big"
 	"sync"
 	"testing"

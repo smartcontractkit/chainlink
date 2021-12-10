@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,7 +28,7 @@ type TestChainOpts struct {
 	LogBroadcaster log.Broadcaster
 	GeneralConfig  config.GeneralConfig
 	ChainCfg       evmtypes.ChainCfg
-	HeadTracker    services.Tracker
+	HeadTracker    types.Tracker
 	DB             *sqlx.DB
 	TxManager      bulletprooftxmanager.TxManager
 	KeyStore       keystore.Eth
@@ -58,7 +59,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(evmtypes.Chain) services.Tracker {
+		opts.GenHeadTracker = func(evmtypes.Chain) types.Tracker {
 			return testopts.HeadTracker
 		}
 	}

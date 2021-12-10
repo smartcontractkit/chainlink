@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -265,7 +266,7 @@ type ChainSetOpts struct {
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(types.Chain) eth.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
-	GenHeadTracker    func(types.Chain) services.Tracker
+	GenHeadTracker    func(types.Chain) httypes.Tracker
 	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager
 }
 

@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -39,7 +39,7 @@ const HeadsBufferSize = 10
 // store on reboot.
 type HeadTracker struct {
 	log             logger.Logger
-	headBroadcaster services.HeadBroadcaster
+	headBroadcaster types.HeadBroadcaster
 	ethClient       eth.Client
 	chainID         big.Int
 	config          Config
@@ -61,7 +61,7 @@ func NewHeadTracker(
 	ethClient eth.Client,
 	config Config,
 	orm *ORM,
-	headBroadcaster services.HeadBroadcaster,
+	headBroadcaster types.HeadBroadcaster,
 	sleepers ...utils.Sleeper,
 ) *HeadTracker {
 	chStop := make(chan struct{})
@@ -375,7 +375,7 @@ func (ht *HeadTracker) Healthy() error {
 	return nil
 }
 
-var _ services.Tracker = &NullTracker{}
+var _ types.Tracker = &NullTracker{}
 
 type NullTracker struct{}
 

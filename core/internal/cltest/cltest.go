@@ -30,7 +30,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -56,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
@@ -75,6 +75,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -1299,7 +1300,7 @@ func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
 
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
-	HeadTrackables       []services.HeadTrackable
+	HeadTrackables       []httypes.HeadTrackable
 	Blocks               *Blocks
 }
 

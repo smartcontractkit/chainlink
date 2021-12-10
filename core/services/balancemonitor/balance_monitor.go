@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -26,7 +27,7 @@ import (
 type (
 	// BalanceMonitor checks the balance for each key on every new head
 	BalanceMonitor interface {
-		services.HeadTrackable
+		types.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
 		services.Service
 	}
