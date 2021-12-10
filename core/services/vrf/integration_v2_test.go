@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_reverting_example"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -54,6 +55,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// vrfConsumerContract is the common interface implemented by
+// the example contracts used for the integration tests.
+type vrfConsumerContract interface {
+	TestCreateSubscriptionAndFund(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error)
+	SSubId(opts *bind.CallOpts) (uint64, error)
+	SRequestId(opts *bind.CallOpts) (*big.Int, error)
+	TestRequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, minReqConfs uint16, callbackGasLimit uint32, numWords uint32) (*gethtypes.Transaction, error)
+}
+
 type coordinatorV2Universe struct {
 	// Golang wrappers of solidity contracts
 	consumerContracts         []*vrf_consumer_v2.VRFConsumerV2
@@ -65,6 +75,8 @@ type coordinatorV2Universe struct {
 	linkContractAddress              common.Address
 	maliciousConsumerContract        *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2
 	maliciousConsumerContractAddress common.Address
+	revertingConsumerContract        *vrfv2_reverting_example.VRFV2RevertingExample
+	revertingConsumerContractAddress common.Address
 
 	// Abstract representation of the ethereum blockchain
 	backend        *backends.SimulatedBackend
@@ -78,6 +90,7 @@ type coordinatorV2Universe struct {
 	ned          *bind.TransactOpts   // Secondary node operator
 	nallory      *bind.TransactOpts   // Oracle transactor
 	evil         *bind.TransactOpts   // Author of a malicious consumer contract
+	reverter     *bind.TransactOpts   // Author of always reverting contract
 }
 
 var (
@@ -94,6 +107,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		neil         = newIdentity(t)
 		ned          = newIdentity(t)
 		evil         = newIdentity(t)
+		reverter     = newIdentity(t)
 		nallory      = oracleTransactor
 		vrfConsumers = []*bind.TransactOpts{}
 	)
@@ -104,11 +118,12 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	}
 
 	genesisData := core.GenesisAlloc{
-		sergey.From:  {Balance: assets.Ether(1000)},
-		neil.From:    {Balance: assets.Ether(1000)},
-		ned.From:     {Balance: assets.Ether(1000)},
-		nallory.From: {Balance: assets.Ether(1000)},
-		evil.From:    {Balance: assets.Ether(1000)},
+		sergey.From:   {Balance: assets.Ether(1000)},
+		neil.From:     {Balance: assets.Ether(1000)},
+		ned.From:      {Balance: assets.Ether(1000)},
+		nallory.From:  {Balance: assets.Ether(1000)},
+		evil.From:     {Balance: assets.Ether(1000)},
+		reverter.From: {Balance: assets.Ether(1000)},
 	}
 	for _, consumer := range vrfConsumers {
 		genesisData[consumer.From] = core.GenesisAccount{
@@ -169,6 +184,15 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
 
+	// Deploy always reverting consumer
+	revertingConsumerContractAddress, _, revertingConsumerContract, err := vrfv2_reverting_example.DeployVRFV2RevertingExample(
+		reverter, backend, coordinatorAddress, linkAddress,
+	)
+	require.NoError(t, err, "failed to deploy VRFRevertingExample contract to simulated eth blockchain")
+	_, err = linkContract.Transfer(sergey, revertingConsumerContractAddress, assets.Ether(500)) // Actually, LINK
+	require.NoError(t, err, "failed to send LINK to VRFRevertingExample contract on simulated eth blockchain")
+	backend.Commit()
+
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
 		uint16(1),                              // minRequestConfirmations
@@ -196,6 +220,9 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		consumerContracts:         consumerContracts,
 		consumerContractAddresses: consumerContractAddresses,
 
+		revertingConsumerContract:        revertingConsumerContract,
+		revertingConsumerContractAddress: revertingConsumerContractAddress,
+
 		rootContract:                     coordinatorContract,
 		rootContractAddress:              coordinatorAddress,
 		linkContract:                     linkContract,
@@ -210,6 +237,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		ned:                              ned,
 		nallory:                          nallory,
 		evil:                             evil,
+		reverter:                         reverter,
 	}
 }
 
@@ -238,7 +266,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to c
 func subscribeVRF(
 	t *testing.T,
 	author *bind.TransactOpts,
-	consumerContract *vrf_consumer_v2.VRFConsumerV2,
+	consumerContract vrfConsumerContract,
 	coordinatorContract *vrf_coordinator_v2.VRFCoordinatorV2,
 	backend *backends.SimulatedBackend,
 	fundingJuels *big.Int,
@@ -301,7 +329,7 @@ func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, 
 // The request ID is then returned to the caller.
 func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	t *testing.T,
-	vrfConsumerHandle *vrf_consumer_v2.VRFConsumerV2,
+	vrfConsumerHandle vrfConsumerContract,
 	consumerOwner *bind.TransactOpts,
 	keyHash common.Hash,
 	subID uint64,
@@ -348,7 +376,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 // subscription ID of the resulting subscription.
 func subscribeAndAssertSubscriptionCreatedEvent(
 	t *testing.T,
-	vrfConsumerHandle *vrf_consumer_v2.VRFConsumerV2,
+	vrfConsumerHandle vrfConsumerContract,
 	consumerOwner *bind.TransactOpts,
 	consumerContractAddress common.Address,
 	fundingJuels *big.Int,
@@ -378,13 +406,14 @@ func subscribeAndAssertSubscriptionCreatedEvent(
 func assertRandomWordsFulfilled(
 	t *testing.T,
 	requestID *big.Int,
+	expectedSuccess bool,
 	uni coordinatorV2Universe,
 ) {
 	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
 	require.NoError(t, err)
 	found := false
 	for fiter.Next() {
-		require.True(t, fiter.Event.Success, "fulfillment event not successful")
+		require.Equal(t, expectedSuccess, fiter.Event.Success, "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, fiter.Event.Success)
 		require.Equal(t, requestID, fiter.Event.RequestId)
 		found = true
 	}
@@ -436,7 +465,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	uni.backend.Commit()
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, uni)
+	assertRandomWordsFulfilled(t, requestID, true, uni)
 	t.Log("Done!")
 }
 
@@ -497,7 +526,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	uni.backend.Commit()
 
 	// Assert the state of the RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, uni)
+	assertRandomWordsFulfilled(t, requestID, true, uni)
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
@@ -553,7 +582,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, cheapRequestID, uni)
+	assertRandomWordsFulfilled(t, cheapRequestID, true, uni)
 
 	expensiveRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, expensiveHash, subID, uni)
 
@@ -584,7 +613,56 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, expensiveRequestID, uni)
+	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni)
+}
+
+func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
+	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback", true, true)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	consumer := uni.reverter
+	consumerContract := uni.revertingConsumerContract
+	consumerContractAddress := uni.revertingConsumerContractAddress
+
+	// Create a subscription and fund with 5 LINK.
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
+
+	// Create gas lane.
+	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
+	configureSimChain(app, map[string]types.ChainCfg{
+		key.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
+		},
+	}, big.NewInt(10e9))
+	require.NoError(t, app.Start())
+
+	// Create VRF job.
+	jbs := createJobs(t, []ethkey.KeyV2{key}, app, uni)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Make the randomness request.
+	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, uni)
+
+	// Wait for fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	uni.backend.Commit()
+
+	// Assert correct state of RandomWordsFulfilled event.
+	assertRandomWordsFulfilled(t, requestID, false, uni)
+	t.Log("Done!")
 }
 
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {

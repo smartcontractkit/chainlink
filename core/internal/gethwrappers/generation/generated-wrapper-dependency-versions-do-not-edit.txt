@@ -20,3 +20,4 @@ vrf_external_sub_owner_example: ../../../contracts/solc/v0.8/VRFExternalSubOwner
 vrf_malicious_consumer_v2: ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.abi ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.bin b9fde692c1ebd6d029a21d79da528aa39f92f67ad51aa5c18f4c0605469f287b
 vrf_ownerless_consumer_example: ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.abi ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.bin c77059861450e00686fc8ba7721416a8a4c30a152ea13a8aef1705d2db7c4678
 vrf_single_consumer_example: ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin f2be46cdb725e10113722b781102c3431a4a51f35977ce0d6ee4eb69ea948d1d
+vrfv2_reverting_example: ../../../contracts/solc/v0.8/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8/VRFV2RevertingExample.bin a7f0752063b7c4e2b6880b4b39ec3afe1a58d3a4cc656fab812613d9d5e6847a
