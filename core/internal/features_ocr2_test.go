@@ -183,7 +183,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		transmitters,
 	)
 	require.NoError(t, err)
-	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForIntegrationTest(
+	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
 		1,
 		1000000000/100, // threshold PPB

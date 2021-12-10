@@ -33,11 +33,11 @@ func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 	p := cmd.OCR2KeyBundlePresenter{
 		JAID: cmd.JAID{ID: bundleID},
 		OCR2KeysBundleResource: presenters.OCR2KeysBundleResource{
-			JAID:                  presenters.NewJAID(key.ID()),
-			ChainType:             "evm",
-			OnChainSigningAddress: key.PublicKeyAddressOnChain(),
-			OffChainPublicKey:     hex.EncodeToString(key.OffchainPublicKey()),
-			ConfigPublicKey:       hex.EncodeToString(pubKeyConfig[:]),
+			JAID:              presenters.NewJAID(key.ID()),
+			ChainType:         "evm",
+			OnchainPublicKey:  key.OnChainPublicKey(),
+			OffChainPublicKey: hex.EncodeToString(key.OffchainPublicKey()),
+			ConfigPublicKey:   hex.EncodeToString(pubKeyConfig[:]),
 		},
 	}
 
@@ -47,7 +47,7 @@ func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 	output := buffer.String()
 	assert.Contains(t, output, bundleID)
 	assert.Contains(t, output, key.ChainType())
-	assert.Contains(t, output, key.PublicKeyAddressOnChain())
+	assert.Contains(t, output, key.OnChainPublicKey())
 	assert.Contains(t, output, hex.EncodeToString(key.OffchainPublicKey()))
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))
 
@@ -58,7 +58,7 @@ func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 
 	output = buffer.String()
 	assert.Contains(t, output, bundleID)
-	assert.Contains(t, output, key.PublicKeyAddressOnChain())
+	assert.Contains(t, output, key.OnChainPublicKey())
 	assert.Contains(t, output, hex.EncodeToString(key.OffchainPublicKey()))
 	pubKeyConfig = key.ConfigEncryptionPublicKey()
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))

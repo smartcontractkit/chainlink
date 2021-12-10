@@ -1586,6 +1586,8 @@ github.com/smartcontractkit/chainlink-solana v0.0.0-20211210152809-395644d08fbb/
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
 github.com/smartcontractkit/libocr v0.0.0-20211202172717-e8b0536a572e h1:c1OfJa821ud8dbI+hR7N2YMi8SeJ2HyDojU7dRlmmOg=
 github.com/smartcontractkit/libocr v0.0.0-20211202172717-e8b0536a572e/go.mod h1:nq3crM3wVqnyMlM/4ZydTuJ/WyCapAsOt7P94oRgSPg=
+github.com/smartcontractkit/libocr v0.0.0-20211210141503-0d395391fa03 h1:vB6p7WtVyGA3DTA+TSpUBGKYv1LUUT9QrLx5eoC2zmE=
+github.com/smartcontractkit/libocr v0.0.0-20211210141503-0d395391fa03/go.mod h1:nq3crM3wVqnyMlM/4ZydTuJ/WyCapAsOt7P94oRgSPg=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
 github.com/smartcontractkit/wsrpc v0.3.5 h1:i4SZGK+wKGvb6GQI9tD/mcYoRgfc5xKai3UpePVkcLY=
