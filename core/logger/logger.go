@@ -123,7 +123,7 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 }
 
 type Config interface {
-	RootDir() string
+	LogFileDir() string
 	JSONConsole() bool
 	LogToDisk() bool
 	LogLevel() zapcore.Level
@@ -134,7 +134,7 @@ type Config interface {
 // If LogToDisk is false, the Logger will only log to stdout.
 // Tests should use TestLogger instead.
 func NewLogger(c Config) Logger {
-	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
+	return newLogger(c.LogLevel(), c.LogFileDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
 }
 
 // newLogger returns a new production Logger with sentry forwarding.
