@@ -9,7 +9,7 @@ import (
 
 type BaseTask struct {
 	outputs []Task
-	inputs  []Task
+	inputs  []TaskDependency
 
 	id        int
 	dotID     string
@@ -24,7 +24,7 @@ type BaseTask struct {
 	uuid uuid.UUID
 }
 
-func NewBaseTask(id int, dotID string, inputs, outputs []Task, index int32) BaseTask {
+func NewBaseTask(id int, dotID string, inputs []TaskDependency, outputs []Task, index int32) BaseTask {
 	return BaseTask{id: id, dotID: dotID, inputs: inputs, outputs: outputs, Index: index}
 }
 
@@ -48,7 +48,7 @@ func (t BaseTask) Outputs() []Task {
 	return t.outputs
 }
 
-func (t BaseTask) Inputs() []Task {
+func (t BaseTask) Inputs() []TaskDependency {
 	return t.inputs
 }
 

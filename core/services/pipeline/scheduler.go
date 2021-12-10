@@ -15,18 +15,26 @@ import (
 func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
 	run := &memoryTaskRun{task: task, vars: s.vars.Copy()}
 
+	propagatableInputs := 0
+	for _, i := range task.Inputs() {
+		if i.PropagateResult {
+			propagatableInputs++
+		}
+	}
 	// fill in the inputs, fast path for no inputs
-	if len(task.Inputs()) != 0 {
+	if propagatableInputs != 0 {
 		// construct a list of inputs, sorted by OutputIndex
 		type input struct {
 			index  int32
 			result Result
 		}
-		inputs := make([]input, 0, len(task.Inputs()))
+		inputs := make([]input, 0, propagatableInputs)
 		// NOTE: we could just allocate via make, then assign directly to run.inputs[i.OutputIndex()]
 		// if we're confident that indices are within range
 		for _, i := range task.Inputs() {
-			inputs = append(inputs, input{index: int32(i.OutputIndex()), result: s.results[i.ID()].Result})
+			if i.PropagateResult {
+				inputs = append(inputs, input{index: int32(i.LinkedTask.OutputIndex()), result: s.results[i.LinkedTask.ID()].Result})
+			}
 		}
 		sort.Slice(inputs, func(i, j int) bool {
 			return inputs[i].index < inputs[j].index

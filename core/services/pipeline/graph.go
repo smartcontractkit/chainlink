@@ -28,6 +28,10 @@ func (g *Graph) NewNode() graph.Node {
 	return &GraphNode{Node: g.DirectedGraph.NewNode()}
 }
 
+func (g *Graph) NewEdge(from, to graph.Node) graph.Edge {
+	return &GraphEdge{Edge: g.DirectedGraph.NewEdge(from, to)}
+}
+
 func (g *Graph) UnmarshalText(bs []byte) (err error) {
 	if g.DirectedGraph == nil {
 		g.DirectedGraph = simple.NewDirectedGraph()
@@ -57,14 +61,48 @@ func (g *Graph) AddImplicitDependenciesAsEdges() {
 				params[param] = true
 			}
 		}
-		// Iterate through all nodes and add a new edge if node belongs to params set.
+		// Iterate through all nodes and add a new edge if node belongs to params set, and there already isn't an edge.
 		for nodesIter2 := g.Nodes(); nodesIter2.Next(); {
 			gn := nodesIter2.Node().(*GraphNode)
 			if params[gn.DOTID()] {
-				g.SetEdge(g.NewEdge(gn, graphNode))
+				// If these are distinct nodes with no existing edge between them, then add an implicit edge.
+				if gn.ID() != graphNode.ID() && !g.HasEdgeFromTo(gn.ID(), graphNode.ID()) {
+					edge := g.NewEdge(gn, graphNode).(*GraphEdge)
+					// Setting isImplicit indicates that this edge wasn't specified via the TOML spec,
+					// but rather added automatically here.
+					// This distinction is needed, as we don't want to propagate results of a task to its dependent
+					// tasks along implicit edge, as some tasks can't handle unexpected inputs from implicit edges.
+					edge.SetIsImplicit(true)
+					g.SetEdge(edge)
+				}
 			}
 		}
 	}
+}
+
+// Indicates whether there's an implicit edge from uid -> vid.
+// Implciit edged are ones that weren't added via the TOML spec, but via the pipeline parsing code
+func (g *Graph) IsImplicitEdge(uid, vid int64) bool {
+	edge := g.Edge(uid, vid).(*GraphEdge)
+	if edge == nil {
+		return false
+	}
+	return edge.IsImplicit()
+}
+
+type GraphEdge struct {
+	graph.Edge
+
+	// Indicates that this edge was implicitly added by the pipeline parser, and not via the TOML specs.
+	isImplicit bool
+}
+
+func (e *GraphEdge) IsImplicit() bool {
+	return e.isImplicit
+}
+
+func (e *GraphEdge) SetIsImplicit(isImplicit bool) {
+	e.isImplicit = isImplicit
 }
 
 type GraphNode struct {
@@ -206,17 +244,18 @@ func Parse(text string) (*Pipeline, error) {
 
 		// re-link the edges
 		for inputs := g.To(node.ID()); inputs.Next(); {
+			isImplicitEdge := g.IsImplicitEdge(inputs.Node().ID(), node.ID())
 			from := p.Tasks[ids[inputs.Node().ID()]]
 
 			from.Base().outputs = append(from.Base().outputs, task)
-			task.Base().inputs = append(task.Base().inputs, from)
+			task.Base().inputs = append(task.Base().inputs, TaskDependency{!isImplicitEdge, from})
 		}
 
 		// This is subtle: g.To doesn't return nodes in deterministic order, which would occasionally swap the order
 		// of inputs, therefore we manually sort. We don't need to sort outputs the same way because these appends happen
 		// in p.Task order, which is deterministic via topo.SortStable.
 		sort.Slice(task.Base().inputs, func(i, j int) bool {
-			return task.Base().inputs[i].ID() < task.Base().inputs[j].ID()
+			return task.Base().inputs[i].LinkedTask.ID() < task.Base().inputs[j].LinkedTask.ID()
 		})
 
 		p.Tasks = append(p.Tasks, task)

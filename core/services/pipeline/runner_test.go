@@ -213,10 +213,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 				test.vars["jobRun"] = map[string]interface{}{"meta": test.meta}
 			}
 			if test.includeInputAtKey != "" {
-				expectedRequestSubmit[test.includeInputAtKey] = map[string]interface{}{
-					"result": "9700",
-					"times":  "1000000000000000000",
-				}
+				expectedRequestSubmit[test.includeInputAtKey] = "9650000000000000000000"
 			}
 
 			// 1. Setup bridge
@@ -283,7 +280,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 					if d, is := expected.Value.(decimal.Decimal); is {
 						require.Equal(t, d.String(), r.Result.Value.(decimal.Decimal).String())
 					} else {
-						require.Equal(t, expected.Value, r.Result.Value, "Mismatched key: %s", r.Task.DotID())
+						require.Equal(t, expected.Value, r.Result.Value)
 					}
 				}
 			}

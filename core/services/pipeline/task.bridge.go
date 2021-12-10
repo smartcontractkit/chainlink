@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"path"
 
@@ -78,20 +77,12 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		)
 	}
 
-	tV := make(MapParam)
-	for i := range inputValues {
-		tV[fmt.Sprint(i)] = inputValues[i]
-	}
-
 	requestData = withRunInfo(requestData, metaMap)
 	if t.IncludeInputAtKey != "" {
 		if len(inputValues) > 0 {
-			tV[string(includeInputAtKey)] = inputValues[0]
 			requestData[string(includeInputAtKey)] = inputValues[0]
 		}
 	}
-	requestDataJSONXX, _ := json.Marshal(tV)
-	println("Bridge: ", name, ". Request inputs=", string(requestDataJSONXX))
 
 	if t.Async == "true" {
 		responseURL := t.config.BridgeResponseURL()

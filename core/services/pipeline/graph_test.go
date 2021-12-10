@@ -145,12 +145,21 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		RequestData: `{"hi": "hello"}`,
 	}
 
-	answer1.BaseTask = pipeline.NewBaseTask(6, "answer1", []pipeline.Task{ds1_multiply, ds2_multiply}, nil, 0)
+	answer1.BaseTask = pipeline.NewBaseTask(6, "answer1",
+		[]pipeline.TaskDependency{
+			{true, pipeline.Task(ds1_multiply)},
+			{true, pipeline.Task(ds2_multiply)}},
+		nil, 0)
 	answer2.BaseTask = pipeline.NewBaseTask(7, "answer2", nil, nil, 1)
-	ds1_multiply.BaseTask = pipeline.NewBaseTask(2, "ds1_multiply", []pipeline.Task{ds1_parse}, []pipeline.Task{answer1}, 0)
-	ds2_multiply.BaseTask = pipeline.NewBaseTask(5, "ds2_multiply", []pipeline.Task{ds2_parse}, []pipeline.Task{answer1}, 0)
-	ds1_parse.BaseTask = pipeline.NewBaseTask(1, "ds1_parse", []pipeline.Task{ds1}, []pipeline.Task{ds1_multiply}, 0)
-	ds2_parse.BaseTask = pipeline.NewBaseTask(4, "ds2_parse", []pipeline.Task{ds2}, []pipeline.Task{ds2_multiply}, 0)
+	ds1_multiply.BaseTask = pipeline.NewBaseTask(2, "ds1_multiply",
+		[]pipeline.TaskDependency{{true, pipeline.Task(ds1_parse)}},
+		[]pipeline.Task{answer1}, 0)
+	ds2_multiply.BaseTask = pipeline.NewBaseTask(5, "ds2_multiply",
+		[]pipeline.TaskDependency{{true, pipeline.Task(ds2_parse)}}, []pipeline.Task{answer1}, 0)
+	ds1_parse.BaseTask = pipeline.NewBaseTask(1, "ds1_parse",
+		[]pipeline.TaskDependency{{true, pipeline.Task(ds1)}}, []pipeline.Task{ds1_multiply}, 0)
+	ds2_parse.BaseTask = pipeline.NewBaseTask(4, "ds2_parse",
+		[]pipeline.TaskDependency{{true, pipeline.Task(ds2)}}, []pipeline.Task{ds2_multiply}, 0)
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 

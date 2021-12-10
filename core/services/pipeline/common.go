@@ -36,7 +36,7 @@ type (
 		Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (Result, RunInfo)
 		Base() *BaseTask
 		Outputs() []Task
-		Inputs() []Task
+		Inputs() []TaskDependency
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
 		TaskRetries() uint32
@@ -57,6 +57,11 @@ type (
 		JobPipelineReaperThreshold() time.Duration
 	}
 )
+
+type TaskDependency struct {
+	PropagateResult bool
+	LinkedTask      Task
+}
 
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
