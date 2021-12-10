@@ -777,9 +777,9 @@ func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 	app.FluxMonitor.RemoveJob(ID)
 
 	if err = app.ExternalInitiatorManager.DeleteJob(ID); err != nil {
-		err = errors.Wrapf(err, "failed to delete job with id %s from external initiator", ID)
+		logger.Warnf("failed to delete job with id %s from external initiator: %v", ID, err)
 	}
-	return multierr.Combine(err, app.Store.ArchiveJob(ID))
+	return app.Store.ArchiveJob(ID)
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs
