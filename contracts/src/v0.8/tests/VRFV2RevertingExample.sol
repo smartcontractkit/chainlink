@@ -5,7 +5,8 @@ import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../dev/VRFConsumerBaseV2.sol";
 
-contract VRFConsumerV2 is VRFConsumerBaseV2 {
+// VRFV2RevertingExample will always revert. Used for testing only, useless in prod.
+contract VRFV2RevertingExample is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   VRFCoordinatorV2Interface COORDINATOR;
@@ -18,11 +19,8 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
     LINKTOKEN = LinkTokenInterface(link);
   }
 
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-    require(requestId == s_requestId, "request ID is incorrect");
-
-    s_gasAvailable = gasleft();
-    s_randomWords = randomWords;
+  function fulfillRandomWords(uint256, uint256[] memory) internal override {
+    revert();
   }
 
   function testCreateSubscriptionAndFund(uint96 amount) external {
