@@ -74,7 +74,7 @@ export const ActivityRow = withStyles(styles)(({ classes, run }: Props) => {
                 </Link>
               </Grid>
               <Grid item xs={12}>
-                <Link href={`/jobs/${run.job.id}/runs/${run.id}`}>
+                <Link href={`/runs/${run.id}`}>
                   <Typography
                     variant="subtitle1"
                     color="textSecondary"

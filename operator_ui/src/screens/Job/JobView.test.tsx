@@ -103,6 +103,7 @@ describe('JobView', () => {
 
     userEvent.click(getByRole('button', { name: /open-menu/i }))
     userEvent.click(getByRole('menuitem', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(handleOnDelete).toBeCalled()
   })
