@@ -20,6 +20,8 @@ import (
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
 	AdminCredentialsFile                       string          `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
+	AdvisoryLockCheckInterval                  time.Duration   `env:"ADVISORY_LOCK_CHECK_INTERVAL" default:"1s"`
+	AdvisoryLockID                             int64           `env:"ADVISORY_LOCK_ID" default:"1027321974924625846"`
 	AllowOrigins                               string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	AuthenticatedRateLimit                     int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod               time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`

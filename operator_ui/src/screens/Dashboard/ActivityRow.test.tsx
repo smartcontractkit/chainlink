@@ -24,7 +24,7 @@ describe('ActivityRow', () => {
         <Route exact path="/jobs/:id">
           Job Page
         </Route>
-        <Route exact path="/jobs/:id/runs/:runID">
+        <Route exact path="/runs/:runID">
           Run Page
         </Route>
       </>,
