@@ -25,7 +25,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	db := evm.NewContractDB(sqlDB.DB, 1, lggr)
 	db2 := evm.NewContractDB(sqlDB.DB, 2, lggr)
 
-	rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
+	rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/round_requested_log_1_1.json")
 
 	rr := ocr2aggregator.OCR2AggregatorRoundRequested{
 		Requester:    cltest.NewAddress(),
