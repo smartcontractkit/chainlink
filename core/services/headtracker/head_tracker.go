@@ -114,7 +114,7 @@ func (ht *HeadTracker) Start() error {
 		// ignored as a duplicate.
 		initialHead, err := ht.getInitialHead()
 		if err != nil {
-			return err
+			ht.log.Errorw("Error getting initial head", "err", err)
 		} else if initialHead != nil {
 			if err := ht.handleNewHead(ctx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
@@ -216,10 +216,7 @@ func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	head, ok := item.(*eth.Head)
-	if !ok {
-		panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
-	}
+	head := eth.AsHead(item)
 
 	ht.headBroadcaster.OnNewLongestChain(ctx, head)
 }
@@ -236,10 +233,7 @@ func (ht *HeadTracker) backfiller() {
 				if !exists {
 					break
 				}
-				h, is := head.(*eth.Head)
-				if !is {
-					panic(fmt.Sprintf("expected `*eth.Head`, got %T", head))
-				}
+				h := eth.AsHead(head)
 				{
 					ctx, cancel := eth.DefaultQueryCtx()
 					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))

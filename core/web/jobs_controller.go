@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -108,6 +110,12 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
+			return
+		}
+	case job.OffchainReporting2:
+		jb, err = offchainreporting2.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
+		if !config.Dev() && !config.FeatureOffchainReporting2() {
+			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
 			return
 		}
 	case job.DirectRequest:

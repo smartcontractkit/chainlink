@@ -32,26 +32,10 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: "12"
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: ^1.17
-      - name: Get Yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v2
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Build static assets
-        run: make yarndep operator-ui
       - name: Cache Go vendor packages
         uses: actions/cache@v2
         with:
@@ -67,7 +51,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }}
       - name: Store logs artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v2.2.4
+        uses: actions/upload-artifact@v2.3.0
         with:
           name: ${{ matrix.cmd }}_logs
           path: ./output.txt

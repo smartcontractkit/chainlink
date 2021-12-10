@@ -173,11 +173,7 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h, is := head.(*eth.Head)
-				if !is {
-					ec.lggr.Errorf("Invariant violation, expected %T but got %T", eth.Head{}, head)
-					continue
-				}
+				h := eth.AsHead(head)
 				if err := ec.ProcessHead(ec.ctx, h); err != nil {
 					ec.lggr.Errorw("Error processing head", "err", err)
 					continue
@@ -641,7 +637,7 @@ RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff, ec.c
 			return errors.Wrap(err, "error scanning row")
 		}
 
-		ec.lggr.Errorw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+		ec.lggr.CriticalW(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 			"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
 			"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 			"an external wallet has been used to send a transaction from account %s with nonce %v."+
@@ -1030,10 +1026,18 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
 		}
 		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
-		ec.lggr.Errorw(
-			fmt.Sprintf("gas price %v wei was rejected by the eth node for being too low. Eth node returned: '%s'",
-				attempt.GasPrice.String(), sendError.Error()),
-			"previousAttempt", attempt, "replacementAttempt", replacementAttempt)
+		ec.lggr.With(
+			"sendError", sendError,
+			"maxGasPriceConfig", ec.config.EvmMaxGasPriceWei(),
+			"previousAttemptGasPrice", attempt.GasPrice,
+			"previousAttemptGasFeeCap", attempt.GasFeeCap,
+			"previousAttemptGasTipCap", attempt.GasTipCap,
+			"replacementAttemptGasPrice", replacementAttempt.GasPrice,
+			"replacementAttemptGasFeeCap", replacementAttempt.GasFeeCap,
+			"replacementAttemptGasTipCap", replacementAttempt.GasTipCap,
+		).
+			Errorf("gas price %s wei was rejected by the eth node for being too low. Eth node returned: '%s'",
+				attempt.GasPrice.String(), sendError.Error())
 
 		if err := saveReplacementInProgressAttempt(ec.q, attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
@@ -1077,7 +1081,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		//
 		// The only scenario imaginable where this might take place is if
 		// geth/parity have been updated between broadcasting and confirming steps.
-		ec.lggr.Errorw("Invariant violation: fatal error while re-attempting transaction",
+		ec.lggr.CriticalW("Invariant violation: fatal error while re-attempting transaction",
 			"ethTxID", etx.ID,
 			"err", sendError,
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),

@@ -9,22 +9,20 @@ import Header from 'pages/Header'
 import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
-import DashboardIndex from 'pages/Dashboards/Index'
-import Configuration from 'pages/Configuration/Index'
-import JobsShow from 'pages/Jobs/Show'
 import JobsNew from 'pages/Jobs/New'
-import JobRunsIndex from 'pages/JobRuns/Index'
-import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
 import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
-import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
 
 import { BridgesPage } from 'pages/bridges'
+import { ConfigPage } from 'pages/config'
+import { DashboardPage } from 'pages/dashboard'
 import { JobsPage } from 'pages/JobsIndex'
+import { KeysPage } from 'pages/keys'
+import { JobRunsPage } from 'pages/job_runs'
 import { FeedsManagerPage } from 'pages/feeds_manager'
 import { JobProposalsPage } from 'pages/job_proposals'
 import { NodesPage } from 'pages/nodes'
@@ -60,39 +58,12 @@ const Private = ({ classes }: { classes: { content: string } }) => {
           <div className={classes.content}>
             <Switch>
               <PrivateRoute exact path="/">
-                <DashboardIndex
-                  recentJobRunsCount={5}
-                  recentlyCreatedPageSize={4}
-                />
+                <DashboardPage />
               </PrivateRoute>
 
               <PrivateRoute exact path="/jobs/new">
                 <JobsNew />
               </PrivateRoute>
-
-              <PrivateRoute
-                path="/jobs/:jobId/runs/:jobRunId"
-                component={JobRunsShowOverview}
-              />
-
-              <PrivateRoute path="/jobs/:jobId">
-                <JobsShow />
-              </PrivateRoute>
-
-              <PrivateRoute
-                exact
-                path="/runs"
-                render={(props) => (
-                  <JobRunsIndex {...props} pagePath="/runs/page" />
-                )}
-              />
-              <PrivateRoute
-                exact
-                path="/runs/page/:jobRunsPage"
-                render={(props) => (
-                  <JobRunsIndex {...props} pagePath="/runs/page" />
-                )}
-              />
 
               <PrivateRoute exact path="/chains">
                 <ChainsScreen />
@@ -120,11 +91,13 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 path="/transactions/:transactionId"
                 component={TransactionsShow}
               />
-              <PrivateRoute exact path="/keys" component={KeysIndex} />
-              <PrivateRoute exact path="/config" component={Configuration} />
 
               <PrivateRoute path="/bridges">
                 <BridgesPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/config">
+                <ConfigPage />
               </PrivateRoute>
 
               <PrivateRoute path="/feeds_manager">
@@ -135,8 +108,16 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <JobProposalsPage />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/jobs">
+              <PrivateRoute path="/jobs">
                 <JobsPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/runs">
+                <JobRunsPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/keys">
+                <KeysPage />
               </PrivateRoute>
 
               <PrivateRoute path="/nodes">
