@@ -777,7 +777,7 @@ func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 	app.FluxMonitor.RemoveJob(ID)
 
 	if err = app.ExternalInitiatorManager.DeleteJob(ID); err != nil {
-		logger.Warnf("failed to delete job with id %s from external initiator: %v", ID, err)
+		logger.Warnf("Failed to delete job with id %s from external initiator: %v", ID, err)
 	}
 	return app.Store.ArchiveJob(ID)
 }
