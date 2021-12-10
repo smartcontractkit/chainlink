@@ -675,9 +675,11 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 
 func encodeTemplate(bytes []byte) (string, error) {
 	mapp := make(map[string]interface{})
-	err := json.Unmarshal(bytes, &mapp)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to Unmarshal %v", string(bytes))
+	if len(bytes) > 0 {
+		err := json.Unmarshal(bytes, &mapp)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to Unmarshal %v", string(bytes))
+		}
 	}
 	marshal, err := json.Marshal(&mapp)
 	if err != nil {
