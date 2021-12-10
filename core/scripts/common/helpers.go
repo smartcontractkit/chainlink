@@ -22,8 +22,6 @@ func ParseArgs(flagSet *flag.FlagSet, args []string, requiredArgs ...string) {
 	for _, req := range requiredArgs {
 		if !seen[req] {
 			panic(fmt.Errorf("missing required -%s argument/flag", req))
-		} else if req == "sub-id" && argValues[req] == "0" {
-			panic(fmt.Errorf("sub-id must be nonzero"))
 		}
 	}
 }
