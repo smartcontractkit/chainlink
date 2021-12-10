@@ -14,12 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -46,7 +46,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		Config:           testopts.GeneralConfig,
 		DB:               testopts.DB,
 		KeyStore:         testopts.KeyStore,
-		EventBroadcaster: services.NewNullEventBroadcaster(),
+		EventBroadcaster: pg.NewNullEventBroadcaster(),
 	}
 	if testopts.Client != nil {
 		opts.GenEthClient = func(c evmtypes.Chain) eth.Client {

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"math/big"
 	"math/rand"
 	"testing"
@@ -434,7 +433,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		ethClient,
 		evmcfg,
 		ethKeyStore,
-		&services.NullEventBroadcaster{},
+		&pg.NullEventBroadcaster{},
 		[]ethkey.State{keyState},
 		estimator,
 		nil,

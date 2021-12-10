@@ -85,7 +85,7 @@ type BulletproofTxManager struct {
 	ethClient        eth.Client
 	config           Config
 	keyStore         KeyStore
-	eventBroadcaster services.EventBroadcaster
+	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
@@ -105,7 +105,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster services.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},

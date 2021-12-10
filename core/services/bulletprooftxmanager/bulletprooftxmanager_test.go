@@ -3,7 +3,6 @@ package bulletprooftxmanager_test
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"math/big"
 	"testing"
 	"time"
@@ -440,7 +439,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	bptxm.OnNewLongestChain(context.Background(), head)
 
 	sub := new(pgmocks.Subscription)
-	sub.On("Events").Return(make(<-chan services.Event))
+	sub.On("Events").Return(make(<-chan pg.Event))
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 	config.On("EvmNonceAutoSync").Return(true)
 	config.On("EvmGasBumpThreshold").Return(uint64(1))

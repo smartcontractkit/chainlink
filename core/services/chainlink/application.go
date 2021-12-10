@@ -60,7 +60,7 @@ type Application interface {
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
-	GetEventBroadcaster() services.EventBroadcaster
+	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
@@ -99,7 +99,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter                   func(int)
 	ChainSet                 evm.ChainSet
-	EventBroadcaster         services.EventBroadcaster
+	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
@@ -131,7 +131,7 @@ type ChainlinkApplication struct {
 
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
-	EventBroadcaster         services.EventBroadcaster
+	EventBroadcaster         pg.EventBroadcaster
 	ShutdownSignal           shutdown.Signal
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
@@ -678,7 +678,7 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 	return app.ChainSet
 }
 
-func (app *ChainlinkApplication) GetEventBroadcaster() services.EventBroadcaster {
+func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
 	return app.EventBroadcaster
 }
 

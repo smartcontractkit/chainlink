@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -187,9 +186,9 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore
 		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
 }
 
-func NewEventBroadcaster(t testing.TB, dbURL url.URL) services.EventBroadcaster {
+func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	lggr := logger.TestLogger(t)
-	return services.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
+	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
 func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
@@ -364,7 +363,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	lggr := logger.TestLogger(t)
 
-	var eventBroadcaster services.EventBroadcaster = services.NewNullEventBroadcaster()
+	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
@@ -392,7 +391,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 				panic("cannot set more than one chain")
 			}
 			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
-		case services.EventBroadcaster:
+		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
 			switch flag {

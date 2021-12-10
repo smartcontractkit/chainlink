@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -54,8 +53,8 @@ type EthBroadcaster struct {
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
 
-	ethTxInsertListener services.Subscription
-	eventBroadcaster    services.EventBroadcaster
+	ethTxInsertListener pg.Subscription
+	eventBroadcaster    pg.EventBroadcaster
 
 	keyStates []ethkey.State
 
@@ -72,7 +71,7 @@ type EthBroadcaster struct {
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *sqlx.DB, ethClient eth.Client, config Config, keystore KeyStore,
-	eventBroadcaster services.EventBroadcaster,
+	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
 	logger logger.Logger) *EthBroadcaster {
 

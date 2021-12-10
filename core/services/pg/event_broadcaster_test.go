@@ -1,7 +1,7 @@
-package services_test
+package pg_test
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"sync"
 	"testing"
 	"time"
@@ -120,14 +120,14 @@ func TestEventBroadcaster(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(5)
 
-		recv := func(ch <-chan services.Event) services.Event {
+		recv := func(ch <-chan pg.Event) pg.Event {
 			select {
 			case e := <-ch:
 				return e
 			case <-time.After(5 * time.Second):
 				t.Fatal("did not receive")
 			}
-			return services.Event{}
+			return pg.Event{}
 		}
 
 		go func() {
