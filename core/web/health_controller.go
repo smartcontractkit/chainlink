@@ -4,8 +4,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -37,11 +38,11 @@ func (hc *HealthController) Readyz(c *gin.Context) {
 	checks := make([]presenters.Check, 0, len(errors))
 
 	for name, err := range errors {
-		status := health.StatusPassing
+		status := services.StatusPassing
 		var output string
 
 		if err != nil {
-			status = health.StatusFailing
+			status = services.StatusFailing
 			output = err.Error()
 		}
 
@@ -73,11 +74,11 @@ func (hc *HealthController) Health(c *gin.Context) {
 	checks := make([]presenters.Check, 0, len(errors))
 
 	for name, err := range errors {
-		status := health.StatusPassing
+		status := services.StatusPassing
 		var output string
 
 		if err != nil {
-			status = health.StatusFailing
+			status = services.StatusFailing
 			output = err.Error()
 		}
 

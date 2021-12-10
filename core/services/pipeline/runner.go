@@ -7,9 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/recovery"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -18,7 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/recovery"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -26,7 +25,7 @@ import (
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
-	service.Service
+	services.Service
 
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.

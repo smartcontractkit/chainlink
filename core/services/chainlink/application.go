@@ -10,10 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
-
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -26,21 +22,22 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -58,7 +55,7 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetLogger() logger.Logger
-	GetHealthChecker() health.Checker
+	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
@@ -119,9 +116,9 @@ type ChainlinkApplication struct {
 	shutdownOnce             sync.Once
 	shutdownSignal           shutdown.Signal
 	explorerClient           synchronization.ExplorerClient
-	subservices              []service.Service
-	HealthChecker            health.Checker
-	Nurse                    *health.Nurse
+	subservices              []services.Service
+	HealthChecker            services.Checker
+	Nurse                    *services.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
 	advisoryLock             pg.AdvisoryLock
@@ -153,7 +150,7 @@ type ApplicationOpts struct {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []service.Service
+	var subservices []services.Service
 	db := opts.SqlxDB
 	cfg := opts.Config
 	shutdownSignal := opts.ShutdownSignal
@@ -163,10 +160,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
 
-	var nurse *health.Nurse
+	var nurse *services.Nurse
 	if cfg.AutoPprofEnabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = health.NewNurse(cfg, globalLogger)
+		nurse = services.NewNurse(cfg, globalLogger)
 		err := nurse.Start()
 		if err != nil {
 			return nil, err
@@ -175,7 +172,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	healthChecker := health.NewChecker()
+	healthChecker := services.NewChecker()
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
@@ -204,7 +201,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
-	promReporter := services.NewPromReporter(db.DB, globalLogger)
+	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
 	var (
@@ -529,7 +526,7 @@ func (app *ChainlinkApplication) GetLogger() logger.Logger {
 	return app.logger
 }
 
-func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
+func (app *ChainlinkApplication) GetHealthChecker() services.Checker {
 	return app.HealthChecker
 }
 

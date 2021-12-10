@@ -1,25 +1,18 @@
-package health
+package services
 
 import (
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Types requiring health checks should implement the Checkable interface.
-type Checkable interface {
-	// Checkables should return nil if ready, or an error message otherwise.
-	Ready() error
-	// Checkables should return nil if healthy, or an error message otherwise.
-	Healthy() error
-}
-
-//go:generate mockery --name Checker --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Checker --output ./mocks/ --case=underscore
 type (
 	// Checker provides a service which can be probed for system health.
 	Checker interface {

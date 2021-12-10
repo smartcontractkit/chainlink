@@ -1,4 +1,4 @@
-package health
+package services
 
 import (
 	"bytes"
