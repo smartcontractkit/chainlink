@@ -410,13 +410,26 @@ func assertRandomWordsFulfilled(
 	expectedSuccess bool,
 	uni coordinatorV2Universe,
 ) {
-	fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
-	require.NoError(t, err)
+	// Check many times in case there are delays processing the event
+	// this could happen occasionally and cause flaky tests.
+	numChecks := 3
 	found := false
-	for fiter.Next() {
-		require.Equal(t, expectedSuccess, fiter.Event.Success, "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, fiter.Event.Success)
-		require.Equal(t, requestID, fiter.Event.RequestId)
-		found = true
+	for i := 0; i < numChecks; i++ {
+		fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
+		require.NoError(t, err)
+
+		for fiter.Next() {
+			require.Equal(t, expectedSuccess, fiter.Event.Success, "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, fiter.Event.Success)
+			require.Equal(t, requestID, fiter.Event.RequestId)
+			found = true
+		}
+
+		if found {
+			break
+		}
+
+		// Wait a bit and try again.
+		time.Sleep(time.Second)
 	}
 	require.True(t, found, "RandomWordsFulfilled event not found")
 }
