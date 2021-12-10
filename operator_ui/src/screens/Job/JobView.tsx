@@ -99,6 +99,7 @@ export const JOB_PAYLOAD__RUNS_FIELDS = gql`
   fragment JobPayload_RunsFields on JobRun {
     id
     allErrors
+    status
     createdAt
     finishedAt
   }

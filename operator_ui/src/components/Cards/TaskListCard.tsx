@@ -8,41 +8,62 @@ import Typography from '@material-ui/core/Typography'
 import { parseDot, Stratify } from 'utils/parseDot'
 import TaskListDag from 'pages/Jobs/TaskListDag'
 
+interface Props {
+  observationSource?: string
+  // A list of additional attributes which will be added to the graph nodes
+  // where the id matches.
+  attributes?: {
+    [key: string]: { [key: string]: string }
+  }
+}
+
 // TaskListCard renders a card which displays the DAG
-export const TaskListCard: React.FC<{ observationSource?: string }> = ({
+export const TaskListCard: React.FC<Props> = ({
+  attributes,
   observationSource,
 }) => {
-  const [stratify, setStratify] = React.useState<{
+  const [state, setState] = React.useState<{
     errorMsg?: string
-    stratify?: Stratify[]
+    graph?: Stratify[]
   }>()
 
   React.useEffect(() => {
     if (observationSource && observationSource !== '') {
       try {
-        const stratify = parseDot(`digraph {${observationSource}}`)
-        setStratify({ stratify })
+        const graph = parseDot(`digraph {${observationSource}}`)
+
+        if (attributes) {
+          for (let i = 0; i < graph.length; i++) {
+            const node = graph[i]
+            if (attributes[node.id]) {
+              graph[i].attributes = {
+                ...node.attributes,
+                ...attributes[node.id],
+              }
+            }
+          }
+        }
+
+        setState({ graph })
       } catch (e) {
-        setStratify({ errorMsg: 'Failed to parse task graph' })
+        setState({ errorMsg: 'Failed to parse task graph' })
       }
     } else {
-      setStratify({ errorMsg: 'No Task Graph Found' })
+      setState({ errorMsg: 'No Task Graph Found' })
     }
-  }, [observationSource, setStratify])
+  }, [attributes, observationSource, setState])
 
   return (
-    <Card>
+    <Card style={{ overflow: 'visible' }}>
       <CardHeader title="Task List" />
       <CardContent>
-        {stratify && stratify.errorMsg && (
+        {state && state.errorMsg && (
           <Typography align="center" variant="subtitle1">
-            {stratify.errorMsg}
+            {state.errorMsg}
           </Typography>
         )}
 
-        {stratify && stratify.stratify && (
-          <TaskListDag stratify={parseDot(`digraph {${observationSource}}`)} />
-        )}
+        {state && state.graph && <TaskListDag stratify={state.graph} />}
       </CardContent>
     </Card>
   )
