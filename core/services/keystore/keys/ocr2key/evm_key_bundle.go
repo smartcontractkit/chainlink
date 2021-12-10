@@ -3,6 +3,7 @@ package ocr2key
 import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 
@@ -72,9 +73,9 @@ func mustNewEVMKeyFromRaw(raw []byte) evmKeyBundle {
 	return kb
 }
 
-// PublicKeyAddressOnChain returns public component of the keypair used on chain
-func (kb *evmKeyBundle) PublicKeyAddressOnChain() string {
-	return kb.evmKeyring.SigningAddress().Hex()
+// OnChainPublicKey returns public component of the keypair used on chain
+func (kb *evmKeyBundle) OnChainPublicKey() string {
+	return hex.EncodeToString(kb.evmKeyring.PublicKey())
 }
 
 func (kb *evmKeyBundle) Marshal() ([]byte, error) {
