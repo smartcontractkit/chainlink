@@ -62,6 +62,7 @@ type vrfConsumerContract interface {
 	SSubId(opts *bind.CallOpts) (uint64, error)
 	SRequestId(opts *bind.CallOpts) (*big.Int, error)
 	TestRequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, minReqConfs uint16, callbackGasLimit uint32, numWords uint32) (*gethtypes.Transaction, error)
+	SRandomWords(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error)
 }
 
 type coordinatorV2Universe struct {
@@ -333,11 +334,11 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	consumerOwner *bind.TransactOpts,
 	keyHash common.Hash,
 	subID uint64,
+	numWords uint32,
 	uni coordinatorV2Universe,
 ) *big.Int {
 	cbGasLimit := uint32(500_000)
 	minRequestConfirmations := uint16(2)
-	numWords := uint32(20)
 	_, err := vrfConsumerHandle.TestRequestRandomness(
 		consumerOwner,
 		keyHash,
@@ -420,6 +421,18 @@ func assertRandomWordsFulfilled(
 	require.True(t, found, "RandomWordsFulfilled event not found")
 }
 
+func assertNumRandomWords(
+	t *testing.T,
+	contract vrfConsumerContract,
+	numWords uint32,
+) {
+	var err error
+	for i := uint32(0); i < numWords; i++ {
+		_, err = contract.SRandomWords(nil, big.NewInt(int64(i)))
+		require.NoError(t, err)
+	}
+}
+
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -450,7 +463,8 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the randomness request.
-	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, uni)
+	numWords := uint32(20)
+	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uni)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -466,6 +480,10 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
+
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
+
 	t.Log("Done!")
 }
 
@@ -498,7 +516,8 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	jbs := createJobs(t, []ethkey.KeyV2{key}, app, uni)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
-	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, uni)
+	numWords := uint32(20)
+	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uni)
 
 	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
@@ -527,6 +546,9 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 
 	// Assert the state of the RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
+
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
@@ -566,7 +588,8 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
 	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
 
-	cheapRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, cheapHash, subID, uni)
+	numWords := uint32(20)
+	cheapRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, cheapHash, subID, numWords, uni)
 
 	// Wait for fulfillment to be queued for cheap key hash.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -584,7 +607,10 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, cheapRequestID, true, uni)
 
-	expensiveRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, expensiveHash, subID, uni)
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
+
+	expensiveRequestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, expensiveHash, subID, numWords, uni)
 
 	// We should not have any new fulfillments until a top up.
 	gomega.NewWithT(t).Consistently(func() bool {
@@ -614,6 +640,9 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni)
+
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
@@ -646,7 +675,8 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the randomness request.
-	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, uni)
+	numWords := uint32(20)
+	requestID := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uni)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
