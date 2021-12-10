@@ -60,7 +60,7 @@ type (
 
 type TaskDependency struct {
 	PropagateResult bool
-	LinkedTask      Task
+	InputTask       Task
 }
 
 var (

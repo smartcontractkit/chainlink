@@ -255,7 +255,7 @@ func Parse(text string) (*Pipeline, error) {
 		// of inputs, therefore we manually sort. We don't need to sort outputs the same way because these appends happen
 		// in p.Task order, which is deterministic via topo.SortStable.
 		sort.Slice(task.Base().inputs, func(i, j int) bool {
-			return task.Base().inputs[i].LinkedTask.ID() < task.Base().inputs[j].LinkedTask.ID()
+			return task.Base().inputs[i].InputTask.ID() < task.Base().inputs[j].InputTask.ID()
 		})
 
 		p.Tasks = append(p.Tasks, task)

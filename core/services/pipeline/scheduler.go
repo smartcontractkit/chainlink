@@ -33,7 +33,7 @@ func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
 		// if we're confident that indices are within range
 		for _, i := range task.Inputs() {
 			if i.PropagateResult {
-				inputs = append(inputs, input{index: int32(i.LinkedTask.OutputIndex()), result: s.results[i.LinkedTask.ID()].Result})
+				inputs = append(inputs, input{index: int32(i.InputTask.OutputIndex()), result: s.results[i.InputTask.ID()].Result})
 			}
 		}
 		sort.Slice(inputs, func(i, j int) bool {

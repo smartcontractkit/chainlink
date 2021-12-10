@@ -145,28 +145,53 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		RequestData: `{"hi": "hello"}`,
 	}
 
-	answer1.BaseTask = pipeline.NewBaseTask(6, "answer1",
+	answer1.BaseTask = pipeline.NewBaseTask(
+		6,
+		"answer1",
 		[]pipeline.TaskDependency{
-			{true, pipeline.Task(ds1_multiply)},
-			{true, pipeline.Task(ds2_multiply)}},
-		nil, 0)
+			{
+				PropagateResult: false, // propagateResult is false because this dependency is implicit
+				InputTask:       pipeline.Task(ds1_multiply),
+			},
+			{
+				PropagateResult: true, // propagateResult is true because this dependency is explicit in spec
+				InputTask:       pipeline.Task(ds2_multiply),
+			},
+		},
+		nil,
+		0)
 	answer2.BaseTask = pipeline.NewBaseTask(7, "answer2", nil, nil, 1)
-	ds1_multiply.BaseTask = pipeline.NewBaseTask(2, "ds1_multiply",
-		[]pipeline.TaskDependency{{true, pipeline.Task(ds1_parse)}},
-		[]pipeline.Task{answer1}, 0)
-	ds2_multiply.BaseTask = pipeline.NewBaseTask(5, "ds2_multiply",
-		[]pipeline.TaskDependency{{true, pipeline.Task(ds2_parse)}}, []pipeline.Task{answer1}, 0)
-	ds1_parse.BaseTask = pipeline.NewBaseTask(1, "ds1_parse",
-		[]pipeline.TaskDependency{{true, pipeline.Task(ds1)}}, []pipeline.Task{ds1_multiply}, 0)
-	ds2_parse.BaseTask = pipeline.NewBaseTask(4, "ds2_parse",
-		[]pipeline.TaskDependency{{true, pipeline.Task(ds2)}}, []pipeline.Task{ds2_multiply}, 0)
+	ds1_multiply.BaseTask = pipeline.NewBaseTask(
+		2,
+		"ds1_multiply",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1_parse)}},
+		[]pipeline.Task{answer1},
+		0)
+	ds2_multiply.BaseTask = pipeline.NewBaseTask(
+		5,
+		"ds2_multiply",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2_parse)}},
+		[]pipeline.Task{answer1},
+		0)
+	ds1_parse.BaseTask = pipeline.NewBaseTask(
+		1,
+		"ds1_parse",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1)}},
+		[]pipeline.Task{ds1_multiply},
+		0)
+	ds2_parse.BaseTask = pipeline.NewBaseTask(
+		4,
+		"ds2_parse",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2)}},
+		[]pipeline.Task{ds2_multiply},
+		0)
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 
 	for i, task := range p.Tasks {
 		// Make sure inputs appear before the task, and outputs don't
 		for _, input := range task.Inputs() {
-			require.Contains(t, p.Tasks[:i], input)
+			require.Contains(t, p.Tasks[:i], input.InputTask)
 		}
 		for _, output := range task.Outputs() {
 			require.NotContains(t, p.Tasks[:i], output)
@@ -196,7 +221,7 @@ func TestGraph_ImplicitDependencies(t *testing.T) {
 	g := pipeline.NewGraph()
 	err := g.UnmarshalText([]byte(`
 		a [type=bridge];
-		b [type=multiply times=1.23 data="$(a.a1)"];
+		b [type=multiply times=1.23 data="$(a.a1)" self="$(b)"];
 		c [type=xyz times=1.23 input="$(b)"];
 		d [type=xyz times=1.23 check="{\"a\": $(jobSpec.id),\"b\":$(c.p)}"];
 	`))
