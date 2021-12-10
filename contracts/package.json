@@ -28,7 +28,7 @@
     "@openzeppelin/contracts": "^4.3.3",
     "@openzeppelin/test-helpers": "^0.5.11",
     "@typechain/ethers-v5": "^7.0.1",
-    "@typechain/hardhat": "^2.0.2",
+    "@typechain/hardhat": "^3.0.0",
     "@types/cbor": "5.0.1",
     "@types/chai": "^4.2.18",
     "@types/debug": "^4.1.7",
