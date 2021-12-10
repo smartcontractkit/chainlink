@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -43,6 +44,17 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 	headline := generateHeadline(js)
 	details := generateDetails(js)
 	return pc.Sink.Write([]byte(fmt.Sprintln(headline, details)))
+}
+
+// Close is overridden to prevent accidental closure of Stderr
+func (pc PrettyConsole) Close() error {
+	switch pc.Sink {
+	case os.Stderr:
+		// Never close Stderr because this will break any future go runtime logging from panics etc
+		return nil
+	default:
+		return pc.Sink.Close()
+	}
 }
 
 func generateHeadline(js gjson.Result) string {

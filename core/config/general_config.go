@@ -76,6 +76,7 @@ type GeneralOnlyConfig interface {
 	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
+	DefaultLogLevel() zapcore.Level
 	DefaultMaxHTTPAttempts() uint
 	Dev() bool
 	EVMDisabled() bool
@@ -113,12 +114,12 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
-	LeaseLockRefreshInterval() time.Duration
 	LeaseLockDuration() time.Duration
+	LeaseLockRefreshInterval() time.Duration
+	LogFileDir() string
 	LogLevel() zapcore.Level
-	DefaultLogLevel() zapcore.Level
-	LogSQLMigrations() bool
 	LogSQL() bool
+	LogSQLMigrations() bool
 	LogToDisk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
@@ -1364,4 +1365,13 @@ func (c *generalConfig) AdvisoryLockID() int64 {
 // to re-acquire it and if that fails the application will exit
 func (c *generalConfig) AdvisoryLockCheckInterval() time.Duration {
 	return c.getDuration("AdvisoryLockCheckInterval")
+}
+
+// LogFileDir if set will override RootDir as the output path for log files
+func (c *generalConfig) LogFileDir() string {
+	s := c.viper.GetString(EnvVarName("LogFileDir"))
+	if s == "" {
+		return c.RootDir()
+	}
+	return s
 }
