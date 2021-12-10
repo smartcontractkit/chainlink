@@ -75,7 +75,7 @@ require (
 
 require (
 	github.com/minio/sha256-simd v0.1.1
-	github.com/smartcontractkit/chainlink-solana v0.0.0-20211207185700-a24214ba7afd
+	github.com/smartcontractkit/chainlink-solana v0.0.0-20211210151648-2530c8469144
 )
 
 require (
@@ -257,3 +257,4 @@ require (
 // for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
 replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
 
+replace github.com/smartcontractkit/chainlink-solana => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-solana
