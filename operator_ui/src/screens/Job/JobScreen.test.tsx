@@ -133,6 +133,7 @@ describe('JobScreen', () => {
 
     userEvent.click(getByRole('button', { name: /open-menu/i }))
     userEvent.click(getByRole('menuitem', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(await findByText('Jobs Page')).toBeInTheDocument()
   })
@@ -163,6 +164,7 @@ describe('JobScreen', () => {
 
     userEvent.click(getByRole('button', { name: /open-menu/i }))
     userEvent.click(getByRole('menuitem', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(await findByText('job not found')).toBeInTheDocument()
   })

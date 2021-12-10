@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -69,7 +69,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
 	httypes.HeadTrackable
-	service.Service
+	services.Service
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator

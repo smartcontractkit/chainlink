@@ -261,9 +261,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
-			preSeed,                  // preSeed
-			utils.NewHash().Bytes(),  // sender
-			utils.NewHash().Bytes(),  // fee
+			preSeed,                 // preSeed
+			utils.NewHash().Bytes(), // sender
+			utils.NewHash().Bytes(), // fee
 			reqID.Bytes()}, []byte{}, // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
@@ -310,7 +310,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID1.Bytes()},                          // requestID
+					reqID1.Bytes()}, // requestID
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
 				Topics: []common.Hash{
@@ -331,7 +331,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID2.Bytes()},                          // requestID
+					reqID2.Bytes()}, // requestID
 					[]byte{}),
 				Topics: []common.Hash{
 					VRFRandomnessRequestLogTopic(),
@@ -432,7 +432,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
-			utils.NewHash().Bytes(),                      // key hash
+			utils.NewHash().Bytes(), // key hash
 			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
 			utils.NewHash().Bytes()...), // sender
 			utils.NewHash().Bytes()...), // fee
@@ -500,7 +500,7 @@ func TestFulfilledCheck(t *testing.T) {
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
 				utils.NewHash().Bytes(),                  // sender
 				utils.NewHash().Bytes(),                  // fee
-				utils.NewHash().Bytes()},                 // requestID
+				utils.NewHash().Bytes()}, // requestID
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{

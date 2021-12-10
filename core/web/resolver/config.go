@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -22,7 +23,7 @@ func (r *ConfigItemResolver) Key() string {
 	return r.key
 }
 
-func (r *ConfigItemResolver) Config() ConfigItemValue {
+func (r *ConfigItemResolver) Value() ConfigItemValue {
 	return r.cfg
 }
 
@@ -48,6 +49,10 @@ func (c *ConfigItemValue) UnmarshalGraphQL(input interface{}) error {
 	default:
 		return errors.New("wrong type")
 	}
+}
+
+func (c ConfigItemValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.Value)
 }
 
 type ConfigResolver struct {

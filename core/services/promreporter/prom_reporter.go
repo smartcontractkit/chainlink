@@ -1,4 +1,4 @@
-package services
+package promreporter
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-//go:generate mockery --name PrometheusBackend --output ../internal/mocks/ --case=underscore
+//go:generate mockery --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
 type (
 	promReporter struct {
 		db           *sql.DB
