@@ -1,7 +1,8 @@
-package services_test
+package balancemonitor_test
 
 import (
 	"context"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"math/big"
 	"testing"
 	"time"
@@ -17,10 +18,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/balancemonitor"
 )
 
 var nilBigInt *big.Int
+
+func newEthClientMock(t mock.TestingT) *ethmocks.Client {
+	mockEth := new(ethmocks.Client)
+	mockEth.Test(t)
+	mockEth.On("ChainID").Maybe().Return(big.NewInt(0))
+	return mockEth
+}
 
 func TestBalanceMonitor_Start(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
@@ -29,13 +37,13 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 
 		k0bal := big.NewInt(42)
@@ -60,12 +68,12 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 		k0bal := big.NewInt(42)
 
@@ -82,12 +90,12 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
@@ -109,13 +117,13 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-		ethClient := NewEthClientMock(t)
+		ethClient := newEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
@@ -173,9 +181,9 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	ethClient := NewEthClientMock(t)
+	ethClient := newEthClientMock(t)
 
-	bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+	bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		Once().
 		Return(big.NewInt(1), nil)
@@ -234,7 +242,7 @@ func Test_ApproximateFloat64(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			eth := assets.NewEth(0)
 			eth.SetString(test.input, 10)
-			float, err := services.ApproximateFloat64(eth)
+			float, err := balancemonitor.ApproximateFloat64(eth)
 			require.NoError(t, err)
 			require.Equal(t, test.want, float)
 		})

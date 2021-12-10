@@ -1,6 +1,4 @@
-package service
-
-import "github.com/smartcontractkit/chainlink/core/services/health"
+package services
 
 type (
 	// Service represents a long running service inside the
@@ -12,7 +10,7 @@ type (
 	// Template
 	//
 	// Mockable Foo service with a run loop
-	//  //go:generate mockery --name Foo --output ../../internal/mocks/ --case=underscore
+	//  //go:generate mockery --name Foo --output ../internal/mocks/ --case=underscore
 	//  type (
 	//  	// Expose a public interface so we can mock the service.
 	//  	Foo interface {
@@ -81,6 +79,6 @@ type (
 		// again, you need to build a new Service to do so.
 		Close() error
 
-		health.Checkable
+		Checkable
 	}
 )
