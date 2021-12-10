@@ -88,6 +88,7 @@ type GeneralConfigOverrides struct {
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LeaseLockDuration                         *time.Duration
 	LeaseLockRefreshInterval                  *time.Duration
+	LogFileDir                                null.String
 	LogLevel                                  *config.LogLevel
 	DefaultLogLevel                           *config.LogLevel
 	LogSQL                                    null.Bool
@@ -640,4 +641,11 @@ func (c *TestGeneralConfig) AdvisoryLockCheckInterval() time.Duration {
 		return *c.Overrides.AdvisoryLockCheckInterval
 	}
 	return c.GeneralConfig.AdvisoryLockCheckInterval()
+}
+
+func (c *TestGeneralConfig) LogFileDir() string {
+	if c.Overrides.LogFileDir.Valid {
+		return c.Overrides.LogFileDir.String
+	}
+	return c.RootDir()
 }
