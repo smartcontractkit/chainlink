@@ -20,7 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -160,7 +160,7 @@ type OCR2Spec struct {
 	ChainID        *big.Int
 }
 
-var _ service.Service = (*ocr2Provider)(nil)
+var _ services.Service = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
 	tracker                *ContractTracker

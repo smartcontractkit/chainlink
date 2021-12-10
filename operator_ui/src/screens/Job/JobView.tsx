@@ -15,7 +15,6 @@ import { TabOverview } from './TabOverview'
 import { TabRuns } from './TabRuns'
 import Button from 'src/components/Button'
 import { RunJobDialog } from './RunJobDialog'
-import { ConfirmationDialog } from 'src/components/Dialogs/ConfirmationDialog'
 
 const JOB_PAYLOAD__SPEC = gql`
   fragment JobPayload_Spec on JobSpec {
@@ -164,7 +163,6 @@ export const JobView: React.FC<Props> = ({
   refetchRecentRuns,
 }) => {
   const { path } = useRouteMatch()
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [runDialogOpen, setRunDialogOpen] = React.useState(false)
 
   return (
@@ -206,27 +204,6 @@ export const JobView: React.FC<Props> = ({
           </Route>
         </Switch>
       </Content>
-
-      <ConfirmationDialog
-        open={deleteDialogOpen}
-        title="Delete job"
-        body={
-          <>
-            Warning: This action cannot be undone
-            <ul>
-              <li>All associated job runs will be deleted</li>
-              <li>Access to this page will be lost</li>
-            </ul>
-          </>
-        }
-        confirmButtonText="Confirm"
-        onConfirm={() => {
-          onDelete()
-          setDeleteDialogOpen(false)
-        }}
-        cancelButtonText="Cancel"
-        onCancel={() => setDeleteDialogOpen(false)}
-      />
 
       <RunJobDialog
         open={runDialogOpen}

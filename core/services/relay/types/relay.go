@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 )
 
 type Network string
@@ -18,12 +18,12 @@ var (
 )
 
 type Relayer interface {
-	service.Service
+	services.Service
 	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2Provider, error)
 }
 
 type OCR2Provider interface {
-	service.Service
+	services.Service
 	ContractTransmitter() types.ContractTransmitter
 	ContractConfigTracker() types.ContractConfigTracker
 	OffchainConfigDigester() types.OffchainConfigDigester

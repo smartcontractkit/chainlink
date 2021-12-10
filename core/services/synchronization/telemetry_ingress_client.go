@@ -9,11 +9,10 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 )
@@ -26,7 +25,7 @@ const SendIngressBufferSize = 100
 // TelemetryIngressClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressClient interface {
-	service.Service
+	services.Service
 	Start() error
 	Close() error
 	Send(TelemPayload)
