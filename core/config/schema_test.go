@@ -11,6 +11,8 @@ import (
 func TestConfigSchema(t *testing.T) {
 	items := map[string]string{
 		"AdminCredentialsFile":                       "ADMIN_CREDENTIALS_FILE",
+		"AdvisoryLockCheckInterval":                  "ADVISORY_LOCK_CHECK_INTERVAL",
+		"AdvisoryLockID":                             "ADVISORY_LOCK_ID",
 		"AllowOrigins":                               "ALLOW_ORIGINS",
 		"AuthenticatedRateLimit":                     "AUTHENTICATED_RATE_LIMIT",
 		"AuthenticatedRateLimitPeriod":               "AUTHENTICATED_RATE_LIMIT_PERIOD",

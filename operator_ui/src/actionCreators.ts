@@ -480,13 +480,6 @@ function requestDelete(
 ): ReturnType<typeof request> {
   return request(type, 'DELETE', requestData, normalizeData)
 }
-
-export const fetchConfiguration = requestFetch(
-  'CONFIGURATION',
-  api.v2.config.getConfiguration,
-  (json) => normalize(json, { camelizeKeys: false }),
-)
-
 export const deleteCompletedJobRuns = (updatedBefore: string) =>
   requestDelete(
     'COMPLETED_JOB_RUNS',

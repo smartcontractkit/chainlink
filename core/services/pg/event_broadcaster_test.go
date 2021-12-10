@@ -1,6 +1,7 @@
 package pg_test
 
 import (
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"sync"
 	"testing"
 	"time"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 func TestEventBroadcaster(t *testing.T) {
