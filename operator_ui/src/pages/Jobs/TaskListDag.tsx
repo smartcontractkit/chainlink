@@ -3,8 +3,9 @@ import { theme } from 'theme'
 import Typography from '@material-ui/core/Typography'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
-import StatusIcon from 'components/StatusIcon'
 import { Stratify } from 'utils/parseDot'
+import { TaskRunStatusIcon } from 'src/components/Icons/TaskRunStatusIcon'
+import { TaskRunStatus } from 'utils/taskRunStatus'
 
 type Node = {
   x: number
@@ -216,12 +217,14 @@ export const TaskList = ({ stratify }: Props) => {
             pointerEvents: 'none',
           }}
         >
-          <StatusIcon
+          <TaskRunStatusIcon
             height={theme.spacing.unit * 5}
             width={theme.spacing.unit * 5}
-          >
-            {icon.data.attributes?.status || 'not_run'}
-          </StatusIcon>
+            // This is hacky because we inject the task run status into the
+            // stratify attributes, but we can't enforce the type. We make the
+            // assumption that the caller will inject the correct status here.
+            status={icon.data.attributes?.status as unknown as TaskRunStatus}
+          />
         </span>
       ))}
       <div

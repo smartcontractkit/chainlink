@@ -14,6 +14,7 @@ import { StatusCard } from './StatusCard'
 import { TaskListCard } from 'src/components/Cards/TaskListCard'
 import { TaskRunsCard } from './TaskRunsCard'
 import { JSONCard } from './JSONCard'
+import { TaskRunStatus } from 'src/utils/taskRunStatus'
 
 export const JOB_RUN_PAYLOAD__TASK_RUNS_FIELDS = gql`
   fragment JobRunPayload_TaskRunsFields on TaskRun {
@@ -56,6 +57,18 @@ interface Props {
 export const JobRunView = ({ run }: Props) => {
   const { path } = useRouteMatch()
 
+  // Generate a list of attributes which will get added to the stratify array.
+  // We do this so we can display the correct status icon in the TaskList DAG
+  const attrs = run.taskRuns.reduce(
+    (acc, run) => ({
+      ...acc,
+      [run.dotID]: {
+        status: run.error ? TaskRunStatus.ERROR : TaskRunStatus.COMPLETE,
+      },
+    }),
+    {},
+  )
+
   return (
     <Content>
       <Grid container spacing={16}>
@@ -79,7 +92,10 @@ export const JobRunView = ({ run }: Props) => {
             </Grid>
 
             <Grid item xs={12}>
-              <TaskListCard observationSource={run.job.observationSource} />
+              <TaskListCard
+                observationSource={run.job.observationSource}
+                attributes={attrs}
+              />
             </Grid>
           </Grid>
         </Grid>

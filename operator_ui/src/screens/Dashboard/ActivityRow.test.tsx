@@ -41,7 +41,7 @@ describe('ActivityRow', () => {
     ).toBeInTheDocument()
     expect(queryByRole('link', { name: `Run: ${run.id}` })).toBeInTheDocument()
     expect(queryByText('1 minute ago')).toBeInTheDocument()
-    expect(queryByTestId('completed')).toBeInTheDocument()
+    expect(queryByTestId(/completed/i)).toBeInTheDocument()
   })
 
   it('navigates to the job page', () => {

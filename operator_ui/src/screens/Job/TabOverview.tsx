@@ -38,11 +38,12 @@ export const TabOverview = withStyles(chartCardStyles)(
     // JobRunsTable
     const runs = React.useMemo(() => {
       return job.runs.results.map(
-        ({ allErrors, id, createdAt, finishedAt }) => ({
+        ({ allErrors, id, createdAt, finishedAt, status }) => ({
           id,
           createdAt,
           errors: allErrors,
           finishedAt,
+          status,
         }),
       )
     }, [job.runs])

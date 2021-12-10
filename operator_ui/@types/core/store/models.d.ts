@@ -445,11 +445,3 @@ declare module 'core/store/models' {
   }
 }
 
-export interface PipelineTaskRun {
-  createdAt: time.Time
-  error: PipelineTaskError
-  finishedAt: nullable.Time
-  output: PipelineTaskOutput
-  dotId: string
-  type: string
-}
