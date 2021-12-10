@@ -2,10 +2,11 @@ package balancemonitor_test
 
 import (
 	"context"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"math/big"
 	"testing"
 	"time"
+
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"

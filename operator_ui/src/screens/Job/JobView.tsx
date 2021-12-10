@@ -68,17 +68,18 @@ const JOB_PAYLOAD__SPEC = gql`
     }
     ... on OCR2Spec {
       blockchainTimeout
-      contractAddress
+      contractID
       contractConfigConfirmations
       contractConfigTrackerPollInterval
       contractConfigTrackerSubscribeInterval
-      evmChainID
       isBootstrapPeer
       juelsPerFeeCoinSource
-      keyBundleID
+      ocrKeyBundleID
       monitoringEndpoint
       p2pBootstrapPeers
-      transmitterAddress
+      relay
+      relayConfig
+      transmitterID
     }
     ... on VRFSpec {
       evmChainID

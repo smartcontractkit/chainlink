@@ -512,7 +512,6 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	// bootstrap node to come up.
 	config.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
 	// GracePeriod < ObservationTimeout
-	//config.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
 	config.Overrides.GlobalOCRObservationGracePeriod = 100 * time.Millisecond
 	dr := 5 * time.Second
 	switch ns {
