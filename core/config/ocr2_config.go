@@ -9,7 +9,7 @@ import (
 
 type OCR2Config interface {
 	// OCR2 config, can override in jobs, all chains
-	GlobalOCR2ContractConfirmations() (uint16, bool)
+	OCR2ContractConfirmations() uint16
 	OCR2ContractTransmitterTransmitTimeout() time.Duration
 	OCR2BlockchainTimeout() time.Duration
 	OCR2DatabaseTimeout() time.Duration
@@ -21,12 +21,8 @@ type OCR2Config interface {
 	OCR2TraceLogging() bool
 }
 
-func (c *generalConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("OCR2ContractConfirmations"), ParseUint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+func (c *generalConfig) OCR2ContractConfirmations() uint16 {
+	return c.getWithFallback("OCR2ContractConfirmations", ParseUint16).(uint16)
 }
 
 func (c *generalConfig) OCR2ContractPollInterval() time.Duration {

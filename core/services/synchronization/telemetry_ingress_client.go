@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -57,9 +56,9 @@ type telemetryIngressClient struct {
 }
 
 type TelemPayload struct {
-	Ctx             context.Context
-	Telemetry       []byte
-	ContractAddress common.Address
+	Ctx        context.Context
+	Telemetry  []byte
+	ContractID string
 }
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
@@ -135,14 +134,14 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 			select {
 			case p := <-tc.chTelemetry:
 				// Send telemetry to the ingress server, log any errors
-				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractAddress.String()}
+				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractID}
 				_, err := tc.telemClient.Telem(p.Ctx, telemReq)
 				if err != nil {
 					tc.lggr.Errorf("Could not send telemetry: %v", err)
 					continue
 				}
 				if tc.logging {
-					tc.lggr.Debugw("successfully sent telemetry to ingress server", "contractAddress", p.ContractAddress.String(), "telemetry", p.Telemetry)
+					tc.lggr.Debugw("successfully sent telemetry to ingress server", "contractID", p.ContractID, "telemetry", p.Telemetry)
 				}
 			case <-tc.chDone:
 				return

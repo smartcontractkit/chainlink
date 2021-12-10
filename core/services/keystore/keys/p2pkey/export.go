@@ -45,13 +45,13 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get raw public key")
 	}
-	encryptedOCRKExport := EncryptedP2PKeyExport{
+	encryptedP2PKeyExport := EncryptedP2PKeyExport{
 		KeyType:   keyTypeIdentifier,
 		PublicKey: hexutil.Encode(rawPubKey),
 		PeerID:    key.PeerID(),
 		Crypto:    cryptoJSON,
 	}
-	return json.Marshal(encryptedOCRKExport)
+	return json.Marshal(encryptedP2PKeyExport)
 }
 
 func adulteratedPassword(password string) string {
