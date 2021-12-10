@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -18,7 +18,7 @@ const callbackTimeout = 2 * time.Second
 
 type callbackID [256]byte
 
-type callbackSet map[callbackID]types.HeadTrackable
+type callbackSet map[callbackID]httypes.HeadTrackable
 
 func (set callbackSet) clone() callbackSet {
 	cp := make(callbackSet)
@@ -29,7 +29,7 @@ func (set callbackSet) clone() callbackSet {
 }
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster(logger logger.Logger) types.HeadBroadcaster {
+func NewHeadBroadcaster(logger logger.Logger) httypes.HeadBroadcaster {
 	return &headBroadcaster{
 		logger:        logger.Named("HeadBroadcaster"),
 		callbacks:     make(callbackSet),
@@ -54,7 +54,7 @@ type headBroadcaster struct {
 	latest *eth.Head
 }
 
-var _ types.HeadTrackable = (*headBroadcaster)(nil)
+var _ httypes.HeadTrackable = (*headBroadcaster)(nil)
 
 func (hb *headBroadcaster) Start() error {
 	return hb.StartOnce("HeadBroadcaster", func() error {
@@ -83,7 +83,7 @@ func (hb *headBroadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head
 
 // Subscribe - Subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hb *headBroadcaster) Subscribe(callback types.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
+func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
 	if callback == nil {
 		panic("callback must be non-nil func")
 	}
@@ -140,7 +140,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 	wg.Add(len(callbacks))
 
 	for _, callback := range callbacks {
-		go func(trackable types.HeadTrackable) {
+		go func(trackable httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
@@ -170,7 +170,7 @@ type NullBroadcaster struct{}
 func (*NullBroadcaster) Start() error                                          { return nil }
 func (*NullBroadcaster) Close() error                                          { return nil }
 func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
-func (*NullBroadcaster) Subscribe(callback types.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
+func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
 	return nil, func() {}
 }
 func (n *NullBroadcaster) Healthy() error { return nil }

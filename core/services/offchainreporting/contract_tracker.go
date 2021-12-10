@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -38,7 +38,7 @@ const configMailboxSanityLimit = 100
 var (
 	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
 	_ log.Listener                   = &OCRContractTracker{}
-	_ types.HeadTrackable            = &OCRContractTracker{}
+	_ httypes.HeadTrackable          = &OCRContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
@@ -64,7 +64,7 @@ type (
 		cfg              ocrcommon.Config
 
 		// HeadBroadcaster
-		headBroadcaster  types.HeadBroadcaster
+		headBroadcaster  httypes.HeadBroadcaster
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
@@ -104,7 +104,7 @@ func NewOCRContractTracker(
 	db *sqlx.DB,
 	ocrdb OCRContractTrackerDB,
 	cfg ocrcommon.Config,
-	headBroadcaster types.HeadBroadcaster,
+	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger = logger.Named("OCRContractTracker")

@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -48,7 +48,7 @@ type listenerV1 struct {
 	pipelineORM     pipeline.ORM
 	job             job.Job
 	q               pg.Q
-	headBroadcaster types.HeadBroadcasterRegistry
+	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
 	vrfks           keystore.VRF
 	gethks          GethKeyStore

@@ -4,9 +4,9 @@ package mocks
 
 import (
 	context "context"
-	services "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 
 	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -77,11 +77,11 @@ func (_m *HeadBroadcaster) Start() error {
 }
 
 // Subscribe provides a mock function with given fields: callback
-func (_m *HeadBroadcaster) Subscribe(callback services.HeadTrackable) (*eth.Head, func()) {
+func (_m *HeadBroadcaster) Subscribe(callback httypes.HeadTrackable) (*eth.Head, func()) {
 	ret := _m.Called(callback)
 
 	var r0 *eth.Head
-	if rf, ok := ret.Get(0).(func(services.HeadTrackable) *eth.Head); ok {
+	if rf, ok := ret.Get(0).(func(httypes.HeadTrackable) *eth.Head); ok {
 		r0 = rf(callback)
 	} else {
 		if ret.Get(0) != nil {
@@ -90,7 +90,7 @@ func (_m *HeadBroadcaster) Subscribe(callback services.HeadTrackable) (*eth.Head
 	}
 
 	var r1 func()
-	if rf, ok := ret.Get(1).(func(services.HeadTrackable) func()); ok {
+	if rf, ok := ret.Get(1).(func(httypes.HeadTrackable) func()); ok {
 		r1 = rf(callback)
 	} else {
 		if ret.Get(1) != nil {
