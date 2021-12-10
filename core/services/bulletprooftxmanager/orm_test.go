@@ -61,6 +61,46 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
 }
 
+func TestORM_EthTransactions(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 1, 2, from) // tx2
+
+	// add 2nd attempt to tx2
+	blockNum := int64(3)
+	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
+	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt.GasPrice = utils.NewBig(big.NewInt(3))
+	attempt.BroadcastBeforeBlockNum = &blockNum
+	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
+
+	// tx 3 has no attempts
+	tx3 := cltest.NewEthTx(t, from)
+	tx3.State = bulletprooftxmanager.EthTxUnstarted
+	tx3.FromAddress = from
+	require.NoError(t, orm.InsertEthTx(&tx3))
+
+	var count int
+	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	require.NoError(t, err)
+	require.Equal(t, 3, count)
+
+	txs, count, err := orm.EthTransactions(0, 100)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
+	assert.Len(t, txs, 2)
+	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
+	assert.Equal(t, int64(0), *txs[1].Nonce, "transactions should be sorted by nonce")
+	assert.Len(t, txs[0].EthTxAttempts, 0, "eth tx attempts should not be preloaded")
+	assert.Len(t, txs[1].EthTxAttempts, 0)
+}
+
 func TestORM(t *testing.T) {
 	t.Parallel()
 
@@ -115,10 +155,19 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, r.BlockHash, etx.EthTxAttempts[0].EthReceipts[0].BlockHash)
 	})
 	t.Run("FindEthTxByHash", func(t *testing.T) {
-		etx, err := orm.FindEthTxByHash(attemptD.Hash)
+		foundEtx, err := orm.FindEthTxByHash(attemptD.Hash)
 		require.NoError(t, err)
-		require.Len(t, etx.EthTxAttempts, 2)
+		assert.Equal(t, etx.ID, foundEtx.ID)
+		assert.Equal(t, etx.EVMChainID, foundEtx.EVMChainID)
+	})
+	t.Run("FindEthTxAttemptsByEthTxIDs", func(t *testing.T) {
+		attempts, err := orm.FindEthTxAttemptsByEthTxIDs([]int64{etx.ID})
+		require.NoError(t, err)
+		require.Len(t, attempts, 2)
 		assert.Equal(t, etx.EthTxAttempts[0].ID, attemptD.ID)
 		assert.Equal(t, etx.EthTxAttempts[1].ID, attemptL.ID)
+		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 1)
+		require.Len(t, etx.EthTxAttempts[1].EthReceipts, 0)
+		assert.Equal(t, r.BlockHash, etx.EthTxAttempts[0].EthReceipts[0].BlockHash)
 	})
 }

@@ -16,9 +16,11 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
+	EthTransactions(offset, limit int) ([]EthTx, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
+	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
 	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
 	InsertEthTx(etx *EthTx) error
@@ -98,6 +100,22 @@ func (o *orm) preloadTxes(attempts []EthTxAttempt) error {
 	return nil
 }
 
+// EthTransactions returns all eth transactions without loaded relations
+// limited by passed parameters.
+func (o *orm) EthTransactions(offset, limit int) (txs []EthTx, count int, err error) {
+	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
+	if err = o.q.Get(&count, sql); err != nil {
+		return
+	}
+
+	sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
+	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
+		return
+	}
+
+	return
+}
+
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
 func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count int, err error) {
@@ -143,6 +161,18 @@ func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 	return &attempts[0], err
 }
 
+// FindEthTxAttemptsByEthTxIDs returns a list of attempts by ETH Tx IDs
+func (o *orm) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error) {
+	var attempts []EthTxAttempt
+
+	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1)`
+	if err := o.q.Select(&attempts, sql, ids); err != nil {
+		return nil, err
+	}
+
+	return attempts, nil
+}
+
 func (o *orm) FindEthTxByHash(hash common.Hash) (*EthTx, error) {
 	var etx EthTx
 
@@ -150,9 +180,6 @@ func (o *orm) FindEthTxByHash(hash common.Hash) (*EthTx, error) {
 		sql := `SELECT eth_txes.* FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts WHERE hash = $1)`
 		if err := tx.Get(&etx, sql, hash); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with hash %d", hash)
-		}
-		if err := loadEthTxAttempts(tx, &etx); err != nil {
-			return errors.Wrapf(err, "failed to load eth_tx_attempts for eth_tx with hash %d", hash)
 		}
 
 		return nil

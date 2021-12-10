@@ -49,8 +49,13 @@ func (r *EthTransactionResolver) GasLimit() string {
 	return stringutils.FromInt64(int64(r.tx.GasLimit))
 }
 
-func (r *EthTransactionResolver) GasPrice() string {
-	return r.tx.EthTxAttempts[0].GasPrice.String()
+func (r *EthTransactionResolver) GasPrice(ctx context.Context) string {
+	attempts, err := r.Attempts(ctx)
+	if err != nil || len(attempts) == 0 {
+		return ""
+	}
+
+	return attempts[0].GasPrice()
 }
 
 func (r *EthTransactionResolver) Value() string {
@@ -71,12 +76,22 @@ func (r *EthTransactionResolver) Nonce() *string {
 	return &value
 }
 
-func (r *EthTransactionResolver) Hash() string {
-	return r.tx.EthTxAttempts[0].Hash.Hex()
+func (r *EthTransactionResolver) Hash(ctx context.Context) string {
+	attempts, err := r.Attempts(ctx)
+	if err != nil || len(attempts) == 0 {
+		return ""
+	}
+
+	return attempts[0].Hash()
 }
 
-func (r *EthTransactionResolver) Hex() string {
-	return hexutil.Encode(r.tx.EthTxAttempts[0].SignedRawTx)
+func (r *EthTransactionResolver) Hex(ctx context.Context) string {
+	attempts, err := r.Attempts(ctx)
+	if err != nil || len(attempts) == 0 {
+		return ""
+	}
+
+	return attempts[0].Hex()
 }
 
 // Chain resolves the node's chain object field.
@@ -89,18 +104,23 @@ func (r *EthTransactionResolver) Chain(ctx context.Context) (*ChainResolver, err
 	return NewChain(*chain), nil
 }
 
-func (r *EthTransactionResolver) Attempts() []*EthTransactionAttemptResolver {
-	return NewEthTransactionsAttempts(r.tx.EthTxAttempts)
+func (r *EthTransactionResolver) Attempts(ctx context.Context) ([]*EthTransactionAttemptResolver, error) {
+	id := stringutils.FromInt64(r.tx.ID)
+	attempts, err := loader.GetEthTxAttemptsByEthTxID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEthTransactionsAttempts(attempts), nil
 }
 
-func (r *EthTransactionResolver) SentAt() *string {
-	if r.tx.EthTxAttempts[0].BroadcastBeforeBlockNum == nil {
+func (r *EthTransactionResolver) SentAt(ctx context.Context) *string {
+	attempts, err := r.Attempts(ctx)
+	if err != nil || len(attempts) == 0 {
 		return nil
 	}
 
-	value := stringutils.FromInt64(*r.tx.EthTxAttempts[0].BroadcastBeforeBlockNum)
-
-	return &value
+	return attempts[0].SentAt()
 }
 
 // -- EthTransaction Query --

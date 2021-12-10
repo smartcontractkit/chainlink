@@ -14,6 +14,36 @@ type ORM struct {
 	mock.Mock
 }
 
+// EthTransactions provides a mock function with given fields: offset, limit
+func (_m *ORM) EthTransactions(offset int, limit int) ([]bulletprooftxmanager.EthTx, int, error) {
+	ret := _m.Called(offset, limit)
+
+	var r0 []bulletprooftxmanager.EthTx
+	if rf, ok := ret.Get(0).(func(int, int) []bulletprooftxmanager.EthTx); ok {
+		r0 = rf(offset, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]bulletprooftxmanager.EthTx)
+		}
+	}
+
+	var r1 int
+	if rf, ok := ret.Get(1).(func(int, int) int); ok {
+		r1 = rf(offset, limit)
+	} else {
+		r1 = ret.Get(1).(int)
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(int, int) error); ok {
+		r2 = rf(offset, limit)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
 // EthTransactionsWithAttempts provides a mock function with given fields: offset, limit
 func (_m *ORM) EthTransactionsWithAttempts(offset int, limit int) ([]bulletprooftxmanager.EthTx, int, error) {
 	ret := _m.Called(offset, limit)
@@ -90,6 +120,29 @@ func (_m *ORM) FindEthTxAttempt(hash common.Hash) (*bulletprooftxmanager.EthTxAt
 	var r1 error
 	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
 		r1 = rf(hash)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindEthTxAttemptsByEthTxIDs provides a mock function with given fields: ids
+func (_m *ORM) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]bulletprooftxmanager.EthTxAttempt, error) {
+	ret := _m.Called(ids)
+
+	var r0 []bulletprooftxmanager.EthTxAttempt
+	if rf, ok := ret.Get(0).(func([]int64) []bulletprooftxmanager.EthTxAttempt); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]bulletprooftxmanager.EthTxAttempt)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
 	} else {
 		r1 = ret.Error(1)
 	}
