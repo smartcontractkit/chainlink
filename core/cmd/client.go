@@ -73,6 +73,36 @@ type Client struct {
 	PasswordPrompter               PasswordPrompter
 }
 
+func NewClient(
+	config config.GeneralConfig,
+	logger logger.Logger,
+	appFactory AppFactory,
+	keyStoreAuthenticator TerminalKeyStoreAuthenticator,
+	fallbackAPIInitializer APIInitializer,
+	runner Runner,
+	httpClient HTTPClient,
+	cookieAuthenticator CookieAuthenticator,
+	fileSessionRequestBuilder FileSessionRequestBuilder,
+	promptingSessionRequestBuilder PromptingSessionRequestBuilder,
+	changePasswordPrompter ChangePasswordPrompter,
+	passwordPrompter PasswordPrompter,
+) *Client {
+	return &Client{
+		Config:                         config,
+		Logger:                         logger,
+		AppFactory:                     appFactory,
+		KeyStoreAuthenticator:          keyStoreAuthenticator,
+		FallbackAPIInitializer:         fallbackAPIInitializer,
+		Runner:                         runner,
+		HTTP:                           httpClient,
+		CookieAuthenticator:            cookieAuthenticator,
+		FileSessionRequestBuilder:      fileSessionRequestBuilder,
+		PromptingSessionRequestBuilder: promptingSessionRequestBuilder,
+		ChangePasswordPrompter:         changePasswordPrompter,
+		PasswordPrompter:               passwordPrompter,
+	}
+}
+
 func (cli *Client) errorOut(err error) error {
 	if err != nil {
 		return clipkg.NewExitError(err.Error(), 1)
@@ -554,13 +584,21 @@ type SessionRequestBuilder interface {
 	Build(flag string) (sessions.SessionRequest, error)
 }
 
+type FileSessionRequestBuilder interface {
+	SessionRequestBuilder
+}
+
+type PromptingSessionRequestBuilder interface {
+	SessionRequestBuilder
+}
+
 type promptingSessionRequestBuilder struct {
 	prompter Prompter
 }
 
 // NewPromptingSessionRequestBuilder uses a prompter, often via terminal,
 // to solicit information from a user to generate the SessionRequest.
-func NewPromptingSessionRequestBuilder(prompter Prompter) SessionRequestBuilder {
+func NewPromptingSessionRequestBuilder(prompter Prompter) PromptingSessionRequestBuilder {
 	return promptingSessionRequestBuilder{prompter}
 }
 
@@ -575,7 +613,7 @@ type fileSessionRequestBuilder struct {
 }
 
 // NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
-func NewFileSessionRequestBuilder(lggr logger.Logger) SessionRequestBuilder {
+func NewFileSessionRequestBuilder(lggr logger.Logger) FileSessionRequestBuilder {
 	return &fileSessionRequestBuilder{lggr: lggr}
 }
 
