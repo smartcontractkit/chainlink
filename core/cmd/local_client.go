@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/url"
 	"os"
@@ -21,10 +22,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -139,7 +141,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
-	defer func() { lggr.ErrorIf(app.Stop(), "Error stopping app") }()
+	defer func() {
+		lggr.ErrorIf(app.Stop(), "Error stopping app")
+		if err = lggr.Sync(); err != nil {
+			log.Println(err)
+		}
+	}()
 	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
 		return cli.errorOut(err)
@@ -217,10 +224,7 @@ func passwordFromFile(pwdFile string) (string, error) {
 }
 
 func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
-	wlc, err := config.NewConfigPrinter(cfg)
-	if err != nil {
-		return err
-	}
+	wlc := config.NewConfigPrinter(cfg)
 
 	lggr.Debug("Environment variables\n", wlc)
 	return nil

@@ -362,12 +362,12 @@ func (ks *eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err e
 func (ks *eth) GetV1KeysAsV2(chainID *big.Int) (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1EthKeys()
 	if err != nil {
-		return keys, states, err
+		return keys, states, errors.Wrap(err, "failed to get encrypted v1 eth keys")
 	}
 	for _, keyV1 := range v1Keys {
 		dKey, err := keystore.DecryptKey(keyV1.JSON, ks.password)
 		if err != nil {
-			return keys, states, err
+			return keys, states, errors.Wrapf(err, "could not decrypt eth key %s", keyV1.Address.Hex())
 		}
 		keyV2 := ethkey.FromPrivateKey(dKey.PrivateKey)
 		keys = append(keys, keyV2)

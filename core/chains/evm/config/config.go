@@ -65,7 +65,16 @@ type ChainScopedOnlyConfig interface {
 	MinIncomingConfirmations() uint32
 	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
+
+	// OCR2 chain specific config
+	OCR2ContractConfirmations() uint16
+
+	// OCR1 chain specific config
 	OCRContractConfirmations() uint16
+	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRObservationGracePeriod() time.Duration
+	OCRDatabaseTimeout() time.Duration
+
 	SetEvmGasPriceDefault(value *big.Int) error
 }
 
@@ -698,15 +707,6 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 		return val
 	}
 	return c.defaultSet.linkContractAddress
-}
-
-func (c *chainScopedConfig) OCRContractConfirmations() uint16 {
-	val, ok := c.GeneralConfig.GlobalOCRContractConfirmations()
-	if ok {
-		c.logEnvOverrideOnce("OCRContractConfirmations", val)
-		return val
-	}
-	return c.defaultSet.ocrContractConfirmations
 }
 
 // MinIncomingConfirmations represents the minimum number of block

@@ -1,5 +1,5 @@
 -- +goose Up
-ALTER TABLE log_broadcasts ADD COLUMN updated_at timestamp with time zone NOT NULL;
+ALTER TABLE log_broadcasts ADD COLUMN updated_at timestamp with time zone NOT NULL DEFAULT NOW();
 DROP INDEX IF EXISTS log_consumptions_unique_v2_idx;
 CREATE UNIQUE INDEX log_broadcasts_unique_idx ON log_broadcasts(job_id, block_hash, log_index, evm_chain_id);
 CREATE TABLE log_broadcasts_pending (

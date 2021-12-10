@@ -98,7 +98,9 @@ func (ks *csa) Delete(id string) (csakey.KeyV2, error) {
 	if err != nil {
 		return csakey.KeyV2{}, err
 	}
+
 	err = ks.safeRemoveKey(key)
+
 	return key, err
 }
 
@@ -149,7 +151,7 @@ func (ks *csa) GetV1KeysAsV2() (keys []csakey.KeyV2, _ error) {
 func (ks *csa) getByID(id string) (csakey.KeyV2, error) {
 	key, found := ks.keyRing.CSA[id]
 	if !found {
-		return csakey.KeyV2{}, fmt.Errorf("unable to find CSA key with id %s", id)
+		return csakey.KeyV2{}, KeyNotFoundError{ID: id, KeyType: "CSA"}
 	}
 	return key, nil
 }

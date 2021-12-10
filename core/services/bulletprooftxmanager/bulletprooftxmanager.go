@@ -427,7 +427,7 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
 		return nil
 	}
-	return eth.NewSendError(err)
+	return sendErr
 }
 
 // gimulateTransaction pretends to "send" the transaction using eth_call

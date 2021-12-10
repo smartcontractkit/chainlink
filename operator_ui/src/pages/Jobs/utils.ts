@@ -1,7 +1,7 @@
 import TOML from '@iarna/toml'
-import { PipelineTaskError, RunStatus } from 'core/store/models'
+import { RunStatus } from 'core/store/models'
 import { TaskSpec } from 'core/store/models'
-import { parseDot, Stratify } from './parseDot'
+import { parseDot, Stratify } from 'utils/parseDot'
 import { countBy as _countBy } from 'lodash'
 
 export function isToml({ value }: { value: string }): boolean {
@@ -16,32 +16,18 @@ export function isToml({ value }: { value: string }): boolean {
   }
 }
 
-export function stringifyJobSpec({
-  value,
-}: {
-  value: { [key: string]: any }
-}): string {
-  try {
-    return TOML.stringify(value)
-  } catch (e) {
-    console.error(
-      `Failed to stringify job spec with the following error: ${e.message}`,
-    )
-    return ''
-  }
-}
-
-export function getJobStatus({
+// Temporary function until we can come up with a better design
+export function getJobStatusGQL({
   finishedAt,
   errors,
 }: {
   finishedAt: string | null
-  errors: PipelineTaskError[]
+  errors: ReadonlyArray<string>
 }) {
   if (finishedAt === null) {
     return RunStatus.IN_PROGRESS
   }
-  if (errorsExist(errors)) {
+  if (errors !== null && errors.length > 0 && errors[0] !== null) {
     return RunStatus.ERRORED
   }
   return RunStatus.COMPLETED
@@ -88,8 +74,4 @@ export function getTaskList({ value }: { value: string }): {
     list,
     error,
   }
-}
-
-function errorsExist(errors: PipelineTaskError[]): boolean {
-  return errors !== null && errors.length > 0 && errors[0] !== null
 }
