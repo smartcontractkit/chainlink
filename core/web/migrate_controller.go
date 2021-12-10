@@ -530,10 +530,16 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 				}
 				last = n
 			}
+
+			prevTaskRef := "$(jobRun)"
+			if last != nil {
+				prevTaskRef = fmt.Sprintf("$(%v)", last.DOTID())
+			}
+
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeETHTx.String(),
 				"to":   js.Initiators[0].Address.String(),
-				"data": fmt.Sprintf("$(%v)", last.DOTID()),
+				"data": prevTaskRef,
 			}
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("send_tx_%d", i), attrs)
 			foundEthTx = true
