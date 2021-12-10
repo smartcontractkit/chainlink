@@ -24,8 +24,6 @@ describe('NodeInfoCard', () => {
   it('renders the node info card', () => {
     render(<NodeInfoCard />)
 
-    screen.logTestingPlaygroundURL()
-
     expect(queryByText(/version/i)).toBeInTheDocument()
     expect(queryByText('1.0.0')).toBeInTheDocument()
 
