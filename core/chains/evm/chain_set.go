@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -32,7 +32,7 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 
 //go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
-	service.Service
+	services.Service
 	Get(id *big.Int) (Chain, error)
 	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
 	Remove(id *big.Int) error
