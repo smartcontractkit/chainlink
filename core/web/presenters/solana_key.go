@@ -18,7 +18,7 @@ func (SolanaKeyResource) GetName() string {
 func NewSolanaKeyResource(key solkey.Key) *SolanaKeyResource {
 	r := &SolanaKeyResource{
 		JAID:   JAID{ID: key.ID()},
-		PubKey: key.PublicKeyHex(),
+		PubKey: key.PublicKeyStr(),
 	}
 
 	return r
