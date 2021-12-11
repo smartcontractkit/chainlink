@@ -13,6 +13,8 @@ import (
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -296,4 +298,42 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 		assert.Nil(t, found[0].Data)
 		assert.ErrorIs(t, found[0].Error, sql.ErrNoRows)
 	})
+}
+
+func TestLoader_EthTransactionsAttempts(t *testing.T) {
+	t.Parallel()
+
+	bptxmORM := &bulletprooftxmanagerMocks.ORM{}
+	app := &coremocks.Application{}
+	ctx := InjectDataloader(context.Background(), app)
+
+	defer t.Cleanup(func() {
+		mock.AssertExpectationsForObjects(t, app, bptxmORM)
+	})
+
+	ethTxIDs := []int64{1, 2, 3}
+
+	attempt1 := bulletprooftxmanager.EthTxAttempt{
+		ID:      int64(1),
+		EthTxID: ethTxIDs[0],
+	}
+	attempt2 := bulletprooftxmanager.EthTxAttempt{
+		ID:      int64(1),
+		EthTxID: ethTxIDs[1],
+	}
+
+	bptxmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]bulletprooftxmanager.EthTxAttempt{
+		attempt1, attempt2,
+	}, nil)
+	app.On("BPTXMORM").Return(bptxmORM)
+
+	batcher := ethTransactionAttemptBatcher{app}
+
+	keys := dataloader.NewKeysFromStrings([]string{"3", "2", "1"})
+	found := batcher.loadByEthTransactionIDs(ctx, keys)
+
+	require.Len(t, found, 3)
+	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{}, found[0].Data)
+	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{attempt1}, found[2].Data)
 }
