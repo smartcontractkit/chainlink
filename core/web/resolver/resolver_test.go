@@ -15,6 +15,7 @@ import (
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
@@ -47,6 +48,7 @@ type mocks struct {
 	ethClient   *ethmocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *servicesMocks.BalanceMonitor
+	bptxmORM    *bulletprooftxmanagerMocks.ORM
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -100,6 +102,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ethClient:   &ethmocks.Client{},
 		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
 		balM:        &servicesMocks.BalanceMonitor{},
+		bptxmORM:    &bulletprooftxmanagerMocks.ORM{},
 	}
 
 	// Assert expectations for any mocks that we set up
@@ -124,6 +127,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.ethClient,
 			m.eIMgr,
 			m.balM,
+			m.bptxmORM,
 		)
 	})
 
