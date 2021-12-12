@@ -13,13 +13,13 @@ import (
 const keyTypeIdentifier = "OCR2"
 
 type EncryptedOCRKeyExport struct {
-	KeyType               string              `json:"keyType"`
-	ChainType             chaintype.ChainType `json:"chainType"`
-	ID                    string              `json:"id"`
-	OnChainSigningAddress string              `json:"onChainSigningAddress"`
-	OffChainPublicKey     string              `json:"offchainPublicKey"`
-	ConfigPublicKey       string              `json:"configPublicKey"`
-	Crypto                keystore.CryptoJSON `json:"crypto"`
+	KeyType           string              `json:"keyType"`
+	ChainType         chaintype.ChainType `json:"chainType"`
+	ID                string              `json:"id"`
+	OnchainPublicKey  string              `json:"onchainPublicKey"`
+	OffChainPublicKey string              `json:"offchainPublicKey"`
+	ConfigPublicKey   string              `json:"configPublicKey"`
+	Crypto            keystore.CryptoJSON `json:"crypto"`
 }
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
@@ -55,13 +55,13 @@ func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptPa
 	}
 	pubKeyConfig := key.ConfigEncryptionPublicKey()
 	encryptedOCRKExport := EncryptedOCRKeyExport{
-		KeyType:               keyTypeIdentifier,
-		ChainType:             key.ChainType(),
-		ID:                    key.ID(),
-		OnChainSigningAddress: key.PublicKeyAddressOnChain(),
-		OffChainPublicKey:     hex.EncodeToString(key.OffchainPublicKey()),
-		ConfigPublicKey:       hex.EncodeToString(pubKeyConfig[:]),
-		Crypto:                cryptoJSON,
+		KeyType:           keyTypeIdentifier,
+		ChainType:         key.ChainType(),
+		ID:                key.ID(),
+		OnchainPublicKey:  key.OnChainPublicKey(),
+		OffChainPublicKey: hex.EncodeToString(key.OffchainPublicKey()),
+		ConfigPublicKey:   hex.EncodeToString(pubKeyConfig[:]),
+		Crypto:            cryptoJSON,
 	}
 	return json.Marshal(encryptedOCRKExport)
 }
