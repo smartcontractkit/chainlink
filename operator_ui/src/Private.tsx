@@ -10,10 +10,10 @@ import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
 import { ChainsScreen } from 'screens/Chains/ChainsScreen'
+import { TransactionsScreen } from 'screens/Transactions/TransactionsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
 import NotFound from 'pages/NotFound'
-import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
 
 import { BridgesPage } from 'pages/bridges'
@@ -71,16 +71,10 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <ChainShow />
               </PrivateRoute>
 
-              <PrivateRoute
-                exact
-                path="/transactions"
-                component={TransactionsIndex}
-              />
-              <PrivateRoute
-                exact
-                path="/transactions/page/:transactionsPage"
-                component={TransactionsIndex}
-              />
+              <PrivateRoute path="/transactions">
+                <TransactionsScreen />
+              </PrivateRoute>
+
               <PrivateRoute
                 exact
                 path="/transactions/:transactionId"
