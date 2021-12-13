@@ -58,6 +58,7 @@ type Mutation {
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
     dismissJobError(id: ID!): DismissJobErrorPayload!
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
+    runJob(id: ID!): RunJobPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!

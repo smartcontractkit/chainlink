@@ -21,6 +21,7 @@ import (
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	servicesMocks "github.com/smartcontractkit/chainlink/core/services/mocks"
+	pipelineMocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	sessionsMocks "github.com/smartcontractkit/chainlink/core/sessions/mocks"
@@ -34,6 +35,7 @@ type mocks struct {
 	evmORM      *evmORMMocks.ORM
 	jobORM      *jobORMMocks.ORM
 	sessionsORM *sessionsMocks.ORM
+	pipelineORM *pipelineMocks.ORM
 	feedsSvc    *feedsMocks.Service
 	cfg         *configMocks.GeneralConfig
 	scfg        *evmConfigMocks.ChainScopedConfig
@@ -89,6 +91,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		jobORM:      &jobORMMocks.ORM{},
 		feedsSvc:    &feedsMocks.Service{},
 		sessionsORM: &sessionsMocks.ORM{},
+		pipelineORM: &pipelineMocks.ORM{},
 		cfg:         &configMocks.GeneralConfig{},
 		scfg:        &evmConfigMocks.ChainScopedConfig{},
 		ocr:         &keystoreMocks.OCR{},
@@ -113,6 +116,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.evmORM,
 			m.jobORM,
 			m.sessionsORM,
+			m.pipelineORM,
 			m.feedsSvc,
 			m.cfg,
 			m.scfg,
