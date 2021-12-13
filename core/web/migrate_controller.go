@@ -217,10 +217,39 @@ func BuildFMTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
 func migrateCronJob(js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
+
+	//parsed, err := models.CronParser.Parse(string(initr.InitiatorParams.Schedule))
+	//if err != nil {
+	//	return job.Job{}, err
+	//}
+	//switch parsed.(type) {
+	//case *cron.SpecSchedule:
+	//	schedule := parsed.(*cron.SpecSchedule)
+	//
+	//	schedule.
+	//}
+
+	cronSchedule := string(initr.InitiatorParams.Schedule)
+
+	if strings.HasPrefix(cronSchedule, "CRON_TZ=") {
+		schedule := strings.Replace(cronSchedule, "CRON_TZ=", "", 1)
+		//schedule = strings.Replace(schedule, "UTC ", "", 1)
+		parts := strings.Split(schedule, " ")
+		if len(parts) < 6 || (parts[0] == "UTC" && len(parts) < 7) {
+			prefix := "CRON_TZ="
+			if parts[0] == "UTC" {
+				prefix = "CRON_TZ=UTC "
+			}
+			schedule := strings.Replace(schedule, "UTC ", "", 1)
+			cronSchedule = fmt.Sprintf("%v0 %v", prefix, schedule)
+			logger.Warnf("Cron schedule is missing seconds field: %v. Converting to %v", string(initr.InitiatorParams.Schedule), cronSchedule)
+		}
+	}
+
 	jb = job.Job{
 		Name: null.StringFrom(js.Name),
 		CronSpec: &job.CronSpec{
-			CronSchedule: string(initr.InitiatorParams.Schedule),
+			CronSchedule: cronSchedule,
 			CreatedAt:    js.CreatedAt,
 			UpdatedAt:    js.UpdatedAt,
 		},

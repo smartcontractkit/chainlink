@@ -490,6 +490,7 @@ func TestMigrateController_MigrateCron(t *testing.T) {
 	var migratedJobV2 webpresenters.JobResource
 	cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
 	assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
+	assert.Equal(t, "CRON_TZ=UTC 0 * * * * *", migratedJobV2.CronSpec.CronSchedule)
 }
 
 func TestMigrateController_Migrate(t *testing.T) {
