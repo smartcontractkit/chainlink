@@ -53,9 +53,7 @@ export const DELETE_JOB_MUTATION = gql`
 const CreateRunSuccessNotification = ({ data }: any) => (
   <React.Fragment>
     Successfully created job run{' '}
-    <BaseLink href={`/jobs/${data.attributes.jobId}/runs/${data.id}`}>
-      {data.id}
-    </BaseLink>
+    <BaseLink href={`/runs/${data.id}`}>{data.id}</BaseLink>
   </React.Fragment>
 )
 

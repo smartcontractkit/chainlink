@@ -27,7 +27,7 @@ func newEVMKeyring(material io.Reader) (*evmKeyring, error) {
 
 // XXX: PublicKey returns the address of the public key not the public key itself
 func (ok *evmKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	address := ok.SigningAddress()
+	address := ok.signingAddress()
 	return address[:]
 }
 
@@ -59,7 +59,7 @@ func (ok *evmKeyring) MaxSignatureLength() int {
 	return 65
 }
 
-func (ok *evmKeyring) SigningAddress() common.Address {
+func (ok *evmKeyring) signingAddress() common.Address {
 	return crypto.PubkeyToAddress(*(&ok.privateKey).Public().(*ecdsa.PublicKey))
 }
 

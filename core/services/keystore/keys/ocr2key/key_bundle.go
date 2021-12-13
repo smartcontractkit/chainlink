@@ -24,7 +24,7 @@ type KeyBundle interface {
 	Marshal() ([]byte, error)
 	Unmarshal(b []byte) (err error)
 	Raw() Raw
-	PublicKeyAddressOnChain() string
+	OnChainPublicKey() string
 }
 
 var curve = secp256k1.S256()
