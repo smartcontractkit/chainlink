@@ -227,7 +227,7 @@ func migrateCronJob(js models.JobSpec) (job.Job, error) {
 			if parts[0] == "UTC" {
 				prefix = "CRON_TZ=UTC "
 			}
-			schedule := strings.Replace(schedule, "UTC ", "", 1)
+			schedule = strings.Replace(schedule, "UTC ", "", 1)
 			cronSchedule = fmt.Sprintf("%v0 %v", prefix, schedule)
 			logger.Warnf("Cron schedule is missing seconds field: %v. Converting to %v", string(initr.InitiatorParams.Schedule), cronSchedule)
 		}
