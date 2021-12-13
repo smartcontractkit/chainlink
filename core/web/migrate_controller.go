@@ -218,22 +218,9 @@ func migrateCronJob(js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
 
-	//parsed, err := models.CronParser.Parse(string(initr.InitiatorParams.Schedule))
-	//if err != nil {
-	//	return job.Job{}, err
-	//}
-	//switch parsed.(type) {
-	//case *cron.SpecSchedule:
-	//	schedule := parsed.(*cron.SpecSchedule)
-	//
-	//	schedule.
-	//}
-
 	cronSchedule := string(initr.InitiatorParams.Schedule)
-
 	if strings.HasPrefix(cronSchedule, "CRON_TZ=") {
 		schedule := strings.Replace(cronSchedule, "CRON_TZ=", "", 1)
-		//schedule = strings.Replace(schedule, "UTC ", "", 1)
 		parts := strings.Split(schedule, " ")
 		if len(parts) < 6 || (parts[0] == "UTC" && len(parts) < 7) {
 			prefix := "CRON_TZ="
