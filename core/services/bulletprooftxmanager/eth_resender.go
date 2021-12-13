@@ -1,6 +1,7 @@
 package bulletprooftxmanager
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"time"
@@ -39,6 +40,8 @@ type EthResender struct {
 	config    Config
 	logger    logger.Logger
 
+	ctx    context.Context
+	cancel context.CancelFunc
 	chStop chan struct{}
 	chDone chan struct{}
 }
@@ -48,6 +51,7 @@ func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient eth.Client, pollI
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	return &EthResender{
 		db,
 		ethClient,
@@ -55,6 +59,8 @@ func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient eth.Client, pollI
 		pollInterval,
 		config,
 		lggr.Named("EthResender"),
+		ctx,
+		cancel,
 		make(chan struct{}),
 		make(chan struct{}),
 	}
@@ -68,6 +74,7 @@ func (er *EthResender) Start() {
 
 // Stop is a comment which satisfies the linter
 func (er *EthResender) Stop() {
+	er.cancel()
 	close(er.chStop)
 	<-er.chDone
 }
@@ -134,11 +141,9 @@ func (er *EthResender) resendUnconfirmed() error {
 
 		er.logger.Debugw(fmt.Sprintf("Batch resending transactions %v thru %v", i, j))
 
-		ctx, cancel := eth.DefaultQueryCtx()
-		if err := er.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
+		if err := er.ethClient.BatchCallContext(er.ctx, reqs[i:j]); err != nil {
 			return errors.Wrap(err, "failed to re-send transactions")
 		}
-		cancel()
 
 		if err := er.updateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
 			return errors.Wrap(err, "failed to update last succeeded on attempts")

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -38,15 +39,15 @@ type Config interface {
 }
 
 type HeadListener struct {
-	config           Config
-	ethClient        eth.Client
-	chainID          big.Int
-	headers          chan *eth.Head
-	headSubscription ethereum.Subscription
-	connectedMutex   sync.RWMutex
-	connected        bool
-	receivesHeads    atomic.Bool
-	sleeper          utils.Sleeper
+	config                Config
+	ethClient             eth.Client
+	chainID               big.Int
+	headers               chan *eth.Head
+	headSubscription      ethereum.Subscription
+	connectedMutex        sync.RWMutex
+	connected             bool
+	receivesHeads         atomic.Bool
+	subscribeRetryBackoff backoff.Backoff
 
 	log logger.Logger
 
@@ -57,24 +58,20 @@ func NewHeadListener(l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	chStop chan struct{},
-	sleepers ...utils.Sleeper,
 ) *HeadListener {
 	if ethClient == nil {
 		panic("head listener requires non-nil ethclient")
-	}
-	var sleeper utils.Sleeper
-	if len(sleepers) > 0 {
-		sleeper = sleepers[0]
-	} else {
-		sleeper = utils.NewBackoffSleeper()
 	}
 	return &HeadListener{
 		config:    config,
 		ethClient: ethClient,
 		chainID:   *ethClient.ChainID(),
-		sleeper:   sleeper,
-		log:       l.Named("listener"),
-		chStop:    chStop,
+		subscribeRetryBackoff: backoff.Backoff{
+			Min: 1 * time.Second,
+			Max: 10 * time.Second,
+		},
+		log:    l.Named("listener"),
+		chStop: chStop,
 	}
 }
 
@@ -156,19 +153,21 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 
 // subscribe periodically attempts to connect to the ethereum node via websocket.
 // It returns true on success, and false if cut short by a done request and did not connect.
+// NOT THREAD SAFE
 func (hl *HeadListener) subscribe() bool {
-	hl.sleeper.Reset()
+	hl.subscribeRetryBackoff.Reset()
+
 	for {
 		if err := hl.unsubscribeFromHead(); err != nil {
 			hl.log.Error("failed when unsubscribe from head", err)
 			return false
 		}
 
-		hl.log.Debugf("Subscribing to new heads on chain %s (retry interval %s)", hl.chainID.String(), hl.sleeper.Duration())
+		hl.log.Debugf("Subscribing to new heads on chain %s", hl.chainID.String())
 		select {
 		case <-hl.chStop:
 			return false
-		case <-time.After(hl.sleeper.After()):
+		case <-time.After(hl.subscribeRetryBackoff.Duration()):
 			err := hl.subscribeToHead()
 			if err != nil {
 				promEthConnectionErrors.WithLabelValues(hl.chainID.String()).Inc()
@@ -187,7 +186,9 @@ func (hl *HeadListener) subscribeToHead() error {
 
 	hl.headers = make(chan *eth.Head)
 
-	sub, err := hl.ethClient.SubscribeNewHead(context.Background(), hl.headers)
+	ctx, cancel := utils.ContextFromChan(hl.chStop)
+	defer cancel()
+	sub, err := hl.ethClient.SubscribeNewHead(ctx, hl.headers)
 	if err != nil {
 		return errors.Wrap(err, "EthClient#SubscribeNewHead")
 	}

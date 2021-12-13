@@ -431,7 +431,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 
-	//time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 	for _, h := range headSeq.Heads {
 		// waiting shorter time than the head sampling frequency
 		time.Sleep(50 * time.Millisecond)
@@ -903,7 +903,7 @@ func createHeadTrackerWithNeverSleeper(t testing.TB, ethClient eth.Client, cfg *
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
-	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, orm, hb, cltest.NeverSleeper{})
+	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, orm, hb)
 	_, err := headtracker.LoadFromDB(ht)
 	require.NoError(t, err)
 	return &headTrackerUniverse{
@@ -919,7 +919,7 @@ func createHeadTrackerWithChecker(t *testing.T, ethClient eth.Client, config hea
 	hb.Subscribe(checker)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
-		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, orm, hb, cltest.NeverSleeper{}),
+		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, orm, hb),
 		headBroadcaster: hb,
 	}
 }
