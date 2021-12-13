@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
-	internalMocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 )
 
@@ -21,7 +21,7 @@ func TestResolver_SolanaKeys(t *testing.T) {
 				}
 			}
 		}`
-	k := solkey.MustNewInsecure(internalMocks.NewRandReaderFromSeed(1))
+	k := solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
 	result := fmt.Sprintf(`
 	{
 		"solanaKeys": {
