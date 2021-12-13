@@ -1,5 +1,4 @@
 declare module 'core/store/models' {
-  import * as assets from 'core/store/assets'
   import * as common from 'github.com/ethereum/go-ethereum/common'
   import * as gorm from 'github.com/jinzhu/gorm'
   import * as clnull from 'github.com/smartcontractkit/chainlink/core/null'
@@ -15,66 +14,6 @@ declare module 'core/store/models' {
     type: string
     attributes: T
   }
-
-  /**
-   * Big stores large integers and can deserialize a variety of inputs.
-   */
-  type Big = big.Int
-
-  /**
-   * Tx contains fields necessary for an Ethereum transaction with
-   * an additional field for the TxAttempt.
-   *
-   * FIXME -- all the fields below need to be in camelCase
-   */
-  export interface Tx {
-    ID: number // FIXME -- uint64 is unsafe in this context + should be camelCased
-
-    /**
-     * SurrogateID is used to look up a transaction using a secondary ID, used to
-     * associate jobs with transactions so that we don't double spend in certain
-     * failure scenarios
-     */
-    SurrogateID: nullable.String // FIXME -- camelCase
-
-    From: common.Address
-    To: common.Address
-    Data: string
-    Nonce: number // FIXME -- possibly unsafe uint64
-    Value: Pointer<Big>
-    GasLimit: number // FIXME -- possibly unsafe uint64
-
-    /**
-     * TxAttempt fields manually included; can't embed another primary_key
-     */
-    Hash: common.Hash
-    GasPrice: Pointer<Big>
-    Confirmed: boolean
-    SentAt: number // FIXME -- possibly unsafe uint64
-    SignedRawTx: string
-  }
-
-  /**
-   * TxAttempt is used for keeping track of transactions that
-   * have been written to the Ethereum blockchain. This makes
-   * it so that if the network is busy, a transaction can be
-   * resubmitted with a higher GasPrice.
-   *
-   * FIXME -- fields need to be camelcase
-   */
-  export interface TxAttempt {
-    ID: number // FIXME -- possibly unsafe uint64
-    TxID: number // FIXME -- possibly unsafe uint64
-
-    CreatedAt: time.Time
-
-    Hash: common.Hash
-    GasPrice: Pointer<Big>
-    Confirmed: boolean
-    SentAt: number // FIXME -- possibly unsafe uint64
-    SignedRawTx: string
-  }
-  //#endregion eth.go
 
   //#region user.go
   /**

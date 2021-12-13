@@ -452,21 +452,6 @@ function request<
 }
 
 /**
- * requestFetch calls the request action creator, specifying 'UPSERT' as the action prefix
- *
- * @param type The action type field to be dispatched
- * @param requestData A function that outputs the data to be normalized and dispatched
- * @param normalizeData A function that normalizes the data returned by the requester function to be dispatched into an upsert action
- */
-function requestFetch(
-  type: Parameters<typeof request>[0],
-  requestData: Parameters<typeof request>[2],
-  normalizeData: Parameters<typeof request>[3],
-): ReturnType<typeof request> {
-  return request(type, 'UPSERT', requestData, normalizeData)
-}
-
-/**
  * requestDelete calls the request action creator, specifying 'DELETE' as the action prefix
  *
  * @param type The action type field to be dispatched
@@ -487,9 +472,3 @@ export const deleteErroredJobRuns = (updatedBefore: string) =>
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
   )({ status: [RunStatus.ERRORED], updatedBefore })
-
-export const fetchTransaction = requestFetch(
-  'TRANSACTION',
-  api.v2.transactions.getTransaction,
-  (json) => normalize(json),
-)
