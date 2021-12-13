@@ -10,7 +10,6 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
@@ -33,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -1048,27 +1046,18 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 }
 
 func (r *Resolver) RunJob(ctx context.Context, args struct {
-	ID    graphql.ID
-	Input *struct {
-		RequestBody *string
-	}
+	ID graphql.ID
 }) (*RunJobPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	jobUUID, err := uuid.FromString(string(args.ID))
+	jobID, err := stringutils.ToInt32(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
 
-	var requestBody string
-
-	if args.Input != nil && args.Input.RequestBody != nil {
-		requestBody = *args.Input.RequestBody
-	}
-
-	jobRunID, err := r.App.RunWebhookJobV2(ctx, jobUUID, requestBody, pipeline.JSONSerializable{})
+	jobRunID, err := r.App.RunJobV2(ctx, jobID, nil)
 	if err != nil {
 		if errors.Is(err, webhook.ErrJobNotExists) {
 			return NewRunJobPayload(nil, r.App, err), nil

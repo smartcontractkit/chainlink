@@ -27,10 +27,6 @@ type JobRunsPayload implements PaginatedPayload {
 
 union JobRunPayload = JobRun | NotFoundError
 
-input RunJobInput {
-    requestBody: String
-}
-
 type RunJobSuccess {
     jobRun: JobRun!
 }
