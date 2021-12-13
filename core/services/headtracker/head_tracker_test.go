@@ -396,18 +396,26 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		Run(func(args mock.Arguments) {
 			h := args.Get(1).(*eth.Head)
 
-			require.Equal(t, int64(5), h.Number)
-			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
+			assert.Equal(t, int64(5), h.Number)
+			assert.Equal(t, blocksForked.Head(5).Hash, h.Hash)
 
 			// This is the new longest chain, check that it came with its parents
-			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blocksForked.Head(4).Hash)
-			require.NotNil(t, h.Parent.Parent)
-			require.Equal(t, h.Parent.Parent.Hash, blocksForked.Head(3).Hash)
-			require.NotNil(t, h.Parent.Parent.Parent)
-			require.Equal(t, h.Parent.Parent.Parent.Hash, blocksForked.Head(2).Hash)
-			require.NotNil(t, h.Parent.Parent.Parent.Parent)
-			require.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
+			if !assert.NotNil(t, h.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Hash, blocksForked.Head(4).Hash)
+			if !assert.NotNil(t, h.Parent.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Parent.Hash, blocksForked.Head(3).Hash)
+			if !assert.NotNil(t, h.Parent.Parent.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Parent.Parent.Hash, blocksForked.Head(2).Hash)
+			if !assert.NotNil(t, h.Parent.Parent.Parent.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
 			close(lastHead)
 		}).Return().Once()
 
