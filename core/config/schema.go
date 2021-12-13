@@ -124,9 +124,10 @@ type ConfigSchema struct {
 	KeeperRegistrySyncInterval                 time.Duration   `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 	LinkContractAddress                        string          `env:"LINK_CONTRACT_ADDRESS"`
+	LogFileDir                                 string          `env:"LOG_FILE_DIR"`
 	LogLevel                                   LogLevel        `env:"LOG_LEVEL"`
-	LogSQLMigrations                           bool            `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	LogSQL                                     bool            `env:"LOG_SQL" default:"false"`
+	LogSQLMigrations                           bool            `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	LogToDisk                                  bool            `env:"LOG_TO_DISK" default:"false"`
 	LogUnixTS                                  bool            `env:"LOG_UNIX_TS" default:"false"`
 	MigrateDatabase                            bool            `env:"MIGRATE_DATABASE" default:"true"`
@@ -160,9 +161,8 @@ type ConfigSchema struct {
 	LeaseLockDuration                          time.Duration   `env:"LEASE_LOCK_DURATION" default:"30s"`
 
 	// OCR V2
-	// Per-chain defaults
-	OCR2ContractConfirmations uint `env:"OCR2_CONTRACT_CONFIRMATIONS"`
 	// Global defaults
+	OCR2ContractConfirmations              uint          `env:"OCR2_CONTRACT_CONFIRMATIONS" default:"3"`
 	OCR2BlockchainTimeout                  time.Duration `env:"OCR2_BLOCKCHAIN_TIMEOUT" default:"20s"`
 	OCR2ContractPollInterval               time.Duration `env:"OCR2_CONTRACT_POLL_INTERVAL" default:"1m"`
 	OCR2ContractSubscribeInterval          time.Duration `env:"OCR2_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`

@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -38,7 +38,7 @@ type Config interface {
 	ChainType() chains.ChainType
 }
 
-func parseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.BootstrapperLocator, err error) {
+func ParseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.BootstrapperLocator, err error) {
 	for _, bs := range peers {
 		var bsl ocrcommontypes.BootstrapperLocator
 		err = bsl.UnmarshalText([]byte(bs))
@@ -50,16 +50,17 @@ func parseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.Bootst
 	return
 }
 
-func GetValidatedBootstrapPeers(specPeers []string, chain evm.Chain) ([]ocrcommontypes.BootstrapperLocator, error) {
-	bootstrapPeers, err := parseBootstrapPeers(specPeers)
+// Will error unless at least one valid bootstrap peer is found
+func GetValidatedBootstrapPeers(specPeers []string, configPeers []ocrcommontypes.BootstrapperLocator) ([]ocrcommontypes.BootstrapperLocator, error) {
+	bootstrapPeers, err := ParseBootstrapPeers(specPeers)
 	if err != nil {
 		return nil, err
 	}
 	if len(bootstrapPeers) == 0 {
-		bootstrapPeers = chain.Config().P2PV2Bootstrappers()
-		if err != nil {
-			return nil, err
+		if len(configPeers) == 0 {
+			return nil, errors.New("no bootstrappers found")
 		}
+		return configPeers, nil
 	}
 	return bootstrapPeers, nil
 }

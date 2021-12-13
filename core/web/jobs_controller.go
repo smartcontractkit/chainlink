@@ -113,7 +113,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 			return
 		}
 	case job.OffchainReporting2:
-		jb, err = offchainreporting2.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
+		jb, err = offchainreporting2.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting2() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
 			return
@@ -143,7 +143,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	defer cancel()
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
+		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Cause(err) == job.ErrNoSuchTransmitterKey {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}

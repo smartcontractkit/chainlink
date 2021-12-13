@@ -11,10 +11,9 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 
-import StatusIcon from 'src/components/StatusIcon'
-import { getJobStatusGQL } from 'src/pages/Jobs/utils'
 import { TimeAgo } from 'src/components/TimeAgo'
 import Link from 'src/components/Link'
+import { JobRunStatusIcon } from 'src/components/Icons/JobRunStatusIcon'
 
 const styles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -49,19 +48,12 @@ interface Props extends WithStyles<typeof styles> {
 }
 
 export const ActivityRow = withStyles(styles)(({ classes, run }: Props) => {
-  const status = getJobStatusGQL({
-    finishedAt: run.finishedAt,
-    errors: run.allErrors,
-  })
-
   return (
     <TableRow>
       <TableCell scope="row" className={classes.cell}>
         <div className={classes.content}>
           <div className={classes.status}>
-            <StatusIcon width={38} data-testid={status}>
-              {status}
-            </StatusIcon>
+            <JobRunStatusIcon width={38} status={run.status} />
           </div>
 
           <div className={classes.runDetails}>

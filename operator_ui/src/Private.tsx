@@ -9,7 +9,6 @@ import Header from 'pages/Header'
 import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
-import JobsNew from 'pages/Jobs/New'
 import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
@@ -59,10 +58,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
             <Switch>
               <PrivateRoute exact path="/">
                 <DashboardPage />
-              </PrivateRoute>
-
-              <PrivateRoute exact path="/jobs/new">
-                <JobsNew />
               </PrivateRoute>
 
               <PrivateRoute exact path="/chains">

@@ -341,20 +341,23 @@ observationTimeout = "10s"
       spec: {
         __typename: 'OCR2Spec',
         blockchainTimeout: '20s',
-        contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
+        contractID: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
         contractConfigConfirmations: 3,
         contractConfigTrackerPollInterval: '1m0s',
         contractConfigTrackerSubscribeInterval: '2m0s',
-        evmChainID: '42',
         juelsPerFeeCoinSource: '1000000000',
-        keyBundleID:
+        ocrKeyBundleID:
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
         isBootstrapPeer: false,
         monitoringEndpoint: 'https://monitoring.endpoint',
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
         ],
-        transmitterAddress: '0x01010CaB43e77116c95745D219af1069fE050d7A',
+        relay: 'evm',
+        relayConfig: {
+          chainID: 1337,
+        },
+        transmitterID: '0x01010CaB43e77116c95745D219af1069fE050d7A',
       },
       runs: {
         results: [],
@@ -372,25 +375,28 @@ name = "ocr 2 job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
 maxTaskDuration = "10s"
 blockchainTimeout = "20s"
-contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
+contractID = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
 contractConfigConfirmations = 3
 contractConfigTrackerPollInterval = "1m0s"
 contractConfigTrackerSubscribeInterval = "2m0s"
-evmChainID = "42"
 isBootstrapPeer = false
 juelsPerFeeCoinSource = "1000000000"
-keyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
+ocrKeyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
 monitoringEndpoint = "https://monitoring.endpoint"
 p2pBootstrapPeers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
-transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
+relay = "evm"
+transmitterID = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+
+[relayConfig]
+chainID = 1_337
 `
 
     const output = generateJobDefinition(job)

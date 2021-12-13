@@ -1,10 +1,10 @@
 package presenters
 
 import (
-	"github.com/ethereum/go-ethereum/common"
+	"encoding/hex"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 // OCRKeysBundleResource represents a bundle of OCRs keys as JSONAPI resource
@@ -38,12 +38,13 @@ func NewOCRKeysBundleResources(keys []ocrkey.KeyV2) []OCRKeysBundleResource {
 	return rs
 }
 
-// OCRKeysBundleResource represents a bundle of OCRs keys as JSONAPI resource
+// OCR2KeysBundleResource represents a bundle of OCRs keys as JSONAPI resource
 type OCR2KeysBundleResource struct {
 	JAID
-	OnChainSigningAddress common.Address                     `json:"onChainSigningAddress"`
-	OffChainPublicKey     ocrtypes.OffchainPublicKey         `json:"offChainPublicKey"`
-	ConfigPublicKey       ocrtypes.ConfigEncryptionPublicKey `json:"configPublicKey"`
+	ChainType         string `json:"chainType"`
+	OnchainPublicKey  string `json:"onchainPublicKey"`
+	OffChainPublicKey string `json:"offChainPublicKey"`
+	ConfigPublicKey   string `json:"configPublicKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -52,11 +53,13 @@ func (r OCR2KeysBundleResource) GetName() string {
 }
 
 func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
+	configPublic := key.ConfigEncryptionPublicKey()
 	return &OCR2KeysBundleResource{
-		JAID:                  NewJAID(key.ID()),
-		OnChainSigningAddress: key.OnchainKeyring.SigningAddress(),
-		OffChainPublicKey:     key.OffchainKeyring.OffchainPublicKey(),
-		ConfigPublicKey:       key.PublicKeyConfig(),
+		JAID:              NewJAID(key.ID()),
+		ChainType:         string(key.ChainType()),
+		OnchainPublicKey:  key.OnChainPublicKey(),
+		OffChainPublicKey: hex.EncodeToString(key.OffchainPublicKey()),
+		ConfigPublicKey:   hex.EncodeToString(configPublic[:]),
 	}
 }
 

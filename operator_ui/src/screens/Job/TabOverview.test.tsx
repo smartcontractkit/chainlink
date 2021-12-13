@@ -38,7 +38,7 @@ describe('TabOverview', () => {
 
     expect(queryByText(job.id)).toBeInTheDocument()
     expect(queryByText('1 minute ago')).toBeInTheDocument()
-    expect(queryByText('Completed')).toBeInTheDocument()
+    expect(queryByText(/completed/i)).toBeInTheDocument()
   })
 
   it('navigates to the run page', () => {

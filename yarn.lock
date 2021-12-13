@@ -4131,10 +4131,10 @@
     lodash "^4.17.15"
     ts-essentials "^7.0.1"
 
-"@typechain/hardhat@^2.0.2":
-  version "2.3.0"
-  resolved "https://registry.npmjs.org/@typechain/hardhat/-/hardhat-2.3.0.tgz#dc7f29281637b38b77c7c046ae82700703395d0f"
-  integrity sha512-zERrtNol86L4DX60ktnXxP7Cq8rSZHPaQvsChyiQQVuvVs2FTLm24Yi+MYnfsIdbUBIXZG7SxDWhtCF5I0tJNQ==
+"@typechain/hardhat@^3.0.0":
+  version "3.0.0"
+  resolved "https://registry.npmjs.org/@typechain/hardhat/-/hardhat-3.0.0.tgz#a94396855506d42b98d6e7c09f87ca14180d6c64"
+  integrity sha512-FpnIIXkDXm54XCHI/Z2iOet7h1MrFSvZfuljX9Uzc6FEjEfb01Tuzu8ywe2iquD3g5JXqovgdv+M54L/2Z6jkg==
   dependencies:
     fs-extra "^9.1.0"
 
