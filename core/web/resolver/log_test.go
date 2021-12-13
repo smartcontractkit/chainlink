@@ -142,3 +142,41 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_GlobalLogLevel(t *testing.T) {
+	t.Parallel()
+
+	query := `
+		query GetGlobalLogLevel {
+			globalLogLevel {
+				... on GlobalLogLevel {
+					level
+				}
+			}
+		}`
+
+	var warnLvl zapcore.Level
+	err := warnLvl.UnmarshalText([]byte("warn"))
+	assert.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "globalLogLevel"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.cfg.On("LogLevel").Return(warnLvl)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+			},
+			query: query,
+			result: `
+				{
+					"globalLogLevel": {
+						"level": "WARN"
+					}
+				}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

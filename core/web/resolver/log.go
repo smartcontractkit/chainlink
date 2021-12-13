@@ -1,6 +1,10 @@
 package resolver
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/pkg/errors"
+)
 
 type LogLevel string
 
@@ -23,6 +27,21 @@ func FromLogLevel(logLvl LogLevel) string {
 		return "error"
 	default:
 		return strings.ToLower(string(logLvl))
+	}
+}
+
+func ToLogLevel(str string) (LogLevel, error) {
+	switch str {
+	case "debug":
+		return LogLevelDebug, nil
+	case "info":
+		return LogLevelInfo, nil
+	case "warn":
+		return LogLevelWarn, nil
+	case "error":
+		return LogLevelError, nil
+	default:
+		return "", errors.New("invalid log level")
 	}
 }
 
@@ -135,4 +154,30 @@ func NewSetSQLLoggingSuccess(enabled bool) *SetSQLLoggingSuccessResolver {
 
 func (r *SetSQLLoggingSuccessResolver) SQLLogging() *SQLLoggingResolver {
 	return NewSQLLogging(r.enabled)
+}
+
+// -- GetLogLevel Query --
+
+type GlobalLogLevelResolver struct {
+	lvl string
+}
+
+func GlobalLogLevel(lvl string) *GlobalLogLevelResolver {
+	return &GlobalLogLevelResolver{lvl: lvl}
+}
+
+func (r *GlobalLogLevelResolver) Level() (LogLevel, error) {
+	return ToLogLevel(r.lvl)
+}
+
+type GlobalLogLevelPayloadResolver struct {
+	lgLvl string
+}
+
+func NewGlobalLogLevelPayload(lgLvl string) *GlobalLogLevelPayloadResolver {
+	return &GlobalLogLevelPayloadResolver{lgLvl: lgLvl}
+}
+
+func (r *GlobalLogLevelPayloadResolver) ToGlobalLogLevel() (*GlobalLogLevelResolver, bool) {
+	return GlobalLogLevel(r.lgLvl), true
 }

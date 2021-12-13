@@ -21,6 +21,7 @@ type Query {
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
+    globalLogLevel: GlobalLogLevelPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
