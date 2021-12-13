@@ -31,7 +31,7 @@ func TestSolanaKeysController_Index_HappyPath(t *testing.T) {
 	require.Len(t, resources, len(keys))
 
 	assert.Equal(t, keys[0].ID(), resources[0].ID)
-	assert.Equal(t, keys[0].PublicKeyHex(), resources[0].PubKey)
+	assert.Equal(t, keys[0].PublicKeyStr(), resources[0].PubKey)
 }
 
 func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
@@ -54,7 +54,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, keys[0].ID(), resource.ID)
-	assert.Equal(t, keys[0].PublicKeyHex(), resource.PubKey)
+	assert.Equal(t, keys[0].PublicKeyStr(), resource.PubKey)
 
 	_, err = keyStore.Solana().Get(resource.ID)
 	require.NoError(t, err)

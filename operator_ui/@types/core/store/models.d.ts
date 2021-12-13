@@ -16,59 +16,10 @@ declare module 'core/store/models' {
     attributes: T
   }
 
-  export interface JobSpecError {
-    id: string
-    description: string
-    occurrences: number
-    createdAt: time.Time
-    updatedAt: time.Time
-  }
-
-  /**
-   * TaskSpec is the definition of work to be carried out. The
-   * Type will be an adapter, and the Params will contain any
-   * additional information that adapter would need to operate.
-   */
-  export interface TaskSpec extends gorm.Model {
-    type: TaskType
-    confirmations: number | null
-    params: { [key: string]: JSONValue | undefined }
-  }
-
-  /**
-   * TaskType defines what Adapter a TaskSpec will use.
-   */
-  type TaskType = string
-
-  /**
-   * WebURL contains the URL of the endpoint.
-   */
-  type WebURL = url.URL
-
-  /**
-   * AnyTime holds a common field for time, and serializes it as
-   * a json number.
-   */
-  type AnyTime = number
-
-  /**
-   * Cron holds the string that will represent the spec of the cron-job.
-   * It uses 6 fields to represent the seconds (1), minutes (2), hours (3),
-   * day of the month (4), month (5), and day of the week (6).
-   */
-  type Cron = string
-
   /**
    * Big stores large integers and can deserialize a variety of inputs.
    */
   type Big = big.Int
-
-  /**
-   * AddressCollection is an array of common.Address
-   * serializable to and from a database.
-   */
-  type AddressCollection = common.Address[]
-  //#endregion common.go
 
   /**
    * Tx contains fields necessary for an Ethereum transaction with
@@ -124,16 +75,7 @@ declare module 'core/store/models' {
     SignedRawTx: string
   }
   //#endregion eth.go
-  //#region external_initiator.go
-  /**
-   * ExternalInitiator represents a user that can initiate runs remotely
-   */
-  export interface ExternalInitiator extends gorm.Model {
-    AccessKey: string
-    Salt: string
-    HashedSecret: string
-  }
-  //#endregion external_initiator.go
+
   //#region user.go
   /**
    * SessionRequest encapsulates the fields needed to generate a new SessionID,
@@ -166,14 +108,6 @@ declare module 'core/store/models' {
 
   //#endregion  bulk.go
 
-  /**
-   * CreateJobRequest represents a schema for the create job request as used by
-   * the API.
-   */
-  export interface CreateJobRequest {
-    toml: string
-  }
-
   export interface CreateChainRequest {
     chainID: string
     config: Record<string, JSONPrimitive>
@@ -189,177 +123,6 @@ declare module 'core/store/models' {
     httpURL: string
     wsURL: string
   }
-
-  export type PipelineTaskOutput = string | null
-  export type PipelineTaskError = string | null
-
-  interface BaseJob {
-    name: string | null
-    errors: JobSpecError[]
-    maxTaskDuration: string
-    pipelineSpec: {
-      dotDagSource: string
-    }
-    schemaVersion: number
-    externalJobID: string
-  }
-
-  export type DirectRequestJob = BaseJob & {
-    type: 'directrequest'
-    directRequestSpec: {
-      initiator: 'runlog'
-      contractAddress: common.Address
-      minIncomingConfirmations: number | null
-      minIncomingConfirmationsEnv?: boolean
-      createdAt: time.Time
-      requesters: common.Address[]
-      evmChainID: string
-    }
-    fluxMonitorSpec: null
-    offChainReportingOracleSpec: null
-    keeperSpec: null
-    cronSpec: null
-    webhookSpec: null
-    vrfSpec: null
-  }
-
-  export type FluxMonitorJob = BaseJob & {
-    type: 'fluxmonitor'
-    fluxMonitorSpec: {
-      contractAddress: common.Address
-      precision: number
-      threshold: number
-      absoluteThreshold: number
-      idleTimerDisabled: false
-      idleTimerPeriod: string
-      pollTimerDisabled: false
-      pollTimerPeriod: string
-      drumbeatEnabled: boolean
-      drumbeatSchedule?: string
-      drumbeatRandomDelay?: string
-      minPayment: number | null
-      createdAt: time.Time
-      evmChainID: string
-    }
-    cronSpec: null
-    webhookSpec: null
-    directRequestSpec: null
-    offChainReportingOracleSpec: null
-    keeperSpec: null
-    vrfSpec: null
-  }
-
-  export type OffChainReportingJob = BaseJob & {
-    type: 'offchainreporting'
-    offChainReportingOracleSpec: {
-      contractAddress: common.Address
-      p2pBootstrapPeers: string[]
-      isBootstrapPeer: boolean
-      keyBundleID: string
-      monitoringEndpoint: string
-      transmitterAddress: common.Address
-      observationTimeout: string
-      observationTimeoutEnv?: boolean
-      blockchainTimeout: string
-      blockchainTimeoutEnv?: boolean
-      contractConfigTrackerSubscribeInterval: string
-      contractConfigTrackerSubscribeIntervalEnv?: boolean
-      contractConfigTrackerPollInterval: string
-      contractConfigTrackerPollIntervalEnv?: boolean
-      contractConfigConfirmations: number
-      contractConfigConfirmationsEnv?: boolean
-      createdAt: time.Time
-      updatedAt: time.Time
-      evmChainID: string
-      databaseTimeout: string
-      databaseTimeoutEnv?: boolean
-      observationGracePeriod: string
-      observationGracePeriodEnv?: boolean
-      contractTransmitterTransmitTimeout: string
-      contractTransmitterTransmitTimeoutEnv?: boolean
-    }
-    cronSpec: null
-    webhookSpec: null
-    vrfSpec: null
-    directRequestSpec: null
-    fluxMonitorSpec: null
-    keeperSpec: null
-  }
-
-  export type KeeperJob = BaseJob & {
-    type: 'keeper'
-    keeperSpec: {
-      contractAddress: common.Address
-      fromAddress: common.Address
-      createdAt: time.Time
-      updatedAt: time.Time
-      evmChainID: string
-    }
-    cronSpec: null
-    webhookSpec: null
-    vrfSpec: null
-    directRequestSpec: null
-    fluxMonitorSpec: null
-    offChainReportingOracleSpec: null
-  }
-
-  export type CronJob = BaseJob & {
-    type: 'cron'
-    keeperSpec: null
-    cronSpec: {
-      schedule: string
-      createdAt: time.Time
-      updatedAt: time.Time
-    }
-    webhookSpec: null
-    directRequestSpec: null
-    vrfSpec: null
-    fluxMonitorSpec: null
-    offChainReportingOracleSpec: null
-  }
-
-  export type WebhookJob = BaseJob & {
-    type: 'webhook'
-    keeperSpec: null
-    webhookSpec: {
-      createdAt: time.Time
-      updatedAt: time.Time
-    }
-    cronSpec: null
-    vrfSpec: null
-    directRequestSpec: null
-    fluxMonitorSpec: null
-    offChainReportingOracleSpec: null
-  }
-
-  export type VRFJob = BaseJob & {
-    type: 'vrf'
-    keeperSpec: null
-    vrfSpec: {
-      minIncomingConfirmations: number
-      publicKey: string
-      coordinatorAddress: common.Address
-      fromAddress: string
-      pollPeriod: string
-      createdAt: time.Time
-      updatedAt: time.Time
-      evmChainID: string
-    }
-    cronSpec: null
-    directRequestSpec: null
-    fluxMonitorSpec: null
-    webhookSpec: null
-    offChainReportingOracleSpec: null
-  }
-
-  export type Job =
-    | DirectRequestJob
-    | FluxMonitorJob
-    | OffChainReportingJob
-    | KeeperJob
-    | CronJob
-    | WebhookJob
-    | VRFJob
 
   export type Chain = {
     config: Record<string, JSONPrimitive>

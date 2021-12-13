@@ -2604,6 +2604,20 @@ func (_m *ChainScopedConfig) LinkContractAddress() string {
 	return r0
 }
 
+// LogFileDir provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogFileDir() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // LogLevel provides a mock function with given fields:
 func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 	ret := _m.Called()
