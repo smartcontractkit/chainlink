@@ -480,12 +480,6 @@ function requestDelete(
 ): ReturnType<typeof request> {
   return request(type, 'DELETE', requestData, normalizeData)
 }
-export const deleteCompletedJobRuns = (updatedBefore: string) =>
-  requestDelete(
-    'COMPLETED_JOB_RUNS',
-    api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
-    normalize,
-  )({ status: [RunStatus.COMPLETED], updatedBefore })
 
 export const deleteErroredJobRuns = (updatedBefore: string) =>
   requestDelete(
@@ -493,12 +487,6 @@ export const deleteErroredJobRuns = (updatedBefore: string) =>
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
   )({ status: [RunStatus.ERRORED], updatedBefore })
-
-export const fetchTransactions = requestFetch(
-  'TRANSACTIONS',
-  api.v2.transactions.getTransactions,
-  (json) => normalize(json, { endpoint: 'currentPageTransactions' }),
-)
 
 export const fetchTransaction = requestFetch(
   'TRANSACTION',
