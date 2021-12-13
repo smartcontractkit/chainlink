@@ -2,7 +2,6 @@ import { Api } from 'utils/json-api-client'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
 import { Chains } from './chains'
 import { Jobs } from './jobs'
-import { Transactions } from './transactions'
 import { LogConfig } from './logConfig'
 import { Nodes } from './nodes'
 import { WebAuthn } from './webauthn'
@@ -15,6 +14,5 @@ export class V2 {
   public logConfig = new LogConfig(this.api)
   public nodes = new Nodes(this.api)
   public jobs = new Jobs(this.api)
-  public transactions = new Transactions(this.api)
   public webauthn = new WebAuthn(this.api)
 }
