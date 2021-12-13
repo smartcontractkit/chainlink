@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"io"
+	//nolint
 	mrand "math/rand"
 )
 
