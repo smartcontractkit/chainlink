@@ -1,0 +1,7 @@
+type SolanaKey {
+	publicKey: String!
+}
+
+type SolanaKeysPayload {
+	results: [SolanaKey!]!
+}

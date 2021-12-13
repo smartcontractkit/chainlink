@@ -107,9 +107,9 @@ var (
 
 	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultOCRKey    = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key   = ocr2key.MustNewInsecure(NewRandReaderFromSeed(1), "evm")
+	DefaultOCR2Key   = ocr2key.MustNewInsecure(mocks.NewRandReaderFromSeed(1), "evm")
 	DefaultP2PKey    = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey = solkey.MustNewInsecure(NewRandReaderFromSeed(1))
+	DefaultSolanaKey = solkey.MustNewInsecure(mocks.NewRandReaderFromSeed(1))
 	DefaultVRFKey    = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 

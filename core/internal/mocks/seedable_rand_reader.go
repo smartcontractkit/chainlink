@@ -1,4 +1,4 @@
-package cltest
+package mocks
 
 import (
 	"io"
