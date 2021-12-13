@@ -1,5 +1,5 @@
 type SolanaKey {
-	publicKey: String!
+	id: ID!
 }
 
 type SolanaKeysPayload {

@@ -1,6 +1,9 @@
 package resolver
 
-import "github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+import (
+	"github.com/graph-gophers/graphql-go"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+)
 
 type SolanaKeyResolver struct {
 	key solkey.Key
@@ -20,8 +23,8 @@ func NewSolanaKeys(keys []solkey.Key) []*SolanaKeyResolver {
 	return resolvers
 }
 
-func (r *SolanaKeyResolver) PublicKey() string {
-	return r.key.PublicKeyStr()
+func (r *SolanaKeyResolver) ID() graphql.ID {
+	return graphql.ID(r.key.PublicKeyStr())
 }
 
 // -- GetSolanaKeys Query --

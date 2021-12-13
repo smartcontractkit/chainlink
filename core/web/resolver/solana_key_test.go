@@ -17,7 +17,7 @@ func TestResolver_SolanaKeys(t *testing.T) {
 		query GetSolanaKeys {
 			solanaKeys {
 				results {
-					publicKey
+					id
 				}
 			}
 		}`
@@ -27,7 +27,7 @@ func TestResolver_SolanaKeys(t *testing.T) {
 		"solanaKeys": {
 			"results": [
 				{
-					"publicKey": "%s"
+					"id": "%s"
 				}
 			]
 		}
