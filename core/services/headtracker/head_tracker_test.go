@@ -344,7 +344,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
 
 	// Head sampling enabled
-	d := 1500 * time.Millisecond
+	d := 2500 * time.Millisecond
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
@@ -365,7 +365,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	lastHead := make(chan struct{})
 	blocks := cltest.NewBlocks(t, 10)
 
-	head0 := blocks.Head(0) // eth.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
+	head0 := blocks.Head(0)
 	// Initial query
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
 	ht.Start(t)
@@ -396,18 +396,26 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		Run(func(args mock.Arguments) {
 			h := args.Get(1).(*eth.Head)
 
-			require.Equal(t, int64(5), h.Number)
-			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
+			assert.Equal(t, int64(5), h.Number)
+			assert.Equal(t, blocksForked.Head(5).Hash, h.Hash)
 
 			// This is the new longest chain, check that it came with its parents
-			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blocksForked.Head(4).Hash)
-			require.NotNil(t, h.Parent.Parent)
-			require.Equal(t, h.Parent.Parent.Hash, blocksForked.Head(3).Hash)
-			require.NotNil(t, h.Parent.Parent.Parent)
-			require.Equal(t, h.Parent.Parent.Parent.Hash, blocksForked.Head(2).Hash)
-			require.NotNil(t, h.Parent.Parent.Parent.Parent)
-			require.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
+			if !assert.NotNil(t, h.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Hash, blocksForked.Head(4).Hash)
+			if !assert.NotNil(t, h.Parent.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Parent.Hash, blocksForked.Head(3).Hash)
+			if !assert.NotNil(t, h.Parent.Parent.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Parent.Parent.Hash, blocksForked.Head(2).Hash)
+			if !assert.NotNil(t, h.Parent.Parent.Parent.Parent) {
+				return
+			}
+			assert.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
 			close(lastHead)
 		}).Return().Once()
 
@@ -431,10 +439,10 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 
-	//time.Sleep(1 * time.Second)
+	// time.Sleep(1 * time.Second)
 	for _, h := range headSeq.Heads {
 		// waiting shorter time than the head sampling frequency
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
 		latestHeadByNumberMu.Unlock()
@@ -903,7 +911,7 @@ func createHeadTrackerWithNeverSleeper(t testing.TB, ethClient eth.Client, cfg *
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
-	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, orm, hb, cltest.NeverSleeper{})
+	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg, orm, hb)
 	_, err := headtracker.LoadFromDB(ht)
 	require.NoError(t, err)
 	return &headTrackerUniverse{
@@ -919,7 +927,7 @@ func createHeadTrackerWithChecker(t *testing.T, ethClient eth.Client, config hea
 	hb.Subscribe(checker)
 	return &headTrackerUniverse{
 		mu:              new(sync.Mutex),
-		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, orm, hb, cltest.NeverSleeper{}),
+		headTracker:     headtracker.NewHeadTracker(lggr, ethClient, config, orm, hb),
 		headBroadcaster: hb,
 	}
 }

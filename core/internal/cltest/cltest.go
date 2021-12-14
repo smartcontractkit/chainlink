@@ -45,7 +45,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -459,13 +458,13 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *ethmocks.Client, s *mocks.Subscription, f func()) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *ethmocks.Client, s *ethmocks.Subscription, f func()) {
 	c, s, f = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
+func NewEthMocks(t testing.TB) (*ethmocks.Client, *ethmocks.Subscription, func()) {
 	c, s := NewEthClientAndSubMock(t)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
@@ -480,15 +479,15 @@ func NewEthMocks(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
 	return c, s, assertMocksCalled
 }
 
-func NewEthClientAndSubMock(t mock.TestingT) (*ethmocks.Client, *mocks.Subscription) {
-	mockSub := new(mocks.Subscription)
+func NewEthClientAndSubMock(t mock.TestingT) (*ethmocks.Client, *ethmocks.Subscription) {
+	mockSub := new(ethmocks.Subscription)
 	mockSub.Test(t)
 	mockEth := new(ethmocks.Client)
 	mockEth.Test(t)
 	return mockEth, mockSub
 }
 
-func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*ethmocks.Client, *mocks.Subscription) {
+func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*ethmocks.Client, *ethmocks.Subscription) {
 	mockEth, mockSub := NewEthClientAndSubMock(t)
 	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
 	return mockEth, mockSub
@@ -506,7 +505,7 @@ func NewEthClientMockWithDefaultChain(t testing.TB) *ethmocks.Client {
 	return c
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
+func NewEthMocksWithStartupAssertions(t testing.TB) (*ethmocks.Client, *ethmocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
@@ -1273,9 +1272,9 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *ethm
 
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	sub := new(mocks.Subscription)
+	sub := new(ethmocks.Subscription)
 	sub.On("Err").Return(nil)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()

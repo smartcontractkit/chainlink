@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -67,7 +66,7 @@ func TestChainScopedConfig(t *testing.T) {
 		addr := cltest.NewAddress()
 		randomOtherAddr := cltest.NewAddress()
 		randomOtherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: utils.NewBigI(rand.Int63())}
-		evmconfig.UpdatePersistedCfg(cfg, func(cfg *types.ChainCfg) {
+		evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 			cfg.KeySpecific[randomOtherAddr.Hex()] = randomOtherKeySpecific
 		})
 
@@ -77,7 +76,7 @@ func TestChainScopedConfig(t *testing.T) {
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
 			val := utils.NewBigI(rand.Int63())
-			evmconfig.UpdatePersistedCfg(cfg, func(cfg *types.ChainCfg) {
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.EvmMaxGasPriceWei = val
 			})
 
@@ -86,7 +85,7 @@ func TestChainScopedConfig(t *testing.T) {
 		t.Run("uses key-specific override value when that is set", func(t *testing.T) {
 			val := utils.NewBigI(rand.Int63())
 			keySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: val}
-			evmconfig.UpdatePersistedCfg(cfg, func(cfg *types.ChainCfg) {
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.KeySpecific[addr.Hex()] = keySpecific
 			})
 
