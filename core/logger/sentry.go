@@ -13,9 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
-// SentryFlushDeadline indicates the maximum amount of time we allow sentry to
-// flush events on manual flush
-const SentryFlushDeadline = 5 * time.Second
+const (
+	// SentryFlushDeadline indicates the maximum amount of time we allow sentry to
+	// flush events on manual flush
+	SentryFlushDeadline = 5 * time.Second
+
+	loggerContextName = "Logger"
+)
 
 func init() {
 	// If SENTRY_ENVIRONMENT is set, it will override everything. Otherwise infers from CHAINLINK_DEV.
@@ -43,6 +47,9 @@ func init() {
 		sentryrelease = static.Version
 	}
 
+	// Set SENTRY_DEBUG=true to enable printing of SDK debug messages
+	sentrydebug := os.Getenv("SENTRY_DEBUG") == "true"
+
 	// Do not initialize sentry at all if the DSN is missing
 	if sentrydsn != "" {
 		err := sentry.Init(sentry.ClientOptions{
@@ -51,9 +58,7 @@ func init() {
 			Dsn:              sentrydsn,
 			Environment:      sentryenv,
 			Release:          sentryrelease,
-			// Enable printing of SDK debug messages.
-			// Uncomment line below to debug sentry
-			// Debug: true,
+			Debug:            sentrydebug,
 		})
 		if err != nil {
 			log.Fatalf("sentry.Init: %s", err)
@@ -61,7 +66,6 @@ func init() {
 	}
 }
 
-//TODO could include sentry event IDs with log lines: .With("sentryEvent",*EventID)
 type sentryLogger struct {
 	h Logger
 }
@@ -115,7 +119,7 @@ func (s *sentryLogger) Warn(args ...interface{}) {
 func (s *sentryLogger) Error(args ...interface{}) {
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelError)
@@ -128,7 +132,7 @@ func (s *sentryLogger) Critical(args ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelFatal)
@@ -141,7 +145,7 @@ func (s *sentryLogger) Panic(args ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelFatal)
@@ -154,7 +158,7 @@ func (s *sentryLogger) Fatal(args ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelFatal)
@@ -182,7 +186,7 @@ func (s *sentryLogger) Warnf(format string, values ...interface{}) {
 func (s *sentryLogger) Errorf(format string, values ...interface{}) {
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelError)
@@ -195,7 +199,7 @@ func (s *sentryLogger) Criticalf(format string, values ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelFatal)
@@ -208,7 +212,7 @@ func (s *sentryLogger) Panicf(format string, values ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelFatal)
@@ -221,7 +225,7 @@ func (s *sentryLogger) Fatalf(format string, values ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelFatal)
@@ -249,7 +253,7 @@ func (s *sentryLogger) Warnw(msg string, keysAndValues ...interface{}) {
 func (s *sentryLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelError)
 	})
 	eid := hub.CaptureMessage(msg)
@@ -260,7 +264,7 @@ func (s *sentryLogger) CriticalW(msg string, keysAndValues ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
 	eid := hub.CaptureMessage(msg)
@@ -271,7 +275,7 @@ func (s *sentryLogger) Panicw(msg string, keysAndValues ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
 	eid := hub.CaptureMessage(msg)
@@ -282,7 +286,7 @@ func (s *sentryLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
 	eid := hub.CaptureMessage(msg)
