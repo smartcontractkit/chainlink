@@ -4,9 +4,11 @@ import (
 	"context"
 
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
@@ -191,4 +193,74 @@ func (r *JobRunsPayloadResolver) Results() []*JobRunResolver {
 // Metadata returns the pagination metadata.
 func (r *JobRunsPayloadResolver) Metadata() *PaginationMetadataResolver {
 	return NewPaginationMetadata(r.total)
+}
+
+// -- RunJob Mutation --
+
+type RunJobPayloadResolver struct {
+	run *pipeline.Run
+	app chainlink.Application
+	NotFoundErrorUnionType
+}
+
+func NewRunJobPayload(run *pipeline.Run, app chainlink.Application, err error) *RunJobPayloadResolver {
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
+			return errors.Is(err, webhook.ErrJobNotExists)
+		}}
+	}
+
+	return &RunJobPayloadResolver{run: run, app: app, NotFoundErrorUnionType: e}
+}
+
+func (r *RunJobPayloadResolver) ToRunJobSuccess() (*RunJobSuccessResolver, bool) {
+	if r.err != nil {
+		return nil, false
+	}
+
+	return NewRunJobSuccess(*r.run, r.app), true
+}
+
+func (r *RunJobPayloadResolver) ToRunJobCannotRunError() (*RunJobCannotRunErrorResolver, bool) {
+	if r.err == nil {
+		return nil, false
+	}
+
+	if errors.Is(r.err, webhook.ErrJobNotExists) {
+		return nil, false
+	}
+
+	return NewRunJobCannotRunError(r.err), true
+}
+
+type RunJobSuccessResolver struct {
+	run pipeline.Run
+	app chainlink.Application
+}
+
+func NewRunJobSuccess(run pipeline.Run, app chainlink.Application) *RunJobSuccessResolver {
+	return &RunJobSuccessResolver{run: run, app: app}
+}
+
+func (r *RunJobSuccessResolver) JobRun() *JobRunResolver {
+	return NewJobRun(r.run, r.app)
+}
+
+type RunJobCannotRunErrorResolver struct {
+	message string
+	code    ErrorCode
+}
+
+func NewRunJobCannotRunError(err error) *RunJobCannotRunErrorResolver {
+	return &RunJobCannotRunErrorResolver{message: "", code: ErrorCodeUnprocessable}
+}
+
+func (r *RunJobCannotRunErrorResolver) Code() ErrorCode {
+	return r.code
+}
+
+func (r *RunJobCannotRunErrorResolver) Message() string {
+	return r.message
 }
