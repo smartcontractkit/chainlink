@@ -16,8 +16,6 @@ import (
 
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
-	health "github.com/smartcontractkit/chainlink/core/services/health"
-
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 
 	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -29,6 +27,8 @@ import (
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+
+	services "github.com/smartcontractkit/chainlink/core/services"
 
 	sessions "github.com/smartcontractkit/chainlink/core/sessions"
 
@@ -205,15 +205,15 @@ func (_m *Application) GetFeedsService() feeds.Service {
 }
 
 // GetHealthChecker provides a mock function with given fields:
-func (_m *Application) GetHealthChecker() health.Checker {
+func (_m *Application) GetHealthChecker() services.Checker {
 	ret := _m.Called()
 
-	var r0 health.Checker
-	if rf, ok := ret.Get(0).(func() health.Checker); ok {
+	var r0 services.Checker
+	if rf, ok := ret.Get(0).(func() services.Checker); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(health.Checker)
+			r0 = ret.Get(0).(services.Checker)
 		}
 	}
 
