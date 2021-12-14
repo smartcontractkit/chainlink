@@ -442,7 +442,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	// time.Sleep(1 * time.Second)
 	for _, h := range headSeq.Heads {
 		// waiting shorter time than the head sampling frequency
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
 		latestHeadByNumberMu.Unlock()
