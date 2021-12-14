@@ -48,7 +48,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/libocr v0.0.0-20211210141503-0d395391fa03
+	github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.3.5
 	github.com/spf13/viper v1.9.0
@@ -75,7 +75,8 @@ require (
 
 require (
 	github.com/minio/sha256-simd v0.1.1
-	github.com/smartcontractkit/chainlink-solana v0.0.0-20211210152809-395644d08fbb
+	github.com/mr-tron/base58 v1.2.0
+	github.com/smartcontractkit/chainlink-solana v0.0.0-20211214185217-ab1289553d16
 )
 
 require (
@@ -198,7 +199,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
-	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.0.3 // indirect
 	github.com/multiformats/go-base36 v0.1.0 // indirect
 	github.com/multiformats/go-multiaddr-dns v0.2.0 // indirect
