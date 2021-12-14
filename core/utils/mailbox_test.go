@@ -19,7 +19,7 @@ func TestMailbox(t *testing.T) {
 	chDone := make(chan struct{})
 	go func() {
 		defer close(chDone)
-		for _ = range m.Notify() {
+		for range m.Notify() {
 			for {
 				x, exists := m.Retrieve()
 				if !exists {
@@ -56,7 +56,7 @@ func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
 	chDone := make(chan struct{})
 	go func() {
 		defer close(chDone)
-		for _ = range m.Notify() {
+		for range m.Notify() {
 			x, exists := m.Retrieve()
 			if !exists {
 				emptyReceives = append(emptyReceives, recvd[len(recvd)-1])

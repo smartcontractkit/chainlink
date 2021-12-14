@@ -1,7 +1,6 @@
 package ocrcommon_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
@@ -58,7 +57,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id"))
+		require.Contains(t, pw.Start().Error(), "unable to find P2P key with id")
 	})
 
 	var k2 p2pkey.KeyV2
@@ -85,6 +84,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id"))
+		require.Contains(t, pw.Start().Error(), "unable to find P2P key with id")
 	})
 }
