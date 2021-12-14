@@ -209,11 +209,11 @@ func (hl *HeadListener) unsubscribeFromHead() error {
 	hl.headSubscription.Unsubscribe()
 	hl.connected = false
 
-	// ht.headers will be nil if subscription failed, channel closed, and
-	// receiveHeaders returned from the loop. listenForNewHeads will set it to
-	// nil in that case to avoid a double close panic.
 	if hl.headers != nil {
 		close(hl.headers)
+		// FIXME: Have to nilify headers here because otherwise we sometimes
+		// see double-close panics, not really sure how this can happen
+		hl.headers = nil
 	}
 	return nil
 }
