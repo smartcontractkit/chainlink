@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"io"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/minio/sha256-simd"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
@@ -26,21 +25,21 @@ func newSolanaKeyring(material io.Reader) (*solanaKeyring, error) {
 	return &solanaKeyring{privateKey: *ecdsaKey}, nil
 }
 
-// XXX: PublicKey returns the address of the public key not the public key itself
+// XXX: PublicKey returns the evm-style address of the public key not the public key itself
 func (ok *solanaKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	address := ok.SigningAddress()
+	address := crypto.PubkeyToAddress(*(&ok.privateKey).Public().(*ecdsa.PublicKey))
 	return address[:]
 }
 
 func (ok *solanaKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
-	sigData := make([]byte, len(report))
-	sigData = append(sigData, report...)
-	sigData = append(sigData, rawReportContext[0][:]...)
-	sigData = append(sigData, rawReportContext[1][:]...)
-	sigData = append(sigData, rawReportContext[2][:]...)
-	result := sha256.Sum256(sigData)
-	return result[:]
+	h := sha256.New()
+	h.Write([]byte{uint8(len(report))})
+	h.Write(report)
+	h.Write(rawReportContext[0][:])
+	h.Write(rawReportContext[1][:])
+	h.Write(rawReportContext[2][:])
+	return h.Sum(nil)
 }
 
 func (ok *solanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
@@ -60,10 +59,6 @@ func (ok *solanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx o
 
 func (ok *solanaKeyring) MaxSignatureLength() int {
 	return 65
-}
-
-func (ok *solanaKeyring) SigningAddress() common.Address {
-	return crypto.PubkeyToAddress(*(&ok.privateKey).Public().(*ecdsa.PublicKey))
 }
 
 func (ok *solanaKeyring) marshal() ([]byte, error) {

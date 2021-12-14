@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
@@ -13,10 +12,15 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+
 type ORM interface {
+	EthTransactions(offset, limit int) ([]EthTx, int, error)
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
+	FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error)
+	FindEthTxByHash(hash common.Hash) (*EthTx, error)
 	InsertEthTxAttempt(attempt *EthTxAttempt) error
 	InsertEthTx(etx *EthTx) error
 	InsertEthReceipt(receipt *EthReceipt) error
@@ -95,6 +99,22 @@ func (o *orm) preloadTxes(attempts []EthTxAttempt) error {
 	return nil
 }
 
+// EthTransactions returns all eth transactions without loaded relations
+// limited by passed parameters.
+func (o *orm) EthTransactions(offset, limit int) (txs []EthTx, count int, err error) {
+	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
+	if err = o.q.Get(&count, sql); err != nil {
+		return
+	}
+
+	sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
+	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
+		return
+	}
+
+	return
+}
+
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by id.
 func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count int, err error) {
@@ -138,6 +158,33 @@ func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 	attempts := []EthTxAttempt{ethTxAttempt}
 	err := o.preloadTxes(attempts)
 	return &attempts[0], err
+}
+
+// FindEthTxAttemptsByEthTxIDs returns a list of attempts by ETH Tx IDs
+func (o *orm) FindEthTxAttemptsByEthTxIDs(ids []int64) ([]EthTxAttempt, error) {
+	var attempts []EthTxAttempt
+
+	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1)`
+	if err := o.q.Select(&attempts, sql, ids); err != nil {
+		return nil, err
+	}
+
+	return attempts, nil
+}
+
+func (o *orm) FindEthTxByHash(hash common.Hash) (*EthTx, error) {
+	var etx EthTx
+
+	err := o.q.Transaction(func(tx pg.Queryer) error {
+		sql := `SELECT eth_txes.* FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts WHERE hash = $1)`
+		if err := tx.Get(&etx, sql, hash); err != nil {
+			return errors.Wrapf(err, "failed to find eth_tx with hash %d", hash)
+		}
+
+		return nil
+	}, pg.OptReadOnlyTx())
+
+	return &etx, errors.Wrap(err, "FindEthTxByHash failed")
 }
 
 // InsertEthTxAttempt inserts a new txAttempt into the database
@@ -198,8 +245,8 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 	if len(etxs) == 0 {
 		return nil
 	}
-	attemptHashM := make(map[gethCommon.Hash]*EthTxAttempt, len(etxs)) // len here is lower bound
-	attemptHashes := make([][]byte, len(etxs))                         // len here is lower bound
+	attemptHashM := make(map[common.Hash]*EthTxAttempt, len(etxs)) // len here is lower bound
+	attemptHashes := make([][]byte, len(etxs))                     // len here is lower bound
 	for _, etx := range etxs {
 		for i, attempt := range etx.EthTxAttempts {
 			attemptHashM[attempt.Hash] = &etx.EthTxAttempts[i]

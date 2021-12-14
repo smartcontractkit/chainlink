@@ -74,7 +74,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 		assert.Nil(t, client.ListSolanaKeys(cltest.EmptyCLIContext()))
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.SolanaKeyPresenters)
-		assert.True(t, key.PublicKeyHex() == keys[0].PubKey)
+		assert.True(t, key.PublicKeyStr() == keys[0].PubKey)
 
 	})
 
