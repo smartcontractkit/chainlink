@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 type Config interface {
@@ -38,9 +37,9 @@ type Config interface {
 	ChainType() chains.ChainType
 }
 
-func ParseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.BootstrapperLocator, err error) {
+func ParseBootstrapPeers(peers []string) (bootstrapPeers []commontypes.BootstrapperLocator, err error) {
 	for _, bs := range peers {
-		var bsl ocrcommontypes.BootstrapperLocator
+		var bsl commontypes.BootstrapperLocator
 		err = bsl.UnmarshalText([]byte(bs))
 		if err != nil {
 			return nil, err
@@ -51,7 +50,7 @@ func ParseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.Bootst
 }
 
 // Will error unless at least one valid bootstrap peer is found
-func GetValidatedBootstrapPeers(specPeers []string, configPeers []ocrcommontypes.BootstrapperLocator) ([]ocrcommontypes.BootstrapperLocator, error) {
+func GetValidatedBootstrapPeers(specPeers []string, configPeers []commontypes.BootstrapperLocator) ([]commontypes.BootstrapperLocator, error) {
 	bootstrapPeers, err := ParseBootstrapPeers(specPeers)
 	if err != nil {
 		return nil, err

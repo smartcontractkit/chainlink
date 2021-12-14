@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bm "github.com/smartcontractkit/chainlink/core/utils/big_math"
@@ -104,19 +103,6 @@ func YSquared(x *big.Int) *big.Int {
 // IsCurveXOrdinate returns true iff there is y s.t. y^2=x^3+7
 func IsCurveXOrdinate(x *big.Int) bool {
 	return IsSquare(YSquared(x))
-}
-
-// packUint256s returns xs serialized as concatenated uint256s, or an error
-func packUint256s(xs ...*big.Int) ([]byte, error) {
-	mem := []byte{}
-	for _, x := range xs {
-		word, err := utils.EVMWordBigInt(x)
-		if err != nil {
-			return []byte{}, errors.Wrap(err, "vrf.packUint256s#EVMWordBigInt")
-		}
-		mem = append(mem, word...)
-	}
-	return mem, nil
 }
 
 // FieldHash hashes xs uniformly into {0, ..., fieldSize-1}. msg is assumed to

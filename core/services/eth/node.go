@@ -73,9 +73,8 @@ type node struct {
 	log  logger.Logger
 	name string
 
-	state  NodeState
-	mu     sync.RWMutex
-	closed bool
+	state NodeState
+	mu    sync.RWMutex
 }
 
 func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
