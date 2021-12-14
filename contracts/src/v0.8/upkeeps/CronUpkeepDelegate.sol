@@ -2,6 +2,7 @@
 
 pragma solidity 0.8.6;
 
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {Cron, Spec} from "../libraries/internal/Cron.sol";
 
 /**
@@ -11,12 +12,13 @@ import {Cron, Spec} from "../libraries/internal/Cron.sol";
  * of the CronUpkeep contracts.
  */
 contract CronUpkeepDelegate {
+  using EnumerableSet for EnumerableSet.UintSet;
   using Cron for Spec;
 
   address private s_owner; // from ConfirmedOwner
   address private s_delegate;
   uint256 private s_nextCronJobID;
-  uint256[] private s_activeCronJobIDs;
+  EnumerableSet.UintSet private s_activeCronJobIDs;
   mapping(uint256 => uint256) private s_lastRuns;
   mapping(uint256 => Spec) private s_specs;
   mapping(uint256 => address) private s_targets;
@@ -30,7 +32,7 @@ contract CronUpkeepDelegate {
   function checkUpkeep(bytes calldata) external view returns (bool, bytes memory) {
     // DEV: start at a random spot in the list so that checks are
     // spread evenly among cron jobs
-    uint256 numCrons = s_activeCronJobIDs.length;
+    uint256 numCrons = s_activeCronJobIDs.length();
     uint256 startIdx = block.number % numCrons;
     bool result;
     bytes memory payload;
@@ -56,7 +58,7 @@ contract CronUpkeepDelegate {
     uint256 id;
     uint256 lastTick;
     for (uint256 idx = start; idx < end; idx++) {
-      id = s_activeCronJobIDs[idx];
+      id = s_activeCronJobIDs.at(idx);
       lastTick = s_specs[id].lastTick();
       if (lastTick > s_lastRuns[id]) {
         return (true, abi.encode(id, lastTick, s_targets[id], s_handlers[id]));
