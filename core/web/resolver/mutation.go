@@ -1073,3 +1073,27 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 
 	return NewRunJobPayload(&plnRun, r.App, nil), nil
 }
+
+func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
+	Level LogLevel
+}) (*SetGlobalLogLevelPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var lvl zapcore.Level
+	logLvl := FromLogLevel(args.Level)
+
+	err := lvl.UnmarshalText([]byte(logLvl))
+	if err != nil {
+		return NewSetGlobalLogLevelPayload("", map[string]string{
+			"level": "invalid log level",
+		}), nil
+	}
+
+	if err := r.App.SetLogLevel(lvl); err != nil {
+		return nil, err
+	}
+
+	return NewSetGlobalLogLevelPayload(args.Level, nil), nil
+}
