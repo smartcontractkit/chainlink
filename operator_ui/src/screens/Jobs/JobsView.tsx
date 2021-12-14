@@ -31,7 +31,6 @@ export const JOBS_PAYLOAD__RESULTS_FIELDS = gql`
       ... on OCRSpec {
         contractAddress
         keyBundleID
-        p2pPeerID
         transmitterAddress
       }
     }
@@ -74,7 +73,6 @@ function matchJob(job: JobsPayload_ResultsFields, term: string) {
     const searchableProperties = [
       'contractAddress',
       'keyBundleID',
-      'p2pPeerID',
       'transmitterAddress',
     ] as Array<
       keyof Extract<

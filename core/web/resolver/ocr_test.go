@@ -72,11 +72,13 @@ func TestResolver_OCRCreateBundle(t *testing.T) {
 	mutation := `
 		mutation CreateOCRKeyBundle {
 			createOCRKeyBundle {
-				bundle {
-					id
-					configPublicKey
-					offChainPublicKey
-					onChainSigningAddress
+				... on CreateOCRKeyBundleSuccess {
+					bundle {
+						id
+						configPublicKey
+						offChainPublicKey
+						onChainSigningAddress
+					}
 				}
 			}
 		}

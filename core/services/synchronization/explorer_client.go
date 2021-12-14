@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -47,7 +47,7 @@ const (
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
-	service.Service
+	services.Service
 	Url() url.URL
 	Status() ConnectionStatus
 	Send(context.Context, []byte, ...int)

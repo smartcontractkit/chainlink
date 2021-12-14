@@ -3,12 +3,17 @@ package resolver
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
@@ -151,14 +156,14 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 	j, err := r.App.JobORM().FindJobTx(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewJobPayload(nil, err), nil
+			return NewJobPayload(r.App, nil, err), nil
 
 		}
 
 		return nil, err
 	}
 
-	return NewJobPayload(&j, nil), nil
+	return NewJobPayload(r.App, &j, nil), nil
 }
 
 // Jobs fetches a paginated list of jobs
@@ -178,7 +183,7 @@ func (r *Resolver) Jobs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewJobsPayload(jobs, int32(count)), nil
+	return NewJobsPayload(r.App, jobs, int32(count)), nil
 }
 
 func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
@@ -248,7 +253,7 @@ func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error)
 		return nil, err
 	}
 
-	return NewP2PKeysPayloadResolver(p2pKeys), nil
+	return NewP2PKeysPayload(p2pKeys), nil
 }
 
 // VRFKeys fetches all VRF keys.
@@ -327,4 +332,171 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 	}
 
 	return NewNodesPayload(nodes, int32(count)), nil
+}
+
+func (r *Resolver) JobRuns(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*JobRunsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	limit := pageLimit(args.Limit)
+	offset := pageOffset(args.Offset)
+
+	runs, count, err := r.App.JobORM().PipelineRuns(nil, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobRunsPayload(runs, int32(count), r.App), nil
+}
+
+func (r *Resolver) JobRun(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*JobRunPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	jr, err := r.App.JobORM().FindPipelineRunByID(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewJobRunPayload(nil, r.App, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewJobRunPayload(&jr, r.App, err), nil
+}
+
+func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	ks := r.App.GetKeyStore().Eth()
+
+	var keys []ethkey.KeyV2
+	var err error
+	if r.App.GetConfig().Dev() {
+		keys, err = ks.GetAll()
+	} else {
+		keys, err = ks.SendingKeys()
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
+	}
+
+	states, err := ks.GetStatesForKeys(keys)
+	if err != nil {
+		return nil, fmt.Errorf("error getting key states: %v", err)
+	}
+
+	var ethKeys []ETHKey
+
+	for _, state := range states {
+		k, err := ks.Get(state.Address.Hex())
+		if err != nil {
+			return nil, err
+		}
+
+		chain, err := r.App.GetChainSet().Get(state.EVMChainID.ToInt())
+		if errors.Cause(err) == evm.ErrNoChains {
+			ethKeys = append(ethKeys, ETHKey{
+				addr:  k.Address,
+				state: state,
+			})
+
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error getting EVM Chain: %v", err)
+		}
+
+		ethKeys = append(ethKeys, ETHKey{
+			addr:  k.Address,
+			state: state,
+			chain: chain,
+		})
+	}
+
+	return NewETHKeysPayload(ethKeys), nil
+}
+
+// Config retrieves the Chainlink node's configuration
+func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	cfg := r.App.GetConfig()
+	printer := config.NewConfigPrinter(cfg)
+
+	return NewConfigPayload(printer.EnvPrinter), nil
+}
+
+func (r *Resolver) EthTransaction(ctx context.Context, args struct {
+	Hash graphql.ID
+}) (*EthTransactionPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	hash := common.HexToHash(string(args.Hash))
+	etx, err := r.App.BPTXMORM().FindEthTxByHash(hash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewEthTransactionPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewEthTransactionPayload(etx, err), nil
+}
+
+func (r *Resolver) EthTransactions(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*EthTransactionsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	txs, count, err := r.App.BPTXMORM().EthTransactions(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEthTransactionsPayload(txs, int32(count)), nil
+}
+
+func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*EthTransactionsAttemptsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	attempts, count, err := r.App.BPTXMORM().EthTxAttempts(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEthTransactionsAttemptsPayload(attempts, int32(count)), nil
 }
