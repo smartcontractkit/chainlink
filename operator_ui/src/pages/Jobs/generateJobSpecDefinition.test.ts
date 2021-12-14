@@ -193,7 +193,7 @@ evmChainID = "42"
     expect(output.envAttributesDefinition).toBe('')
   })
 
-  it.only('generates a valid Keeper definition', () => {
+  it('generates a valid Keeper definition', () => {
     const jobSpecAttributesInput = {
       name: 'Keeper Job Spec',
       schemaVersion: 1,
