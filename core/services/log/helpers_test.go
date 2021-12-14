@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -361,7 +360,7 @@ func (l *mockListener) HandleLog(log.Broadcast) {}
 
 type mockEth struct {
 	ethClient        *ethmocks.Client
-	sub              *mocks.Subscription
+	sub              *ethmocks.Subscription
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
 	checkFilterLogs  func(int64, int64)
