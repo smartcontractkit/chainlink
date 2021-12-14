@@ -98,7 +98,6 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 			break
 		} else if err != nil {
 			hl.log.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
-			hl.headers = nil
 			continue
 		} else {
 			break
@@ -189,6 +188,7 @@ func (hl *HeadListener) subscribeToHead() error {
 
 	sub, err := hl.ethClient.SubscribeNewHead(context.Background(), hl.headers)
 	if err != nil {
+		close(hl.headers)
 		return errors.Wrap(err, "EthClient#SubscribeNewHead")
 	}
 
@@ -209,12 +209,6 @@ func (hl *HeadListener) unsubscribeFromHead() error {
 	hl.headSubscription.Unsubscribe()
 	hl.connected = false
 
-	if hl.headers != nil {
-		close(hl.headers)
-		// FIXME: Have to nilify headers here because otherwise we sometimes
-		// see double-close panics, not really sure how this can happen
-		hl.headers = nil
-	}
 	return nil
 }
 
