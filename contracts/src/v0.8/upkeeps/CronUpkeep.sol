@@ -105,11 +105,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
    * the id is not found.
    * @param id the id of the cron job to delete
    */
-  function deleteCronJob(uint256 id)
-    external
-    onlyOwner
-    onlyValidCronID(id)
-  {
+  function deleteCronJob(uint256 id) external onlyOwner onlyValidCronID(id) {
     delete s_lastRuns[id];
     delete s_specs[id];
     delete s_targets[id];
