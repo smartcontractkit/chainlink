@@ -297,8 +297,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) error {
-	q := eb.q.WithOpts(pg.WithParentCtx(ctx))
-	etx, err := getInProgressEthTx(q, fromAddress)
+	etx, err := getInProgressEthTx(eb.q, fromAddress)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
