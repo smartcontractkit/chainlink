@@ -88,15 +88,6 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
-func retryLogMsg(count int) string {
-	if count == 1 {
-		return "Could not get lock, retrying..."
-	} else if count%1000 == 0 || count&(count-1) == 0 {
-		return "Still waiting for lock..."
-	}
-	return ""
-}
-
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
 	appLggr := logger.NewLogger(cfg)
