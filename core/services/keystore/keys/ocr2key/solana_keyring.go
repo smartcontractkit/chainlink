@@ -33,13 +33,13 @@ func (ok *solanaKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 
 func (ok *solanaKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
-	sigData := make([]byte, len(report))
-	sigData = append(sigData, report...)
-	sigData = append(sigData, rawReportContext[0][:]...)
-	sigData = append(sigData, rawReportContext[1][:]...)
-	sigData = append(sigData, rawReportContext[2][:]...)
-	result := sha256.Sum256(sigData)
-	return result[:]
+	h := sha256.New()
+	h.Write([]byte{uint8(len(report))})
+	h.Write(report)
+	h.Write(rawReportContext[0][:])
+	h.Write(rawReportContext[1][:])
+	h.Write(rawReportContext[2][:])
+	return h.Sum(nil)
 }
 
 func (ok *solanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
