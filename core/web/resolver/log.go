@@ -181,3 +181,48 @@ func NewGlobalLogLevelPayload(lgLvl string) *GlobalLogLevelPayloadResolver {
 func (r *GlobalLogLevelPayloadResolver) ToGlobalLogLevel() (*GlobalLogLevelResolver, bool) {
 	return GlobalLogLevel(r.lgLvl), true
 }
+
+// -- UpdateGlobalLogLevel Mutation --
+
+type SetGlobalLogLevelPayloadResolver struct {
+	lvl       LogLevel
+	inputErrs map[string]string
+}
+
+func NewSetGlobalLogLevelPayload(lvl LogLevel, inputErrs map[string]string) *SetGlobalLogLevelPayloadResolver {
+	return &SetGlobalLogLevelPayloadResolver{lvl: lvl, inputErrs: inputErrs}
+}
+
+func (r *SetGlobalLogLevelPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs != nil {
+		var errs []*InputErrorResolver
+
+		for path, message := range r.inputErrs {
+			errs = append(errs, NewInputError(path, message))
+		}
+
+		return NewInputErrors(errs), true
+	}
+
+	return nil, false
+}
+
+func (r *SetGlobalLogLevelPayloadResolver) ToSetGlobalLogLevelSuccess() (*SetGlobalLogLevelSuccessResolver, bool) {
+	if r.inputErrs != nil {
+		return nil, false
+	}
+
+	return NewSetGlobalLogLevelSuccess(r.lvl), true
+}
+
+type SetGlobalLogLevelSuccessResolver struct {
+	lvl LogLevel
+}
+
+func NewSetGlobalLogLevelSuccess(lvl LogLevel) *SetGlobalLogLevelSuccessResolver {
+	return &SetGlobalLogLevelSuccessResolver{lvl: lvl}
+}
+
+func (r *SetGlobalLogLevelSuccessResolver) GlobalLogLevel() *GlobalLogLevelResolver {
+	return GlobalLogLevel(FromLogLevel(r.lvl))
+}

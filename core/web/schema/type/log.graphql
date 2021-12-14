@@ -46,3 +46,9 @@ type SetSQLLoggingSuccess {
 }
 
 union SetSQLLoggingPayload = SetSQLLoggingSuccess
+
+type SetGlobalLogLevelSuccess {
+    globalLogLevel: GlobalLogLevel!
+}
+
+union SetGlobalLogLevelPayload = SetGlobalLogLevelSuccess | InputErrors

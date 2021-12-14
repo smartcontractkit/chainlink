@@ -60,6 +60,7 @@ type Mutation {
     dismissJobError(id: ID!): DismissJobErrorPayload!
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
     runJob(id: ID!): RunJobPayload!
+    setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
