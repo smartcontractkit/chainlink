@@ -344,7 +344,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
 
 	// Head sampling enabled
-	d := 1500 * time.Millisecond
+	d := 2500 * time.Millisecond
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
@@ -365,7 +365,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	lastHead := make(chan struct{})
 	blocks := cltest.NewBlocks(t, 10)
 
-	head0 := blocks.Head(0) // eth.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
+	head0 := blocks.Head(0)
 	// Initial query
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
 	ht.Start(t)
