@@ -349,10 +349,7 @@ describe('CronUpkeep', () => {
       await createBasicCron()
       await assertJobIDsEqual([1, 2, 3, 4])
       await cron.deleteCronJob(2)
-      assert.equal(
-        (await cron.getCronJob(2)).target,
-        ethers.constants.AddressZero,
-      )
+      await expect(cron.getCronJob(2)).to.be.revertedWith(CRON_NOT_FOUNR_ERR)
       await assertJobIDsEqual([1, 3, 4])
       await cron.deleteCronJob(1)
       await assertJobIDsEqual([3, 4])
