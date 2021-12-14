@@ -59,10 +59,6 @@ func (r *JobResolver) MaxTaskDuration() string {
 
 // Name resolves the job's name.
 func (r *JobResolver) Name() string {
-	if r.j.Name.IsZero() {
-		return "undefined"
-	}
-
 	return r.j.Name.ValueOrZero()
 }
 
@@ -79,6 +75,11 @@ func (r *JobResolver) SchemaVersion() int32 {
 	return int32(r.j.SchemaVersion)
 }
 
+// Type resolves the job's type.
+func (r *JobResolver) Type() string {
+	return string(r.j.Type)
+}
+
 // Spec resolves the job's spec.
 func (r *JobResolver) Spec() *SpecResolver {
 	return NewSpec(r.j)
@@ -92,7 +93,6 @@ func (r *JobResolver) Runs(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	//
 	if limit > 100 {
 		limit = 100
 	}
@@ -112,7 +112,7 @@ func (r *JobResolver) Runs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewJobRunsPayload(runs, count), nil
+	return NewJobRunsPayload(runs, count, r.app), nil
 }
 
 // JobsPayloadResolver resolves a page of jobs

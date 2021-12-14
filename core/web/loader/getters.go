@@ -8,7 +8,9 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
@@ -110,4 +112,40 @@ func GetJobProposalsByFeedsManagerID(ctx context.Context, id string) ([]feeds.Jo
 	}
 
 	return jbRuns, nil
+}
+
+// GetJobByPipelineSpecID fetches the job by pipeline spec ID.
+func GetJobByPipelineSpecID(ctx context.Context, id string) (*job.Job, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.JobsByPipelineSpecIDLoader.Load(ctx, dataloader.StringKey(id))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	jb, ok := result.(job.Job)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	return &jb, nil
+}
+
+// GetEthTxAttemptsByEthTxID fetches the attempts for an eth transaction.
+func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]bulletprooftxmanager.EthTxAttempt, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.EthTxAttemptsByEthTxIDLoader.Load(ctx, dataloader.StringKey(id))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	attempts, ok := result.([]bulletprooftxmanager.EthTxAttempt)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	return attempts, nil
 }

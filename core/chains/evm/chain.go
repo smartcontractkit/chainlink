@@ -14,8 +14,8 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/balancemonitor"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
@@ -28,7 +28,7 @@ import (
 
 //go:generate mockery --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	service.Service
+	services.Service
 	ID() *big.Int
 	Client() eth.Client
 	Config() evmconfig.ChainScopedConfig
@@ -37,6 +37,7 @@ type Chain interface {
 	TxManager() bulletprooftxmanager.TxManager
 	HeadTracker() httypes.Tracker
 	Logger() logger.Logger
+	BalanceMonitor() balancemonitor.BalanceMonitor
 }
 
 var _ Chain = &chain{}
@@ -51,7 +52,7 @@ type chain struct {
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.Tracker
 	logBroadcaster  log.Broadcaster
-	balanceMonitor  services.BalanceMonitor
+	balanceMonitor  balancemonitor.BalanceMonitor
 	keyStore        keystore.Eth
 }
 
@@ -124,9 +125,9 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		return nil, err
 	}
 
-	var balanceMonitor services.BalanceMonitor
+	var balanceMonitor balancemonitor.BalanceMonitor
 	if !cfg.EthereumDisabled() && cfg.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(client, opts.KeyStore, l)
+		balanceMonitor = balancemonitor.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
@@ -274,14 +275,15 @@ func (c *chain) Healthy() (merr error) {
 	return
 }
 
-func (c *chain) ID() *big.Int                              { return c.id }
-func (c *chain) Client() eth.Client                        { return c.client }
-func (c *chain) Config() evmconfig.ChainScopedConfig       { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster           { return c.logBroadcaster }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadcaster }
-func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
-func (c *chain) HeadTracker() httypes.Tracker              { return c.headTracker }
-func (c *chain) Logger() logger.Logger                     { return c.logger }
+func (c *chain) ID() *big.Int                                  { return c.id }
+func (c *chain) Client() eth.Client                            { return c.client }
+func (c *chain) Config() evmconfig.ChainScopedConfig           { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster               { return c.logBroadcaster }
+func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster      { return c.headBroadcaster }
+func (c *chain) TxManager() bulletprooftxmanager.TxManager     { return c.txm }
+func (c *chain) HeadTracker() httypes.Tracker                  { return c.headTracker }
+func (c *chain) Logger() logger.Logger                         { return c.logger }
+func (c *chain) BalanceMonitor() balancemonitor.BalanceMonitor { return c.balanceMonitor }
 
 var ErrNoPrimaryNode = errors.New("no primary node found")
 

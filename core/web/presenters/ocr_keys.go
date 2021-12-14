@@ -1,6 +1,9 @@
 package presenters
 
 import (
+	"encoding/hex"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
@@ -30,6 +33,40 @@ func NewOCRKeysBundleResources(keys []ocrkey.KeyV2) []OCRKeysBundleResource {
 	rs := []OCRKeysBundleResource{}
 	for _, key := range keys {
 		rs = append(rs, *NewOCRKeysBundleResource(key))
+	}
+
+	return rs
+}
+
+// OCR2KeysBundleResource represents a bundle of OCRs keys as JSONAPI resource
+type OCR2KeysBundleResource struct {
+	JAID
+	ChainType         string `json:"chainType"`
+	OnchainPublicKey  string `json:"onchainPublicKey"`
+	OffChainPublicKey string `json:"offChainPublicKey"`
+	ConfigPublicKey   string `json:"configPublicKey"`
+}
+
+// GetName implements the api2go EntityNamer interface
+func (r OCR2KeysBundleResource) GetName() string {
+	return "keyV2s"
+}
+
+func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
+	configPublic := key.ConfigEncryptionPublicKey()
+	return &OCR2KeysBundleResource{
+		JAID:              NewJAID(key.ID()),
+		ChainType:         string(key.ChainType()),
+		OnchainPublicKey:  key.OnChainPublicKey(),
+		OffChainPublicKey: hex.EncodeToString(key.OffchainPublicKey()),
+		ConfigPublicKey:   hex.EncodeToString(configPublic[:]),
+	}
+}
+
+func NewOCR2KeysBundleResources(keys []ocr2key.KeyBundle) []OCR2KeysBundleResource {
+	rs := []OCR2KeysBundleResource{}
+	for _, key := range keys {
+		rs = append(rs, *NewOCR2KeysBundleResource(key))
 	}
 
 	return rs

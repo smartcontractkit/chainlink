@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
@@ -98,52 +97,6 @@ func retryLogMsg(count int) string {
 	return ""
 }
 
-// Try to immediately acquire an advisory lock. The lock will be released on application stop.
-func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (pg.Locker, error) {
-	lockID := int64(1027321974924625846)
-	lockRetryInterval := time.Second
-
-	lggr = lggr.Named("AdvisoryLock")
-	lggr.Debug("Taking advisory lock...")
-
-	initCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	lock, err := pg.NewLock(initCtx, lockID, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ticker := time.NewTicker(lockRetryInterval)
-	defer ticker.Stop()
-	retryCount := 0
-	for {
-		lockCtx, cancel := context.WithTimeout(ctx, timeout)
-		gotLock, err := lock.Lock(lockCtx)
-		cancel()
-		if err != nil {
-			return nil, err
-		}
-		if gotLock {
-			break
-		}
-
-		select {
-		case <-ticker.C:
-			retryCount++
-			if msg := retryLogMsg(retryCount); msg != "" {
-				lggr.Infow(msg, "failCount", retryCount)
-			}
-			continue
-		case <-ctx.Done():
-			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
-		}
-	}
-
-	lggr.Debug("Got advisory lock")
-
-	return &lock, nil
-}
-
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
 	appLggr := logger.NewLogger(cfg)
@@ -168,20 +121,18 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	// Take the lease before any other DB operations
 	var leaseLock pg.LeaseLock
 	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
-		leaseLock = pg.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
+		leaseLock = pg.NewLeaseLock(db, appID, appLggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
 		if err = leaseLock.TakeAndHold(); err != nil {
 			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	var advisoryLock pg.Locker
+	var advisoryLock pg.AdvisoryLock
 	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		advisoryLock, err = AdvisoryLock(ctx, appLggr, db.DB, time.Second)
-		if err != nil {
-			return nil, errors.Wrap(err, "error acquiring lock")
+		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), appLggr, cfg.AdvisoryLockCheckInterval())
+		if err = advisoryLock.TakeAndHold(); err != nil {
+			return nil, errors.Wrapf(err, "error acquiring application advisory lock with id %d", cfg.AdvisoryLockID())
 		}
 	}
 

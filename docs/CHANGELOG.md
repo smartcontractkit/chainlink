@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+New ENV vars:
+
+- `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
+- `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
+- `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
+
 ## [1.1.0] - .........
 
 ### Added
@@ -19,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
 - CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
 - Add partial support for Moonriver chain
+- For OCR jobs, `databaseTimeout`, `observationGracePeriod` and `contractTransmitterTransmitTimeout` can be specified to override chain-specific default values.
 
 Two new log levels have been added.
 
@@ -130,9 +139,17 @@ These still work, but if set they will override that value for _all_ chains. Thi
 
 To help you work around this, Chainlink now supports setting per-chain configuration options.
 
-(the full list of chain-specific configuration options can be found in `core/chains/evm/config.go`)
+**Examples**
 
-TODO: https://app.clubhouse.io/chainlinklabs/story/15455/add-cli-api-for-setting-chain-specific-config
+To set initial configuration when creating a chain, pass in the full json string as an optional parameter at the end:
+
+`chainlink evm chains create -id 42 '{"BlockHistoryEstimatorBlockDelay": "100"}'`
+
+To set configuration on an existing chain, specify key values pairs as such:
+
+`chainlink evm chains configure -id 42 BlockHistoryEstimatorBlockDelay=100 GasEstimatorMode=FixedPrice`
+
+The full list of chain-specific configuration options can be found by looking at the `ChainCfg` struct in `core/chains/evm/types/types.go`.
 
 #### Async support in external adapters
 
@@ -202,10 +219,17 @@ Traditionally Chainlink has used an advisory lock to manage this. However, advis
 For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in future. `lease`-mode works as follows:
 - Have one row in a database which is updated periodically with the client ID
 - CL node A will run a background process on start that updates this e.g. once per second
-- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than, say, 5s without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second
-- If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will panic and quit immediately
+- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than a set period without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second
+- If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will exit the entire application immediately
 
 The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
+
+Lease locking can be configured using the following ENV vars:
+
+`LEASE_LOCK_REFRESH_INTERVAL` (default 1s)
+`LEASE_LOCK_DURATION` (default 30s)
+
+It is recommended to leave these set to the default values.
 
 #### Duplicate Job Configuration
 

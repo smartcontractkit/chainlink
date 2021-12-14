@@ -3,10 +3,11 @@ package telemetry
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
+
+var _ MonitoringEndpointGenerator = &IngressAgentWrapper{}
 
 type IngressAgentWrapper struct {
 	telemetryIngressClient synchronization.TelemetryIngressClient
@@ -16,28 +17,28 @@ func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryIngr
 	return &IngressAgentWrapper{telemetryIngressClient}
 }
 
-func (t *IngressAgentWrapper) GenMonitoringEndpoint(addr common.Address) ocrtypes.MonitoringEndpoint {
-	return NewIngressAgent(t.telemetryIngressClient, addr)
+func (t *IngressAgentWrapper) GenMonitoringEndpoint(contractID string) ocrtypes.MonitoringEndpoint {
+	return NewIngressAgent(t.telemetryIngressClient, contractID)
 }
 
 type IngressAgent struct {
 	telemetryIngressClient synchronization.TelemetryIngressClient
-	contractAddress        common.Address
+	contractID             string
 }
 
-func NewIngressAgent(telemetryIngressClient synchronization.TelemetryIngressClient, contractAddress common.Address) *IngressAgent {
+func NewIngressAgent(telemetryIngressClient synchronization.TelemetryIngressClient, contractID string) *IngressAgent {
 	return &IngressAgent{
 		telemetryIngressClient,
-		contractAddress,
+		contractID,
 	}
 }
 
 // SendLog sends a telemetry log to the ingress server
 func (t *IngressAgent) SendLog(telemetry []byte) {
 	payload := synchronization.TelemPayload{
-		Ctx:             context.Background(),
-		Telemetry:       telemetry,
-		ContractAddress: t.contractAddress,
+		Ctx:        context.Background(),
+		Telemetry:  telemetry,
+		ContractID: t.contractID,
 	}
 	t.telemetryIngressClient.Send(payload)
 }
