@@ -237,7 +237,7 @@ func TestGraph_ImplicitDependencies(t *testing.T) {
 	}
 	require.NoError(t, err)
 	require.Equal(t, 3, g.Edges().Len())
-	require.Equal(t, true, g.HasEdgeFromTo(nodes["a"], nodes["b"]))
-	require.Equal(t, true, g.HasEdgeFromTo(nodes["b"], nodes["c"]))
-	require.Equal(t, true, g.HasEdgeFromTo(nodes["c"], nodes["d"]))
+	require.True(t, g.HasEdgeFromTo(nodes["a"], nodes["b"]))
+	require.True(t, g.HasEdgeFromTo(nodes["b"], nodes["c"]))
+	require.True(t, g.HasEdgeFromTo(nodes["c"], nodes["d"]))
 }

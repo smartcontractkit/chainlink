@@ -47,7 +47,7 @@ func (g *Graph) UnmarshalText(bs []byte) (err error) {
 }
 
 // Looks at node attributes and searches for implicit dependencies on other nodes
-// expressed as attribute values. Adds those dependencies as edges in the graph.
+// expressed as attribute values. Adds those dependencies as implicit edges in the graph.
 func (g *Graph) AddImplicitDependenciesAsEdges() {
 	for nodesIter := g.Nodes(); nodesIter.Next(); {
 		graphNode := nodesIter.Node().(*GraphNode)
