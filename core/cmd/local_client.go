@@ -46,12 +46,25 @@ const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	err := cli.Config.Validate()
-	if err != nil {
+	if err := cli.runNode(c); err != nil {
+		err = errors.Wrap(err, "Cannot boot Chainlink")
+		cli.Logger.Error(err)
+		if serr := cli.Logger.Sync(); serr != nil {
+			err = multierr.Combine(serr, err)
+		}
 		return cli.errorOut(err)
 	}
+	return nil
+}
 
+func (cli *Client) runNode(c *clipkg.Context) error {
 	lggr := cli.Logger.Named("boot")
+
+	err := cli.Config.Validate()
+	if err != nil {
+		return errors.Wrap(err, "config validation failed")
+	}
+
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
 	if cli.Config.Dev() {
@@ -63,14 +76,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return errors.Wrap(err, "error initializing application")
 	}
 
 	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
 	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
+		return errors.Wrap(err, "error authenticating keystore")
 	}
 
 	var vrfpwd string
@@ -78,26 +91,26 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if len(c.String("vrfpassword")) != 0 {
 		vrfpwd, fileErr = passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {
-			return cli.errorOut(errors.Wrapf(fileErr,
+			return errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
-				c.String("vrfpassword")))
+				c.String("vrfpassword"))
 		}
 	}
 
 	chainSet := app.GetChainSet()
 	dflt, err := chainSet.Default()
 	if err != nil {
-		return cli.errorOut(err)
+		return errors.Wrap(err, "failed to get default chainset")
 	}
 	err = keyStore.Migrate(vrfpwd, dflt.ID())
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
+		return errors.Wrap(err, "error migrating keystore")
 	}
 
 	for _, ch := range chainSet.Chains() {
 		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 		if err2 != nil {
-			return cli.errorOut(err)
+			return errors.Wrap(err2, "failed to ensure keystore keys")
 		}
 		if !fexisted {
 			lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
@@ -109,14 +122,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	ocrKey, didExist, err := app.GetKeyStore().OCR().EnsureKey()
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr key"))
+		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 	if !didExist {
 		lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 	}
 	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to ensure p2p key"))
+		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 	if !didExist {
 		lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
@@ -128,32 +141,32 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	var user sessions.User
 	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
-		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
+		return errors.Wrap(err, "error creating api initializer")
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
 		if err == ErrorNoAPICredentialsAvailable {
-			return cli.errorOut(err)
+			return errors.WithStack(err)
 		}
-		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
+		return errors.Wrap(err, "error creating fallback initializer")
 	}
 
 	lggr.Info("API exposed for user ", user.Email)
-	if e := app.Start(); e != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
+	if err = app.Start(); err != nil {
+		return errors.Wrap(err, "error starting app")
 	}
 	defer func() {
 		lggr.ErrorIf(app.Stop(), "Error stopping app")
 		if err = lggr.Sync(); err != nil {
-			log.Println(err)
+			log.Fatal(err)
 		}
 	}()
 	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
-		return cli.errorOut(err)
+		return errors.Wrap(err, "failed to log config variables")
 	}
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
-	return cli.errorOut(cli.Runner.Run(app))
+	return (cli.Runner.Run(app))
 }
 
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
