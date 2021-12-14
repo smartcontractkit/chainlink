@@ -21,7 +21,7 @@ describe('TabOverview', () => {
           Runs Tab
         </Route>
 
-        <Route exact path="/jobs/:id/runs/:runId">
+        <Route exact path="/runs/:runId">
           Run Page
         </Route>
       </>,
@@ -38,7 +38,7 @@ describe('TabOverview', () => {
 
     expect(queryByText(job.id)).toBeInTheDocument()
     expect(queryByText('1 minute ago')).toBeInTheDocument()
-    expect(queryByText('Completed')).toBeInTheDocument()
+    expect(queryByText(/completed/i)).toBeInTheDocument()
   })
 
   it('navigates to the run page', () => {

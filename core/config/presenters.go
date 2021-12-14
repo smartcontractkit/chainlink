@@ -25,6 +25,8 @@ type ConfigPrinter struct {
 
 // EnvPrinter contains the supported environment variables
 type EnvPrinter struct {
+	AdvisoryLockCheckInterval                  time.Duration   `json:"ADVISORY_LOCK_CHECK_INTERVAL"`
+	AdvisoryLockID                             int64           `json:"ADVISORY_LOCK_ID"`
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
@@ -63,11 +65,12 @@ type EnvPrinter struct {
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
 	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
 	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
-	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
+	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
+	LogFileDir                                 string          `json:"LOG_FILE_DIR"`
 	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
-	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
+	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 
@@ -131,6 +134,8 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 	ocrDatabaseTimeout, _ := cfg.GlobalOCRDatabaseTimeout()
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
+			AdvisoryLockCheckInterval:          cfg.AdvisoryLockCheckInterval(),
+			AdvisoryLockID:                     cfg.AdvisoryLockID(),
 			AllowOrigins:                       cfg.AllowOrigins(),
 			BlockBackfillDepth:                 cfg.BlockBackfillDepth(),
 			BridgeResponseURL:                  cfg.BridgeResponseURL().String(),
@@ -159,6 +164,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
 			LeaseLockDuration:                  cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
+			LogFileDir:                         cfg.LogFileDir(),
 			LogLevel:                           LogLevel{Level: cfg.LogLevel()},
 			LogSQL:                             cfg.LogSQL(),
 			LogSQLMigrations:                   cfg.LogSQLMigrations(),

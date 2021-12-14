@@ -15,7 +15,7 @@ function renderComponent(viewProps: JobRunsViewProps) {
       <Route exact path="/runs">
         <JobRunsView {...viewProps} />
       </Route>
-      <Route exact path="/jobs/:id/runs/:runID">
+      <Route exact path="/runs/:runID">
         Run Page
       </Route>
     </>,

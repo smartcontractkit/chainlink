@@ -61,6 +61,34 @@ func (_m *ChainScopedConfig) AdminCredentialsFile() string {
 	return r0
 }
 
+// AdvisoryLockCheckInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) AdvisoryLockCheckInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// AdvisoryLockID provides a mock function with given fields:
+func (_m *ChainScopedConfig) AdvisoryLockID() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
 // AllowOrigins provides a mock function with given fields:
 func (_m *ChainScopedConfig) AllowOrigins() string {
 	ret := _m.Called()
@@ -2196,27 +2224,6 @@ func (_m *ChainScopedConfig) GlobalMinimumContractPayment() (*assets.Link, bool)
 	return r0, r1
 }
 
-// GlobalOCR2ContractConfirmations provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -2585,6 +2592,20 @@ func (_m *ChainScopedConfig) LeaseLockRefreshInterval() time.Duration {
 
 // LinkContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) LinkContractAddress() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// LogFileDir provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogFileDir() string {
 	ret := _m.Called()
 
 	var r0 string

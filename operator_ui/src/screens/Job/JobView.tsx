@@ -15,7 +15,6 @@ import { TabOverview } from './TabOverview'
 import { TabRuns } from './TabRuns'
 import Button from 'src/components/Button'
 import { RunJobDialog } from './RunJobDialog'
-import { ConfirmationDialog } from 'src/components/Dialogs/ConfirmationDialog'
 
 const JOB_PAYLOAD__SPEC = gql`
   fragment JobPayload_Spec on JobSpec {
@@ -69,17 +68,18 @@ const JOB_PAYLOAD__SPEC = gql`
     }
     ... on OCR2Spec {
       blockchainTimeout
-      contractAddress
+      contractID
       contractConfigConfirmations
       contractConfigTrackerPollInterval
       contractConfigTrackerSubscribeInterval
-      evmChainID
       isBootstrapPeer
       juelsPerFeeCoinSource
-      keyBundleID
+      ocrKeyBundleID
       monitoringEndpoint
       p2pBootstrapPeers
-      transmitterAddress
+      relay
+      relayConfig
+      transmitterID
     }
     ... on VRFSpec {
       evmChainID
@@ -99,6 +99,7 @@ export const JOB_PAYLOAD__RUNS_FIELDS = gql`
   fragment JobPayload_RunsFields on JobRun {
     id
     allErrors
+    status
     createdAt
     finishedAt
   }
@@ -163,7 +164,6 @@ export const JobView: React.FC<Props> = ({
   refetchRecentRuns,
 }) => {
   const { path } = useRouteMatch()
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [runDialogOpen, setRunDialogOpen] = React.useState(false)
 
   return (
@@ -205,27 +205,6 @@ export const JobView: React.FC<Props> = ({
           </Route>
         </Switch>
       </Content>
-
-      <ConfirmationDialog
-        open={deleteDialogOpen}
-        title="Delete job"
-        body={
-          <>
-            Warning: This action cannot be undone
-            <ul>
-              <li>All associated job runs will be deleted</li>
-              <li>Access to this page will be lost</li>
-            </ul>
-          </>
-        }
-        confirmButtonText="Confirm"
-        onConfirm={() => {
-          onDelete()
-          setDeleteDialogOpen(false)
-        }}
-        cancelButtonText="Cancel"
-        onCancel={() => setDeleteDialogOpen(false)}
-      />
 
       <RunJobDialog
         open={runDialogOpen}

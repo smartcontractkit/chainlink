@@ -1,3 +1,11 @@
+enum JobRunStatus {
+    UNKNOWN
+    RUNNING
+    SUSPENDED
+    ERRORED
+    COMPLETED
+}
+
 type JobRun {
     id: ID!
     outputs: [String]!
@@ -7,6 +15,7 @@ type JobRun {
     createdAt: Time!
     finishedAt: Time
     taskRuns: [TaskRun!]!
+    status: JobRunStatus!
     job: Job!
 }
 
@@ -18,3 +27,13 @@ type JobRunsPayload implements PaginatedPayload {
 
 union JobRunPayload = JobRun | NotFoundError
 
+type RunJobSuccess {
+    jobRun: JobRun!
+}
+
+type RunJobCannotRunError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+union RunJobPayload = RunJobSuccess | NotFoundError | RunJobCannotRunError

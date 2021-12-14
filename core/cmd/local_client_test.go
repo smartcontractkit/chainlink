@@ -88,6 +88,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NotEmpty(t, msg, "No env var message found")
 
 	expected := fmt.Sprintf(`Environment variables
+ADVISORY_LOCK_CHECK_INTERVAL: 1s
+ADVISORY_LOCK_ID: 1027321974924625846
 ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688
 BLOCK_BACKFILL_DEPTH: 10
 BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY: 0
@@ -126,11 +128,12 @@ KEEPER_REGISTRY_SYNC_INTERVAL:
 KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 0
 LEASE_LOCK_DURATION: 30s
 LEASE_LOCK_REFRESH_INTERVAL: 1s
-LINK_CONTRACT_ADDRESS: 
 FLAGS_CONTRACT_ADDRESS: 
+LINK_CONTRACT_ADDRESS: 
+LOG_FILE_DIR: %[1]s
 LOG_LEVEL: debug
-LOG_SQL_MIGRATIONS: false
 LOG_SQL: false
+LOG_SQL_MIGRATIONS: false
 LOG_TO_DISK: true
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
@@ -155,7 +158,7 @@ P2PV2_LISTEN_ADDRESSES: []
 CHAINLINK_PORT: 6688
 REAPER_EXPIRATION: 240h0m0s
 REPLAY_FROM_BLOCK: -1
-ROOT: %s
+ROOT: %[1]s
 SECURE_COOKIES: true
 SESSION_TIMEOUT: 2m0s
 TELEMETRY_INGRESS_LOGGING: false
@@ -365,7 +368,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			defer os.RemoveAll(config.RootDir())
 
 			logger.NewLogger(config).Sync()
-			filepath := filepath.Join(config.RootDir(), "log.jsonl")
+			filepath := filepath.Join(config.LogFileDir(), "log.jsonl")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})

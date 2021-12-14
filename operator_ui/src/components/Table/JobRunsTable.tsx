@@ -10,9 +10,8 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 
-import titleize from 'utils/titleize'
+import { JobRunStatus } from 'src/types/generated/graphql'
 import { TimeAgo } from 'components/TimeAgo'
-import { getJobStatusGQL } from 'src/pages/Jobs/utils'
 
 const styles = (theme: any) =>
   createStyles({
@@ -46,12 +45,13 @@ const styles = (theme: any) =>
       marginRight: theme.spacing.unit,
       width: 'fit-content',
       display: 'inline-block',
+      textTransform: 'capitalize',
     },
     errored: {
       backgroundColor: theme.palette.error.light,
       color: theme.palette.error.main,
     },
-    pending: {
+    running: {
       backgroundColor: theme.palette.listPendingStatus.background,
       color: theme.palette.listPendingStatus.color,
     },
@@ -64,15 +64,15 @@ const styles = (theme: any) =>
     },
   })
 
-const classFromStatus = (classes: any, status: string) => {
-  if (
-    !status ||
-    status.startsWith('pending') ||
-    status.startsWith('in_progress')
-  ) {
-    return classes['pending']
+const classFromStatus = (classes: any, status: JobRunStatus) => {
+  switch (status) {
+    case 'COMPLETED':
+    case 'ERRORED':
+    case 'RUNNING':
+      return classes[status.toLowerCase()]
+    default:
+      return null
   }
-  return classes[status.toLowerCase()]
 }
 
 export interface Props extends WithStyles<typeof styles> {
@@ -81,7 +81,7 @@ export interface Props extends WithStyles<typeof styles> {
     id: string
     errors: ReadonlyArray<string>
     finishedAt: string | null
-    jobId: string
+    status: JobRunStatus
   }[]
 }
 
@@ -107,16 +107,11 @@ export const JobRunsTable = withStyles(styles)(({ classes, runs }: Props) => {
 
         {runs.length > 0 &&
           runs.map((r) => {
-            const status = getJobStatusGQL({
-              finishedAt: r.finishedAt,
-              errors: r.errors,
-            })
-
             return (
               <TableRow
                 key={r.id}
                 style={{ cursor: 'pointer' }}
-                onClick={() => history.push(`/jobs/${r.jobId}/runs/${r.id}`)}
+                onClick={() => history.push(`/runs/${r.id}`)}
               >
                 <TableCell className={classes.idCell} scope="row">
                   <div className={classes.runDetails}>
@@ -139,10 +134,10 @@ export const JobRunsTable = withStyles(styles)(({ classes, runs }: Props) => {
                     variant="body1"
                     className={classNames(
                       classes.status,
-                      classFromStatus(classes, status),
+                      classFromStatus(classes, r.status),
                     )}
                   >
-                    {titleize(status)}
+                    {r.status.toLowerCase()}
                   </Typography>
                 </TableCell>
               </TableRow>

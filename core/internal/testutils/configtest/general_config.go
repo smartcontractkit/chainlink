@@ -37,6 +37,7 @@ const (
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
+	AdvisoryLockCheckInterval                 *time.Duration
 	AdminCredentialsFile                      null.String
 	AdvisoryLockID                            null.Int
 	AllowOrigins                              null.String
@@ -87,6 +88,7 @@ type GeneralConfigOverrides struct {
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LeaseLockDuration                         *time.Duration
 	LeaseLockRefreshInterval                  *time.Duration
+	LogFileDir                                null.String
 	LogLevel                                  *config.LogLevel
 	DefaultLogLevel                           *config.LogLevel
 	LogSQL                                    null.Bool
@@ -632,4 +634,18 @@ func (c *TestGeneralConfig) LeaseLockDuration() time.Duration {
 		return *c.Overrides.LeaseLockDuration
 	}
 	return c.GeneralConfig.LeaseLockDuration()
+}
+
+func (c *TestGeneralConfig) AdvisoryLockCheckInterval() time.Duration {
+	if c.Overrides.AdvisoryLockCheckInterval != nil {
+		return *c.Overrides.AdvisoryLockCheckInterval
+	}
+	return c.GeneralConfig.AdvisoryLockCheckInterval()
+}
+
+func (c *TestGeneralConfig) LogFileDir() string {
+	if c.Overrides.LogFileDir.Valid {
+		return c.Overrides.LogFileDir.String
+	}
+	return c.RootDir()
 }

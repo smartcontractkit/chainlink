@@ -11,6 +11,8 @@ import (
 func TestConfigSchema(t *testing.T) {
 	items := map[string]string{
 		"AdminCredentialsFile":                       "ADMIN_CREDENTIALS_FILE",
+		"AdvisoryLockCheckInterval":                  "ADVISORY_LOCK_CHECK_INTERVAL",
+		"AdvisoryLockID":                             "ADVISORY_LOCK_ID",
 		"AllowOrigins":                               "ALLOW_ORIGINS",
 		"AuthenticatedRateLimit":                     "AUTHENTICATED_RATE_LIMIT",
 		"AuthenticatedRateLimitPeriod":               "AUTHENTICATED_RATE_LIMIT_PERIOD",
@@ -121,9 +123,10 @@ func TestConfigSchema(t *testing.T) {
 		"LeaseLockDuration":                          "LEASE_LOCK_DURATION",
 		"LeaseLockRefreshInterval":                   "LEASE_LOCK_REFRESH_INTERVAL",
 		"LinkContractAddress":                        "LINK_CONTRACT_ADDRESS",
+		"LogFileDir":                                 "LOG_FILE_DIR",
 		"LogLevel":                                   "LOG_LEVEL",
-		"LogSQLMigrations":                           "LOG_SQL_MIGRATIONS",
 		"LogSQL":                                     "LOG_SQL",
+		"LogSQLMigrations":                           "LOG_SQL_MIGRATIONS",
 		"LogToDisk":                                  "LOG_TO_DISK",
 		"LogUnixTS":                                  "LOG_UNIX_TS",
 		"MaximumServiceDuration":                     "MAXIMUM_SERVICE_DURATION",

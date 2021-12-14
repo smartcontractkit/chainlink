@@ -16,7 +16,7 @@ describe('JobRunsTable', () => {
         <Route exact path="/">
           <JobRunsTable {...props} />
         </Route>
-        <Route path="/jobs/:id/runs/:runId">Run Page</Route>
+        <Route path="/runs/:id">Run Page</Route>
       </>,
     )
   }
@@ -31,8 +31,8 @@ describe('JobRunsTable', () => {
       id: '1',
       createdAt: twoMinutesAgo,
       errors: [],
+      status: 'COMPLETED',
       finishedAt: minuteAgo,
-      jobId: '100',
       ...overrides,
     }
   }
@@ -50,6 +50,7 @@ describe('JobRunsTable', () => {
   it('renders an errored run', () => {
     const run = buildRun({
       errors: ['some error'],
+      status: 'ERRORED',
     })
 
     renderComponent({ runs: [run] })
@@ -59,16 +60,29 @@ describe('JobRunsTable', () => {
     expect(queryByText(/errored/i)).toBeInTheDocument()
   })
 
-  it('renders an errored run', () => {
+  it('renders an suspended run', () => {
     const run = buildRun({
-      finishedAt: null,
+      status: 'SUSPENDED',
     })
 
     renderComponent({ runs: [run] })
 
     expect(queryByText(run.id)).toBeInTheDocument()
     expect(queryByText('2 minutes ago')).toBeInTheDocument()
-    expect(queryByText(/in progress/i)).toBeInTheDocument()
+    expect(queryByText(/suspended/i)).toBeInTheDocument()
+  })
+
+  it('renders an running run', () => {
+    const run = buildRun({
+      finishedAt: null,
+      status: 'RUNNING',
+    })
+
+    renderComponent({ runs: [run] })
+
+    expect(queryByText(run.id)).toBeInTheDocument()
+    expect(queryByText('2 minutes ago')).toBeInTheDocument()
+    expect(queryByText(/running/i)).toBeInTheDocument()
   })
 
   it('navigates to the run', () => {

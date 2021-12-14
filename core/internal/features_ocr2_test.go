@@ -124,7 +124,7 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 	require.NoError(t, err)
 	b.Commit()
 
-	kb, err := app.GetKeyStore().OCR2().Create()
+	kb, err := app.GetKeyStore().OCR2().Create("evm")
 	require.NoError(t, err)
 	return app, peerID.Raw(), transmitter, kb, config
 }
@@ -159,12 +159,12 @@ func TestIntegration_OCR2(t *testing.T) {
 
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  kb.OnchainKeyring.SigningAddress().Bytes(),
+				OnchainPublicKey:  kb.PublicKey(),
 				TransmitAccount:   ocrtypes2.Account(transmitter.String()),
-				OffchainPublicKey: kb.OffchainKeyring.OffchainPublicKey(),
+				OffchainPublicKey: kb.OffchainPublicKey(),
 				PeerID:            peerID,
 			},
-			ConfigEncryptionPublicKey: kb.OffchainKeyring.ConfigEncryptionPublicKey(),
+			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
 	}
 
@@ -183,7 +183,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		transmitters,
 	)
 	require.NoError(t, err)
-	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForIntegrationTest(
+	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
 		1,
 		1000000000/100, // threshold PPB
@@ -214,12 +214,15 @@ func TestIntegration_OCR2(t *testing.T) {
 
 	chainSet := appBootstrap.GetChainSet()
 	require.NotNil(t, chainSet)
-	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(chainSet, fmt.Sprintf(`
+	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
 type               = "offchainreporting2"
+relay = "evm"
 schemaVersion      = 1
 name               = "boot"
-contractAddress    = "%s"
+contractID = "%s"
 isBootstrapPeer    = true
+[relayConfig]
+chainID = 1337
 `, ocrContractAddress))
 	require.NoError(t, err)
 	err = appBootstrap.AddJobV2(context.Background(), &ocrJob)
@@ -269,14 +272,15 @@ isBootstrapPeer    = true
 			URL:  models.WebURL(*u),
 		})
 
-		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
+		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
+relay = "evm"
 schemaVersion      = 1
 name               = "web oracle spec"
-contractAddress    = "%s"
+contractID = "%s"
 isBootstrapPeer    = false
-keyBundleID        = "%s"
-transmitterAddress = "%s"
+ocrKeyBundleID        = "%s"
+transmitterID = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
@@ -311,6 +315,8 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)

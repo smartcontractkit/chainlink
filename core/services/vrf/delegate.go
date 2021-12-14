@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -90,8 +89,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
-	abiV2 := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -108,13 +105,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
 				q:                  d.q,
-				abi:                abiV2,
 				coordinator:        coordinatorV2,
 				txm:                chain.TxManager(),
 				pipelineRunner:     d.pr,
-				vrfks:              d.ks.VRF(),
 				gethks:             d.ks.Eth(),
-				pipelineORM:        d.porm,
 				job:                jb,
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
@@ -133,12 +127,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				logBroadcaster:  chain.LogBroadcaster(),
 				q:               d.q,
 				txm:             chain.TxManager(),
-				abi:             abi,
 				coordinator:     coordinator,
 				pipelineRunner:  d.pr,
-				vrfks:           d.ks.VRF(),
 				gethks:          d.ks.Eth(),
-				pipelineORM:     d.porm,
 				job:             jb,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.

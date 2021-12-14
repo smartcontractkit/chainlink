@@ -34,14 +34,16 @@ export const TabRuns: React.FC<Props> = ({ fetchMore, job }) => {
   }, [history, page, pageSize])
 
   const runs = React.useMemo(() => {
-    return job.runs.results.map(({ allErrors, id, createdAt, finishedAt }) => ({
-      id,
-      createdAt,
-      errors: allErrors,
-      finishedAt,
-      jobId: job.id,
-    }))
-  }, [job.runs, job.id])
+    return job.runs.results.map(
+      ({ allErrors, id, createdAt, finishedAt, status }) => ({
+        id,
+        createdAt,
+        errors: allErrors,
+        finishedAt,
+        status,
+      }),
+    )
+  }, [job.runs])
 
   return (
     <>

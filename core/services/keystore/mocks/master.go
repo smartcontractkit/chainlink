@@ -129,6 +129,22 @@ func (_m *Master) P2P() keystore.P2P {
 	return r0
 }
 
+// Solana provides a mock function with given fields:
+func (_m *Master) Solana() keystore.Solana {
+	ret := _m.Called()
+
+	var r0 keystore.Solana
+	if rf, ok := ret.Get(0).(func() keystore.Solana); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Solana)
+		}
+	}
+
+	return r0
+}
+
 // Unlock provides a mock function with given fields: password
 func (_m *Master) Unlock(password string) error {
 	ret := _m.Called(password)

@@ -30,8 +30,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -308,9 +308,9 @@ func (p *HealthCheckPresenter) ToRow() []string {
 	var status string
 
 	switch p.Status {
-	case health.StatusFailing:
+	case services.StatusFailing:
 		status = red(p.Status)
-	case health.StatusPassing:
+	case services.StatusPassing:
 		status = green(p.Status)
 	}
 

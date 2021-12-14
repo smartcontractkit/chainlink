@@ -42,6 +42,8 @@ var (
 
 type GeneralOnlyConfig interface {
 	AdminCredentialsFile() string
+	AdvisoryLockCheckInterval() time.Duration
+	AdvisoryLockID() int64
 	AllowOrigins() string
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
@@ -74,6 +76,7 @@ type GeneralOnlyConfig interface {
 	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
+	DefaultLogLevel() zapcore.Level
 	DefaultMaxHTTPAttempts() uint
 	Dev() bool
 	EVMDisabled() bool
@@ -111,12 +114,12 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
-	LeaseLockRefreshInterval() time.Duration
 	LeaseLockDuration() time.Duration
+	LeaseLockRefreshInterval() time.Duration
+	LogFileDir() string
 	LogLevel() zapcore.Level
-	DefaultLogLevel() zapcore.Level
-	LogSQLMigrations() bool
 	LogSQL() bool
+	LogSQLMigrations() bool
 	LogToDisk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
@@ -1349,4 +1352,26 @@ func (c *generalConfig) LeaseLockRefreshInterval() time.Duration {
 // (this many seconds from now in the future)
 func (c *generalConfig) LeaseLockDuration() time.Duration {
 	return c.getDuration("LeaseLockDuration")
+}
+
+// AdvisoryLockID is the application advisory lock ID. Should match all other
+// chainlink applications that might access this database
+func (c *generalConfig) AdvisoryLockID() int64 {
+	return c.getWithFallback("AdvisoryLockID", ParseInt64).(int64)
+}
+
+// AdvisoryLockCheckInterval controls how often Chainlink will check to make
+// sure it still holds the advisory lock. If it no longer holds it, it will try
+// to re-acquire it and if that fails the application will exit
+func (c *generalConfig) AdvisoryLockCheckInterval() time.Duration {
+	return c.getDuration("AdvisoryLockCheckInterval")
+}
+
+// LogFileDir if set will override RootDir as the output path for log files
+func (c *generalConfig) LogFileDir() string {
+	s := c.viper.GetString(EnvVarName("LogFileDir"))
+	if s == "" {
+		return c.RootDir()
+	}
+	return s
 }
