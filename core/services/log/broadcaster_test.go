@@ -893,11 +893,11 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	<-headsDone
 
-	require.Eventually(t, func() bool { return 4 == len(listener0.received.getUniqueLogs()) }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return 4 == len(listener1.received.getUniqueLogs()) }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return 2 == len(listener2.received.getUniqueLogs()) }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return 3 == len(listener3.received.getUniqueLogs()) }, cltest.WaitTimeout(t), 500*time.Millisecond)
-	require.Eventually(t, func() bool { return 1 == len(listener4.received.getUniqueLogs()) }, cltest.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener0.received.getUniqueLogs()) == 4 }, cltest.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener1.received.getUniqueLogs()) == 4 }, cltest.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener2.received.getUniqueLogs()) == 2 }, cltest.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener3.received.getUniqueLogs()) == 3 }, cltest.WaitTimeout(t), 500*time.Millisecond)
+	require.Eventually(t, func() bool { return len(listener4.received.getUniqueLogs()) == 1 }, cltest.WaitTimeout(t), 500*time.Millisecond)
 }
 
 func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {

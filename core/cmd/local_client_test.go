@@ -339,7 +339,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
-				assert.EqualError(t, client.RunNode(c), "error creating api initializer: open doesntexist.txt: no such file or directory")
+				err = client.RunNode(c)
+				assert.Error(t, err)
+				if err != nil {
+					assert.Contains(t, err.Error(), "error creating api initializer: open doesntexist.txt: no such file or directory")
+				}
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
