@@ -1044,3 +1044,32 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 
 	return NewDismissJobErrorPayload(&specErr, nil), nil
 }
+
+func (r *Resolver) RunJob(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*RunJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	jobID, err := stringutils.ToInt32(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	jobRunID, err := r.App.RunJobV2(ctx, jobID, nil)
+	if err != nil {
+		if errors.Is(err, webhook.ErrJobNotExists) {
+			return NewRunJobPayload(nil, r.App, err), nil
+		}
+
+		return nil, err
+	}
+
+	plnRun, err := r.App.PipelineORM().FindRun(jobRunID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewRunJobPayload(&plnRun, r.App, nil), nil
+}
