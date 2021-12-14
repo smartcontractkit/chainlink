@@ -48,7 +48,7 @@ The overall summary of changes is such:
 
 EVM chains are now represented as a first class object within the chainlink node. You can create/delete/list them using the CLI or API.
 
-Currently only a single primary node is supported, and one is required in order for a chain to connect. You may specify zero or more send-only nodes for a chain. In future, support for multiple primaries will be added.
+At least one primary node is required in order for a chain to connect. You may additionally specify zero or more send-only nodes for a chain. It is recommended to use the CLI/API or GUI to add nodes to chain.
 
 ###### Creation
 
@@ -204,23 +204,25 @@ Chainlink now supports a new environment variable `DATABASE_LOCKING_MODE`. It ca
 - `dual` (the default - uses both locking types for backwards and forwards compatibility)
 - `advisorylock` (advisory lock only)
 - `lease` (lease lock only)
-- `none` (no locking at all - useful for certain deployment environments when you can be sure that only one instance of chainlink will ever be running)
+- `none` (no locking at all - useful for advanced deployment environments when you can be sure that only one instance of chainlink will ever be running)
 
 The database lock ensures that only one instance of Chainlink can be run on the database at a time. Running multiple instances of Chainlink on a single database at the same time would likely to lead to strange errors and possibly even data integrity failures and should not be allowed.
 
-With that being said, a very common use case is to run multiple Chainlink instances in failover mode. The first instance will take some kind of lock on the database and subsequent instances will wait trying to take this lock in case the first instance disappears or dies.
+Ideally, node operators would be using a container orchestration system (e.g. Kubernetes) that ensures that only one instance of Chainlink ever runs on a particular postgres database.
+
+However, we are aware that many node operators do not have the technical capacity to do this. So a common use case is to run multiple Chainlink instances in failover mode (as recommended by our official documentation, although this will be changing in future). The first instance will take some kind of lock on the database and subsequent instances will wait trying to take this lock in case the first instance disappears or dies.
 
 Traditionally Chainlink has used an advisory lock to manage this. However, advisory locks come with several problems, notably:
-- Postgres does not really like it when you hold locks open for a very long time (hours/days). It hampers certain internal cleanup tasks and is explicitly discouraged by the postgres maintainers
-- The advisory lock can silently disappear on postgres upgrade
-- Advisory locks do not play nicely with pooling tools such as pgbouncer
-- If the application crashes, the advisory lock can be left hanging around for a while (sometimes hours) and can require manual intervention to remove it
+- Postgres does not really like it when you hold locks open for a very long time (hours/days). It hampers certain internal cleanup tasks and is explicitly discouraged by the postgres maintainers.
+- The advisory lock can silently disappear on postgres upgrade, meaning that a new instance can take over even while the old one is still running.
+- Advisory locks do not play nicely with pooling tools such as pgbouncer.
+- If the application crashes, the advisory lock can be left hanging around for a while (sometimes hours) and can require manual intervention to remove it before another instance of Chainlink will allow itself to boot.
 
 For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in future. `lease`-mode works as follows:
-- Have one row in a database which is updated periodically with the client ID
-- CL node A will run a background process on start that updates this e.g. once per second
-- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than a set period without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second
-- If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will exit the entire application immediately
+- Have one row in a database which is updated periodically with the client ID.
+- CL node A will run a background process on start that updates this e.g. once per second.
+- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than a set period without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second.
+- If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will exit the entire application immediately.
 
 The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
 
@@ -395,7 +397,7 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 #### New env vars
 
-`CHAIN_TYPE` - Configure the type of chain (if not standard). `Arbitrum`, `ExChain`, `Optimism`, or `XDai`. Replaces `LAYER_2_TYPE`.
+`CHAIN_TYPE` - Configure the type of chain (if not standard). `Arbitrum`, `ExChain`, `Optimism`, or `XDai`. Replaces `LAYER_2_TYPE`. NOTE: This is a global override, to set on a per-chain basis you must use the CLI/API or GUI to change the chain-specific config for that chain (`ChainType`).
 
 `USE_LEGACY_ETH_ENV_VARS` - Defaulting to true, this env var when set will autocreate database rows for chain and nodes. It will upsert a new chain using ETH_CHAIN_ID and upsert nodes corresponding to the given ETH_URL/ETH_HTTP_URL/ETH_SECONDARY_URLS. It is recommended, after the initial population, to set this env var to false and thereafter to use the CLI commands or API to manage chains/nodes.
 
