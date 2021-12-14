@@ -18,8 +18,9 @@ type chainIDSubForwarder struct {
 	srcCh  chan *Head
 	srcSub ethereum.Subscription
 
+	done  chan struct{}
 	err   chan error
-	unSub chan chan struct{}
+	unSub chan struct{}
 }
 
 func newChainIDSubForwarder(chainID *big.Int, ch chan<- *Head) *chainIDSubForwarder {
@@ -27,8 +28,9 @@ func newChainIDSubForwarder(chainID *big.Int, ch chan<- *Head) *chainIDSubForwar
 		chainID: chainID,
 		destCh:  ch,
 		srcCh:   make(chan *Head),
+		done:    make(chan struct{}),
 		err:     make(chan error),
-		unSub:   make(chan chan struct{}),
+		unSub:   make(chan struct{}, 1),
 	}
 }
 
@@ -46,15 +48,14 @@ func (c *chainIDSubForwarder) start(sub ethereum.Subscription, err error) error 
 // forwardLoop receives from src, adds the chainID, and then sends to dest.
 // It also handles Unsubscribing, which may interrupt either forwarding operation.
 func (c *chainIDSubForwarder) forwardLoop() {
-	defer close(c.srcCh)
+	defer close(c.done)
 	for {
 		select {
 		case err := <-c.srcSub.Err():
 			select {
 			case c.err <- err:
-			case done := <-c.unSub:
+			case <-c.unSub:
 				c.srcSub.Unsubscribe()
-				close(done)
 			}
 			return
 
@@ -62,27 +63,27 @@ func (c *chainIDSubForwarder) forwardLoop() {
 			h.EVMChainID = utils.NewBig(c.chainID)
 			select {
 			case c.destCh <- h:
-			case done := <-c.unSub:
+			case <-c.unSub:
 				c.srcSub.Unsubscribe()
-				close(done)
 				return
 			}
 
-		case done := <-c.unSub:
+		case <-c.unSub:
 			c.srcSub.Unsubscribe()
-			close(done)
 			return
 		}
 	}
 }
 
 func (c *chainIDSubForwarder) Unsubscribe() {
-	// wait for forwardLoop to unsubscribe
-	done := make(chan struct{})
-	c.unSub <- done
-	<-done
-
-	close(c.err)
+	// tell forwardLoop to unsubscribe
+	select {
+	case c.unSub <- struct{}{}:
+	default:
+		// already triggered
+	}
+	// wait for forwardLoop to complete
+	<-c.done
 }
 
 func (c *chainIDSubForwarder) Err() <-chan error {
