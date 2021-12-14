@@ -75,7 +75,7 @@ var (
 		DirectRequest:     1,
 		FluxMonitor:       1,
 		OffchainReporting: 1,
-		Keeper:            2,
+		Keeper:            3,
 		VRF:               1,
 		Webhook:           1,
 	}
