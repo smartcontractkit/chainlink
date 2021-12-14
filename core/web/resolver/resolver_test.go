@@ -15,11 +15,13 @@ import (
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	servicesMocks "github.com/smartcontractkit/chainlink/core/services/mocks"
+	pipelineMocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	sessionsMocks "github.com/smartcontractkit/chainlink/core/sessions/mocks"
@@ -33,6 +35,7 @@ type mocks struct {
 	evmORM      *evmORMMocks.ORM
 	jobORM      *jobORMMocks.ORM
 	sessionsORM *sessionsMocks.ORM
+	pipelineORM *pipelineMocks.ORM
 	feedsSvc    *feedsMocks.Service
 	cfg         *configMocks.GeneralConfig
 	scfg        *evmConfigMocks.ChainScopedConfig
@@ -47,6 +50,7 @@ type mocks struct {
 	ethClient   *ethmocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *servicesMocks.BalanceMonitor
+	bptxmORM    *bulletprooftxmanagerMocks.ORM
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -87,6 +91,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		jobORM:      &jobORMMocks.ORM{},
 		feedsSvc:    &feedsMocks.Service{},
 		sessionsORM: &sessionsMocks.ORM{},
+		pipelineORM: &pipelineMocks.ORM{},
 		cfg:         &configMocks.GeneralConfig{},
 		scfg:        &evmConfigMocks.ChainScopedConfig{},
 		ocr:         &keystoreMocks.OCR{},
@@ -100,6 +105,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ethClient:   &ethmocks.Client{},
 		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
 		balM:        &servicesMocks.BalanceMonitor{},
+		bptxmORM:    &bulletprooftxmanagerMocks.ORM{},
 	}
 
 	// Assert expectations for any mocks that we set up
@@ -110,6 +116,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.evmORM,
 			m.jobORM,
 			m.sessionsORM,
+			m.pipelineORM,
 			m.feedsSvc,
 			m.cfg,
 			m.scfg,
@@ -124,6 +131,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.ethClient,
 			m.eIMgr,
 			m.balM,
+			m.bptxmORM,
 		)
 	})
 

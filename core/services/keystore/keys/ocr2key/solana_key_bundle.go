@@ -3,6 +3,7 @@ package ocr2key
 import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 
@@ -73,9 +74,9 @@ func mustNewSolanaKeyFromRaw(raw []byte) solanaKeyBundle {
 	return kb
 }
 
-// PublicKeyAddressOnChain returns public component of the keypair used on chain
-func (kb *solanaKeyBundle) PublicKeyAddressOnChain() string {
-	return kb.solanaKeyring.SigningAddress().Hex()
+// OnChainPublicKey returns public component of the keypair used on chain
+func (kb *solanaKeyBundle) OnChainPublicKey() string {
+	return hex.EncodeToString(kb.solanaKeyring.PublicKey())
 }
 
 func (kb *solanaKeyBundle) Marshal() ([]byte, error) {

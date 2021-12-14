@@ -23,7 +23,7 @@ type OCR2KeyBundlePresenter struct {
 
 // RenderTable implements TableRenderer
 func (p *OCR2KeyBundlePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Type", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+	headers := []string{"ID", "Type", "On-chain pubkey", "Off-chain pubkey", "Config pubkey"}
 	rows := [][]string{p.ToRow()}
 
 	if _, err := rt.Write([]byte("🔑 OCR Keys\n")); err != nil {
@@ -38,7 +38,7 @@ func (p *OCR2KeyBundlePresenter) ToRow() []string {
 	return []string{
 		p.ID,
 		p.ChainType,
-		p.OnChainSigningAddress,
+		p.OnchainPublicKey,
 		p.OffChainPublicKey,
 		p.ConfigPublicKey,
 	}
@@ -48,7 +48,7 @@ type OCR2KeyBundlePresenters []OCR2KeyBundlePresenter
 
 // RenderTable implements TableRenderer
 func (ps OCR2KeyBundlePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Type", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+	headers := []string{"ID", "Type", "On-chain pubkey", "Off-chain pubkey", "Config pubkey"}
 	rows := [][]string{}
 
 	for _, p := range ps {
