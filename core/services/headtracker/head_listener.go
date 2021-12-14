@@ -30,6 +30,8 @@ var (
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
+
+// Config configures headtracker and related structs
 type Config interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	EvmFinalityDepth() uint32
@@ -38,6 +40,8 @@ type Config interface {
 	EvmHeadTrackerSamplingInterval() time.Duration
 }
 
+// HeadListener manages the websocket connection that receives heads from the
+// eth node
 type HeadListener struct {
 	config                Config
 	ethClient             eth.Client
@@ -54,6 +58,7 @@ type HeadListener struct {
 	chStop chan struct{}
 }
 
+// NewHeadListener creates a new HeadListener
 func NewHeadListener(l logger.Logger,
 	ethClient eth.Client,
 	config Config,
@@ -75,19 +80,17 @@ func NewHeadListener(l logger.Logger,
 	}
 }
 
+// ListenForNewHeads kicks off the listen loop
+// NOT THREAD SAFE
 func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header *eth.Head) error, done func()) {
 	defer done()
-	defer func() {
-		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.log.Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))
-		}
-	}()
+	defer hl.unsubscribeFromHead()
 
 	ctx, cancel := utils.ContextFromChan(hl.chStop)
 	defer cancel()
 
 	for {
-		if !hl.subscribe() {
+		if !hl.subscribe(ctx) {
 			break
 		}
 		err := hl.receiveHeaders(ctx, handleNewHead)
@@ -154,21 +157,18 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 // subscribe periodically attempts to connect to the ethereum node via websocket.
 // It returns true on success, and false if cut short by a done request and did not connect.
 // NOT THREAD SAFE
-func (hl *HeadListener) subscribe() bool {
+func (hl *HeadListener) subscribe(ctx context.Context) bool {
 	hl.subscribeRetryBackoff.Reset()
 
 	for {
-		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.log.Error("failed when unsubscribe from head", err)
-			return false
-		}
+		hl.unsubscribeFromHead()
 
 		hl.log.Debugf("Subscribing to new heads on chain %s", hl.chainID.String())
 		select {
 		case <-hl.chStop:
 			return false
 		case <-time.After(hl.subscribeRetryBackoff.Duration()):
-			err := hl.subscribeToHead()
+			err := hl.subscribeToHead(ctx)
 			if err != nil {
 				promEthConnectionErrors.WithLabelValues(hl.chainID.String()).Inc()
 				hl.log.Warnw(fmt.Sprintf("Failed to subscribe to heads on chain %s", hl.chainID.String()), "err", err)
@@ -180,14 +180,12 @@ func (hl *HeadListener) subscribe() bool {
 	}
 }
 
-func (hl *HeadListener) subscribeToHead() error {
+func (hl *HeadListener) subscribeToHead(ctx context.Context) error {
 	hl.connectedMutex.Lock()
 	defer hl.connectedMutex.Unlock()
 
 	hl.headers = make(chan *eth.Head)
 
-	ctx, cancel := utils.ContextFromChan(hl.chStop)
-	defer cancel()
 	sub, err := hl.ethClient.SubscribeNewHead(ctx, hl.headers)
 	if err != nil {
 		return errors.Wrap(err, "EthClient#SubscribeNewHead")
@@ -199,12 +197,12 @@ func (hl *HeadListener) subscribeToHead() error {
 	return nil
 }
 
-func (hl *HeadListener) unsubscribeFromHead() error {
+func (hl *HeadListener) unsubscribeFromHead() {
 	hl.connectedMutex.Lock()
 	defer hl.connectedMutex.Unlock()
 
 	if !hl.connected {
-		return nil
+		return
 	}
 
 	hl.headSubscription.Unsubscribe()
@@ -216,7 +214,6 @@ func (hl *HeadListener) unsubscribeFromHead() error {
 	if hl.headers != nil {
 		close(hl.headers)
 	}
-	return nil
 }
 
 // Connected returns whether or not this HeadTracker is connected.

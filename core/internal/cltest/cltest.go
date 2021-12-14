@@ -1274,7 +1274,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *ethm
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	sub := new(ethmocks.Subscription)
 	sub.On("Err").Return(nil)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
