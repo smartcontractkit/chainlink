@@ -1,5 +1,5 @@
 type            = "keeper"
-schemaVersion   = 2
+schemaVersion   = 3
 name            = "example keeper spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F49"
