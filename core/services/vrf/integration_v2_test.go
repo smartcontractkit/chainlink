@@ -5,14 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/sqlx"
 	"math/big"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -46,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -448,7 +448,7 @@ func assertNumRandomWords(
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -490,7 +490,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
+	mine(t, requestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
@@ -557,7 +557,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 
 	// Mine the fulfillment. Need to wait for BPTXM to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
-	mine(t, uni, db)
+	mine(t, requestID, subID, uni, db)
 
 	// Assert the state of the RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
@@ -598,7 +598,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, big.NewInt(10e9))
 	require.NoError(t, app.Start())
 
-	// Create VRF job.
+	// Create VRF jobs.
 	jbs := createJobs(t, []ethkey.KeyV2{cheapKey, expensiveKey}, app, uni)
 	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
 	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
@@ -616,7 +616,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, uni, db)
+	mine(t, cheapRequestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, cheapRequestID, true, uni)
@@ -649,7 +649,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, uni, db)
+	mine(t, expensiveRequestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni)
@@ -658,23 +658,19 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	assertNumRandomWords(t, consumerContract, numWords)
 }
 
-func mine(t *testing.T, uni coordinatorV2Universe, db *sqlx.DB) bool {
+func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
 		var txs []bulletprooftxmanager.EthTx
-		err := db.Select(&txs, `SELECT * FROM eth_txes WHERE eth_txes.state = 'confirmed' LIMIT 1`)
+		err := db.Select(&txs, `
+		SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+			AND eth_txes.meta->>'RequestID' = $1
+			AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $2 LIMIT 1
+		`, common.BytesToHash(requestID.Bytes()).String(), subID)
 		require.NoError(t, err)
 		t.Log("num txs", len(txs))
-		for _, tx := range txs {
-			if tx.Meta != nil {
-				meta := &bulletprooftxmanager.EthTxMeta{}
-				require.NoError(t, json.Unmarshal(*tx.Meta, meta))
-				if meta.SubID != 0 && tx.State == bulletprooftxmanager.EthTxConfirmed {
-					return true
-				}
-			}
-		}
-		return false
+		return len(txs) == 1
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
