@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/sqlx"
 	"math/big"
 	"strconv"
 	"strings"
@@ -412,7 +413,7 @@ func assertRandomWordsFulfilled(
 ) {
 	// Check many times in case there are delays processing the event
 	// this could happen occasionally and cause flaky tests.
-	numChecks := 5
+	numChecks := 3
 	found := false
 	for i := 0; i < numChecks; i++ {
 		filter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
@@ -429,7 +430,7 @@ func assertRandomWordsFulfilled(
 		}
 
 		// Wait a bit and try again.
-		time.Sleep(2 * time.Second)
+		time.Sleep(time.Second)
 	}
 	require.True(t, found, "RandomWordsFulfilled event not found")
 }
@@ -486,7 +487,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	uni.backend.Commit()
@@ -556,23 +557,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 
 	// Mine the fulfillment. Need to wait for BPTXM to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
-	gomega.NewWithT(t).Eventually(func() bool {
-		uni.backend.Commit()
-		var txs []bulletprooftxmanager.EthTx
-		err := db.Select(&txs, `SELECT * FROM eth_txes WHERE eth_txes.state = 'confirmed' LIMIT 1`)
-		require.NoError(t, err)
-		t.Log("num txs", len(txs))
-		for _, tx := range txs {
-			if tx.Meta != nil {
-				meta := &bulletprooftxmanager.EthTxMeta{}
-				require.NoError(t, json.Unmarshal(*tx.Meta, meta))
-				if meta.SubID != 0 && tx.State == bulletprooftxmanager.EthTxConfirmed {
-					return true
-				}
-			}
-		}
-		return false
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	mine(t, uni, db)
 
 	// Assert the state of the RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
@@ -582,7 +567,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -631,8 +616,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
-	time.Sleep(2 * time.Second)
+	mine(t, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, cheapRequestID, true, uni)
@@ -665,14 +649,33 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
-	time.Sleep(2 * time.Second)
+	mine(t, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni)
 
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
+}
+
+func mine(t *testing.T, uni coordinatorV2Universe, db *sqlx.DB) bool {
+	return gomega.NewWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		var txs []bulletprooftxmanager.EthTx
+		err := db.Select(&txs, `SELECT * FROM eth_txes WHERE eth_txes.state = 'confirmed' LIMIT 1`)
+		require.NoError(t, err)
+		t.Log("num txs", len(txs))
+		for _, tx := range txs {
+			if tx.Meta != nil {
+				meta := &bulletprooftxmanager.EthTxMeta{}
+				require.NoError(t, json.Unmarshal(*tx.Meta, meta))
+				if meta.SubID != 0 && tx.State == bulletprooftxmanager.EthTxConfirmed {
+					return true
+				}
+			}
+		}
+		return false
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
