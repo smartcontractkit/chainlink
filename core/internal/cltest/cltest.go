@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -107,9 +108,9 @@ var (
 
 	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultOCRKey    = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key   = ocr2key.MustNewInsecure(NewRandReaderFromSeed(1), "evm")
+	DefaultOCR2Key   = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
 	DefaultP2PKey    = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey = solkey.MustNewInsecure(NewRandReaderFromSeed(1))
+	DefaultSolanaKey = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
 	DefaultVRFKey    = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 
