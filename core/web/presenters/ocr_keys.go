@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -43,7 +44,7 @@ type OCR2KeysBundleResource struct {
 	JAID
 	ChainType         string `json:"chainType"`
 	OnchainPublicKey  string `json:"onchainPublicKey"`
-	OffChainPublicKey string `json:"offChainPublicKey"`
+	OffChainPublicKey string `json:"offchainPublicKey"`
 	ConfigPublicKey   string `json:"configPublicKey"`
 }
 
@@ -57,9 +58,9 @@ func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
 	return &OCR2KeysBundleResource{
 		JAID:              NewJAID(key.ID()),
 		ChainType:         string(key.ChainType()),
-		OnchainPublicKey:  key.OnChainPublicKey(),
-		OffChainPublicKey: hex.EncodeToString(key.OffchainPublicKey()),
-		ConfigPublicKey:   hex.EncodeToString(configPublic[:]),
+		OnchainPublicKey:  fmt.Sprintf("ocr2on_%s_%s", key.ChainType(), key.OnChainPublicKey()),
+		OffChainPublicKey: fmt.Sprintf("ocr2off_%s_%s", key.ChainType(), hex.EncodeToString(key.OffchainPublicKey())),
+		ConfigPublicKey:   fmt.Sprintf("ocr2cfg_%s_%s", key.ChainType(), hex.EncodeToString(configPublic[:])),
 	}
 }
 
