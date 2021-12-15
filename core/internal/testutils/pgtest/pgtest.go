@@ -10,8 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+var _ pg.LogConfig = PGCfg{}
+
+type PGCfg struct{ logSQL bool }
+
+func NewPGCfg(logSQL bool) pg.LogConfig { return PGCfg{logSQL} }
+func (p PGCfg) LogSQL() bool            { return p.logSQL }
 
 func NewSqlDB(t *testing.T) *sql.DB {
 	db, err := sql.Open("txdb", uuid.NewV4().String())
