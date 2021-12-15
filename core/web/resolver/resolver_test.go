@@ -45,6 +45,7 @@ type mocks struct {
 	ethKs       *keystoreMocks.Eth
 	p2p         *keystoreMocks.P2P
 	vrf         *keystoreMocks.VRF
+	solana      *keystoreMocks.Solana
 	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
 	ethClient   *ethmocks.Client
@@ -100,6 +101,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ethKs:       &keystoreMocks.Eth{},
 		p2p:         &keystoreMocks.P2P{},
 		vrf:         &keystoreMocks.VRF{},
+		solana:      &keystoreMocks.Solana{},
 		chain:       &evmORMMocks.Chain{},
 		chainSet:    &evmORMMocks.ChainSet{},
 		ethClient:   &ethmocks.Client{},
@@ -126,6 +128,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.ethKs,
 			m.p2p,
 			m.vrf,
+			m.solana,
 			m.chain,
 			m.chainSet,
 			m.ethClient,
