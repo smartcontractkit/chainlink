@@ -500,3 +500,13 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 
 	return NewEthTransactionsAttemptsPayload(attempts, int32(count)), nil
 }
+
+func (r *Resolver) GlobalLogLevel(ctx context.Context) (*GlobalLogLevelPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	logLevel := r.App.GetConfig().LogLevel().String()
+
+	return NewGlobalLogLevelPayload(logLevel), nil
+}
