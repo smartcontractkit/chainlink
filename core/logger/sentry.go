@@ -16,6 +16,13 @@ import (
 const SentryFlushDeadline = 5 * time.Second
 
 func init() {
+	// If SENTRY_DSN is set at runtime, sentry will be enabled and send metrics to this URL
+	sentrydsn := os.Getenv("SENTRY_DSN")
+	if sentrydsn == "" {
+		// Do not initialize sentry at all if the DSN is missing
+		return
+	}
+
 	// If SENTRY_ENVIRONMENT is set, it will override everything. Otherwise infers from CHAINLINK_DEV.
 	var sentryenv string
 	if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
@@ -25,14 +32,7 @@ func init() {
 	} else {
 		sentryenv = "prod"
 	}
-	// If SENTRY_DSN is set, it will override everything. Otherwise static.SentryDSN will be used.
-	// If neither are set, sentry is disabled.
-	var sentrydsn string
-	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
-		sentrydsn = dsn
-	} else {
-		sentrydsn = static.SentryDSN
-	}
+
 	// If SENTRY_RELEASE is set, it will override everything. Otherwise, static.Version will be used.
 	var sentryrelease string
 	if release := os.Getenv("SENTRY_RELEASE"); release != "" {
@@ -40,6 +40,10 @@ func init() {
 	} else {
 		sentryrelease = static.Version
 	}
+
+	// Set SENTRY_DEBUG=true to enable printing of SDK debug messages
+	sentrydebug := os.Getenv("SENTRY_DEBUG") == "true"
+
 	err := sentry.Init(sentry.ClientOptions{
 		// AttachStacktrace is needed to send stacktrace alongside panics
 		AttachStacktrace: true,
@@ -49,6 +53,7 @@ func init() {
 		// Enable printing of SDK debug messages.
 		// Uncomment line below to debug sentry
 		// Debug: true,
+		Debug: sentrydebug,
 	})
 	if err != nil {
 		log.Fatalf("sentry.Init: %s", err)
