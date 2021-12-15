@@ -4,7 +4,7 @@
 
 ### Added
 
-- `ArbitrumSequencerUptimeFeedInterface` and ``ArbitrumSequencerUptimeFeed` added in v0.8.
+- `ArbitrumSequencerUptimeFeedInterface` and `ArbitrumSequencerUptimeFeed` added in v0.8.
 
 ### Changed
 
