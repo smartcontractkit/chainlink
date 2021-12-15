@@ -22,10 +22,6 @@ const (
 )
 
 func init() {
-	initSentry()
-}
-
-func initSentry() {
 	// If SENTRY_DSN is set at runtime, sentry will be enabled and send metrics to this URL
 	sentrydsn := os.Getenv("SENTRY_DSN")
 	if sentrydsn == "" {
