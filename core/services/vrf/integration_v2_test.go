@@ -565,7 +565,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		for _, tx := range txs {
 			if tx.Meta != nil {
 				meta := &bulletprooftxmanager.EthTxMeta{}
-				json.Unmarshal(*tx.Meta, &meta)
+				require.NoError(t, json.Unmarshal(*tx.Meta, meta))
 				if meta.SubID != 0 && tx.State == bulletprooftxmanager.EthTxConfirmed {
 					return true
 				}
