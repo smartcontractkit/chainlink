@@ -48,20 +48,20 @@ type headListener struct {
 	config           Config
 	ethClient        eth.Client
 	logger           logger.Logger
-	stopCh           chan struct{}
-	headersCh        chan *eth.Head
+	chStop           chan struct{}
+	chHeaders        chan *eth.Head
 	headSubscription ethereum.Subscription
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
 }
 
 // NewHeadListener creates a new HeadListener
-func NewHeadListener(logger logger.Logger, ethClient eth.Client, config Config, stopCh chan struct{}) HeadListener {
+func NewHeadListener(logger logger.Logger, ethClient eth.Client, config Config, chStop chan struct{}) HeadListener {
 	return &headListener{
 		config:    config,
 		ethClient: ethClient,
 		logger:    logger.Named("listener"),
-		stopCh:    stopCh,
+		chStop:    chStop,
 	}
 }
 
@@ -69,7 +69,7 @@ func (hl *headListener) ListenForNewHeads(handleNewHead NewHeadHandler, done fun
 	defer done()
 	defer hl.unsubscribe()
 
-	ctx, cancel := utils.ContextFromChan(hl.stopCh)
+	ctx, cancel := utils.ContextFromChan(hl.chStop)
 	defer cancel()
 
 	for {
@@ -96,24 +96,22 @@ func (hl *headListener) Connected() bool {
 	return hl.connected.Load()
 }
 
-// This should be safe to run concurrently across multiple nodes connected to the same database
-// Note: returning nil from receiveHeaders will cause ListenForNewHeads to exit completely
 func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead NewHeadHandler) error {
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
 	t := time.NewTicker(noHeadsAlarmDuration)
 
 	for {
 		select {
-		case <-hl.stopCh:
+		case <-hl.chStop:
 			return nil
 
-		case blockHeader, open := <-hl.headersCh:
+		case blockHeader, open := <-hl.chHeaders:
 			// We've received a head, reset the no heads alarm
 			t.Stop()
 			t = time.NewTicker(noHeadsAlarmDuration)
 			hl.receivingHeads.Store(true)
 			if !open {
-				return errors.New("head listener: headersCh prematurely closed")
+				return errors.New("head listener: chHeaders prematurely closed")
 			}
 			if blockHeader == nil {
 				hl.logger.Error("got nil block header")
@@ -158,7 +156,7 @@ func (hl *headListener) subscribe(ctx context.Context) bool {
 		hl.logger.Debugf("Subscribing to new heads on chain %s", chainID)
 
 		select {
-		case <-hl.stopCh:
+		case <-hl.chStop:
 			return false
 
 		case <-time.After(subscribeRetryBackoff.Duration()):
@@ -175,12 +173,12 @@ func (hl *headListener) subscribe(ctx context.Context) bool {
 }
 
 func (hl *headListener) subscribeToHead(ctx context.Context) error {
-	hl.headersCh = make(chan *eth.Head)
+	hl.chHeaders = make(chan *eth.Head)
 
 	var err error
-	hl.headSubscription, err = hl.ethClient.SubscribeNewHead(ctx, hl.headersCh)
+	hl.headSubscription, err = hl.ethClient.SubscribeNewHead(ctx, hl.chHeaders)
 	if err != nil {
-		close(hl.headersCh)
+		close(hl.chHeaders)
 		return errors.Wrap(err, "EthClient#SubscribeNewHead")
 	}
 

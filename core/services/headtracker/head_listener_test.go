@@ -34,8 +34,8 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	stopCh := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, stopCh)
+	chStop := make(chan struct{})
+	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, chStop)
 
 	var headCount atomic.Int32
 	handler := func(ctx context.Context, header *eth.Head) error {
@@ -45,19 +45,19 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 
 	subscribeAwaiter := cltest.NewAwaiter()
 	unsubscribeAwaiter := cltest.NewAwaiter()
-	var headsCh chan<- *eth.Head
-	var errCh = make(chan error)
-	var subErrCh <-chan error = errCh
+	var chHeads chan<- *eth.Head
+	var chErr = make(chan error)
+	var chSubErr <-chan error = chErr
 	sub := new(ethmocks.Subscription)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *eth.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
-		headsCh = args.Get(1).(chan<- *eth.Head)
+		chHeads = args.Get(1).(chan<- *eth.Head)
 		subscribeAwaiter.ItHappened()
 	})
-	sub.On("Err").Return(subErrCh)
+	sub.On("Err").Return(chSubErr)
 	sub.On("Unsubscribe").Return().Once().Run(func(args mock.Arguments) {
 		unsubscribeAwaiter.ItHappened()
-		close(headsCh)
-		close(errCh)
+		close(chHeads)
+		close(chErr)
 	})
 
 	doneAwaiter := cltest.NewAwaiter()
@@ -69,13 +69,13 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	subscribeAwaiter.AwaitOrFail(t)
 	require.True(t, hl.Connected())
 
-	headsCh <- cltest.Head(0)
-	headsCh <- cltest.Head(1)
-	headsCh <- cltest.Head(2)
+	chHeads <- cltest.Head(0)
+	chHeads <- cltest.Head(1)
+	chHeads <- cltest.Head(2)
 
 	require.True(t, hl.ReceivingHeads())
 
-	close(stopCh)
+	close(chStop)
 	doneAwaiter.AwaitOrFail(t)
 
 	unsubscribeAwaiter.AwaitOrFail(t)
@@ -95,8 +95,8 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	cfg.Overrides.GlobalBlockEmissionIdleWarningThreshold = &idleDuration
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	evmcfg.BlockEmissionIdleWarningThreshold()
-	stopCh := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, stopCh)
+	chStop := make(chan struct{})
+	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg, chStop)
 
 	firstHeadAwaiter := cltest.NewAwaiter()
 	handler := func(ctx context.Context, header *eth.Head) error {
@@ -105,18 +105,18 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	}
 
 	subscribeAwaiter := cltest.NewAwaiter()
-	var headsCh chan<- *eth.Head
-	var errCh = make(chan error)
-	var subErrCh <-chan error = errCh
+	var chHeads chan<- *eth.Head
+	var chErr = make(chan error)
+	var chSubErr <-chan error = chErr
 	sub := new(ethmocks.Subscription)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *eth.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
-		headsCh = args.Get(1).(chan<- *eth.Head)
+		chHeads = args.Get(1).(chan<- *eth.Head)
 		subscribeAwaiter.ItHappened()
 	})
-	sub.On("Err").Return(subErrCh)
+	sub.On("Err").Return(chSubErr)
 	sub.On("Unsubscribe").Return().Once().Run(func(_ mock.Arguments) {
-		close(headsCh)
-		close(errCh)
+		close(chHeads)
+		close(chErr)
 	})
 
 	doneAwaiter := cltest.NewAwaiter()
@@ -127,7 +127,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 
 	subscribeAwaiter.AwaitOrFail(t)
 
-	headsCh <- cltest.Head(0)
+	chHeads <- cltest.Head(0)
 	firstHeadAwaiter.AwaitOrFail(t)
 
 	require.True(t, hl.ReceivingHeads())
@@ -136,7 +136,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 
 	require.False(t, hl.ReceivingHeads())
 
-	close(stopCh)
+	close(chStop)
 	doneAwaiter.AwaitOrFail(t)
 }
 
