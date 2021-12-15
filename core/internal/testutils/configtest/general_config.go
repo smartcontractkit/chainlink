@@ -56,6 +56,7 @@ type GeneralConfigOverrides struct {
 	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
+	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
 	GlobalEthTxReaperThreshold                *time.Duration
 	GlobalEthTxResendAfterThreshold           *time.Duration
@@ -641,6 +642,13 @@ func (c *TestGeneralConfig) AdvisoryLockCheckInterval() time.Duration {
 		return *c.Overrides.AdvisoryLockCheckInterval
 	}
 	return c.GeneralConfig.AdvisoryLockCheckInterval()
+}
+
+func (c *TestGeneralConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
+	if c.Overrides.GlobalBlockEmissionIdleWarningThreshold != nil {
+		return *c.Overrides.GlobalBlockEmissionIdleWarningThreshold, true
+	}
+	return c.GeneralConfig.GlobalBlockEmissionIdleWarningThreshold()
 }
 
 func (c *TestGeneralConfig) LogFileDir() string {
