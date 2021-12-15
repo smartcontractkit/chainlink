@@ -146,19 +146,21 @@ contract ArbitrumSequencerUptimeFeed is
   }
 
   /**
+   * @notice Messages sent by the stored L1 sender will arrive on L2 with this
+   *  address as the `msg.sender`
+   * @return L2-aliased form of the L1 sender address
+   */
+  function aliasedL1MessageSender() public view returns (address) {
+    return AddressAliasHelper.applyL1ToL2Alias(l1Sender());
+  }
+
+  /**
    * @dev Returns an AggregatorV2V3Interface compatible answer from status flag
    *
    * @param status The status flag to convert to an aggregator-compatible answer
    */
   function getStatusAnswer(bool status) private pure returns (int256) {
     return status ? int256(1) : int256(0);
-  }
-
-  /**
-   * @notice The L2 xDomain `msg.sender`, generated from L1 sender address
-   */
-  function crossDomainMessenger() public view returns (address) {
-    return AddressAliasHelper.applyL1ToL2Alias(l1Sender());
   }
 
   /**
@@ -204,7 +206,7 @@ contract ArbitrumSequencerUptimeFeed is
   function updateStatus(bool status, uint64 timestamp) external override {
     FeedState memory feedState = s_feedState;
     requireInitialized(feedState.latestRoundId);
-    if (msg.sender != crossDomainMessenger()) {
+    if (msg.sender != aliasedL1MessageSender()) {
       revert InvalidSender();
     }
 
