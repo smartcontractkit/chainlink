@@ -46,7 +46,7 @@ type HeadTracker struct {
 
 	backfillMB   utils.Mailbox
 	callbackMB   utils.Mailbox
-	headListener *HeadListener
+	headListener HeadListener
 	headSaver    *HeadSaver
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -365,11 +365,11 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error 
 }
 
 func (ht *HeadTracker) Healthy() error {
-	if !ht.headListener.receivesHeads.Load() {
-		return errors.New("Heads are not being received")
+	if !ht.headListener.ReceivingHeads() {
+		return errors.New("Listener is not receiving heads")
 	}
 	if !ht.headListener.Connected() {
-		return errors.New("Not connected")
+		return errors.New("Listener is not connected")
 	}
 	return nil
 }
