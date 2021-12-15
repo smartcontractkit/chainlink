@@ -510,3 +510,16 @@ func (r *Resolver) GlobalLogLevel(ctx context.Context) (*GlobalLogLevelPayloadRe
 
 	return NewGlobalLogLevelPayload(logLevel), nil
 }
+
+func (r *Resolver) SolanaKeys(ctx context.Context) (*SolanaKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().Solana().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSolanaKeysPayload(keys), nil
+}
