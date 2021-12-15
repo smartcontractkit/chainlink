@@ -398,7 +398,6 @@ func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethK
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
 // secure) key for testing
-// If using this with the keystore, it should be called before the keystore loads keys from the database
 func MustInsertRandomKey(
 	t testing.TB,
 	keystore keystore.Eth,
