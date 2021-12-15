@@ -301,7 +301,7 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 
 	select {
 	case <-n.chStop:
-	case <-time.After(n.cfg.AutoPprofGatherDuration().Duration()):
+	case <-time.After(n.cfg.AutoPprofGatherTraceDuration().Duration()):
 	}
 }
 
