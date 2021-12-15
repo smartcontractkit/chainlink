@@ -501,7 +501,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -554,8 +554,25 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		return len(runs) == 1
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
-	// Mine the fulfillment
-	uni.backend.Commit()
+	// Mine the fulfillment. Need to wait for BPTXM to mark the tx as confirmed
+	// so that we can actually see the event on the simulated chain.
+	gomega.NewWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		var txs []bulletprooftxmanager.EthTx
+		err := db.Select(&txs, `SELECT * FROM eth_txes WHERE eth_txes.state = 'confirmed' LIMIT 1`)
+		require.NoError(t, err)
+		t.Log("num txs", len(txs))
+		for _, tx := range txs {
+			if tx.Meta != nil {
+				meta := &bulletprooftxmanager.EthTxMeta{}
+				require.NoError(t, json.Unmarshal(*tx.Meta, meta))
+				if meta.SubID != 0 && tx.State == bulletprooftxmanager.EthTxConfirmed {
+					return true
+				}
+			}
+		}
+		return false
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Assert the state of the RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
