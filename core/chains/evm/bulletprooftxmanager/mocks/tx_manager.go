@@ -3,8 +3,13 @@
 package mocks
 
 import (
+	big "math/big"
+
+	assets "github.com/smartcontractkit/chainlink/core/assets"
+
+	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+
 	common "github.com/ethereum/go-ethereum/common"
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 
 	context "context"
 
@@ -116,6 +121,27 @@ func (_m *TxManager) Ready() error {
 // RegisterResumeCallback provides a mock function with given fields: fn
 func (_m *TxManager) RegisterResumeCallback(fn bulletprooftxmanager.ResumeCallback) {
 	_m.Called(fn)
+}
+
+// SendEther provides a mock function with given fields: q, chainID, from, to, value, gasLimit
+func (_m *TxManager) SendEther(q pg.Q, chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint64) (bulletprooftxmanager.EthTx, error) {
+	ret := _m.Called(q, chainID, from, to, value, gasLimit)
+
+	var r0 bulletprooftxmanager.EthTx
+	if rf, ok := ret.Get(0).(func(pg.Q, *big.Int, common.Address, common.Address, assets.Eth, uint64) bulletprooftxmanager.EthTx); ok {
+		r0 = rf(q, chainID, from, to, value, gasLimit)
+	} else {
+		r0 = ret.Get(0).(bulletprooftxmanager.EthTx)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(pg.Q, *big.Int, common.Address, common.Address, assets.Eth, uint64) error); ok {
+		r1 = rf(q, chainID, from, to, value, gasLimit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Start provides a mock function with given fields:
