@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
@@ -39,12 +40,17 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
+	if tr.FromAddress == utils.ZeroAddress {
+		jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("invalid withdrawal source address address: %v", tr.FromAddress))
+		return
+	}
+
 	if !tr.AllowHigherAmounts {
 		balance := chain.BalanceMonitor().GetEthBalance(tr.FromAddress)
 
 		// ETH balance is less than the sent amount
 		if balance == nil || balance.Cmp(&tr.Amount) == -1 {
-			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", err))
+			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}
 	}

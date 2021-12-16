@@ -325,11 +325,11 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T) *TestApplication {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	config := NewTestGeneralConfig(t)
-	return NewApplicationWithConfigAndKey(t, config)
+	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
