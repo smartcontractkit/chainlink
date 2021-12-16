@@ -97,6 +97,7 @@ func (_m *Config) DefaultHTTPTimeout(_a0 logger.Logger) models.Duration {
 	return r0
 }
 
+<<<<<<< HEAD
 // DefaultMaxHTTPAttempts provides a mock function with given fields: _a0
 func (_m *Config) DefaultMaxHTTPAttempts(_a0 logger.Logger) uint {
 	ret := _m.Called(_a0)
@@ -114,6 +115,11 @@ func (_m *Config) DefaultMaxHTTPAttempts(_a0 logger.Logger) uint {
 // JobPipelineMaxRunDuration provides a mock function with given fields: _a0
 func (_m *Config) JobPipelineMaxRunDuration(_a0 logger.Logger) time.Duration {
 	ret := _m.Called(_a0)
+=======
+// JobPipelineMaxRunDuration provides a mock function with given fields:
+func (_m *Config) JobPipelineMaxRunDuration() time.Duration {
+	ret := _m.Called()
+>>>>>>> e76391da9 (Remove unused env vars and re-organise to match documentation layout)
 
 	var r0 time.Duration
 	if rf, ok := ret.Get(0).(func(logger.Logger) time.Duration); ok {

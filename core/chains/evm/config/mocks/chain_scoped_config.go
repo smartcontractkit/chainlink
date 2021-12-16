@@ -685,20 +685,6 @@ func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
 	return r0
 }
 
-// DefaultMaxHTTPAttempts provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultMaxHTTPAttempts() uint {
-	ret := _m.Called()
-
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
 // Dev provides a mock function with given fields:
 func (_m *ChainScopedConfig) Dev() bool {
 	ret := _m.Called()
@@ -824,20 +810,6 @@ func (_m *ChainScopedConfig) EthereumURL() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// EvmDefaultBatchSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmDefaultBatchSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
@@ -2145,20 +2117,6 @@ func (_m *ChainScopedConfig) GlobalLinkContractAddress() (string, bool) {
 	return r0, r1
 }
 
-// GlobalLockRetryInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalLockRetryInterval() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
 // GlobalMinIncomingConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
 	ret := _m.Called()
@@ -2634,20 +2592,6 @@ func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 
 // LogSQL provides a mock function with given fields:
 func (_m *ChainScopedConfig) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// LogSQLMigrations provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -3600,20 +3544,6 @@ func (_m *ChainScopedConfig) ReaperExpiration() models.Duration {
 	return r0
 }
 
-// ReplayFromBlock provides a mock function with given fields:
-func (_m *ChainScopedConfig) ReplayFromBlock() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
 // RootDir provides a mock function with given fields:
 func (_m *ChainScopedConfig) RootDir() string {
 	ret := _m.Called()
@@ -3724,20 +3654,6 @@ func (_m *ChainScopedConfig) SetLogLevel(_a0 zapcore.Level) error {
 // SetLogSQL provides a mock function with given fields: _a0
 func (_m *ChainScopedConfig) SetLogSQL(_a0 bool) {
 	_m.Called(_a0)
-}
-
-// StatsPusherLogging provides a mock function with given fields:
-func (_m *ChainScopedConfig) StatsPusherLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
 }
 
 // TLSCertPath provides a mock function with given fields:
