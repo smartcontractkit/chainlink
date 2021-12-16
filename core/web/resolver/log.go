@@ -130,6 +130,20 @@ func (r *SQLLoggingResolver) Enabled() bool {
 	return r.enabled
 }
 
+// -- GetSQLLogging Query --
+
+type GetSQLLoggingPayloadResolver struct {
+	enabled bool
+}
+
+func NewGetSQLLoggingPayload(enabled bool) *GetSQLLoggingPayloadResolver {
+	return &GetSQLLoggingPayloadResolver{enabled: enabled}
+}
+
+func (r *GetSQLLoggingPayloadResolver) ToSQLLogging() (*SQLLoggingResolver, bool) {
+	return NewSQLLogging(r.enabled), true
+}
+
 // -- SetSQLLogging Mutation --
 
 type SetSQLLoggingPayloadResolver struct {

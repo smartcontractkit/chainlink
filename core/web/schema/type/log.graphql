@@ -47,6 +47,8 @@ type SetSQLLoggingSuccess {
 
 union SetSQLLoggingPayload = SetSQLLoggingSuccess
 
+union GetSQLLoggingPayload = SQLLogging
+
 type SetGlobalLogLevelSuccess {
     globalLogLevel: GlobalLogLevel!
 }
