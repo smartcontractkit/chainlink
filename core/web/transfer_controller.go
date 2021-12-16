@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -42,7 +41,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 
 	db := tc.App.GetSqlxDB()
 	q := pg.NewQ(db, tc.App.GetLogger(), tc.App.GetConfig())
-	etx, err := bulletprooftxmanager.SendEther(q, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
+	etx, err := chain.TxManager().SendEther(q, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
 		return

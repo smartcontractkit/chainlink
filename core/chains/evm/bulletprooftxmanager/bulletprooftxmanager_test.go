@@ -36,8 +36,18 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1)
 
-	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
-	_, err := bulletprooftxmanager.SendEther(q, big.NewInt(0), from, to, *value, 21000)
+	config := new(bptxmmocks.Config)
+	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
+	config.On("EthTxReaperThreshold").Return(time.Duration(0))
+	config.On("GasEstimatorMode").Return("FixedPrice")
+	config.On("LogSQL").Return(false)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+
+	lggr := logger.TestLogger(t)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
+
+	q := pg.NewQ(db, lggr, cltest.NewTestGeneralConfig(t))
+	_, err := bptxm.SendEther(q, big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
 }
