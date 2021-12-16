@@ -909,6 +909,12 @@ func NewApp(client *Client) *cli.App {
 					Name:   "create",
 					Usage:  "Send <amount> ETH (actual ETH, not wei) from node ETH account <fromAddress> to destination <toAddress>.",
 					Action: client.SendEther,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "allows to send a higher amount than the account's balance",
+						},
+					},
 				},
 				{
 					Name:   "list",

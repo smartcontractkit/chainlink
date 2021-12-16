@@ -117,6 +117,7 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
 		Amount:             amount,
+		AllowHigherAmounts: c.IsSet("force"),
 	}
 
 	requestData, err := json.Marshal(request)

@@ -338,6 +338,7 @@ type SendEtherRequest struct {
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
 	EVMChainID         *utils.Big     `json:"evmChainID"`
+	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
 }
 
 // AddressCollection is an array of common.Address

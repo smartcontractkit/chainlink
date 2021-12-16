@@ -39,6 +39,16 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
+	if !tr.AllowHigherAmounts {
+		balance := chain.BalanceMonitor().GetEthBalance(tr.FromAddress)
+
+		// ETH balance is less than the sent amount
+		if balance == nil || balance.Cmp(&tr.Amount) == -1 {
+			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", err))
+			return
+		}
+	}
+
 	db := tc.App.GetSqlxDB()
 	q := pg.NewQ(db, tc.App.GetLogger(), tc.App.GetConfig())
 	etx, err := chain.TxManager().SendEther(q, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
