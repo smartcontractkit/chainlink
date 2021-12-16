@@ -143,6 +143,40 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
+func TestResolver_SQLLogging(t *testing.T) {
+	t.Parallel()
+
+	query := `
+		query GetSQLLogging {
+			sqlLogging {
+				... on SQLLogging {
+					enabled
+				}
+			}
+		}`
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "sqlLogging"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.cfg.On("LogSQL").Return(false)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+			},
+			query: query,
+			result: `
+				{
+					"sqlLogging": {
+						"enabled": false
+					}
+				}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
 func TestResolver_GlobalLogLevel(t *testing.T) {
 	t.Parallel()
 
