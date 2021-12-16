@@ -44,8 +44,7 @@ func (orm *orm) IdempotentInsertHead(ctx context.Context, head *eth.Head) error 
 	query := `
 	INSERT INTO heads (hash, number, parent_hash, created_at, timestamp, l1_block_number, evm_chain_id, base_fee_per_gas) VALUES (
 	:hash, :number, :parent_hash, :created_at, :timestamp, :l1_block_number, :evm_chain_id, :base_fee_per_gas)
-	ON CONFLICT (evm_chain_id, hash) DO NOTHING
-	`
+	ON CONFLICT (evm_chain_id, hash) DO NOTHING`
 	err := q.ExecQNamed(query, head)
 	return errors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
