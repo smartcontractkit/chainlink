@@ -523,3 +523,13 @@ func (r *Resolver) SolanaKeys(ctx context.Context) (*SolanaKeysPayloadResolver, 
 
 	return NewSolanaKeysPayload(keys), nil
 }
+
+func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	enabled := r.App.GetConfig().LogSQL()
+
+	return NewGetSQLLoggingPayload(enabled), nil
+}
