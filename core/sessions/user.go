@@ -61,12 +61,12 @@ func NewUser(email, plainPwd string) (User, error) {
 // SessionRequest encapsulates the fields needed to generate a new SessionID,
 // including the hashed password.
 type SessionRequest struct {
-	Email          string `json:"email"`
-	Password       string `json:"password"`
-	WebAuthnData   string `json:"webauthndata"`
-	WebAuthnConfig WebAuthnConfiguration
-	SessionStore   *WebAuthnSessionStore
-	RequestContext *gin.Context
+	Email          string                `json:"email"`
+	Password       string                `json:"password"`
+	WebAuthnData   string                `json:"webauthndata"`
+	WebAuthnConfig WebAuthnConfiguration `json:"-"`
+	SessionStore   *WebAuthnSessionStore `json:"-"`
+	RequestContext *gin.Context          `json:"-"`
 }
 
 // Session holds the unique id for the authenticated session.
