@@ -72,7 +72,7 @@ func (orm *orm) LatestHead(ctx context.Context) (head *eth.Head, err error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-	err = errors.Wrap(err, "LatestHeadFromDB failed")
+	err = errors.Wrap(err, "LatestHead failed")
 	return
 }
 
