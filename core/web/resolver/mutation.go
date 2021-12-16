@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -946,6 +947,11 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = offchainreporting.ValidatedOracleSpecToml(r.App.GetChainSet(), args.Input.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
+		}
+	case job.OffchainReporting2:
+		jb, err = offchainreporting2.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
+		if !config.Dev() && !config.FeatureOffchainReporting2() {
+			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
