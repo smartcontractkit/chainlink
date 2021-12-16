@@ -66,7 +66,7 @@ func TestHeadTracker_New(t *testing.T) {
 	evmcfg := newCfg(t)
 	ht := createHeadTracker(t, ethClient, evmcfg, orm)
 	ht.Start(t)
-	latest := ht.headTracker.LatestChain()
+	latest := ht.headTracker.Saver().LatestChain()
 	require.NotNil(t, latest)
 	assert.Equal(t, last.Number, latest.Number)
 }
@@ -88,8 +88,8 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	ht := createHeadTracker(t, ethClient, config, orm)
 
 	h := cltest.Head(200)
-	require.NoError(t, ht.headTracker.Save(context.TODO(), h))
-	assert.Equal(t, big.NewInt(200), ht.headTracker.LatestChain().ToInt())
+	require.NoError(t, ht.headTracker.Saver().Save(context.TODO(), h))
+	assert.Equal(t, big.NewInt(200), ht.headTracker.Saver().LatestChain().ToInt())
 
 	firstHead := firstHead(t, db)
 	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
@@ -147,11 +147,11 @@ func TestHeadTracker_Get(t *testing.T) {
 			ht.Start(t)
 
 			if test.toSave != nil {
-				err := ht.headTracker.Save(context.TODO(), test.toSave)
+				err := ht.headTracker.Saver().Save(context.TODO(), test.toSave)
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, test.want, ht.headTracker.LatestChain().ToInt())
+			assert.Equal(t, test.want, ht.headTracker.Saver().LatestChain().ToInt())
 		})
 	}
 }
@@ -453,7 +453,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	gomega.NewWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
 	ht.Stop(t)
-	assert.Equal(t, int64(5), ht.headTracker.LatestChain().Number)
+	assert.Equal(t, int64(5), ht.headTracker.Saver().LatestChain().Number)
 
 	for _, h := range headSeq.Heads {
 		c := ht.headTracker.Saver().Chain(h.Hash)
@@ -607,7 +607,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	gomega.NewWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
 	ht.Stop(t)
-	assert.Equal(t, int64(5), ht.headTracker.LatestChain().Number)
+	assert.Equal(t, int64(5), ht.headTracker.Saver().LatestChain().Number)
 
 	for _, h := range headSeq.Heads {
 		c := ht.headTracker.Saver().Chain(h.Hash)

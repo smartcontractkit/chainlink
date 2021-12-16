@@ -148,7 +148,8 @@ func (hs *headSaver) addHeads(newHeads []*eth.Head, historyDepth uint) {
 		heads = heads[:historyDepth]
 	}
 	// assign parents
-	for _, head := range heads {
+	for i := 0; i < len(heads)-1; i++ {
+		head := heads[i]
 		parent, exists := headsMap[head.ParentHash]
 		if exists {
 			head.Parent = parent

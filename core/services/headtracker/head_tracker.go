@@ -161,14 +161,6 @@ func (ht *HeadTracker) Stop() error {
 	})
 }
 
-func (ht *HeadTracker) Save(ctx context.Context, h *eth.Head) error {
-	return ht.headSaver.Save(ctx, h)
-}
-
-func (ht *HeadTracker) LatestChain() *eth.Head {
-	return ht.headSaver.LatestChain()
-}
-
 func (ht *HeadTracker) HighestSeenHeadFromDB(ctx context.Context) (*eth.Head, error) {
 	return ht.headSaver.LatestHeadFromDB(ctx)
 }
@@ -322,7 +314,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head
 }
 
 func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
-	prevHead := ht.LatestChain()
+	prevHead := ht.headSaver.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
@@ -330,7 +322,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error 
 		"parentHeadHash", head.ParentHash,
 	)
 
-	err := ht.Save(ctx, head)
+	err := ht.headSaver.Save(ctx, head)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {

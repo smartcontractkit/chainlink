@@ -100,10 +100,18 @@ func TestHeadSaver_HeadsProcessing(t *testing.T) {
 	}
 
 	ch := saver.LatestChain()
+	require.Equal(t, 6, len(headtracker.Heads(saver)))
 	require.NotNil(t, ch)
 	require.Equal(t, 5, int(ch.ChainLength()))
 
 	ch = saver.Chain(uncleHash)
 	require.NotNil(t, ch)
 	require.Equal(t, 3, int(ch.ChainLength()))
+
+	// Adding beyond the limit truncates
+	headtracker.AddHeads(saver, heads, 2)
+	require.Equal(t, 2, len(headtracker.Heads(saver)))
+	ch = saver.LatestChain()
+	require.NotNil(t, ch)
+	require.Equal(t, 2, int(ch.ChainLength()))
 }
