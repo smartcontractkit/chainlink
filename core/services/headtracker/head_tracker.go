@@ -47,7 +47,7 @@ type HeadTracker struct {
 	backfillMB   utils.Mailbox
 	callbackMB   utils.Mailbox
 	headListener HeadListener
-	headSaver    *HeadSaver
+	headSaver    HeadSaver
 	ctx          context.Context
 	cancel       context.CancelFunc
 	chStop       chan struct{}
@@ -62,7 +62,7 @@ func NewHeadTracker(
 	l logger.Logger,
 	ethClient eth.Client,
 	config Config,
-	orm *ORM,
+	orm ORM,
 	headBroadcaster httypes.HeadBroadcaster,
 ) *HeadTracker {
 	chStop := make(chan struct{})
@@ -93,7 +93,7 @@ func (ht *HeadTracker) SetLogLevel(lvl zapcore.Level) {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
+		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
 		latestChain, err := ht.headSaver.LoadFromDB(context.Background())
 		if err != nil {
 			return err
@@ -170,7 +170,7 @@ func (ht *HeadTracker) LatestChain() *eth.Head {
 }
 
 func (ht *HeadTracker) HighestSeenHeadFromDB(ctx context.Context) (*eth.Head, error) {
-	return ht.headSaver.orm.LatestHead(ctx)
+	return ht.headSaver.LatestHeadFromDB(ctx)
 }
 
 // Connected returns whether or not this HeadTracker is connected.
@@ -372,6 +372,12 @@ func (ht *HeadTracker) Healthy() error {
 		return errors.New("Listener is not connected")
 	}
 	return nil
+}
+
+// Saver returns HeadSaver instance, exposed for testing.
+// Consider removing this while refactoring HeadTracker.
+func (ht *HeadTracker) Saver() HeadSaver {
+	return ht.headSaver
 }
 
 var _ httypes.Tracker = &NullTracker{}

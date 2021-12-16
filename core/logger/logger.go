@@ -92,9 +92,11 @@ type Logger interface {
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker = "head_tracker"
-	FluxMonitor = "fluxmonitor"
-	Keeper      = "keeper"
+	HeadTracker  = "head_tracker"
+	HeadListener = "head_listener"
+	HeadSaver    = "head_saver"
+	FluxMonitor  = "fluxmonitor"
+	Keeper       = "keeper"
 )
 
 func GetLogServices() []string {
