@@ -151,8 +151,8 @@ func (ht *HeadTracker) getInitialHead(ctx context.Context) (*eth.Head, error) {
 	return head, nil
 }
 
-// Stop unsubscribes all connections and fires Disconnect.
-func (ht *HeadTracker) Stop() error {
+// Close unsubscribes all connections and fires Disconnect.
+func (ht *HeadTracker) Close() error {
 	return ht.StopOnce("HeadTracker", func() error {
 		ht.cancel()
 		close(ht.chStop)
@@ -212,7 +212,7 @@ func (ht *HeadTracker) headCallbackLoop() {
 func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	head := eth.AsHead(item)
 
-	ht.headBroadcaster.OnNewLongestChain(ht.ctx, head)
+	ht.headBroadcaster.BroadcastNewLongestChain(head)
 }
 
 func (ht *HeadTracker) backfiller() {
@@ -380,7 +380,7 @@ func (n *NullTracker) HighestSeenHeadFromDB(context.Context) (*eth.Head, error) 
 	return nil, nil
 }
 func (*NullTracker) Start() error   { return nil }
-func (*NullTracker) Stop() error    { return nil }
+func (*NullTracker) Close() error   { return nil }
 func (*NullTracker) Ready() error   { return nil }
 func (*NullTracker) Healthy() error { return nil }
 

@@ -964,5 +964,5 @@ func (u *headTrackerUniverse) Stop(t *testing.T) {
 	}
 	u.stopped = true
 	require.NoError(t, u.headBroadcaster.Close())
-	require.NoError(t, u.headTracker.Stop())
+	require.NoError(t, u.headTracker.Close())
 }
