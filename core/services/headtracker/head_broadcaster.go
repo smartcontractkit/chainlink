@@ -20,12 +20,12 @@ type callbackID [256]byte
 
 type callbackSet map[callbackID]httypes.HeadTrackable
 
-func (set callbackSet) clone() callbackSet {
-	cp := make(callbackSet)
-	for id, callback := range set {
-		cp[id] = callback
+func (set callbackSet) values() []httypes.HeadTrackable {
+	var values []httypes.HeadTrackable
+	for _, callback := range set {
+		values = append(values, callback)
 	}
-	return cp
+	return values
 }
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
@@ -126,7 +126,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 	head := eth.AsHead(item)
 
 	hb.mutex.Lock()
-	callbacks := hb.callbacks.clone()
+	callbacks := hb.callbacks.values()
 	hb.latest = head
 	hb.mutex.Unlock()
 
@@ -153,14 +153,3 @@ func (hb *headBroadcaster) executeCallbacks() {
 
 	wg.Wait()
 }
-
-type NullBroadcaster struct{}
-
-func (*NullBroadcaster) Start() error                       { return nil }
-func (*NullBroadcaster) Close() error                       { return nil }
-func (*NullBroadcaster) BroadcastNewLongestChain(*eth.Head) {}
-func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
-	return nil, func() {}
-}
-func (n *NullBroadcaster) Healthy() error { return nil }
-func (n *NullBroadcaster) Ready() error   { return nil }
