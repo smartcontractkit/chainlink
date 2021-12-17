@@ -86,6 +86,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	chainSet := app.GetChainSet()
 	dflt, err := chainSet.Default()
 	if err != nil {
+		panic(err)
 		return cli.errorOut(err)
 	}
 	err = keyStore.Migrate(vrfpwd, dflt.ID())

@@ -32,9 +32,6 @@ type Pool struct {
 }
 
 func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
-	if len(nodes) == 0 {
-		panic("must provide at least one node")
-	}
 	if chainID == nil {
 		panic("chainID is required")
 	}

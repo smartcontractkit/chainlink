@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true ?")
+var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true?")
 
 var _ ChainSet = &chainSet{}
 
@@ -53,17 +53,20 @@ type chainSet struct {
 	opts      ChainSetOpts
 }
 
-func (cll *chainSet) Start() (err error) {
+func (cll *chainSet) Start() error {
 	chains := cll.Chains()
 	evmChainIDs := make([]*big.Int, len(chains))
 	for i, c := range chains {
-		err = multierr.Combine(err, c.Start())
+		if err := c.Start(); err != nil {
+			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
+			continue
+		}
 		evmChainIDs[i] = c.ID()
 	}
-	if err == nil {
+	if len(evmChainIDs) > 0 {
 		cll.logger.Infow(fmt.Sprintf("EVM: Started %d chains, default chain ID is %s", len(chains), cll.defaultID.String()), "evmChainIDs", evmChainIDs)
 	}
-	return
+	return nil
 }
 func (cll *chainSet) Close() (err error) {
 	cll.logger.Debug("EVM: stopping")
@@ -104,7 +107,7 @@ func (cll *chainSet) Default() (Chain, error) {
 	len := len(cll.chains)
 	cll.chainsMu.RUnlock()
 	if len == 0 {
-		return nil, ErrNoChains
+		return nil, errors.WithStack(ErrNoChains)
 	}
 	if cll.defaultID == nil {
 		return nil, errors.New("no default chain ID specified")
@@ -124,11 +127,8 @@ func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
 
 	cid := dbchain.ID.String()
 	chain, err := newChain(*dbchain, cll.opts)
-	if errors.Cause(err) == ErrNoPrimaryNode || len(dbchain.Nodes) == 0 {
-		cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
-		return nil
-	} else if err != nil {
-		return err
+	if err != nil {
+		return errors.Wrap(err, "failed to initializeChain")
 	}
 	if err = chain.Start(); err != nil {
 		return err
@@ -305,11 +305,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 		lggr.Infow(fmt.Sprintf("EVM: Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := newChain(dbchains[i], opts)
 		if err2 != nil {
-			if errors.Cause(err2) == ErrNoPrimaryNode {
-				lggr.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
-			} else {
-				err = multierr.Combine(err, err2)
-			}
+			err = multierr.Combine(err, err2)
 			continue
 		}
 		if _, exists := cll.chains[cid]; exists {

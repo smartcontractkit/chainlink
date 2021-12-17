@@ -29,6 +29,12 @@ func TestPool_Dial(t *testing.T) {
 		sendNodes []chainIDResp
 	}{
 		{
+			name:      "no nodes",
+			presetID:  &cltest.FixtureChainID,
+			nodes:     []chainIDResps{},
+			sendNodes: []chainIDResp{},
+		},
+		{
 			name:     "normal",
 			presetID: &cltest.FixtureChainID,
 			nodes: []chainIDResps{
