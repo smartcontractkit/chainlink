@@ -53,7 +53,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	require.NoError(t, hr.Start())
 	defer hr.Close()
 	require.NoError(t, ht.Start())
-	defer ht.Stop()
+	defer ht.Close()
 
 	latest1, unsubscribe1 := hr.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet
@@ -74,5 +74,5 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	headers <- &eth.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
-	require.NoError(t, ht.Stop())
+	require.NoError(t, ht.Close())
 }
