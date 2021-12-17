@@ -612,7 +612,7 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 				"jobRun": map[string]interface{}{
 					"meta":           meta,
-					"logBlockHash":   testLog.BlockHash,
+					"logBlockHash":   testLog.BlockHash[:],
 					"logBlockNumber": testLog.BlockNumber,
 					"logTxHash":      testLog.TxHash,
 					"logTopics":      testLog.Topics,
