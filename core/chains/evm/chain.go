@@ -233,7 +233,7 @@ func (c *chain) Close() error {
 		c.logger.Debug("Chain: stopping logBroadcaster")
 		merr = multierr.Combine(merr, c.logBroadcaster.Close())
 		c.logger.Debug("Chain: stopping headTracker")
-		merr = multierr.Combine(merr, c.headTracker.Stop())
+		merr = multierr.Combine(merr, c.headTracker.Close())
 		c.logger.Debug("Chain: stopping headBroadcaster")
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping txm")
