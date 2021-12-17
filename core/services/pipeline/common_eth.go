@@ -214,13 +214,18 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 		return destVal.Interface(), nil
 
 	case reflect.Array:
-		if destType.Len() != length {
+		if destType.Kind() == reflect.Array && destType.Len() != length {
 			return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
 		} else if srcVal.Type().Elem().Kind() != reflect.Uint8 {
 			return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to %v", srcVal.Type(), destType)
 		}
-		destVal := reflect.New(destType).Elem()
-		reflect.Copy(destVal.Slice(0, length), srcVal.Slice(0, srcVal.Len()))
+		var destVal reflect.Value
+		if destType.Kind() == reflect.Array {
+			destVal = reflect.New(destType).Elem()
+		} else {
+			destVal = reflect.MakeSlice(destType, length, length)
+		}
+		reflect.Copy(destVal, srcVal)
 		return destVal.Interface(), nil
 
 	case reflect.String:
