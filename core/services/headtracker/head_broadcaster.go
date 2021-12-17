@@ -29,9 +29,9 @@ func (set callbackSet) clone() callbackSet {
 }
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster(logger logger.Logger) httypes.HeadBroadcaster {
+func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 	return &headBroadcaster{
-		logger:        logger.Named("HeadBroadcaster"),
+		logger:        lggr.Named(logger.HeadBroadcaster),
 		callbacks:     make(callbackSet),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.Mutex{},

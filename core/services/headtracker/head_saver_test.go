@@ -2,20 +2,14 @@ package headtracker_test
 
 import (
 	"context"
-	"math/big"
-	"testing"
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func configureSaver(t *testing.T) (headtracker.HeadSaver, headtracker.ORM) {
@@ -71,47 +65,4 @@ func TestHeadSaver_LoadFromDB(t *testing.T) {
 	latestChain := saver.LatestChain()
 	require.NotNil(t, latestChain)
 	require.Equal(t, int64(4), latestChain.Number)
-}
-
-func TestHeadSaver_HeadsProcessing(t *testing.T) {
-	uncleHash := utils.NewHash()
-	saver, _ := configureSaver(t)
-
-	var heads []*eth.Head
-	var parentHash common.Hash
-	for i := 0; i < 5; i++ {
-		hash := utils.NewHash()
-		h := eth.NewHead(big.NewInt(int64(i)), hash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
-		heads = append(heads, &h)
-		if i == 2 {
-			// uncled block
-			h := eth.NewHead(big.NewInt(int64(i)), uncleHash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
-			heads = append(heads, &h)
-		}
-		parentHash = hash
-	}
-
-	// adding duplicates
-	heads = append(heads, heads[2:5]...)
-
-	for _, head := range heads {
-		err := saver.Save(context.TODO(), head)
-		require.NoError(t, err)
-	}
-
-	ch := saver.LatestChain()
-	require.Equal(t, 6, len(headtracker.Heads(saver)))
-	require.NotNil(t, ch)
-	require.Equal(t, 5, int(ch.ChainLength()))
-
-	ch = saver.Chain(uncleHash)
-	require.NotNil(t, ch)
-	require.Equal(t, 3, int(ch.ChainLength()))
-
-	// Adding beyond the limit truncates
-	headtracker.AddHeads(saver, heads, 2)
-	require.Equal(t, 2, len(headtracker.Heads(saver)))
-	ch = saver.LatestChain()
-	require.NotNil(t, ch)
-	require.Equal(t, 2, int(ch.ChainLength()))
 }
