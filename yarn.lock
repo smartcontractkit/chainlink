@@ -1844,6 +1844,14 @@
     "@ethersproject/abi" "^5.0.1"
     ethers "^5.0.1"
 
+"@ethereum-waffle/mock-contract@^3.3.0":
+  version "3.3.0"
+  resolved "https://registry.npmjs.org/@ethereum-waffle/mock-contract/-/mock-contract-3.3.0.tgz#7b331f1c95c5d46ee9478f7a6be2869f707d307a"
+  integrity sha512-apwq0d+2nQxaNwsyLkE+BNMBhZ1MKGV28BtI9WjD3QD2Ztdt1q9II4sKA4VrLTUneYSmkYbJZJxw89f+OpJGyw==
+  dependencies:
+    "@ethersproject/abi" "^5.0.1"
+    ethers "^5.0.1"
+
 "@ethereum-waffle/provider@^3.3.0", "@ethereum-waffle/provider@^3.3.1":
   version "3.3.2"
   resolved "https://registry.npmjs.org/@ethereum-waffle/provider/-/provider-3.3.2.tgz#33677baf6af5cbb087c3072d84f38c152968ebb1"
