@@ -2,11 +2,12 @@ package headtracker
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -16,9 +17,7 @@ import (
 
 const callbackTimeout = 2 * time.Second
 
-type callbackID [256]byte
-
-type callbackSet map[callbackID]httypes.HeadTrackable
+type callbackSet map[uuid.UUID]httypes.HeadTrackable
 
 func (set callbackSet) values() []httypes.HeadTrackable {
 	var values []httypes.HeadTrackable
@@ -85,12 +84,7 @@ func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLon
 
 	currentLongestChain = hb.latest
 
-	var id callbackID
-	if _, err := rand.Read(id[:]); err != nil {
-		hb.logger.Errorf("Unable to create ID for head relayable callback: %v", err)
-		return
-	}
-
+	id := uuid.New()
 	hb.callbacks[id] = callback
 	unsubscribe = func() {
 		hb.mutex.Lock()
