@@ -123,20 +123,20 @@ func (_m *TxManager) RegisterResumeCallback(fn bulletprooftxmanager.ResumeCallba
 	_m.Called(fn)
 }
 
-// SendEther provides a mock function with given fields: q, chainID, from, to, value, gasLimit
-func (_m *TxManager) SendEther(q pg.Q, chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint64) (bulletprooftxmanager.EthTx, error) {
-	ret := _m.Called(q, chainID, from, to, value, gasLimit)
+// SendEther provides a mock function with given fields: chainID, from, to, value, gasLimit
+func (_m *TxManager) SendEther(chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint64) (bulletprooftxmanager.EthTx, error) {
+	ret := _m.Called(chainID, from, to, value, gasLimit)
 
 	var r0 bulletprooftxmanager.EthTx
-	if rf, ok := ret.Get(0).(func(pg.Q, *big.Int, common.Address, common.Address, assets.Eth, uint64) bulletprooftxmanager.EthTx); ok {
-		r0 = rf(q, chainID, from, to, value, gasLimit)
+	if rf, ok := ret.Get(0).(func(*big.Int, common.Address, common.Address, assets.Eth, uint64) bulletprooftxmanager.EthTx); ok {
+		r0 = rf(chainID, from, to, value, gasLimit)
 	} else {
 		r0 = ret.Get(0).(bulletprooftxmanager.EthTx)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(pg.Q, *big.Int, common.Address, common.Address, assets.Eth, uint64) error); ok {
-		r1 = rf(q, chainID, from, to, value, gasLimit)
+	if rf, ok := ret.Get(1).(func(*big.Int, common.Address, common.Address, assets.Eth, uint64) error); ok {
+		r1 = rf(chainID, from, to, value, gasLimit)
 	} else {
 		r1 = ret.Error(1)
 	}

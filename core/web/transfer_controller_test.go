@@ -26,6 +26,8 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(cltest.Head(2), nil)
+
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 

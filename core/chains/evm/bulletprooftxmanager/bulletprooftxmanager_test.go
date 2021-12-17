@@ -46,8 +46,7 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
 
-	q := pg.NewQ(db, lggr, cltest.NewTestGeneralConfig(t))
-	_, err := bptxm.SendEther(q, big.NewInt(0), from, to, *value, 21000)
+	_, err := bptxm.SendEther(big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
 }

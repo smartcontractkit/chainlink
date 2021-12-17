@@ -2,10 +2,11 @@ package web
 
 import (
 	"fmt"
+	"math/big"
 	"net/http"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -48,16 +49,44 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	if !tr.AllowHigherAmounts {
 		balance := chain.BalanceMonitor().GetEthBalance(tr.FromAddress)
 
+		if balance == nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
+			return
+		}
+
+		var gasPrice *big.Int
+
+		gasLimit := chain.Config().EvmGasLimitTransfer()
+		estimator := chain.TxManager().GetGasEstimator()
+
+		if chain.Config().EvmEIP1559DynamicFees() {
+			gasPrice = chain.Config().EvmMaxGasPriceWei()
+			_, gasLimit, err = estimator.GetDynamicFee(gasLimit)
+			if err != nil {
+				jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to get dynamic gas fee"))
+				return
+			}
+		} else {
+			gasPrice, gasLimit, err = estimator.GetLegacyGas([]byte(""), gasLimit)
+			if err != nil {
+				jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to estimate gas"))
+				return
+			}
+		}
+
+		intBalance := balance.ToInt()
+		fee := gasPrice.Mul(gasPrice, utils.NewBigI(int64(gasLimit)).ToInt())
+
+		intBalance = intBalance.Add(intBalance, fee)
+
 		// ETH balance is less than the sent amount
-		if balance == nil || balance.Cmp(&tr.Amount) == -1 {
+		if intBalance.Cmp(tr.Amount.ToInt()) == -1 {
 			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}
 	}
 
-	db := tc.App.GetSqlxDB()
-	q := pg.NewQ(db, tc.App.GetLogger(), tc.App.GetConfig())
-	etx, err := chain.TxManager().SendEther(q, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
+	etx, err := chain.TxManager().SendEther(chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
 		return
