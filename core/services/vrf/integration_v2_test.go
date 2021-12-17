@@ -447,6 +447,22 @@ func assertNumRandomWords(
 	}
 }
 
+func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
+	return gomega.NewWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		var txs []bulletprooftxmanager.EthTx
+		err := db.Select(&txs, `
+		SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+			AND eth_txes.meta->>'RequestID' = $1
+			AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $2 LIMIT 1
+		`, common.BytesToHash(requestID.Bytes()).String(), subID)
+		require.NoError(t, err)
+		t.Log("num txs", len(txs))
+		return len(txs) == 1
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+}
+
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -658,24 +674,8 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	assertNumRandomWords(t, consumerContract, numWords)
 }
 
-func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
-	return gomega.NewWithT(t).Eventually(func() bool {
-		uni.backend.Commit()
-		var txs []bulletprooftxmanager.EthTx
-		err := db.Select(&txs, `
-		SELECT * FROM eth_txes
-		WHERE eth_txes.state = 'confirmed'
-			AND eth_txes.meta->>'RequestID' = $1
-			AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $2 LIMIT 1
-		`, common.BytesToHash(requestID.Bytes()).String(), subID)
-		require.NoError(t, err)
-		t.Log("num txs", len(txs))
-		return len(txs) == 1
-	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-}
-
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -717,7 +717,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
+	mine(t, requestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, false, uni)
