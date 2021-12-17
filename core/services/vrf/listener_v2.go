@@ -417,7 +417,7 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 			"maxGasPrice":   maxGasPrice.String(),
 		},
 		"jobRun": map[string]interface{}{
-			"logBlockHash":   req.req.Raw.BlockHash,
+			"logBlockHash":   req.req.Raw.BlockHash[:],
 			"logBlockNumber": req.req.Raw.BlockNumber,
 			"logTxHash":      req.req.Raw.TxHash,
 			"logTopics":      req.req.Raw.Topics,

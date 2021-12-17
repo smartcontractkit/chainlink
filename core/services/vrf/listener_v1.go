@@ -359,7 +359,7 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 		},
 		"jobRun": map[string]interface{}{
-			"logBlockHash":   req.Raw.BlockHash,
+			"logBlockHash":   req.Raw.BlockHash[:],
 			"logBlockNumber": req.Raw.BlockNumber,
 			"logTxHash":      req.Raw.TxHash,
 			"logTopics":      req.Raw.Topics,
