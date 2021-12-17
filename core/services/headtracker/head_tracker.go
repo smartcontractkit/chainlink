@@ -47,7 +47,7 @@ type HeadTracker struct {
 	backfillMB   utils.Mailbox
 	callbackMB   utils.Mailbox
 	headListener HeadListener
-	headSaver    *HeadSaver
+	headSaver    HeadSaver
 	ctx          context.Context
 	cancel       context.CancelFunc
 	chStop       chan struct{}
@@ -62,7 +62,7 @@ func NewHeadTracker(
 	l logger.Logger,
 	ethClient eth.Client,
 	config Config,
-	orm *ORM,
+	orm ORM,
 	headBroadcaster httypes.HeadBroadcaster,
 ) *HeadTracker {
 	chStop := make(chan struct{})
@@ -93,7 +93,7 @@ func (ht *HeadTracker) SetLogLevel(lvl zapcore.Level) {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
+		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
 		latestChain, err := ht.headSaver.LoadFromDB(context.Background())
 		if err != nil {
 			return err
@@ -151,8 +151,8 @@ func (ht *HeadTracker) getInitialHead(ctx context.Context) (*eth.Head, error) {
 	return head, nil
 }
 
-// Stop unsubscribes all connections and fires Disconnect.
-func (ht *HeadTracker) Stop() error {
+// Close unsubscribes all connections and fires Disconnect.
+func (ht *HeadTracker) Close() error {
 	return ht.StopOnce("HeadTracker", func() error {
 		ht.cancel()
 		close(ht.chStop)
@@ -161,16 +161,8 @@ func (ht *HeadTracker) Stop() error {
 	})
 }
 
-func (ht *HeadTracker) Save(ctx context.Context, h *eth.Head) error {
-	return ht.headSaver.Save(ctx, h)
-}
-
-func (ht *HeadTracker) LatestChain() *eth.Head {
-	return ht.headSaver.LatestChain()
-}
-
 func (ht *HeadTracker) HighestSeenHeadFromDB(ctx context.Context) (*eth.Head, error) {
-	return ht.headSaver.orm.LatestHead(ctx)
+	return ht.headSaver.LatestHeadFromDB(ctx)
 }
 
 // Connected returns whether or not this HeadTracker is connected.
@@ -220,7 +212,7 @@ func (ht *HeadTracker) headCallbackLoop() {
 func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	head := eth.AsHead(item)
 
-	ht.headBroadcaster.OnNewLongestChain(ht.ctx, head)
+	ht.headBroadcaster.BroadcastNewLongestChain(head)
 }
 
 func (ht *HeadTracker) backfiller() {
@@ -322,7 +314,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head
 }
 
 func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
-	prevHead := ht.LatestChain()
+	prevHead := ht.headSaver.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
@@ -330,7 +322,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error 
 		"parentHeadHash", head.ParentHash,
 	)
 
-	err := ht.Save(ctx, head)
+	err := ht.headSaver.Save(ctx, head)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
@@ -374,6 +366,12 @@ func (ht *HeadTracker) Healthy() error {
 	return nil
 }
 
+// Saver returns HeadSaver instance, exposed for testing.
+// Consider removing this while refactoring HeadTracker.
+func (ht *HeadTracker) Saver() HeadSaver {
+	return ht.headSaver
+}
+
 var _ httypes.Tracker = &NullTracker{}
 
 type NullTracker struct{}
@@ -382,7 +380,7 @@ func (n *NullTracker) HighestSeenHeadFromDB(context.Context) (*eth.Head, error) 
 	return nil, nil
 }
 func (*NullTracker) Start() error   { return nil }
-func (*NullTracker) Stop() error    { return nil }
+func (*NullTracker) Close() error   { return nil }
 func (*NullTracker) Ready() error   { return nil }
 func (*NullTracker) Healthy() error { return nil }
 
