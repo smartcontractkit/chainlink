@@ -74,7 +74,7 @@ type (
 	Service interface {
 		// Start the service.
 		Start() error
-		// Stop the Service.
+		// Close stops the Service.
 		// Invariants: Usually after this call the Service cannot be started
 		// again, you need to build a new Service to do so.
 		Close() error
