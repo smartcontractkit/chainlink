@@ -56,11 +56,11 @@ type headListener struct {
 }
 
 // NewHeadListener creates a new HeadListener
-func NewHeadListener(logger logger.Logger, ethClient eth.Client, config Config, chStop chan struct{}) HeadListener {
+func NewHeadListener(lggr logger.Logger, ethClient eth.Client, config Config, chStop chan struct{}) HeadListener {
 	return &headListener{
 		config:    config,
 		ethClient: ethClient,
-		logger:    logger.Named("listener"),
+		logger:    lggr.Named(logger.HeadListener),
 		chStop:    chStop,
 	}
 }
