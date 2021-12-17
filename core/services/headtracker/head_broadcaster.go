@@ -2,11 +2,12 @@ package headtracker
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -16,22 +17,20 @@ import (
 
 const callbackTimeout = 2 * time.Second
 
-type callbackID [256]byte
+type callbackSet map[uuid.UUID]httypes.HeadTrackable
 
-type callbackSet map[callbackID]httypes.HeadTrackable
-
-func (set callbackSet) clone() callbackSet {
-	cp := make(callbackSet)
-	for id, callback := range set {
-		cp[id] = callback
+func (set callbackSet) values() []httypes.HeadTrackable {
+	var values []httypes.HeadTrackable
+	for _, callback := range set {
+		values = append(values, callback)
 	}
-	return cp
+	return values
 }
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster(logger logger.Logger) httypes.HeadBroadcaster {
+func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 	return &headBroadcaster{
-		logger:        logger.Named("HeadBroadcaster"),
+		logger:        lggr.Named(logger.HeadBroadcaster),
 		callbacks:     make(callbackSet),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.Mutex{},
@@ -41,8 +40,6 @@ func NewHeadBroadcaster(logger logger.Logger) httypes.HeadBroadcaster {
 	}
 }
 
-// headBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
-// congestion than the head tracker, and missed heads should be expected by consuming jobs
 type headBroadcaster struct {
 	logger    logger.Logger
 	callbacks callbackSet
@@ -53,8 +50,6 @@ type headBroadcaster struct {
 	utils.StartStopOnce
 	latest *eth.Head
 }
-
-var _ httypes.HeadTrackable = (*headBroadcaster)(nil)
 
 func (hb *headBroadcaster) Start() error {
 	return hb.StartOnce("HeadBroadcaster", func() error {
@@ -77,35 +72,32 @@ func (hb *headBroadcaster) Close() error {
 	})
 }
 
-func (hb *headBroadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (hb *headBroadcaster) BroadcastNewLongestChain(head *eth.Head) {
 	hb.mailbox.Deliver(head)
 }
 
-// Subscribe - Subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
+// Subscribe subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
 func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
-	if callback == nil {
-		panic("callback must be non-nil func")
-	}
 	hb.mutex.Lock()
 	defer hb.mutex.Unlock()
+
 	currentLongestChain = hb.latest
-	id, err := newID()
-	if err != nil {
-		hb.logger.Errorf("Unable to create ID for head relayble callback: %v", err)
-		return
-	}
+
+	id := uuid.New()
 	hb.callbacks[id] = callback
 	unsubscribe = func() {
 		hb.mutex.Lock()
 		defer hb.mutex.Unlock()
 		delete(hb.callbacks, id)
 	}
+
 	return
 }
 
 func (hb *headBroadcaster) run() {
 	defer hb.wgDone.Done()
+
 	for {
 		select {
 		case <-hb.chClose:
@@ -126,8 +118,9 @@ func (hb *headBroadcaster) executeCallbacks() {
 		return
 	}
 	head := eth.AsHead(item)
+
 	hb.mutex.Lock()
-	callbacks := hb.callbacks.clone()
+	callbacks := hb.callbacks.values()
 	hb.latest = head
 	hb.mutex.Unlock()
 
@@ -154,24 +147,3 @@ func (hb *headBroadcaster) executeCallbacks() {
 
 	wg.Wait()
 }
-
-func newID() (id callbackID, _ error) {
-	randBytes := make([]byte, 256)
-	_, err := rand.Read(randBytes)
-	if err != nil {
-		return id, err
-	}
-	copy(id[:], randBytes)
-	return id, nil
-}
-
-type NullBroadcaster struct{}
-
-func (*NullBroadcaster) Start() error                                          { return nil }
-func (*NullBroadcaster) Close() error                                          { return nil }
-func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
-func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
-	return nil, func() {}
-}
-func (n *NullBroadcaster) Healthy() error { return nil }
-func (n *NullBroadcaster) Ready() error   { return nil }
