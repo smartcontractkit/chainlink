@@ -7,17 +7,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const callbackTimeout = 2 * time.Second
+const TrackableCallbackTimeout = 2 * time.Second
 
-type callbackSet map[uuid.UUID]httypes.HeadTrackable
+type callbackSet map[int]httypes.HeadTrackable
 
 func (set callbackSet) values() []httypes.HeadTrackable {
 	var values []httypes.HeadTrackable
@@ -48,7 +46,8 @@ type headBroadcaster struct {
 	chClose   chan struct{}
 	wgDone    sync.WaitGroup
 	utils.StartStopOnce
-	latest *eth.Head
+	latest         *eth.Head
+	lastCallbackID int
 }
 
 func (hb *headBroadcaster) Start() error {
@@ -84,12 +83,13 @@ func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLon
 
 	currentLongestChain = hb.latest
 
-	id := uuid.New()
-	hb.callbacks[id] = callback
+	hb.lastCallbackID++
+	callbackID := hb.lastCallbackID
+	hb.callbacks[callbackID] = callback
 	unsubscribe = func() {
 		hb.mutex.Lock()
 		defer hb.mutex.Unlock()
-		delete(hb.callbacks, id)
+		delete(hb.callbacks, callbackID)
 	}
 
 	return
@@ -136,7 +136,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 		go func(trackable httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
-			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), TrackableCallbackTimeout)
 			defer cancel()
 			trackable.OnNewLongestChain(ctx, head)
 			elapsed := time.Since(start)
