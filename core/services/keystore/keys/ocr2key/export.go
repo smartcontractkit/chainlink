@@ -38,6 +38,9 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 	case chaintype.Solana:
 		key := mustNewSolanaKeyFromRaw(rawKey)
 		return &key, nil
+	case chaintype.Terra:
+		key := mustNewTerraKeyFromRaw(rawKey)
+		return &key, nil
 	default:
 		return nil, chaintype.NewErrInvalidChainType(export.ChainType)
 	}
