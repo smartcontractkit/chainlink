@@ -10,12 +10,9 @@ import (
 )
 
 type Tracker interface {
+	services.Service
 	HighestSeenHeadFromDB(context.Context) (*eth.Head, error)
-	Start() error
-	Stop() error
 	SetLogLevel(lvl zapcore.Level)
-	Ready() error
-	Healthy() error
 }
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
@@ -25,16 +22,15 @@ type HeadTrackable interface {
 	OnNewLongestChain(ctx context.Context, head *eth.Head)
 }
 
-type SubscribeFunc func(callback HeadTrackable) (unsubscribe func())
-
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func())
 }
 
-// HeadBroadcaster is the external interface of headBroadcaster
+// HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
+// congestion than the head tracker, and missed heads should be expected by consuming jobs
 //go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
 	services.Service
-	HeadTrackable
-	Subscribe(callback HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func())
+	BroadcastNewLongestChain(head *eth.Head)
+	HeadBroadcasterRegistry
 }
