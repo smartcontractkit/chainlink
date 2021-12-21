@@ -27,13 +27,19 @@ jobs:
           password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
-      - name: Build and push
+      - name: Build and push root docker image
         uses: docker/build-push-action@v2
         with:
           push: true
           tags: smartcontract/chainlink:gha
-      - name: Build non-root and push
+      - name: 'Docker build'
+        run: |
+          DOCKER_TAG=gha BUILDER="${AWS_ECR_URL}/builder" make docker
+      - name: Build and push non-root docker image
         uses: docker/build-push-action@v2
         with:
           push: true
           tags: smartcontract/chainlink:gha-nonroot
+      - name: 'Docker build non-root'
+        run: |
+          DOCKER_TAG=gha-nonroot CHAINLINK_USER=chainlink make docker
