@@ -1,72 +1,80 @@
 package ocr2key
 
 import (
-	"bytes"
-	"crypto/ecdsa"
+	"crypto/ed25519"
+	"encoding/binary"
 	"io"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/minio/sha256-simd"
+	"github.com/smartcontractkit/ed25519consensus"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"golang.org/x/crypto/blake2s"
 )
 
 var _ ocrtypes.OnchainKeyring = &terraKeyring{}
 
 type terraKeyring struct {
-	privateKey ecdsa.PrivateKey
+	privKey ed25519.PrivateKey
+	pubKey  ed25519.PublicKey
 }
 
 func newTerraKeyring(material io.Reader) (*terraKeyring, error) {
-	ecdsaKey, err := ecdsa.GenerateKey(curve, material)
+	pubKey, privKey, err := ed25519.GenerateKey(material)
 	if err != nil {
 		return nil, err
 	}
-	return &terraKeyring{privateKey: *ecdsaKey}, nil
+	return &terraKeyring{pubKey: pubKey, privKey: privKey}, nil
 }
 
-// XXX: PublicKey returns the evm-style address of the public key not the public key itself
 func (ok *terraKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	address := crypto.PubkeyToAddress(*(&ok.privateKey).Public().(*ecdsa.PublicKey))
-	return address[:]
+	return []byte(ok.pubKey)
 }
 
-func (ok *terraKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) []byte {
+func (ok *terraKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
-	h := sha256.New()
-	h.Write([]byte{uint8(len(report))})
+	h, err := blake2s.New256(nil)
+	if err != nil {
+		return nil, err
+	}
+	reportLen := make([]byte, 8)
+	binary.BigEndian.PutUint32(reportLen[0:], uint32(len(report)))
+	h.Write(reportLen[:])
 	h.Write(report)
 	h.Write(rawReportContext[0][:])
 	h.Write(rawReportContext[1][:])
 	h.Write(rawReportContext[2][:])
-	return h.Sum(nil)
+	return h.Sum(nil), nil
 }
 
 func (ok *terraKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
-	return crypto.Sign(ok.reportToSigData(reportCtx, report), &ok.privateKey)
-
+	sigData, err := ok.reportToSigData(reportCtx, report)
+	if err != nil {
+		return nil, err
+	}
+	signedMsg := ed25519.Sign(ok.privKey, sigData)
+	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
+	return append(ok.PublicKey(), signedMsg...), nil
 }
 
 func (ok *terraKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
-	hash := ok.reportToSigData(reportCtx, report)
-	authorPubkey, err := crypto.SigToPub(hash, signature)
+	hash, err := ok.reportToSigData(reportCtx, report)
 	if err != nil {
 		return false
 	}
-	authorAddress := crypto.PubkeyToAddress(*authorPubkey)
-	return bytes.Equal(publicKey[:], authorAddress[:])
+	return ed25519consensus.Verify(ed25519.PublicKey(publicKey), hash, signature[32:])
 }
 
 func (ok *terraKeyring) MaxSignatureLength() int {
-	return 65
+	// Reference: https://pkg.go.dev/crypto/ed25519
+	return ed25519.PublicKeySize + ed25519.SignatureSize // 32 + 64
 }
 
 func (ok *terraKeyring) marshal() ([]byte, error) {
-	return crypto.FromECDSA(&ok.privateKey), nil
+	return ok.privKey.Seed(), nil
 }
 
 func (ok *terraKeyring) unmarshal(in []byte) error {
-	privateKey, err := crypto.ToECDSA(in)
-	ok.privateKey = *privateKey
-	return err
+	privKey := ed25519.NewKeyFromSeed(in)
+	ok.privKey = privKey
+	return nil
 }

@@ -3,10 +3,10 @@ package ocr2key
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/minio/sha256-simd"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )

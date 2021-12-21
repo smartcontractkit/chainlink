@@ -145,6 +145,22 @@ func (_m *Master) Solana() keystore.Solana {
 	return r0
 }
 
+// Terra provides a mock function with given fields:
+func (_m *Master) Terra() keystore.Terra {
+	ret := _m.Called()
+
+	var r0 keystore.Terra
+	if rf, ok := ret.Get(0).(func() keystore.Terra); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Terra)
+		}
+	}
+
+	return r0
+}
+
 // Unlock provides a mock function with given fields: password
 func (_m *Master) Unlock(password string) error {
 	ret := _m.Called(password)

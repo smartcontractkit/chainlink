@@ -9,22 +9,22 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const keyTypeIdentifier = "Solana"
+const keyTypeIdentifier = "Terra"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
-	var export EncryptedSolanaKeyExport
+	var export EncryptedTerraKeyExport
 	if err := json.Unmarshal(keyJSON, &export); err != nil {
 		return Key{}, err
 	}
 	privKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
 	if err != nil {
-		return Key{}, errors.Wrap(err, "failed to decrypt Solana key")
+		return Key{}, errors.Wrap(err, "failed to decrypt Terra key")
 	}
 	key := Raw(privKey).Key()
 	return key, nil
 }
 
-type EncryptedSolanaKeyExport struct {
+type EncryptedTerraKeyExport struct {
 	KeyType   string              `json:"keyType"`
 	PublicKey string              `json:"publicKey"`
 	Crypto    keystore.CryptoJSON `json:"crypto"`
@@ -38,16 +38,16 @@ func (key Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams)
 		scryptParams.P,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Solana key")
+		return nil, errors.Wrapf(err, "could not encrypt Terra key")
 	}
-	encryptedSolanaKeyExport := EncryptedSolanaKeyExport{
+	encryptedTerraKeyExport := EncryptedTerraKeyExport{
 		KeyType:   keyTypeIdentifier,
 		PublicKey: hex.EncodeToString(key.pubKey),
 		Crypto:    cryptoJSON,
 	}
-	return json.Marshal(encryptedSolanaKeyExport)
+	return json.Marshal(encryptedTerraKeyExport)
 }
 
 func adulteratedPassword(password string) string {
-	return "solkey" + password
+	return "terrakey" + password
 }
