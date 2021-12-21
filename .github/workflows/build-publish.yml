@@ -8,8 +8,7 @@ on:
 jobs:
 
   build-publish-chainlink:
-    # buildjet-2vcpu-ubuntu-1804
-    runs-on: ubuntu-latest
+    runs-on: buildjet-2vcpu-ubuntu-2004
     environment: build-publish
     steps:
       - uses: actions/checkout@v2
@@ -18,6 +17,8 @@ jobs:
           with:
             role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
             aws-region: ${{ secrets.AWS_REGION }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Login to Public ECR
         uses: docker/login-action@v1
         with:
@@ -26,14 +27,13 @@ jobs:
           password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
-      - name: 'Docker build'
-        run: |
-          DOCKER_TAG=gha BUILDER="${AWS_ECR_URL}/builder" make docker
-
-      - name: 'Docker build non-root'
-        run: |
-          DOCKER_TAG=gha-nonroot CHAINLINK_USER=chainlink make docker
-
-      - name: 'Docker push, if applicable'
-        run: |
-          tools/ci/push_chainlink "$GITHUB_REF" "$GITHUB_REF_NAME" "$GITHUB_SHA"
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: smartcontract/chainlink:gha
+      - name: Build non-root and push
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: smartcontract/chainlink:gha-nonroot
