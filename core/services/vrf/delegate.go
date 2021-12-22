@@ -120,7 +120,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		gethks:             d.ks.Eth(),
 		pipelineORM:        d.porm,
 		job:                jb,
-		reqLogs:            utils.NewMailbox(1000),
+		reqLogs:            utils.NewMailbox(100_000),
 		chStop:             make(chan struct{}),
 		waitOnStop:         make(chan struct{}),
 		newHead:            make(chan struct{}, 1),
