@@ -60,10 +60,7 @@ func (ks *terra) Create() (terrakey.Key, error) {
 	if ks.isLocked() {
 		return terrakey.Key{}, ErrLocked
 	}
-	key, err := terrakey.New()
-	if err != nil {
-		return terrakey.Key{}, err
-	}
+	key := terrakey.New()
 	return key, ks.safeAddKey(key)
 }
 
@@ -131,10 +128,7 @@ func (ks *terra) EnsureKey() (terrakey.Key, bool, error) {
 	if len(ks.keyRing.Terra) > 0 {
 		return terrakey.Key{}, true, nil
 	}
-	key, err := terrakey.New()
-	if err != nil {
-		return terrakey.Key{}, false, err
-	}
+	key := terrakey.New()
 	return key, false, ks.safeAddKey(key)
 }
 

@@ -42,7 +42,7 @@ func (key Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams)
 	}
 	encryptedTerraKeyExport := EncryptedTerraKeyExport{
 		KeyType:   keyTypeIdentifier,
-		PublicKey: hex.EncodeToString(key.pubKey),
+		PublicKey: hex.EncodeToString(key.PubKey().Bytes()),
 		Crypto:    cryptoJSON,
 	}
 	return json.Marshal(encryptedTerraKeyExport)

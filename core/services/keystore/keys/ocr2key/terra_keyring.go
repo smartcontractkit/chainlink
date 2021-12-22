@@ -2,10 +2,11 @@ package ocr2key
 
 import (
 	"crypto/ed25519"
+	cryptorand "crypto/rand"
 	"encoding/binary"
 	"io"
 
-	"github.com/smartcontractkit/ed25519consensus"
+	cosmosed25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/crypto/blake2s"
@@ -14,20 +15,24 @@ import (
 var _ ocrtypes.OnchainKeyring = &terraKeyring{}
 
 type terraKeyring struct {
-	privKey ed25519.PrivateKey
-	pubKey  ed25519.PublicKey
+	*cosmosed25519.PrivKey
+	secret []byte
 }
 
-func newTerraKeyring(material io.Reader) (*terraKeyring, error) {
-	pubKey, privKey, err := ed25519.GenerateKey(material)
+func newTerraKeyring() *terraKeyring {
+	secret := make([]byte, 32)
+	_, err := io.ReadFull(cryptorand.Reader, secret)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return &terraKeyring{pubKey: pubKey, privKey: privKey}, nil
+	return &terraKeyring{
+		PrivKey: cosmosed25519.GenPrivKeyFromSecret(secret),
+		secret:  secret,
+	}
 }
 
 func (ok *terraKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	return []byte(ok.pubKey)
+	return ok.PubKey().Bytes()
 }
 
 func (ok *terraKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
@@ -51,7 +56,10 @@ func (ok *terraKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.R
 	if err != nil {
 		return nil, err
 	}
-	signedMsg := ed25519.Sign(ok.privKey, sigData)
+	signedMsg, err := ok.PrivKey.Sign(sigData)
+	if err != nil {
+		return nil, err
+	}
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
 	return append(ok.PublicKey(), signedMsg...), nil
 }
@@ -61,7 +69,7 @@ func (ok *terraKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx oc
 	if err != nil {
 		return false
 	}
-	return ed25519consensus.Verify(ed25519.PublicKey(publicKey), hash, signature[32:])
+	return ok.PubKey().VerifySignature(hash, signature[32:])
 }
 
 func (ok *terraKeyring) MaxSignatureLength() int {
@@ -70,11 +78,11 @@ func (ok *terraKeyring) MaxSignatureLength() int {
 }
 
 func (ok *terraKeyring) marshal() ([]byte, error) {
-	return ok.privKey.Seed(), nil
+	return ok.secret, nil
 }
 
 func (ok *terraKeyring) unmarshal(in []byte) error {
-	privKey := ed25519.NewKeyFromSeed(in)
-	ok.privKey = privKey
+	key := cosmosed25519.GenPrivKeyFromSecret(in)
+	ok.PrivKey = key
 	return nil
 }
