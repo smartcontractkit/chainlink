@@ -14,9 +14,9 @@ jobs:
       - uses: actions/checkout@v2
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
-          with:
-            role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-            aws-region: ${{ secrets.AWS_REGION }}
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to Public ECR
