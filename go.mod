@@ -76,7 +76,7 @@ require (
 require (
 	github.com/minio/sha256-simd v0.1.1
 	github.com/mr-tron/base58 v1.2.0
-	github.com/smartcontractkit/chainlink-solana v0.0.0-20211222122917-441d96a5945b
+	github.com/smartcontractkit/chainlink-solana v0.0.0-20211222124033-aea9c3e6e4eb
 )
 
 require (
