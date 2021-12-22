@@ -106,15 +106,15 @@ func (_m *Chain) HeadBroadcaster() types.HeadBroadcaster {
 }
 
 // HeadTracker provides a mock function with given fields:
-func (_m *Chain) HeadTracker() types.Tracker {
+func (_m *Chain) HeadTracker() types.HeadTracker {
 	ret := _m.Called()
 
-	var r0 types.Tracker
-	if rf, ok := ret.Get(0).(func() types.Tracker); ok {
+	var r0 types.HeadTracker
+	if rf, ok := ret.Get(0).(func() types.HeadTracker); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.Tracker)
+			r0 = ret.Get(0).(types.HeadTracker)
 		}
 	}
 

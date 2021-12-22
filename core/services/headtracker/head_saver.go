@@ -7,22 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 )
-
-// HeadSaver maintains chains persisted in DB. All methods are thread-safe.
-type HeadSaver interface {
-	// Save updates the latest block number, if indeed the latest, and persists
-	// this number in case of reboot.
-	Save(ctx context.Context, head *eth.Head) error
-	// LoadFromDB loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
-	LoadFromDB(ctx context.Context) (*eth.Head, error)
-	// LatestHeadFromDB returns the highest seen head from DB.
-	LatestHeadFromDB(ctx context.Context) (*eth.Head, error)
-	// LatestChain returns the block header with the highest number that has been seen, or nil.
-	LatestChain() *eth.Head
-	// Chain returns a head for the specified hash, or nil.
-	Chain(hash common.Hash) *eth.Head
-}
 
 type headSaver struct {
 	orm    ORM
@@ -31,7 +17,7 @@ type headSaver struct {
 	heads  Heads
 }
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) HeadSaver {
+func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver {
 	return &headSaver{
 		orm:    orm,
 		config: config,
@@ -80,3 +66,13 @@ func (hs *headSaver) LatestChain() *eth.Head {
 func (hs *headSaver) Chain(hash common.Hash) *eth.Head {
 	return hs.heads.HeadByHash(hash)
 }
+
+var _ httypes.HeadSaver = &NullSaver{}
+
+type NullSaver struct{}
+
+func (*NullSaver) Save(ctx context.Context, head *eth.Head) error          { return nil }
+func (*NullSaver) LoadFromDB(ctx context.Context) (*eth.Head, error)       { return nil, nil }
+func (*NullSaver) LatestHeadFromDB(ctx context.Context) (*eth.Head, error) { return nil, nil }
+func (*NullSaver) LatestChain() *eth.Head                                  { return nil }
+func (*NullSaver) Chain(hash common.Hash) *eth.Head                        { return nil }

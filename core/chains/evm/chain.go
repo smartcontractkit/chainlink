@@ -35,7 +35,7 @@ type Chain interface {
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
 	TxManager() bulletprooftxmanager.TxManager
-	HeadTracker() httypes.Tracker
+	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() balancemonitor.BalanceMonitor
 }
@@ -50,7 +50,7 @@ type chain struct {
 	txm             bulletprooftxmanager.TxManager
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
-	headTracker     httypes.Tracker
+	headTracker     httypes.HeadTracker
 	logBroadcaster  log.Broadcaster
 	balanceMonitor  balancemonitor.BalanceMonitor
 	keyStore        keystore.Eth
@@ -90,7 +90,8 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	}
 
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
-	var headTracker httypes.Tracker
+	headSaver := &headtracker.NullSaver{}
+	var headTracker httypes.HeadTracker
 	if cfg.EthereumDisabled() {
 		headTracker = &headtracker.NullTracker{}
 	} else if opts.GenHeadTracker == nil {
@@ -103,7 +104,8 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}
 		orm := headtracker.NewORM(db, l, cfg, *chainID)
-		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, orm, headBroadcaster)
+		headSaver := headtracker.NewHeadSaver(headTrackerLogger, orm, cfg)
+		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, headBroadcaster, headSaver)
 	} else {
 		headTracker = opts.GenHeadTracker(dbchain)
 	}
@@ -120,7 +122,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headTracker.HighestSeenHeadFromDB(context.Background())
+	highestSeenHead, err := headSaver.LatestHeadFromDB(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +281,7 @@ func (c *chain) Config() evmconfig.ChainScopedConfig           { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster               { return c.logBroadcaster }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster      { return c.headBroadcaster }
 func (c *chain) TxManager() bulletprooftxmanager.TxManager     { return c.txm }
-func (c *chain) HeadTracker() httypes.Tracker                  { return c.headTracker }
+func (c *chain) HeadTracker() httypes.HeadTracker              { return c.headTracker }
 func (c *chain) Logger() logger.Logger                         { return c.logger }
 func (c *chain) BalanceMonitor() balancemonitor.BalanceMonitor { return c.balanceMonitor }
 
