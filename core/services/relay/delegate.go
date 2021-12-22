@@ -3,10 +3,14 @@ package relay
 import (
 	"encoding/json"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/terratxm"
+
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	evmCh "github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -24,9 +28,11 @@ var (
 	SupportedRelayers = map[types.Network]struct{}{
 		types.EVM:    {},
 		types.Solana: {},
+		types.Terra:  {},
 	}
 	_ types.Relayer = &evm.Relayer{}
 	_ types.Relayer = &solana.Relayer{}
+	_ types.Relayer = &terra.Relayer{}
 )
 
 type delegate struct {
@@ -34,12 +40,13 @@ type delegate struct {
 	ks       keystore.Master
 }
 
-func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evmCh.ChainSet, lggr logger.Logger) *delegate {
+func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evmCh.ChainSet, terraTxm *terratxm.Txm, lggr logger.Logger) *delegate {
 	return &delegate{
 		ks: ks,
 		relayers: map[types.Network]types.Relayer{
 			types.EVM:    evm.NewRelayer(db, chainSet, lggr),
 			types.Solana: solana.NewRelayer(lggr),
+			types.Terra:  terra.NewRelayer(lggr, terraTxm),
 		},
 	}
 }
@@ -147,6 +154,32 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			StoreProgramID:     storeProgramID,
 			TransmissionsID:    transmissionsID,
 			TransmissionSigner: transmissionSigner,
+		})
+	case types.Terra:
+		var config terra.RelayConfig
+		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
+		}
+
+		if !spec.IsBootstrapPeer {
+			if !spec.TransmitterID.Valid {
+				return nil, errors.New("transmitterID is required for non-bootstrap jobs")
+			}
+		}
+
+		return d.relayers[types.Terra].NewOCR2Provider(externalJobID, terra.OCR2Spec{
+			ID:          spec.ID,
+			IsBootstrap: spec.IsBootstrapPeer,
+			// NOTE this now are part of the terra client
+			// common to all jobs
+			//CosmosURL:          config.CosmosURL,
+			//TendermintURL:      config.TendermintURL,
+			//FcdURL:             config.FcdURL,
+			//Timeout:            config.Timeout,
+			//ChainID:            config.ChainID,
+			ContractID:    spec.ContractID,
+			TransmitterID: spec.TransmitterID.String,
 		})
 	default:
 		return nil, errors.Errorf("unknown relayer network type: %s", spec.Relay)

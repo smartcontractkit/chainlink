@@ -10,6 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+
+	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/terratxm"
+
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -287,11 +293,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
+		// TODO: parameterize poll period
+		// TODO: pull client config from nodes
+		// TODO: If terra enabled
+		tc, err := terraclient.NewClient("42", "0.01", "1.5", "TODO", "TODO", "TODO", 10*time.Second, globalLogger)
+		if err != nil {
+			return nil, err
+		}
+		txm := terratxm.NewTxm(db, tc, keyStore.Terra(), globalLogger, cfg, eventBroadcaster, 5*time.Second)
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
 			db,
 			keyStore,
 			chainSet,
+			txm,
 			globalLogger,
 		)
 		subservices = append(subservices, relay)
