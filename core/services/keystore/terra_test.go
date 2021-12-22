@@ -67,9 +67,8 @@ func Test_TerraKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		newKey, err := terrakey.New()
-		require.NoError(t, err)
-		err = ks.Add(newKey)
+		newKey := terrakey.New()
+		err := ks.Add(newKey)
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
