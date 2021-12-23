@@ -7,7 +7,7 @@ import (
 
 	cosmosed25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/mr-tron/base58"
+	"github.com/terra-project/terra.go/msg"
 )
 
 type Raw []byte
@@ -62,8 +62,10 @@ func (key Key) PublicKey() (pubKey cryptotypes.PubKey) {
 	return key.PubKey()
 }
 
+// PublicKeyStr retuns the terra address of the public key
 func (key Key) PublicKeyStr() string {
-	return base58.Encode(key.PubKey().Bytes())
+	addr := msg.AccAddress(key.PubKey().Address())
+	return addr.String()
 }
 
 func (key Key) Raw() Raw {
