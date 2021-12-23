@@ -152,12 +152,11 @@ type RelayConfig struct {
 }
 
 type OCR2Spec struct {
-	ID             int32
-	ContractID     string
-	OCRKeyBundleID null.String // Can be specified with env var.
-	TransmitterID  null.String // Will be null for bootstrap jobs
-	IsBootstrap    bool
-	ChainID        *big.Int
+	ID            int32
+	ContractID    string
+	TransmitterID null.String // Will be null for bootstrap jobs
+	IsBootstrap   bool
+	ChainID       *big.Int
 }
 
 var _ services.Service = (*ocr2Provider)(nil)
