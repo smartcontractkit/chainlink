@@ -127,12 +127,35 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	if !didExist {
 		lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 	}
+	ocr2Keys, keysDidExist, err := app.GetKeyStore().OCR2().EnsureKeys()
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure ocr key")
+	}
+	for chainType, didExist := range keysDidExist {
+		if !didExist {
+			lggr.Infof("Created OCR2 key with ID %s", ocr2Keys[chainType].ID())
+		}
+	}
 	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 	if !didExist {
 		lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
+	}
+	solanaKey, didExist, err := app.GetKeyStore().Solana().EnsureKey()
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure solana key")
+	}
+	if !didExist {
+		lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
+	}
+	terraKey, didExist, err := app.GetKeyStore().Terra().EnsureKey()
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure terra key")
+	}
+	if !didExist {
+		lggr.Infof("Created Terra key with ID %s", terraKey.ID())
 	}
 
 	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {
