@@ -20,7 +20,7 @@ type WebAuthn struct {
 }
 
 // This struct implements the required duo-labs/webauthn/ 'User' interface
-// kept seperate from our internal 'User' struct
+// kept separate from our internal 'User' struct
 type WebAuthnUser struct {
 	Email         string
 	WACredentials []webauthn.Credential
