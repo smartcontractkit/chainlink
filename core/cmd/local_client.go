@@ -183,10 +183,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			log.Fatal(err)
 		}
 	}()
-	err = logConfigVariables(lggr, cli.Config)
-	if err != nil {
-		return errors.Wrap(err, "failed to log config variables")
-	}
+
+	lggr.Debug("Environment variables\n", config.NewConfigPrinter(cli.Config))
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 	return (cli.Runner.Run(app))
@@ -257,13 +255,6 @@ func passwordFromFile(pwdFile string) (string, error) {
 	}
 	dat, err := ioutil.ReadFile(pwdFile)
 	return strings.TrimSpace(string(dat)), err
-}
-
-func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
-	wlc := config.NewConfigPrinter(cfg)
-
-	lggr.Debug("Environment variables\n", wlc)
-	return nil
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of

@@ -11,6 +11,9 @@ import (
 	"reflect"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -68,7 +71,7 @@ type EnvPrinter struct {
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	LogFileDir                                 string          `json:"LOG_FILE_DIR"`
-	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
+	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
@@ -165,7 +168,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			LeaseLockDuration:                  cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
 			LogFileDir:                         cfg.LogFileDir(),
-			LogLevel:                           LogLevel{Level: cfg.LogLevel()},
+			LogLevel:                           cfg.LogLevel(),
 			LogSQL:                             cfg.LogSQL(),
 			LogSQLMigrations:                   cfg.LogSQLMigrations(),
 			LogToDisk:                          cfg.LogToDisk(),
@@ -218,7 +221,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(envvar.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
 
