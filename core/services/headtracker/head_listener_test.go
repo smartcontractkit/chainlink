@@ -2,10 +2,11 @@ package headtracker_test
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
