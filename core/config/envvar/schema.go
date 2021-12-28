@@ -1,4 +1,4 @@
-package config
+package envvar
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"reflect"
 	"time"
+
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -125,7 +127,7 @@ type ConfigSchema struct {
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 	LinkContractAddress                        string          `env:"LINK_CONTRACT_ADDRESS"`
 	LogFileDir                                 string          `env:"LOG_FILE_DIR"`
-	LogLevel                                   LogLevel        `env:"LOG_LEVEL"`
+	LogLevel                                   zapcore.Level   `env:"LOG_LEVEL" default:"info"`
 	LogSQL                                     bool            `env:"LOG_SQL" default:"false"`
 	LogSQLMigrations                           bool            `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	LogToDisk                                  bool            `env:"LOG_TO_DISK" default:"false"`
@@ -223,8 +225,8 @@ type ConfigSchema struct {
 	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
 }
 
-// EnvVarName gets the environment variable name for a config schema field
-func EnvVarName(field string) string {
+// Name gets the environment variable Name for a config schema field
+func Name(field string) string {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	item, ok := schemaT.FieldByName(field)
 	if !ok {
@@ -233,7 +235,7 @@ func EnvVarName(field string) string {
 	return item.Tag.Get("env")
 }
 
-func TryEnvVarName(field string) string {
+func TryName(field string) string {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	item, ok := schemaT.FieldByName(field)
 	if !ok {
@@ -242,16 +244,16 @@ func TryEnvVarName(field string) string {
 	return item.Tag.Get("env")
 }
 
-func defaultValue(name string) (string, bool) {
+func DefaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
 		return item.Tag.Lookup("default")
 	}
-	log.Panicf("Invariant violated, no field of name %s found for defaultValue", name)
+	log.Panicf("Invariant violated, no field of name %s found for DefaultValue", name)
 	return "", false
 }
 
-func zeroValue(name string) interface{} {
+func ZeroValue(name string) interface{} {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
 		if item.Type.Kind() == reflect.Ptr {
@@ -259,6 +261,6 @@ func zeroValue(name string) interface{} {
 		}
 		return reflect.New(item.Type).Interface()
 	}
-	log.Panicf("Invariant violated, no field of name %s found for zeroValue", name)
+	log.Panicf("Invariant violated, no field of name %s found for ZeroValue", name)
 	return nil
 }

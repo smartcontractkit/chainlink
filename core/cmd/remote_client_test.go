@@ -399,7 +399,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, cfg.BridgeResponseURL().String())
 	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
 	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
-	assert.Equal(t, cp.EnvPrinter.LogLevel, config.LogLevel{Level: cfg.LogLevel()})
+	assert.Equal(t, cp.EnvPrinter.LogLevel, cfg.LogLevel())
 	assert.Equal(t, cp.EnvPrinter.LogSQL, cfg.LogSQL())
 	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
