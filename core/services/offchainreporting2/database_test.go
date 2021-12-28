@@ -134,12 +134,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:          testhelpers.MakeConfigDigest(t),
 		ConfigCount:           1,
-		Signers:               []ocrtypes.OnchainPublicKey{},
-		Transmitters:          []ocrtypes.Account{"account1"},
+		Signers:               []ocrtypes.OnchainPublicKey{{0x01}, {0x02}},
+		Transmitters:          []ocrtypes.Account{"account1", "account2"},
 		F:                     79,
-		OnchainConfig:         []byte{},
+		OnchainConfig:         []byte{0x01, 0x02},
 		OffchainConfigVersion: 111,
-		OffchainConfig:        []byte{},
+		OffchainConfig:        []byte{0x03, 0x04},
 	}
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
