@@ -59,7 +59,6 @@ func newFrom(reader io.Reader) (Key, error) {
 		privkey: priv,
 		pubKey:  pub,
 	}, nil
-
 }
 
 func (key Key) ID() string {
