@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
@@ -49,7 +50,7 @@ import (
 // back somehow, it will go to take out a lease and realise that the database
 // has been leased to another process, so it will panic and quit immediately
 type LeaseLock interface {
-	TakeAndHold() error
+	TakeAndHold(sig shutdown.Signal) error
 	Release()
 	ClientID() uuid.UUID
 }
@@ -80,7 +81,7 @@ func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, refreshInter
 
 // TakeAndHold will block and wait indefinitely until it can get its first lock
 // NOT THREAD SAFE
-func (l *leaseLock) TakeAndHold() (err error) {
+func (l *leaseLock) TakeAndHold(sig shutdown.Signal) (err error) {
 	l.logger.Debug("Taking initial lease...")
 	retryCount := 0
 	isInitial := true
@@ -112,6 +113,11 @@ func (l *leaseLock) TakeAndHold() (err error) {
 		case <-l.chStop:
 			return multierr.Combine(
 				errors.New("stopped"),
+				l.conn.Close(),
+			)
+		case <-sig.Wait():
+			return multierr.Combine(
+				errors.New("application shutdown"),
 				l.conn.Close(),
 			)
 		case <-time.After(l.refreshInterval):
@@ -151,7 +157,7 @@ func (l *leaseLock) setInitialTimeouts(ctx context.Context) error {
 
 func (l *leaseLock) logRetry(count int) {
 	if count%1000 == 0 || count&(count-1) == 0 {
-		l.logger.Infow("Another application holds the database lease, waiting...", "failCount", count+1)
+		l.logger.Infow("Another application is currently holding the database lease (or a previous instance exited uncleanly), waiting for lease to expire...", "failCount", count+1)
 	}
 }
 
@@ -176,7 +182,7 @@ func (l *leaseLock) loop() {
 			)
 			cancel()
 			if err != nil {
-				l.logger.Warn("Error trying to release lease on shutdown", "err", err)
+				l.logger.Warnw("Error trying to release lease on shutdown", "err", err)
 			}
 			return
 		case <-ticker.C:
