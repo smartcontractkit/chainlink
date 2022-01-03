@@ -47,6 +47,7 @@ type GeneralConfigOverrides struct {
 	EVMDisabled                               null.Bool
 	EthereumDisabled                          null.Bool
 	FeatureExternalInitiators                 null.Bool
+	FeatureFeedsManager                       null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalChainType                           null.String
 	GlobalEthTxReaperThreshold                *time.Duration
@@ -271,6 +272,13 @@ func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
 		return c.Overrides.FeatureExternalInitiators.Bool
 	}
 	return c.GeneralConfig.FeatureExternalInitiators()
+}
+
+func (c *TestGeneralConfig) FeatureFeedsManager() bool {
+	if c.Overrides.FeatureFeedsManager.Valid {
+		return c.Overrides.FeatureFeedsManager.Bool
+	}
+	return c.GeneralConfig.FeatureFeedsManager()
 }
 
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
