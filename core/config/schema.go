@@ -18,6 +18,8 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
+	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"`
+
 	AdminCredentialsFile                       string                        `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
 	AllowOrigins                               string                        `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	AuthenticatedRateLimit                     int64                         `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`

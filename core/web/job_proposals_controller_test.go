@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func Test_JobProposalsController_Index(t *testing.T) {
@@ -502,8 +503,9 @@ type TestJobProposalsController struct {
 }
 
 func setupJobProposalsTest(t *testing.T) *TestJobProposalsController {
-	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureFeedsManager = null.BoolFrom(true)
+	app := cltest.NewApplicationWithConfig(t, cfg)
 	client := app.NewHTTPClient()
 
 	// Defer the FK requirement of a feeds manager.
