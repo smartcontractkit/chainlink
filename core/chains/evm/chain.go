@@ -58,13 +58,10 @@ type chain struct {
 func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
-	cfg := evmconfig.NewChainScopedConfig(chainID, dbchain.Cfg, opts.ORM, l, opts.Config)
-	if cfg.EVMDisabled() {
-		return nil, errors.Errorf("cannot create new chain with ID %s, EVM is disabled", dbchain.ID.String())
-	}
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID.String())
 	}
+	cfg := evmconfig.NewChainScopedConfig(chainID, dbchain.Cfg, opts.ORM, l, opts.Config)
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
@@ -171,7 +168,7 @@ func (c *chain) Start() error {
 		ctx, cancel := eth.DefaultQueryCtx()
 		defer cancel()
 		if err := c.client.Dial(ctx); err != nil {
-			return errors.Wrap(err, "failed to Dial ethclient")
+			return errors.Wrap(err, "failed to dial ethclient")
 		}
 		merr = multierr.Combine(
 			c.txm.Start(),
@@ -283,8 +280,6 @@ func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
 func (c *chain) HeadTracker() httypes.Tracker              { return c.headTracker }
 func (c *chain) Logger() logger.Logger                     { return c.logger }
 
-var ErrNoPrimaryNode = errors.New("no primary node found")
-
 func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (eth.Client, error) {
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
@@ -304,9 +299,6 @@ func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (eth.Client, e
 			}
 			primaries = append(primaries, primary)
 		}
-	}
-	if len(primaries) == 0 {
-		return nil, ErrNoPrimaryNode
 	}
 	return eth.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
 }
