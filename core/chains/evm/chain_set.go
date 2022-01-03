@@ -54,9 +54,13 @@ type chainSet struct {
 	opts          ChainSetOpts
 }
 
-func (cll *chainSet) Start() (err error) {
+func (cll *chainSet) Start() error {
+	if cll.opts.Config.EVMDisabled() {
+		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
+		return nil
+	}
 	for _, c := range cll.Chains() {
-		if err = c.Start(); err != nil {
+		if err := c.Start(); err != nil {
 			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
 			continue
 		}
@@ -66,10 +70,8 @@ func (cll *chainSet) Start() (err error) {
 	for i, c := range cll.startedChains {
 		evmChainIDs[i] = c.ID()
 	}
-	if err == nil {
-		cll.logger.Infow(fmt.Sprintf("EVM: Started %d chains, default chain ID is %s", len(cll.startedChains), cll.defaultID.String()), "evmChainIDs", evmChainIDs)
-	}
-	return
+	cll.logger.Infow(fmt.Sprintf("EVM: Started %d/%d chains, default chain ID is %s", len(cll.startedChains), len(cll.Chains()), cll.defaultID.String()), "startedEvmChainIDs", evmChainIDs)
+	return nil
 }
 func (cll *chainSet) Close() (err error) {
 	cll.logger.Debug("EVM: stopping")
@@ -110,7 +112,7 @@ func (cll *chainSet) Default() (Chain, error) {
 	len := len(cll.chains)
 	cll.chainsMu.RUnlock()
 	if len == 0 {
-		return nil, errors.WithStack(ErrNoChains)
+		return nil, errors.Wrap(ErrNoChains, "cannot get default chain")
 	}
 	if cll.defaultID == nil {
 		return nil, errors.New("no default chain ID specified")
@@ -277,10 +279,6 @@ type ChainSetOpts struct {
 func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
-	}
-	if opts.Config.EVMDisabled() {
-		opts.Logger.Info("EVM is disabled, no chains will be loaded")
-		return &chainSet{orm: opts.ORM, logger: opts.Logger}, nil
 	}
 	dbchains, err := opts.ORM.EnabledChainsWithNodes()
 	if err != nil {
