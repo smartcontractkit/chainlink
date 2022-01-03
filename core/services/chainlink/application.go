@@ -120,9 +120,6 @@ type ChainlinkApplication struct {
 	Nurse                    *health.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
-	advisoryLock             pg.Locker
-	leaseLock                pg.LeaseLock
-	id                       uuid.UUID
 
 	started     bool
 	startStopMu sync.Mutex
@@ -138,9 +135,6 @@ type ApplicationOpts struct {
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
-	AdvisoryLock             pg.Locker
-	LeaseLock                pg.LeaseLock
-	ID                       uuid.UUID
 }
 
 // NewApplication initializes a new store if one is not already
@@ -326,12 +320,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
-		id:                       opts.ID,
 
 		sqlxDB: opts.SqlxDB,
-
-		advisoryLock: opts.AdvisoryLock,
-		leaseLock:    opts.LeaseLock,
 
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -460,22 +450,6 @@ func (app *ChainlinkApplication) stop() (err error) {
 				app.logger.Debug("Closing Feeds Service...")
 				merr = multierr.Append(merr, app.FeedsService.Close())
 			}
-
-			// Clean up the advisory lock if present
-			if app.advisoryLock != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				defer cancel()
-				merr = multierr.Append(merr, app.advisoryLock.Unlock(ctx))
-			}
-
-			// Let go of the lease
-			if app.leaseLock != nil {
-				app.leaseLock.Release()
-			}
-
-			// DB should pretty much always be closed last (apart from the Nurse)
-			app.logger.Debug("Closing DB...")
-			merr = multierr.Append(merr, app.sqlxDB.Close())
 
 			if app.Nurse != nil {
 				merr = multierr.Append(merr, app.Nurse.Close())
@@ -688,5 +662,5 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 }
 
 func (app *ChainlinkApplication) ID() uuid.UUID {
-	return app.id
+	return app.Config.AppID()
 }

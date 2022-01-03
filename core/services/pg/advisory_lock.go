@@ -3,6 +3,8 @@ package pg
 import (
 	"context"
 	"database/sql"
+
+	"github.com/pkg/errors"
 )
 
 // Locker is an interface for postgresql advisory locks.
@@ -23,7 +25,7 @@ func (l *Lock) Lock(ctx context.Context) (bool, error) {
 	result := false
 	sqlQuery := "SELECT pg_try_advisory_lock($1)"
 	err := l.conn.QueryRowContext(ctx, sqlQuery, l.id).Scan(&result)
-	return result, err
+	return result, errors.WithStack(err)
 }
 
 // Unlock releases the lock and DB connection.
@@ -31,7 +33,7 @@ func (l *Lock) Unlock(ctx context.Context) error {
 	sqlQuery := "SELECT pg_advisory_unlock($1)"
 	_, err := l.conn.ExecContext(ctx, sqlQuery, l.id)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	// Returns the connection to the connection pool
 	return l.conn.Close()

@@ -33,6 +33,8 @@ import (
 
 	utils "github.com/smartcontractkit/chainlink/core/utils"
 
+	uuid "github.com/satori/go.uuid"
+
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -64,6 +66,22 @@ func (_m *GeneralConfig) AllowOrigins() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// AppID provides a mock function with given fields:
+func (_m *GeneralConfig) AppID() uuid.UUID {
+	ret := _m.Called()
+
+	var r0 uuid.UUID
+	if rf, ok := ret.Get(0).(func() uuid.UUID); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(uuid.UUID)
+		}
 	}
 
 	return r0
