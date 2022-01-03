@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	null "gopkg.in/guregu/null.v4"
+
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -56,6 +56,7 @@ type GeneralConfigOverrides struct {
 	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
+	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
 	GlobalEthTxReaperThreshold                *time.Duration
 	GlobalEthTxResendAfterThreshold           *time.Duration
@@ -88,8 +89,9 @@ type GeneralConfigOverrides struct {
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LeaseLockDuration                         *time.Duration
 	LeaseLockRefreshInterval                  *time.Duration
-	LogLevel                                  *config.LogLevel
-	DefaultLogLevel                           *config.LogLevel
+	LogFileDir                                null.String
+	LogLevel                                  *zapcore.Level
+	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
 	SecretGenerator                           config.SecretGenerator
@@ -160,7 +162,7 @@ func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 }
 
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
-	cfg := config.NewGeneralConfig()
+	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{
 		cfg,
 		t,
@@ -398,14 +400,14 @@ func (c *TestGeneralConfig) AllowOrigins() string {
 
 func (c *TestGeneralConfig) LogLevel() zapcore.Level {
 	if c.Overrides.LogLevel != nil {
-		return c.Overrides.LogLevel.Level
+		return *c.Overrides.LogLevel
 	}
 	return c.GeneralConfig.LogLevel()
 }
 
 func (c *TestGeneralConfig) DefaultLogLevel() zapcore.Level {
 	if c.Overrides.DefaultLogLevel != nil {
-		return c.Overrides.DefaultLogLevel.Level
+		return *c.Overrides.DefaultLogLevel
 	}
 	return c.GeneralConfig.DefaultLogLevel()
 }
@@ -612,10 +614,6 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	return c.GeneralConfig.GlobalEvmGasTipCapMinimum()
 }
 
-func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
-	c.Overrides.Dialect = d
-}
-
 // There is no need for any database application locking in tests
 func (c *TestGeneralConfig) DatabaseLockingMode() string {
 	return "none"
@@ -640,4 +638,18 @@ func (c *TestGeneralConfig) AdvisoryLockCheckInterval() time.Duration {
 		return *c.Overrides.AdvisoryLockCheckInterval
 	}
 	return c.GeneralConfig.AdvisoryLockCheckInterval()
+}
+
+func (c *TestGeneralConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
+	if c.Overrides.GlobalBlockEmissionIdleWarningThreshold != nil {
+		return *c.Overrides.GlobalBlockEmissionIdleWarningThreshold, true
+	}
+	return c.GeneralConfig.GlobalBlockEmissionIdleWarningThreshold()
+}
+
+func (c *TestGeneralConfig) LogFileDir() string {
+	if c.Overrides.LogFileDir.Valid {
+		return c.Overrides.LogFileDir.String
+	}
+	return c.RootDir()
 }

@@ -18,6 +18,7 @@ export const JOB_RUNS_PAYLOAD__RESULTS_FIELDS = gql`
     allErrors
     createdAt
     finishedAt
+    status
     job {
       id
     }
@@ -43,11 +44,12 @@ export const JobRunsView: React.FC<Props> = ({
   // JobRunsTable
   const tableRuns = React.useMemo(() => {
     return data?.jobRuns.results.map(
-      ({ allErrors, id, createdAt, finishedAt }) => ({
+      ({ allErrors, id, createdAt, finishedAt, status }) => ({
         id,
         createdAt,
         errors: allErrors,
         finishedAt,
+        status,
       }),
     )
   }, [data])

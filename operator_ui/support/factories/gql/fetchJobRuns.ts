@@ -11,6 +11,7 @@ export function buildRun(
     allErrors: [],
     createdAt: minuteAgo,
     finishedAt: minuteAgo,
+    status: 'COMPLETED',
     job: {
       id: '10',
     },
@@ -28,6 +29,7 @@ export function buildRuns(): ReadonlyArray<JobRunsPayload_ResultsFields> {
       allErrors: ['error'],
       createdAt: twoMinutesAgo,
       finishedAt: twoMinutesAgo,
+      status: 'ERRORED',
       job: {
         id: '20',
       },

@@ -45,9 +45,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -63,6 +63,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -108,9 +109,10 @@ var (
 
 	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultOCRKey    = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCR2Key   = ocr2key.MustNewInsecure(NewRandReaderFromSeed(1), "evm")
+	DefaultOCR2Key   = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
 	DefaultP2PKey    = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultSolanaKey = solkey.MustNewInsecure(NewRandReaderFromSeed(1))
+	DefaultSolanaKey = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultTerraKey  = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
 	DefaultVRFKey    = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 
@@ -124,7 +126,6 @@ func init() {
 
 	logger.InitColor(true)
 	lggr := logger.TestLogger(nil)
-	logger.InitLogger(lggr)
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 		lggr.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
@@ -400,7 +401,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, lggr, cfg)
 			}
 
 		}
@@ -459,13 +460,13 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *ethmocks.Client, s *mocks.Subscription, f func()) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *ethmocks.Client, s *ethmocks.Subscription, f func()) {
 	c, s, f = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
+func NewEthMocks(t testing.TB) (*ethmocks.Client, *ethmocks.Subscription, func()) {
 	c, s := NewEthClientAndSubMock(t)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
@@ -480,15 +481,15 @@ func NewEthMocks(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
 	return c, s, assertMocksCalled
 }
 
-func NewEthClientAndSubMock(t mock.TestingT) (*ethmocks.Client, *mocks.Subscription) {
-	mockSub := new(mocks.Subscription)
+func NewEthClientAndSubMock(t mock.TestingT) (*ethmocks.Client, *ethmocks.Subscription) {
+	mockSub := new(ethmocks.Subscription)
 	mockSub.Test(t)
 	mockEth := new(ethmocks.Client)
 	mockEth.Test(t)
 	return mockEth, mockSub
 }
 
-func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*ethmocks.Client, *mocks.Subscription) {
+func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*ethmocks.Client, *ethmocks.Subscription) {
 	mockEth, mockSub := NewEthClientAndSubMock(t)
 	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
 	return mockEth, mockSub
@@ -506,7 +507,7 @@ func NewEthClientMockWithDefaultChain(t testing.TB) *ethmocks.Client {
 	return c
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
+func NewEthMocksWithStartupAssertions(t testing.TB) (*ethmocks.Client, *ethmocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
@@ -752,8 +753,8 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(cfg config.GeneralConfig) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", cfg.RootDir())
+func ReadLogs(dir string) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", dir)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }
@@ -1273,9 +1274,9 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *ethm
 
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	sub := new(mocks.Subscription)
+	sub := new(ethmocks.Subscription)
 	sub.On("Err").Return(nil)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()

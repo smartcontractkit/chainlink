@@ -1,5 +1,6 @@
 scalar Time
 scalar Map
+scalar Bytes
 
 schema {
     query: Query
@@ -14,9 +15,13 @@ type Query {
     config: ConfigPayload!
     csaKeys: CSAKeysPayload!
     ethKeys: EthKeysPayload!
+    ethTransaction(hash: ID!): EthTransactionPayload!
+    ethTransactions(offset: Int, limit: Int): EthTransactionsPayload!
+    ethTransactionsAttempts(offset: Int, limit: Int): EthTransactionAttemptsPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
+    globalLogLevel: GlobalLogLevelPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
@@ -26,6 +31,8 @@ type Query {
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
+    solanaKeys: SolanaKeysPayload!
+    sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!
 }
@@ -54,6 +61,8 @@ type Mutation {
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
     dismissJobError(id: ID!): DismissJobErrorPayload!
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
+    runJob(id: ID!): RunJobPayload!
+    setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!

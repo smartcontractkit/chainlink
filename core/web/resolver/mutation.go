@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -947,6 +948,11 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
+	case job.OffchainReporting2:
+		jb, err = offchainreporting2.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
+		if !config.Dev() && !config.FeatureOffchainReporting2() {
+			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
+		}
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
 	case job.FluxMonitor:
@@ -1043,4 +1049,57 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 	}
 
 	return NewDismissJobErrorPayload(&specErr, nil), nil
+}
+
+func (r *Resolver) RunJob(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*RunJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	jobID, err := stringutils.ToInt32(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	jobRunID, err := r.App.RunJobV2(ctx, jobID, nil)
+	if err != nil {
+		if errors.Is(err, webhook.ErrJobNotExists) {
+			return NewRunJobPayload(nil, r.App, err), nil
+		}
+
+		return nil, err
+	}
+
+	plnRun, err := r.App.PipelineORM().FindRun(jobRunID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewRunJobPayload(&plnRun, r.App, nil), nil
+}
+
+func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
+	Level LogLevel
+}) (*SetGlobalLogLevelPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var lvl zapcore.Level
+	logLvl := FromLogLevel(args.Level)
+
+	err := lvl.UnmarshalText([]byte(logLvl))
+	if err != nil {
+		return NewSetGlobalLogLevelPayload("", map[string]string{
+			"level": "invalid log level",
+		}), nil
+	}
+
+	if err := r.App.SetLogLevel(lvl); err != nil {
+		return nil, err
+	}
+
+	return NewSetGlobalLogLevelPayload(args.Level, nil), nil
 }

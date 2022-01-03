@@ -4,11 +4,11 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	crypto_rand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/mr-tron/base58"
 )
 
 type Raw []byte
@@ -59,19 +59,18 @@ func newFrom(reader io.Reader) (Key, error) {
 		privkey: priv,
 		pubKey:  pub,
 	}, nil
-
 }
 
 func (key Key) ID() string {
-	return key.PublicKeyHex()
+	return key.PublicKeyStr()
 }
 
 func (key Key) GetPublic() ed25519.PublicKey {
 	return key.pubKey
 }
 
-func (key Key) PublicKeyHex() string {
-	return hex.EncodeToString(key.pubKey)
+func (key Key) PublicKeyStr() string {
+	return base58.Encode(key.pubKey)
 }
 
 func (key Key) Raw() Raw {
@@ -79,7 +78,7 @@ func (key Key) Raw() Raw {
 }
 
 func (key Key) String() string {
-	return fmt.Sprintf("SolanaKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyHex())
+	return fmt.Sprintf("SolanaKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
 }
 
 func (key Key) GoString() string {

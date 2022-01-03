@@ -11,7 +11,7 @@ import (
 func assertKeyBundlesNotEqual(t *testing.T, pk1 ocr2key.KeyBundle, pk2 ocr2key.KeyBundle) {
 	assert.NotEqual(t, pk1.ID(), pk2.ID())
 	assert.NotEqualValues(t, pk1.OffchainPublicKey(), pk2.OffchainPublicKey())
-	assert.NotEqualValues(t, pk1.PublicKeyAddressOnChain(), pk2.PublicKeyAddressOnChain())
+	assert.NotEqualValues(t, pk1.OnChainPublicKey(), pk2.OnChainPublicKey())
 }
 
 func TestOCR2keys_New(t *testing.T) {
