@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 )
 
 func newLeaseLock(t *testing.T, db *sqlx.DB) pg.LeaseLock {
@@ -20,11 +21,12 @@ func newLeaseLock(t *testing.T, db *sqlx.DB) pg.LeaseLock {
 
 func Test_LeaseLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDB(t, "leaselock", true, false)
+	sig := shutdown.NewSignal()
 
 	t.Run("on migrated database", func(t *testing.T) {
 		leaseLock1 := newLeaseLock(t, db)
 
-		err := leaseLock1.TakeAndHold()
+		err := leaseLock1.TakeAndHold(sig)
 		require.NoError(t, err)
 
 		var clientID uuid.UUID
@@ -36,7 +38,7 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock2 := newLeaseLock(t, db)
 		go func() {
 			defer leaseLock2.Release()
-			err := leaseLock2.TakeAndHold()
+			err := leaseLock2.TakeAndHold(sig)
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -59,7 +61,7 @@ func Test_LeaseLock(t *testing.T) {
 	t.Run("recovers and re-opens connection if it's closed externally", func(t *testing.T) {
 		leaseLock := newLeaseLock(t, db)
 
-		err := leaseLock.TakeAndHold()
+		err := leaseLock.TakeAndHold(sig)
 		require.NoError(t, err)
 		defer leaseLock.Release()
 
@@ -91,7 +93,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		leaseLock1 := newLeaseLock(t, db)
 
-		err := leaseLock1.TakeAndHold()
+		err := leaseLock1.TakeAndHold(sig)
 		defer leaseLock1.Release()
 		require.NoError(t, err)
 	})
