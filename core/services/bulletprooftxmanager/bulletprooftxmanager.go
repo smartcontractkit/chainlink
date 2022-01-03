@@ -183,17 +183,22 @@ func (b *BulletproofTxManager) Close() (merr error) {
 	return b.StopOnce("BulletproofTxManager", func() error {
 		close(b.chStop)
 
+		fmt.Println("BALLS 1")
 		if b.reaper != nil {
 			b.reaper.Stop()
 		}
+		fmt.Println("BALLS 2")
 		if b.ethResender != nil {
 			b.ethResender.Stop()
 		}
+		fmt.Println("BALLS 3")
 
 		b.wg.Wait()
+		fmt.Println("BALLS 4")
 
 		b.gasEstimator.Close()
 
+		fmt.Println("BALLS 5")
 		return nil
 	})
 }
@@ -212,7 +217,9 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
 		case <-b.chStop:
+			fmt.Println("BALLS stopping EthBroadcaster")
 			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
+			fmt.Println("BALLS stopping EthConfirmer")
 			b.logger.ErrorIfClosing(ec, "EthConfirmer")
 			return
 		case <-keysChanged:

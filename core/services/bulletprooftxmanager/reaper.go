@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,7 +32,7 @@ type Reaper struct {
 	latestBlockNum *atomic.Int64
 	trigger        chan struct{}
 	chStop         chan struct{}
-	chDone         chan struct{}
+	wg             sync.WaitGroup
 }
 
 // NewReaper instantiates a new reaper object
@@ -44,13 +45,14 @@ func NewReaper(lggr logger.Logger, db *sqlx.DB, config ReaperConfig, chainID big
 		atomic.NewInt64(-1),
 		make(chan struct{}, 1),
 		make(chan struct{}),
-		make(chan struct{}),
+		sync.WaitGroup{},
 	}
 }
 
 // Start the reaper. Should only be called once.
 func (r *Reaper) Start() {
 	r.log.Debugf("BPTXMReaper: started with age threshold %v and interval %v", r.config.EthTxReaperThreshold(), r.config.EthTxReaperInterval())
+	r.wg.Add(1)
 	go r.runLoop()
 }
 
@@ -58,11 +60,11 @@ func (r *Reaper) Start() {
 func (r *Reaper) Stop() {
 	r.log.Debug("BPTXMReaper: stopping")
 	close(r.chStop)
-	<-r.chDone
+	r.wg.Wait()
 }
 
 func (r *Reaper) runLoop() {
-	defer close(r.chDone)
+	defer r.wg.Done()
 	ticker := time.NewTicker(r.config.EthTxReaperInterval())
 	defer ticker.Stop()
 	for {
