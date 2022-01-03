@@ -336,15 +336,15 @@ func (ht *headTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head
 	return head, nil
 }
 
-var _ httypes.HeadTracker = &NullTracker{}
+var NullTracker httypes.HeadTracker = &nullTracker{}
 
-type NullTracker struct{}
+type nullTracker struct{}
 
-func (*NullTracker) Start() error              { return nil }
-func (*NullTracker) Close() error              { return nil }
-func (*NullTracker) Ready() error              { return nil }
-func (*NullTracker) Healthy() error            { return nil }
-func (*NullTracker) SetLogLevel(zapcore.Level) {}
-func (*NullTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
+func (*nullTracker) Start() error              { return nil }
+func (*nullTracker) Close() error              { return nil }
+func (*nullTracker) Ready() error              { return nil }
+func (*nullTracker) Healthy() error            { return nil }
+func (*nullTracker) SetLogLevel(zapcore.Level) {}
+func (*nullTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
 	return nil
 }

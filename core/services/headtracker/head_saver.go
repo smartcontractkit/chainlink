@@ -67,12 +67,12 @@ func (hs *headSaver) Chain(hash common.Hash) *eth.Head {
 	return hs.heads.HeadByHash(hash)
 }
 
-var _ httypes.HeadSaver = &NullSaver{}
+var NullSaver httypes.HeadSaver = &nullSaver{}
 
-type NullSaver struct{}
+type nullSaver struct{}
 
-func (*NullSaver) Save(ctx context.Context, head *eth.Head) error          { return nil }
-func (*NullSaver) LoadFromDB(ctx context.Context) (*eth.Head, error)       { return nil, nil }
-func (*NullSaver) LatestHeadFromDB(ctx context.Context) (*eth.Head, error) { return nil, nil }
-func (*NullSaver) LatestChain() *eth.Head                                  { return nil }
-func (*NullSaver) Chain(hash common.Hash) *eth.Head                        { return nil }
+func (*nullSaver) Save(ctx context.Context, head *eth.Head) error          { return nil }
+func (*nullSaver) LoadFromDB(ctx context.Context) (*eth.Head, error)       { return nil, nil }
+func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*eth.Head, error) { return nil, nil }
+func (*nullSaver) LatestChain() *eth.Head                                  { return nil }
+func (*nullSaver) Chain(hash common.Hash) *eth.Head                        { return nil }

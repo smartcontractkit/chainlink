@@ -90,10 +90,10 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	}
 
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
-	headSaver := &headtracker.NullSaver{}
+	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
 	if cfg.EthereumDisabled() {
-		headTracker = &headtracker.NullTracker{}
+		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
 		var ll zapcore.Level
 		if err2 := ll.UnmarshalText([]byte(headTrackerLL)); err2 != nil {
@@ -104,7 +104,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}
 		orm := headtracker.NewORM(db, l, cfg, *chainID)
-		headSaver := headtracker.NewHeadSaver(headTrackerLogger, orm, cfg)
+		headSaver = headtracker.NewHeadSaver(headTrackerLogger, orm, cfg)
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, headBroadcaster, headSaver)
 	} else {
 		headTracker = opts.GenHeadTracker(dbchain)
