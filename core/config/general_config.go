@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 
@@ -49,6 +50,7 @@ var (
 type GeneralOnlyConfig interface {
 	AdminCredentialsFile() string
 	AllowOrigins() string
+	AppID() uuid.UUID
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	AutoPprofEnabled() bool
@@ -263,6 +265,8 @@ type generalConfig struct {
 	defaultLogLevel  zapcore.Level
 	logSQL           bool
 	logMutex         sync.RWMutex
+	genAppID         sync.Once
+	appID            uuid.UUID
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -393,6 +397,13 @@ func (c *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dialect
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c *generalConfig) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
+}
+
+func (c *generalConfig) AppID() uuid.UUID {
+	c.genAppID.Do(func() {
+		c.appID = uuid.NewV4()
+	})
+	return c.appID
 }
 
 // AdminCredentialsFile points to text file containing admin credentials for logging in
