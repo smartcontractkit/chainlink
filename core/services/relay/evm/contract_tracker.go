@@ -38,8 +38,7 @@ var (
 	_ ocrtypes.ContractConfigTracker = &ContractTracker{}
 	_ httypes.HeadTrackable          = &ContractTracker{}
 
-	OCRContractConfigSet            = getEventTopic("ConfigSet")
-	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
+	OCRContractConfigSet = getEventTopic("ConfigSet")
 )
 
 type OCRContractTrackerDB interface {
@@ -287,7 +286,7 @@ func (t *ContractTracker) HandleLog(lb log.Broadcast) {
 				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(q))
 			})
 			if err != nil {
-				logger.Error(err)
+				t.logger.Error(err)
 				return
 			}
 			consumed = true

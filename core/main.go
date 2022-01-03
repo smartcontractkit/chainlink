@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/pkg/errors"
@@ -22,13 +23,16 @@ func main() {
 func Run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
 	client.Logger.ErrorIf(app.Run(args), "Error running app")
+	if err := client.Logger.Sync(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
-	cfg := config.NewGeneralConfig()
-	lggr := logger.NewLogger(cfg)
+	lggr := logger.NewLogger()
+	cfg := config.NewGeneralConfig(lggr)
 
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg}, lggr)

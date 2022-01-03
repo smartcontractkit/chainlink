@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -41,10 +42,10 @@ func NewOCRKeysBundleResources(keys []ocrkey.KeyV2) []OCRKeysBundleResource {
 // OCR2KeysBundleResource represents a bundle of OCRs keys as JSONAPI resource
 type OCR2KeysBundleResource struct {
 	JAID
-	ChainType             string `json:"chainType"`
-	OnChainSigningAddress string `json:"onChainSigningAddress"`
-	OffChainPublicKey     string `json:"offChainPublicKey"`
-	ConfigPublicKey       string `json:"configPublicKey"`
+	ChainType         string `json:"chainType"`
+	OnchainPublicKey  string `json:"onchainPublicKey"`
+	OffChainPublicKey string `json:"offchainPublicKey"`
+	ConfigPublicKey   string `json:"configPublicKey"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -55,11 +56,11 @@ func (r OCR2KeysBundleResource) GetName() string {
 func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
 	configPublic := key.ConfigEncryptionPublicKey()
 	return &OCR2KeysBundleResource{
-		JAID:                  NewJAID(key.ID()),
-		ChainType:             string(key.ChainType()),
-		OnChainSigningAddress: key.PublicKeyAddressOnChain(),
-		OffChainPublicKey:     hex.EncodeToString(key.OffchainPublicKey()),
-		ConfigPublicKey:       hex.EncodeToString(configPublic[:]),
+		JAID:              NewJAID(key.ID()),
+		ChainType:         string(key.ChainType()),
+		OnchainPublicKey:  fmt.Sprintf("ocr2on_%s_%s", key.ChainType(), key.OnChainPublicKey()),
+		OffChainPublicKey: fmt.Sprintf("ocr2off_%s_%s", key.ChainType(), hex.EncodeToString(key.OffchainPublicKey())),
+		ConfigPublicKey:   fmt.Sprintf("ocr2cfg_%s_%s", key.ChainType(), hex.EncodeToString(configPublic[:])),
 	}
 }
 

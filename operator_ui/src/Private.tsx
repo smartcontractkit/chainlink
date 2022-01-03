@@ -9,13 +9,10 @@ import Header from 'pages/Header'
 import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
-import JobsNew from 'pages/Jobs/New'
 import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
 import NotFound from 'pages/NotFound'
-import TransactionsIndex from 'pages/Transactions/Index'
-import TransactionsShow from 'pages/Transactions/Show'
 
 import { BridgesPage } from 'pages/bridges'
 import { ConfigPage } from 'pages/config'
@@ -26,6 +23,7 @@ import { JobRunsPage } from 'pages/job_runs'
 import { FeedsManagerPage } from 'pages/feeds_manager'
 import { JobProposalsPage } from 'pages/job_proposals'
 import { NodesPage } from 'pages/nodes'
+import { TransactionsPage } from 'pages/Transactions'
 
 const styles = (theme: Theme) => {
   return {
@@ -61,10 +59,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <DashboardPage />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/jobs/new">
-                <JobsNew />
-              </PrivateRoute>
-
               <PrivateRoute exact path="/chains">
                 <ChainsScreen />
               </PrivateRoute>
@@ -75,22 +69,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute path="/chains/:chainId">
                 <ChainShow />
               </PrivateRoute>
-
-              <PrivateRoute
-                exact
-                path="/transactions"
-                component={TransactionsIndex}
-              />
-              <PrivateRoute
-                exact
-                path="/transactions/page/:transactionsPage"
-                component={TransactionsIndex}
-              />
-              <PrivateRoute
-                exact
-                path="/transactions/:transactionId"
-                component={TransactionsShow}
-              />
 
               <PrivateRoute path="/bridges">
                 <BridgesPage />
@@ -122,6 +100,10 @@ const Private = ({ classes }: { classes: { content: string } }) => {
 
               <PrivateRoute path="/nodes">
                 <NodesPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/transactions">
+                <TransactionsPage />
               </PrivateRoute>
 
               <PrivateRoute component={NotFound} />

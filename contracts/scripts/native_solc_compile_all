@@ -43,6 +43,7 @@ $SCRIPTPATH/native_solc8_compile dev/VRFConsumerBaseV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFConsumerV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFMaliciousConsumerV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFTestHelper.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFV2RevertingExample.sol
 
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_compile tests/VRFExternalSubOwnerExample.sol

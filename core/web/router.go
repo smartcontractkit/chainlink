@@ -271,6 +271,12 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		rc := ReplayController{app}
 		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
 
+		csakc := CSAKeysController{app}
+		authv2.GET("/keys/csa", csakc.Index)
+		authv2.POST("/keys/csa", csakc.Create)
+		authv2.POST("/keys/csa/import", csakc.Import)
+		authv2.POST("/keys/csa/export/:ID", csakc.Export)
+
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
@@ -307,11 +313,12 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/solana/import", solkc.Import)
 		authv2.POST("/keys/solana/export/:ID", solkc.Export)
 
-		csakc := CSAKeysController{app}
-		authv2.GET("/keys/csa", csakc.Index)
-		authv2.POST("/keys/csa", csakc.Create)
-		authv2.POST("/keys/csa/import", csakc.Import)
-		authv2.POST("/keys/csa/export/:ID", csakc.Export)
+		terkc := TerraKeysController{app}
+		authv2.GET("/keys/terra", terkc.Index)
+		authv2.POST("/keys/terra", terkc.Create)
+		authv2.DELETE("/keys/terra/:keyID", terkc.Delete)
+		authv2.POST("/keys/terra/import", terkc.Import)
+		authv2.POST("/keys/terra/export/:ID", terkc.Export)
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
