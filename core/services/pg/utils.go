@@ -6,13 +6,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
 )
 
 func init() {
 	s := os.Getenv("DATABASE_DEFAULT_QUERY_TIMEOUT")
 	if s != "" {
-		t, err := config.ParseDuration(s)
+		t, err := parse.Duration(s)
 		if err != nil {
 			panic(fmt.Sprintf("DATABASE_DEFAULT_QUERY_TIMEOUT value of %s is not a valid duration", s))
 		}
@@ -20,7 +20,7 @@ func init() {
 	}
 	s = os.Getenv("DATABASE_DEFAULT_LOCK_TIMEOUT")
 	if s != "" {
-		t, err := config.ParseDuration(s)
+		t, err := parse.Duration(s)
 		if err != nil {
 			panic(fmt.Sprintf("DATABASE_DEFAULT_LOCK_TIMEOUT value of %s is not a valid duration", s))
 		}
@@ -28,7 +28,7 @@ func init() {
 	}
 	s = os.Getenv("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT")
 	if s != "" {
-		t, err := config.ParseDuration(s)
+		t, err := parse.Duration(s)
 		if err != nil {
 			panic(fmt.Sprintf("DATABASE_DEFAULT_IDLE_IN_TX_SESSION_TIMEOUT value of %s is not a valid duration", s))
 		}

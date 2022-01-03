@@ -264,13 +264,7 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	}
 
 	for from, attempts := range attemptsByAddress {
-		ctxInner, cancel := eth.DefaultQueryCtx(ctx)
-		latestBlockNonce, err := ec.getNonceForLatestBlock(ctxInner, from)
-
-		if ctxInner.Err() != nil { // timeout
-			return errors.Wrapf(ctxInner.Err(), "unable to fetch pending nonce for address: %v - timeout or interrupt", from)
-		}
-		cancel()
+		latestBlockNonce, err := ec.getNonceForLatestBlock(ctx, from)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
@@ -391,9 +385,6 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 		reqs = append(reqs, req)
 	}
-
-	ctx, cancel := eth.DefaultQueryCtx(ctx)
-	defer cancel()
 
 	lggr := ec.lggr.Named("batchFetchReceipts")
 
@@ -540,10 +531,7 @@ func (ec *EthConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {
 
 	stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
 
-	ctx, cancel := pg.DefaultQueryCtx()
-	defer cancel()
-
-	_, err = ec.q.ExecContext(ctx, stmt, valueArgs...)
+	err = ec.q.ExecQ(stmt, valueArgs...)
 	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
 
@@ -1405,7 +1393,7 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	if gasLimit == 0 {
 		gasLimit = ec.config.EvmGasLimitDefault()
 	}
-	tx, err := sendEmptyTransaction(ec.ethClient, ec.keystore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, &ec.chainID)
+	tx, err := sendEmptyTransaction(ctx, ec.ethClient, ec.keystore, uint64(nonce), gasLimit, big.NewInt(int64(gasPriceWei)), fromAddress, &ec.chainID)
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}

@@ -166,11 +166,11 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 
 func (c *chain) Start() error {
 	return c.StartOnce("Chain", func() (merr error) {
+		ctx := context.Background()
+
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
-		ctx, cancel := eth.DefaultQueryCtx()
-		defer cancel()
 		if err := c.client.Dial(ctx); err != nil {
 			return errors.Wrap(err, "failed to Dial ethclient")
 		}
@@ -191,11 +191,11 @@ func (c *chain) Start() error {
 		if !c.cfg.Dev() {
 			return nil
 		}
-		return c.checkKeys()
+		return c.checkKeys(ctx)
 	})
 }
 
-func (c *chain) checkKeys() error {
+func (c *chain) checkKeys(ctx context.Context) error {
 	fundingKeys, err := c.keyStore.FundingKeys()
 	if err != nil {
 		return errors.New("failed to get funding keys")
@@ -205,8 +205,6 @@ func (c *chain) checkKeys() error {
 		wg.Add(1)
 		go func(k ethkey.KeyV2) {
 			defer wg.Done()
-			ctx, cancel := eth.DefaultQueryCtx()
-			defer cancel()
 			balance, ethErr := c.client.BalanceAt(ctx, k.Address.Address(), nil)
 			if ethErr != nil {
 				c.logger.Errorw("Chain: failed to fetch balance for funding key", "address", k.Address, "err", ethErr)
@@ -235,7 +233,7 @@ func (c *chain) Close() error {
 		c.logger.Debug("Chain: stopping logBroadcaster")
 		merr = multierr.Combine(merr, c.logBroadcaster.Close())
 		c.logger.Debug("Chain: stopping headTracker")
-		merr = multierr.Combine(merr, c.headTracker.Stop())
+		merr = multierr.Combine(merr, c.headTracker.Close())
 		c.logger.Debug("Chain: stopping headBroadcaster")
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping txm")

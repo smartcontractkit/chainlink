@@ -190,6 +190,7 @@ func ExampleRun_keys() {
 	//    ocr     Remote commands for administering the node's legacy off chain reporting keys
 	//    ocr2    Remote commands for administering the node's off chain reporting keys
 	//    solana  Remote commands for administering the node's solana keys
+	//    terra   Remote commands for administering the node's terra keys
 	//    vrf     Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
@@ -311,6 +312,26 @@ func ExampleRun_keys_solana() {
 	//    export  Export Solana key to keyfile
 	//    delete  Delete Solana key if present
 	//    list    List the Solana keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_terra() {
+	run("keys", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys terra - Remote commands for administering the node's terra keys
+	//
+	// USAGE:
+	//    core.test keys terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Terra key
+	//    import  Import Terra key from keyfile
+	//    export  Export Terra key to keyfile
+	//    delete  Delete Terra key if present
+	//    list    List the Terra keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help

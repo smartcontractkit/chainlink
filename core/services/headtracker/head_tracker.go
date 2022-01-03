@@ -46,8 +46,10 @@ type HeadTracker struct {
 
 	backfillMB   utils.Mailbox
 	callbackMB   utils.Mailbox
-	headListener *HeadListener
-	headSaver    *HeadSaver
+	headListener HeadListener
+	headSaver    HeadSaver
+	ctx          context.Context
+	cancel       context.CancelFunc
 	chStop       chan struct{}
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
@@ -60,12 +62,12 @@ func NewHeadTracker(
 	l logger.Logger,
 	ethClient eth.Client,
 	config Config,
-	orm *ORM,
+	orm ORM,
 	headBroadcaster httypes.HeadBroadcaster,
-	sleepers ...utils.Sleeper,
 ) *HeadTracker {
 	chStop := make(chan struct{})
 	l = l.Named(logger.HeadTracker)
+	ctx, cancel := context.WithCancel(context.Background())
 	return &HeadTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
@@ -74,8 +76,10 @@ func NewHeadTracker(
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
 		callbackMB:      *utils.NewMailbox(HeadsBufferSize),
+		ctx:             ctx,
+		cancel:          cancel,
 		chStop:          chStop,
-		headListener:    NewHeadListener(l, ethClient, config, chStop, sleepers...),
+		headListener:    NewHeadListener(l, ethClient, config, chStop),
 		headSaver:       NewHeadSaver(l, orm, config),
 	}
 }
@@ -89,7 +93,7 @@ func (ht *HeadTracker) SetLogLevel(lvl zapcore.Level) {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
+		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
 		latestChain, err := ht.headSaver.LoadFromDB(context.Background())
 		if err != nil {
 			return err
@@ -102,8 +106,10 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
-		ctx, cancel := utils.CombinedContext(context.Background(), ht.chStop)
-		defer cancel()
+		// FIXME: Requests will block Start if they takes a long time. A future
+		// improvement might allow Close() to cancel this context somehow.
+		// https://app.shortcut.com/chainlinklabs/story/24187/ctrl-c-should-cancel-in-flight-requests-in-start-functions
+		startCtx := context.Background()
 
 		// NOTE: Always try to start the head tracker off with whatever the
 		// latest head is, without waiting for the subscription to send us one.
@@ -112,11 +118,11 @@ func (ht *HeadTracker) Start() error {
 		// anyway when we connect (but we should not rely on this because it is
 		// not specced). If it happens this is fine, and the head will be
 		// ignored as a duplicate.
-		initialHead, err := ht.getInitialHead()
+		initialHead, err := ht.getInitialHead(startCtx)
 		if err != nil {
 			ht.log.Errorw("Error getting initial head", "err", err)
 		} else if initialHead != nil {
-			if err := ht.handleNewHead(ctx, initialHead); err != nil {
+			if err := ht.handleNewHead(startCtx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
 			}
 		} else {
@@ -132,9 +138,7 @@ func (ht *HeadTracker) Start() error {
 	})
 }
 
-func (ht *HeadTracker) getInitialHead() (*eth.Head, error) {
-	ctx, cancel := eth.DefaultQueryCtx()
-	defer cancel()
+func (ht *HeadTracker) getInitialHead(ctx context.Context) (*eth.Head, error) {
 	head, err := ht.ethClient.HeadByNumber(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch initial head")
@@ -147,25 +151,18 @@ func (ht *HeadTracker) getInitialHead() (*eth.Head, error) {
 	return head, nil
 }
 
-// Stop unsubscribes all connections and fires Disconnect.
-func (ht *HeadTracker) Stop() error {
+// Close unsubscribes all connections and fires Disconnect.
+func (ht *HeadTracker) Close() error {
 	return ht.StopOnce("HeadTracker", func() error {
+		ht.cancel()
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
 	})
 }
 
-func (ht *HeadTracker) Save(ctx context.Context, h *eth.Head) error {
-	return ht.headSaver.Save(ctx, h)
-}
-
-func (ht *HeadTracker) LatestChain() *eth.Head {
-	return ht.headSaver.LatestChain()
-}
-
 func (ht *HeadTracker) HighestSeenHeadFromDB(ctx context.Context) (*eth.Head, error) {
-	return ht.headSaver.orm.LatestHead(ctx)
+	return ht.headSaver.LatestHeadFromDB(ctx)
 }
 
 // Connected returns whether or not this HeadTracker is connected.
@@ -213,16 +210,14 @@ func (ht *HeadTracker) headCallbackLoop() {
 }
 
 func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
-	ctx, cancel := utils.ContextFromChan(ht.chStop)
-	defer cancel()
-
 	head := eth.AsHead(item)
 
-	ht.headBroadcaster.OnNewLongestChain(ctx, head)
+	ht.headBroadcaster.BroadcastNewLongestChain(head)
 }
 
 func (ht *HeadTracker) backfiller() {
 	defer ht.wgDone.Done()
+
 	for {
 		select {
 		case <-ht.chStop:
@@ -235,15 +230,12 @@ func (ht *HeadTracker) backfiller() {
 				}
 				h := eth.AsHead(head)
 				{
-					ctx, cancel := eth.DefaultQueryCtx()
-					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
+					err := ht.Backfill(ht.ctx, h, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
-					} else if ctx.Err() != nil {
-						cancel()
+					} else if ht.ctx.Err() != nil {
 						break
 					}
-					cancel()
 				}
 			}
 		}
@@ -265,7 +257,7 @@ func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain *eth.Head, de
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseHeight int64) (err error) {
+func (ht *HeadTracker) backfill(ctx context.Context, head *eth.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
@@ -277,7 +269,8 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseH
 		"toBlockHeight", head.Number-1)
 	l.Debug("Starting backfill")
 	defer func() {
-		if ctxParent.Err() != nil {
+		if ctx.Err() != nil {
+			l.Warnw("Backfill context error", "err", ctx.Err())
 			return
 		}
 		l.Debugw("Finished backfill",
@@ -286,8 +279,6 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseH
 			"err", err)
 	}()
 
-	ctx, cancel := utils.CombinedContext(ht.chStop, ctxParent)
-	defer cancel()
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		existingHead := ht.headSaver.Chain(head.ParentHash)
@@ -298,7 +289,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseH
 		head, err = ht.fetchAndSaveHead(ctx, i)
 		fetched++
 		if ctx.Err() != nil {
-			ht.log.Debug("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
+			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
 			break
 		} else if err != nil {
 			return errors.Wrap(err, "fetchAndSaveHead failed")
@@ -323,7 +314,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head
 }
 
 func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
-	prevHead := ht.LatestChain()
+	prevHead := ht.headSaver.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
@@ -331,7 +322,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error 
 		"parentHeadHash", head.ParentHash,
 	)
 
-	err := ht.Save(ctx, head)
+	err := ht.headSaver.Save(ctx, head)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
@@ -366,13 +357,19 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error 
 }
 
 func (ht *HeadTracker) Healthy() error {
-	if !ht.headListener.receivesHeads.Load() {
-		return errors.New("Heads are not being received")
+	if !ht.headListener.ReceivingHeads() {
+		return errors.New("Listener is not receiving heads")
 	}
 	if !ht.headListener.Connected() {
-		return errors.New("Not connected")
+		return errors.New("Listener is not connected")
 	}
 	return nil
+}
+
+// Saver returns HeadSaver instance, exposed for testing.
+// Consider removing this while refactoring HeadTracker.
+func (ht *HeadTracker) Saver() HeadSaver {
+	return ht.headSaver
 }
 
 var _ httypes.Tracker = &NullTracker{}
@@ -383,7 +380,7 @@ func (n *NullTracker) HighestSeenHeadFromDB(context.Context) (*eth.Head, error) 
 	return nil, nil
 }
 func (*NullTracker) Start() error   { return nil }
-func (*NullTracker) Stop() error    { return nil }
+func (*NullTracker) Close() error   { return nil }
 func (*NullTracker) Ready() error   { return nil }
 func (*NullTracker) Healthy() error { return nil }
 

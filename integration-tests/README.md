@@ -25,15 +25,15 @@ make test_smoke
 In order to run in **parallel**, utilize args.
 
 ```sh
-make test_smoke args="-nodes=5"
+make test_smoke args="-nodes=6"
 ```
 
-The above will run tests with 5 parallel threads.
+The above will run tests with 6 parallel threads.
 
 ### Options
 
 If you would like to change the Chainlink values that are used for environments, you can use JSON to squash them. Have a look over at our [helmenv](https://github.com/smartcontractkit/helmenv/) chainlink charts to get a grasp of how things are structured. We'll be writing more on this later, but for now, you can squash values by providing a `CHARTS` environment variable.
 
 ```sh
-CHARTS='{"chainlink": {"values": {"chainlink": {"image": {"version": "1.0.1"}}}}}' make test_smoke args="-nodes=5"
+CHARTS='{"chainlink": {"values": {"chainlink": {"image": {"version": "1.0.1"}}}}}' make test_smoke args="-nodes=6"
 ```

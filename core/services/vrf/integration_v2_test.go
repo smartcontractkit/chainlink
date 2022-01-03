@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -415,12 +416,12 @@ func assertRandomWordsFulfilled(
 	numChecks := 3
 	found := false
 	for i := 0; i < numChecks; i++ {
-		fiter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
+		filter, err := uni.rootContract.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
 		require.NoError(t, err)
 
-		for fiter.Next() {
-			require.Equal(t, expectedSuccess, fiter.Event.Success, "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, fiter.Event.Success)
-			require.Equal(t, requestID, fiter.Event.RequestId)
+		for filter.Next() {
+			require.Equal(t, expectedSuccess, filter.Event.Success, "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event.Success)
+			require.Equal(t, requestID, filter.Event.RequestId)
 			found = true
 		}
 
@@ -446,8 +447,24 @@ func assertNumRandomWords(
 	}
 }
 
+func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
+	return gomega.NewWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		var txs []bulletprooftxmanager.EthTx
+		err := db.Select(&txs, `
+		SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+			AND eth_txes.meta->>'RequestID' = $1
+			AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $2 LIMIT 1
+		`, common.BytesToHash(requestID.Bytes()).String(), subID)
+		require.NoError(t, err)
+		t.Log("num txs", len(txs))
+		return len(txs) == 1
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+}
+
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -486,10 +503,10 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
+	mine(t, requestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
@@ -501,7 +518,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -554,8 +571,9 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		return len(runs) == 1
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
-	// Mine the fulfillment
-	uni.backend.Commit()
+	// Mine the fulfillment. Need to wait for BPTXM to mark the tx as confirmed
+	// so that we can actually see the event on the simulated chain.
+	mine(t, requestID, subID, uni, db)
 
 	// Assert the state of the RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni)
@@ -565,7 +583,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -596,7 +614,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, big.NewInt(10e9))
 	require.NoError(t, app.Start())
 
-	// Create VRF job.
+	// Create VRF jobs.
 	jbs := createJobs(t, []ethkey.KeyV2{cheapKey, expensiveKey}, app, uni)
 	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
 	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
@@ -614,8 +632,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
-	time.Sleep(2 * time.Second)
+	mine(t, cheapRequestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, cheapRequestID, true, uni)
@@ -648,8 +665,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
-	time.Sleep(2 * time.Second)
+	mine(t, expensiveRequestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni)
@@ -659,7 +675,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -701,7 +717,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	uni.backend.Commit()
+	mine(t, requestID, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, false, uni)

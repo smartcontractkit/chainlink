@@ -3693,11 +3693,6 @@ func (_m *ChainScopedConfig) SessionTimeout() models.Duration {
 	return r0
 }
 
-// SetDialect provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) SetDialect(_a0 dialects.DialectName) {
-	_m.Called(_a0)
-}
-
 // SetEvmGasPriceDefault provides a mock function with given fields: value
 func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	ret := _m.Called(value)
@@ -3712,13 +3707,13 @@ func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	return r0
 }
 
-// SetLogLevel provides a mock function with given fields: lvl
-func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
-	ret := _m.Called(lvl)
+// SetLogLevel provides a mock function with given fields: _a0
+func (_m *ChainScopedConfig) SetLogLevel(_a0 zapcore.Level) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(zapcore.Level) error); ok {
-		r0 = rf(lvl)
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -3726,9 +3721,9 @@ func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
 	return r0
 }
 
-// SetLogSQL provides a mock function with given fields: logSQL
-func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
-	_m.Called(logSQL)
+// SetLogSQL provides a mock function with given fields: _a0
+func (_m *ChainScopedConfig) SetLogSQL(_a0 bool) {
+	_m.Called(_a0)
 }
 
 // StatsPusherLogging provides a mock function with given fields:

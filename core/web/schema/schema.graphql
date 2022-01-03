@@ -21,6 +21,7 @@ type Query {
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
+    globalLogLevel: GlobalLogLevelPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
@@ -30,6 +31,8 @@ type Query {
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
+    solanaKeys: SolanaKeysPayload!
+    sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!
 }
@@ -59,6 +62,7 @@ type Mutation {
     dismissJobError(id: ID!): DismissJobErrorPayload!
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
     runJob(id: ID!): RunJobPayload!
+    setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!

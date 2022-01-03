@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func makeHTTPRequest(
@@ -42,9 +41,9 @@ func makeHTTPRequest(
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	httpRequest := utils.HTTPRequest{
+	httpRequest := HTTPRequest{
 		Request: request,
-		Config: utils.HTTPRequestConfig{
+		Config: HTTPRequestConfig{
 			SizeLimit:                      cfg.DefaultHTTPLimit(),
 			AllowUnrestrictedNetworkAccess: bool(allowUnrestrictedNetworkAccess),
 		},

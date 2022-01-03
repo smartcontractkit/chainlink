@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
@@ -246,8 +245,8 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 	if len(etxs) == 0 {
 		return nil
 	}
-	attemptHashM := make(map[gethCommon.Hash]*EthTxAttempt, len(etxs)) // len here is lower bound
-	attemptHashes := make([][]byte, len(etxs))                         // len here is lower bound
+	attemptHashM := make(map[common.Hash]*EthTxAttempt, len(etxs)) // len here is lower bound
+	attemptHashes := make([][]byte, len(etxs))                     // len here is lower bound
 	for _, etx := range etxs {
 		for i, attempt := range etx.EthTxAttempts {
 			attemptHashM[attempt.Hash] = &etx.EthTxAttempts[i]
