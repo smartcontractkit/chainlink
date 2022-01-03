@@ -92,6 +92,7 @@ func TestConfigSchema(t *testing.T) {
 		"FMDefaultTransactionQueueDepth":             "FM_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"FMSimulateTransactions":                     "FM_SIMULATE_TRANSACTIONS",
 		"FeatureExternalInitiators":                  "FEATURE_EXTERNAL_INITIATORS",
+		"FeatureFeedsManager":                        "FEATURE_FEEDS_MANAGER",
 		"FeatureOffchainReporting":                   "FEATURE_OFFCHAIN_REPORTING",
 		"FeatureUICSAKeys":                           "FEATURE_UI_CSA_KEYS",
 		"FeatureUIFeedsManager":                      "FEATURE_UI_FEEDS_MANAGER",

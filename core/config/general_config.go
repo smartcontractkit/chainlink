@@ -95,6 +95,7 @@ type GeneralOnlyConfig interface {
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
 	FeatureExternalInitiators() bool
+	FeatureFeedsManager() bool
 	FeatureOffchainReporting() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
@@ -601,6 +602,11 @@ func (c *generalConfig) Dev() bool {
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
+}
+
+// FeatureFeedsManager enables the feeds manager
+func (c *generalConfig) FeatureFeedsManager() bool {
+	return c.viper.GetBool(EnvVarName("FeatureFeedsManager"))
 }
 
 // FeatureOffchainReporting enables the OCR job type.
