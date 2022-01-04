@@ -31,14 +31,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	debug := zapcore.DebugLevel
 	cfg.Overrides.LogLevel = &debug
-	cfg.Overrides.LogToDisk = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 	keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -138,7 +136,7 @@ LINK_CONTRACT_ADDRESS:
 LOG_FILE_DIR: %[1]s
 LOG_LEVEL: debug
 LOG_SQL: false
-LOG_TO_DISK: true
+LOG_TO_DISK: false
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 

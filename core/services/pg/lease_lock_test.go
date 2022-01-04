@@ -88,7 +88,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			err = leaseLock.TakeAndHold()
+			err = leaseLock.TakeAndHold(sig)
 			require.NoError(t, err)
 			close(gotLease)
 		}()

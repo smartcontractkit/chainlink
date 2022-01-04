@@ -299,12 +299,6 @@ func (c *TestGeneralConfig) FeatureFeedsManager() bool {
 	return c.GeneralConfig.FeatureFeedsManager()
 }
 
-func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
-	if c.Overrides.TriggerFallbackDBPollInterval != nil {
-		return *c.Overrides.TriggerFallbackDBPollInterval
-	}
-}
-
 func (c *TestGeneralConfig) FeatureOffchainReporting() bool {
 	if c.Overrides.FeatureOffchainReporting.Valid {
 		return c.Overrides.FeatureOffchainReporting.Bool
