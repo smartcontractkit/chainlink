@@ -73,9 +73,8 @@ type node struct {
 	log  logger.Logger
 	name string
 
-	state  NodeState
-	mu     sync.RWMutex
-	closed bool
+	state NodeState
+	mu    sync.RWMutex
 }
 
 func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
@@ -95,6 +94,9 @@ func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) N
 // Can dial Dead or Undialed nodes
 // Cannot dial a closed node
 func (n *node) Dial(ctx context.Context) error {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if n.state == NodeStateAlive || n.state == NodeStateDialed {
@@ -151,6 +153,9 @@ func (n *node) Close() {
 
 // Verify checks that all connections to eth nodes match the given chain ID
 func (n *node) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	if n.state == NodeStateUndialed {
@@ -203,6 +208,9 @@ func (n *node) State() NodeState {
 // e.g. need a way to mark a node as "dead" if it fails more than 3 calls in a row
 // see: https://app.shortcut.com/chainlinklabs/story/8403/multiple-primary-geth-nodes-with-failover-load-balancer-part-2
 func (n *node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#Call(...)",
 		"method", method,
 		"args", args,
@@ -215,6 +223,9 @@ func (n *node) CallContext(ctx context.Context, result interface{}, method strin
 }
 
 func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 		"mode", switching(n),
@@ -226,6 +237,9 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 }
 
 func (n *node) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#EthSubscribe", "mode", "websocket")
 	return n.ws.rpc.EthSubscribe(ctx, channel, args...)
 }
@@ -233,6 +247,9 @@ func (n *node) EthSubscribe(ctx context.Context, channel interface{}, args ...in
 // GethClient wrappers
 
 func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#TransactionReceipt(...)",
 		"txHash", txHash,
 		"mode", switching(n),
@@ -250,6 +267,9 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 }
 
 func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#HeaderByNumber(...)",
 		"number", n,
 		"mode", switching(n),
@@ -265,6 +285,9 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 }
 
 func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
 		"mode", switching(n),
@@ -276,6 +299,9 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 }
 
 func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#PendingNonceAt(...)",
 		"account", account,
 		"mode", switching(n),
@@ -291,6 +317,9 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 }
 
 func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#NonceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -307,6 +336,9 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 }
 
 func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#PendingCodeAt(...)",
 		"account", account,
 		"mode", switching(n),
@@ -322,6 +354,9 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 }
 
 func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#CodeAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -338,6 +373,9 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 }
 
 func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#EstimateGas(...)",
 		"call", call,
 		"mode", switching(n),
@@ -353,6 +391,9 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 }
 
 func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SuggestGasPrice()", "mode", "websocket")
 	price, err = n.ws.geth.SuggestGasPrice(ctx)
 	err = n.wrapWS(err)
@@ -360,6 +401,9 @@ func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) 
 }
 
 func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) (val []byte, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#CallContract()",
 		"mode", switching(n),
 	)
@@ -375,6 +419,9 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 }
 
 func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#BlockByNumber(...)",
 		"number", number,
 		"mode", switching(n),
@@ -390,6 +437,9 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 }
 
 func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#BalanceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -406,6 +456,9 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 }
 
 func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#FilterLogs(...)",
 		"q", q,
 		"mode", switching(n),
@@ -421,6 +474,9 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 }
 
 func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SubscribeFilterLogs(...)", "q", q, "mode", "websocket")
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	err = n.wrapWS(err)
@@ -428,6 +484,9 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 }
 
 func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SuggestGasTipCap(...)",
 		"mode", switching(n),
 	)
@@ -442,6 +501,9 @@ func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error
 }
 
 func (n *node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#ChainID(...)")
 	if n.http != nil {
 		chainID, err = n.http.geth.ChainID(ctx)

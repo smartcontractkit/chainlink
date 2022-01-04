@@ -22,15 +22,16 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
@@ -161,12 +162,29 @@ func advisoryLockTakeAndHold(ctx context.Context, lggr logger.Logger, db *sql.DB
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	err := cli.Config.Validate()
-	if err != nil {
+	if err := cli.runNode(c); err != nil {
+		err = errors.Wrap(err, "Cannot boot Chainlink")
+		cli.Logger.Error(err)
+		if serr := cli.Logger.Sync(); serr != nil {
+			err = multierr.Combine(serr, err)
+		}
 		return cli.errorOut(err)
 	}
+	return nil
+}
 
+<<<<<<< HEAD
 	lggr := cli.Logger.Named("RunNode")
+=======
+func (cli *Client) runNode(c *clipkg.Context) error {
+	lggr := cli.Logger.Named("boot")
+
+	err := cli.Config.Validate()
+	if err != nil {
+		return errors.Wrap(err, "config validation failed")
+	}
+
+>>>>>>> origin/develop
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
 	if cli.Config.Dev() {
@@ -190,14 +208,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return errors.Wrap(err, "error initializing application")
 	}
 
 	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
 	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
+		return errors.Wrap(err, "error authenticating keystore")
 	}
 
 	var vrfpwd string
@@ -205,26 +223,26 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if len(c.String("vrfpassword")) != 0 {
 		vrfpwd, fileErr = passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {
-			return cli.errorOut(errors.Wrapf(fileErr,
+			return errors.Wrapf(fileErr,
 				"error reading VRF password from vrfpassword file \"%s\"",
-				c.String("vrfpassword")))
+				c.String("vrfpassword"))
 		}
 	}
 
 	chainSet := app.GetChainSet()
 	dflt, err := chainSet.Default()
 	if err != nil {
-		return cli.errorOut(err)
+		return errors.Wrap(err, "failed to get default chainset")
 	}
 	err = keyStore.Migrate(vrfpwd, dflt.ID())
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
+		return errors.Wrap(err, "error migrating keystore")
 	}
 
 	for _, ch := range chainSet.Chains() {
 		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 		if err2 != nil {
-			return cli.errorOut(err)
+			return errors.Wrap(err2, "failed to ensure keystore keys")
 		}
 		if !fexisted {
 			lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
@@ -236,17 +254,40 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	ocrKey, didExist, err := app.GetKeyStore().OCR().EnsureKey()
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr key"))
+		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 	if !didExist {
 		lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 	}
+	ocr2Keys, keysDidExist, err := app.GetKeyStore().OCR2().EnsureKeys()
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure ocr key")
+	}
+	for chainType, didExist := range keysDidExist {
+		if !didExist {
+			lggr.Infof("Created OCR2 key with ID %s", ocr2Keys[chainType].ID())
+		}
+	}
 	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to ensure p2p key"))
+		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 	if !didExist {
 		lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
+	}
+	solanaKey, didExist, err := app.GetKeyStore().Solana().EnsureKey()
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure solana key")
+	}
+	if !didExist {
+		lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
+	}
+	terraKey, didExist, err := app.GetKeyStore().Terra().EnsureKey()
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure terra key")
+	}
+	if !didExist {
+		lggr.Infof("Created Terra key with ID %s", terraKey.ID())
 	}
 
 	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {
@@ -255,32 +296,30 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	var user sessions.User
 	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
-		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
+		return errors.Wrap(err, "error creating api initializer")
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
 		if err == ErrorNoAPICredentialsAvailable {
-			return cli.errorOut(err)
+			return errors.WithStack(err)
 		}
-		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
+		return errors.Wrap(err, "error creating fallback initializer")
 	}
 
 	lggr.Info("API exposed for user ", user.Email)
-	if e := app.Start(); e != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
+	if err = app.Start(); err != nil {
+		return errors.Wrap(err, "error starting app")
 	}
 	defer func() {
 		lggr.ErrorIf(app.Stop(), "Error stopping app")
 		if err = lggr.Sync(); err != nil {
-			log.Println(err)
+			log.Fatal(err)
 		}
 	}()
-	err = logConfigVariables(lggr, cli.Config)
-	if err != nil {
-		return cli.errorOut(err)
-	}
+
+	lggr.Debug("Environment variables\n", config.NewConfigPrinter(cli.Config))
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
-	return cli.errorOut(cli.Runner.Run(app))
+	return (cli.Runner.Run(app))
 }
 
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
@@ -348,16 +387,6 @@ func passwordFromFile(pwdFile string) (string, error) {
 	}
 	dat, err := ioutil.ReadFile(pwdFile)
 	return strings.TrimSpace(string(dat)), err
-}
-
-func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
-	wlc, err := config.NewConfigPrinter(cfg)
-	if err != nil {
-		return err
-	}
-
-	lggr.Debug("Environment variables\n", wlc)
-	return nil
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of
@@ -446,9 +475,9 @@ func (p *HealthCheckPresenter) ToRow() []string {
 	var status string
 
 	switch p.Status {
-	case health.StatusFailing:
+	case services.StatusFailing:
 		status = red(p.Status)
-	case health.StatusPassing:
+	case services.StatusPassing:
 		status = green(p.Status)
 	}
 

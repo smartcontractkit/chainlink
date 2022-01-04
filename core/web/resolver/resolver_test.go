@@ -11,12 +11,18 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
+	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	servicesMocks "github.com/smartcontractkit/chainlink/core/services/mocks"
+	pipelineMocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	sessionsMocks "github.com/smartcontractkit/chainlink/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -29,14 +35,23 @@ type mocks struct {
 	evmORM      *evmORMMocks.ORM
 	jobORM      *jobORMMocks.ORM
 	sessionsORM *sessionsMocks.ORM
+	pipelineORM *pipelineMocks.ORM
 	feedsSvc    *feedsMocks.Service
 	cfg         *configMocks.GeneralConfig
+	scfg        *evmConfigMocks.ChainScopedConfig
 	ocr         *keystoreMocks.OCR
 	csa         *keystoreMocks.CSA
 	keystore    *keystoreMocks.Master
+	ethKs       *keystoreMocks.Eth
 	p2p         *keystoreMocks.P2P
 	vrf         *keystoreMocks.VRF
+	solana      *keystoreMocks.Solana
+	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
+	ethClient   *ethmocks.Client
+	eIMgr       *webhookmocks.ExternalInitiatorManager
+	balM        *servicesMocks.BalanceMonitor
+	bptxmORM    *bulletprooftxmanagerMocks.ORM
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -44,7 +59,7 @@ type mocks struct {
 type gqlTestFramework struct {
 	t *testing.T
 
-	// The mocked chainlink.Application
+	// The mocked chainlf.Mocks.chainSetink.Application
 	App *coremocks.Application
 
 	// The root GQL schema
@@ -77,13 +92,22 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		jobORM:      &jobORMMocks.ORM{},
 		feedsSvc:    &feedsMocks.Service{},
 		sessionsORM: &sessionsMocks.ORM{},
+		pipelineORM: &pipelineMocks.ORM{},
 		cfg:         &configMocks.GeneralConfig{},
+		scfg:        &evmConfigMocks.ChainScopedConfig{},
 		ocr:         &keystoreMocks.OCR{},
 		csa:         &keystoreMocks.CSA{},
 		keystore:    &keystoreMocks.Master{},
+		ethKs:       &keystoreMocks.Eth{},
 		p2p:         &keystoreMocks.P2P{},
 		vrf:         &keystoreMocks.VRF{},
+		solana:      &keystoreMocks.Solana{},
+		chain:       &evmORMMocks.Chain{},
 		chainSet:    &evmORMMocks.ChainSet{},
+		ethClient:   &ethmocks.Client{},
+		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
+		balM:        &servicesMocks.BalanceMonitor{},
+		bptxmORM:    &bulletprooftxmanagerMocks.ORM{},
 	}
 
 	// Assert expectations for any mocks that we set up
@@ -94,14 +118,23 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.evmORM,
 			m.jobORM,
 			m.sessionsORM,
+			m.pipelineORM,
 			m.feedsSvc,
 			m.cfg,
+			m.scfg,
 			m.ocr,
 			m.csa,
 			m.keystore,
+			m.ethKs,
 			m.p2p,
 			m.vrf,
+			m.solana,
+			m.chain,
 			m.chainSet,
+			m.ethClient,
+			m.eIMgr,
+			m.balM,
+			m.bptxmORM,
 		)
 	})
 

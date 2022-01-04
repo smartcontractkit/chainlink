@@ -3,8 +3,10 @@
 package mocks
 
 import (
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	logger "github.com/smartcontractkit/chainlink/core/logger"
 	mock "github.com/stretchr/testify/mock"
+
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	time "time"
 
@@ -16,13 +18,13 @@ type Config struct {
 	mock.Mock
 }
 
-// BridgeResponseURL provides a mock function with given fields:
-func (_m *Config) BridgeResponseURL() *url.URL {
-	ret := _m.Called()
+// BridgeResponseURL provides a mock function with given fields: _a0
+func (_m *Config) BridgeResponseURL(_a0 logger.Logger) *url.URL {
+	ret := _m.Called(_a0)
 
 	var r0 *url.URL
-	if rf, ok := ret.Get(0).(func() *url.URL); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(logger.Logger) *url.URL); ok {
+		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
@@ -32,22 +34,8 @@ func (_m *Config) BridgeResponseURL() *url.URL {
 	return r0
 }
 
-// DatabaseMaximumTxDuration provides a mock function with given fields:
-func (_m *Config) DatabaseMaximumTxDuration() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // DatabaseURL provides a mock function with given fields:
-func (_m *Config) DatabaseURL() url.URL {
+func (_m *Config) DatabaseURL() (url.URL, error) {
 	ret := _m.Called()
 
 	var r0 url.URL
@@ -57,7 +45,14 @@ func (_m *Config) DatabaseURL() url.URL {
 		r0 = ret.Get(0).(url.URL)
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // DefaultHTTPAllowUnrestrictedNetworkAccess provides a mock function with given fields:
@@ -88,13 +83,13 @@ func (_m *Config) DefaultHTTPLimit() int64 {
 	return r0
 }
 
-// DefaultHTTPTimeout provides a mock function with given fields:
-func (_m *Config) DefaultHTTPTimeout() models.Duration {
-	ret := _m.Called()
+// DefaultHTTPTimeout provides a mock function with given fields: _a0
+func (_m *Config) DefaultHTTPTimeout(_a0 logger.Logger) models.Duration {
+	ret := _m.Called(_a0)
 
 	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(logger.Logger) models.Duration); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(models.Duration)
 	}
@@ -102,13 +97,13 @@ func (_m *Config) DefaultHTTPTimeout() models.Duration {
 	return r0
 }
 
-// DefaultMaxHTTPAttempts provides a mock function with given fields:
-func (_m *Config) DefaultMaxHTTPAttempts() uint {
-	ret := _m.Called()
+// DefaultMaxHTTPAttempts provides a mock function with given fields: _a0
+func (_m *Config) DefaultMaxHTTPAttempts(_a0 logger.Logger) uint {
+	ret := _m.Called(_a0)
 
 	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(logger.Logger) uint); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(uint)
 	}
@@ -116,13 +111,13 @@ func (_m *Config) DefaultMaxHTTPAttempts() uint {
 	return r0
 }
 
-// JobPipelineMaxRunDuration provides a mock function with given fields:
-func (_m *Config) JobPipelineMaxRunDuration() time.Duration {
-	ret := _m.Called()
+// JobPipelineMaxRunDuration provides a mock function with given fields: _a0
+func (_m *Config) JobPipelineMaxRunDuration(_a0 logger.Logger) time.Duration {
+	ret := _m.Called(_a0)
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(logger.Logger) time.Duration); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}
@@ -130,13 +125,13 @@ func (_m *Config) JobPipelineMaxRunDuration() time.Duration {
 	return r0
 }
 
-// JobPipelineReaperInterval provides a mock function with given fields:
-func (_m *Config) JobPipelineReaperInterval() time.Duration {
-	ret := _m.Called()
+// JobPipelineReaperInterval provides a mock function with given fields: _a0
+func (_m *Config) JobPipelineReaperInterval(_a0 logger.Logger) time.Duration {
+	ret := _m.Called(_a0)
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(logger.Logger) time.Duration); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}
@@ -144,13 +139,13 @@ func (_m *Config) JobPipelineReaperInterval() time.Duration {
 	return r0
 }
 
-// JobPipelineReaperThreshold provides a mock function with given fields:
-func (_m *Config) JobPipelineReaperThreshold() time.Duration {
-	ret := _m.Called()
+// JobPipelineReaperThreshold provides a mock function with given fields: _a0
+func (_m *Config) JobPipelineReaperThreshold(_a0 logger.Logger) time.Duration {
+	ret := _m.Called(_a0)
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(logger.Logger) time.Duration); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}
@@ -158,13 +153,13 @@ func (_m *Config) JobPipelineReaperThreshold() time.Duration {
 	return r0
 }
 
-// TriggerFallbackDBPollInterval provides a mock function with given fields:
-func (_m *Config) TriggerFallbackDBPollInterval() time.Duration {
-	ret := _m.Called()
+// TriggerFallbackDBPollInterval provides a mock function with given fields: _a0
+func (_m *Config) TriggerFallbackDBPollInterval(_a0 logger.Logger) time.Duration {
+	ret := _m.Called(_a0)
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(logger.Logger) time.Duration); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}
