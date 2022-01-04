@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,9 +33,6 @@ type Pool struct {
 }
 
 func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
-	if len(nodes) == 0 {
-		panic("must provide at least one node")
-	}
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -54,6 +52,9 @@ func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chain
 // Dial dials every node in the pool and verifies their chain IDs are consistent.
 func (p *Pool) Dial(ctx context.Context) error {
 	return p.StartOnce("Pool", func() (merr error) {
+		if len(p.nodes) == 0 {
+			return errors.Errorf("no available nodes for chain %s", p.chainID.String())
+		}
 		for _, n := range p.nodes {
 			if err := n.Dial(ctx); err != nil {
 				p.logger.Errorw("Error dialing node", "node", n, "err", err)
