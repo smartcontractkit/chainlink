@@ -78,11 +78,11 @@ func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	var advisoryLock pg.Locker
+	var advisoryLock pg.AdvisoryLock
 	switch lockingMode {
 	case "advisorylock", "dual":
-		advisoryLock, err = advisoryLockTakeAndHold(context.Background(), lggr, db.DB, time.Second, sig)
-		if err != nil {
+		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
+		if err = advisoryLock.TakeAndHold(); err != nil {
 			return cleanup, errors.Wrap(err, "error acquiring lock")
 		}
 	}
@@ -92,72 +92,10 @@ func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger
 			leaseLock.Release()
 		}
 		if advisoryLock != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			if err := advisoryLock.Unlock(ctx); err != nil {
-				lggr.Error(err)
-			}
+			advisoryLock.Release()
 		}
 	}
 	return cleanup, nil
-}
-
-// Try to immediately acquire an advisory lock. The lock will be released on application stop.
-func advisoryLockTakeAndHold(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration, sig shutdown.Signal) (pg.Locker, error) {
-	lggr = lggr.Named("AdvisoryLock")
-	const lockID int64 = 1027321974924625846
-	lockRetryInterval := time.Second
-
-	lggr = lggr.Named("AdvisoryLock")
-	lggr.Debug("Taking advisory lock...")
-
-	initCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	lock, err := pg.NewLock(initCtx, lockID, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ticker := time.NewTicker(lockRetryInterval)
-	defer ticker.Stop()
-	retryCount := 0
-	for {
-		lockCtx, cancel := context.WithTimeout(ctx, timeout)
-		gotLock, err := lock.Lock(lockCtx)
-		if errors.Is(err, sql.ErrConnDone) {
-			lggr.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
-			// Initialize new lock (opening new connection) if the current connection is dead
-			if lock, err = pg.NewLock(initCtx, lockID, db); err != nil {
-				cancel()
-				return nil, err
-			}
-			continue
-		}
-		cancel()
-		if err != nil {
-			return nil, err
-		}
-		if gotLock {
-			break
-		}
-
-		select {
-		case <-ticker.C:
-			retryCount++
-			if msg := retryLogMsg(retryCount); msg != "" {
-				lggr.Infow(msg, "failCount", retryCount)
-			}
-			continue
-		case <-sig.Wait():
-			return nil, errors.New("application shutdown")
-		case <-ctx.Done():
-			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
-		}
-	}
-
-	lggr.Debug("Got advisory lock")
-
-	return &lock, nil
 }
 
 // RunNode starts the Chainlink core.
@@ -173,18 +111,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	return nil
 }
 
-<<<<<<< HEAD
-	lggr := cli.Logger.Named("RunNode")
-=======
 func (cli *Client) runNode(c *clipkg.Context) error {
-	lggr := cli.Logger.Named("boot")
+	lggr := cli.Logger.Named("RunNode")
 
 	err := cli.Config.Validate()
 	if err != nil {
 		return errors.Wrap(err, "config validation failed")
 	}
 
->>>>>>> origin/develop
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
 	if cli.Config.Dev() {

@@ -55,7 +55,7 @@ func Up56(tx *sql.Tx) error {
 	if !strings.Contains(dbURL, "_test") {
 		chainIDStr := os.Getenv("ETH_CHAIN_ID")
 		if chainIDStr == "" {
-			logger.Warn("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
+			logger.NewLogger().Warn("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
 			chainIDStr = "1"
 		}
 		chainID, ok := new(big.Int).SetString(chainIDStr, 10)
