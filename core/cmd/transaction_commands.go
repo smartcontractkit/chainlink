@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -91,10 +92,22 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("sendether expects three arguments: amount, fromAddress and toAddress"))
 	}
 
-	amount, err := assets.NewEthValueS(c.Args().Get(0))
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			errors.New("while parsing ETH transfer amount"), err))
+	var amount assets.Eth
+
+	if c.IsSet("wei") {
+		value, err := stringutils.ToInt64(c.Args().Get(0))
+		if err != nil {
+			return cli.errorOut(multierr.Combine(
+				errors.New("while parsing WEI transfer amount"), err))
+		}
+
+		amount = assets.NewEthValue(value)
+	} else {
+		amount, err = assets.NewEthValueS(c.Args().Get(0))
+		if err != nil {
+			return cli.errorOut(multierr.Combine(
+				errors.New("while parsing ETH transfer amount"), err))
+		}
 	}
 
 	unparsedFromAddress := c.Args().Get(1)

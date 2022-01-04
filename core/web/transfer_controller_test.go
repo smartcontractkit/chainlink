@@ -59,6 +59,46 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
 }
 
+func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
+	t.Parallel()
+
+	key := cltest.MustGenerateRandomKey(t)
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
+	defer assertMockCalls()
+
+	balance, err := assets.NewEthValueS("2")
+	require.NoError(t, err)
+
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+
+	app := cltest.NewApplicationWithKey(t, ethClient, key)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	amount := assets.NewEthValue(1000000000000000000)
+
+	request := models.SendEtherRequest{
+		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+		FromAddress:        key.Address.Address(),
+		Amount:             amount,
+	}
+
+	body, err := json.Marshal(&request)
+	assert.NoError(t, err)
+
+	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	t.Cleanup(cleanup)
+
+	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Len(t, errors.Errors, 0)
+
+	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
+}
+
 func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testing.T) {
 	t.Parallel()
 

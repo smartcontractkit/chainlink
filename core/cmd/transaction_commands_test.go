@@ -151,3 +151,56 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	assert.Equal(t, &etx.ToAddress, output.To)
 	assert.Equal(t, etx.Value.String(), output.Value)
 }
+
+func TestClient_SendEther_From_BPTXM_WEI(t *testing.T) {
+	t.Parallel()
+
+	key := cltest.MustGenerateRandomKey(t)
+	fromAddress := key.Address.Address()
+
+	balance, err := assets.NewEthValueS("200")
+	require.NoError(t, err)
+
+	ethMock, assertMocksCalled := newEthMockWithTransactionsOnBlocksAssertions(t)
+	defer assertMocksCalled()
+
+	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
+
+	app := startNewApplication(t,
+		withKey(),
+		withMocks(ethMock, key),
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(true)
+		}),
+	)
+	client, r := app.NewClientAndRenderer()
+	db := app.GetSqlxDB()
+
+	set := flag.NewFlagSet("sendether", 0)
+	set.Bool("wei", false, "")
+
+	amount := "1000000000000000000"
+	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
+	set.Parse([]string{amount, fromAddress.Hex(), to})
+
+	err = set.Set("wei", "true")
+	require.NoError(t, err)
+
+	cliapp := cli.NewApp()
+	c := cli.NewContext(cliapp, set, nil)
+
+	assert.NoError(t, client.SendEther(c))
+
+	etx := bulletprooftxmanager.EthTx{}
+	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
+	require.Equal(t, "1.000000000000000000", etx.Value.String())
+	require.Equal(t, fromAddress, etx.FromAddress)
+	require.Equal(t, to, etx.ToAddress.Hex())
+
+	output := *r.Renders[0].(*cmd.EthTxPresenter)
+	assert.Equal(t, &etx.FromAddress, output.From)
+	assert.Equal(t, &etx.ToAddress, output.To)
+	assert.Equal(t, etx.Value.String(), output.Value)
+}
