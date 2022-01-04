@@ -34,4 +34,4 @@ venv/
 *.md
 .github/**/*.yml
 .golangci.yml
-.solhint.json
+contracts/.solhint.json
