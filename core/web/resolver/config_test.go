@@ -100,7 +100,7 @@ func TestResolver_Config(t *testing.T) {
 			},
 			query: query,
 			result: `
-			{
+{
   "config":{
     "items":[
       {
@@ -253,7 +253,7 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key":"LEASE_LOCK_DURATION",
-        "value":"30s"
+        "value":"10s"
       },
       {
         "key":"LEASE_LOCK_REFRESH_INTERVAL",
@@ -401,7 +401,8 @@ func TestResolver_Config(t *testing.T) {
       }
     ]
   }
-}`,
+}
+`,
 		},
 	}
 

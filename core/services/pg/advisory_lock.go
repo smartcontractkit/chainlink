@@ -114,7 +114,7 @@ func (l *advisoryLock) getLock(ctx context.Context) (locked bool, err error) {
 	l.logger.Trace("Taking advisory lock")
 	sqlQuery := "SELECT pg_try_advisory_lock($1)"
 	err = l.conn.QueryRowContext(ctx, sqlQuery, l.id).Scan(&locked)
-	return locked, err
+	return locked, errors.WithStack(err)
 }
 
 func (l *advisoryLock) logRetry(count int) {
