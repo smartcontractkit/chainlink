@@ -48,7 +48,6 @@ type GeneralConfigOverrides struct {
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
-	DefaultMaxHTTPAttempts                    null.Int
 	Dev                                       null.Bool
 	Dialect                                   dialects.DialectName
 	EVMDisabled                               null.Bool
@@ -228,10 +227,6 @@ func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
 }
 
-func (c *TestGeneralConfig) GlobalLockRetryInterval() models.Duration {
-	return models.MustMakeDuration(10 * time.Millisecond)
-}
-
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
 	return 5
 }
@@ -241,10 +236,6 @@ func (c *TestGeneralConfig) ORMMaxOpenConns() int {
 	// if this value is not large enough instead of waiting for a connection the
 	// database call will fail with "conn busy" or some other cryptic error
 	return 20
-}
-
-func (c *TestGeneralConfig) LogSQLMigrations() bool {
-	return false
 }
 
 func (c *TestGeneralConfig) EthereumDisabled() bool {
@@ -326,13 +317,6 @@ func (c *TestGeneralConfig) LogToDisk() bool {
 		return c.Overrides.LogToDisk.Bool
 	}
 	return c.GeneralConfig.LogToDisk()
-}
-
-func (c *TestGeneralConfig) DefaultMaxHTTPAttempts() uint {
-	if c.Overrides.DefaultMaxHTTPAttempts.Valid {
-		return uint(c.Overrides.DefaultMaxHTTPAttempts.Int64)
-	}
-	return c.GeneralConfig.DefaultMaxHTTPAttempts()
 }
 
 func (c *TestGeneralConfig) AdminCredentialsFile() string {

@@ -43,7 +43,6 @@ func TestResolver_Config(t *testing.T) {
 					DefaultChainID:       nil,
 					DefaultHTTPAllowUnrestrictedNetworkAccess: null.BoolFrom(true),
 					DefaultHTTPTimeout:                        nil,
-					DefaultMaxHTTPAttempts:                    null.IntFrom(1),
 					Dev:                                       null.BoolFrom(true),
 					Dialect:                                   "",
 					EVMDisabled:                               null.BoolFrom(true),
@@ -100,7 +99,8 @@ func TestResolver_Config(t *testing.T) {
 				f.App.On("GetConfig").Return(cfg)
 			},
 			query: query,
-			result: `{
+			result: `
+			{
   "config":{
     "items":[
       {
@@ -280,10 +280,6 @@ func TestResolver_Config(t *testing.T) {
         "value":"true"
       },
       {
-        "key":"LOG_SQL_MIGRATIONS",
-        "value":"false"
-      },
-      {
         "key":"LOG_TO_DISK",
         "value":"true"
       },
@@ -366,10 +362,6 @@ func TestResolver_Config(t *testing.T) {
       {
         "key":"REAPER_EXPIRATION",
         "value":"240h0m0s"
-      },
-      {
-        "key":"REPLAY_FROM_BLOCK",
-        "value":"-1"
       },
       {
         "key":"ROOT",
