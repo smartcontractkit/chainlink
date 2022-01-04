@@ -88,10 +88,11 @@ func (tc *TransfersController) Create(c *gin.Context) {
 			}
 		}
 
-		intAmount := utils.NewBig(tr.Amount.ToInt())
+		// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
+		amountAsBig := utils.NewBig(tr.Amount.ToInt())
 		fee := new(big.Int).Mul(gasPrice, big.NewInt(int64(gasLimit)))
 
-		amountWithFees := intAmount.ToInt().Add(intAmount.ToInt(), fee)
+		amountWithFees := new(big.Int).Add(amountAsBig.ToInt(), fee)
 
 		// ETH balance is less than the sent amount + fees
 		if balance.Cmp(amountWithFees) < 0 {
