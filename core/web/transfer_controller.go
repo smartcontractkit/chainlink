@@ -49,7 +49,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	if !tr.AllowHigherAmounts {
 		balance := chain.BalanceMonitor().GetEthBalance(tr.FromAddress)
 
-		if balance == nil {
+		if balance == nil || balance.IsZero() {
 			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}
@@ -74,13 +74,16 @@ func (tc *TransfersController) Create(c *gin.Context) {
 			}
 		}
 
+		tc.App.GetLogger().Criticalf("balance without fees: %v", balance)
+
 		intBalance := balance.ToInt()
 		fee := gasPrice.Mul(gasPrice, utils.NewBigI(int64(gasLimit)).ToInt())
 
 		intBalance = intBalance.Add(intBalance, fee)
 
+		tc.App.GetLogger().Criticalf("balance with fee: %v, expected to send: %v, result: %v", balance, tr.Amount.ToInt(), intBalance.Cmp(tr.Amount.ToInt()))
 		// ETH balance is less than the sent amount
-		if intBalance.Cmp(tr.Amount.ToInt()) == -1 {
+		if intBalance.Cmp(tr.Amount.ToInt()) < 0 {
 			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}
