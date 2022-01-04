@@ -54,6 +54,7 @@ type GeneralConfigOverrides struct {
 	EthereumDisabled                          null.Bool
 	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
+	FeatureFeedsManager                       null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
@@ -289,6 +290,13 @@ func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
 		return c.Overrides.FeatureExternalInitiators.Bool
 	}
 	return c.GeneralConfig.FeatureExternalInitiators()
+}
+
+func (c *TestGeneralConfig) FeatureFeedsManager() bool {
+	if c.Overrides.FeatureFeedsManager.Valid {
+		return c.Overrides.FeatureFeedsManager.Bool
+	}
+	return c.GeneralConfig.FeatureFeedsManager()
 }
 
 func (c *TestGeneralConfig) FeatureOffchainReporting() bool {

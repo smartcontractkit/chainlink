@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 
@@ -49,6 +50,7 @@ type GeneralOnlyConfig interface {
 	AdvisoryLockCheckInterval() time.Duration
 	AdvisoryLockID() int64
 	AllowOrigins() string
+	AppID() uuid.UUID
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	AutoPprofEnabled() bool
@@ -93,6 +95,7 @@ type GeneralOnlyConfig interface {
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
 	FeatureExternalInitiators() bool
+	FeatureFeedsManager() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
@@ -223,6 +226,8 @@ type generalConfig struct {
 	defaultLogLevel  zapcore.Level
 	logSQL           bool
 	logMutex         sync.RWMutex
+	genAppID         sync.Once
+	appID            uuid.UUID
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -346,6 +351,10 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
 	}
 
+	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.LogToDisk() {
+		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
+	}
+
 	return nil
 }
 
@@ -360,6 +369,13 @@ func (c *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dialect
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c *generalConfig) AllowOrigins() string {
 	return c.viper.GetString(envvar.Name("AllowOrigins"))
+}
+
+func (c *generalConfig) AppID() uuid.UUID {
+	c.genAppID.Do(func() {
+		c.appID = uuid.NewV4()
+	})
+	return c.appID
 }
 
 // AdminCredentialsFile points to text file containing admin credentials for logging in
@@ -550,6 +566,11 @@ func (c *generalConfig) Dev() bool {
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(envvar.Name("FeatureExternalInitiators"))
+}
+
+// FeatureFeedsManager enables the feeds manager
+func (c *generalConfig) FeatureFeedsManager() bool {
+	return c.viper.GetBool(envvar.Name("FeatureFeedsManager"))
 }
 
 // FeatureOffchainReporting enables the OCR job type.
