@@ -128,7 +128,7 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, k
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
-	if config.EthTxReaperThreshold() > 0 {
+	if config.EthTxReaperThreshold() > 0 && config.EthTxReaperInterval() > 0 {
 		b.reaper = NewReaper(lggr, db, config, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")

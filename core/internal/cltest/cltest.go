@@ -126,7 +126,6 @@ func init() {
 
 	logger.InitColor(true)
 	lggr := logger.TestLogger(nil)
-	logger.InitLogger(lggr)
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 		lggr.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
@@ -402,7 +401,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, lggr, cfg)
 			}
 
 		}
@@ -754,8 +753,8 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(cfg config.GeneralConfig) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", cfg.LogFileDir())
+func ReadLogs(dir string) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", dir)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }

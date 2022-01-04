@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	null "gopkg.in/guregu/null.v4"
+
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -48,13 +48,13 @@ type GeneralConfigOverrides struct {
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
-	DefaultMaxHTTPAttempts                    null.Int
 	Dev                                       null.Bool
 	Dialect                                   dialects.DialectName
 	EVMDisabled                               null.Bool
 	EthereumDisabled                          null.Bool
 	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
+	FeatureFeedsManager                       null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
@@ -90,8 +90,8 @@ type GeneralConfigOverrides struct {
 	LeaseLockDuration                         *time.Duration
 	LeaseLockRefreshInterval                  *time.Duration
 	LogFileDir                                null.String
-	LogLevel                                  *config.LogLevel
-	DefaultLogLevel                           *config.LogLevel
+	LogLevel                                  *zapcore.Level
+	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
 	SecretGenerator                           config.SecretGenerator
@@ -162,7 +162,7 @@ func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 }
 
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
-	cfg := config.NewGeneralConfig()
+	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{
 		cfg,
 		t,
@@ -228,10 +228,6 @@ func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
 }
 
-func (c *TestGeneralConfig) GlobalLockRetryInterval() models.Duration {
-	return models.MustMakeDuration(10 * time.Millisecond)
-}
-
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
 	return 5
 }
@@ -241,10 +237,6 @@ func (c *TestGeneralConfig) ORMMaxOpenConns() int {
 	// if this value is not large enough instead of waiting for a connection the
 	// database call will fail with "conn busy" or some other cryptic error
 	return 20
-}
-
-func (c *TestGeneralConfig) LogSQLMigrations() bool {
-	return false
 }
 
 func (c *TestGeneralConfig) EthereumDisabled() bool {
@@ -300,6 +292,13 @@ func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
 	return c.GeneralConfig.FeatureExternalInitiators()
 }
 
+func (c *TestGeneralConfig) FeatureFeedsManager() bool {
+	if c.Overrides.FeatureFeedsManager.Valid {
+		return c.Overrides.FeatureFeedsManager.Bool
+	}
+	return c.GeneralConfig.FeatureFeedsManager()
+}
+
 func (c *TestGeneralConfig) FeatureOffchainReporting() bool {
 	if c.Overrides.FeatureOffchainReporting.Valid {
 		return c.Overrides.FeatureOffchainReporting.Bool
@@ -326,13 +325,6 @@ func (c *TestGeneralConfig) LogToDisk() bool {
 		return c.Overrides.LogToDisk.Bool
 	}
 	return c.GeneralConfig.LogToDisk()
-}
-
-func (c *TestGeneralConfig) DefaultMaxHTTPAttempts() uint {
-	if c.Overrides.DefaultMaxHTTPAttempts.Valid {
-		return uint(c.Overrides.DefaultMaxHTTPAttempts.Int64)
-	}
-	return c.GeneralConfig.DefaultMaxHTTPAttempts()
 }
 
 func (c *TestGeneralConfig) AdminCredentialsFile() string {
@@ -400,14 +392,14 @@ func (c *TestGeneralConfig) AllowOrigins() string {
 
 func (c *TestGeneralConfig) LogLevel() zapcore.Level {
 	if c.Overrides.LogLevel != nil {
-		return c.Overrides.LogLevel.Level
+		return *c.Overrides.LogLevel
 	}
 	return c.GeneralConfig.LogLevel()
 }
 
 func (c *TestGeneralConfig) DefaultLogLevel() zapcore.Level {
 	if c.Overrides.DefaultLogLevel != nil {
-		return c.Overrides.DefaultLogLevel.Level
+		return *c.Overrides.DefaultLogLevel
 	}
 	return c.GeneralConfig.DefaultLogLevel()
 }
@@ -612,10 +604,6 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 		return c.Overrides.GlobalEvmGasTipCapMinimum, true
 	}
 	return c.GeneralConfig.GlobalEvmGasTipCapMinimum()
-}
-
-func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
-	c.Overrides.Dialect = d
 }
 
 // There is no need for any database application locking in tests

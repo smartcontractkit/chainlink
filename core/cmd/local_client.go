@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
@@ -43,6 +44,59 @@ import (
 
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0700)
+
+func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
+	uri := cfg.DatabaseURL()
+	appid := cfg.AppID()
+	static.SetConsumerName(&uri, "App", &appid)
+	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
+	db, err = pg.NewConnection(uri.String(), string(dialect), pg.Config{
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
+	})
+	err = errors.Wrap(err, "failed to open db")
+	return
+}
+
+func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger, sig shutdown.Signal) (cleanup func(), err error) {
+	lggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
+
+	lockingMode := cfg.DatabaseLockingMode()
+	cleanup = func() {}
+
+	// Lease will be explicitly released on application stop
+	// Take the lease before any other DB operations
+	var leaseLock pg.LeaseLock
+	switch lockingMode {
+	case "lease", "dual":
+		leaseLock = pg.NewLeaseLock(db, cfg.AppID(), lggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
+		if err = leaseLock.TakeAndHold(sig); err != nil {
+			return cleanup, errors.Wrap(err, "failed to take initial lease on database")
+		}
+		cleanup = leaseLock.Release
+	}
+
+	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
+	var advisoryLock pg.AdvisoryLock
+	switch lockingMode {
+	case "advisorylock", "dual":
+		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
+		if err = advisoryLock.TakeAndHold(); err != nil {
+			return cleanup, errors.Wrap(err, "error acquiring lock")
+		}
+	}
+
+	cleanup = func() {
+		if leaseLock != nil {
+			leaseLock.Release()
+		}
+		if advisoryLock != nil {
+			advisoryLock.Release()
+		}
+	}
+	return cleanup, nil
+}
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -58,7 +112,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func (cli *Client) runNode(c *clipkg.Context) error {
-	lggr := cli.Logger.Named("boot")
+	lggr := cli.Logger.Named("RunNode")
 
 	err := cli.Config.Validate()
 	if err != nil {
@@ -74,7 +128,19 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		lggr.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
 	}
 
-	app, err := cli.AppFactory.NewApplication(cli.Config)
+	db, err := openDB(cli.Config, lggr)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfClosing(db, "db")
+
+	sig := shutdown.NewSignal()
+	cleanup, err := applicationLockDB(cli.Config, db, lggr, sig)
+	defer cleanup()
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "obtaining application db lock"))
+	}
+	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
 		return errors.Wrap(err, "error initializing application")
 	}
@@ -183,10 +249,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 			log.Fatal(err)
 		}
 	}()
-	err = logConfigVariables(lggr, cli.Config)
-	if err != nil {
-		return errors.Wrap(err, "failed to log config variables")
-	}
+
+	lggr.Debug("Environment variables\n", config.NewConfigPrinter(cli.Config))
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 	return (cli.Runner.Run(app))
@@ -259,13 +323,6 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 
-func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
-	wlc := config.NewConfigPrinter(cfg)
-
-	lggr.Debug("Environment variables\n", wlc)
-	return nil
-}
-
 // RebroadcastTransactions run locally to force manual rebroadcasting of
 // transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
@@ -291,7 +348,15 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 	}
 
-	app, err := cli.AppFactory.NewApplication(cli.Config)
+	lggr := cli.Logger.Named("RebroadcastTransactions")
+	db, err := openDB(cli.Config, lggr)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfClosing(db, "db")
+	sig := shutdown.NewSignal()
+
+	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -669,7 +734,14 @@ func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err err
 
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
-	app, err := cli.AppFactory.NewApplication(cli.Config)
+	lggr := cli.Logger.Named("DeleteUser")
+	db, err := openDB(cli.Config, lggr)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfClosing(db, "db")
+	sig := shutdown.NewSignal()
+	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
