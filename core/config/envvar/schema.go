@@ -88,6 +88,7 @@ type ConfigSchema struct {
 	TLSRedirect bool   `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 
 	// Feeds manager
+	FeatureFeedsManager   bool `env:"FEATURE_FEEDS_MANAGER" default:"false"`    //nodoc
 	FeatureUICSAKeys      bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`      //nodoc
 	FeatureUIFeedsManager bool `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"` //nodoc
 

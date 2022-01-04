@@ -566,7 +566,7 @@ func (c *generalConfig) FeatureExternalInitiators() bool {
 
 // FeatureFeedsManager enables the feeds manager
 func (c *generalConfig) FeatureFeedsManager() bool {
-	return c.viper.GetBool(EnvVarName("FeatureFeedsManager"))
+	return c.viper.GetBool(envvar.Name("FeatureFeedsManager"))
 }
 
 // FeatureOffchainReporting enables the OCR job type.
