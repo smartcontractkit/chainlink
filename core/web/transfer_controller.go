@@ -42,7 +42,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	}
 
 	if tr.FromAddress == utils.ZeroAddress {
-		jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("invalid withdrawal source address address: %v", tr.FromAddress))
+		jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("withdrawal source address is missing: %v", tr.FromAddress))
 		return
 	}
 
@@ -74,14 +74,11 @@ func (tc *TransfersController) Create(c *gin.Context) {
 			}
 		}
 
-		tc.App.GetLogger().Criticalf("balance without fees: %v", balance)
-
 		intBalance := balance.ToInt()
 		fee := gasPrice.Mul(gasPrice, utils.NewBigI(int64(gasLimit)).ToInt())
 
 		intBalance = intBalance.Add(intBalance, fee)
 
-		tc.App.GetLogger().Criticalf("balance with fee: %v, expected to send: %v, result: %v", balance, tr.Amount.ToInt(), intBalance.Cmp(tr.Amount.ToInt()))
 		// ETH balance is less than the sent amount
 		if intBalance.Cmp(tr.Amount.ToInt()) < 0 {
 			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
