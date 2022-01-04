@@ -616,3 +616,52 @@ func (s *service) validateJobProposal(jp *JobProposal) error {
 
 	return nil
 }
+
+var _ Service = &NullService{}
+
+type NullService struct{}
+
+func (ns NullService) Start() error { return nil }
+func (ns NullService) Close() error { return nil }
+func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) CountManagers() (int64, error) { return 0, nil }
+func (ns NullService) CancelJobProposal(ctx context.Context, id int64) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) CreateJobProposal(jp *JobProposal) (int64, error) {
+	return 0, errors.New("feeds manager is disabled")
+}
+func (ns NullService) GetJobProposal(id int64) (*JobProposal, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) GetManager(id int64) (*FeedsManager, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) GetManagers(ids []int64) ([]FeedsManager, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) ListManagers() ([]FeedsManager, error)    { return nil, nil }
+func (ns NullService) ListJobProposals() ([]JobProposal, error) { return nil, nil }
+func (ns NullService) GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) ProposeJob(jp *JobProposal) (int64, error) {
+	return 0, errors.New("feeds manager is disabled")
+}
+func (ns NullService) RegisterManager(ms *FeedsManager) (int64, error) {
+	return 0, errors.New("feeds manager is disabled")
+}
+func (ns NullService) RejectJobProposal(ctx context.Context, id int64) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) SyncNodeInfo(id int64) error { return nil }
+func (ns NullService) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) { return false, nil }
+func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager)           {}
