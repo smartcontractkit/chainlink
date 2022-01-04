@@ -49,7 +49,6 @@ type (
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
