@@ -47,9 +47,23 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	}
 
 	if !tr.AllowHigherAmounts {
-		balance := chain.BalanceMonitor().GetEthBalance(tr.FromAddress)
+		var balance *big.Int
 
-		if balance == nil || balance.IsZero() {
+		balanceMonitor := chain.BalanceMonitor()
+
+		if balanceMonitor != nil {
+			balance = balanceMonitor.GetEthBalance(tr.FromAddress).ToInt()
+		} else {
+			balance, err = chain.Client().BalanceAt(c, tr.FromAddress, nil)
+			if err != nil {
+				jsonAPIError(c, http.StatusInternalServerError, err)
+				return
+			}
+		}
+
+		zero := big.NewInt(0)
+
+		if balance == nil || balance.Cmp(zero) == 0 {
 			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}
@@ -80,7 +94,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		amountWithFees := intAmount.ToInt().Add(intAmount.ToInt(), fee)
 
 		// ETH balance is less than the sent amount + fees
-		if balance.ToInt().Cmp(amountWithFees) < 0 {
+		if balance.Cmp(amountWithFees) < 0 {
 			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}

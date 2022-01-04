@@ -332,6 +332,18 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
+// NewApplicationWithKeyAndBalanceMonitorDisabled creates a new TestApplication along with a new config and the balance monitor disabled
+// It uses the native keystore and will load any keys that are in the database
+func NewApplicationWithKeyAndBalanceMonitorDisabled(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
+	t.Helper()
+
+	config := NewTestGeneralConfig(t)
+
+	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+
+	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
+}
+
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {

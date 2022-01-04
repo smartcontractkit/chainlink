@@ -52,7 +52,7 @@ func (r *ETHKeyResolver) IsFunding() bool {
 	return r.key.state.IsFunding
 }
 
-func (r *ETHKeyResolver) ETHBalance() *string {
+func (r *ETHKeyResolver) ETHBalance(ctx context.Context) *string {
 	if r.key.chain == nil {
 		return nil
 	}
@@ -60,7 +60,14 @@ func (r *ETHKeyResolver) ETHBalance() *string {
 	balanceMonitor := r.key.chain.BalanceMonitor()
 
 	if balanceMonitor == nil {
-		return nil
+		balance, err := r.key.chain.Client().BalanceAt(ctx, r.key.state.Address.Address(), nil)
+		if err != nil {
+			return nil
+		}
+
+		value := balance.String()
+
+		return &value
 	}
 
 	balance := balanceMonitor.GetEthBalance(r.key.state.Address.Address())
