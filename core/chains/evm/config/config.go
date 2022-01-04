@@ -36,7 +36,6 @@ type ChainScopedOnlyConfig interface {
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
-	EvmDefaultBatchSize() uint32
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
@@ -567,7 +566,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBatchSize() (size uint32) {
 	if size > 0 {
 		return size
 	}
-	return c.EvmDefaultBatchSize()
+	return c.EvmRPCDefaultBatchSize()
 }
 
 // BlockHistoryEstimatorBlockDelay is the number of blocks that the block history estimator trails behind head.
@@ -788,17 +787,6 @@ func (c *chainScopedConfig) EvmGasBumpTxDepth() uint16 {
 		return uint16(p.Int64)
 	}
 	return c.defaultSet.gasBumpTxDepth
-}
-
-// EvmDefaultBatchSize controls the number of receipts fetched in each
-// request in the EthConfirmer
-func (c *chainScopedConfig) EvmDefaultBatchSize() uint32 {
-	val, ok := c.GeneralConfig.GlobalEvmDefaultBatchSize()
-	if ok {
-		c.logEnvOverrideOnce("EvmDefaultBatchSize", val)
-		return val
-	}
-	return c.defaultSet.rpcDefaultBatchSize
 }
 
 // EvmGasBumpPercent is the minimum percentage by which gas is bumped on each transaction attempt

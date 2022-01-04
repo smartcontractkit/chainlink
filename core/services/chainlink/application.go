@@ -175,7 +175,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging(), globalLogger)
+		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
