@@ -2,12 +2,14 @@ package pipeline
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,5 +105,44 @@ func Test_convertToETHABIType(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func Test_convertToETHABIType_Errors(t *testing.T) {
+	for _, tt := range []struct {
+		val    interface{}
+		errStr string
+	}{
+		{"0x1234", "expected 20, got 2"},
+		{"0xasdfasdfasdfasdfasdfsadfasdfasdfasdfasdf", "invalid hex"},
+	} {
+		tt := tt
+		t.Run(fmt.Sprintf("%T,%s", tt.val, tt.errStr), func(t *testing.T) {
+			_, err := convertToETHABIType(tt.val, mustABIType(t, "bytes20"))
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errStr)
+		})
+	}
+}
+
+func Test_convertToETHABIBytes_Errors(t *testing.T) {
+	for _, tt := range []struct {
+		val    interface{}
+		errStr string
+	}{
+		{"test", "expected 20, got 4"},
+		{"12345", "expected 20, got 5"},
+		{"0x1234", "expected 20, got 2"},
+		{"0xzZ", "expected 20, got 1"},
+		{"0xasdfasdfasdfasdfasdfsadfasdfasdfasdfasdf", "invalid hex"},
+	} {
+		tt := tt
+		t.Run(fmt.Sprintf("%T,%s", tt.val, tt.errStr), func(t *testing.T) {
+			a := reflect.TypeOf([20]byte{})
+			b := reflect.ValueOf(tt.val)
+			_, err := convertToETHABIBytes(a, b, 20)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errStr)
+		})
 	}
 }
