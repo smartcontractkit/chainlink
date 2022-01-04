@@ -67,7 +67,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 				return
 			}
 		} else {
-			gasPrice, gasLimit, err = estimator.GetLegacyGas([]byte(""), gasLimit)
+			gasPrice, gasLimit, err = estimator.GetLegacyGas(nil, gasLimit)
 			if err != nil {
 				jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to estimate gas"))
 				return

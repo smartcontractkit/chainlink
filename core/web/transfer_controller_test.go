@@ -23,10 +23,8 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 	defer assertMockCalls()
-
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(cltest.Head(2), nil)
 
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
@@ -85,11 +83,10 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
-
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
 	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(utils.NewBigI(1).ToInt(), nil)
+	defer assertMockCalls()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start())

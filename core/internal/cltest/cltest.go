@@ -526,6 +526,40 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks
 	return c, s, assertMocksCalled
 }
 
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*ethmocks.Client, *ethmocks.Subscription, func()) {
+	c, s, assertMocksCalled := NewEthMocks(t)
+	c.On("Dial", mock.Anything).Maybe().Return(nil)
+	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
+	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(2), nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(1)).Maybe().Return(Head(1), nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(Head(0), nil)
+	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &gas.Block{
+			Number:       42,
+			Hash:         utils.NewHash(),
+			Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
+		}
+		elems[1].Result = &gas.Block{
+			Number:       41,
+			Hash:         utils.NewHash(),
+			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
+		}
+	})
+	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("Close").Maybe().Return()
+
+	block := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+
+	s.On("Err").Return(nil).Maybe()
+	s.On("Unsubscribe").Return(nil).Maybe()
+	return c, s, assertMocksCalled
+}
+
 func newServer(app chainlink.Application) *httptest.Server {
 	engine := web.Router(app, nil)
 	return httptest.NewServer(engine)
