@@ -95,7 +95,9 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 	var amount assets.Eth
 
 	if c.IsSet("wei") {
-		value, err := stringutils.ToInt64(c.Args().Get(0))
+		var value int64
+
+		value, err = stringutils.ToInt64(c.Args().Get(0))
 		if err != nil {
 			return cli.errorOut(multierr.Combine(
 				errors.New("while parsing WEI transfer amount"), err))
