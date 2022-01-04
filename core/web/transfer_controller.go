@@ -74,12 +74,8 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		estimator := chain.TxManager().GetGasEstimator()
 
 		if chain.Config().EvmEIP1559DynamicFees() {
-			gasPrice = chain.Config().EvmMaxGasPriceWei()
-			_, gasLimit, err = estimator.GetDynamicFee(gasLimit)
-			if err != nil {
-				jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to get dynamic gas fee"))
-				return
-			}
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "EIP1559 mode is not supported for balance transfers"))
+			return
 		} else {
 			gasPrice, gasLimit, err = estimator.GetLegacyGas(nil, gasLimit)
 			if err != nil {
