@@ -89,7 +89,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		}
 
 		intAmount := utils.NewBig(tr.Amount.ToInt())
-		fee := gasPrice.Mul(gasPrice, utils.NewBigI(int64(gasLimit)).ToInt())
+		fee := new(big.Int).Mul(gasPrice, big.NewInt(int64(gasLimit)))
 
 		amountWithFees := intAmount.ToInt().Add(intAmount.ToInt(), fee)
 
