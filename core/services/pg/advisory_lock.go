@@ -114,7 +114,7 @@ func (l *advisoryLock) getLock(ctx context.Context) (locked bool, err error) {
 	l.logger.Trace("Taking advisory lock")
 	sqlQuery := "SELECT pg_try_advisory_lock($1)"
 	err = l.conn.QueryRowContext(ctx, sqlQuery, l.id).Scan(&locked)
-	return locked, err
+	return locked, errors.WithStack(err)
 }
 
 func (l *advisoryLock) logRetry(count int) {
@@ -150,7 +150,7 @@ func (l *advisoryLock) loop() {
 		case <-ticker.C:
 			var gotLock bool
 
-			ctx, cancel := context.WithTimeout(ctxStop, l.checkInterval)
+			ctx, cancel := DefaultQueryCtxWithParent(ctxStop)
 			l.logger.Trace("Checking advisory lock")
 			err := l.conn.QueryRowContext(ctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
@@ -167,6 +167,7 @@ func (l *advisoryLock) loop() {
 			} else if !gotLock {
 				l.logger.Fatal("Another node has taken the advisory lock, exiting")
 			}
+			ticker.Reset(utils.WithJitter(l.checkInterval))
 		}
 	}
 }

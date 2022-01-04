@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 
@@ -42,14 +43,14 @@ var (
 
 type GeneralOnlyConfig interface {
 	Validate() error
-
-	SetLogLevel(zapcore.Level) error
-	SetLogSQL(bool)
+	SetLogLevel(lvl zapcore.Level) error
+	SetLogSQL(logSQL bool)
 
 	AdminCredentialsFile() string
 	AdvisoryLockCheckInterval() time.Duration
 	AdvisoryLockID() int64
 	AllowOrigins() string
+	AppID() uuid.UUID
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	AutoPprofEnabled() bool
@@ -82,7 +83,6 @@ type GeneralOnlyConfig interface {
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
 	DefaultLogLevel() zapcore.Level
-	DefaultMaxHTTPAttempts() uint
 	Dev() bool
 	EVMDisabled() bool
 	EthereumDisabled() bool
@@ -95,13 +95,13 @@ type GeneralOnlyConfig interface {
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
 	FeatureExternalInitiators() bool
+	FeatureFeedsManager() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
-	GlobalLockRetryInterval() models.Duration
 	HTTPServerWriteTimeout() time.Duration
 	InsecureFastScrypt() bool
 	InsecureSkipVerify() bool
@@ -124,7 +124,6 @@ type GeneralOnlyConfig interface {
 	LogFileDir() string
 	LogLevel() zapcore.Level
 	LogSQL() bool
-	LogSQLMigrations() bool
 	LogToDisk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
@@ -134,13 +133,11 @@ type GeneralOnlyConfig interface {
 	RPID() string
 	RPOrigin() string
 	ReaperExpiration() models.Duration
-	ReplayFromBlock() int64
 	RootDir() string
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
-	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
 	TLSHost() string
@@ -229,6 +226,8 @@ type generalConfig struct {
 	defaultLogLevel  zapcore.Level
 	logSQL           bool
 	logMutex         sync.RWMutex
+	genAppID         sync.Once
+	appID            uuid.UUID
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -352,11 +351,11 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
 	}
 
-	return nil
-}
+	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.LogToDisk() {
+		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
+	}
 
-func (c *generalConfig) SetDialect(d dialects.DialectName) {
-	c.dialect = d
+	return nil
 }
 
 func (c *generalConfig) GetAdvisoryLockIDConfiguredOrDefault() int64 {
@@ -372,6 +371,13 @@ func (c *generalConfig) AllowOrigins() string {
 	return c.viper.GetString(envvar.Name("AllowOrigins"))
 }
 
+func (c *generalConfig) AppID() uuid.UUID {
+	c.genAppID.Do(func() {
+		c.appID = uuid.NewV4()
+	})
+	return c.appID
+}
+
 // AdminCredentialsFile points to text file containing admin credentials for logging in
 func (c *generalConfig) AdminCredentialsFile() string {
 	fieldName := "AdminCredentialsFile"
@@ -383,7 +389,8 @@ func (c *generalConfig) AdminCredentialsFile() string {
 	return file
 }
 
-// AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
+// AuthenticatedRateLimit defines the threshold to which authenticated requests
+// get limited. More than this many requests per AuthenticatedRateLimitPeriod will be rejected.
 func (c *generalConfig) AuthenticatedRateLimit() int64 {
 	return c.viper.GetInt64(envvar.Name("AuthenticatedRateLimit"))
 }
@@ -513,11 +520,6 @@ func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(envvar.Name("DatabaseBackupDir"))
 }
 
-// GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
-func (c *generalConfig) GlobalLockRetryInterval() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("GlobalLockRetryInterval", parse.Duration).(time.Duration))
-}
-
 // DatabaseURL configures the URL for chainlink to connect to. This must be
 // a properly formatted URL, with a valid scheme (postgres://)
 func (c *generalConfig) DatabaseURL() url.URL {
@@ -538,11 +540,6 @@ func (c *generalConfig) DatabaseURL() url.URL {
 // migrated on application startup if set to true
 func (c *generalConfig) MigrateDatabase() bool {
 	return c.viper.GetBool(envvar.Name("MigrateDatabase"))
-}
-
-// DefaultMaxHTTPAttempts defines the limit for HTTP requests.
-func (c *generalConfig) DefaultMaxHTTPAttempts() uint {
-	return uint(c.getWithFallback("DefaultMaxHTTPAttempts", parse.Uint64).(uint64))
 }
 
 // DefaultHTTPLimit defines the size limit for HTTP requests and responses
@@ -569,6 +566,11 @@ func (c *generalConfig) Dev() bool {
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(envvar.Name("FeatureExternalInitiators"))
+}
+
+// FeatureFeedsManager enables the feeds manager
+func (c *generalConfig) FeatureFeedsManager() bool {
+	return c.viper.GetBool(envvar.Name("FeatureFeedsManager"))
 }
 
 // FeatureOffchainReporting enables the OCR job type.
@@ -834,11 +836,6 @@ func (c *generalConfig) SetLogSQL(logSQL bool) {
 	c.logSQL = logSQL
 }
 
-// LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
-func (c *generalConfig) LogSQLMigrations() bool {
-	return c.viper.GetBool(envvar.Name("LogSQLMigrations"))
-}
-
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
 	return c.getEnvWithFallback(envvar.LogUnixTS).(bool)
@@ -867,17 +864,16 @@ func (c *generalConfig) DefaultChainID() *big.Int {
 	return nil
 }
 
+// HTTPServerWriteTimeout controls how long chainlink's API server may hold a
+// socket open for writing a response to an HTTP request. This sometimes needs
+// to be increased for pprof.
 func (c *generalConfig) HTTPServerWriteTimeout() time.Duration {
 	return c.getWithFallback("HTTPServerWriteTimeout", parse.Duration).(time.Duration)
 }
 
-// ReaperExpiration represents
+// ReaperExpiration represents how long a session is held in the DB before being cleared
 func (c *generalConfig) ReaperExpiration() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("ReaperExpiration", parse.Duration).(time.Duration))
-}
-
-func (c *generalConfig) ReplayFromBlock() int64 {
-	return c.viper.GetInt64(envvar.Name("ReplayFromBlock"))
 }
 
 // RootDir represents the location on the file system where Chainlink should
@@ -905,11 +901,6 @@ func (c *generalConfig) SecureCookies() bool {
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c *generalConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", parse.Duration).(time.Duration))
-}
-
-// StatsPusherLogging toggles very verbose logging of raw messages for the StatsPusher (also telemetry)
-func (c *generalConfig) StatsPusherLogging() bool {
-	return c.getWithFallback("StatsPusherLogging", parse.Bool).(bool)
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
@@ -1252,6 +1243,9 @@ func (c *generalConfig) GlobalGasEstimatorMode() (string, bool) {
 	}
 	return val.(string), ok
 }
+
+// GlobalChainType overrides all chains and forces them to act as a particular
+// chain type. List of chain types is given in `chaintype.go`.
 func (c *generalConfig) GlobalChainType() (string, bool) {
 	val, ok := c.lookupEnv(envvar.Name("ChainType"), parse.String)
 	if val == nil {

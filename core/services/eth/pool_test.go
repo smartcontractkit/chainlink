@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -27,7 +28,17 @@ func TestPool_Dial(t *testing.T) {
 		presetID  *big.Int
 		nodes     []chainIDResps
 		sendNodes []chainIDResp
+		wantErr   bool
+		errStr    string
 	}{
+		{
+			name:      "no nodes",
+			presetID:  &cltest.FixtureChainID,
+			nodes:     []chainIDResps{},
+			sendNodes: []chainIDResp{},
+			wantErr:   true,
+			errStr:    "no available nodes for chain 0",
+		},
 		{
 			name:     "normal",
 			presetID: &cltest.FixtureChainID,
@@ -65,7 +76,12 @@ func TestPool_Dial(t *testing.T) {
 			}
 			p := eth.NewPool(logger.TestLogger(t), nodes, sendNodes, test.presetID)
 			err := p.Dial(ctx)
-			require.NoError(t, err)
+			if test.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.errStr)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }

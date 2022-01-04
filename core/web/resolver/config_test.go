@@ -43,7 +43,6 @@ func TestResolver_Config(t *testing.T) {
 					DefaultChainID:       nil,
 					DefaultHTTPAllowUnrestrictedNetworkAccess: null.BoolFrom(true),
 					DefaultHTTPTimeout:                        nil,
-					DefaultMaxHTTPAttempts:                    null.IntFrom(1),
 					Dev:                                       null.BoolFrom(true),
 					Dialect:                                   "",
 					EVMDisabled:                               null.BoolFrom(true),
@@ -100,7 +99,8 @@ func TestResolver_Config(t *testing.T) {
 				f.App.On("GetConfig").Return(cfg)
 			},
 			query: query,
-			result: `{
+			result: `
+{
   "config":{
     "items":[
       {
@@ -253,7 +253,7 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key":"LEASE_LOCK_DURATION",
-        "value":"30s"
+        "value":"10s"
       },
       {
         "key":"LEASE_LOCK_REFRESH_INTERVAL",
@@ -278,10 +278,6 @@ func TestResolver_Config(t *testing.T) {
       {
         "key":"LOG_SQL",
         "value":"true"
-      },
-      {
-        "key":"LOG_SQL_MIGRATIONS",
-        "value":"false"
       },
       {
         "key":"LOG_TO_DISK",
@@ -368,10 +364,6 @@ func TestResolver_Config(t *testing.T) {
         "value":"240h0m0s"
       },
       {
-        "key":"REPLAY_FROM_BLOCK",
-        "value":"-1"
-      },
-      {
         "key":"ROOT",
         "value":"/tmp/chainlink_test/gql-test"
       },
@@ -409,7 +401,8 @@ func TestResolver_Config(t *testing.T) {
       }
     ]
   }
-}`,
+}
+`,
 		},
 	}
 

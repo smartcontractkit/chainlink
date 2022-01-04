@@ -19,7 +19,6 @@ import (
 	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -41,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/sqlx"
 )
 
 var prometheus *ginprom.Prometheus
@@ -83,50 +83,15 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(config.GeneralConfig) (chainlink.Application, error)
+	NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
+func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (app chainlink.Application, err error) {
 	appLggr := logger.NewLogger()
-	appID := uuid.NewV4()
-
-	shutdownSignal := shutdown.NewSignal()
-	uri := cfg.DatabaseURL()
-	static.SetConsumerName(&uri, "App", &appID)
-	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, err := pg.NewConnection(uri.String(), string(dialect), pg.Config{
-		Logger:       appLggr,
-		MaxOpenConns: cfg.ORMMaxOpenConns(),
-		MaxIdleConns: cfg.ORMMaxIdleConns(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	appLggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
-
-	// Lease will be explicitly released on application stop
-	// Take the lease before any other DB operations
-	var leaseLock pg.LeaseLock
-	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
-		leaseLock = pg.NewLeaseLock(db, appID, appLggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
-		if err = leaseLock.TakeAndHold(); err != nil {
-			return nil, errors.Wrap(err, "failed to take initial lease on database")
-		}
-	}
-
-	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	var advisoryLock pg.AdvisoryLock
-	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
-		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), appLggr, cfg.AdvisoryLockCheckInterval())
-		if err = advisoryLock.TakeAndHold(); err != nil {
-			return nil, errors.Wrapf(err, "error acquiring application advisory lock with id %d", cfg.AdvisoryLockID())
-		}
-	}
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
@@ -186,7 +151,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, cfg.AppID())
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
@@ -202,7 +167,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
-		ShutdownSignal:           shutdownSignal,
+		ShutdownSignal:           sig,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
@@ -210,9 +175,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		Logger:                   appLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
-		AdvisoryLock:             advisoryLock,
-		LeaseLock:                leaseLock,
-		ID:                       appID,
 	})
 }
 
