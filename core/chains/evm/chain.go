@@ -14,8 +14,8 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/balancemonitor"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
@@ -28,7 +28,7 @@ import (
 
 //go:generate mockery --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	service.Service
+	services.Service
 	ID() *big.Int
 	Client() eth.Client
 	Config() evmconfig.ChainScopedConfig
@@ -37,6 +37,7 @@ type Chain interface {
 	TxManager() bulletprooftxmanager.TxManager
 	HeadTracker() httypes.Tracker
 	Logger() logger.Logger
+	BalanceMonitor() balancemonitor.BalanceMonitor
 }
 
 var _ Chain = &chain{}
@@ -51,7 +52,7 @@ type chain struct {
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.Tracker
 	logBroadcaster  log.Broadcaster
-	balanceMonitor  services.BalanceMonitor
+	balanceMonitor  balancemonitor.BalanceMonitor
 	keyStore        keystore.Eth
 }
 
@@ -121,9 +122,9 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		return nil, err
 	}
 
-	var balanceMonitor services.BalanceMonitor
+	var balanceMonitor balancemonitor.BalanceMonitor
 	if !cfg.EthereumDisabled() && cfg.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(client, opts.KeyStore, l)
+		balanceMonitor = balancemonitor.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
@@ -162,11 +163,11 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 
 func (c *chain) Start() error {
 	return c.StartOnce("Chain", func() (merr error) {
+		ctx := context.Background()
+
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
-		ctx, cancel := eth.DefaultQueryCtx()
-		defer cancel()
 		if err := c.client.Dial(ctx); err != nil {
 			return errors.Wrap(err, "failed to dial ethclient")
 		}
@@ -187,11 +188,11 @@ func (c *chain) Start() error {
 		if !c.cfg.Dev() {
 			return nil
 		}
-		return c.checkKeys()
+		return c.checkKeys(ctx)
 	})
 }
 
-func (c *chain) checkKeys() error {
+func (c *chain) checkKeys(ctx context.Context) error {
 	fundingKeys, err := c.keyStore.FundingKeys()
 	if err != nil {
 		return errors.New("failed to get funding keys")
@@ -201,8 +202,6 @@ func (c *chain) checkKeys() error {
 		wg.Add(1)
 		go func(k ethkey.KeyV2) {
 			defer wg.Done()
-			ctx, cancel := eth.DefaultQueryCtx()
-			defer cancel()
 			balance, ethErr := c.client.BalanceAt(ctx, k.Address.Address(), nil)
 			if ethErr != nil {
 				c.logger.Errorw("Chain: failed to fetch balance for funding key", "address", k.Address, "err", ethErr)
@@ -231,7 +230,7 @@ func (c *chain) Close() error {
 		c.logger.Debug("Chain: stopping logBroadcaster")
 		merr = multierr.Combine(merr, c.logBroadcaster.Close())
 		c.logger.Debug("Chain: stopping headTracker")
-		merr = multierr.Combine(merr, c.headTracker.Stop())
+		merr = multierr.Combine(merr, c.headTracker.Close())
 		c.logger.Debug("Chain: stopping headBroadcaster")
 		merr = multierr.Combine(merr, c.headBroadcaster.Close())
 		c.logger.Debug("Chain: stopping txm")
@@ -271,14 +270,15 @@ func (c *chain) Healthy() (merr error) {
 	return
 }
 
-func (c *chain) ID() *big.Int                              { return c.id }
-func (c *chain) Client() eth.Client                        { return c.client }
-func (c *chain) Config() evmconfig.ChainScopedConfig       { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster           { return c.logBroadcaster }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadcaster }
-func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
-func (c *chain) HeadTracker() httypes.Tracker              { return c.headTracker }
-func (c *chain) Logger() logger.Logger                     { return c.logger }
+func (c *chain) ID() *big.Int                                  { return c.id }
+func (c *chain) Client() eth.Client                            { return c.client }
+func (c *chain) Config() evmconfig.ChainScopedConfig           { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster               { return c.logBroadcaster }
+func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster      { return c.headBroadcaster }
+func (c *chain) TxManager() bulletprooftxmanager.TxManager     { return c.txm }
+func (c *chain) HeadTracker() httypes.Tracker                  { return c.headTracker }
+func (c *chain) Logger() logger.Logger                         { return c.logger }
+func (c *chain) BalanceMonitor() balancemonitor.BalanceMonitor { return c.balanceMonitor }
 
 func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (eth.Client, error) {
 	nodes := chain.Nodes

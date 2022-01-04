@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -69,7 +69,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
 	httypes.HeadTrackable
-	service.Service
+	services.Service
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
@@ -414,9 +414,6 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 		return eth.NewFatalSendError(err)
 	}
 
-	ctx, cancel := eth.DefaultQueryCtx(ctx)
-	defer cancel()
-
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
@@ -427,15 +424,12 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
 		return nil
 	}
-	return eth.NewSendError(err)
+	return sendErr
 }
 
 // gimulateTransaction pretends to "send" the transaction using eth_call
 // returns error on revert
 func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx) (hexutil.Bytes, error) {
-	ctx, cancel := eth.DefaultQueryCtx(ctx)
-	defer cancel()
-
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
 	callArg := map[string]interface{}{
 		"from": e.FromAddress,
@@ -457,6 +451,7 @@ func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttem
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
 func sendEmptyTransaction(
+	ctx context.Context,
 	ethClient eth.Client,
 	keyStore KeyStore,
 	nonce uint64,
@@ -471,8 +466,6 @@ func sendEmptyTransaction(
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := eth.DefaultQueryCtx()
-	defer cancel()
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
 }

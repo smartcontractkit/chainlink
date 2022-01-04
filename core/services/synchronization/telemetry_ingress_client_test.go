@@ -42,9 +42,9 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	telemetry := []byte("101010")
 	address := common.HexToAddress("0xa")
 	telemPayload := synchronization.TelemPayload{
-		Ctx:             context.Background(),
-		Telemetry:       telemetry,
-		ContractAddress: address,
+		Ctx:        context.Background(),
+		Telemetry:  telemetry,
+		ContractID: address.String(),
 	}
 
 	// Assert the telemetry payload is correctly sent to wsrpc
@@ -52,7 +52,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	telemClient.On("Telem", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
 		called.Store(true)
 		telemReq := args.Get(1).(*telemPb.TelemRequest)
-		assert.Equal(t, telemPayload.ContractAddress.String(), telemReq.Address)
+		assert.Equal(t, telemPayload.ContractID, telemReq.Address)
 		assert.Equal(t, telemPayload.Telemetry, telemReq.Telemetry)
 	})
 

@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -88,6 +89,7 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
+<<<<<<< HEAD
 func retryLogMsg(count int) string {
 	if count == 1 {
 		return "Could not get lock, retrying..."
@@ -100,6 +102,46 @@ func retryLogMsg(count int) string {
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (app chainlink.Application, err error) {
 	appLggr := logger.NewLogger(cfg)
+=======
+// NewApplication returns a new instance of the node with the given config.
+func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
+	appLggr := logger.NewLogger()
+	appID := uuid.NewV4()
+
+	shutdownSignal := shutdown.NewSignal()
+	uri := cfg.DatabaseURL()
+	static.SetConsumerName(&uri, "App", &appID)
+	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
+	db, err := pg.NewConnection(uri.String(), string(dialect), pg.Config{
+		Logger:       appLggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	appLggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
+
+	// Lease will be explicitly released on application stop
+	// Take the lease before any other DB operations
+	var leaseLock pg.LeaseLock
+	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
+		leaseLock = pg.NewLeaseLock(db, appID, appLggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
+		if err = leaseLock.TakeAndHold(); err != nil {
+			return nil, errors.Wrap(err, "failed to take initial lease on database")
+		}
+	}
+
+	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
+	var advisoryLock pg.AdvisoryLock
+	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
+		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), appLggr, cfg.AdvisoryLockCheckInterval())
+		if err = advisoryLock.TakeAndHold(); err != nil {
+			return nil, errors.Wrapf(err, "error acquiring application advisory lock with id %d", cfg.AdvisoryLockID())
+		}
+	}
+>>>>>>> origin/develop
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
@@ -172,7 +214,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 	if err != nil {
 		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr, cfg)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           sig,

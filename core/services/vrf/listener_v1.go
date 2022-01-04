@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
@@ -18,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -41,16 +39,13 @@ type listenerV1 struct {
 
 	cfg             Config
 	l               logger.Logger
-	abi             abi.ABI
 	logBroadcaster  log.Broadcaster
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner
-	pipelineORM     pipeline.ORM
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
-	vrfks           keystore.VRF
 	gethks          GethKeyStore
 	reqLogs         *utils.Mailbox
 	chStop          chan struct{}

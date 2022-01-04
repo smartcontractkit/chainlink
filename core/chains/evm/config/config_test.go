@@ -6,14 +6,15 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -65,7 +66,7 @@ func TestChainScopedConfig(t *testing.T) {
 		addr := cltest.NewAddress()
 		randomOtherAddr := cltest.NewAddress()
 		randomOtherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: utils.NewBigI(rand.Int63())}
-		evmconfig.UpdatePersistedCfg(cfg, func(cfg *types.ChainCfg) {
+		evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 			cfg.KeySpecific[randomOtherAddr.Hex()] = randomOtherKeySpecific
 		})
 
@@ -75,7 +76,7 @@ func TestChainScopedConfig(t *testing.T) {
 
 		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
 			val := utils.NewBigI(rand.Int63())
-			evmconfig.UpdatePersistedCfg(cfg, func(cfg *types.ChainCfg) {
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.EvmMaxGasPriceWei = val
 			})
 
@@ -84,7 +85,7 @@ func TestChainScopedConfig(t *testing.T) {
 		t.Run("uses key-specific override value when that is set", func(t *testing.T) {
 			val := utils.NewBigI(rand.Int63())
 			keySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: val}
-			evmconfig.UpdatePersistedCfg(cfg, func(cfg *types.ChainCfg) {
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 				cfg.KeySpecific[addr.Hex()] = keySpecific
 			})
 
@@ -97,6 +98,24 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 	})
+}
+
+func TestChainScopedConfig_BSCDefaults(t *testing.T) {
+	orm := new(evmmocks.ORM)
+	orm.Test(t)
+	chainID := big.NewInt(56)
+	gcfg := configtest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t).With("evmChainID", chainID.String())
+	cfg := evmconfig.NewChainScopedConfig(chainID, evmtypes.ChainCfg{
+		KeySpecific: make(map[string]evmtypes.ChainCfg),
+	}, orm, lggr, gcfg)
+
+	timeout := cfg.OCRDatabaseTimeout()
+	require.Equal(t, 2*time.Second, timeout)
+	timeout = cfg.OCRContractTransmitterTransmitTimeout()
+	require.Equal(t, 2*time.Second, timeout)
+	timeout = cfg.OCRObservationGracePeriod()
+	require.Equal(t, 500*time.Millisecond, timeout)
 }
 
 func TestChainScopedConfig_Profiles(t *testing.T) {
