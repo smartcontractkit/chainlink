@@ -42,7 +42,6 @@ var (
 
 type GeneralOnlyConfig interface {
 	Validate() error
-	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
 
@@ -348,10 +347,6 @@ func (c *generalConfig) Validate() error {
 	}
 
 	return nil
-}
-
-func (c *generalConfig) SetDialect(d dialects.DialectName) {
-	c.dialect = d
 }
 
 func (c *generalConfig) GetAdvisoryLockIDConfiguredOrDefault() int64 {

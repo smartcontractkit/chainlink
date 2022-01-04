@@ -2939,13 +2939,13 @@ func (_m *GeneralConfig) SessionTimeout() models.Duration {
 	return r0
 }
 
-// SetLogLevel provides a mock function with given fields: _a0
-func (_m *GeneralConfig) SetLogLevel(_a0 zapcore.Level) error {
-	ret := _m.Called(_a0)
+// SetLogLevel provides a mock function with given fields: lvl
+func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
+	ret := _m.Called(lvl)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(zapcore.Level) error); ok {
-		r0 = rf(_a0)
+		r0 = rf(lvl)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -2953,9 +2953,9 @@ func (_m *GeneralConfig) SetLogLevel(_a0 zapcore.Level) error {
 	return r0
 }
 
-// SetLogSQL provides a mock function with given fields: _a0
-func (_m *GeneralConfig) SetLogSQL(_a0 bool) {
-	_m.Called(_a0)
+// SetLogSQL provides a mock function with given fields: logSQL
+func (_m *GeneralConfig) SetLogSQL(logSQL bool) {
+	_m.Called(logSQL)
 }
 
 // TLSCertPath provides a mock function with given fields:
