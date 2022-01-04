@@ -139,6 +139,9 @@ func (r *runner) destroy() {
 func (r *runner) runReaperLoop() {
 	defer r.wgDone.Done()
 	defer r.destroy()
+	if r.config.JobPipelineReaperInterval() == 0 {
+		return
+	}
 
 	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
 	defer runReaperTicker.Stop()
