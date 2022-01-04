@@ -68,20 +68,20 @@ func (tc *TransfersController) Create(c *gin.Context) {
 			return
 		}
 
+		if chain.Config().EvmEIP1559DynamicFees() {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "EIP1559 mode is not supported for balance transfers"))
+			return
+		}
+
 		var gasPrice *big.Int
 
 		gasLimit := chain.Config().EvmGasLimitTransfer()
 		estimator := chain.TxManager().GetGasEstimator()
 
-		if chain.Config().EvmEIP1559DynamicFees() {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "EIP1559 mode is not supported for balance transfers"))
+		gasPrice, gasLimit, err = estimator.GetLegacyGas(nil, gasLimit)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to estimate gas"))
 			return
-		} else {
-			gasPrice, gasLimit, err = estimator.GetLegacyGas(nil, gasLimit)
-			if err != nil {
-				jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to estimate gas"))
-				return
-			}
 		}
 
 		// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
