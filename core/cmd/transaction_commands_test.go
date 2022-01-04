@@ -113,7 +113,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethMock, assertMocksCalled := newEthMock(t)
+	ethMock, assertMocksCalled := newEthMockWithTransactionsOnBlocksAssertions(t)
 	defer assertMocksCalled()
 
 	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
