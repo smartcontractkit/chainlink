@@ -49,6 +49,8 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
   error TickTooOld();
   error TickDoesntMatchSpec();
 
+  uint pseudoRand = uint(keccak256(abi.encodePacked(now, blockhash(block.number))));
+
   address immutable s_delegate;
   uint256 private s_nextCronJobID = 1;
   EnumerableSet.UintSet private s_activeCronJobIDs;
