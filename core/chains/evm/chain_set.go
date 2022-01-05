@@ -272,7 +272,7 @@ type ChainSetOpts struct {
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(types.Chain) eth.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
-	GenHeadTracker    func(types.Chain) httypes.Tracker
+	GenHeadTracker    func(types.Chain) httypes.HeadTracker
 	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager
 }
 
