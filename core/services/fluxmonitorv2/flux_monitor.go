@@ -49,7 +49,7 @@ const (
 	PollRequestTypeDrumbeat
 )
 
-const DefaultHibernationPollPeriod = 168 * time.Hour
+const DefaultHibernationPollPeriod = 24 * time.Hour
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
