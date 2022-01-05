@@ -313,7 +313,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          bulletprooftxmanager.EthTxUnstarted,
-				Simulate:       true,
+				TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+				}),
 			}
 			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == uint64(5) && tx.Value().Cmp(big.NewInt(442)) == 0
@@ -344,6 +346,48 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			ethClient.AssertExpectations(t)
 		})
+		t.Run("when simulation times out, sends tx as normal", func(t *testing.T) {
+			ethTx := bulletprooftxmanager.EthTx{
+				FromAddress:    fromAddress,
+				ToAddress:      toAddress,
+				EncodedPayload: []byte{42, 0, 0},
+				Value:          assets.NewEthValue(442),
+				GasLimit:       gasLimit,
+				CreatedAt:      time.Unix(0, 0),
+				State:          bulletprooftxmanager.EthTxUnstarted,
+				TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+				}),
+			}
+			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				return tx.Nonce() == uint64(6) && tx.Value().Cmp(big.NewInt(442)) == 0
+			})).Return(nil).Once()
+			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
+				if fmt.Sprintf("%s", callarg["value"]) == "0x1ba" { // 442
+					assert.Equal(t, ethTx.FromAddress, callarg["from"])
+					assert.Equal(t, &ethTx.ToAddress, callarg["to"])
+					assert.Equal(t, hexutil.Uint64(ethTx.GasLimit), callarg["gas"])
+					assert.Nil(t, callarg["gasPrice"])
+					assert.Nil(t, callarg["maxFeePerGas"])
+					assert.Nil(t, callarg["maxPriorityFeePerGas"])
+					assert.Equal(t, (*hexutil.Big)(&ethTx.Value), callarg["value"])
+					assert.Equal(t, hexutil.Bytes(ethTx.EncodedPayload), callarg["data"])
+					return true
+				}
+				return false
+			}), "latest").Return(context.Canceled).Once()
+
+			require.NoError(t, borm.InsertEthTx(&ethTx))
+
+			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+
+			// Check ethtx was sent
+			ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
+			require.NoError(t, err)
+			assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, ethTx.State)
+
+			ethClient.AssertExpectations(t)
+		})
 		t.Run("with unknown error, sends tx as normal", func(t *testing.T) {
 			ethTx := bulletprooftxmanager.EthTx{
 				FromAddress:    fromAddress,
@@ -353,10 +397,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          bulletprooftxmanager.EthTxUnstarted,
-				Simulate:       true,
+				TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+				}),
 			}
 			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-				return tx.Nonce() == uint64(6) && tx.Value().Cmp(big.NewInt(542)) == 0
+				return tx.Nonce() == uint64(7) && tx.Value().Cmp(big.NewInt(542)) == 0
 			})).Return(nil).Once()
 			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
 				return fmt.Sprintf("%s", callarg["value"]) == "0x21e" // 542
@@ -381,7 +427,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          bulletprooftxmanager.EthTxUnstarted,
-				Simulate:       true,
+				TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+				}),
 			}
 
 			jerr := evmclient.JsonError{
@@ -935,7 +983,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.Equal(t, int64(1), finalNextNonce)
 	})
 
-	t.Run("geth client returns an error in the fatal errors category", func(t *testing.T) {
+	t.Run("geth Client returns an error in the fatal errors category", func(t *testing.T) {
 		fatalErrorExample := "exceeds block gas limit"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
@@ -1030,7 +1078,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	bulletprooftxmanager.SetResumeCallbackOnEthBroadcaster(nil, eb)
 
-	t.Run("geth client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
+	t.Run("geth Client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
 		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
@@ -1071,7 +1119,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("eth client call fails with an unexpected random error", func(t *testing.T) {
+	t.Run("eth Client call fails with an unexpected random error", func(t *testing.T) {
 		retryableErrorExample := "geth shit the bed again"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
@@ -1483,4 +1531,11 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 
 	mustInsertUnstartedEthTx(t, borm, fromAddress)
 	gomega.NewWithT(t).Eventually(ethTxInsertListener.Events()).Should(gomega.Receive())
+}
+
+func checkerToJson(t *testing.T, checker bulletprooftxmanager.TransmitCheckerSpec) *datatypes.JSON {
+	b, err := json.Marshal(checker)
+	require.NoError(t, err)
+	j := datatypes.JSON(b)
+	return &j
 }

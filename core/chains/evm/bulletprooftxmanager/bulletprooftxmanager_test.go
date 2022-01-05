@@ -2,6 +2,7 @@ package bulletprooftxmanager_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -306,12 +307,85 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("cannot send transaction on chain ID 0; eth key with address %s is pegged to chain ID 1337", otherAddress.Hex()))
 	})
+
+	t.Run("with meta, simulate checker", func(t *testing.T) {
+		_, err := db.Exec(`DELETE FROM eth_txes`)
+		require.NoError(t, err)
+
+		jobID := int32(25)
+		requestID := gethcommon.HexToHash("abcd")
+		requestTxHash := gethcommon.HexToHash("dcba")
+		meta := bulletprooftxmanager.EthTxMeta{
+			JobID:         jobID,
+			RequestID:     requestID,
+			RequestTxHash: requestTxHash,
+			MaxLink:       "1000000000000000000", // 1e18
+			SubID:         2,
+		}
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		etx, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           &meta,
+			Strategy:       bulletprooftxmanager.NewSendEveryStrategy(),
+			Checker: bulletprooftxmanager.TransmitCheckerSpec{
+				CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+			},
+		})
+		assert.NoError(t, err)
+		cltest.AssertCount(t, db, "eth_txes", 1)
+
+		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+
+		var m bulletprooftxmanager.EthTxMeta
+		require.NotNil(t, etx.Meta)
+		require.NoError(t, json.Unmarshal(*etx.Meta, &m))
+		require.Equal(t, meta, m)
+	})
+
+	t.Run("with meta, vrf checker", func(t *testing.T) {
+		_, err := db.Exec(`DELETE FROM eth_txes`)
+		require.NoError(t, err)
+
+		jobID := int32(25)
+		requestID := gethcommon.HexToHash("abcd")
+		requestTxHash := gethcommon.HexToHash("dcba")
+		meta := &bulletprooftxmanager.EthTxMeta{
+			JobID:         jobID,
+			RequestID:     requestID,
+			RequestTxHash: requestTxHash,
+			MaxLink:       "1000000000000000000", // 1e18
+			SubID:         2,
+		}
+		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		etx, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			GasLimit:       gasLimit,
+			Meta:           meta,
+			Strategy:       bulletprooftxmanager.NewSendEveryStrategy(),
+			Checker: bulletprooftxmanager.TransmitCheckerSpec{
+				CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
+				VRFCoordinatorAddress: cltest.NewAddress(),
+			},
+		})
+		assert.NoError(t, err)
+		cltest.AssertCount(t, db, "eth_txes", 1)
+
+		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+
+		m, err := etx.GetMeta()
+		require.NoError(t, err)
+		require.Equal(t, meta, m)
+	})
 }
 
 func newMockTxStrategy(t *testing.T) *bptxmmocks.TxStrategy {
 	strategy := new(bptxmmocks.TxStrategy)
 	strategy.Test(t)
-	strategy.On("Simulate").Return(true)
 	return strategy
 }
 
