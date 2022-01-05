@@ -81,17 +81,17 @@ func (orm ksORM) GetEncryptedV1CSAKeys() (retrieved []csakey.Key, err error) {
 }
 
 func (orm ksORM) GetEncryptedV1EthKeys() (retrieved []ethkey.Key, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM keys WHERE deleted_at IS NOT NULL`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM keys WHERE deleted_at IS NULL`)
 }
 
 func (orm ksORM) GetEncryptedV1OCRKeys() (retrieved []ocrkey.EncryptedKeyBundle, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_ocr_key_bundles WHERE deleted_at IS NOT NULL`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_ocr_key_bundles WHERE deleted_at IS NULL`)
 }
 
 func (orm ksORM) GetEncryptedV1P2PKeys() (retrieved []p2pkey.EncryptedP2PKey, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_p2p_keys WHERE deleted_at IS NOT NULL`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_p2p_keys WHERE deleted_at IS NULL`)
 }
 
 func (orm ksORM) GetEncryptedV1VRFKeys() (retrieved []vrfkey.EncryptedVRFKey, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_vrf_keys WHERE deleted_at IS NOT NULL`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_vrf_keys WHERE deleted_at IS NULL`)
 }

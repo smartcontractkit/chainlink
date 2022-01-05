@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
@@ -47,7 +46,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 

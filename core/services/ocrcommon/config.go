@@ -1,7 +1,6 @@
 package ocrcommon
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,8 +13,6 @@ import (
 
 type Config interface {
 	LogSQL() bool
-	DefaultChainID() *big.Int
-	Dev() bool
 	EvmGasLimitDefault() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 	OCRBlockchainTimeout() time.Duration

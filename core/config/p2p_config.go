@@ -4,7 +4,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 )
@@ -24,25 +26,25 @@ func (c *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
 	str := c.P2PNetworkingStackRaw()
 	err := n.UnmarshalText([]byte(str))
 	if err != nil {
-		logger.Fatalf("P2PNetworkingStack failed to unmarshal '%s': %s", str, err)
+		c.lggr.Fatalf("P2PNetworkingStack failed to unmarshal '%s': %s", str, err)
 	}
 	return n
 }
 
 // P2PNetworkingStackRaw returns the raw string passed as networking stack
 func (c *generalConfig) P2PNetworkingStackRaw() string {
-	return c.viper.GetString(EnvVarName("P2PNetworkingStack"))
+	return c.viper.GetString(envvar.Name("P2PNetworkingStack"))
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
 func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
-	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
+	pidStr := c.viper.GetString(envvar.Name("P2PPeerID"))
 	if pidStr == "" {
 		return ""
 	}
 	var pid p2pkey.PeerID
 	if err := pid.UnmarshalText([]byte(pidStr)); err != nil {
-		logger.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
+		c.lggr.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
 		return ""
 	}
 	return pid
@@ -50,21 +52,21 @@ func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
 
 // P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing
 func (c *generalConfig) P2PPeerIDRaw() string {
-	return c.viper.GetString(EnvVarName("P2PPeerID"))
+	return c.viper.GetString(envvar.Name("P2PPeerID"))
 }
 
 func (c *generalConfig) P2PIncomingMessageBufferSize() int {
 	if c.OCRIncomingMessageBufferSize() != 0 {
 		return c.OCRIncomingMessageBufferSize()
 	}
-	return int(c.getWithFallback("P2PIncomingMessageBufferSize", ParseUint16).(uint16))
+	return int(c.getWithFallback("P2PIncomingMessageBufferSize", parse.Uint16).(uint16))
 }
 
 func (c *generalConfig) P2POutgoingMessageBufferSize() int {
 	if c.OCROutgoingMessageBufferSize() != 0 {
 		return c.OCRIncomingMessageBufferSize()
 	}
-	return int(c.getWithFallback("P2PIncomingMessageBufferSize", ParseUint16).(uint16))
+	return int(c.getWithFallback("P2PIncomingMessageBufferSize", parse.Uint16).(uint16))
 }
 
 type P2PDeprecated interface {

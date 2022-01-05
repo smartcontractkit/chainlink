@@ -13,9 +13,9 @@ type BaseTask struct {
 
 	id        int
 	dotID     string
-	Index     int32         `mapstructure:"index" json:"-" `
-	Timeout   time.Duration `mapstructure:"timeout"`
-	FailEarly bool          `mapstructure:"failEarly"`
+	Index     int32          `mapstructure:"index" json:"-" `
+	Timeout   *time.Duration `mapstructure:"timeout"`
+	FailEarly bool           `mapstructure:"failEarly"`
 
 	Retries    null.Uint32   `mapstructure:"retries"`
 	MinBackoff time.Duration `mapstructure:"minBackoff"`
@@ -53,10 +53,10 @@ func (t BaseTask) Inputs() []TaskDependency {
 }
 
 func (t BaseTask) TaskTimeout() (time.Duration, bool) {
-	if t.Timeout == time.Duration(0) {
+	if t.Timeout == nil {
 		return time.Duration(0), false
 	}
-	return t.Timeout, true
+	return *t.Timeout, true
 }
 
 func (t BaseTask) TaskRetries() uint32 {

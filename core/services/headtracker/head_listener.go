@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -28,22 +29,6 @@ var (
 	}, []string{"evmChainID"})
 )
 
-//go:generate mockery --name HeadListener --output ./mocks/ --case=underscore
-
-// NewHeadHandler is a callback that handles incoming heads
-type NewHeadHandler func(ctx context.Context, header *eth.Head) error
-
-// HeadListener manages eth.Client connection that receives heads from the eth node
-type HeadListener interface {
-	// ListenForNewHeads kicks off the listen loop (not thread safe)
-	// done() must be executed upon leaving ListenForNewHeads()
-	ListenForNewHeads(handleNewHead NewHeadHandler, done func())
-	// ReceivingHeads returns true if the listener is receiving heads (thread safe)
-	ReceivingHeads() bool
-	// Connected returns true if the listener is connected (thread safe)
-	Connected() bool
-}
-
 type headListener struct {
 	config           Config
 	ethClient        eth.Client
@@ -56,16 +41,16 @@ type headListener struct {
 }
 
 // NewHeadListener creates a new HeadListener
-func NewHeadListener(logger logger.Logger, ethClient eth.Client, config Config, chStop chan struct{}) HeadListener {
+func NewHeadListener(lggr logger.Logger, ethClient eth.Client, config Config, chStop chan struct{}) httypes.HeadListener {
 	return &headListener{
 		config:    config,
 		ethClient: ethClient,
-		logger:    logger.Named("listener"),
+		logger:    lggr.Named(logger.HeadListener),
 		chStop:    chStop,
 	}
 }
 
-func (hl *headListener) ListenForNewHeads(handleNewHead NewHeadHandler, done func()) {
+func (hl *headListener) ListenForNewHeads(handleNewHead httypes.NewHeadHandler, done func()) {
 	defer done()
 	defer hl.unsubscribe()
 
@@ -96,7 +81,7 @@ func (hl *headListener) Connected() bool {
 	return hl.connected.Load()
 }
 
-func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead NewHeadHandler) error {
+func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httypes.NewHeadHandler) error {
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
 	t := time.NewTicker(noHeadsAlarmDuration)
 

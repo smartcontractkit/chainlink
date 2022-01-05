@@ -63,6 +63,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -111,6 +112,7 @@ var (
 	DefaultOCR2Key   = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
 	DefaultP2PKey    = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultSolanaKey = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultTerraKey  = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
 	DefaultVRFKey    = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 
@@ -124,7 +126,6 @@ func init() {
 
 	logger.InitColor(true)
 	lggr := logger.TestLogger(nil)
-	logger.InitLogger(lggr)
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 		lggr.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
@@ -400,7 +401,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, lggr, cfg)
 			}
 
 		}
@@ -752,8 +753,8 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(cfg config.GeneralConfig) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", cfg.LogFileDir())
+func ReadLogs(dir string) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", dir)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }

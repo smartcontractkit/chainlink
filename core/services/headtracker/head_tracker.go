@@ -34,20 +34,17 @@ var (
 // HeadsBufferSize - The buffer is used when heads sampling is disabled, to ensure the callback is run for every head
 const HeadsBufferSize = 10
 
-// HeadTracker holds and stores the latest block number experienced by this particular node
-// in a thread safe manner. Reconstitutes the last block number from the data
-// store on reboot.
-type HeadTracker struct {
+type headTracker struct {
 	log             logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
+	headSaver       httypes.HeadSaver
 	ethClient       eth.Client
 	chainID         big.Int
 	config          Config
 
-	backfillMB   utils.Mailbox
-	callbackMB   utils.Mailbox
-	headListener HeadListener
-	headSaver    *HeadSaver
+	backfillMB   *utils.Mailbox
+	broadcastMB  *utils.Mailbox
+	headListener httypes.HeadListener
 	ctx          context.Context
 	cancel       context.CancelFunc
 	chStop       chan struct{}
@@ -55,46 +52,42 @@ type HeadTracker struct {
 	utils.StartStopOnce
 }
 
-// NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
-// Can be passed in an optional sleeper object that will dictate how often
-// it tries to reconnect.
+// NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.
 func NewHeadTracker(
-	l logger.Logger,
+	lggr logger.Logger,
 	ethClient eth.Client,
 	config Config,
-	orm *ORM,
 	headBroadcaster httypes.HeadBroadcaster,
-) *HeadTracker {
+	headSaver httypes.HeadSaver,
+) httypes.HeadTracker {
 	chStop := make(chan struct{})
-	l = l.Named(logger.HeadTracker)
+	lggr = lggr.Named(logger.HeadTracker)
 	ctx, cancel := context.WithCancel(context.Background())
-	return &HeadTracker{
+	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
 		chainID:         *ethClient.ChainID(),
 		config:          config,
-		log:             l,
-		backfillMB:      *utils.NewMailbox(1),
-		callbackMB:      *utils.NewMailbox(HeadsBufferSize),
+		log:             lggr,
+		backfillMB:      utils.NewMailbox(1),
+		broadcastMB:     utils.NewMailbox(HeadsBufferSize),
 		ctx:             ctx,
 		cancel:          cancel,
 		chStop:          chStop,
-		headListener:    NewHeadListener(l, ethClient, config, chStop),
-		headSaver:       NewHeadSaver(l, orm, config),
+		headListener:    NewHeadListener(lggr, ethClient, config, chStop),
+		headSaver:       headSaver,
 	}
 }
 
-func (ht *HeadTracker) SetLogLevel(lvl zapcore.Level) {
+func (ht *headTracker) SetLogLevel(lvl zapcore.Level) {
 	ht.log.SetLogLevel(lvl)
 }
 
-// Start retrieves the last persisted block number from the HeadTracker,
-// subscribes to new heads, and if successful fires Connect on the
-// HeadTrackable argument.
-func (ht *HeadTracker) Start() error {
+// Start starts HeadTracker service.
+func (ht *headTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
-		latestChain, err := ht.headSaver.LoadFromDB(context.Background())
+		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
+		latestChain, err := ht.headSaver.LoadFromDB(ht.ctx)
 		if err != nil {
 			return err
 		}
@@ -106,11 +99,6 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
-		// FIXME: Requests will block Start if they takes a long time. A future
-		// improvement might allow Close() to cancel this context somehow.
-		// https://app.shortcut.com/chainlinklabs/story/24187/ctrl-c-should-cancel-in-flight-requests-in-start-functions
-		startCtx := context.Background()
-
 		// NOTE: Always try to start the head tracker off with whatever the
 		// latest head is, without waiting for the subscription to send us one.
 		//
@@ -118,11 +106,11 @@ func (ht *HeadTracker) Start() error {
 		// anyway when we connect (but we should not rely on this because it is
 		// not specced). If it happens this is fine, and the head will be
 		// ignored as a duplicate.
-		initialHead, err := ht.getInitialHead(startCtx)
+		initialHead, err := ht.getInitialHead(ht.ctx)
 		if err != nil {
 			ht.log.Errorw("Error getting initial head", "err", err)
 		} else if initialHead != nil {
-			if err := ht.handleNewHead(startCtx, initialHead); err != nil {
+			if err := ht.handleNewHead(ht.ctx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
 			}
 		} else {
@@ -131,28 +119,15 @@ func (ht *HeadTracker) Start() error {
 
 		ht.wgDone.Add(3)
 		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.wgDone.Done)
-		go ht.backfiller()
-		go ht.headCallbackLoop()
+		go ht.backfillLoop()
+		go ht.broadcastLoop()
 
 		return nil
 	})
 }
 
-func (ht *HeadTracker) getInitialHead(ctx context.Context) (*eth.Head, error) {
-	head, err := ht.ethClient.HeadByNumber(ctx, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch initial head")
-	}
-	loggerFields := []interface{}{"head", head}
-	if head != nil {
-		loggerFields = append(loggerFields, "blockNumber", head.Number, "blockHash", head.Hash)
-	}
-	ht.log.Debugw("Got initial current block", loggerFields...)
-	return head, nil
-}
-
-// Stop unsubscribes all connections and fires Disconnect.
-func (ht *HeadTracker) Stop() error {
+// Close stops HeadTracker service.
+func (ht *headTracker) Close() error {
 	return ht.StopOnce("HeadTracker", func() error {
 		ht.cancel()
 		close(ht.chStop)
@@ -161,97 +136,17 @@ func (ht *HeadTracker) Stop() error {
 	})
 }
 
-func (ht *HeadTracker) Save(ctx context.Context, h *eth.Head) error {
-	return ht.headSaver.Save(ctx, h)
-}
-
-func (ht *HeadTracker) LatestChain() *eth.Head {
-	return ht.headSaver.LatestChain()
-}
-
-func (ht *HeadTracker) HighestSeenHeadFromDB(ctx context.Context) (*eth.Head, error) {
-	return ht.headSaver.orm.LatestHead(ctx)
-}
-
-// Connected returns whether or not this HeadTracker is connected.
-func (ht *HeadTracker) Connected() bool {
-	return ht.headListener.Connected()
-}
-
-func (ht *HeadTracker) headCallbackLoop() {
-	defer ht.wgDone.Done()
-
-	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
-	if samplingInterval > 0 {
-		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
-		debounceHead := time.NewTicker(samplingInterval)
-		defer debounceHead.Stop()
-		for {
-			select {
-			case <-ht.chStop:
-				return
-			case <-debounceHead.C:
-				item := ht.callbackMB.RetrieveLatestAndClear()
-				if item == nil {
-					continue
-				}
-				ht.callbackOnLatestHead(item)
-			}
-		}
-	} else {
-		ht.log.Info("Head sampling is disabled - callback will be called on every head")
-		for {
-			select {
-			case <-ht.chStop:
-				return
-			case <-ht.callbackMB.Notify():
-				for {
-					item, exists := ht.callbackMB.Retrieve()
-					if !exists {
-						break
-					}
-					ht.callbackOnLatestHead(item)
-				}
-			}
-		}
+func (ht *headTracker) Healthy() error {
+	if !ht.headListener.ReceivingHeads() {
+		return errors.New("Listener is not receiving heads")
 	}
-}
-
-func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
-	head := eth.AsHead(item)
-
-	ht.headBroadcaster.OnNewLongestChain(ht.ctx, head)
-}
-
-func (ht *HeadTracker) backfiller() {
-	defer ht.wgDone.Done()
-
-	for {
-		select {
-		case <-ht.chStop:
-			return
-		case <-ht.backfillMB.Notify():
-			for {
-				head, exists := ht.backfillMB.Retrieve()
-				if !exists {
-					break
-				}
-				h := eth.AsHead(head)
-				{
-					err := ht.Backfill(ht.ctx, h, uint(ht.config.EvmFinalityDepth()))
-					if err != nil {
-						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
-					} else if ht.ctx.Err() != nil {
-						break
-					}
-				}
-			}
-		}
+	if !ht.headListener.Connected() {
+		return errors.New("Listener is not connected")
 	}
+	return nil
 }
 
-// Backfill given a head will fill in any missing heads up to the given depth
-func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
+func (ht *headTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
 	}
@@ -264,8 +159,128 @@ func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain *eth.Head, de
 	return ht.backfill(ctx, headWithChain.EarliestInChain(), baseHeight)
 }
 
+func (ht *headTracker) getInitialHead(ctx context.Context) (*eth.Head, error) {
+	head, err := ht.ethClient.HeadByNumber(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch initial head")
+	}
+	loggerFields := []interface{}{"head", head}
+	if head != nil {
+		loggerFields = append(loggerFields, "blockNumber", head.Number, "blockHash", head.Hash)
+	}
+	ht.log.Debugw("Got initial head", loggerFields...)
+	return head, nil
+}
+
+func (ht *headTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
+	prevHead := ht.headSaver.LatestChain()
+
+	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
+		"blockHeight", head.ToInt(),
+		"blockHash", head.Hash,
+		"parentHeadHash", head.ParentHash,
+	)
+
+	err := ht.headSaver.Save(ctx, head)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
+		return errors.Wrapf(err, "failed to save head: %#v", head)
+	}
+
+	if prevHead == nil || head.Number > prevHead.Number {
+		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.Number))
+
+		headWithChain := ht.headSaver.Chain(head.Hash)
+		if headWithChain == nil {
+			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
+		}
+		ht.backfillMB.Deliver(headWithChain)
+		ht.broadcastMB.Deliver(headWithChain)
+	} else if head.Number == prevHead.Number {
+		if head.Hash != prevHead.Hash {
+			ht.log.Debugw("Got duplicate head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Hash.Hex())
+		} else {
+			ht.log.Debugw("Head already in the database", "head", head.Hash.Hex())
+		}
+	} else {
+		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "head", head.Hash.Hex(), "prevHead", prevHead.Number)
+		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
+			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
+			ht.log.Errorf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
+		}
+	}
+	return nil
+}
+
+func (ht *headTracker) broadcastLoop() {
+	defer ht.wgDone.Done()
+
+	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
+	if samplingInterval > 0 {
+		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
+		debounceHead := time.NewTicker(samplingInterval)
+		defer debounceHead.Stop()
+		for {
+			select {
+			case <-ht.chStop:
+				return
+			case <-debounceHead.C:
+				item := ht.broadcastMB.RetrieveLatestAndClear()
+				if item == nil {
+					continue
+				}
+				ht.headBroadcaster.BroadcastNewLongestChain(eth.AsHead(item))
+			}
+		}
+	} else {
+		ht.log.Info("Head sampling is disabled - callback will be called on every head")
+		for {
+			select {
+			case <-ht.chStop:
+				return
+			case <-ht.broadcastMB.Notify():
+				for {
+					item, exists := ht.broadcastMB.Retrieve()
+					if !exists {
+						break
+					}
+					ht.headBroadcaster.BroadcastNewLongestChain(eth.AsHead(item))
+				}
+			}
+		}
+	}
+}
+
+func (ht *headTracker) backfillLoop() {
+	defer ht.wgDone.Done()
+
+	for {
+		select {
+		case <-ht.chStop:
+			return
+		case <-ht.backfillMB.Notify():
+			for {
+				item, exists := ht.backfillMB.Retrieve()
+				if !exists {
+					break
+				}
+				head := eth.AsHead(item)
+				{
+					err := ht.Backfill(ht.ctx, head, uint(ht.config.EvmFinalityDepth()))
+					if err != nil {
+						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
+					} else if ht.ctx.Err() != nil {
+						break
+					}
+				}
+			}
+		}
+	}
+}
+
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker) backfill(ctx context.Context, head *eth.Head, baseHeight int64) (err error) {
+func (ht *headTracker) backfill(ctx context.Context, head *eth.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
@@ -306,7 +321,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head *eth.Head, baseHeight 
 	return
 }
 
-func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head, error) {
+func (ht *headTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head, error) {
 	ht.log.Debugw("Fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if err != nil {
@@ -321,69 +336,15 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head
 	return head, nil
 }
 
-func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
-	prevHead := ht.LatestChain()
+var NullTracker httypes.HeadTracker = &nullTracker{}
 
-	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
-		"blockHeight", head.ToInt(),
-		"blockHash", head.Hash,
-		"parentHeadHash", head.ParentHash,
-	)
+type nullTracker struct{}
 
-	err := ht.Save(ctx, head)
-	if ctx.Err() != nil {
-		return nil
-	} else if err != nil {
-		return errors.Wrapf(err, "failed to save head: %#v", head)
-	}
-
-	if prevHead == nil || head.Number > prevHead.Number {
-		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.Number))
-
-		headWithChain := ht.headSaver.Chain(head.Hash)
-		if headWithChain == nil {
-			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
-		}
-		ht.backfillMB.Deliver(headWithChain)
-		ht.callbackMB.Deliver(headWithChain)
-		return nil
-	}
-	if head.Number == prevHead.Number {
-		if head.Hash != prevHead.Hash {
-			ht.log.Debugw("Got duplicate head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Hash.Hex())
-		} else {
-			ht.log.Debugw("Head already in the database", "gotHead", head.Hash.Hex())
-		}
-	} else {
-		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
-			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			ht.log.Errorf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
-		}
-	}
+func (*nullTracker) Start() error              { return nil }
+func (*nullTracker) Close() error              { return nil }
+func (*nullTracker) Ready() error              { return nil }
+func (*nullTracker) Healthy() error            { return nil }
+func (*nullTracker) SetLogLevel(zapcore.Level) {}
+func (*nullTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
 	return nil
 }
-
-func (ht *HeadTracker) Healthy() error {
-	if !ht.headListener.ReceivingHeads() {
-		return errors.New("Listener is not receiving heads")
-	}
-	if !ht.headListener.Connected() {
-		return errors.New("Listener is not connected")
-	}
-	return nil
-}
-
-var _ httypes.Tracker = &NullTracker{}
-
-type NullTracker struct{}
-
-func (n *NullTracker) HighestSeenHeadFromDB(context.Context) (*eth.Head, error) {
-	return nil, nil
-}
-func (*NullTracker) Start() error   { return nil }
-func (*NullTracker) Stop() error    { return nil }
-func (*NullTracker) Ready() error   { return nil }
-func (*NullTracker) Healthy() error { return nil }
-
-func (*NullTracker) SetLogLevel(zapcore.Level) {}

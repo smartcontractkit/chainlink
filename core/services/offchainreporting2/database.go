@@ -128,9 +128,7 @@ LIMIT 1`, d.oracleSpecID)
 
 	c.Signers = []ocrtypes.OnchainPublicKey{}
 	for _, s := range signers {
-		signer := ocrtypes.OnchainPublicKey{}
-		copy(signer, s[:])
-		c.Signers = append(c.Signers, signer)
+		c.Signers = append(c.Signers, s)
 	}
 
 	c.Transmitters = []ocrtypes.Account{}

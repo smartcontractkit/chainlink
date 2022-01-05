@@ -32,7 +32,6 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
 
-	cfg.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
@@ -92,7 +91,6 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
 
-	cfg.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
