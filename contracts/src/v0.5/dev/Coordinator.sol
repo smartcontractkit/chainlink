@@ -135,7 +135,6 @@ contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface, Service
       _signatures.rs.length == _signatures.ss.length,
       "Must pass in as many signatures as oracles"
     );
-    // solhint-disable-next-line not-rely-on-time
     require(_agreement.endAt > block.timestamp,
       "ServiceAgreement must end in the future");
     require(serviceAgreements[serviceAgreementID].endAt == 0,
