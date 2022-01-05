@@ -312,6 +312,7 @@ const (
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 	TaskTypeMerge            TaskType = "merge"
+	TaskTypeLowercase        TaskType = "lowercase"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -388,6 +389,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMerge:
 		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLowercase:
+		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
