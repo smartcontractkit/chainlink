@@ -88,5 +88,12 @@ func (e *EnvVar) ParseBool() (v bool, invalid string) {
 func (e *EnvVar) ParseLogLevel() (v zapcore.Level, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
-	return i.(zapcore.Level), invalid
+	var ll zapcore.Level
+	switch v := i.(type) {
+	case zapcore.Level:
+		ll = v
+	case *zapcore.Level:
+		ll = *v
+	}
+	return ll, invalid
 }
