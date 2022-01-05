@@ -1,7 +1,8 @@
 //go:build smoke
 
-package smoke
+package smoke_test
 
+//revive:disable:dot-imports
 import (
 	"fmt"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
+	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
 var _ = Describe("Cronjob suite @cron", func() {
@@ -34,10 +36,10 @@ var _ = Describe("Cronjob suite @cron", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
-		By("Getting the clients", func() {
-			cls, err = client.NewChainlinkClients(e)
+		By("Connecting to launched resources", func() {
+			cls, err = client.ConnectChainlinkNodes(e)
 			Expect(err).ShouldNot(HaveOccurred())
-			mockserver, err = client.NewMockServerClientFromEnv(e)
+			mockserver, err = client.ConnectMockServer(e)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
@@ -78,7 +80,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nil, "../")
+			err = actions.TeardownSuite(e, nil, utils.ProjectRoot)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

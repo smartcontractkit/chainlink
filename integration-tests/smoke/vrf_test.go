@@ -1,7 +1,8 @@
 //go:build smoke
 
-package smoke
+package smoke_test
 
+//revive:disable:dot-imports
 import (
 	"context"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
+	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
 var _ = Describe("VRF suite @vrf", func() {
@@ -44,13 +46,13 @@ var _ = Describe("VRF suite @vrf", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
-		By("Getting the clients", func() {
+		By("Connecting to launched resources", func() {
 			networkRegistry := client.NewNetworkRegistry()
 			nets, err = networkRegistry.GetNetworks(e)
 			Expect(err).ShouldNot(HaveOccurred())
 			cd, err = contracts.NewContractDeployer(nets.Default)
 			Expect(err).ShouldNot(HaveOccurred())
-			cls, err = client.NewChainlinkClients(e)
+			cls, err = client.ConnectChainlinkNodes(e)
 			Expect(err).ShouldNot(HaveOccurred())
 			nets.Default.ParallelTransactions(true)
 		})
@@ -151,7 +153,7 @@ var _ = Describe("VRF suite @vrf", func() {
 			nets.Default.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nets, "../")
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

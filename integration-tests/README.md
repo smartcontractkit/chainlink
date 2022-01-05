@@ -32,8 +32,17 @@ The above will run tests with 6 parallel threads.
 
 ### Options
 
-If you would like to change the Chainlink values that are used for environments, you can use JSON to squash them. Have a look over at our [helmenv](https://github.com/smartcontractkit/helmenv/) chainlink charts to get a grasp of how things are structured. We'll be writing more on this later, but for now, you can squash values by providing a `CHARTS` environment variable.
+If you would like to change the Chainlink or Geth versions that are used for environments, you can use the below ENV vars. 
 
 ```sh
-CHARTS='{"chainlink": {"values": {"chainlink": {"image": {"version": "1.0.1"}}}}}' make test_smoke args="-nodes=6"
+CHAINLINK_IMAGE=my/chainlink/image/location
+CHAINLINK_VERSION=1.0.0
+GETH_IMAGE=ethereum/client-go
+GETH_VERSION=v1.10.15
+```
+
+If you want more fine grained control, have a look over at our [helmenv](https://github.com/smartcontractkit/helmenv/) chainlink charts to get a grasp of how things are structured. We're working on improving the UX of this system, but for now, make use of the `CHARTS` environment variable.
+
+```sh
+CHARTS={"chainlink":"values":{"env":{"feature_offchain_reporting":"true"}}}
 ```
