@@ -11,9 +11,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 )
 
-func configureSaver(t *testing.T) (headtracker.HeadSaver, headtracker.ORM) {
+func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)

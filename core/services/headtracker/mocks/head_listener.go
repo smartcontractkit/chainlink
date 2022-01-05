@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	headtracker "github.com/smartcontractkit/chainlink/core/services/headtracker"
+	types "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -27,7 +27,7 @@ func (_m *HeadListener) Connected() bool {
 }
 
 // ListenForNewHeads provides a mock function with given fields: handleNewHead, done
-func (_m *HeadListener) ListenForNewHeads(handleNewHead headtracker.NewHeadHandler, done func()) {
+func (_m *HeadListener) ListenForNewHeads(handleNewHead types.NewHeadHandler, done func()) {
 	_m.Called(handleNewHead, done)
 }
 
