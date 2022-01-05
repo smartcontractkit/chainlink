@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -124,7 +125,7 @@ func convertToETHABIType(val interface{}, abiType abi.Type) (interface{}, error)
 	case abi.BytesTy:
 		switch val := val.(type) {
 		case string:
-			if len(val) > 1 && val[:2] == "0x" {
+			if strings.HasPrefix(val, "0x") {
 				return hexutil.Decode(val)
 			}
 			return []byte(val), nil
@@ -270,9 +271,9 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 
 	case reflect.String:
 		s := srcVal.Convert(stringType).Interface().(string)
-		if s[:2] == "0x" {
+		if strings.HasPrefix(s, "0x") {
 			if len(s) != (length*2)+2 {
-				return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
+				return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, (len(s)-2)/2)
 			}
 			maybeBytes, err := hexutil.Decode(s)
 			if err != nil {
@@ -281,8 +282,8 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 			return convertToETHABIBytes(destType, reflect.ValueOf(maybeBytes), length)
 		}
 
-		if destType.Len() != length {
-			return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
+		if destType.Len() != len(s) {
+			return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, len(s))
 		}
 		return convertToETHABIBytes(destType, srcVal.Convert(bytesType), length)
 
