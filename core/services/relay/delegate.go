@@ -116,7 +116,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
 		}
 
-		validatorProgramID, err := solanaGo.PublicKeyFromBase58(config.ValidatorProgramID)
+		storeProgramID, err := solanaGo.PublicKeyFromBase58(config.StoreProgramID)
 		if err != nil {
 			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
 		}
@@ -144,7 +144,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			NodeEndpointWS:     config.NodeEndpointWS,
 			ProgramID:          programID,
 			StateID:            stateID,
-			ValidatorProgramID: validatorProgramID,
+			StoreProgramID:     storeProgramID,
 			TransmissionsID:    transmissionsID,
 			TransmissionSigner: transmissionSigner,
 		})
