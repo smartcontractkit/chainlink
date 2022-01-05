@@ -50,7 +50,8 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	hr := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, orm, hr)
+	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hr, hs)
 	require.NoError(t, hr.Start())
 	require.NoError(t, ht.Start())
 
