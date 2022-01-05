@@ -29,7 +29,7 @@ type ETHTxTask struct {
 	TxMeta           string `json:"txMeta"`
 	MinConfirmations string `json:"minConfirmations"`
 	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
-	Simulate         string `json:"simulate" mapstructure:"simulate"`
+	TransmitChecker  string `json:"transmitChecker"`
 
 	keyStore ETHKeyStore
 	chainSet evm.ChainSet
@@ -72,7 +72,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		gasLimit              Uint64Param
 		txMetaMap             MapParam
 		maybeMinConfirmations MaybeUint64Param
-		simulate              BoolParam
+		transmitCheckerMap    MapParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
@@ -81,7 +81,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), cfg.EvmGasLimitDefault())), "gasLimit"),
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
 		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
-		errors.Wrap(ResolveParam(&simulate, From(VarExpr(t.Simulate, vars), NonemptyString(t.Simulate), false)), "simulate"),
+		errors.Wrap(ResolveParam(&transmitCheckerMap, From(VarExpr(t.TransmitChecker, vars), JSONWithVarExprs(t.TransmitChecker, vars, false), MapParam{})), "transmitChecker"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -96,7 +96,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 
 	var txMeta bulletprooftxmanager.EthTxMeta
 
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &txMeta,
 		ErrorUnused: true,
 		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
@@ -117,9 +117,33 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
 	}
 
-	err = decoder.Decode(txMetaMap)
+	err = metaDecoder.Decode(txMetaMap)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
+	}
+
+	var transmitChecker bulletprooftxmanager.TransmitCheckerSpec
+	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:      &transmitChecker,
+		ErrorUnused: true,
+		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+			switch from {
+			case stringType:
+				switch to {
+				case reflect.TypeOf(common.Address{}):
+					return common.HexToAddress(data.(string)), nil
+				}
+			}
+			return data, nil
+		},
+	})
+	if err != nil {
+		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
+	}
+
+	err = checkerDecoder.Decode(transmitCheckerMap)
+	if err != nil {
+		return Result{Error: errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)}, runInfo
 	}
 
 	fromAddr, err := t.keyStore.GetRoundRobinAddress(fromAddrs...)
@@ -130,7 +154,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
-	strategy := bulletprooftxmanager.NewSendEveryStrategy(bool(simulate))
+	strategy := bulletprooftxmanager.NewSendEveryStrategy()
 
 	newTx := bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddr,
@@ -139,6 +163,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		GasLimit:       uint64(gasLimit),
 		Meta:           &txMeta,
 		Strategy:       strategy,
+		Checker:        transmitChecker,
 	}
 
 	if minOutgoingConfirmations > 0 {

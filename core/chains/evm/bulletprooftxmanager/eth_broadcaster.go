@@ -333,10 +333,6 @@ func getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err
 	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
 
-// SimulationTimeout must be short since simulation adds latency to
-// broadcasting a tx which can negatively affect response time
-const SimulationTimeout = 2 * time.Second
-
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
 func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
@@ -345,20 +341,36 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 	parentCtx := context.TODO()
 
-	if etx.Simulate {
-		simulationCtx, cancel := context.WithTimeout(parentCtx, SimulationTimeout)
-		defer cancel()
-		if b, err := simulateTransaction(simulationCtx, eb.ethClient, attempt, etx); err != nil {
-			if jErr := evmclient.ExtractRPCError(err); jErr != nil {
-				eb.logger.CriticalW("Transaction reverted during simulation", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
-				etx.Error = null.StringFrom(fmt.Sprintf("transaction reverted during simulation: %s", jErr.String()))
-				return eb.saveFatallyErroredTransaction(&etx)
-			}
-			eb.logger.Warnw("Transaction simulation failed, will attempt to send anyway", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "returnValue", b.String())
-		} else {
-			eb.logger.Debugw("Transaction simulation succeeded", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "returnValue", b.String())
-		}
+	checkerSpec, err := etx.GetChecker()
+	if err != nil {
+		return errors.Wrap(err, "parsing transmit checker")
 	}
+
+	checker, err := buildChecker(checkerSpec, eb.ethClient)
+	if err != nil {
+		return errors.Wrap(err, "building transmit checker")
+	}
+
+	// If the transmit check does not complete within 2 seconds, the transaction will be sent
+	// anyway.
+	checkCtx, cancel := context.WithTimeout(parentCtx, 2*time.Second)
+	defer cancel()
+	err = checker.ShouldTransmit(checkCtx, eb.logger, etx, attempt)
+	if errors.Is(err, context.Canceled) {
+		eb.logger.Errorw("Transmission checker timed out, sending anyway",
+			"ethTxId", etx.ID,
+			"meta", etx.Meta,
+			"checker", etx.TransmitChecker)
+	} else if err != nil {
+		etx.Error = null.StringFrom(err.Error())
+		eb.logger.Infow("Transmission checker failed, fatally erroring transaction.",
+			"ethTxId", etx.ID,
+			"meta", etx.Meta,
+			"checker", etx.TransmitChecker,
+			"err", err)
+		return eb.saveFatallyErroredTransaction(&etx)
+	}
+	cancel()
 
 	sendError := sendTransaction(parentCtx, eb.ethClient, attempt, etx, eb.logger)
 
