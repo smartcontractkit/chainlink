@@ -48,7 +48,14 @@ func (t *ETHTxTask) Type() TaskType {
 }
 
 func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
-	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	var chainID StringParam
+	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID")
+
+	if err != nil {
+		return Result{Error: err}, runInfo
+	}
+
+	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
 		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}, retryableRunInfo()
 	}
