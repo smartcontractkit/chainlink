@@ -26,6 +26,8 @@ func (raw Raw) GoString() string {
 	return raw.String()
 }
 
+var _ fmt.GoStringer = &KeyV2{}
+
 type KeyV2 struct {
 	privateKey *ed25519.PrivateKey
 	PublicKey  ed25519.PublicKey

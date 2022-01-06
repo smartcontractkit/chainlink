@@ -3,19 +3,37 @@ package types
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
-type Tracker interface {
-	HighestSeenHeadFromDB(context.Context) (*eth.Head, error)
-	Start() error
-	Stop() error
+// HeadSaver maintains chains persisted in DB. All methods are thread-safe.
+type HeadSaver interface {
+	// Save updates the latest block number, if indeed the latest, and persists
+	// this number in case of reboot.
+	Save(ctx context.Context, head *eth.Head) error
+	// LoadFromDB loads latest EvmHeadTrackerHistoryDepth heads, returns the latest chain.
+	LoadFromDB(ctx context.Context) (*eth.Head, error)
+	// LatestHeadFromDB returns the highest seen head from DB.
+	LatestHeadFromDB(ctx context.Context) (*eth.Head, error)
+	// LatestChain returns the block header with the highest number that has been seen, or nil.
+	LatestChain() *eth.Head
+	// Chain returns a head for the specified hash, or nil.
+	Chain(hash common.Hash) *eth.Head
+}
+
+// HeadTracker holds and stores the latest block number experienced by this particular node in a thread safe manner.
+// Reconstitutes the last block number from the data store on reboot.
+type HeadTracker interface {
+	services.Service
+	// SetLogLevel changes log level for HeadTracker logger
 	SetLogLevel(lvl zapcore.Level)
-	Ready() error
-	Healthy() error
+	// Backfill given a head will fill in any missing heads up to the given depth
+	// (used for testing)
+	Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error)
 }
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
@@ -25,16 +43,30 @@ type HeadTrackable interface {
 	OnNewLongestChain(ctx context.Context, head *eth.Head)
 }
 
-type SubscribeFunc func(callback HeadTrackable) (unsubscribe func())
-
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func())
 }
 
-// HeadBroadcaster is the external interface of headBroadcaster
+// HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
+// congestion than the head tracker, and missed heads should be expected by consuming jobs
 //go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
-	service.Service
-	HeadTrackable
-	Subscribe(callback HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func())
+	services.Service
+	BroadcastNewLongestChain(head *eth.Head)
+	HeadBroadcasterRegistry
+}
+
+// NewHeadHandler is a callback that handles incoming heads
+type NewHeadHandler func(ctx context.Context, header *eth.Head) error
+
+// HeadListener manages eth.Client connection that receives heads from the eth node
+//go:generate mockery --name HeadListener --output ../mocks/ --case=underscore
+type HeadListener interface {
+	// ListenForNewHeads kicks off the listen loop (not thread safe)
+	// done() must be executed upon leaving ListenForNewHeads()
+	ListenForNewHeads(handleNewHead NewHeadHandler, done func())
+	// ReceivingHeads returns true if the listener is receiving heads (thread safe)
+	ReceivingHeads() bool
+	// Connected returns true if the listener is connected (thread safe)
+	Connected() bool
 }

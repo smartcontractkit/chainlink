@@ -22,12 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
@@ -359,8 +359,8 @@ func (l *mockListener) JobID() int32            { return l.jobID }
 func (l *mockListener) HandleLog(log.Broadcast) {}
 
 type mockEth struct {
-	ethClient        *mocks.Client
-	sub              *mocks.Subscription
+	ethClient        *ethmocks.Client
+	sub              *ethmocks.Subscription
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
 	checkFilterLogs  func(int64, int64)

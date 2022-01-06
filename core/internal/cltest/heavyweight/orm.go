@@ -37,7 +37,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 		SecretGenerator: cltest.MockSecretGenerator{},
 	}
 	gcfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
-	gcfg.SetDialect(dialects.Postgres)
+	gcfg.Overrides.Dialect = dialects.Postgres
 
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)

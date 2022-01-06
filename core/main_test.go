@@ -184,11 +184,14 @@ func ExampleRun_keys() {
 	//    core.test keys command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    eth  Remote commands for administering the node's Ethereum keys
-	//    p2p  Remote commands for administering the node's p2p keys
-	//    csa  Remote commands for administering the node's CSA keys
-	//    ocr  Remote commands for administering the node's off chain reporting keys
-	//    vrf  Remote commands for administering the node's vrf keys
+	//    eth     Remote commands for administering the node's Ethereum keys
+	//    p2p     Remote commands for administering the node's p2p keys
+	//    csa     Remote commands for administering the node's CSA keys
+	//    ocr     Remote commands for administering the node's legacy off chain reporting keys
+	//    ocr2    Remote commands for administering the node's off chain reporting keys
+	//    solana  Remote commands for administering the node's solana keys
+	//    terra   Remote commands for administering the node's terra keys
+	//    vrf     Remote commands for administering the node's vrf keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -254,11 +257,11 @@ func ExampleRun_keys_csa() {
 	//    --help, -h  show help
 }
 
-func ExampleRun_keys_ocr() {
+func ExampleRun_keys_ocr_legacy() {
 	run("keys", "ocr", "--help")
 	// Output:
 	// NAME:
-	//    core.test keys ocr - Remote commands for administering the node's off chain reporting keys
+	//    core.test keys ocr - Remote commands for administering the node's legacy off chain reporting keys
 	//
 	// USAGE:
 	//    core.test keys ocr command [command options] [arguments...]
@@ -269,6 +272,66 @@ func ExampleRun_keys_ocr() {
 	//    list    List available OCR key bundles
 	//    import  Imports an OCR key bundle from a JSON file
 	//    export  Exports an OCR key bundle to a JSON file
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_ocr() {
+	run("keys", "ocr2", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys ocr2 - Remote commands for administering the node's off chain reporting keys
+	//
+	// USAGE:
+	//    core.test keys ocr2 command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create an OCR2 key bundle, encrypted with password from the password file, and store it in the database
+	//    delete  Deletes the encrypted OCR2 key bundle matching the given ID
+	//    list    List available OCR2 key bundles
+	//    import  Imports an OCR2 key bundle from a JSON file
+	//    export  Exports an OCR2 key bundle to a JSON file
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_solana() {
+	run("keys", "solana", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys solana - Remote commands for administering the node's solana keys
+	//
+	// USAGE:
+	//    core.test keys solana command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Solana key
+	//    import  Import Solana key from keyfile
+	//    export  Export Solana key to keyfile
+	//    delete  Delete Solana key if present
+	//    list    List the Solana keys
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_keys_terra() {
+	run("keys", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test keys terra - Remote commands for administering the node's terra keys
+	//
+	// USAGE:
+	//    core.test keys terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a Terra key
+	//    import  Import Terra key from keyfile
+	//    export  Export Terra key to keyfile
+	//    delete  Delete Terra key if present
+	//    list    List the Terra keys
 	//
 	// OPTIONS:
 	//    --help, -h  show help

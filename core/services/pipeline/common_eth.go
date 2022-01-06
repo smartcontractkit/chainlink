@@ -2,9 +2,12 @@ package pipeline
 
 import (
 	"bytes"
+	"fmt"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -122,7 +125,7 @@ func convertToETHABIType(val interface{}, abiType abi.Type) (interface{}, error)
 	case abi.BytesTy:
 		switch val := val.(type) {
 		case string:
-			if len(val) > 1 && val[:2] == "0x" {
+			if strings.HasPrefix(val, "0x") {
 				return hexutil.Decode(val)
 			}
 			return []byte(val), nil
@@ -252,20 +255,25 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 		return destVal.Interface(), nil
 
 	case reflect.Array:
-		if destType.Len() != length {
+		if destType.Kind() == reflect.Array && destType.Len() != length {
 			return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
 		} else if srcVal.Type().Elem().Kind() != reflect.Uint8 {
 			return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to %v", srcVal.Type(), destType)
 		}
-		destVal := reflect.New(destType).Elem()
-		reflect.Copy(destVal.Slice(0, length), srcVal.Slice(0, srcVal.Len()))
+		var destVal reflect.Value
+		if destType.Kind() == reflect.Array {
+			destVal = reflect.New(destType).Elem()
+		} else {
+			destVal = reflect.MakeSlice(destType, length, length)
+		}
+		reflect.Copy(destVal, srcVal)
 		return destVal.Interface(), nil
 
 	case reflect.String:
 		s := srcVal.Convert(stringType).Interface().(string)
-		if s[:2] == "0x" {
+		if strings.HasPrefix(s, "0x") {
 			if len(s) != (length*2)+2 {
-				return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
+				return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, (len(s)-2)/2)
 			}
 			maybeBytes, err := hexutil.Decode(s)
 			if err != nil {
@@ -274,8 +282,8 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 			return convertToETHABIBytes(destType, reflect.ValueOf(maybeBytes), length)
 		}
 
-		if destType.Len() != length {
-			return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
+		if destType.Len() != len(s) {
+			return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, len(s))
 		}
 		return convertToETHABIBytes(destType, srcVal.Convert(bytesType), length)
 
@@ -299,17 +307,30 @@ func convertToETHABIInteger(val interface{}, abiType abi.Type) (interface{}, err
 	}
 
 	converted := reflect.New(abiType.GetType()).Elem()
-	if i.IsUint64() {
+	// switch on signed/unsignedness of the abi type.
+	ty := abiType.GetType()
+	switch ty.Kind() {
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
 		if converted.OverflowUint(i.Uint64()) {
 			return nil, ErrOverflow
 		}
 		converted.SetUint(i.Uint64())
-
-	} else {
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
 		if converted.OverflowInt(i.Int64()) {
 			return nil, ErrOverflow
 		}
 		converted.SetInt(i.Int64())
+	default:
+		// go-ethereum handles in-betweener sizes, i.e 24, 40, 48, and 56 bit integers,
+		// as if they were big.Int, instead of the next largest native integer type that
+		// could hold it. Unsure of why this decision was taken.
+		// See https://github.com/ethereum/go-ethereum/blob/master/accounts/abi/reflect.go#L61 for
+		// the relevant code.
+		if ty == reflect.TypeOf(&big.Int{}) {
+			return i, nil
+		}
+		return nil, fmt.Errorf("unknown Go type %+v for abi type %+v", ty.String(), abiType)
 	}
+
 	return converted.Interface(), nil
 }

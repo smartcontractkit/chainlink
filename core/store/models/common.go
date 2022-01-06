@@ -12,9 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	"github.com/tidwall/gjson"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/tidwall/gjson"
 )
 
 // CronParser is the global parser for crontabs.
@@ -203,6 +204,15 @@ func MakeDuration(d time.Duration) (Duration, error) {
 	return Duration{d: d}, nil
 }
 
+func MakeDurationFromString(s string) (Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return Duration{}, err
+	}
+
+	return MakeDuration(d)
+}
+
 func MustMakeDuration(d time.Duration) Duration {
 	rv, err := MakeDuration(d)
 	if err != nil {
@@ -275,6 +285,12 @@ func (d Duration) Value() (driver.Value, error) {
 
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
+
+func NewInterval(d time.Duration) *Interval {
+	i := new(Interval)
+	*i = Interval(d)
+	return i
+}
 
 func (i Interval) Duration() time.Duration {
 	return time.Duration(i)
