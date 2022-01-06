@@ -1739,8 +1739,8 @@ github.com/sirupsen/logrus v1.7.0/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
-github.com/smartcontractkit/chainlink-solana v0.0.0-20220105214423-218ff2c30218 h1:U2Vai0BokIrpNBe5atGD7A2IodbsnV8U6efFT72Q9lI=
-github.com/smartcontractkit/chainlink-solana v0.0.0-20220105214423-218ff2c30218/go.mod h1:Y3zc38pA5rSI3kpS5MWqVyrGbugDHQPO4UMSFCunkFI=
+github.com/smartcontractkit/chainlink-solana v0.0.0-20220106150025-56c6950fc9ce h1:k/6Vz6+DjhwvBwQSkYXaB3k1O5EmbkRa9X91h7R+kQw=
+github.com/smartcontractkit/chainlink-solana v0.0.0-20220106150025-56c6950fc9ce/go.mod h1:Y3zc38pA5rSI3kpS5MWqVyrGbugDHQPO4UMSFCunkFI=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
 github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7 h1:RkwDW6gxsfhKqPvaxm3Qxfw/6l2QWgC0YrA6zgEXT2k=
 github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7/go.mod h1:nq3crM3wVqnyMlM/4ZydTuJ/WyCapAsOt7P94oRgSPg=
