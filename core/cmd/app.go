@@ -5,9 +5,9 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -36,7 +36,6 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
-		logger.InitLogger(client.Logger)
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{
@@ -429,7 +428,7 @@ func NewApp(client *Client) *cli.App {
 
 				{
 					Name:  "ocr",
-					Usage: "Remote commands for administering the node's off chain reporting keys",
+					Usage: "Remote commands for administering the node's legacy off chain reporting keys",
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
@@ -481,6 +480,178 @@ func NewApp(client *Client) *cli.App {
 								},
 							},
 							Action: client.ExportOCRKey,
+						},
+					},
+				},
+
+				{
+					Name:  "ocr2",
+					Usage: "Remote commands for administering the node's off chain reporting keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  format(`Create an OCR2 key bundle, encrypted with password from the password file, and store it in the database`),
+							Action: client.CreateOCR2KeyBundle,
+						},
+						{
+							Name:  "delete",
+							Usage: format(`Deletes the encrypted OCR2 key bundle matching the given ID`),
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteOCR2KeyBundle,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available OCR2 key bundles`),
+							Action: client.ListOCR2KeyBundles,
+						},
+						{
+							Name:  "import",
+							Usage: format(`Imports an OCR2 key bundle from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportOCR2Key,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports an OCR2 key bundle to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportOCR2Key,
+						},
+					},
+				},
+
+				{
+					Name:  "solana",
+					Usage: "Remote commands for administering the node's solana keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a Solana key",
+							Action: client.CreateSolanaKey,
+						},
+						{
+							Name:  "import",
+							Usage: "Import Solana key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportSolanaKey,
+						},
+						{
+							Name:  "export",
+							Usage: "Export Solana key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportSolanaKey,
+						},
+						{
+							Name:  "delete",
+							Usage: "Delete Solana key if present",
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteSolanaKey,
+						},
+						{
+							Name: "list", Usage: "List the Solana keys",
+							Action: client.ListSolanaKeys,
+						},
+					},
+				},
+
+				{
+					Name:  "terra",
+					Usage: "Remote commands for administering the node's terra keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a Terra key",
+							Action: client.CreateTerraKey,
+						},
+						{
+							Name:  "import",
+							Usage: "Import Terra key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportTerraKey,
+						},
+						{
+							Name:  "export",
+							Usage: "Export Terra key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportTerraKey,
+						},
+						{
+							Name:  "delete",
+							Usage: "Delete Terra key if present",
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteTerraKey,
+						},
+						{
+							Name: "list", Usage: "List the Terra keys",
+							Action: client.ListTerraKeys,
 						},
 					},
 				},

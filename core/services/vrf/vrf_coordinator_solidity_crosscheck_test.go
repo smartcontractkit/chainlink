@@ -64,7 +64,7 @@ type coordinatorUniverse struct {
 var oneEth = big.NewInt(1000000000000000000) // 1e18 wei
 
 // newIdentity returns a go-ethereum abstraction of an ethereum account for
-// interacting with contract golang wrappers
+// interacting with golang contract wrappers
 func newIdentity(t *testing.T) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")

@@ -115,9 +115,6 @@ func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *eth
 func (b *BlockHistoryEstimator) Start() error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Debugw("starting")
-		if uint32(b.config.BlockHistoryEstimatorBlockHistorySize()) > b.config.EvmFinalityDepth() {
-			b.logger.Warnf("GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every block history estimator cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", b.config.BlockHistoryEstimatorBlockHistorySize(), b.config.EvmFinalityDepth())
-		}
 
 		ctx, cancel := context.WithTimeout(b.ctx, maxStartTime)
 		defer cancel()
@@ -210,10 +207,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Info("No head to retrieve. It might have been skipped")
 				continue
 			}
-			h, is := head.(*eth.Head)
-			if !is {
-				panic(fmt.Sprintf("invariant violation, expected %T but got %T", eth.Head{}, head))
-			}
+			h := eth.AsHead(head)
 			b.FetchBlocksAndRecalculate(b.ctx, h)
 		}
 	}
@@ -314,9 +308,11 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *eth.Head)
 	for _, block := range b.rollingBlockHistory {
 		// Make a best-effort to be re-org resistant using the head
 		// chain, refetch blocks that got re-org'd out.
-		// NOTE: Any blocks older than the oldest block in the provided chain
-		// will be also be refetched.
-		if head.IsInChain(block.Hash) {
+		// NOTE: Any blocks in the history that are older than the oldest block
+		// in the provided chain will be assumed final.
+		if block.Number < head.EarliestInChain().Number {
+			blocks[block.Number] = block
+		} else if head.IsInChain(block.Hash) {
 			blocks[block.Number] = block
 		}
 	}

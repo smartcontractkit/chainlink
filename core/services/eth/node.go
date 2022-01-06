@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"sync"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,11 +18,12 @@ import (
 )
 
 //go:generate mockery --name Node --output ./mocks/ --case=underscore
-
 type Node interface {
 	Dial(ctx context.Context) error
 	Close()
 	Verify(ctx context.Context, expectedChainID *big.Int) (err error)
+
+	State() NodeState
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -52,14 +54,27 @@ type rawclient struct {
 	uri  url.URL
 }
 
+type NodeState int
+
+const (
+	NodeStateUndialed = NodeState(iota)
+	NodeStateDialed
+	NodeStateInvalidChainID
+	NodeStateAlive
+	NodeStateDead
+	NodeStateClosed
+)
+
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
 type node struct {
-	ws     rawclient
-	http   *rawclient
-	log    logger.Logger
-	name   string
-	dialed bool
+	ws   rawclient
+	http *rawclient
+	log  logger.Logger
+	name string
+
+	state NodeState
+	mu    sync.RWMutex
 }
 
 func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
@@ -75,9 +90,19 @@ func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) N
 	return n
 }
 
+// Dialling an Alive node is noop
+// Can dial Dead or Undialed nodes
+// Cannot dial a closed node
 func (n *node) Dial(ctx context.Context) error {
-	if n.dialed {
-		panic("eth.Client.Dial(...) should only be called once during the node's lifetime.")
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.state == NodeStateAlive || n.state == NodeStateDialed {
+		return nil
+	} else if n.state == NodeStateClosed {
+		return errors.New("cannot dial closed node")
 	}
 
 	{
@@ -88,33 +113,104 @@ func (n *node) Dial(ctx context.Context) error {
 		n.log.Debugw("eth.Client#Dial(...)", "wsuri", n.ws.uri.String(), "httpuri", httpuri)
 	}
 
-	{
-		uri := n.ws.uri.String()
-		rpc, err := rpc.DialWebsocket(ctx, uri, "")
-		if err != nil {
-			return errors.Wrapf(err, "Error while dialing websocket: %v", uri)
-		}
-		n.dialed = true
-		n.ws.rpc = rpc
-		n.ws.geth = ethclient.NewClient(rpc)
+	uri := n.ws.uri.String()
+	wsrpc, err := rpc.DialWebsocket(ctx, uri, "")
+	if err != nil {
+		n.state = NodeStateDead
+		return errors.Wrapf(err, "error while dialing websocket: %v", uri)
 	}
 
+	var httprpc *rpc.Client
 	if n.http != nil {
 		uri := n.http.uri.String()
-		rpc, err := rpc.DialHTTP(uri)
+		httprpc, err = rpc.DialHTTP(uri)
 		if err != nil {
-			return errors.Wrapf(err, "Error while dialing HTTP: %v", uri)
+			n.state = NodeStateDead
+			return errors.Wrapf(err, "error while dialing HTTP: %v", uri)
 		}
-		n.http.rpc = rpc
-		n.http.geth = ethclient.NewClient(rpc)
+	}
+
+	n.state = NodeStateDialed
+	n.ws.rpc = wsrpc
+	n.ws.geth = ethclient.NewClient(wsrpc)
+
+	if n.http != nil {
+		n.http.rpc = httprpc
+		n.http.geth = ethclient.NewClient(httprpc)
 	}
 
 	return nil
 }
 
+func (n *node) Close() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.state = NodeStateClosed
+	if n.ws.rpc != nil {
+		n.ws.rpc.Close()
+	}
+}
+
+// Verify checks that all connections to eth nodes match the given chain ID
+func (n *node) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.state == NodeStateUndialed {
+		return errors.New("cannot verify undialed node")
+	}
+	if n.state == NodeStateDead {
+		return errors.New("cannot verify dead node")
+	}
+
+	var chainID *big.Int
+	if chainID, err = n.ws.geth.ChainID(ctx); err != nil {
+		n.state = NodeStateInvalidChainID
+		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+	} else if chainID.Cmp(expectedChainID) != 0 {
+		n.state = NodeStateInvalidChainID
+		return errors.Errorf(
+			"websocket rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+			chainID.String(),
+			expectedChainID.String(),
+			n.name,
+		)
+	}
+	if n.http != nil {
+		if chainID, err = n.http.geth.ChainID(ctx); err != nil {
+			n.state = NodeStateInvalidChainID
+			return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+		} else if chainID.Cmp(expectedChainID) != 0 {
+			n.state = NodeStateInvalidChainID
+			return errors.Errorf(
+				"http rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+				chainID.String(),
+				expectedChainID.String(),
+				n.name,
+			)
+		}
+	}
+	n.state = NodeStateAlive
+	return nil
+}
+
+func (n *node) State() NodeState {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+	return n.state
+}
+
 // RPC wrappers
 
-func (n node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+// TODO: Handle state below
+// e.g. need a way to mark a node as "dead" if it fails more than 3 calls in a row
+// see: https://app.shortcut.com/chainlinklabs/story/8403/multiple-primary-geth-nodes-with-failover-load-balancer-part-2
+func (n *node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#Call(...)",
 		"method", method,
 		"args", args,
@@ -126,7 +222,10 @@ func (n node) CallContext(ctx context.Context, result interface{}, method string
 	return n.wrapWS(n.ws.rpc.CallContext(ctx, result, method, args...))
 }
 
-func (n node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 		"mode", switching(n),
@@ -137,18 +236,20 @@ func (n node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return n.wrapWS(n.ws.rpc.BatchCallContext(ctx, b))
 }
 
-func (n node) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+func (n *node) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#EthSubscribe", "mode", "websocket")
 	return n.ws.rpc.EthSubscribe(ctx, channel, args...)
 }
 
-func (n node) Close() {
-	n.ws.rpc.Close()
-}
-
 // GethClient wrappers
 
-func (n node) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
+func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#TransactionReceipt(...)",
 		"txHash", txHash,
 		"mode", switching(n),
@@ -165,7 +266,10 @@ func (n node) TransactionReceipt(ctx context.Context, txHash common.Hash) (recei
 	return
 }
 
-func (n node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
+func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#HeaderByNumber(...)",
 		"number", n,
 		"mode", switching(n),
@@ -180,7 +284,10 @@ func (n node) HeaderByNumber(ctx context.Context, number *big.Int) (header *type
 	return
 }
 
-func (n node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
 		"mode", switching(n),
@@ -191,7 +298,10 @@ func (n node) SendTransaction(ctx context.Context, tx *types.Transaction) error 
 	return n.wrapWS(n.ws.geth.SendTransaction(ctx, tx))
 }
 
-func (n node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
+func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#PendingNonceAt(...)",
 		"account", account,
 		"mode", switching(n),
@@ -206,7 +316,10 @@ func (n node) PendingNonceAt(ctx context.Context, account common.Address) (nonce
 	return
 }
 
-func (n node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
+func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#NonceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -222,7 +335,10 @@ func (n node) NonceAt(ctx context.Context, account common.Address, blockNumber *
 	return
 }
 
-func (n node) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
+func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#PendingCodeAt(...)",
 		"account", account,
 		"mode", switching(n),
@@ -237,7 +353,10 @@ func (n node) PendingCodeAt(ctx context.Context, account common.Address) (code [
 	return
 }
 
-func (n node) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
+func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#CodeAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -253,7 +372,10 @@ func (n node) CodeAt(ctx context.Context, account common.Address, blockNumber *b
 	return
 }
 
-func (n node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#EstimateGas(...)",
 		"call", call,
 		"mode", switching(n),
@@ -268,14 +390,20 @@ func (n node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint6
 	return
 }
 
-func (n node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
+func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SuggestGasPrice()", "mode", "websocket")
 	price, err = n.ws.geth.SuggestGasPrice(ctx)
 	err = n.wrapWS(err)
 	return
 }
 
-func (n node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) (val []byte, err error) {
+func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) (val []byte, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#CallContract()",
 		"mode", switching(n),
 	)
@@ -290,7 +418,10 @@ func (n node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumbe
 
 }
 
-func (n node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
+func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#BlockByNumber(...)",
 		"number", number,
 		"mode", switching(n),
@@ -305,7 +436,10 @@ func (n node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Bloc
 	return
 }
 
-func (n node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
+func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#BalanceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
@@ -321,7 +455,10 @@ func (n node) BalanceAt(ctx context.Context, account common.Address, blockNumber
 	return
 }
 
-func (n node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
+func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#FilterLogs(...)",
 		"q", q,
 		"mode", switching(n),
@@ -336,14 +473,20 @@ func (n node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types
 	return
 }
 
-func (n node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
+func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SubscribeFilterLogs(...)", "q", q, "mode", "websocket")
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	err = n.wrapWS(err)
 	return
 }
 
-func (n node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#SuggestGasTipCap(...)",
 		"mode", switching(n),
 	)
@@ -357,7 +500,10 @@ func (n node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error)
 	return
 }
 
-func (n node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
+func (n *node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
+	ctx, cancel := DefaultQueryCtx(ctx)
+	defer cancel()
+
 	n.log.Debugw("eth.Client#ChainID(...)")
 	if n.http != nil {
 		chainID, err = n.http.geth.ChainID(ctx)
@@ -369,11 +515,11 @@ func (n node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 	return
 }
 
-func (n node) wrapWS(err error) error {
+func (n *node) wrapWS(err error) error {
 	return wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.String()))
 }
 
-func (n node) wrapHTTP(err error) error {
+func (n *node) wrapHTTP(err error) error {
 	return wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.String()))
 }
 
@@ -387,45 +533,17 @@ func wrap(err error, tp string) error {
 	return errors.Wrapf(err, "%s call failed", tp)
 }
 
-func switching(n node) string {
+func switching(n *node) string {
 	if n.http != nil {
 		return "http"
 	}
 	return "websocket"
 }
 
-func (n node) String() string {
+func (n *node) String() string {
 	s := fmt.Sprintf("(primary)%s:%s", n.name, n.ws.uri.String())
 	if n.http != nil {
 		s = s + fmt.Sprintf(":%s", n.http.uri.String())
 	}
 	return s
-}
-
-// Verify checks that all connections to eth nodes match the given chain ID
-func (n node) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
-	var chainID *big.Int
-	if chainID, err = n.ws.geth.ChainID(ctx); err != nil {
-		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
-	} else if chainID.Cmp(expectedChainID) != 0 {
-		return errors.Errorf(
-			"websocket rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
-			chainID.String(),
-			expectedChainID.String(),
-			n.name,
-		)
-	}
-	if n.http != nil {
-		if chainID, err = n.http.geth.ChainID(ctx); err != nil {
-			return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
-		} else if chainID.Cmp(expectedChainID) != 0 {
-			return errors.Errorf(
-				"http rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
-				chainID.String(),
-				expectedChainID.String(),
-				n.name,
-			)
-		}
-	}
-	return nil
 }

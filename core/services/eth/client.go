@@ -18,9 +18,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name Client --output mocks/ --case=underscore
-//go:generate mockery --name Subscription --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Subscription --output mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -73,6 +72,8 @@ type Subscription interface {
 
 // DefaultQueryCtx returns a context with a sensible sanity limit timeout for
 // queries to the eth node
+// This is a sanity limit to try to work around poorly behaved remote WS endpoints that fail to send us data that we requested
+// NO QUERY should ever take longer than this
 func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel context.CancelFunc) {
 	if len(ctxs) > 0 {
 		ctx = ctxs[0]

@@ -95,10 +95,20 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	rootSchema := schema.MustGetRootSchema()
 
+	// Disable introspection and set a max query depth in production.
+	schemaOpts := []graphql.SchemaOpt{}
+	if !app.GetConfig().Dev() {
+		schemaOpts = append(schemaOpts,
+			graphql.DisableIntrospection(),
+			graphql.MaxDepth(10),
+		)
+	}
+
 	schema := graphql.MustParseSchema(rootSchema,
 		&resolver.Resolver{
 			App: app,
 		},
+		schemaOpts...,
 	)
 
 	h := relay.Handler{Schema: schema}
@@ -261,6 +271,12 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		rc := ReplayController{app}
 		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
 
+		csakc := CSAKeysController{app}
+		authv2.GET("/keys/csa", csakc.Index)
+		authv2.POST("/keys/csa", csakc.Create)
+		authv2.POST("/keys/csa/import", csakc.Import)
+		authv2.POST("/keys/csa/export/:ID", csakc.Export)
+
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
@@ -276,6 +292,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/ocr/import", ocrkc.Import)
 		authv2.POST("/keys/ocr/export/:ID", ocrkc.Export)
 
+		ocr2kc := OCR2KeysController{app}
+		authv2.GET("/keys/ocr2", ocr2kc.Index)
+		authv2.POST("/keys/ocr2/:chainType", ocr2kc.Create)
+		authv2.DELETE("/keys/ocr2/:keyID", ocr2kc.Delete)
+		authv2.POST("/keys/ocr2/import", ocr2kc.Import)
+		authv2.POST("/keys/ocr2/export/:ID", ocr2kc.Export)
+
 		p2pkc := P2PKeysController{app}
 		authv2.GET("/keys/p2p", p2pkc.Index)
 		authv2.POST("/keys/p2p", p2pkc.Create)
@@ -283,11 +306,19 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/p2p/import", p2pkc.Import)
 		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
 
-		csakc := CSAKeysController{app}
-		authv2.GET("/keys/csa", csakc.Index)
-		authv2.POST("/keys/csa", csakc.Create)
-		authv2.POST("/keys/csa/import", csakc.Import)
-		authv2.POST("/keys/csa/export/:ID", csakc.Export)
+		solkc := SolanaKeysController{app}
+		authv2.GET("/keys/solana", solkc.Index)
+		authv2.POST("/keys/solana", solkc.Create)
+		authv2.DELETE("/keys/solana/:keyID", solkc.Delete)
+		authv2.POST("/keys/solana/import", solkc.Import)
+		authv2.POST("/keys/solana/export/:ID", solkc.Export)
+
+		terkc := TerraKeysController{app}
+		authv2.GET("/keys/terra", terkc.Index)
+		authv2.POST("/keys/terra", terkc.Create)
+		authv2.DELETE("/keys/terra/:keyID", terkc.Delete)
+		authv2.POST("/keys/terra/import", terkc.Import)
+		authv2.POST("/keys/terra/export/:ID", terkc.Export)
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
@@ -414,7 +445,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 				lggr.Errorf("failed to open static file '%s': %+v", path, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 			}
-
+			return
 		}
 		defer lggr.ErrorIfClosing(file, "file")
 

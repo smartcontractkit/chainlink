@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -40,7 +40,7 @@ func newHead() eth.Head {
 func setup(t *testing.T) (
 	*sqlx.DB,
 	*configtest.TestGeneralConfig,
-	*mocks.Client,
+	*ethmocks.Client,
 	*keeper.UpkeepExecuter,
 	keeper.Registry,
 	keeper.UpkeepRegistration,

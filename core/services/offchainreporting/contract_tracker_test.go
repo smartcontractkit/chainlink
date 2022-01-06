@@ -11,12 +11,12 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -44,7 +44,7 @@ type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
 	hb      *htmocks.HeadBroadcaster
-	ec      *mocks.Client
+	ec      *ethmocks.Client
 	tracker *offchainreporting.OCRContractTracker
 }
 

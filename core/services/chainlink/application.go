@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -22,21 +24,22 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -54,7 +57,7 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetLogger() logger.Logger
-	GetHealthChecker() health.Checker
+	GetHealthChecker() services.Checker
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
@@ -115,14 +118,11 @@ type ChainlinkApplication struct {
 	shutdownOnce             sync.Once
 	shutdownSignal           shutdown.Signal
 	explorerClient           synchronization.ExplorerClient
-	subservices              []service.Service
-	HealthChecker            health.Checker
-	Nurse                    *health.Nurse
+	subservices              []services.Service
+	HealthChecker            services.Checker
+	Nurse                    *services.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
-	advisoryLock             pg.Locker
-	leaseLock                pg.LeaseLock
-	id                       uuid.UUID
 
 	started     bool
 	startStopMu sync.Mutex
@@ -138,9 +138,6 @@ type ApplicationOpts struct {
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
-	AdvisoryLock             pg.Locker
-	LeaseLock                pg.LeaseLock
-	ID                       uuid.UUID
 }
 
 // NewApplication initializes a new store if one is not already
@@ -149,7 +146,7 @@ type ApplicationOpts struct {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []service.Service
+	var subservices []services.Service
 	db := opts.SqlxDB
 	cfg := opts.Config
 	shutdownSignal := opts.ShutdownSignal
@@ -159,10 +156,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
 
-	var nurse *health.Nurse
+	var nurse *services.Nurse
 	if cfg.AutoPprofEnabled() {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
-		nurse = health.NewNurse(cfg, globalLogger)
+		nurse = services.NewNurse(cfg, globalLogger)
 		err := nurse.Start()
 		if err != nil {
 			return nil, err
@@ -171,14 +168,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	healthChecker := health.NewChecker()
+	healthChecker := services.NewChecker()
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging(), globalLogger)
+		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
@@ -200,7 +197,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
-	promReporter := services.NewPromReporter(db.DB, globalLogger)
+	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
 	var (
@@ -264,21 +261,54 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	}
 
+	// We need p2p networking if either ocr1 or ocr2 is enabled
+	var peerWrapper *ocrcommon.SingletonPeerWrapper
+	if ((cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting()) || cfg.FeatureOffchainReporting2() {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
+			return nil, err
+		}
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		subservices = append(subservices, peerWrapper)
+	}
+
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
-		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
 			pipelineRunner,
-			concretePW,
+			peerWrapper,
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
+	}
+	if cfg.FeatureOffchainReporting2() {
+		globalLogger.Debug("Off-chain reporting v2 enabled")
+		// master/delegate relay is started once, on app start, as root subservice
+		relay := relay.NewDelegate(
+			db,
+			keyStore,
+			chainSet,
+			globalLogger,
+		)
+		subservices = append(subservices, relay)
+		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
+			db,
+			jobORM,
+			pipelineRunner,
+			peerWrapper,
+			monitoringEndpointGen,
+			chainSet,
+			globalLogger,
+			cfg,
+			keyStore.OCR2(),
+			relay,
+		)
+	} else {
+		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
 	var lbs []utils.DependentAwaiter
@@ -288,16 +318,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	feedsORM := feeds.NewORM(db, opts.Logger, cfg)
-
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	var feedsService feeds.Service
-	chain, err := chainSet.Default()
-	if err != nil {
-		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
+	if cfg.FeatureFeedsManager() {
+		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
+		chain, err := chainSet.Default()
+		if err != nil {
+			globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
+			feedsService = &feeds.NullService{}
+		} else {
+			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
+		}
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
+		feedsService = &feeds.NullService{}
 	}
 
 	app := &ChainlinkApplication{
@@ -322,12 +356,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
-		id:                       opts.ID,
 
 		sqlxDB: opts.SqlxDB,
-
-		advisoryLock: opts.AdvisoryLock,
-		leaseLock:    opts.LeaseLock,
 
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -457,22 +487,6 @@ func (app *ChainlinkApplication) stop() (err error) {
 				merr = multierr.Append(merr, app.FeedsService.Close())
 			}
 
-			// Clean up the advisory lock if present
-			if app.advisoryLock != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				defer cancel()
-				merr = multierr.Append(merr, app.advisoryLock.Unlock(ctx))
-			}
-
-			// Let go of the lease
-			if app.leaseLock != nil {
-				app.leaseLock.Release()
-			}
-
-			// DB should pretty much always be closed last (apart from the Nurse)
-			app.logger.Debug("Closing DB...")
-			merr = multierr.Append(merr, app.sqlxDB.Close())
-
 			if app.Nurse != nil {
 				merr = multierr.Append(merr, app.Nurse.Close())
 			}
@@ -504,7 +518,7 @@ func (app *ChainlinkApplication) GetLogger() logger.Logger {
 	return app.logger
 }
 
-func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
+func (app *ChainlinkApplication) GetHealthChecker() services.Checker {
 	return app.HealthChecker
 }
 
@@ -684,5 +698,5 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 }
 
 func (app *ChainlinkApplication) ID() uuid.UUID {
-	return app.id
+	return app.Config.AppID()
 }
