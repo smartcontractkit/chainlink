@@ -38,6 +38,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.abi ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.bin VRFExternalSubOwnerExample vrf_external_sub_owner_example
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8/VRFV2RevertingExample.bin VRFV2RevertingExample vrfv2_reverting_example
 
+// Blockhash Store
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/BlockhashStore.abi ../../../contracts/solc/v0.6/BlockhashStore.bin BlockhashStore blockhash_store
+
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:
 //

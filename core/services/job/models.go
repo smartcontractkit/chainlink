@@ -29,14 +29,15 @@ import (
 )
 
 const (
-	Cron               Type = "cron"
-	DirectRequest      Type = "directrequest"
-	FluxMonitor        Type = "fluxmonitor"
-	OffchainReporting  Type = "offchainreporting"
-	OffchainReporting2 Type = "offchainreporting2"
-	Keeper             Type = "keeper"
-	VRF                Type = "vrf"
-	Webhook            Type = "webhook"
+	BlockhashStoreFeeder Type = "blockhashstorefeeder"
+	Cron                 Type = "cron"
+	DirectRequest        Type = "directrequest"
+	FluxMonitor          Type = "fluxmonitor"
+	OffchainReporting    Type = "offchainreporting"
+	OffchainReporting2   Type = "offchainreporting2"
+	Keeper               Type = "keeper"
+	VRF                  Type = "vrf"
+	Webhook              Type = "webhook"
 )
 
 //revive:disable:redefines-builtin-id
@@ -108,6 +109,8 @@ type Job struct {
 	KeeperSpec                     *KeeperSpec
 	VRFSpecID                      *int32
 	VRFSpec                        *VRFSpec
+	BlockhashStoreFeederSpecID     *int32
+	BlockhashStoreFeederSpec       *BlockhashStoreFeederSpec
 	WebhookSpecID                  *int32
 	WebhookSpec                    *WebhookSpec
 	PipelineSpecID                 int32
@@ -438,4 +441,18 @@ type VRFSpec struct {
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // For v2 jobs. Optional, defaults to 24hr if not provided.
 	CreatedAt                time.Time     `toml:"-"`
 	UpdatedAt                time.Time     `toml:"-"`
+}
+
+type BlockhashStoreFeederSpec struct {
+	ID                        int32                `toml:"-"`
+	CoordinatorAddress        ethkey.EIP55Address  `toml:"coordinatorAddress"`
+	BlockhashStoreAddress     ethkey.EIP55Address  `toml:"blockhashStoreAddress"`
+	VRFVersion                int32                `toml:"vrfVersion"`
+	BlocksToWaitBeforeStoring int32                `toml:"blocksToWaitBeforeStoring"`
+	LookbackBlocks            int32                `toml:"lookbackBlocks"`
+	PollPeriod                time.Duration        `toml:"pollPeriod"`
+	EVMChainID                *utils.Big           `toml:"evmChainID"`
+	FromAddress               *ethkey.EIP55Address `toml:"fromAddress"`
+	CreatedAt                 time.Time            `toml:"-"`
+	UpdatedAt                 time.Time            `toml:"-"`
 }

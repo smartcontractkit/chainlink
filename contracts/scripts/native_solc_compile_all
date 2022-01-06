@@ -52,3 +52,6 @@ $SCRIPTPATH/native_solc8_compile tests/VRFOwnerlessConsumerExample.sol
 
 $SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol
+
+# Blockhash Store
+$SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
