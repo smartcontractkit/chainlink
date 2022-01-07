@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true ?")
+var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true?")
 
 var _ ChainSet = &chainSet{}
 
@@ -45,29 +45,37 @@ type ChainSet interface {
 }
 
 type chainSet struct {
-	defaultID *big.Int
-	chains    map[string]*chain
-	chainsMu  sync.RWMutex
-	logger    logger.Logger
-	orm       types.ORM
-	opts      ChainSetOpts
+	defaultID     *big.Int
+	chains        map[string]*chain
+	startedChains []Chain
+	chainsMu      sync.RWMutex
+	logger        logger.Logger
+	orm           types.ORM
+	opts          ChainSetOpts
 }
 
-func (cll *chainSet) Start() (err error) {
-	chains := cll.Chains()
-	evmChainIDs := make([]*big.Int, len(chains))
-	for i, c := range chains {
-		err = multierr.Combine(err, c.Start())
+func (cll *chainSet) Start() error {
+	if cll.opts.Config.EVMDisabled() {
+		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
+		return nil
+	}
+	for _, c := range cll.Chains() {
+		if err := c.Start(); err != nil {
+			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
+			continue
+		}
+		cll.startedChains = append(cll.startedChains, c)
+	}
+	evmChainIDs := make([]*big.Int, len(cll.startedChains))
+	for i, c := range cll.startedChains {
 		evmChainIDs[i] = c.ID()
 	}
-	if err == nil {
-		cll.logger.Infow(fmt.Sprintf("EVM: Started %d chains, default chain ID is %s", len(chains), cll.defaultID.String()), "evmChainIDs", evmChainIDs)
-	}
-	return
+	cll.logger.Infow(fmt.Sprintf("EVM: Started %d/%d chains, default chain ID is %s", len(cll.startedChains), len(cll.Chains()), cll.defaultID.String()), "startedEvmChainIDs", evmChainIDs)
+	return nil
 }
 func (cll *chainSet) Close() (err error) {
 	cll.logger.Debug("EVM: stopping")
-	for _, c := range cll.Chains() {
+	for _, c := range cll.startedChains {
 		err = multierr.Combine(err, c.Close())
 	}
 	return
@@ -104,7 +112,7 @@ func (cll *chainSet) Default() (Chain, error) {
 	len := len(cll.chains)
 	cll.chainsMu.RUnlock()
 	if len == 0 {
-		return nil, ErrNoChains
+		return nil, errors.Wrap(ErrNoChains, "cannot get default chain")
 	}
 	if cll.defaultID == nil {
 		return nil, errors.New("no default chain ID specified")
@@ -124,14 +132,11 @@ func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
 
 	cid := dbchain.ID.String()
 	chain, err := newChain(*dbchain, cll.opts)
-	if errors.Cause(err) == ErrNoPrimaryNode || len(dbchain.Nodes) == 0 {
-		cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
-		return nil
-	} else if err != nil {
-		return err
+	if err != nil {
+		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID.String())
 	}
 	if err = chain.Start(); err != nil {
-		return err
+		return errors.Wrapf(err, "initializeChain: failed to start chain %s", dbchain.ID.String())
 	}
 	cll.chains[cid] = chain
 	return nil
@@ -267,17 +272,13 @@ type ChainSetOpts struct {
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(types.Chain) eth.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
-	GenHeadTracker    func(types.Chain) httypes.Tracker
+	GenHeadTracker    func(types.Chain) httypes.HeadTracker
 	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager
 }
 
 func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
-	}
-	if opts.Config.EVMDisabled() {
-		opts.Logger.Info("EVM is disabled, no chains will be loaded")
-		return &chainSet{orm: opts.ORM, logger: opts.Logger}, nil
 	}
 	dbchains, err := opts.ORM.EnabledChainsWithNodes()
 	if err != nil {
@@ -299,17 +300,13 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 		}
 	}
 	var err error
-	cll := &chainSet{defaultChainID, make(map[string]*chain), sync.RWMutex{}, lggr, opts.ORM, opts}
+	cll := &chainSet{defaultChainID, make(map[string]*chain), make([]Chain, 0), sync.RWMutex{}, lggr, opts.ORM, opts}
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
 		lggr.Infow(fmt.Sprintf("EVM: Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := newChain(dbchains[i], opts)
 		if err2 != nil {
-			if errors.Cause(err2) == ErrNoPrimaryNode {
-				lggr.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
-			} else {
-				err = multierr.Combine(err, err2)
-			}
+			err = multierr.Combine(err, err2)
 			continue
 		}
 		if _, exists := cll.chains[cid]; exists {

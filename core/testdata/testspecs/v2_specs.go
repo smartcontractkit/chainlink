@@ -141,7 +141,7 @@ func (os KeeperSpec) Toml() string {
 func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
-schemaVersion   		 	= 2
+schemaVersion   		 	= 3
 name            		 	= "example keeper spec"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"

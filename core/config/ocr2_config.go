@@ -4,12 +4,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type OCR2Config interface {
 	// OCR2 config, can override in jobs, all chains
-	GlobalOCR2ContractConfirmations() (uint16, bool)
+	OCR2ContractConfirmations() uint16
 	OCR2ContractTransmitterTransmitTimeout() time.Duration
 	OCR2BlockchainTimeout() time.Duration
 	OCR2DatabaseTimeout() time.Duration
@@ -21,12 +24,8 @@ type OCR2Config interface {
 	OCR2TraceLogging() bool
 }
 
-func (c *generalConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("OCR2ContractConfirmations"), ParseUint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+func (c *generalConfig) OCR2ContractConfirmations() uint16 {
+	return c.getWithFallback("OCR2ContractConfirmations", parse.Uint16).(uint16)
 }
 
 func (c *generalConfig) OCR2ContractPollInterval() time.Duration {
@@ -38,7 +37,7 @@ func (c *generalConfig) OCR2ContractSubscribeInterval() time.Duration {
 }
 
 func (c *generalConfig) OCR2ContractTransmitterTransmitTimeout() time.Duration {
-	return c.getWithFallback("OCR2ContractTransmitterTransmitTimeout", ParseDuration).(time.Duration)
+	return c.getWithFallback("OCR2ContractTransmitterTransmitTimeout", parse.Duration).(time.Duration)
 }
 
 func (c *generalConfig) OCR2BlockchainTimeout() time.Duration {
@@ -46,15 +45,15 @@ func (c *generalConfig) OCR2BlockchainTimeout() time.Duration {
 }
 
 func (c *generalConfig) OCR2DatabaseTimeout() time.Duration {
-	return c.getWithFallback("OCR2DatabaseTimeout", ParseDuration).(time.Duration)
+	return c.getWithFallback("OCR2DatabaseTimeout", parse.Duration).(time.Duration)
 }
 
 func (c *generalConfig) OCR2MonitoringEndpoint() string {
-	return c.viper.GetString(EnvVarName("OCR2MonitoringEndpoint"))
+	return c.viper.GetString(envvar.Name("OCR2MonitoringEndpoint"))
 }
 
 func (c *generalConfig) OCR2KeyBundleID() (string, error) {
-	kbStr := c.viper.GetString(EnvVarName("OCR2KeyBundleID"))
+	kbStr := c.viper.GetString(envvar.Name("OCR2KeyBundleID"))
 	if kbStr != "" {
 		_, err := models.Sha256HashFromHex(kbStr)
 		if err != nil {
@@ -65,5 +64,5 @@ func (c *generalConfig) OCR2KeyBundleID() (string, error) {
 }
 
 func (c *generalConfig) OCR2TraceLogging() bool {
-	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
+	return c.viper.GetBool(envvar.Name("OCRTraceLogging"))
 }

@@ -128,7 +128,7 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, k
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
-	if config.EthTxReaperThreshold() > 0 {
+	if config.EthTxReaperThreshold() > 0 && config.EthTxReaperInterval() > 0 {
 		b.reaper = NewReaper(lggr, db, config, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
@@ -414,9 +414,6 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 		return eth.NewFatalSendError(err)
 	}
 
-	ctx, cancel := eth.DefaultQueryCtx(ctx)
-	defer cancel()
-
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
@@ -433,9 +430,6 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 // gimulateTransaction pretends to "send" the transaction using eth_call
 // returns error on revert
 func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx) (hexutil.Bytes, error) {
-	ctx, cancel := eth.DefaultQueryCtx(ctx)
-	defer cancel()
-
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
 	callArg := map[string]interface{}{
 		"from": e.FromAddress,
@@ -457,6 +451,7 @@ func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttem
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
 // May be useful for clearing stuck nonces
 func sendEmptyTransaction(
+	ctx context.Context,
 	ethClient eth.Client,
 	keyStore KeyStore,
 	nonce uint64,
@@ -471,8 +466,6 @@ func sendEmptyTransaction(
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := eth.DefaultQueryCtx()
-	defer cancel()
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
 }

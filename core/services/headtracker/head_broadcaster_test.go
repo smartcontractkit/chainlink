@@ -1,6 +1,7 @@
 package headtracker_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -10,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -30,7 +31,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 
-	sub := new(mocks.Subscription)
+	sub := new(ethmocks.Subscription)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan chan<- *eth.Head, 1)
@@ -49,11 +50,10 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	hr := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
-	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, orm, hr, cltest.NeverSleeper{})
+	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hr, hs)
 	require.NoError(t, hr.Start())
-	defer hr.Close()
 	require.NoError(t, ht.Start())
-	defer ht.Stop()
 
 	latest1, unsubscribe1 := hr.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet
@@ -74,5 +74,91 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	headers <- &eth.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
-	require.NoError(t, ht.Stop())
+	require.NoError(t, ht.Close())
+	require.NoError(t, hr.Close())
+}
+
+func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
+	t.Parallel()
+	g := gomega.NewWithT(t)
+
+	lggr := logger.TestLogger(t)
+	broadcaster := headtracker.NewHeadBroadcaster(lggr)
+
+	err := broadcaster.Start()
+	require.NoError(t, err)
+
+	// no subscribers - shall do nothing
+	broadcaster.BroadcastNewLongestChain(cltest.Head(0))
+
+	subscriber1 := &cltest.MockHeadTrackable{}
+	subscriber2 := &cltest.MockHeadTrackable{}
+	_, unsubscribe1 := broadcaster.Subscribe(subscriber1)
+	_, unsubscribe2 := broadcaster.Subscribe(subscriber2)
+
+	broadcaster.BroadcastNewLongestChain(cltest.Head(1))
+	g.Eventually(func() int32 { return subscriber1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+
+	unsubscribe1()
+
+	broadcaster.BroadcastNewLongestChain(cltest.Head(2))
+	g.Eventually(func() int32 { return subscriber2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(2)))
+
+	unsubscribe2()
+
+	subscriber3 := &cltest.MockHeadTrackable{}
+	_, unsubscribe3 := broadcaster.Subscribe(subscriber3)
+	broadcaster.BroadcastNewLongestChain(cltest.Head(1))
+	g.Eventually(func() int32 { return subscriber3.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+
+	unsubscribe3()
+
+	err = broadcaster.Close()
+	require.NoError(t, err)
+}
+
+func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	broadcaster := headtracker.NewHeadBroadcaster(lggr)
+
+	err := broadcaster.Start()
+	require.NoError(t, err)
+
+	slowAwaiter := cltest.NewAwaiter()
+	fastAwaiter := cltest.NewAwaiter()
+	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: headtracker.TrackableCallbackTimeout * 2}
+	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: headtracker.TrackableCallbackTimeout / 2}
+	_, unsubscribe1 := broadcaster.Subscribe(slow)
+	_, unsubscribe2 := broadcaster.Subscribe(fast)
+
+	broadcaster.BroadcastNewLongestChain(cltest.Head(1))
+	slowAwaiter.AwaitOrFail(t)
+	fastAwaiter.AwaitOrFail(t)
+
+	require.True(t, slow.contextDone)
+	require.False(t, fast.contextDone)
+
+	unsubscribe1()
+	unsubscribe2()
+
+	err = broadcaster.Close()
+	require.NoError(t, err)
+}
+
+type sleepySubscriber struct {
+	awaiter     cltest.Awaiter
+	delay       time.Duration
+	contextDone bool
+}
+
+func (ss *sleepySubscriber) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+	time.Sleep(ss.delay)
+	select {
+	case <-ctx.Done():
+		ss.contextDone = true
+	default:
+	}
+	ss.awaiter.ItHappened()
 }

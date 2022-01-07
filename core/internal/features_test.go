@@ -512,7 +512,6 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	// bootstrap node to come up.
 	config.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
 	// GracePeriod < ObservationTimeout
-	//config.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
 	config.Overrides.GlobalOCRObservationGracePeriod = 100 * time.Millisecond
 	dr := 5 * time.Second
 	switch ns {
@@ -827,9 +826,10 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
-	h40 := eth.Head{Hash: utils.NewHash(), Number: 40}
-	h41 := eth.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
-	h42 := eth.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
+	evmChainID := utils.NewBig(cfg.DefaultChainID())
+	h40 := eth.Head{Hash: utils.NewHash(), Number: 40, EVMChainID: evmChainID}
+	h41 := eth.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
+	h42 := eth.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()

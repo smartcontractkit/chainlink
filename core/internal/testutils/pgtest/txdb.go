@@ -62,9 +62,8 @@ var _ driver.Conn = &conn{}
 // when the Close is called, transaction is rolled back
 type txDriver struct {
 	sync.Mutex
-	db      *sql.DB
-	conns   map[string]*conn
-	options []func(*conn) error
+	db    *sql.DB
+	conns map[string]*conn
 
 	dbURL string
 }
@@ -118,8 +117,6 @@ type conn struct {
 	sync.Mutex
 	dsn        string
 	tx         *sql.Tx // tx may be shared by many conns, definitive one lives in the map keyed by DSN on the txDriver. Do not modify from conn
-	ctx        context.Context
-	cancel     context.CancelFunc
 	closed     bool
 	opened     int
 	removeSelf func() error

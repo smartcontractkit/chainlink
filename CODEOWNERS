@@ -38,3 +38,14 @@
 /core/chains @samsondav
 /core/logger @jmank88
 /core/internal @samsondav @jmank88 @archseer
+
+# Dependencies
+contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
+.tool-versions @smartcontractkit/prodsec-public
+.nvmrc @smartcontractkit/prodsec-public
+package.json @smartcontractkit/prodsec-public
+yarn.lock @smartcontractkit/prodsec-public
+go.mod @smartcontractkit/prodsec-public
+go.sum @smartcontractkit/prodsec-public
+flake.nix @smartcontractkit/prodsec-public
+flake.lock @smartcontractkit/prodsec-public

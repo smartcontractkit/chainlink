@@ -16,10 +16,8 @@ contract VRFOwnerlessConsumerExample is VRFConsumerBase, ERC677ReceiverInterface
     /* empty */
   }
 
-  function fulfillRandomness(
-    bytes32, /* requestId */
-    uint256 _randomness
-  ) internal override {
+  function fulfillRandomness(bytes32 requestId, uint256 _randomness) internal override {
+    require(requestId == s_requestId, "request ID is incorrect");
     s_randomnessOutput = _randomness;
   }
 

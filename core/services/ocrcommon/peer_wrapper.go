@@ -217,3 +217,7 @@ func (p *SingletonPeerWrapper) Close() error {
 		return err
 	})
 }
+
+func (p *SingletonPeerWrapper) Config() PeerWrapperConfig {
+	return p.config
+}

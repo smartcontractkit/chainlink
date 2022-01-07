@@ -11,6 +11,9 @@ import (
 	"reflect"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -65,10 +68,10 @@ type EnvPrinter struct {
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
 	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
 	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
-	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
-	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
-	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
+	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
+	LogFileDir                                 string          `json:"LOG_FILE_DIR"`
+	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
@@ -102,7 +105,6 @@ type EnvPrinter struct {
 
 	Port                         uint16          `json:"CHAINLINK_PORT"`
 	ReaperExpiration             models.Duration `json:"REAPER_EXPIRATION"`
-	ReplayFromBlock              int64           `json:"REPLAY_FROM_BLOCK"`
 	RootDir                      string          `json:"ROOT"`
 	SecureCookies                bool            `json:"SECURE_COOKIES"`
 	SessionTimeout               models.Duration `json:"SESSION_TIMEOUT"`
@@ -163,9 +165,9 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
 			LeaseLockDuration:                  cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
-			LogLevel:                           LogLevel{Level: cfg.LogLevel()},
+			LogFileDir:                         cfg.LogFileDir(),
+			LogLevel:                           cfg.LogLevel(),
 			LogSQL:                             cfg.LogSQL(),
-			LogSQLMigrations:                   cfg.LogSQLMigrations(),
 			LogToDisk:                          cfg.LogToDisk(),
 
 			// OCRV1
@@ -197,7 +199,6 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 
 			Port:                          cfg.Port(),
 			ReaperExpiration:              cfg.ReaperExpiration(),
-			ReplayFromBlock:               cfg.ReplayFromBlock(),
 			RootDir:                       cfg.RootDir(),
 			SecureCookies:                 cfg.SecureCookies(),
 			SessionTimeout:                cfg.SessionTimeout(),
@@ -216,7 +217,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(envvar.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
 

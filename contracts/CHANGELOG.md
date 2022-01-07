@@ -1,5 +1,22 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+### Added
+
+- `ArbitrumSequencerUptimeFeedInterface` and `ArbitrumSequencerUptimeFeed` added in v0.8.
+
+### Changed
+
+- Changed `ArbitrumValidator#validate` target to `ArbitrumSequencerUptimeFeed` instead of
+  Flags contract.
+
+## 0.3.1 - 2022-01-05
+
+### Changed:
+
+- Fixed install issue with npm.
+
 ## 0.3.0 - 2021-12-09
 
 ### Added

@@ -3,8 +3,9 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 
 import { TaskListCard } from './TaskListCard'
+import { TaskRunStatus } from 'src/utils/taskRunStatus'
 
-const { queryByText } = screen
+const { queryByTestId, queryByText } = screen
 
 describe('TaskListCard', () => {
   it('renders the task graph', () => {
@@ -12,6 +13,19 @@ describe('TaskListCard', () => {
       <TaskListCard observationSource="ds1 [type=bridge name=voter_turnout];" />,
     )
 
+    expect(queryByTestId('default-run-icon')).toBeInTheDocument()
+    expect(queryByText('ds1')).toBeInTheDocument()
+  })
+
+  it('renders the task graph with a completed status', () => {
+    render(
+      <TaskListCard
+        observationSource="ds1 [type=bridge name=voter_turnout];"
+        attributes={{ ds1: { status: TaskRunStatus.COMPLETE } }}
+      />,
+    )
+
+    expect(queryByTestId('complete-run-icon')).toBeInTheDocument()
     expect(queryByText('ds1')).toBeInTheDocument()
   })
 

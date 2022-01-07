@@ -23,9 +23,13 @@ func (b BigFloat) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements the json.Unmarshal interface.
 func (b *BigFloat) UnmarshalJSON(buf []byte) error {
-	var f float64
-	if err := json.Unmarshal(buf, &f); err == nil {
-		*b = BigFloat(*big.NewFloat(f))
+	var n json.Number
+	if err := json.Unmarshal(buf, &n); err == nil {
+		f, _, err := new(big.Float).Parse(n.String(), 0)
+		if err != nil {
+			return err
+		}
+		*b = BigFloat(*f)
 		return nil
 	}
 	var bf big.Float

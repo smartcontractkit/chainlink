@@ -5,22 +5,38 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	offchainreporting "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var ctx = context.Background()
+
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OffchainReporting2OracleSpec {
+	t.Helper()
+
+	spec := job.OffchainReporting2OracleSpec{}
+	mockJuelsPerFeeCoinSource := `ds1          [type=bridge name=voter_turnout];
+	ds1_parse    [type=jsonparse path="one,two"];
+	ds1_multiply [type=multiply times=1.23];
+	ds1 -> ds1_parse -> ds1_multiply -> answer1;
+	answer1      [type=median index=0];`
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting2_oracle_specs (created_at, updated_at, relay, relay_config, contract_id, p2p_bootstrap_peers, is_bootstrap_peer, ocr_key_bundle_id, monitoring_endpoint, transmitter_id, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline) VALUES (
+NOW(),NOW(), 'ethereum', '{}', $1,'{}',false,$2,$3,$4,0,0,0,0,$5
+) RETURNING *`, cltest.NewEIP55Address().String(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", transmitterAddress.String(), mockJuelsPerFeeCoinSource))
+	return spec
+}
 
 func setupDB(t *testing.T) *sqlx.DB {
 	t.Helper()
@@ -33,7 +49,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 func Test_DB_ReadWriteState(t *testing.T) {
 	sqlDB := setupDB(t)
 
-	configDigest := MakeConfigDigest(t)
+	configDigest := testhelpers.MakeConfigDigest(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -105,7 +121,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		err := db.WriteState(ctx, configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := db.ReadState(ctx, MakeConfigDigest(t))
+		readState, err := db.ReadState(ctx, testhelpers.MakeConfigDigest(t))
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
@@ -116,14 +132,14 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	sqlDB := setupDB(t)
 
 	config := ocrtypes.ContractConfig{
-		ConfigDigest:          MakeConfigDigest(t),
+		ConfigDigest:          testhelpers.MakeConfigDigest(t),
 		ConfigCount:           1,
-		Signers:               []ocrtypes.OnchainPublicKey{},
-		Transmitters:          []ocrtypes.Account{"account1"},
+		Signers:               []ocrtypes.OnchainPublicKey{{0x01}, {0x02}},
+		Transmitters:          []ocrtypes.Account{"account1", "account2"},
 		F:                     79,
-		OnchainConfig:         []byte{},
+		OnchainConfig:         []byte{0x01, 0x02},
 		OffchainConfigVersion: 111,
-		OffchainConfig:        []byte{},
+		OffchainConfig:        []byte{0x03, 0x04},
 	}
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
@@ -147,7 +163,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		newConfig := ocrtypes.ContractConfig{
-			ConfigDigest: MakeConfigDigest(t),
+			ConfigDigest: testhelpers.MakeConfigDigest(t),
 			Signers:      []ocrtypes.OnchainPublicKey{},
 			Transmitters: []ocrtypes.Account{},
 		}
@@ -197,7 +213,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	spec2 := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
 	db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 	db2 := offchainreporting.NewDB(sqlDB.DB, spec2.ID, lggr)
-	configDigest := MakeConfigDigest(t)
+	configDigest := testhelpers.MakeConfigDigest(t)
 
 	k := ocrtypes.ReportTimestamp{
 		ConfigDigest: configDigest,
@@ -390,66 +406,5 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
-	})
-}
-
-func Test_DB_LatestRoundRequested(t *testing.T) {
-	sqlDB := setupDB(t)
-
-	_, err := sqlDB.Exec(`SET CONSTRAINTS offchainreporting2_latest_round_oracle_spec_fkey DEFERRED`)
-	require.NoError(t, err)
-
-	lggr := logger.TestLogger(t)
-	db := offchainreporting.NewDB(sqlDB.DB, 1, lggr)
-	db2 := offchainreporting.NewDB(sqlDB.DB, 2, lggr)
-
-	rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
-
-	rr := ocr2aggregator.OCR2AggregatorRoundRequested{
-		Requester:    cltest.NewAddress(),
-		ConfigDigest: MakeConfigDigest(t),
-		Epoch:        42,
-		Round:        9,
-		Raw:          rawLog,
-	}
-
-	t.Run("saves latest round requested", func(t *testing.T) {
-		err := pg.SqlxTransactionWithDefaultCtx(sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
-			return db.SaveLatestRoundRequested(q, rr)
-		})
-		require.NoError(t, err)
-
-		rawLog.Index = 42
-
-		// Now overwrite to prove that updating works
-		rr = ocr2aggregator.OCR2AggregatorRoundRequested{
-			Requester:    cltest.NewAddress(),
-			ConfigDigest: MakeConfigDigest(t),
-			Epoch:        43,
-			Round:        8,
-			Raw:          rawLog,
-		}
-
-		err = pg.SqlxTransactionWithDefaultCtx(sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
-			return db.SaveLatestRoundRequested(q, rr)
-		})
-		require.NoError(t, err)
-	})
-
-	t.Run("loads latest round requested", func(t *testing.T) {
-		// There is no round for db2
-		lrr, err := db2.LoadLatestRoundRequested()
-		require.NoError(t, err)
-		require.Equal(t, 0, int(lrr.Epoch))
-
-		lrr, err = db.LoadLatestRoundRequested()
-		require.NoError(t, err)
-
-		assert.Equal(t, rr, lrr)
-	})
-
-	t.Run("spec with latest round requested can be deleted", func(t *testing.T) {
-		_, err := sqlDB.Exec(`DELETE FROM offchainreporting2_oracle_specs`)
-		assert.NoError(t, err)
 	})
 }

@@ -47,7 +47,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 
 	url := cltest.MustParseURL(t, server.URL)
 	url.Scheme = "ws"
-	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret", false, logger.TestLogger(t))
+	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret", logger.TestLogger(t))
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -202,5 +202,5 @@ func TestWebSocketClient_Status_ConnectError(t *testing.T) {
 }
 
 func newTestExplorerClient(t *testing.T, wsURL *url.URL) synchronization.ExplorerClient {
-	return synchronization.NewExplorerClient(wsURL, "", "", false, logger.TestLogger(t))
+	return synchronization.NewExplorerClient(wsURL, "", "", logger.TestLogger(t))
 }

@@ -14,6 +14,7 @@ export function buildRun(
     job: {
       id: '10',
     },
+    status: 'COMPLETED',
     ...overrides,
   }
 }
@@ -27,6 +28,7 @@ export function buildRuns(): ReadonlyArray<RecentJobRunsPayload_ResultsFields> {
       id: '2',
       createdAt: twoMinutesAgo,
       finishedAt: twoMinutesAgo,
+      status: 'COMPLETED',
       job: {
         id: '20',
       },

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
@@ -440,4 +441,95 @@ func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
 	printer := config.NewConfigPrinter(cfg)
 
 	return NewConfigPayload(printer.EnvPrinter), nil
+}
+
+func (r *Resolver) EthTransaction(ctx context.Context, args struct {
+	Hash graphql.ID
+}) (*EthTransactionPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	hash := common.HexToHash(string(args.Hash))
+	etx, err := r.App.BPTXMORM().FindEthTxByHash(hash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewEthTransactionPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewEthTransactionPayload(etx, err), nil
+}
+
+func (r *Resolver) EthTransactions(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*EthTransactionsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	txs, count, err := r.App.BPTXMORM().EthTransactions(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEthTransactionsPayload(txs, int32(count)), nil
+}
+
+func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*EthTransactionsAttemptsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	attempts, count, err := r.App.BPTXMORM().EthTxAttempts(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewEthTransactionsAttemptsPayload(attempts, int32(count)), nil
+}
+
+func (r *Resolver) GlobalLogLevel(ctx context.Context) (*GlobalLogLevelPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	logLevel := r.App.GetConfig().LogLevel().String()
+
+	return NewGlobalLogLevelPayload(logLevel), nil
+}
+
+func (r *Resolver) SolanaKeys(ctx context.Context) (*SolanaKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().Solana().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSolanaKeysPayload(keys), nil
+}
+
+func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	enabled := r.App.GetConfig().LogSQL()
+
+	return NewGetSQLLoggingPayload(enabled), nil
 }

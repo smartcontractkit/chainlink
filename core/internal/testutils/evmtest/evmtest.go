@@ -28,7 +28,7 @@ type TestChainOpts struct {
 	LogBroadcaster log.Broadcaster
 	GeneralConfig  config.GeneralConfig
 	ChainCfg       evmtypes.ChainCfg
-	HeadTracker    httypes.Tracker
+	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
 	TxManager      bulletprooftxmanager.TxManager
 	KeyStore       keystore.Eth
@@ -59,7 +59,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(evmtypes.Chain) httypes.Tracker {
+		opts.GenHeadTracker = func(evmtypes.Chain) httypes.HeadTracker {
 			return testopts.HeadTracker
 		}
 	}

@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -32,14 +31,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
-	debug := config.LogLevel{Level: zapcore.DebugLevel}
+	debug := zapcore.DebugLevel
 	cfg.Overrides.LogLevel = &debug
-	cfg.Overrides.LogToDisk = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 	keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -58,10 +55,16 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app.On("Stop").Return(nil)
 	app.On("ID").Return(uuid.NewV4())
 
+	lcfg := logger.Config{
+		LogLevel: zapcore.DebugLevel,
+		ToDisk:   true,
+		Dir:      t.TempDir(),
+	}
+
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 logger.NewLogger(cfg),
+		Logger:                 lcfg.New(),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -80,7 +83,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 		t.Fatal("Timed out waiting for runner")
 	}
 
-	logs, err := cltest.ReadLogs(cfg)
+	logs, err := cltest.ReadLogs(lcfg.Dir)
 	require.NoError(t, err)
 	msg := cltest.FindLogMessage(logs, func(msg string) bool {
 		return strings.HasPrefix(msg, "Environment variables")
@@ -126,14 +129,14 @@ KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 0
 KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 0
 KEEPER_REGISTRY_SYNC_INTERVAL: 
 KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 0
-LEASE_LOCK_DURATION: 30s
+LEASE_LOCK_DURATION: 10s
 LEASE_LOCK_REFRESH_INTERVAL: 1s
-LINK_CONTRACT_ADDRESS: 
 FLAGS_CONTRACT_ADDRESS: 
+LINK_CONTRACT_ADDRESS: 
+LOG_FILE_DIR: %[1]s
 LOG_LEVEL: debug
-LOG_SQL_MIGRATIONS: false
 LOG_SQL: false
-LOG_TO_DISK: true
+LOG_TO_DISK: false
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 
@@ -156,8 +159,7 @@ P2PV2_DELTA_RECONCILE: 1m0s
 P2PV2_LISTEN_ADDRESSES: []
 CHAINLINK_PORT: 6688
 REAPER_EXPIRATION: 240h0m0s
-REPLAY_FROM_BLOCK: -1
-ROOT: %s
+ROOT: %[1]s
 SECURE_COOKIES: true
 SESSION_TIMEOUT: 2m0s
 TELEMETRY_INGRESS_LOGGING: false
@@ -338,7 +340,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
-				assert.EqualError(t, client.RunNode(c), "error creating api initializer: open doesntexist.txt: no such file or directory")
+				err = client.RunNode(c)
+				assert.Error(t, err)
+				if err != nil {
+					assert.Contains(t, err.Error(), "error creating api initializer: open doesntexist.txt: no such file or directory")
+				}
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
@@ -360,14 +366,14 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := cltest.NewTestGeneralConfig(t)
-			config.Overrides.Dev = null.BoolFrom(true)
-			config.Overrides.LogToDisk = null.BoolFrom(tt.logToDiskValue)
-			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
-			defer os.RemoveAll(config.RootDir())
+			cfg := logger.Config{
+				ToDisk: tt.logToDiskValue,
+				Dir:    t.TempDir(),
+			}
+			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
-			logger.NewLogger(config).Sync()
-			filepath := filepath.Join(config.RootDir(), "log.jsonl")
+			cfg.New().Sync()
+			filepath := filepath.Join(cfg.Dir, "log.jsonl")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
@@ -417,7 +423,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 		Runner:                 cltest.EmptyRunner{},
 	}
 
-	config.SetDialect(dialects.TransactionWrappedPostgres)
+	config.Overrides.Dialect = dialects.TransactionWrappedPostgres
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
@@ -452,7 +458,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
 			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
-			config.SetDialect(dialects.Postgres)
+			config.Overrides.Dialect = dialects.Postgres
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 
@@ -489,7 +495,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 			}
 
-			config.SetDialect(dialects.TransactionWrappedPostgres)
+			config.Overrides.Dialect = dialects.TransactionWrappedPostgres
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i

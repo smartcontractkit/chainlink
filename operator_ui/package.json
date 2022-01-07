@@ -7,8 +7,6 @@
     "node": "^12.0.0"
   },
   "scripts": {
-    "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') === -1) throw new Error('Please use yarn to install dependencies\\n\\n')\"",
-    "prestart": "yarn generate",
     "start": "webpack serve --config webpack.dev.js",
     "serve": "serve dist -p 3000 --config webpack.prod.js",
     "test": "jest",
@@ -29,7 +27,6 @@
     "@types/react-syntax-highlighter": "^13.5.2",
     "autobind-decorator": "^2.4.0",
     "bignumber.js": "^9.0.1",
-    "change-case": "^4.1.1",
     "classnames": "^2.2.6",
     "cookie": "^0.4.1",
     "d3": "^6.2.0",
@@ -58,7 +55,6 @@
     "redux-object": "^1.0.0",
     "redux-thunk": "^2.3.0",
     "stream-browserify": "^3.0.0",
-    "title-case": "^3.0.2",
     "yup": "^0.32.9"
   },
   "devDependencies": {

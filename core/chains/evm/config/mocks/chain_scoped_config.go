@@ -39,6 +39,8 @@ import (
 
 	utils "github.com/smartcontractkit/chainlink/core/utils"
 
+	uuid "github.com/satori/go.uuid"
+
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -98,6 +100,22 @@ func (_m *ChainScopedConfig) AllowOrigins() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// AppID provides a mock function with given fields:
+func (_m *ChainScopedConfig) AppID() uuid.UUID {
+	ret := _m.Called()
+
+	var r0 uuid.UUID
+	if rf, ok := ret.Get(0).(func() uuid.UUID); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(uuid.UUID)
+		}
 	}
 
 	return r0
@@ -685,20 +703,6 @@ func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
 	return r0
 }
 
-// DefaultMaxHTTPAttempts provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultMaxHTTPAttempts() uint {
-	ret := _m.Called()
-
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
 // Dev provides a mock function with given fields:
 func (_m *ChainScopedConfig) Dev() bool {
 	ret := _m.Called()
@@ -824,20 +828,6 @@ func (_m *ChainScopedConfig) EthereumURL() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// EvmDefaultBatchSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmDefaultBatchSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
@@ -1253,6 +1243,20 @@ func (_m *ChainScopedConfig) FMSimulateTransactions() bool {
 
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// FeatureFeedsManager provides a mock function with given fields:
+func (_m *ChainScopedConfig) FeatureFeedsManager() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2145,20 +2149,6 @@ func (_m *ChainScopedConfig) GlobalLinkContractAddress() (string, bool) {
 	return r0, r1
 }
 
-// GlobalLockRetryInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalLockRetryInterval() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
 // GlobalMinIncomingConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
 	ret := _m.Called()
@@ -2212,27 +2202,6 @@ func (_m *ChainScopedConfig) GlobalMinimumContractPayment() (*assets.Link, bool)
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Link)
 		}
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
-// GlobalOCR2ContractConfirmations provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
-	ret := _m.Called()
-
-	var r0 uint16
-	if rf, ok := ret.Get(0).(func() uint16); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint16)
 	}
 
 	var r1 bool
@@ -2625,6 +2594,20 @@ func (_m *ChainScopedConfig) LinkContractAddress() string {
 	return r0
 }
 
+// LogFileDir provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogFileDir() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // LogLevel provides a mock function with given fields:
 func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 	ret := _m.Called()
@@ -2641,20 +2624,6 @@ func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 
 // LogSQL provides a mock function with given fields:
 func (_m *ChainScopedConfig) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// LogSQLMigrations provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -3607,20 +3576,6 @@ func (_m *ChainScopedConfig) ReaperExpiration() models.Duration {
 	return r0
 }
 
-// ReplayFromBlock provides a mock function with given fields:
-func (_m *ChainScopedConfig) ReplayFromBlock() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
 // RootDir provides a mock function with given fields:
 func (_m *ChainScopedConfig) RootDir() string {
 	ret := _m.Called()
@@ -3700,11 +3655,6 @@ func (_m *ChainScopedConfig) SessionTimeout() models.Duration {
 	return r0
 }
 
-// SetDialect provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) SetDialect(_a0 dialects.DialectName) {
-	_m.Called(_a0)
-}
-
 // SetEvmGasPriceDefault provides a mock function with given fields: value
 func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	ret := _m.Called(value)
@@ -3736,20 +3686,6 @@ func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
 // SetLogSQL provides a mock function with given fields: logSQL
 func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
-}
-
-// StatsPusherLogging provides a mock function with given fields:
-func (_m *ChainScopedConfig) StatsPusherLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
 }
 
 // TLSCertPath provides a mock function with given fields:

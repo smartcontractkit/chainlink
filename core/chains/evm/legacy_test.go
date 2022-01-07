@@ -70,6 +70,7 @@ func Test_ClobberDBFromEnv(t *testing.T) {
 
 	var sendonlyNodes []evmtypes.Node
 	err = db.Select(&sendonlyNodes, `SELECT * FROM nodes WHERE evm_chain_id = 42 AND send_only ORDER BY http_url`)
+	require.NoError(t, err)
 	require.Len(t, sendonlyNodes, 2)
 
 	assert.True(t, sendonlyNodes[0].SendOnly)

@@ -36,7 +36,7 @@ type (
 		Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (Result, RunInfo)
 		Base() *BaseTask
 		Outputs() []Task
-		Inputs() []Task
+		Inputs() []TaskDependency
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
 		TaskRetries() uint32
@@ -49,7 +49,6 @@ type (
 		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
@@ -57,6 +56,15 @@ type (
 		JobPipelineReaperThreshold() time.Duration
 	}
 )
+
+// Wraps the input Task for the given dependent task along with a bool variable PropagateResult,
+// which Indicates whether result of InputTask should be propogated to its dependent task.
+// If the edge between these tasks was an implicit edge, then results are not propogated. This is because
+// some tasks cannot handle an input from an edge which wasn't specified in the spec.
+type TaskDependency struct {
+	PropagateResult bool
+	InputTask       Task
+}
 
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")

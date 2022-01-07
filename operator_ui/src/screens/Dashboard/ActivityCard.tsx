@@ -29,6 +29,7 @@ export const RECENT_JOB_RUNS_PAYLOAD__RESULTS_FIELDS = gql`
     allErrors
     createdAt
     finishedAt
+    status
     job {
       id
     }

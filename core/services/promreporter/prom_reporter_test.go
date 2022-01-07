@@ -2,10 +2,11 @@ package promreporter_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"

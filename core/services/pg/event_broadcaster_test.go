@@ -1,10 +1,11 @@
 package pg_test
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"

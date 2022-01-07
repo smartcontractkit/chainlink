@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -19,4 +20,7 @@ func main() {
 func Run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
 	client.Logger.ErrorIf(app.Run(args), "Error running app")
+	if err := client.Logger.Sync(); err != nil {
+		log.Fatal(err)
+	}
 }

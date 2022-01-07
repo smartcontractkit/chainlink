@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 	"net/url"
 	"os"
@@ -15,11 +14,14 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -33,18 +35,22 @@ import (
 const readWritePerms = os.FileMode(0600)
 
 var (
-	ErrUnset        = errors.New("env var unset")
-	ErrInvalid      = errors.New("env var invalid")
-	DefaultLogLevel = LogLevel{zapcore.InfoLevel}
+	ErrUnset   = errors.New("env var unset")
+	ErrInvalid = errors.New("env var invalid")
 
 	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 )
 
 type GeneralOnlyConfig interface {
+	Validate() error
+	SetLogLevel(lvl zapcore.Level) error
+	SetLogSQL(logSQL bool)
+
 	AdminCredentialsFile() string
 	AdvisoryLockCheckInterval() time.Duration
 	AdvisoryLockID() int64
 	AllowOrigins() string
+	AppID() uuid.UUID
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
 	AutoPprofEnabled() bool
@@ -76,7 +82,7 @@ type GeneralOnlyConfig interface {
 	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
-	DefaultMaxHTTPAttempts() uint
+	DefaultLogLevel() zapcore.Level
 	Dev() bool
 	EVMDisabled() bool
 	EthereumDisabled() bool
@@ -89,13 +95,13 @@ type GeneralOnlyConfig interface {
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
 	FeatureExternalInitiators() bool
+	FeatureFeedsManager() bool
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
-	GlobalLockRetryInterval() models.Duration
 	HTTPServerWriteTimeout() time.Duration
 	InsecureFastScrypt() bool
 	InsecureSkipVerify() bool
@@ -113,11 +119,10 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
-	LeaseLockRefreshInterval() time.Duration
 	LeaseLockDuration() time.Duration
+	LeaseLockRefreshInterval() time.Duration
+	LogFileDir() string
 	LogLevel() zapcore.Level
-	DefaultLogLevel() zapcore.Level
-	LogSQLMigrations() bool
 	LogSQL() bool
 	LogToDisk() bool
 	LogUnixTimestamps() bool
@@ -128,16 +133,11 @@ type GeneralOnlyConfig interface {
 	RPID() string
 	RPOrigin() string
 	ReaperExpiration() models.Duration
-	ReplayFromBlock() int64
 	RootDir() string
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
-	SetDialect(dialects.DialectName)
-	SetLogLevel(lvl zapcore.Level) error
-	SetLogSQL(logSQL bool)
-	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
 	TLSHost() string
@@ -151,7 +151,6 @@ type GeneralOnlyConfig interface {
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
 	UseLegacyEthEnvVars() bool
-	Validate() error
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -216,30 +215,33 @@ type GeneralConfig interface {
 // If you add an entry here which does not contain sensitive information, you
 // should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
 type generalConfig struct {
+	lggr             logger.Logger
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
 	randomP2PPort    uint16
-	randomP2PPortMtx *sync.RWMutex
+	randomP2PPortMtx sync.RWMutex
 	dialect          dialects.DialectName
 	advisoryLockID   int64
 	logLevel         zapcore.Level
 	defaultLogLevel  zapcore.Level
 	logSQL           bool
 	logMutex         sync.RWMutex
+	genAppID         sync.Once
+	appID            uuid.UUID
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
-func NewGeneralConfig() GeneralConfig {
+func NewGeneralConfig(lggr logger.Logger) GeneralConfig {
 	v := viper.New()
-	c := newGeneralConfigWithViper(v)
+	c := newGeneralConfigWithViper(v, lggr.Named("GeneralConfig"))
 	c.secretGenerator = FilePersistedSecretGenerator{}
 	c.dialect = dialects.Postgres
 	return c
 }
 
-func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
-	schemaT := reflect.TypeOf(ConfigSchema{})
+func newGeneralConfigWithViper(v *viper.Viper, lggr logger.Logger) (config *generalConfig) {
+	schemaT := reflect.TypeOf(envvar.ConfigSchema{})
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		name := item.Tag.Get("env")
@@ -250,37 +252,32 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 		_ = v.BindEnv(name, name)
 	}
 
-	config := &generalConfig{
-		viper:            v,
-		randomP2PPortMtx: new(sync.RWMutex),
-		defaultLogLevel:  DefaultLogLevel.Level,
+	config = &generalConfig{
+		lggr:  lggr,
+		viper: v,
 	}
 
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
-		logger.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
+		lggr.Fatalf(`Error creating root directory "%s": %+v`, config.RootDir(), err)
 	}
 
 	v.SetConfigName("chainlink")
 	v.AddConfigPath(config.RootDir())
 	err := v.ReadInConfig()
 	if err != nil && reflect.TypeOf(err) != configFileNotFoundError {
-		logger.Warnf("Unable to load config file: %v\n", err)
+		lggr.Warnf("Unable to load config file: %v\n", err)
 	}
 
-	if v.IsSet(EnvVarName("LogLevel")) {
-		str := v.GetString(EnvVarName("LogLevel"))
-		ll, err := ParseLogLevel(str)
-		if err != nil {
-			logger.Errorf("error parsing log level: %s, falling back to %s", str, DefaultLogLevel.Level)
-		} else {
-			config.defaultLogLevel = ll.(LogLevel).Level
-		}
+	ll, invalid := envvar.LogLevel.ParseLogLevel()
+	if invalid != "" {
+		lggr.Error(invalid)
 	}
+	config.defaultLogLevel = ll
+
 	config.logLevel = config.defaultLogLevel
-	config.logSQL = viper.GetBool(EnvVarName("LogSQL"))
-	config.logMutex = sync.RWMutex{}
+	config.logSQL = viper.GetBool(envvar.Name("LogSQL"))
 
-	return config
+	return
 }
 
 // Validate performs basic sanity checks on config and returns error if any
@@ -318,30 +315,30 @@ func (c *generalConfig) Validate() error {
 
 	if !c.UseLegacyEthEnvVars() {
 		if c.EthereumURL() != "" {
-			logger.Warn("ETH_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
+			c.lggr.Warn("ETH_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 		if c.EthereumHTTPURL() != nil {
-			logger.Warn("ETH_HTTP_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
+			c.lggr.Warn("ETH_HTTP_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 		if len(c.EthereumSecondaryURLs()) > 0 {
-			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
+			c.lggr.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 	}
 	// Warn on legacy OCR env vars
 	if c.OCRDHTLookupInterval() != 0 {
-		logger.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
+		c.lggr.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
 	if c.OCRBootstrapCheckInterval() != 0 {
-		logger.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
+		c.lggr.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
 	if c.OCRIncomingMessageBufferSize() != 0 {
-		logger.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCROutgoingMessageBufferSize() != 0 {
-		logger.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCRNewStreamTimeout() != 0 {
-		logger.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
+		c.lggr.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 
 	switch c.DatabaseLockingMode() {
@@ -354,11 +351,11 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
 	}
 
-	return nil
-}
+	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.LogToDisk() {
+		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
+	}
 
-func (c *generalConfig) SetDialect(d dialects.DialectName) {
-	c.dialect = d
+	return nil
 }
 
 func (c *generalConfig) GetAdvisoryLockIDConfiguredOrDefault() int64 {
@@ -371,36 +368,44 @@ func (c *generalConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dialect
 
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c *generalConfig) AllowOrigins() string {
-	return c.viper.GetString(EnvVarName("AllowOrigins"))
+	return c.viper.GetString(envvar.Name("AllowOrigins"))
+}
+
+func (c *generalConfig) AppID() uuid.UUID {
+	c.genAppID.Do(func() {
+		c.appID = uuid.NewV4()
+	})
+	return c.appID
 }
 
 // AdminCredentialsFile points to text file containing admin credentials for logging in
 func (c *generalConfig) AdminCredentialsFile() string {
 	fieldName := "AdminCredentialsFile"
-	file := c.viper.GetString(EnvVarName(fieldName))
-	defaultValue, _ := defaultValue(fieldName)
+	file := c.viper.GetString(envvar.Name(fieldName))
+	defaultValue, _ := envvar.DefaultValue(fieldName)
 	if file == defaultValue {
 		return filepath.Join(c.RootDir(), "apicredentials")
 	}
 	return file
 }
 
-// AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
+// AuthenticatedRateLimit defines the threshold to which authenticated requests
+// get limited. More than this many requests per AuthenticatedRateLimitPeriod will be rejected.
 func (c *generalConfig) AuthenticatedRateLimit() int64 {
-	return c.viper.GetInt64(EnvVarName("AuthenticatedRateLimit"))
+	return c.viper.GetInt64(envvar.Name("AuthenticatedRateLimit"))
 }
 
 // AuthenticatedRateLimitPeriod defines the period to which authenticated requests get limited
 func (c *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", parse.Duration).(time.Duration))
 }
 
 func (c *generalConfig) AutoPprofEnabled() bool {
-	return c.viper.GetBool(EnvVarName("AutoPprofEnabled"))
+	return c.viper.GetBool(envvar.Name("AutoPprofEnabled"))
 }
 
 func (c *generalConfig) AutoPprofProfileRoot() string {
-	root := c.viper.GetString(EnvVarName("AutoPprofProfileRoot"))
+	root := c.viper.GetString(envvar.Name("AutoPprofProfileRoot"))
 	if root == "" {
 		return c.RootDir()
 	}
@@ -408,81 +413,81 @@ func (c *generalConfig) AutoPprofProfileRoot() string {
 }
 
 func (c *generalConfig) AutoPprofPollInterval() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AutoPprofPollInterval", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofPollInterval", parse.Duration).(time.Duration))
 }
 
 func (c *generalConfig) AutoPprofGatherDuration() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherDuration", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherDuration", parse.Duration).(time.Duration))
 }
 
 func (c *generalConfig) AutoPprofGatherTraceDuration() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherTraceDuration", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherTraceDuration", parse.Duration).(time.Duration))
 }
 
 func (c *generalConfig) AutoPprofMaxProfileSize() utils.FileSize {
-	return c.getWithFallback("AutoPprofMaxProfileSize", ParseFileSize).(utils.FileSize)
+	return c.getWithFallback("AutoPprofMaxProfileSize", parse.FileSize).(utils.FileSize)
 }
 
 func (c *generalConfig) AutoPprofCPUProfileRate() int {
-	return c.viper.GetInt(EnvVarName("AutoPprofCPUProfileRate"))
+	return c.viper.GetInt(envvar.Name("AutoPprofCPUProfileRate"))
 }
 
 func (c *generalConfig) AutoPprofMemProfileRate() int {
-	return c.viper.GetInt(EnvVarName("AutoPprofMemProfileRate"))
+	return c.viper.GetInt(envvar.Name("AutoPprofMemProfileRate"))
 }
 
 func (c *generalConfig) AutoPprofBlockProfileRate() int {
-	return c.viper.GetInt(EnvVarName("AutoPprofBlockProfileRate"))
+	return c.viper.GetInt(envvar.Name("AutoPprofBlockProfileRate"))
 }
 
 func (c *generalConfig) AutoPprofMutexProfileFraction() int {
-	return c.viper.GetInt(EnvVarName("AutoPprofMutexProfileFraction"))
+	return c.viper.GetInt(envvar.Name("AutoPprofMutexProfileFraction"))
 }
 
 func (c *generalConfig) AutoPprofMemThreshold() utils.FileSize {
-	return c.getWithFallback("AutoPprofMemThreshold", ParseFileSize).(utils.FileSize)
+	return c.getWithFallback("AutoPprofMemThreshold", parse.FileSize).(utils.FileSize)
 }
 
 func (c *generalConfig) AutoPprofGoroutineThreshold() int {
-	return c.viper.GetInt(EnvVarName("AutoPprofGoroutineThreshold"))
+	return c.viper.GetInt(envvar.Name("AutoPprofGoroutineThreshold"))
 }
 
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c *generalConfig) BlockBackfillDepth() uint64 {
-	return c.getWithFallback("BlockBackfillDepth", ParseUint64).(uint64)
+	return c.getWithFallback("BlockBackfillDepth", parse.Uint64).(uint64)
 }
 
 // BlockBackfillSkip enables skipping of very long log backfills
 func (c *generalConfig) BlockBackfillSkip() bool {
-	return c.getWithFallback("BlockBackfillSkip", ParseBool).(bool)
+	return c.getWithFallback("BlockBackfillSkip", parse.Bool).(bool)
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c *generalConfig) BridgeResponseURL() *url.URL {
-	return c.getWithFallback("BridgeResponseURL", ParseURL).(*url.URL)
+	return c.getWithFallback("BridgeResponseURL", parse.URL).(*url.URL)
 }
 
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c *generalConfig) ClientNodeURL() string {
-	return c.viper.GetString(EnvVarName("ClientNodeURL"))
+	return c.viper.GetString(envvar.Name("ClientNodeURL"))
 }
 
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUICSAKeys() bool {
-	return c.getWithFallback("FeatureUICSAKeys", ParseBool).(bool)
+	return c.getWithFallback("FeatureUICSAKeys", parse.Bool).(bool)
 }
 
 func (c *generalConfig) FeatureUIFeedsManager() bool {
-	return c.getWithFallback("FeatureUIFeedsManager", ParseBool).(bool)
+	return c.getWithFallback("FeatureUIFeedsManager", parse.Bool).(bool)
 }
 
 func (c *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return c.getWithFallback("DatabaseListenerMinReconnectInterval", ParseDuration).(time.Duration)
+	return c.getWithFallback("DatabaseListenerMinReconnectInterval", parse.Duration).(time.Duration)
 }
 
 func (c *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return c.getWithFallback("DatabaseListenerMaxReconnectDuration", ParseDuration).(time.Duration)
+	return c.getWithFallback("DatabaseListenerMaxReconnectDuration", parse.Duration).(time.Duration)
 }
 
 // DatabaseBackupMode sets the database backup mode
@@ -493,18 +498,18 @@ func (c *generalConfig) DatabaseBackupMode() DatabaseBackupMode {
 // DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
 // DatabaseBackupMode must be then set to a value other than "none"
 func (c *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return c.getWithFallback("DatabaseBackupFrequency", ParseDuration).(time.Duration)
+	return c.getWithFallback("DatabaseBackupFrequency", parse.Duration).(time.Duration)
 }
 
 // DatabaseBackupURL configures the URL for the database to backup, if it's to be different from the main on
 func (c *generalConfig) DatabaseBackupURL() *url.URL {
-	s := c.viper.GetString(EnvVarName("DatabaseBackupURL"))
+	s := c.viper.GetString(envvar.Name("DatabaseBackupURL"))
 	if s == "" {
 		return nil
 	}
 	uri, err := url.Parse(s)
 	if err != nil {
-		logger.Errorf("invalid database backup url %s", s)
+		c.lggr.Errorf("Invalid database backup url %s", s)
 		return nil
 	}
 	return uri
@@ -512,21 +517,16 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
 func (c *generalConfig) DatabaseBackupDir() string {
-	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
-}
-
-// GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
-func (c *generalConfig) GlobalLockRetryInterval() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("GlobalLockRetryInterval", ParseDuration).(time.Duration))
+	return c.viper.GetString(envvar.Name("DatabaseBackupDir"))
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
 // a properly formatted URL, with a valid scheme (postgres://)
 func (c *generalConfig) DatabaseURL() url.URL {
-	s := c.viper.GetString(EnvVarName("DatabaseURL"))
+	s := c.viper.GetString(envvar.Name("DatabaseURL"))
 	uri, err := url.Parse(s)
 	if err != nil {
-		logger.Error("invalid database url %s", s)
+		c.lggr.Error("invalid database url %s", s)
 		return url.URL{}
 	}
 	if uri.String() == "" {
@@ -539,77 +539,77 @@ func (c *generalConfig) DatabaseURL() url.URL {
 // MigrateDatabase determines whether the database will be automatically
 // migrated on application startup if set to true
 func (c *generalConfig) MigrateDatabase() bool {
-	return c.viper.GetBool(EnvVarName("MigrateDatabase"))
-}
-
-// DefaultMaxHTTPAttempts defines the limit for HTTP requests.
-func (c *generalConfig) DefaultMaxHTTPAttempts() uint {
-	return uint(c.getWithFallback("DefaultMaxHTTPAttempts", ParseUint64).(uint64))
+	return c.viper.GetBool(envvar.Name("MigrateDatabase"))
 }
 
 // DefaultHTTPLimit defines the size limit for HTTP requests and responses
 func (c *generalConfig) DefaultHTTPLimit() int64 {
-	return c.viper.GetInt64(EnvVarName("DefaultHTTPLimit"))
+	return c.viper.GetInt64(envvar.Name("DefaultHTTPLimit"))
 }
 
 // DefaultHTTPTimeout defines the default timeout for http requests
 func (c *generalConfig) DefaultHTTPTimeout() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("DefaultHTTPTimeout", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("DefaultHTTPTimeout", parse.Duration).(time.Duration))
 }
 
 // DefaultHTTPAllowUnrestrictedNetworkAccess controls whether http requests are unrestricted by default
 // It is recommended that this be left disabled
 func (c *generalConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
-	return c.viper.GetBool(EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"))
+	return c.viper.GetBool(envvar.Name("DefaultHTTPAllowUnrestrictedNetworkAccess"))
 }
 
 // Dev configures "development" mode for chainlink.
 func (c *generalConfig) Dev() bool {
-	return c.viper.GetBool(EnvVarName("Dev"))
+	return c.viper.GetBool(envvar.Name("Dev"))
 }
 
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c *generalConfig) FeatureExternalInitiators() bool {
-	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
+	return c.viper.GetBool(envvar.Name("FeatureExternalInitiators"))
+}
+
+// FeatureFeedsManager enables the feeds manager
+func (c *generalConfig) FeatureFeedsManager() bool {
+	return c.viper.GetBool(envvar.Name("FeatureFeedsManager"))
 }
 
 // FeatureOffchainReporting enables the OCR job type.
 func (c *generalConfig) FeatureOffchainReporting() bool {
-	return c.getWithFallback("FeatureOffchainReporting", ParseBool).(bool)
+	return c.getWithFallback("FeatureOffchainReporting", parse.Bool).(bool)
 }
 
 // FeatureOffchainReporting2 enables the OCR2 job type.
 func (c *generalConfig) FeatureOffchainReporting2() bool {
-	return c.getWithFallback("FeatureOffchainReporting2", ParseBool).(bool)
+	return c.getWithFallback("FeatureOffchainReporting2", parse.Bool).(bool)
 }
 
 // FMDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Flux Monitor
 // Set to 0 to use SendEvery strategy instead
 func (c *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
-	return c.viper.GetUint32(EnvVarName("FMDefaultTransactionQueueDepth"))
+	return c.viper.GetUint32(envvar.Name("FMDefaultTransactionQueueDepth"))
 }
 
 // FMSimulateTransactions enables using eth_call transaction simulation before
 // sending when set to true
 func (c *generalConfig) FMSimulateTransactions() bool {
-	return c.viper.GetBool(EnvVarName("FMSimulateTransactions"))
+	return c.viper.GetBool(envvar.Name("FMSimulateTransactions"))
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c *generalConfig) EthereumURL() string {
-	return c.viper.GetString(EnvVarName("EthereumURL"))
+	return c.viper.GetString(envvar.Name("EthereumURL"))
 }
 
 // EthereumHTTPURL is an optional but recommended url that points to the HTTP port of the primary node
 func (c *generalConfig) EthereumHTTPURL() (uri *url.URL) {
-	urlStr := c.viper.GetString(EnvVarName("EthereumHTTPURL"))
+	urlStr := c.viper.GetString(envvar.Name("EthereumHTTPURL"))
 	if urlStr == "" {
 		return nil
 	}
 	var err error
 	uri, err = url.Parse(urlStr)
 	if err != nil || !(uri.Scheme == "http" || uri.Scheme == "https") {
-		logger.Fatalf("Invalid Ethereum HTTP URL: %s, got error: %s", urlStr, err)
+		c.lggr.Fatalf("Invalid Ethereum HTTP URL: %s, got error: %s", urlStr, err)
 	}
 	return
 }
@@ -618,8 +618,8 @@ func (c *generalConfig) EthereumHTTPURL() (uri *url.URL) {
 // Must be http(s) format
 // If specified, transactions will also be broadcast to this ethereum node
 func (c *generalConfig) EthereumSecondaryURLs() []url.URL {
-	oldConfig := c.viper.GetString(EnvVarName("EthereumSecondaryURL"))
-	newConfig := c.viper.GetString(EnvVarName("EthereumSecondaryURLs"))
+	oldConfig := c.viper.GetString(envvar.Name("EthereumSecondaryURL"))
+	newConfig := c.viper.GetString(envvar.Name("EthereumSecondaryURLs"))
 
 	config := ""
 	if newConfig != "" {
@@ -629,14 +629,14 @@ func (c *generalConfig) EthereumSecondaryURLs() []url.URL {
 	}
 
 	urlStrings := regexp.MustCompile(`\s*[;,]\s*`).Split(config, -1)
-	urls := []url.URL{}
+	var urls []url.URL
 	for _, urlString := range urlStrings {
 		if urlString == "" {
 			continue
 		}
 		url, err := url.Parse(urlString)
 		if err != nil {
-			logger.Fatalf("Invalid Secondary Ethereum URL: %s, got error: %v", urlString, err)
+			c.lggr.Fatalf("Invalid Secondary Ethereum URL: %s, got error: %v", urlString, err)
 		}
 		urls = append(urls, *url)
 	}
@@ -646,18 +646,18 @@ func (c *generalConfig) EthereumSecondaryURLs() []url.URL {
 
 // EthereumDisabled will substitute null Eth clients if set
 func (c *generalConfig) EthereumDisabled() bool {
-	return c.viper.GetBool(EnvVarName("EthereumDisabled"))
+	return c.viper.GetBool(envvar.Name("EthereumDisabled"))
 }
 
 // EVMDisabled prevents any evm_chains from being loaded at all if set
 func (c *generalConfig) EVMDisabled() bool {
-	return c.viper.GetBool(EnvVarName("EVMDisabled"))
+	return c.viper.GetBool(envvar.Name("EVMDisabled"))
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
 // This is insecure and only useful for local testing. DO NOT SET THIS IN PRODUCTION
 func (c *generalConfig) InsecureFastScrypt() bool {
-	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
+	return c.viper.GetBool(envvar.Name("InsecureFastScrypt"))
 }
 
 // InsecureSkipVerify disables SSL certificate verification when connection to
@@ -666,86 +666,86 @@ func (c *generalConfig) InsecureFastScrypt() bool {
 //
 // This is mostly useful for people who want to use TLS on localhost.
 func (c *generalConfig) InsecureSkipVerify() bool {
-	return c.viper.GetBool(EnvVarName("InsecureSkipVerify"))
+	return c.viper.GetBool(envvar.Name("InsecureSkipVerify"))
 }
 
 func (c *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return c.getWithFallback("TriggerFallbackDBPollInterval", ParseDuration).(time.Duration)
+	return c.getWithFallback("TriggerFallbackDBPollInterval", parse.Duration).(time.Duration)
 }
 
 // JobPipelineMaxRunDuration is the maximum time that a job run may take
 func (c *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return c.getWithFallback("JobPipelineMaxRunDuration", ParseDuration).(time.Duration)
+	return c.getWithFallback("JobPipelineMaxRunDuration", parse.Duration).(time.Duration)
 }
 
 func (c *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
-	return c.getWithFallback("JobPipelineResultWriteQueueDepth", ParseUint64).(uint64)
+	return c.getWithFallback("JobPipelineResultWriteQueueDepth", parse.Uint64).(uint64)
 }
 
 func (c *generalConfig) JobPipelineReaperInterval() time.Duration {
-	return c.getWithFallback("JobPipelineReaperInterval", ParseDuration).(time.Duration)
+	return c.getWithFallback("JobPipelineReaperInterval", parse.Duration).(time.Duration)
 }
 
 func (c *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return c.getWithFallback("JobPipelineReaperThreshold", ParseDuration).(time.Duration)
+	return c.getWithFallback("JobPipelineReaperThreshold", parse.Duration).(time.Duration)
 }
 
 // KeeperRegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls
 // to account for the gas consumed by the keeper registry
 func (c *generalConfig) KeeperRegistryCheckGasOverhead() uint64 {
-	return c.getWithFallback("KeeperRegistryCheckGasOverhead", ParseUint64).(uint64)
+	return c.getWithFallback("KeeperRegistryCheckGasOverhead", parse.Uint64).(uint64)
 }
 
 // KeeperRegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls
 // to account for the gas consumed by the keeper registry
 func (c *generalConfig) KeeperRegistryPerformGasOverhead() uint64 {
-	return c.getWithFallback("KeeperRegistryPerformGasOverhead", ParseUint64).(uint64)
+	return c.getWithFallback("KeeperRegistryPerformGasOverhead", parse.Uint64).(uint64)
 }
 
 // KeeperDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Keeper
 // Set to 0 to use SendEvery strategy instead
 func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
-	return c.viper.GetUint32(EnvVarName("KeeperDefaultTransactionQueueDepth"))
+	return c.viper.GetUint32(envvar.Name("KeeperDefaultTransactionQueueDepth"))
 }
 
 // KeeperGasPriceBufferPercent adds the specified percentage to the gas price
 // used for checking whether to perform an upkeep. Only applies in legacy mode.
 func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
-	return c.viper.GetUint32(EnvVarName("KeeperGasPriceBufferPercent"))
+	return c.viper.GetUint32(envvar.Name("KeeperGasPriceBufferPercent"))
 }
 
 // KeeperGasTipCapBufferPercent adds the specified percentage to the gas price
 // used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
 func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
-	return c.viper.GetUint32(EnvVarName("KeeperGasTipCapBufferPercent"))
+	return c.viper.GetUint32(envvar.Name("KeeperGasTipCapBufferPercent"))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
 // sync of the keeper registry contract it is tracking
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return c.getWithFallback("KeeperRegistrySyncInterval", ParseDuration).(time.Duration)
+	return c.getWithFallback("KeeperRegistrySyncInterval", parse.Duration).(time.Duration)
 }
 
 // KeeperMaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing
 // an upkeep before it resumes checking that upkeep
 func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
-	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
+	return c.viper.GetInt64(envvar.Name("KeeperMaximumGracePeriod"))
 }
 
 // KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
 func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", ParseUint32).(uint32)
+	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", parse.Uint32).(uint32)
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format
 // If set to false, logs in console format
 func (c *generalConfig) JSONConsole() bool {
-	return c.viper.GetBool(EnvVarName("JSONConsole"))
+	return c.getEnvWithFallback(envvar.JSONConsole).(bool)
 }
 
 // ExplorerURL returns the websocket URL for this node to push stats to, or nil.
 func (c *generalConfig) ExplorerURL() *url.URL {
-	rval := c.getWithFallback("ExplorerURL", ParseURL)
+	rval := c.getWithFallback("ExplorerURL", parse.URL)
 	switch t := rval.(type) {
 	case nil:
 		return nil
@@ -758,17 +758,17 @@ func (c *generalConfig) ExplorerURL() *url.URL {
 
 // ExplorerAccessKey returns the access key for authenticating with explorer
 func (c *generalConfig) ExplorerAccessKey() string {
-	return c.viper.GetString(EnvVarName("ExplorerAccessKey"))
+	return c.viper.GetString(envvar.Name("ExplorerAccessKey"))
 }
 
 // ExplorerSecret returns the secret for authenticating with explorer
 func (c *generalConfig) ExplorerSecret() string {
-	return c.viper.GetString(EnvVarName("ExplorerSecret"))
+	return c.viper.GetString(envvar.Name("ExplorerSecret"))
 }
 
 // TelemetryIngressURL returns the WSRPC URL for this node to push telemetry to, or nil.
 func (c *generalConfig) TelemetryIngressURL() *url.URL {
-	rval := c.getWithFallback("TelemetryIngressURL", ParseURL)
+	rval := c.getWithFallback("TelemetryIngressURL", parse.URL)
 	switch t := rval.(type) {
 	case nil:
 		return nil
@@ -781,20 +781,20 @@ func (c *generalConfig) TelemetryIngressURL() *url.URL {
 
 // TelemetryIngressServerPubKey returns the public key to authenticate the telemetry ingress server
 func (c *generalConfig) TelemetryIngressServerPubKey() string {
-	return c.viper.GetString(EnvVarName("TelemetryIngressServerPubKey"))
+	return c.viper.GetString(envvar.Name("TelemetryIngressServerPubKey"))
 }
 
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
 func (c *generalConfig) TelemetryIngressLogging() bool {
-	return c.getWithFallback("TelemetryIngressLogging", ParseBool).(bool)
+	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
 }
 
 func (c *generalConfig) ORMMaxOpenConns() int {
-	return int(c.getWithFallback("ORMMaxOpenConns", ParseUint16).(uint16))
+	return int(c.getWithFallback("ORMMaxOpenConns", parse.Uint16).(uint16))
 }
 
 func (c *generalConfig) ORMMaxIdleConns() int {
-	return int(c.getWithFallback("ORMMaxIdleConns", ParseUint16).(uint16))
+	return int(c.getWithFallback("ORMMaxIdleConns", parse.Uint16).(uint16))
 }
 
 // LogLevel represents the maximum level of log messages to output.
@@ -819,7 +819,7 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 
 // LogToDisk configures disk preservation of logs.
 func (c *generalConfig) LogToDisk() bool {
-	return c.viper.GetBool(EnvVarName("LogToDisk"))
+	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger
@@ -836,28 +836,23 @@ func (c *generalConfig) SetLogSQL(logSQL bool) {
 	c.logSQL = logSQL
 }
 
-// LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
-func (c *generalConfig) LogSQLMigrations() bool {
-	return c.viper.GetBool(EnvVarName("LogSQLMigrations"))
-}
-
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
-	return c.viper.GetBool(EnvVarName("LogUnixTS"))
+	return c.getEnvWithFallback(envvar.LogUnixTS).(bool)
 }
 
 // Port represents the port Chainlink should listen on for client requests.
 func (c *generalConfig) Port() uint16 {
-	return c.getWithFallback("Port", ParseUint16).(uint16)
+	return c.getWithFallback("Port", parse.Uint16).(uint16)
 }
 
 // DefaultChainID represents the chain ID which jobs will use if one is not explicitly specified
 func (c *generalConfig) DefaultChainID() *big.Int {
-	str := c.viper.GetString(EnvVarName("DefaultChainID"))
+	str := c.viper.GetString(envvar.Name("DefaultChainID"))
 	if str != "" {
-		v, err := ParseBigInt(str)
+		v, err := parse.BigInt(str)
 		if err != nil {
-			logger.Errorw(
+			c.lggr.Errorw(
 				"Ignoring invalid value provided for ETH_CHAIN_ID",
 				"value", str,
 				"error", err)
@@ -869,87 +864,81 @@ func (c *generalConfig) DefaultChainID() *big.Int {
 	return nil
 }
 
+// HTTPServerWriteTimeout controls how long chainlink's API server may hold a
+// socket open for writing a response to an HTTP request. This sometimes needs
+// to be increased for pprof.
 func (c *generalConfig) HTTPServerWriteTimeout() time.Duration {
-	return c.getWithFallback("HTTPServerWriteTimeout", ParseDuration).(time.Duration)
+	return c.getWithFallback("HTTPServerWriteTimeout", parse.Duration).(time.Duration)
 }
 
-// ReaperExpiration represents
+// ReaperExpiration represents how long a session is held in the DB before being cleared
 func (c *generalConfig) ReaperExpiration() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("ReaperExpiration", ParseDuration).(time.Duration))
-}
-
-func (c *generalConfig) ReplayFromBlock() int64 {
-	return c.viper.GetInt64(EnvVarName("ReplayFromBlock"))
+	return models.MustMakeDuration(c.getWithFallback("ReaperExpiration", parse.Duration).(time.Duration))
 }
 
 // RootDir represents the location on the file system where Chainlink should
 // keep its files.
 func (c *generalConfig) RootDir() string {
-	return c.getWithFallback("RootDir", ParseHomeDir).(string)
+	return c.getEnvWithFallback(envvar.RootDir).(string)
 }
 
 // RPID Fetches the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
 func (c *generalConfig) RPID() string {
-	return c.viper.GetString(EnvVarName("RPID"))
+	return c.viper.GetString(envvar.Name("RPID"))
 }
 
 // RPOrigin Fetches the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
 // the origin URL where WebAuthn requests initiate (http://localhost:6688/)
 func (c *generalConfig) RPOrigin() string {
-	return c.viper.GetString(EnvVarName("RPOrigin"))
+	return c.viper.GetString(envvar.Name("RPOrigin"))
 }
 
 // SecureCookies allows toggling of the secure cookies HTTP flag
 func (c *generalConfig) SecureCookies() bool {
-	return c.viper.GetBool(EnvVarName("SecureCookies"))
+	return c.viper.GetBool(envvar.Name("SecureCookies"))
 }
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c *generalConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", ParseDuration).(time.Duration))
-}
-
-// StatsPusherLogging toggles very verbose logging of raw messages for the StatsPusher (also telemetry)
-func (c *generalConfig) StatsPusherLogging() bool {
-	return c.getWithFallback("StatsPusherLogging", ParseBool).(bool)
+	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", parse.Duration).(time.Duration))
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
 // Chainlink should use for HTTPS.
 func (c *generalConfig) TLSCertPath() string {
-	return c.viper.GetString(EnvVarName("TLSCertPath"))
+	return c.viper.GetString(envvar.Name("TLSCertPath"))
 }
 
 // TLSHost represents the hostname to use for TLS clients. This should match
 // the TLS certificate.
 func (c *generalConfig) TLSHost() string {
-	return c.viper.GetString(EnvVarName("TLSHost"))
+	return c.viper.GetString(envvar.Name("TLSHost"))
 }
 
 // TLSKeyPath represents the file system location of the TLS key Chainlink
 // should use for HTTPS.
 func (c *generalConfig) TLSKeyPath() string {
-	return c.viper.GetString(EnvVarName("TLSKeyPath"))
+	return c.viper.GetString(envvar.Name("TLSKeyPath"))
 }
 
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
 func (c *generalConfig) TLSPort() uint16 {
-	return c.getWithFallback("TLSPort", ParseUint16).(uint16)
+	return c.getWithFallback("TLSPort", parse.Uint16).(uint16)
 }
 
 // TLSRedirect forces TLS redirect for unencrypted connections
 func (c *generalConfig) TLSRedirect() bool {
-	return c.viper.GetBool(EnvVarName("TLSRedirect"))
+	return c.viper.GetBool(envvar.Name("TLSRedirect"))
 }
 
 // UnAuthenticatedRateLimit defines the threshold to which requests unauthenticated requests get limited
 func (c *generalConfig) UnAuthenticatedRateLimit() int64 {
-	return c.viper.GetInt64(EnvVarName("UnAuthenticatedRateLimit"))
+	return c.viper.GetInt64(envvar.Name("UnAuthenticatedRateLimit"))
 }
 
 // UnAuthenticatedRateLimitPeriod defines the period to which unauthenticated requests get limited
 func (c *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parse.Duration).(time.Duration))
 }
 
 func (c *generalConfig) TLSDir() string {
@@ -988,35 +977,20 @@ func (c *generalConfig) SessionOptions() sessions.Options {
 	}
 }
 
+// Deprecated - prefer getEnvWithFallback with an EnvVar
 func (c *generalConfig) getWithFallback(name string, parser func(string) (interface{}, error)) interface{} {
-	str := c.viper.GetString(EnvVarName(name))
-	defaultValue, hasDefault := defaultValue(name)
-	if str != "" {
-		v, err := parser(str)
-		if err == nil {
-			return v
-		}
-		logger.Errorw(
-			fmt.Sprintf("Invalid value provided for %s, falling back to default.", name),
-			"value", str,
-			"default", defaultValue,
-			"error", err)
-	}
-
-	if !hasDefault {
-		return zeroValue(name)
-	}
-
-	v, err := parser(defaultValue)
-	if err != nil {
-		log.Fatalf(`Invalid default for %s: "%s" (%s)`, name, defaultValue, err)
-	}
-	return v
+	return c.getEnvWithFallback(envvar.New(name, parser))
 }
 
-// LogLevel determines the verbosity of the events to be logged.
-type LogLevel struct {
-	zapcore.Level
+func (c *generalConfig) getEnvWithFallback(e *envvar.EnvVar) interface{} {
+	v, invalid, err := e.ParseFrom(c.viper.GetString)
+	if err != nil {
+		c.lggr.Fatal(err)
+	}
+	if invalid != "" {
+		c.lggr.Error(invalid)
+	}
+	return v
 }
 
 type DatabaseBackupMode string
@@ -1036,293 +1010,293 @@ func parseDatabaseBackupMode(s string) (interface{}, error) {
 	}
 }
 
-func lookupEnv(k string, parse func(string) (interface{}, error)) (interface{}, bool) {
+func (c *generalConfig) lookupEnv(k string, parse func(string) (interface{}, error)) (interface{}, bool) {
 	s, ok := os.LookupEnv(k)
-	if ok {
-		val, err := parse(s)
-		if err != nil {
-			logger.Errorw(
-				fmt.Sprintf("Invalid value provided for %s, falling back to default.", s),
-				"value", s,
-				"key", k,
-				"error", err)
-			return nil, false
-		}
+	if !ok {
+		return nil, false
+	}
+	val, err := parse(s)
+	if err == nil {
 		return val, true
 	}
+	c.lggr.Errorw(fmt.Sprintf("Invalid value provided for %s, falling back to default.", s),
+		"value", s, "key", k, "error", err)
 	return nil, false
 }
 
 // EVM methods
 
-func (*generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
-	val, ok := lookupEnv(EnvVarName("BalanceMonitorEnabled"), ParseBool)
+func (c *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BalanceMonitorEnabled"), parse.Bool)
 	if val == nil {
 		return false, false
 	}
 	return val.(bool), ok
 }
-func (*generalConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("BlockEmissionIdleWarningThreshold"), ParseDuration)
+func (c *generalConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockEmissionIdleWarningThreshold"), parse.Duration)
 	if val == nil {
 		return 0, false
 	}
 	return val.(time.Duration), ok
 }
-func (*generalConfig) GlobalBlockHistoryEstimatorBatchSize() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("BlockHistoryEstimatorBatchSize"), ParseUint32)
+func (c *generalConfig) GlobalBlockHistoryEstimatorBatchSize() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorBatchSize"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("BlockHistoryEstimatorBlockDelay"), ParseUint16)
+func (c *generalConfig) GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorBlockDelay"), parse.Uint16)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint16), ok
 }
-func (*generalConfig) GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("BlockHistoryEstimatorBlockHistorySize"), ParseUint16)
+func (c *generalConfig) GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorBlockHistorySize"), parse.Uint16)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint16), ok
 }
-func (*generalConfig) GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("BlockHistoryEstimatorTransactionPercentile"), ParseUint16)
+func (c *generalConfig) GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorTransactionPercentile"), parse.Uint16)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint16), ok
 }
-func (*generalConfig) GlobalEthTxReaperInterval() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("EthTxReaperInterval"), ParseDuration)
+func (c *generalConfig) GlobalEthTxReaperInterval() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EthTxReaperInterval"), parse.Duration)
 	if val == nil {
 		return 0, false
 	}
 	return val.(time.Duration), ok
 }
-func (*generalConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("EthTxReaperThreshold"), ParseDuration)
+func (c *generalConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EthTxReaperThreshold"), parse.Duration)
 	if val == nil {
 		return 0, false
 	}
 	return val.(time.Duration), ok
 }
-func (*generalConfig) GlobalEthTxResendAfterThreshold() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("EthTxResendAfterThreshold"), ParseDuration)
+func (c *generalConfig) GlobalEthTxResendAfterThreshold() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EthTxResendAfterThreshold"), parse.Duration)
 	if val == nil {
 		return 0, false
 	}
 	return val.(time.Duration), ok
 }
-func (*generalConfig) GlobalEvmDefaultBatchSize() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmDefaultBatchSize"), ParseUint32)
+func (c *generalConfig) GlobalEvmDefaultBatchSize() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmDefaultBatchSize"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalEvmFinalityDepth() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmFinalityDepth"), ParseUint32)
+func (c *generalConfig) GlobalEvmFinalityDepth() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmFinalityDepth"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalEvmGasBumpPercent() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasBumpPercent"), ParseUint16)
+func (c *generalConfig) GlobalEvmGasBumpPercent() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpPercent"), parse.Uint16)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint16), ok
 }
-func (*generalConfig) GlobalEvmGasBumpThreshold() (uint64, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasBumpThreshold"), ParseUint64)
+func (c *generalConfig) GlobalEvmGasBumpThreshold() (uint64, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpThreshold"), parse.Uint64)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint64), ok
 }
-func (*generalConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasBumpTxDepth"), ParseUint16)
+func (c *generalConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpTxDepth"), parse.Uint16)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint16), ok
 }
-func (*generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasBumpWei"), ParseBigInt)
+func (c *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpWei"), parse.BigInt)
 	if val == nil {
 		return nil, false
 	}
 	return val.(*big.Int), ok
 }
-func (*generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasLimitDefault"), ParseUint64)
+func (c *generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitDefault"), parse.Uint64)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint64), ok
 }
-func (*generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasLimitMultiplier"), ParseF32)
+func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitMultiplier"), parse.F32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(float32), ok
 }
-func (*generalConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasLimitTransfer"), ParseUint64)
+func (c *generalConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitTransfer"), parse.Uint64)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint64), ok
 }
-func (*generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasPriceDefault"), ParseBigInt)
+func (c *generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasPriceDefault"), parse.BigInt)
 	if val == nil {
 		return nil, false
 	}
 	return val.(*big.Int), ok
 }
-func (*generalConfig) GlobalEvmHeadTrackerHistoryDepth() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmHeadTrackerHistoryDepth"), ParseUint32)
+func (c *generalConfig) GlobalEvmHeadTrackerHistoryDepth() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmHeadTrackerHistoryDepth"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmHeadTrackerMaxBufferSize"), ParseUint32)
+func (c *generalConfig) GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmHeadTrackerMaxBufferSize"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmHeadTrackerSamplingInterval"), ParseDuration)
+func (c *generalConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmHeadTrackerSamplingInterval"), parse.Duration)
 	if val == nil {
 		return 0, false
 	}
 	return val.(time.Duration), ok
 }
-func (*generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmLogBackfillBatchSize"), ParseUint32)
+func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmLogBackfillBatchSize"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmMaxGasPriceWei"), ParseBigInt)
+func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)
 	if val == nil {
 		return nil, false
 	}
 	return val.(*big.Int), ok
 }
-func (*generalConfig) GlobalEvmMaxInFlightTransactions() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmMaxInFlightTransactions"), ParseUint32)
+func (c *generalConfig) GlobalEvmMaxInFlightTransactions() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmMaxInFlightTransactions"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalEvmMaxQueuedTransactions() (uint64, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmMaxQueuedTransactions"), ParseUint64)
+func (c *generalConfig) GlobalEvmMaxQueuedTransactions() (uint64, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmMaxQueuedTransactions"), parse.Uint64)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint64), ok
 }
-func (*generalConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmMinGasPriceWei"), ParseBigInt)
+func (c *generalConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmMinGasPriceWei"), parse.BigInt)
 	if val == nil {
 		return nil, false
 	}
 	return val.(*big.Int), ok
 }
-func (*generalConfig) GlobalEvmNonceAutoSync() (bool, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmNonceAutoSync"), ParseBool)
+func (c *generalConfig) GlobalEvmNonceAutoSync() (bool, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmNonceAutoSync"), parse.Bool)
 	if val == nil {
 		return false, false
 	}
 	return val.(bool), ok
 }
-func (*generalConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmRPCDefaultBatchSize"), ParseUint32)
+func (c *generalConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmRPCDefaultBatchSize"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalFlagsContractAddress() (string, bool) {
-	val, ok := lookupEnv(EnvVarName("FlagsContractAddress"), ParseString)
+func (c *generalConfig) GlobalFlagsContractAddress() (string, bool) {
+	val, ok := c.lookupEnv(envvar.Name("FlagsContractAddress"), parse.String)
 	if val == nil {
 		return "", false
 	}
 	return val.(string), ok
 }
-func (*generalConfig) GlobalGasEstimatorMode() (string, bool) {
-	val, ok := lookupEnv(EnvVarName("GasEstimatorMode"), ParseString)
+func (c *generalConfig) GlobalGasEstimatorMode() (string, bool) {
+	val, ok := c.lookupEnv(envvar.Name("GasEstimatorMode"), parse.String)
 	if val == nil {
 		return "", false
 	}
 	return val.(string), ok
 }
-func (*generalConfig) GlobalChainType() (string, bool) {
-	val, ok := lookupEnv(EnvVarName("ChainType"), ParseString)
+
+// GlobalChainType overrides all chains and forces them to act as a particular
+// chain type. List of chain types is given in `chaintype.go`.
+func (c *generalConfig) GlobalChainType() (string, bool) {
+	val, ok := c.lookupEnv(envvar.Name("ChainType"), parse.String)
 	if val == nil {
 		return "", false
 	}
 	return val.(string), ok
 }
-func (*generalConfig) GlobalLinkContractAddress() (string, bool) {
-	val, ok := lookupEnv(EnvVarName("LinkContractAddress"), ParseString)
+func (c *generalConfig) GlobalLinkContractAddress() (string, bool) {
+	val, ok := c.lookupEnv(envvar.Name("LinkContractAddress"), parse.String)
 	if val == nil {
 		return "", false
 	}
 	return val.(string), ok
 }
-func (*generalConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
-	val, ok := lookupEnv(EnvVarName("MinIncomingConfirmations"), ParseUint32)
+func (c *generalConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("MinIncomingConfirmations"), parse.Uint32)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint32), ok
 }
-func (*generalConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
-	val, ok := lookupEnv(EnvVarName("MinRequiredOutgoingConfirmations"), ParseUint64)
+func (c *generalConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
+	val, ok := c.lookupEnv(envvar.Name("MinRequiredOutgoingConfirmations"), parse.Uint64)
 	if val == nil {
 		return 0, false
 	}
 	return val.(uint64), ok
 }
-func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
-	val, ok := lookupEnv(EnvVarName("MinimumContractPayment"), ParseLink)
+func (c *generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
+	val, ok := c.lookupEnv(envvar.Name("MinimumContractPayment"), parse.Link)
 	if val == nil {
 		return nil, false
 	}
 	return val.(*assets.Link), ok
 }
-func (*generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmEIP1559DynamicFees"), ParseBool)
+func (c *generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmEIP1559DynamicFees"), parse.Bool)
 	if val == nil {
 		return false, false
 	}
 	return val.(bool), ok
 }
-func (*generalConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasTipCapDefault"), ParseBigInt)
+func (c *generalConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasTipCapDefault"), parse.BigInt)
 	if val == nil {
 		return nil, false
 	}
 	return val.(*big.Int), ok
 }
-func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
-	val, ok := lookupEnv(EnvVarName("EvmGasTipCapMinimum"), ParseBigInt)
+func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasTipCapMinimum"), parse.BigInt)
 	if val == nil {
 		return nil, false
 	}
@@ -1332,13 +1306,13 @@ func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 // UseLegacyEthEnvVars will upsert a new chain using the DefaultChainID and
 // upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
 func (c *generalConfig) UseLegacyEthEnvVars() bool {
-	return c.viper.GetBool(EnvVarName("UseLegacyEthEnvVars"))
+	return c.viper.GetBool(envvar.Name("UseLegacyEthEnvVars"))
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
 // It controls which mode to use to enforce that only one Chainlink application can use the database
 func (c *generalConfig) DatabaseLockingMode() string {
-	return c.getWithFallback("DatabaseLockingMode", ParseString).(string)
+	return c.getWithFallback("DatabaseLockingMode", parse.String).(string)
 }
 
 // LeaseLockRefreshInterval controls how often the node should attempt to
@@ -1356,7 +1330,7 @@ func (c *generalConfig) LeaseLockDuration() time.Duration {
 // AdvisoryLockID is the application advisory lock ID. Should match all other
 // chainlink applications that might access this database
 func (c *generalConfig) AdvisoryLockID() int64 {
-	return c.getWithFallback("AdvisoryLockID", ParseInt64).(int64)
+	return c.getWithFallback("AdvisoryLockID", parse.Int64).(int64)
 }
 
 // AdvisoryLockCheckInterval controls how often Chainlink will check to make
@@ -1364,4 +1338,13 @@ func (c *generalConfig) AdvisoryLockID() int64 {
 // to re-acquire it and if that fails the application will exit
 func (c *generalConfig) AdvisoryLockCheckInterval() time.Duration {
 	return c.getDuration("AdvisoryLockCheckInterval")
+}
+
+// LogFileDir if set will override RootDir as the output path for log files
+func (c *generalConfig) LogFileDir() string {
+	s := c.viper.GetString(envvar.Name("LogFileDir"))
+	if s == "" {
+		return c.RootDir()
+	}
+	return s
 }

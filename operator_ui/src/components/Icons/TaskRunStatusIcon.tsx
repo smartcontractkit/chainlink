@@ -1,23 +1,46 @@
 import React from 'react'
 
 import ErrorIcon from './Error'
+import PendingIcon from './Pending'
+import ListIcon from './ListIcon'
 import SuccessIcon from './Success'
+import { TaskRunStatus } from 'src/utils/taskRunStatus'
 
 interface Props {
-  status: 'completed' | 'errored'
+  status: TaskRunStatus
   width?: number
   height?: number
 }
 
 export const TaskRunStatusIcon = ({ status, width, height }: Props) => {
   switch (status) {
-    case 'completed':
+    case TaskRunStatus.COMPLETE:
       return (
-        <SuccessIcon width={width} height={height} data-testid="completed" />
+        <SuccessIcon
+          width={width}
+          height={height}
+          data-testid="complete-run-icon"
+        />
       )
-    case 'errored':
-      return <ErrorIcon width={width} height={height} data-testid="errored" />
+    case TaskRunStatus.ERROR:
+      return (
+        <ErrorIcon width={width} height={height} data-testid="error-run-icon" />
+      )
+    case TaskRunStatus.PENDING:
+      return (
+        <PendingIcon
+          width={width}
+          height={height}
+          data-testid="pending-run-icon"
+        />
+      )
     default:
-      return null
+      return (
+        <ListIcon
+          width={width}
+          height={height}
+          data-testid="default-run-icon"
+        />
+      )
   }
 }
