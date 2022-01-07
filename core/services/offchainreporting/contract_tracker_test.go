@@ -8,7 +8,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
@@ -44,7 +44,7 @@ type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
 	hb      *htmocks.HeadBroadcaster
-	ec      *evmclientmocks.Client
+	ec      *evmmocks.Client
 	tracker *offchainreporting.OCRContractTracker
 }
 

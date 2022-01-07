@@ -17,7 +17,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -88,7 +88,7 @@ func TestPool_Dial(t *testing.T) {
 
 func TestPool_Dial_Errors(t *testing.T) {
 	t.Run("starts and kicks off retry loop even if dial errors", func(t *testing.T) {
-		node := new(evmclientmocks.Node)
+		node := new(evmmocks.Node)
 		node.On("String").Return("node").Maybe()
 		node.On("Close").Maybe()
 		node.Test(t)
@@ -106,7 +106,7 @@ func TestPool_Dial_Errors(t *testing.T) {
 	})
 
 	t.Run("starts and kicks off retry loop even on verification errors", func(t *testing.T) {
-		node := new(evmclientmocks.Node)
+		node := new(evmmocks.Node)
 		node.On("String").Return("node").Maybe()
 		node.On("Close").Maybe()
 		node.Test(t)
@@ -185,11 +185,11 @@ func newPool(t *testing.T, nodes []evmclient.Node) *evmclient.Pool {
 
 func TestPool_RunLoop(t *testing.T) {
 	t.Run("with several nodes and different types of errors", func(t *testing.T) {
-		n1 := new(evmclientmocks.Node)
+		n1 := new(evmmocks.Node)
 		n1.Test(t)
-		n2 := new(evmclientmocks.Node)
+		n2 := new(evmmocks.Node)
 		n2.Test(t)
-		n3 := new(evmclientmocks.Node)
+		n3 := new(evmmocks.Node)
 		n3.Test(t)
 		nodes := []evmclient.Node{n1, n2, n3}
 		p := newPool(t, nodes)

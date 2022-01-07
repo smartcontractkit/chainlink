@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ import (
 // ex: 0x1234ABCD
 const funcSigLength = 10
 
-func NewContractMockReceiver(t *testing.T, ethMock *evmclientmocks.Client, abi abi.ABI, address common.Address) contractMockReceiver {
+func NewContractMockReceiver(t *testing.T, ethMock *evmmocks.Client, abi abi.ABI, address common.Address) contractMockReceiver {
 	return contractMockReceiver{
 		t:       t,
 		ethMock: ethMock,
@@ -29,7 +29,7 @@ func NewContractMockReceiver(t *testing.T, ethMock *evmclientmocks.Client, abi a
 
 type contractMockReceiver struct {
 	t       *testing.T
-	ethMock *evmclientmocks.Client
+	ethMock *evmmocks.Client
 	abi     abi.ABI
 	address common.Address
 }
