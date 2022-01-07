@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/config"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"

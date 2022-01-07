@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 // BlockTranslator converts emitted block numbers (from block.number) into a

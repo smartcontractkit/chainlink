@@ -9,7 +9,7 @@ import (
 
 	context "context"
 
-	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 
 	mock "github.com/stretchr/testify/mock"
 )

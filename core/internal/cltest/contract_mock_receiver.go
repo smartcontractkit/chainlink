@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
+	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )

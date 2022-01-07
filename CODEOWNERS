@@ -1,17 +1,17 @@
 # Services
-/core/services/bulletprooftxmanager @PiotrTrzpil @samsondav @archseer
+/core/chains/evm/bulletprooftxmanager @PiotrTrzpil @samsondav @archseer
 /core/services/cron @spooktheducks @samsondav
 /core/services/directrequest @PiotrTrzpil @spooktheducks @j16r @connorwstein @samsondav
-/core/services/eth @PiotrTrzpil @spooktheducks @samsondav
+/core/chains/evm/eth @PiotrTrzpil @spooktheducks @samsondav
 /core/services/feeds @jkongie
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
-/core/services/gasupdater @samsondav @PiotrTrzpil @archseer
-/core/services/headtracker @PiotrTrzpil @samsondav
+/core/chains/evm/gasupdater @samsondav @PiotrTrzpil @archseer
+/core/chains/evm/headtracker @PiotrTrzpil @samsondav
 /core/services/health @archseer @samsondav
 /core/services/job @spooktheducks @connorwstein @archseer
 /core/services/keeper @RyanRHall @samsondav
 /core/services/keystore @RyanRHall
-/core/services/log @PiotrTrzpil @spooktheducks @jmank88
+/core/chains/evm/log @PiotrTrzpil @spooktheducks @jmank88
 /core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pipeline @spooktheducks @connorwstein @archseer
