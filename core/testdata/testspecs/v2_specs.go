@@ -170,6 +170,7 @@ encode_perform_upkeep_tx [type=ethabiencode
                           data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
 perform_upkeep_tx        [type=ethtx
                           minConfirmations=0
+                          from="$(jobSpec.fromAddress)"
                           to="$(jobSpec.contractAddress)"
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
