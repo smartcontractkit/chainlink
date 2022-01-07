@@ -4,7 +4,8 @@ import (
 	"testing"
 	"time"
 
-	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	uuid "github.com/satori/go.uuid"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
@@ -16,18 +17,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTxm(t *testing.T) {
-	// Need full db to be able to test db trigger/functions, which only fire on tx commit
-	// which won't happen using txdb.
+func TestTxmStartStop(t *testing.T) {
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start())
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
-	ks := new(ksmocks.Terra)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	tc := new(tcmocks.ReaderWriter)
-	txm := terratxm.NewTxm(db, tc, ks, lggr, pgtest.NewPGCfg(true), eb, time.Second)
+	txm := terratxm.NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 	require.NoError(t, txm.Start())
-	t.Cleanup(func() { require.NoError(t, txm.Close()) })
-	require.NoError(t, txm.Enqueue("0x123", []byte(`hello`)))
+	// TODO: double check the notify works via an enqueue
+	require.NoError(t, txm.Close())
 }

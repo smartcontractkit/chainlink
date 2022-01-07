@@ -15,7 +15,6 @@ type TerraMsg struct {
 	ContractID string
 	State      State
 	Msg        []byte
-	From       string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
