@@ -14,9 +14,10 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -63,8 +64,8 @@ func (mes *MockSubscription) Unsubscribe() {
 		close(mes.channel.(chan struct{}))
 	case chan gethTypes.Log:
 		close(mes.channel.(chan gethTypes.Log))
-	case chan *eth.Head:
-		close(mes.channel.(chan *eth.Head))
+	case chan *evmtypes.Head:
+		close(mes.channel.(chan *evmtypes.Head))
 	default:
 		logger.TestLogger(mes.t).Fatalf("Unable to close MockSubscription channel of type %T", mes.channel)
 	}
@@ -298,7 +299,7 @@ type MockHeadTrackable struct {
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, *eth.Head) {
+func (m *MockHeadTrackable) OnNewLongestChain(context.Context, *evmtypes.Head) {
 	m.onNewHeadCount.Inc()
 }
 
@@ -426,7 +427,7 @@ func (tss *testShutdownSignal) Wait() <-chan struct{} {
 	return make(chan struct{})
 }
 
-func NewChainSetMockWithOneChain(t testing.TB, ethClient eth.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {
+func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {
 	cc := new(evmmocks.ChainSet)
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)

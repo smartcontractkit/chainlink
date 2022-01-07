@@ -1,4 +1,4 @@
-package eth
+package client
 
 import (
 	"context"
@@ -8,7 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -64,7 +66,7 @@ func (nc *NullClient) CallContext(ctx context.Context, result interface{}, metho
 	return nil
 }
 
-func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*Head, error) {
+func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	nc.lggr.Debug("HeadByNumber")
 	return nil, nil
 }
@@ -91,7 +93,7 @@ func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return newNullSubscription(nc.lggr), nil
 }
 
-func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *Head) (ethereum.Subscription, error) {
+func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
 	nc.lggr.Debug("SubscribeNewHead")
 	return newNullSubscription(nc.lggr), nil
 }

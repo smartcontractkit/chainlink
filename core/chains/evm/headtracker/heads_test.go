@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -38,7 +38,7 @@ func TestHeads_LatestHead(t *testing.T) {
 func TestHeads_HeadByHash(t *testing.T) {
 	t.Parallel()
 
-	var testHeads = []*eth.Head{
+	var testHeads = []*evmtypes.Head{
 		cltest.Head(100),
 		cltest.Head(200),
 		cltest.Head(300),
@@ -73,15 +73,15 @@ func TestHeads_AddHeads(t *testing.T) {
 	uncleHash := utils.NewHash()
 	heads := headtracker.NewHeads()
 
-	var testHeads []*eth.Head
+	var testHeads []*evmtypes.Head
 	var parentHash common.Hash
 	for i := 0; i < 5; i++ {
 		hash := utils.NewHash()
-		h := eth.NewHead(big.NewInt(int64(i)), hash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
+		h := evmtypes.NewHead(big.NewInt(int64(i)), hash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
 		testHeads = append(testHeads, &h)
 		if i == 2 {
 			// uncled block
-			h := eth.NewHead(big.NewInt(int64(i)), uncleHash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
+			h := evmtypes.NewHead(big.NewInt(int64(i)), uncleHash, parentHash, uint64(time.Now().Unix()), utils.NewBigI(0))
 			testHeads = append(testHeads, &h)
 		}
 		parentHash = hash

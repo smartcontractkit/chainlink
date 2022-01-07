@@ -1,4 +1,4 @@
-package eth
+package client
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//go:generate mockery --name Node --output ./mocks/ --case=underscore
+//go:generate mockery --name Node --output ../mocks/ --case=underscore
 type Node interface {
 	Dial(ctx context.Context) error
 	Close()
@@ -110,7 +110,7 @@ func (n *node) Dial(ctx context.Context) error {
 		if n.http != nil {
 			httpuri = n.http.uri.String()
 		}
-		n.log.Debugw("eth.Client#Dial(...)", "wsuri", n.ws.uri.String(), "httpuri", httpuri)
+		n.log.Debugw("evmclient.Client#Dial(...)", "wsuri", n.ws.uri.String(), "httpuri", httpuri)
 	}
 
 	uri := n.ws.uri.String()
@@ -211,7 +211,7 @@ func (n *node) CallContext(ctx context.Context, result interface{}, method strin
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#Call(...)",
+	n.log.Debugw("evmclient.Client#Call(...)",
 		"method", method,
 		"args", args,
 		"mode", switching(n),
@@ -226,7 +226,7 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#BatchCall(...)",
+	n.log.Debugw("evmclient.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 		"mode", switching(n),
 	)
@@ -240,7 +240,7 @@ func (n *node) EthSubscribe(ctx context.Context, channel interface{}, args ...in
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#EthSubscribe", "mode", "websocket")
+	n.log.Debugw("evmclient.Client#EthSubscribe", "mode", "websocket")
 	return n.ws.rpc.EthSubscribe(ctx, channel, args...)
 }
 
@@ -250,7 +250,7 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#TransactionReceipt(...)",
+	n.log.Debugw("evmclient.Client#TransactionReceipt(...)",
 		"txHash", txHash,
 		"mode", switching(n),
 	)
@@ -270,7 +270,7 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#HeaderByNumber(...)",
+	n.log.Debugw("evmclient.Client#HeaderByNumber(...)",
 		"number", n,
 		"mode", switching(n),
 	)
@@ -288,7 +288,7 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#SendTransaction(...)",
+	n.log.Debugw("evmclient.Client#SendTransaction(...)",
 		"tx", tx,
 		"mode", switching(n),
 	)
@@ -302,7 +302,7 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#PendingNonceAt(...)",
+	n.log.Debugw("evmclient.Client#PendingNonceAt(...)",
 		"account", account,
 		"mode", switching(n),
 	)
@@ -320,7 +320,7 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#NonceAt(...)",
+	n.log.Debugw("evmclient.Client#NonceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
 		"mode", switching(n),
@@ -339,7 +339,7 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#PendingCodeAt(...)",
+	n.log.Debugw("evmclient.Client#PendingCodeAt(...)",
 		"account", account,
 		"mode", switching(n),
 	)
@@ -357,7 +357,7 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#CodeAt(...)",
+	n.log.Debugw("evmclient.Client#CodeAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
 		"mode", switching(n),
@@ -376,7 +376,7 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#EstimateGas(...)",
+	n.log.Debugw("evmclient.Client#EstimateGas(...)",
 		"call", call,
 		"mode", switching(n),
 	)
@@ -394,7 +394,7 @@ func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) 
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#SuggestGasPrice()", "mode", "websocket")
+	n.log.Debugw("evmclient.Client#SuggestGasPrice()", "mode", "websocket")
 	price, err = n.ws.geth.SuggestGasPrice(ctx)
 	err = n.wrapWS(err)
 	return
@@ -404,7 +404,7 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#CallContract()",
+	n.log.Debugw("evmclient.Client#CallContract()",
 		"mode", switching(n),
 	)
 	if n.http != nil {
@@ -422,7 +422,7 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#BlockByNumber(...)",
+	n.log.Debugw("evmclient.Client#BlockByNumber(...)",
 		"number", number,
 		"mode", switching(n),
 	)
@@ -440,7 +440,7 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#BalanceAt(...)",
+	n.log.Debugw("evmclient.Client#BalanceAt(...)",
 		"account", account,
 		"blockNumber", blockNumber,
 		"mode", switching(n),
@@ -459,7 +459,7 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#FilterLogs(...)",
+	n.log.Debugw("evmclient.Client#FilterLogs(...)",
 		"q", q,
 		"mode", switching(n),
 	)
@@ -477,7 +477,7 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#SubscribeFilterLogs(...)", "q", q, "mode", "websocket")
+	n.log.Debugw("evmclient.Client#SubscribeFilterLogs(...)", "q", q, "mode", "websocket")
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	err = n.wrapWS(err)
 	return
@@ -487,7 +487,7 @@ func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#SuggestGasTipCap(...)",
+	n.log.Debugw("evmclient.Client#SuggestGasTipCap(...)",
 		"mode", switching(n),
 	)
 	if n.http != nil {
@@ -504,7 +504,7 @@ func (n *node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 	ctx, cancel := DefaultQueryCtx(ctx)
 	defer cancel()
 
-	n.log.Debugw("eth.Client#ChainID(...)")
+	n.log.Debugw("evmclient.Client#ChainID(...)")
 	if n.http != nil {
 		chainID, err = n.http.geth.ChainID(ctx)
 		err = n.wrapHTTP(err)

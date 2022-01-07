@@ -18,11 +18,12 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -55,7 +56,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 }
 
 type broadcasterHelperCfg struct {
-	highestSeenHead *eth.Head
+	highestSeenHead *evmtypes.Head
 	db              *sqlx.DB
 }
 
@@ -76,11 +77,11 @@ func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscrib
 	return helper
 }
 
-func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *eth.Head) *broadcasterHelper {
+func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client, highestSeenHead *evmtypes.Head) *broadcasterHelper {
 	return broadcasterHelperCfg{highestSeenHead: highestSeenHead}.newWithEthClient(t, ethClient)
 }
 
-func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient eth.Client) *broadcasterHelper {
+func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient.Client) *broadcasterHelper {
 	if testing.Short() {
 		t.Skip("skipping due to broadcasterHelper")
 	}
@@ -359,8 +360,8 @@ func (l *mockListener) JobID() int32            { return l.jobID }
 func (l *mockListener) HandleLog(log.Broadcast) {}
 
 type mockEth struct {
-	ethClient        *ethmocks.Client
-	sub              *ethmocks.Subscription
+	ethClient        *evmclientmocks.Client
+	sub              *evmclientmocks.Subscription
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
 	checkFilterLogs  func(int64, int64)
@@ -404,7 +405,7 @@ func newMockEthClient(t *testing.T, chchRawLogs chan<- chan<- types.Log, blockHe
 		Times(expectedCalls.SubscribeFilterLogs)
 
 	mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&eth.Head{Number: blockHeight}, nil).
+		Return(&evmtypes.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
 	if expectedCalls.FilterLogs > 0 {

@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -19,7 +20,7 @@ import (
 // We want to minimise fetches because calling eth_getBlockByNumber is
 // relatively expensive
 type ArbitrumBlockTranslator struct {
-	ethClient eth.Client
+	ethClient evmclient.Client
 	lggr      logger.Logger
 	// l2->l1 cache
 	cache   map[int64]int64
@@ -28,7 +29,7 @@ type ArbitrumBlockTranslator struct {
 }
 
 // NewArbitrumBlockTranslator returns a concrete ArbitrumBlockTranslator
-func NewArbitrumBlockTranslator(ethClient eth.Client, lggr logger.Logger) *ArbitrumBlockTranslator {
+func NewArbitrumBlockTranslator(ethClient evmclient.Client, lggr logger.Logger) *ArbitrumBlockTranslator {
 	return &ArbitrumBlockTranslator{
 		ethClient,
 		lggr.Named("ArbitrumBlockTranslator"),
@@ -65,7 +66,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 		duration := time.Since(mark)
 		a.lggr.Debugw(fmt.Sprintf("BinarySearch completed in %s with %d total lookups", duration, n), "finishedIn", duration, "err", err, "nLookups", n)
 	}()
-	var h *eth.Head
+	var h *evmtypes.Head
 
 	// l2lower..l2upper is the inclusive range of L2 block numbers in which
 	// transactions that called block.number will return the given L1 block

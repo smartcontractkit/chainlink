@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -21,9 +21,9 @@ func NewFixedPriceEstimator(config Config, lggr logger.Logger) Estimator {
 	return &fixedPriceEstimator{config, lggr.Named("FixedPriceEstimator")}
 }
 
-func (f *fixedPriceEstimator) Start() error                                     { return nil }
-func (f *fixedPriceEstimator) Close() error                                     { return nil }
-func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *eth.Head) {}
+func (f *fixedPriceEstimator) Start() error                                          { return nil }
+func (f *fixedPriceEstimator) Close() error                                          { return nil }
+func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()

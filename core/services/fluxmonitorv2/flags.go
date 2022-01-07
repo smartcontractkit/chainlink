@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -26,7 +26,7 @@ type ContractFlags struct {
 }
 
 // NewFlags constructs a new Flags from a flags contract address
-func NewFlags(addrHex string, ethClient eth.Client) (Flags, error) {
+func NewFlags(addrHex string, ethClient evmclient.Client) (Flags, error) {
 	flags := &ContractFlags{}
 
 	if addrHex == "" {

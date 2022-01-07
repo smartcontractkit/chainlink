@@ -7,21 +7,20 @@ import (
 	"fmt"
 	"math/big"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/core/logger"
-
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 	"go.uber.org/multierr"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 var (
-	vrfCoordinatorV2ABI = eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+	vrfCoordinatorV2ABI = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 )
 
 type VRFTaskV2 struct {

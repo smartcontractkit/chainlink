@@ -13,8 +13,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/balancemonitor"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -30,7 +30,7 @@ import (
 type Chain interface {
 	services.Service
 	ID() *big.Int
-	Client() eth.Client
+	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
@@ -46,7 +46,7 @@ type chain struct {
 	utils.StartStopOnce
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
-	client          eth.Client
+	client          evmclient.Client
 	txm             bulletprooftxmanager.TxManager
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
@@ -73,9 +73,9 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 			headTrackerLL = ll
 		}
 	}
-	var client eth.Client
+	var client evmclient.Client
 	if cfg.EthereumDisabled() {
-		client = eth.NewNullClient(chainID, l)
+		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
 		client, err2 = newEthClientFromChain(l, dbchain)
@@ -273,7 +273,7 @@ func (c *chain) Healthy() (merr error) {
 }
 
 func (c *chain) ID() *big.Int                                  { return c.id }
-func (c *chain) Client() eth.Client                            { return c.client }
+func (c *chain) Client() evmclient.Client                      { return c.client }
 func (c *chain) Config() evmconfig.ChainScopedConfig           { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster               { return c.logBroadcaster }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster      { return c.headBroadcaster }
@@ -282,11 +282,11 @@ func (c *chain) HeadTracker() httypes.HeadTracker              { return c.headTr
 func (c *chain) Logger() logger.Logger                         { return c.logger }
 func (c *chain) BalanceMonitor() balancemonitor.BalanceMonitor { return c.balanceMonitor }
 
-func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (eth.Client, error) {
+func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
-	var primaries []eth.Node
-	var sendonlys []eth.SendOnlyNode
+	var primaries []evmclient.Node
+	var sendonlys []evmclient.SendOnlyNode
 	for _, node := range nodes {
 		if node.SendOnly {
 			sendonly, err := newSendOnly(lggr, node)
@@ -302,10 +302,10 @@ func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (eth.Client, e
 			primaries = append(primaries, primary)
 		}
 	}
-	return eth.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
+	return evmclient.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
 }
 
-func newPrimary(lggr logger.Logger, n types.Node) (eth.Node, error) {
+func newPrimary(lggr logger.Logger, n types.Node) (evmclient.Node, error) {
 	if n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
@@ -325,10 +325,10 @@ func newPrimary(lggr logger.Logger, n types.Node) (eth.Node, error) {
 		httpuri = u
 	}
 
-	return eth.NewNode(lggr, *wsuri, httpuri, n.Name), nil
+	return evmclient.NewNode(lggr, *wsuri, httpuri, n.Name), nil
 }
 
-func newSendOnly(lggr logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
+func newSendOnly(lggr logger.Logger, n types.Node) (evmclient.SendOnlyNode, error) {
 	if !n.SendOnly {
 		return nil, errors.New("cannot cast non send-only node to send-only node")
 	}
@@ -340,5 +340,5 @@ func newSendOnly(lggr logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
 		return nil, errors.Wrap(err, "invalid http uri")
 	}
 
-	return eth.NewSendOnlyNode(lggr, *httpuri, n.Name), nil
+	return evmclient.NewSendOnlyNode(lggr, *httpuri, n.Name), nil
 }

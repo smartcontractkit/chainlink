@@ -11,9 +11,9 @@ import (
 
 	context "context"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-
 	ethereum "github.com/ethereum/go-ethereum"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -316,15 +316,15 @@ func (_m *Client) GetLINKBalance(linkAddress common.Address, address common.Addr
 }
 
 // HeadByNumber provides a mock function with given fields: ctx, n
-func (_m *Client) HeadByNumber(ctx context.Context, n *big.Int) (*eth.Head, error) {
+func (_m *Client) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	ret := _m.Called(ctx, n)
 
-	var r0 *eth.Head
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *eth.Head); ok {
+	var r0 *evmtypes.Head
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *evmtypes.Head); ok {
 		r0 = rf(ctx, n)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*eth.Head)
+			r0 = ret.Get(0).(*evmtypes.Head)
 		}
 	}
 
@@ -464,11 +464,11 @@ func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuer
 }
 
 // SubscribeNewHead provides a mock function with given fields: ctx, ch
-func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *eth.Head) (ethereum.Subscription, error) {
+func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
 	ret := _m.Called(ctx, ch)
 
 	var r0 ethereum.Subscription
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *eth.Head) ethereum.Subscription); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) ethereum.Subscription); ok {
 		r0 = rf(ctx, ch)
 	} else {
 		if ret.Get(0) != nil {
@@ -477,7 +477,7 @@ func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *eth.Head) (et
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- *eth.Head) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, chan<- *evmtypes.Head) error); ok {
 		r1 = rf(ctx, ch)
 	} else {
 		r1 = ret.Error(1)

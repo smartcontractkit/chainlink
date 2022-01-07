@@ -12,8 +12,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/atomic"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -31,17 +32,17 @@ var (
 
 type headListener struct {
 	config           Config
-	ethClient        eth.Client
+	ethClient        evmclient.Client
 	logger           logger.Logger
 	chStop           chan struct{}
-	chHeaders        chan *eth.Head
+	chHeaders        chan *evmtypes.Head
 	headSubscription ethereum.Subscription
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
 }
 
 // NewHeadListener creates a new HeadListener
-func NewHeadListener(lggr logger.Logger, ethClient eth.Client, config Config, chStop chan struct{}) httypes.HeadListener {
+func NewHeadListener(lggr logger.Logger, ethClient evmclient.Client, config Config, chStop chan struct{}) httypes.HeadListener {
 	return &headListener{
 		config:    config,
 		ethClient: ethClient,
@@ -158,7 +159,7 @@ func (hl *headListener) subscribe(ctx context.Context) bool {
 }
 
 func (hl *headListener) subscribeToHead(ctx context.Context) error {
-	hl.chHeaders = make(chan *eth.Head)
+	hl.chHeaders = make(chan *evmtypes.Head)
 
 	var err error
 	hl.headSubscription, err = hl.ethClient.SubscribeNewHead(ctx, hl.chHeaders)

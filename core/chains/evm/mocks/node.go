@@ -3,12 +3,12 @@
 package mocks
 
 import (
-	context "context"
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
+	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	context "context"
 
 	ethereum "github.com/ethereum/go-ethereum"
 
@@ -362,14 +362,14 @@ func (_m *Node) SendTransaction(ctx context.Context, tx *types.Transaction) erro
 }
 
 // State provides a mock function with given fields:
-func (_m *Node) State() eth.NodeState {
+func (_m *Node) State() client.NodeState {
 	ret := _m.Called()
 
-	var r0 eth.NodeState
-	if rf, ok := ret.Get(0).(func() eth.NodeState); ok {
+	var r0 client.NodeState
+	if rf, ok := ret.Get(0).(func() client.NodeState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(eth.NodeState)
+		r0 = ret.Get(0).(client.NodeState)
 	}
 
 	return r0

@@ -13,7 +13,8 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/static"
 )
@@ -27,7 +28,7 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump))
 }
 
-func NewEstimator(lggr logger.Logger, ethClient eth.Client, config Config) Estimator {
+func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, config Config) Estimator {
 	s := config.GasEstimatorMode()
 	switch s {
 	case "BlockHistory":
@@ -53,7 +54,7 @@ type DynamicFee struct {
 // Estimator provides an interface for estimating gas price and limit
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
-	OnNewLongestChain(context.Context, *eth.Head)
+	OnNewLongestChain(context.Context, *evmtypes.Head)
 	Start() error
 	Close() error
 	GetLegacyGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)

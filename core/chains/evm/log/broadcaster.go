@@ -11,8 +11,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -91,7 +92,7 @@ type (
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan int64
-		highestSavedHead      *eth.Head
+		highestSavedHead      *evmtypes.Head
 		lastSeenHeadNumber    atomic.Int64
 		logger                logger.Logger
 
@@ -133,7 +134,7 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, lggr logger.Logger, highestSavedHead *eth.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("LogBroadcaster")
 	return &broadcaster{
@@ -220,7 +221,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
 		b.logger.Debugw("TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
@@ -420,14 +421,14 @@ func (b *broadcaster) onNewLog(log types.Log) {
 }
 
 func (b *broadcaster) onNewHeads() {
-	var latestHead *eth.Head
+	var latestHead *evmtypes.Head
 	for {
 		// We only care about the most recent head
 		item := b.newHeads.RetrieveLatestAndClear()
 		if item == nil {
 			break
 		}
-		head := eth.AsHead(item)
+		head := evmtypes.AsHead(item)
 		latestHead = head
 	}
 
@@ -646,12 +647,12 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	close(ch)
 	return ch
 }
-func (n *NullBroadcaster) DependentReady()                              {}
-func (n *NullBroadcaster) Start() error                                 { return nil }
-func (n *NullBroadcaster) Close() error                                 { return nil }
-func (n *NullBroadcaster) Healthy() error                               { return nil }
-func (n *NullBroadcaster) Ready() error                                 { return nil }
-func (n *NullBroadcaster) OnNewLongestChain(context.Context, *eth.Head) {}
-func (n *NullBroadcaster) Pause()                                       {}
-func (n *NullBroadcaster) Resume()                                      {}
-func (n *NullBroadcaster) LogsFromBlock(common.Hash) int                { return -1 }
+func (n *NullBroadcaster) DependentReady()                                   {}
+func (n *NullBroadcaster) Start() error                                      { return nil }
+func (n *NullBroadcaster) Close() error                                      { return nil }
+func (n *NullBroadcaster) Healthy() error                                    { return nil }
+func (n *NullBroadcaster) Ready() error                                      { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, *evmtypes.Head) {}
+func (n *NullBroadcaster) Pause()                                            {}
+func (n *NullBroadcaster) Resume()                                           {}
+func (n *NullBroadcaster) LogsFromBlock(common.Hash) int                     { return -1 }

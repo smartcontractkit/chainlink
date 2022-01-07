@@ -1,4 +1,4 @@
-package eth
+package client
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -18,8 +19,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockery --name Client --output mocks/ --case=underscore
-//go:generate mockery --name Subscription --output mocks/ --case=underscore
+//go:generate mockery --name Client --output ../mocks/ --case=underscore
+//go:generate mockery --name Subscription --output ../mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
@@ -40,8 +41,8 @@ type Client interface {
 	// difference in how block header hashes are calculated by Parity nodes
 	// running on Kovan.  We have to return our own wrapper type to capture the
 	// correct hash from the RPC response.
-	HeadByNumber(ctx context.Context, n *big.Int) (*Head, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *Head) (ethereum.Subscription, error)
+	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
@@ -127,7 +128,7 @@ type CallArgs struct {
 func (client *client) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
-	functionSelector := HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := CallArgs{
 		To:   contractAddress,
@@ -214,7 +215,7 @@ func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*type
 	return client.pool.BlockByNumber(ctx, number)
 }
 
-func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *Head, err error) {
+func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
 	err = client.pool.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
 	if err != nil {
@@ -244,13 +245,13 @@ func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 }
 
 func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	client.logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
+	client.logger.Debugw("evmclient.Client#SubscribeFilterLogs(...)",
 		"q", q,
 	)
 	return client.pool.SubscribeFilterLogs(ctx, q, ch)
 }
 
-func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *Head) (ethereum.Subscription, error) {
+func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
 	csf := newChainIDSubForwarder(client.ChainID(), ch)
 	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
 	if err != nil {

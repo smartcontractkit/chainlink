@@ -13,14 +13,13 @@ import (
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
+	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	servicesMocks "github.com/smartcontractkit/chainlink/core/services/mocks"
 	pipelineMocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
@@ -48,9 +47,9 @@ type mocks struct {
 	solana      *keystoreMocks.Solana
 	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
-	ethClient   *ethmocks.Client
+	ethClient   *evmMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
-	balM        *servicesMocks.BalanceMonitor
+	balM        *evmMocks.BalanceMonitor
 	bptxmORM    *bulletprooftxmanagerMocks.ORM
 }
 
@@ -104,9 +103,9 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		solana:      &keystoreMocks.Solana{},
 		chain:       &evmORMMocks.Chain{},
 		chainSet:    &evmORMMocks.ChainSet{},
-		ethClient:   &ethmocks.Client{},
+		ethClient:   &evmMocks.Client{},
 		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
-		balM:        &servicesMocks.BalanceMonitor{},
+		balM:        &evmMocks.BalanceMonitor{},
 		bptxmORM:    &bulletprooftxmanagerMocks.ORM{},
 	}
 

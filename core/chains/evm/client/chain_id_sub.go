@@ -1,10 +1,11 @@
-package eth
+package client
 
 import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -13,9 +14,9 @@ var _ ethereum.Subscription = &chainIDSubForwarder{}
 // chainIDSubForwarder wraps a head subscription in order to intercept and augment each head with chainID before forwarding.
 type chainIDSubForwarder struct {
 	chainID *big.Int
-	destCh  chan<- *Head
+	destCh  chan<- *evmtypes.Head
 
-	srcCh  chan *Head
+	srcCh  chan *evmtypes.Head
 	srcSub ethereum.Subscription
 
 	done  chan struct{}
@@ -23,11 +24,11 @@ type chainIDSubForwarder struct {
 	unSub chan struct{}
 }
 
-func newChainIDSubForwarder(chainID *big.Int, ch chan<- *Head) *chainIDSubForwarder {
+func newChainIDSubForwarder(chainID *big.Int, ch chan<- *evmtypes.Head) *chainIDSubForwarder {
 	return &chainIDSubForwarder{
 		chainID: chainID,
 		destCh:  ch,
-		srcCh:   make(chan *Head),
+		srcCh:   make(chan *evmtypes.Head),
 		done:    make(chan struct{}),
 		err:     make(chan error),
 		unSub:   make(chan struct{}, 1),

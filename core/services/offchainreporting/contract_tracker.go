@@ -16,9 +16,10 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
@@ -51,7 +52,7 @@ type (
 	OCRContractTracker struct {
 		utils.StartStopOnce
 
-		ethClient        eth.Client
+		ethClient        evmclient.Client
 		contract         *offchain_aggregator_wrapper.OffchainAggregator
 		contractFilterer *offchainaggregator.OffchainAggregatorFilterer
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
@@ -97,7 +98,7 @@ func NewOCRContractTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,
 	contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
-	ethClient eth.Client,
+	ethClient evmclient.Client,
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
@@ -155,7 +156,7 @@ func (t *OCRContractTracker) Start() error {
 			MinIncomingConfirmations: 1,
 		})
 
-		var latestHead *eth.Head
+		var latestHead *evmtypes.Head
 		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
 		if latestHead != nil {
 			t.setLatestBlockHeight(latestHead)
@@ -180,11 +181,11 @@ func (t *OCRContractTracker) Close() error {
 }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *eth.Head) {
+func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *evmtypes.Head) {
 	t.setLatestBlockHeight(h)
 }
 
-func (t *OCRContractTracker) setLatestBlockHeight(h *eth.Head) {
+func (t *OCRContractTracker) setLatestBlockHeight(h *evmtypes.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64

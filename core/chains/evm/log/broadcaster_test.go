@@ -16,10 +16,10 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -1086,7 +1086,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		Times(3)
 
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&eth.Head{Number: blockHeight}, nil)
+		Return(&evmtypes.Head{Number: blockHeight}, nil)
 
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -1297,7 +1297,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock: test.blockHeight1,
 				EndBlock:   test.blockHeight2 + 1,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *eth.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
 					lggr.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						lggr.Warnf("  ** not exists")
@@ -1316,7 +1316,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			logListenerA.requireAllReceived(t, expectedA)
 
 			<-headsDone
-			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&eth.Head{Number: test.blockHeight2}, nil).Once()
+			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: test.blockHeight2}, nil).Once()
 
 			combinedLogs := append(pickLogs(logsA, test.backfillableLogs), pickLogs(logsB, test.backfillableLogs)...)
 			call := helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(combinedLogs, nil).Once()
@@ -1342,7 +1342,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			_ = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock: test.blockHeight2,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *eth.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						chRawLogs2 <- logsA[uint(head.Number)]
 					}
@@ -1525,7 +1525,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 
 	for _, event := range events {
 		switch x := event.(type) {
-		case *eth.Head:
+		case *evmtypes.Head:
 			ctx, _ := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
 			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
@@ -1556,7 +1556,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 2)
-	helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&eth.Head{Number: blockHeight}, nil).Times(2)
+	helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: blockHeight}, nil).Times(2)
 	helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(2)
 
 	helper.start()
@@ -1617,7 +1617,7 @@ func (s sub) Err() <-chan error {
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	gm := gomega.NewWithT(t)
 
-	ethClient := new(ethmocks.Client)
+	ethClient := new(evmclientmocks.Client)
 	ethClient.Test(t)
 	ethClient.On("ChainID").Return(big.NewInt(0)).Maybe()
 	logsChCh := make(chan chan<- types.Log)
@@ -1627,7 +1627,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		}).
 		Return(sub{}, nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&eth.Head{Number: 1}, nil)
+		Return(&evmtypes.Head{Number: 1}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Return(nil, nil)
 
@@ -1703,7 +1703,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 
 	// Send a block to trigger sending the logs from the pool
 	// to the subscribers
-	helper.lb.OnNewLongestChain(context.Background(), &eth.Head{Number: 2})
+	helper.lb.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 2})
 
 	// The subs should each get exactly 3 broadcasts each
 	// If we do not receive a broadcast for 1 second

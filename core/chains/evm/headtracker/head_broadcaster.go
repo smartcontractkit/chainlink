@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -46,7 +46,7 @@ type headBroadcaster struct {
 	chClose   chan struct{}
 	wgDone    sync.WaitGroup
 	utils.StartStopOnce
-	latest         *eth.Head
+	latest         *evmtypes.Head
 	lastCallbackID int
 }
 
@@ -71,13 +71,13 @@ func (hb *headBroadcaster) Close() error {
 	})
 }
 
-func (hb *headBroadcaster) BroadcastNewLongestChain(head *eth.Head) {
+func (hb *headBroadcaster) BroadcastNewLongestChain(head *evmtypes.Head) {
 	hb.mailbox.Deliver(head)
 }
 
 // Subscribe subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
+func (hb *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *evmtypes.Head, unsubscribe func()) {
 	hb.mutex.Lock()
 	defer hb.mutex.Unlock()
 
@@ -117,7 +117,7 @@ func (hb *headBroadcaster) executeCallbacks() {
 		hb.logger.Info("No head to retrieve. It might have been skipped")
 		return
 	}
-	head := eth.AsHead(item)
+	head := evmtypes.AsHead(item)
 
 	hb.mutex.Lock()
 	callbacks := hb.callbacks.values()

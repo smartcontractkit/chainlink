@@ -3,8 +3,9 @@
 package mocks
 
 import (
-	context "context"
 	big "math/big"
+
+	context "context"
 
 	mock "github.com/stretchr/testify/mock"
 

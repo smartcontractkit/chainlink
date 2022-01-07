@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -135,7 +135,7 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return false
 }
 
-func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead eth.Head, broadcasts []LogBroadcast, bc broadcastCreator) {
+func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead evmtypes.Head, broadcasts []LogBroadcast, bc broadcastCreator) {
 	broadcastsExisting := make(map[LogBroadcastAsKey]bool)
 	for _, b := range broadcasts {
 		broadcastsExisting[b.AsKey()] = b.Consumed
@@ -263,7 +263,7 @@ type broadcastCreator interface {
 	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, pqOpts ...pg.QOpt) error
 }
 
-func (r *subscribers) sendLog(log types.Log, latestHead eth.Head,
+func (r *subscribers) sendLog(log types.Log, latestHead evmtypes.Head,
 	broadcasts map[LogBroadcastAsKey]bool,
 	decoders map[common.Address]ParseLogFunc,
 	bc broadcastCreator,

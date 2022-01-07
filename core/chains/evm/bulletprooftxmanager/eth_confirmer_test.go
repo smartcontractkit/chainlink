@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -2106,13 +2106,13 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	config := newTestChainScopedConfig(t)
 	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
-	head := eth.Head{
+	head := evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 10,
-		Parent: &eth.Head{
+		Parent: &evmtypes.Head{
 			Hash:   utils.NewHash(),
 			Number: 9,
-			Parent: &eth.Head{
+			Parent: &evmtypes.Head{
 				Number: 8,
 				Hash:   utils.NewHash(),
 				Parent: nil,
@@ -2398,13 +2398,13 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 
-	head := eth.Head{
+	head := evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 10,
-		Parent: &eth.Head{
+		Parent: &evmtypes.Head{
 			Hash:   utils.NewHash(),
 			Number: 9,
-			Parent: &eth.Head{
+			Parent: &evmtypes.Head{
 				Number: 8,
 				Hash:   utils.NewHash(),
 				Parent: nil,

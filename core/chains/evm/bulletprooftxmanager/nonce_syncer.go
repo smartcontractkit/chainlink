@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -53,7 +53,7 @@ type (
 	// worst case, which is in line with our other guarantees.
 	NonceSyncer struct {
 		q         pg.Q
-		ethClient eth.Client
+		ethClient evmclient.Client
 		chainID   *big.Int
 		logger    logger.Logger
 	}
@@ -65,7 +65,7 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient eth.Client) *NonceSyncer {
+func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient evmclient.Client) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{

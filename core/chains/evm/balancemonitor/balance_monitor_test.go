@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -24,8 +24,8 @@ import (
 
 var nilBigInt *big.Int
 
-func newEthClientMock(t mock.TestingT) *ethmocks.Client {
-	mockEth := new(ethmocks.Client)
+func newEthClientMock(t mock.TestingT) *evmclientmocks.Client {
+	mockEth := new(evmclientmocks.Client)
 	mockEth.Test(t)
 	mockEth.On("ChainID").Maybe().Return(big.NewInt(0))
 	return mockEth
