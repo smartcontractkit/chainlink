@@ -62,7 +62,7 @@ func setup(t *testing.T) (
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(db, logger.TestLogger(t), txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth())
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
