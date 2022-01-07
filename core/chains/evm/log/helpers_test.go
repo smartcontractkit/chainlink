@@ -19,7 +19,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
@@ -360,8 +360,8 @@ func (l *mockListener) JobID() int32            { return l.jobID }
 func (l *mockListener) HandleLog(log.Broadcast) {}
 
 type mockEth struct {
-	ethClient        *evmclientmocks.Client
-	sub              *evmclientmocks.Subscription
+	ethClient        *evmmocks.Client
+	sub              *evmmocks.Subscription
 	subscribeCalls   atomic.Int32
 	unsubscribeCalls atomic.Int32
 	checkFilterLogs  func(int64, int64)

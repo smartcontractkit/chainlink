@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
-	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -49,7 +49,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := new(evmclientmocks.Subscription)
+	sub := new(evmmocks.Subscription)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
 		chHeads = args.Get(1).(chan<- *evmtypes.Head)
 		subscribeAwaiter.ItHappened()
@@ -109,7 +109,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	var chHeads chan<- *evmtypes.Head
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
-	sub := new(evmclientmocks.Subscription)
+	sub := new(evmmocks.Subscription)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
 		chHeads = args.Get(1).(chan<- *evmtypes.Head)
 		subscribeAwaiter.ItHappened()
@@ -161,7 +161,7 @@ func Test_HeadListener_ResubscribesIfWSClosed(t *testing.T) {
 
 	chSubErrTest := make(chan error)
 	var chSubErr <-chan error = chSubErrTest
-	sub := new(evmclientmocks.Subscription)
+	sub := new(evmmocks.Subscription)
 	// sub.Err is called twice because we enter the select loop two times: once
 	// initially and once again after exactly one head has been received
 	sub.On("Err").Return(chSubErr).Twice()
@@ -194,7 +194,7 @@ func Test_HeadListener_ResubscribesIfWSClosed(t *testing.T) {
 	// Expect a resubscribe
 	chSubErrTest2 := make(chan error)
 	var chSubErr2 <-chan error = chSubErrTest2
-	sub2 := new(evmclientmocks.Subscription)
+	sub2 := new(evmmocks.Subscription)
 	sub2.On("Err").Return(chSubErr2)
 	subscribeAwaiter2 := cltest.NewAwaiter()
 

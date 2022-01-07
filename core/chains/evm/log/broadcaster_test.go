@@ -16,7 +16,7 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
-	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -1617,7 +1617,7 @@ func (s sub) Err() <-chan error {
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	gm := gomega.NewWithT(t)
 
-	ethClient := new(evmclientmocks.Client)
+	ethClient := new(evmmocks.Client)
 	ethClient.Test(t)
 	ethClient.On("ChainID").Return(big.NewInt(0)).Maybe()
 	logsChCh := make(chan chan<- types.Log)
