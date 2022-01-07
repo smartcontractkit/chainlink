@@ -104,7 +104,7 @@ func newEthMock(t *testing.T) (*evmmocks.Client, func()) {
 	return ethClient, assertMocksCalled
 }
 
-func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) (*ethmocks.Client, func()) {
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) (*evmmocks.Client, func()) {
 	t.Helper()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)

@@ -538,7 +538,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks
 	return c, s, assertMocksCalled
 }
 
-func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*ethmocks.Client, *ethmocks.Subscription, func()) {
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
