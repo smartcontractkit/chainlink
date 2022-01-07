@@ -3,8 +3,8 @@ package keeper
 import (
 	"time"
 
+	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 var RegistryABI = eth.MustGetABI(keeper_registry_wrapper.KeeperRegistryABI)
