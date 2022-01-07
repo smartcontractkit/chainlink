@@ -1,4 +1,4 @@
-package eth
+package types
 
 import (
 	"database/sql/driver"
@@ -46,7 +46,7 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 func AsHead(i interface{}) *Head {
 	head, ok := i.(*Head)
 	if !ok {
-		panic(fmt.Sprintf("invariant violation: expected `*eth.Head`, got %T", i))
+		panic(fmt.Sprintf("invariant violation: expected `*evmtypes.Head`, got %T", i))
 	}
 	return head
 }

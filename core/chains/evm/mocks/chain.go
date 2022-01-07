@@ -9,9 +9,9 @@ import (
 
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 
-	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 
 	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
@@ -44,15 +44,15 @@ func (_m *Chain) BalanceMonitor() balancemonitor.BalanceMonitor {
 }
 
 // Client provides a mock function with given fields:
-func (_m *Chain) Client() eth.Client {
+func (_m *Chain) Client() client.Client {
 	ret := _m.Called()
 
-	var r0 eth.Client
-	if rf, ok := ret.Get(0).(func() eth.Client); ok {
+	var r0 client.Client
+	if rf, ok := ret.Get(0).(func() client.Client); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(eth.Client)
+			r0 = ret.Get(0).(client.Client)
 		}
 	}
 

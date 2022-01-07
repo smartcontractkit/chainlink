@@ -17,7 +17,7 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -197,7 +197,7 @@ func (c *TestGeneralConfig) DefaultChainID() *big.Int {
 	if c.Overrides.DefaultChainID != nil {
 		return c.Overrides.DefaultChainID
 	}
-	return big.NewInt(eth.NullClientChainID)
+	return big.NewInt(evmclient.NullClientChainID)
 }
 
 func (c *TestGeneralConfig) Dev() bool {

@@ -14,7 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -65,7 +66,7 @@ var _ Estimator = &BlockHistoryEstimator{}
 type (
 	BlockHistoryEstimator struct {
 		utils.StartStopOnce
-		ethClient           eth.Client
+		ethClient           evmclient.Client
 		chainID             big.Int
 		config              Config
 		rollingBlockHistory []Block
@@ -85,7 +86,7 @@ type (
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config Config, chainID big.Int) Estimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, config Config, chainID big.Int) Estimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		utils.StartStopOnce{},
@@ -108,7 +109,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config C
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	b.mb.Deliver(head)
 }
 
@@ -207,13 +208,13 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Info("No head to retrieve. It might have been skipped")
 				continue
 			}
-			h := eth.AsHead(head)
+			h := evmtypes.AsHead(head)
 			b.FetchBlocksAndRecalculate(b.ctx, h)
 		}
 	}
 }
 
-func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *eth.Head) {
+func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *evmtypes.Head) {
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
 
@@ -226,7 +227,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 }
 
 // FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
-func (b *BlockHistoryEstimator) Recalculate(head *eth.Head) {
+func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	enableEIP1559 := b.config.EvmEIP1559DynamicFees()
 
 	percentile := int(b.config.BlockHistoryEstimatorTransactionPercentile())
@@ -281,7 +282,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *eth.Head) {
 	}
 }
 
-func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *eth.Head) error {
+func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.Head) error {
 	// HACK: blockDelay is the number of blocks that the block history estimator trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, block history estimator will
 	// fetch block 7.

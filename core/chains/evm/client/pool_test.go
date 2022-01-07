@@ -1,4 +1,4 @@
-package eth_test
+package client_test
 
 import (
 	"context"
@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -66,15 +66,15 @@ func TestPool_Dial(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
 			defer cancel()
 
-			nodes := make([]eth.Node, len(test.nodes))
+			nodes := make([]evmclient.Node, len(test.nodes))
 			for i, n := range test.nodes {
 				nodes[i] = n.newNode(t)
 			}
-			sendNodes := make([]eth.SendOnlyNode, len(test.sendNodes))
+			sendNodes := make([]evmclient.SendOnlyNode, len(test.sendNodes))
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t)
 			}
-			p := eth.NewPool(logger.TestLogger(t), nodes, sendNodes, test.presetID)
+			p := evmclient.NewPool(logger.TestLogger(t), nodes, sendNodes, test.presetID)
 			err := p.Dial(ctx)
 			if test.wantErr {
 				require.Error(t, err)
@@ -88,11 +88,11 @@ func TestPool_Dial(t *testing.T) {
 
 func TestPool_Dial_Errors(t *testing.T) {
 	t.Run("starts and kicks off retry loop even if dial errors", func(t *testing.T) {
-		node := new(ethmocks.Node)
-		node.On("String").Return("node")
+		node := new(evmclientmocks.Node)
+		node.On("String").Return("node").Maybe()
 		node.On("Close").Maybe()
 		node.Test(t)
-		nodes := []eth.Node{node}
+		nodes := []evmclient.Node{node}
 		p := newPool(t, nodes)
 
 		node.On("Dial", mock.Anything).Return(errors.New("error"))
@@ -106,11 +106,11 @@ func TestPool_Dial_Errors(t *testing.T) {
 	})
 
 	t.Run("starts and kicks off retry loop even on verification errors", func(t *testing.T) {
-		node := new(ethmocks.Node)
-		node.On("String").Return("node")
+		node := new(evmclientmocks.Node)
+		node.On("String").Return("node").Maybe()
 		node.On("Close").Maybe()
 		node.Test(t)
-		nodes := []eth.Node{node}
+		nodes := []evmclient.Node{node}
 		p := newPool(t, nodes)
 
 		node.On("Dial", mock.Anything).Return(nil)
@@ -130,9 +130,9 @@ type chainIDResp struct {
 	err     error
 }
 
-func (r *chainIDResp) newSendOnlyNode(t *testing.T) eth.SendOnlyNode {
+func (r *chainIDResp) newSendOnlyNode(t *testing.T) evmclient.SendOnlyNode {
 	httpURL := r.newHTTPServer(t)
-	return eth.NewSendOnlyNode(logger.TestLogger(t), *httpURL, t.Name())
+	return evmclient.NewSendOnlyNode(logger.TestLogger(t), *httpURL, t.Name())
 }
 func (r *chainIDResp) newHTTPServer(t *testing.T) *url.URL {
 	rpcSrv := rpc.NewServer()
@@ -151,7 +151,7 @@ type chainIDResps struct {
 	http *chainIDResp
 }
 
-func (r *chainIDResps) newNode(t *testing.T) eth.Node {
+func (r *chainIDResps) newNode(t *testing.T) evmclient.Node {
 	ws := cltest.NewWSServer(t, big.NewInt(r.ws.chainID), func(method string, params gjson.Result) (string, string) {
 		t.Errorf("Unexpected method call: %s(%s)", method, params)
 		return "", ""
@@ -165,7 +165,7 @@ func (r *chainIDResps) newNode(t *testing.T) eth.Node {
 		httpURL = r.http.newHTTPServer(t)
 	}
 
-	return eth.NewNode(logger.TestLogger(t), *wsURL, httpURL, t.Name())
+	return evmclient.NewNode(logger.TestLogger(t), *wsURL, httpURL, t.Name())
 }
 
 type chainIDService struct {
@@ -179,19 +179,19 @@ func (x *chainIDService) ChainId(ctx context.Context) (*hexutil.Big, error) {
 	return (*hexutil.Big)(big.NewInt(x.chainID)), nil
 }
 
-func newPool(t *testing.T, nodes []eth.Node) *eth.Pool {
-	return eth.NewPool(logger.TestLogger(t), nodes, []eth.SendOnlyNode{}, &cltest.FixtureChainID)
+func newPool(t *testing.T, nodes []evmclient.Node) *evmclient.Pool {
+	return evmclient.NewPool(logger.TestLogger(t), nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID)
 }
 
 func TestPool_RunLoop(t *testing.T) {
 	t.Run("with several nodes and different types of errors", func(t *testing.T) {
-		n1 := new(ethmocks.Node)
+		n1 := new(evmclientmocks.Node)
 		n1.Test(t)
-		n2 := new(ethmocks.Node)
+		n2 := new(evmclientmocks.Node)
 		n2.Test(t)
-		n3 := new(ethmocks.Node)
+		n3 := new(evmclientmocks.Node)
 		n3.Test(t)
-		nodes := []eth.Node{n1, n2, n3}
+		nodes := []evmclient.Node{n1, n2, n3}
 		p := newPool(t, nodes)
 
 		n1.On("String").Maybe().Return("n1")
@@ -206,13 +206,13 @@ func TestPool_RunLoop(t *testing.T) {
 		// n1 succeeds
 		n1.On("Dial", mock.Anything).Return(nil).Once()
 		n1.On("Verify", mock.Anything, &cltest.FixtureChainID).Return(nil).Once()
-		n1.On("State").Return(eth.NodeStateAlive)
+		n1.On("State").Return(evmclient.NodeStateAlive)
 		// n2 fails once then succeeds in runloop
 		n2.On("Dial", mock.Anything).Return(errors.New("first error")).Once()
-		n2.On("State").Return(eth.NodeStateDead)
+		n2.On("State").Return(evmclient.NodeStateDead)
 		// n3 succeeds dial then fails verification
 		n3.On("Dial", mock.Anything).Return(nil).Once()
-		n3.On("State").Return(eth.NodeStateDialed)
+		n3.On("State").Return(evmclient.NodeStateDialed)
 		n3.On("Verify", mock.Anything, &cltest.FixtureChainID).Return(errors.New("Verify error")).Once()
 		n3.On("Verify", mock.Anything, &cltest.FixtureChainID).Once().Return(nil).Run(func(_ mock.Arguments) {
 			close(wait)

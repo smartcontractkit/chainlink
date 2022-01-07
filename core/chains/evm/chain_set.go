@@ -12,7 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -270,7 +270,7 @@ type ChainSetOpts struct {
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func(types.Chain) eth.Client
+	GenEthClient      func(types.Chain) evmclient.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
 	GenHeadTracker    func(types.Chain) httypes.HeadTracker
 	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager

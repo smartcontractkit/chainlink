@@ -9,11 +9,12 @@ import (
 	optimismfees "github.com/ethereum-optimism/go-optimistic-ethereum-utils/fees"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -163,7 +164,7 @@ func (o *optimismEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGas
 	return nil, 0, errors.New("bump gas is not supported for optimism")
 }
 
-func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ *eth.Head) {}
+func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
 func (*optimismEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")
@@ -296,7 +297,7 @@ func (o *optimism2Estimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
-func (o *optimism2Estimator) OnNewLongestChain(_ context.Context, _ *eth.Head) {}
+func (o *optimism2Estimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
 func (*optimism2Estimator) GetDynamicFee(_ uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")

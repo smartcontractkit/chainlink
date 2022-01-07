@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -51,7 +51,7 @@ var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
 func setupRegistrySync(t *testing.T) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*ethmocks.Client,
+	*evmclientmocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {

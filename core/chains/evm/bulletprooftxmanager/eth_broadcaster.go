@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -48,7 +48,7 @@ type EthBroadcaster struct {
 	logger    logger.Logger
 	db        *sqlx.DB
 	q         pg.Q
-	ethClient eth.Client
+	ethClient evmclient.Client
 	ChainKeyStore
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
@@ -70,7 +70,7 @@ type EthBroadcaster struct {
 }
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
-func NewEthBroadcaster(db *sqlx.DB, ethClient eth.Client, config Config, keystore KeyStore,
+func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
 	logger logger.Logger) *EthBroadcaster {
@@ -349,7 +349,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		simulationCtx, cancel := context.WithTimeout(parentCtx, SimulationTimeout)
 		defer cancel()
 		if b, err := simulateTransaction(simulationCtx, eb.ethClient, attempt, etx); err != nil {
-			if jErr := eth.ExtractRPCError(err); jErr != nil {
+			if jErr := evmclient.ExtractRPCError(err); jErr != nil {
 				eb.logger.CriticalW("Transaction reverted during simulation", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
 				etx.Error = null.StringFrom(fmt.Sprintf("transaction reverted during simulation: %s", jErr.String()))
 				return eb.saveFatallyErroredTransaction(&etx)
@@ -551,7 +551,7 @@ func saveAttempt(q pg.Q, etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTx
 	})
 }
 
-func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
 	if attempt.TxType == 0x2 {
 		return errors.New("bumping gas on initial send is not supported for EIP-1559 transactions")
 	}
@@ -579,7 +579,7 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx
 	return eb.tryAgainWithNewGas(etx, attempt, initialBroadcastAt, bumpedGasPrice, bumpedGasLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
 	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, gas.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")

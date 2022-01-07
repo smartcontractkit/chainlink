@@ -1,4 +1,4 @@
-package eth_test
+package client_test
 
 import (
 	"context"
@@ -10,11 +10,6 @@ import (
 	"testing"
 	"time"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,6 +20,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/atomic"
+
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestEthClient_TransactionReceipt(t *testing.T) {
@@ -50,7 +51,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 			return string(result), ""
 		})
 
-		ethClient, err := eth.NewClient(logger.TestLogger(t), wsUrl, nil, []url.URL{}, &cltest.FixtureChainID)
+		ethClient, err := evmclient.NewClient(logger.TestLogger(t), wsUrl, nil, []url.URL{}, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -71,7 +72,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 			return string(result), ""
 		})
 
-		ethClient, err := eth.NewClient(logger.TestLogger(t), wsUrl, nil, nil, &cltest.FixtureChainID)
+		ethClient, err := evmclient.NewClient(logger.TestLogger(t), wsUrl, nil, nil, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -96,7 +97,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 		return `"0x100"`, ""
 	})
 
-	ethClient, err := eth.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
+	ethClient, err := evmclient.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -132,7 +133,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 				return `"` + hexutil.EncodeBig(test.balance) + `"`, ""
 			})
 
-			ethClient, err := eth.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
+			ethClient, err := evmclient.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -162,7 +163,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			contractAddress := cltest.NewAddress()
 			userAddress := cltest.NewAddress()
-			functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+			functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
 			url := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
@@ -178,7 +179,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 				return `"` + hexutil.EncodeBig(test.balance) + `"`, ""
 			})
 
-			ethClient, err := eth.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
+			ethClient, err := evmclient.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -244,7 +245,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 				return test.rpcResp, ""
 			})
 
-			ethClient, err := eth.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
+			ethClient, err := evmclient.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -275,7 +276,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 		return `"` + tx.Hash().Hex() + `"`, ""
 	})
 
-	ethClient, err := eth.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
+	ethClient, err := evmclient.NewClient(logger.TestLogger(t), url, nil, nil, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -302,7 +303,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Cleanup(ts.Close)
 
 	sendonlyUrl := *cltest.MustParseURL(t, ts.URL)
-	ethClient, err := eth.NewClient(logger.TestLogger(t), wsUrl, nil, []url.URL{sendonlyUrl, sendonlyUrl}, &cltest.FixtureChainID)
+	ethClient, err := evmclient.NewClient(logger.TestLogger(t), wsUrl, nil, []url.URL{sendonlyUrl, sendonlyUrl}, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -346,12 +347,12 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 		return `"0x00"`, headResult
 	})
 
-	ethClient, err := eth.NewClient(logger.TestLogger(t), wsUrl, nil, []url.URL{}, chainId)
+	ethClient, err := evmclient.NewClient(logger.TestLogger(t), wsUrl, nil, []url.URL{}, chainId)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
 
-	headCh := make(chan *eth.Head)
+	headCh := make(chan *evmtypes.Head)
 	sub, err := ethClient.SubscribeNewHead(ctx, headCh)
 	require.NoError(t, err)
 	defer sub.Unsubscribe()

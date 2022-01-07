@@ -12,8 +12,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -38,7 +39,7 @@ type headTracker struct {
 	log             logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headSaver       httypes.HeadSaver
-	ethClient       eth.Client
+	ethClient       evmclient.Client
 	chainID         big.Int
 	config          Config
 
@@ -55,7 +56,7 @@ type headTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.
 func NewHeadTracker(
 	lggr logger.Logger,
-	ethClient eth.Client,
+	ethClient evmclient.Client,
 	config Config,
 	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
@@ -146,7 +147,7 @@ func (ht *headTracker) Healthy() error {
 	return nil
 }
 
-func (ht *headTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
+func (ht *headTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
 	}
@@ -159,7 +160,7 @@ func (ht *headTracker) Backfill(ctx context.Context, headWithChain *eth.Head, de
 	return ht.backfill(ctx, headWithChain.EarliestInChain(), baseHeight)
 }
 
-func (ht *headTracker) getInitialHead(ctx context.Context) (*eth.Head, error) {
+func (ht *headTracker) getInitialHead(ctx context.Context) (*evmtypes.Head, error) {
 	head, err := ht.ethClient.HeadByNumber(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch initial head")
@@ -172,7 +173,7 @@ func (ht *headTracker) getInitialHead(ctx context.Context) (*eth.Head, error) {
 	return head, nil
 }
 
-func (ht *headTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
+func (ht *headTracker) handleNewHead(ctx context.Context, head *evmtypes.Head) error {
 	prevHead := ht.headSaver.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
@@ -230,7 +231,7 @@ func (ht *headTracker) broadcastLoop() {
 				if item == nil {
 					continue
 				}
-				ht.headBroadcaster.BroadcastNewLongestChain(eth.AsHead(item))
+				ht.headBroadcaster.BroadcastNewLongestChain(evmtypes.AsHead(item))
 			}
 		}
 	} else {
@@ -245,7 +246,7 @@ func (ht *headTracker) broadcastLoop() {
 					if !exists {
 						break
 					}
-					ht.headBroadcaster.BroadcastNewLongestChain(eth.AsHead(item))
+					ht.headBroadcaster.BroadcastNewLongestChain(evmtypes.AsHead(item))
 				}
 			}
 		}
@@ -265,7 +266,7 @@ func (ht *headTracker) backfillLoop() {
 				if !exists {
 					break
 				}
-				head := eth.AsHead(item)
+				head := evmtypes.AsHead(item)
 				{
 					err := ht.Backfill(ht.ctx, head, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
@@ -280,7 +281,7 @@ func (ht *headTracker) backfillLoop() {
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *headTracker) backfill(ctx context.Context, head *eth.Head, baseHeight int64) (err error) {
+func (ht *headTracker) backfill(ctx context.Context, head *evmtypes.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
@@ -321,7 +322,7 @@ func (ht *headTracker) backfill(ctx context.Context, head *eth.Head, baseHeight 
 	return
 }
 
-func (ht *headTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head, error) {
+func (ht *headTracker) fetchAndSaveHead(ctx context.Context, n int64) (*evmtypes.Head, error) {
 	ht.log.Debugw("Fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if err != nil {
@@ -345,6 +346,6 @@ func (*nullTracker) Close() error              { return nil }
 func (*nullTracker) Ready() error              { return nil }
 func (*nullTracker) Healthy() error            { return nil }
 func (*nullTracker) SetLogLevel(zapcore.Level) {}
-func (*nullTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
+func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	return nil
 }

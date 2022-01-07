@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -19,8 +19,8 @@ import (
 	"go.uber.org/atomic"
 )
 
-func newHead() eth.Head {
-	return eth.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
+func newHead() evmtypes.Head {
+	return evmtypes.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
 }
 
 func Test_PromReporter_OnNewLongestChain(t *testing.T) {

@@ -21,8 +21,9 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -89,7 +90,7 @@ type EthConfirmer struct {
 	lggr      logger.Logger
 	db        *sqlx.DB
 	q         pg.Q
-	ethClient eth.Client
+	ethClient evmclient.Client
 	ChainKeyStore
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
@@ -105,7 +106,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *sqlx.DB, ethClient eth.Client, config Config, keystore KeyStore,
+func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	context, cancel := context.WithCancel(context.Background())
@@ -173,7 +174,7 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h := eth.AsHead(head)
+				h := evmtypes.AsHead(head)
 				if err := ec.ProcessHead(ec.ctx, h); err != nil {
 					ec.lggr.Errorw("Error processing head", "err", err)
 					continue
@@ -186,7 +187,7 @@ func (ec *EthConfirmer) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer) ProcessHead(ctx context.Context, head *eth.Head) error {
+func (ec *EthConfirmer) ProcessHead(ctx context.Context, head *evmtypes.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 
@@ -194,7 +195,7 @@ func (ec *EthConfirmer) ProcessHead(ctx context.Context, head *eth.Head) error {
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer) processHead(ctx context.Context, head *eth.Head) error {
+func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) error {
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead", "headNum", head.Number, "id", "eth_confirmer")
@@ -1191,7 +1192,7 @@ func saveAttemptWithNewState(q pg.Queryer, lggr logger.Logger, attempt EthTxAtte
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head *eth.Head) error {
+func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head *evmtypes.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
 		logArgs := []interface{}{
 			"evmChainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
@@ -1265,7 +1266,7 @@ ORDER BY nonce ASC
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
-func hasReceiptInLongestChain(etx EthTx, head *eth.Head) bool {
+func hasReceiptInLongestChain(etx EthTx, head *evmtypes.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1281,7 +1282,7 @@ func hasReceiptInLongestChain(etx EthTx, head *eth.Head) bool {
 	}
 }
 
-func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *eth.Head) error {
+func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *evmtypes.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1424,7 +1425,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *eth.Head) error {
+func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *evmtypes.Head) error {
 	type x struct {
 		ID      uuid.UUID
 		Receipt []byte

@@ -5,19 +5,19 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
 
 	offchainreporting "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -48,7 +48,7 @@ type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
 	hb      *htmocks.HeadBroadcaster
-	ec      *ethmocks.Client
+	ec      *evmclientmocks.Client
 	tracker *offchainreporting.ContractTracker
 }
 
@@ -80,7 +80,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.db = new(ocrmocks.OCRContractTrackerDB)
 	uni.lb = new(logmocks.Broadcaster)
 	uni.hb = new(htmocks.HeadBroadcaster)
-	uni.ec = new(ethmocks.Client)
+	uni.ec = new(evmclientmocks.Client)
 
 	db := pgtest.NewSqlxDB(t)
 	uni.tracker = offchainreporting.NewOCRContractTracker(
@@ -120,7 +120,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
-		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&eth.Head{Number: 42}, nil)
+		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&evmtypes.Head{Number: 42}, nil)
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
@@ -146,7 +146,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Run("after first head incoming, uses cached value", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
 
-		uni.tracker.OnNewLongestChain(context.Background(), &eth.Head{Number: 42})
+		uni.tracker.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 42})
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
@@ -157,7 +157,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Run("if headbroadcaster has it, uses the given value on start", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
 
-		uni.hb.On("Subscribe", uni.tracker).Return(&eth.Head{Number: 42}, func() {})
+		uni.hb.On("Subscribe", uni.tracker).Return(&evmtypes.Head{Number: 42}, func() {})
 		uni.db.On("LoadLatestRoundRequested").Return(ocr2aggregator.OCR2AggregatorRoundRequested{}, nil)
 		uni.lb.On("Register", uni.tracker, mock.Anything).Return(func() {})
 

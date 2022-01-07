@@ -1,8 +1,8 @@
 package bulletprooftxmanager
 
-import "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+import evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
-func SetEthClientOnEthConfirmer(ethClient eth.Client, ethConfirmer *EthConfirmer) {
+func SetEthClientOnEthConfirmer(ethClient evmclient.Client, ethConfirmer *EthConfirmer) {
 	ethConfirmer.ethClient = ethClient
 }
 

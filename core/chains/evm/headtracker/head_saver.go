@@ -5,8 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -26,7 +26,7 @@ func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver 
 	}
 }
 
-func (hs *headSaver) Save(ctx context.Context, head *eth.Head) error {
+func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 	if err := hs.orm.IdempotentInsertHead(ctx, head); err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (hs *headSaver) Save(ctx context.Context, head *eth.Head) error {
 	return hs.orm.TrimOldHeads(ctx, historyDepth)
 }
 
-func (hs *headSaver) LoadFromDB(ctx context.Context) (chain *eth.Head, err error) {
+func (hs *headSaver) LoadFromDB(ctx context.Context) (chain *evmtypes.Head, err error) {
 	historyDepth := uint(hs.config.EvmHeadTrackerHistoryDepth())
 	heads, err := hs.orm.LatestHeads(ctx, historyDepth)
 	if err != nil {
@@ -48,11 +48,11 @@ func (hs *headSaver) LoadFromDB(ctx context.Context) (chain *eth.Head, err error
 	return hs.heads.LatestHead(), nil
 }
 
-func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *eth.Head, err error) {
+func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head, err error) {
 	return hs.orm.LatestHead(ctx)
 }
 
-func (hs *headSaver) LatestChain() *eth.Head {
+func (hs *headSaver) LatestChain() *evmtypes.Head {
 	head := hs.heads.LatestHead()
 	if head == nil {
 		return nil
@@ -63,7 +63,7 @@ func (hs *headSaver) LatestChain() *eth.Head {
 	return head
 }
 
-func (hs *headSaver) Chain(hash common.Hash) *eth.Head {
+func (hs *headSaver) Chain(hash common.Hash) *evmtypes.Head {
 	return hs.heads.HeadByHash(hash)
 }
 
@@ -71,8 +71,8 @@ var NullSaver httypes.HeadSaver = &nullSaver{}
 
 type nullSaver struct{}
 
-func (*nullSaver) Save(ctx context.Context, head *eth.Head) error          { return nil }
-func (*nullSaver) LoadFromDB(ctx context.Context) (*eth.Head, error)       { return nil, nil }
-func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*eth.Head, error) { return nil, nil }
-func (*nullSaver) LatestChain() *eth.Head                                  { return nil }
-func (*nullSaver) Chain(hash common.Hash) *eth.Head                        { return nil }
+func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error          { return nil }
+func (*nullSaver) LoadFromDB(ctx context.Context) (*evmtypes.Head, error)       { return nil, nil }
+func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }
+func (*nullSaver) LatestChain() *evmtypes.Head                                  { return nil }
+func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                        { return nil }

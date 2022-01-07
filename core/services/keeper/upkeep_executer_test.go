@@ -18,9 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
-	ethmocks "github.com/smartcontractkit/chainlink/core/chains/evm/eth/mocks"
+	evmclientmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -33,14 +33,14 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func newHead() eth.Head {
-	return eth.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
+func newHead() evmtypes.Head {
+	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
 }
 
 func setup(t *testing.T) (
 	*sqlx.DB,
 	*configtest.TestGeneralConfig,
-	*ethmocks.Client,
+	*evmclientmocks.Client,
 	*keeper.UpkeepExecuter,
 	keeper.Registry,
 	keeper.UpkeepRegistration,

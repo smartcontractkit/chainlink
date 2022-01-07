@@ -18,9 +18,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gumocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -43,11 +44,11 @@ func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gumocks.Config {
 	return config
 }
 
-func newBlockHistoryEstimatorWithChainID(t *testing.T, c eth.Client, cfg gas.Config, cid big.Int) gas.Estimator {
+func newBlockHistoryEstimatorWithChainID(t *testing.T, c evmclient.Client, cfg gas.Config, cid big.Int) gas.Estimator {
 	return gas.NewBlockHistoryEstimator(logger.TestLogger(t), c, cfg, cid)
 }
 
-func newBlockHistoryEstimator(t *testing.T, c eth.Client, cfg gas.Config) *gas.BlockHistoryEstimator {
+func newBlockHistoryEstimator(t *testing.T, c evmclient.Client, cfg gas.Config) *gas.BlockHistoryEstimator {
 	iface := newBlockHistoryEstimatorWithChainID(t, c, cfg, cltest.FixtureChainID)
 	return gas.BlockHistoryEstimatorFromInterface(iface)
 }
@@ -76,7 +77,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
+		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -110,7 +111,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
+		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == int(historySize)
@@ -146,7 +147,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
+		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
 
@@ -302,7 +303,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b44
 		})
 
-		head := eth.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head := evmtypes.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
 		err = bhe.FetchBlocks(context.Background(), &head)
 		require.NoError(t, err)
 
@@ -366,8 +367,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[1].Result = &b3
 		})
 
-		head2 := eth.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := eth.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
 		head3.Parent = &head2
 		err := bhe.FetchBlocks(context.Background(), &head3)
 		require.NoError(t, err)
@@ -418,8 +419,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// RE-ORG, head2 and head3 have different hash than saved b2 and b3
-		head2 := eth.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := eth.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -489,8 +490,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		// head2 and head3 have identical hash to saved blocks
-		head2 := eth.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
-		head3 := eth.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head2 := evmtypes.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3 := evmtypes.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
 		head3.Parent = &head2
 
 		err := bhe.FetchBlocks(context.Background(), &head3)

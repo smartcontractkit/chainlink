@@ -5,24 +5,25 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
 
 // Heads is a collection of heads. All methods are thread-safe.
 type Heads interface {
 	// LatestHead returns the block header with the highest number that has been seen, or nil.
-	LatestHead() *eth.Head
+	LatestHead() *evmtypes.Head
 	// HeadByHash returns a head for the specified hash, or nil.
-	HeadByHash(hash common.Hash) *eth.Head
+	HeadByHash(hash common.Hash) *evmtypes.Head
 	// AddHeads adds newHeads to the collection, eliminates duplicates,
 	// sorts by head number, fixes parents and cuts off old heads (historyDepth).
-	AddHeads(historyDepth uint, newHeads ...*eth.Head)
+	AddHeads(historyDepth uint, newHeads ...*evmtypes.Head)
 	// Count returns number of heads in the collection.
 	Count() int
 }
 
 type heads struct {
-	heads []*eth.Head
+	heads []*evmtypes.Head
 	mu    sync.RWMutex
 }
 
@@ -30,7 +31,7 @@ func NewHeads() Heads {
 	return &heads{}
 }
 
-func (h *heads) LatestHead() *eth.Head {
+func (h *heads) LatestHead() *evmtypes.Head {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -40,7 +41,7 @@ func (h *heads) LatestHead() *eth.Head {
 	return h.heads[0]
 }
 
-func (h *heads) HeadByHash(hash common.Hash) *eth.Head {
+func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -59,11 +60,11 @@ func (h *heads) Count() int {
 	return len(h.heads)
 }
 
-func (h *heads) AddHeads(historyDepth uint, newHeads ...*eth.Head) {
+func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	headsMap := make(map[common.Hash]*eth.Head, len(h.heads)+len(newHeads))
+	headsMap := make(map[common.Hash]*evmtypes.Head, len(h.heads)+len(newHeads))
 	for _, head := range append(h.heads, newHeads...) {
 		if head.Hash == head.ParentHash {
 			// shouldn't happen but it is untrusted input
@@ -77,7 +78,7 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*eth.Head) {
 		headsMap[head.Hash] = &headCopy
 	}
 
-	heads := make([]*eth.Head, len(headsMap))
+	heads := make([]*evmtypes.Head, len(headsMap))
 	// unsorted unique heads
 	{
 		var i int

@@ -1,4 +1,4 @@
-package eth
+package client
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-//go:generate mockery --name SendOnlyNode --output ./mocks/ --case=underscore
+//go:generate mockery --name SendOnlyNode --output ../mocks/ --case=underscore
 
 // SendOnlyNode represents one ethereum node used as a sendonly
 type SendOnlyNode interface {
@@ -49,9 +49,9 @@ func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string) SendOnlyN
 }
 
 func (s *sendOnlyNode) Dial(_ context.Context) error {
-	s.log.Debugw("eth.Client#Dial(...)")
+	s.log.Debugw("evmclient.Client#Dial(...)")
 	if s.dialed {
-		panic("eth.Client.Dial(...) should only be called once during the node's lifetime.")
+		panic("evmclient.Client.Dial(...) should only be called once during the node's lifetime.")
 	}
 
 	uri := s.uri.String()
@@ -66,21 +66,21 @@ func (s *sendOnlyNode) Dial(_ context.Context) error {
 }
 
 func (s sendOnlyNode) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	s.log.Debugw("eth.Client#SendTransaction(...)",
+	s.log.Debugw("evmclient.Client#SendTransaction(...)",
 		"tx", tx,
 	)
 	return s.wrap(s.geth.SendTransaction(ctx, tx))
 }
 
 func (s sendOnlyNode) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	s.log.Debugw("eth.Client#BatchCall(...)",
+	s.log.Debugw("evmclient.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 	)
 	return s.wrap(s.rpc.BatchCallContext(ctx, b))
 }
 
 func (s sendOnlyNode) ChainID(ctx context.Context) (chainID *big.Int, err error) {
-	s.log.Debugw("eth.Client#ChainID(...)")
+	s.log.Debugw("evmclient.Client#ChainID(...)")
 	chainID, err = s.geth.ChainID(ctx)
 	err = s.wrap(err)
 	return

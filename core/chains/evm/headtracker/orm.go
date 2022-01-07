@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -18,15 +18,15 @@ import (
 type ORM interface {
 	// IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 	// No advisory lock required because this is thread safe.
-	IdempotentInsertHead(ctx context.Context, head *eth.Head) error
+	IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error
 	// TrimOldHeads deletes heads such that only the top N block numbers remain
 	TrimOldHeads(ctx context.Context, n uint) (err error)
 	// LatestHead returns the highest seen head
-	LatestHead(ctx context.Context) (head *eth.Head, err error)
+	LatestHead(ctx context.Context) (head *evmtypes.Head, err error)
 	// LatestHeads returns the latest heads up to given limit
-	LatestHeads(ctx context.Context, limit uint) (heads []*eth.Head, err error)
+	LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error)
 	// HeadByHash fetches the head with the given hash from the db, returns nil if none exists
-	HeadByHash(ctx context.Context, hash common.Hash) (head *eth.Head, err error)
+	HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error)
 }
 
 type orm struct {
@@ -38,7 +38,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, chainID big.Int) 
 	return &orm{pg.NewQ(db, lggr, cfg), utils.Big(chainID)}
 }
 
-func (orm *orm) IdempotentInsertHead(ctx context.Context, head *eth.Head) error {
+func (orm *orm) IdempotentInsertHead(ctx context.Context, head *evmtypes.Head) error {
 	// listener guarantees head.EVMChainID to be equal to orm.chainID
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	query := `
@@ -64,8 +64,8 @@ func (orm *orm) TrimOldHeads(ctx context.Context, n uint) (err error) {
 	)`, orm.chainID, n)
 }
 
-func (orm *orm) LatestHead(ctx context.Context) (head *eth.Head, err error) {
-	head = new(eth.Head)
+func (orm *orm) LatestHead(ctx context.Context) (head *evmtypes.Head, err error) {
+	head = new(evmtypes.Head)
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Get(head, `SELECT * FROM heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -75,16 +75,16 @@ func (orm *orm) LatestHead(ctx context.Context) (head *eth.Head, err error) {
 	return
 }
 
-func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*eth.Head, err error) {
+func (orm *orm) LatestHeads(ctx context.Context, limit uint) (heads []*evmtypes.Head, err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
 	err = q.Select(&heads, `SELECT * FROM heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
 	err = errors.Wrap(err, "LatestHeads failed")
 	return
 }
 
-func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *eth.Head, err error) {
+func (orm *orm) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
 	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
-	head = new(eth.Head)
+	head = new(evmtypes.Head)
 	err = q.Get(head, `SELECT * FROM heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
 	if err == sql.ErrNoRows {
 		return nil, nil

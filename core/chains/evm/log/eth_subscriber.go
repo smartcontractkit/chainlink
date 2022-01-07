@@ -9,7 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -17,14 +18,14 @@ import (
 
 type (
 	ethSubscriber struct {
-		ethClient eth.Client
+		ethClient evmclient.Client
 		config    Config
 		logger    logger.Logger
 		chStop    chan struct{}
 	}
 )
 
-func newEthSubscriber(ethClient eth.Client, config Config, logger logger.Logger, chStop chan struct{}) *ethSubscriber {
+func newEthSubscriber(ethClient evmclient.Client, config Config, logger logger.Logger, chStop chan struct{}) *ethSubscriber {
 	return &ethSubscriber{
 		ethClient: ethClient,
 		config:    config,
@@ -166,12 +167,10 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 	return
 }
 
-func (sub *ethSubscriber) fetchLogBatch(ctxParent context.Context, query ethereum.FilterQuery, start time.Time) ([]types.Log, error) {
+func (sub *ethSubscriber) fetchLogBatch(ctx context.Context, query ethereum.FilterQuery, start time.Time) ([]types.Log, error) {
 	var errOuter error
 	var result []types.Log
-	utils.RetryWithBackoff(ctxParent, func() (retry bool) {
-		ctx, cancel := eth.DefaultQueryCtx(ctxParent)
-		defer cancel()
+	utils.RetryWithBackoff(ctx, func() (retry bool) {
 		batchLogs, err := sub.ethClient.FilterLogs(ctx, query)
 
 		errOuter = err
@@ -211,12 +210,9 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 		}
 		chRawLogs := make(chan types.Log)
 
-		ctx2, cancel := eth.DefaultQueryCtx(ctx)
-		defer cancel()
-
 		sub.logger.Debugw("Calling SubscribeFilterLogs with params", "addresses", addresses, "topics", topics)
 
-		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
+		innerSub, err := sub.ethClient.SubscribeFilterLogs(ctx, filterQuery, chRawLogs)
 		if err != nil {
 			sub.logger.Errorw("Log subscriber could not create subscription to Ethereum node", "err", err)
 			return true

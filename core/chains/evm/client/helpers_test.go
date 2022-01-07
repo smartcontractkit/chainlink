@@ -1,4 +1,4 @@
-package eth
+package client
 
 import (
 	"fmt"

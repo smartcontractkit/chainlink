@@ -12,7 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -110,7 +110,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 }
 
 func (t *ETHCallTask) retrieveRevertReason(baseErr error, lggr logger.Logger) error {
-	reason, err := eth.ExtractRevertReasonFromRPCError(baseErr)
+	reason, err := evmclient.ExtractRevertReasonFromRPCError(baseErr)
 	if err != nil {
 		lggr.Errorw("failed to extract revert reason", "baseErr", baseErr, "error", err)
 		return baseErr

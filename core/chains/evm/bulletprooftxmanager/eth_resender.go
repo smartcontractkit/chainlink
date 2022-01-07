@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -34,7 +34,7 @@ const defaultResenderPollInterval = 5 * time.Second
 // if gas bumping is disabled)
 type EthResender struct {
 	db        *sqlx.DB
-	ethClient eth.Client
+	ethClient evmclient.Client
 	chainID   big.Int
 	interval  time.Duration
 	config    Config
@@ -47,7 +47,7 @@ type EthResender struct {
 }
 
 // NewEthResender creates a new concrete EthResender
-func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient eth.Client, pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient evmclient.Client, pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
@@ -190,7 +190,7 @@ func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 	var nNew int
 	var nFatal int
 	for _, req := range reqs {
-		serr := eth.NewSendError(req.Error)
+		serr := evmclient.NewSendError(req.Error)
 		if serr == nil {
 			nNew++
 		} else if serr.Fatal() {

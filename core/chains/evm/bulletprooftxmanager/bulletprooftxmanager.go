@@ -18,9 +18,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -82,14 +83,14 @@ type BulletproofTxManager struct {
 	logger           logger.Logger
 	db               *sqlx.DB
 	q                pg.Q
-	ethClient        eth.Client
+	ethClient        evmclient.Client
 	config           Config
 	keyStore         KeyStore
 	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
-	chHeads        chan *eth.Head
+	chHeads        chan *evmtypes.Head
 	trigger        chan common.Address
 	resumeCallback ResumeCallback
 
@@ -105,7 +106,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -118,7 +119,7 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, k
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
 		chainID:          *ethClient.ChainID(),
-		chHeads:          make(chan *eth.Head),
+		chHeads:          make(chan *evmtypes.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
@@ -240,7 +241,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
@@ -408,10 +409,10 @@ func signedTxHash(signedTx *gethTypes.Transaction, chainType chains.ChainType) (
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx, logger logger.Logger) *eth.SendError {
+func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAttempt, e EthTx, logger logger.Logger) *evmclient.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
-		return eth.NewFatalSendError(err)
+		return evmclient.NewFatalSendError(err)
 	}
 
 	err = ethClient.SendTransaction(ctx, signedTx)
@@ -419,7 +420,7 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 
 	a.EthTx = e // for logging
 	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
-	sendErr := eth.NewSendError(err)
+	sendErr := evmclient.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
 		return nil
@@ -429,7 +430,7 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 
 // gimulateTransaction pretends to "send" the transaction using eth_call
 // returns error on revert
-func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx) (hexutil.Bytes, error) {
+func simulateTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAttempt, e EthTx) (hexutil.Bytes, error) {
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
 	callArg := map[string]interface{}{
 		"from": e.FromAddress,
@@ -444,7 +445,7 @@ func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttem
 		"data":                 hexutil.Bytes(e.EncodedPayload),
 	}
 	var b hexutil.Bytes
-	baseErr := ethClient.CallContext(ctx, &b, "eth_call", callArg, eth.ToBlockNumArg(nil)) // always run simulation on "latest" block
+	baseErr := ethClient.CallContext(ctx, &b, "eth_call", callArg, evmclient.ToBlockNumArg(nil)) // always run simulation on "latest" block
 	return b, errors.Wrap(baseErr, "transaction simulation using eth_call failed")
 }
 
@@ -452,7 +453,7 @@ func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttem
 // May be useful for clearing stuck nonces
 func sendEmptyTransaction(
 	ctx context.Context,
-	ethClient eth.Client,
+	ethClient evmclient.Client,
 	keyStore KeyStore,
 	nonce uint64,
 	gasLimit uint64,
@@ -544,10 +545,10 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) OnNewLongestChain(context.Context, *eth.Head) {}
-func (n *NullTxManager) Start() error                                 { return nil }
-func (n *NullTxManager) Close() error                                 { return nil }
-func (n *NullTxManager) Trigger(common.Address)                       { panic(n.ErrMsg) }
+func (n *NullTxManager) OnNewLongestChain(context.Context, *evmtypes.Head) {}
+func (n *NullTxManager) Start() error                                      { return nil }
+func (n *NullTxManager) Close() error                                      { return nil }
+func (n *NullTxManager) Trigger(common.Address)                            { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }

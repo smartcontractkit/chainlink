@@ -8,19 +8,20 @@ import (
 	"sync"
 	"time"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
-	eth "github.com/smartcontractkit/chainlink/core/chains/evm/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 //go:generate mockery --name BalanceMonitor --output ../mocks/ --case=underscore
@@ -35,7 +36,7 @@ type (
 	balanceMonitor struct {
 		utils.StartStopOnce
 		logger         logger.Logger
-		ethClient      eth.Client
+		ethClient      evmclient.Client
 		chainID        string
 		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
@@ -47,7 +48,7 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(ethClient eth.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
@@ -86,7 +87,7 @@ func (bm *balanceMonitor) Healthy() error {
 }
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *eth.Head) {
+func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	ok := bm.IfStarted(func() {
 		bm.checkBalance(head)
 	})
@@ -96,7 +97,7 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *eth.Head) {
 
 }
 
-func (bm *balanceMonitor) checkBalance(head *eth.Head) {
+func (bm *balanceMonitor) checkBalance(head *evmtypes.Head) {
 	bm.logger.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }
@@ -202,15 +203,15 @@ func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error                                          { return nil }
-func (*NullBalanceMonitor) Close() error                                          { return nil }
-func (*NullBalanceMonitor) Ready() error                                          { return nil }
-func (*NullBalanceMonitor) Healthy() error                                        { return nil }
-func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
+func (*NullBalanceMonitor) Start() error                                               { return nil }
+func (*NullBalanceMonitor) Close() error                                               { return nil }
+func (*NullBalanceMonitor) Ready() error                                               { return nil }
+func (*NullBalanceMonitor) Healthy() error                                             { return nil }
+func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())
-	weif := new(big.Float).SetInt(eth.WeiPerEth)
+	weif := new(big.Float).SetInt(evmtypes.WeiPerEth)
 	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {
