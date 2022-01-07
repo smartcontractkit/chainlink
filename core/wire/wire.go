@@ -39,7 +39,6 @@ func InitializeProductionClient() *cmd.Client {
 		wire.Struct(new(cmd.DiskCookieStore), "*"),
 		wire.Struct(new(cmd.ChainlinkAppFactory)),
 		wire.Struct(new(cmd.ChainlinkRunner)),
-		wire.Bind(new(logger.Config), new(config.GeneralConfig)),
 		wire.Bind(new(cmd.DiskCookieConfig), new(config.GeneralConfig)),
 		wire.Bind(new(cmd.SessionCookieAuthenticatorConfig), new(config.GeneralConfig)),
 		wire.Bind(new(cmd.CookieStore), new(cmd.DiskCookieStore)),

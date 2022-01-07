@@ -18,8 +18,8 @@ import (
 // Injectors from wire.go:
 
 func InitializeProductionClient() *cmd.Client {
-	generalConfig := config.NewGeneralConfig()
-	loggerLogger := logger.NewLogger(generalConfig)
+	loggerLogger := logger.NewLogger()
+	generalConfig := config.NewGeneralConfig(loggerLogger)
 	chainlinkAppFactory := cmd.ChainlinkAppFactory{}
 	prompter := cmd.NewTerminalPrompter()
 	terminalKeyStoreAuthenticator := cmd.TerminalKeyStoreAuthenticator{
