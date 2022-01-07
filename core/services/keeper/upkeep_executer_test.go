@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
@@ -105,7 +104,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
+				require.Equal(t, upkeep.Registry.FromAddress.Hex(), newTx.FromAddress.Hex())
+				return newTx.GasLimit == gasLimit
+			}),
 		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{
@@ -128,8 +130,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		ethTxCreated.AwaitOrFail(t)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		assert.False(t, runs[0].HasErrors())
-		assert.False(t, runs[0].HasFatalErrors())
+		require.False(t, runs[0].HasErrors())
+		require.False(t, runs[0].HasFatalErrors())
 		waitLastRunHeight(t, db, upkeep, 20)
 
 		ethMock.AssertExpectations(t)
@@ -145,7 +147,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		}
 		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
+				require.Equal(t, upkeep.Registry.FromAddress.Hex(), newTx.FromAddress.Hex())
+				return newTx.GasLimit == gasLimit
+			}),
 		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{}, nil).
@@ -161,7 +166,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer.OnNewLongestChain(context.Background(), head)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		assert.False(t, runs[0].HasErrors())
+		require.False(t, runs[0].HasErrors())
 		etxs[0].AwaitOrFail(t)
 		waitLastRunHeight(t, db, upkeep, 36)
 
@@ -175,16 +180,21 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head = cltest.Head(40)
 
 		txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
+				require.Equal(t, upkeep.Registry.FromAddress.Hex(), newTx.FromAddress.Hex())
+				return newTx.GasLimit == gasLimit
+			}),
 		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{}, nil).
-			Run(func(mock.Arguments) { etxs[1].ItHappened() })
+			Run(func(mock.Arguments) {
+				etxs[1].ItHappened()
+			})
 
 		executer.OnNewLongestChain(context.Background(), head)
 		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 2)
-		assert.False(t, runs[1].HasErrors())
+		require.False(t, runs[1].HasErrors())
 		etxs[1].AwaitOrFail(t)
 		waitLastRunHeight(t, db, upkeep, 40)
 
