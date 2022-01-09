@@ -411,7 +411,8 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(config *configtest.TestGeneralConfig, keyStore *keystoremocks.Eth, txManager *bptxmmocks.TxManager) {
 			},
-			nil, nil, "chain not found", pipeline.RunInfo{IsRetryable: true}},
+			nil, nil, "chain not found", pipeline.RunInfo{IsRetryable: true},
+		},
 	}
 
 	for _, test := range tests {
