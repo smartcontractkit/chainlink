@@ -296,7 +296,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		// TODO: parameterize poll period
 		// TODO: pull client config from nodes
 		// TODO: If terra enabled
-		tc, err := terraclient.NewClient("42", "0.01", "1.5", "TODO", "TODO", "TODO", 10*time.Second, globalLogger)
+		chainID := "42"
+		tc, err := terraclient.NewClient("42", "0.01", "1.5", "TODO", "TODO", 10*time.Second, globalLogger)
 		if err != nil {
 			return nil, err
 		}
@@ -306,6 +307,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			db,
 			keyStore,
 			chainSet,
+			chainID,
+			tc,
 			txm,
 			globalLogger,
 		)

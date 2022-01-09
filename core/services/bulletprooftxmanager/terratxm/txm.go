@@ -117,11 +117,11 @@ func (txm *Txm) sendMsgBatch() {
 		}
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
-		txes, err := txm.tc.TxSearch(fmt.Sprintf("tx.hash = %s", resp.TxHash))
+		txes, err := txm.tc.TxsEvents([]string{fmt.Sprintf("tx.hash = %s", resp.TxResponse.TxHash)})
 		if err != nil {
 			// TODO
 		}
-		if txes.TotalCount != 1 {
+		if len(txes.Txs) != 1 {
 			// TODO
 		}
 		// Otherwise its definitely onchain, proceed to next batch

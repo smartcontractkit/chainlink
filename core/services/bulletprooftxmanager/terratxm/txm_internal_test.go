@@ -4,7 +4,8 @@ import (
 	"testing"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	cosmostypes "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -13,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	coretypes "github.com/tendermint/tendermint/rpc/core/types"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 )
 
@@ -30,20 +30,22 @@ func TestTxm(t *testing.T) {
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
-		tc.On("GasPrice").Return(sdk.NewDecCoinFromDec("uluna", sdk.MustNewDecFromStr("0.01")))
-		tc.On("SignAndBroadcast", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&sdk.TxResponse{}, nil)
-		tc.On("TxSearch", mock.Anything).Return(&coretypes.ResultTxSearch{
-			TotalCount: 1,
+		tc.On("GasPrice").Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
+		tc.On("SignAndBroadcast", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{
+			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
+		}, nil)
+		tc.On("TxsEvents", mock.Anything).Return(&txtypes.GetTxsEventResponse{
+			Txs: []*txtypes.Tx{&txtypes.Tx{}},
 		}, nil)
 
 		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 
 		// Enqueue a single msg, then send it in a batch
-		contract, err := sdk.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
+		contract, err := cosmostypes.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
 		require.NoError(t, err)
-		sender, err := sdk.AccAddressFromBech32(k1.PublicKeyStr())
+		sender, err := cosmostypes.AccAddressFromBech32(k1.PublicKeyStr())
 		require.NoError(t, err)
-		msg1 := wasmtypes.NewMsgExecuteContract(sender, contract, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), sdk.Coins{})
+		msg1 := wasmtypes.NewMsgExecuteContract(sender, contract, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), cosmostypes.Coins{})
 		d, err := msg1.Marshal()
 		require.NoError(t, err)
 		id1, err := txm.Enqueue(contract.String(), d)
@@ -61,25 +63,27 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
-		tc.On("GasPrice").Return(sdk.NewDecCoinFromDec("uluna", sdk.MustNewDecFromStr("0.01")))
-		tc.On("SignAndBroadcast", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&sdk.TxResponse{}, nil)
-		tc.On("TxSearch", mock.Anything).Return(&coretypes.ResultTxSearch{
-			TotalCount: 1,
+		tc.On("GasPrice").Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
+		tc.On("SignAndBroadcast", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{
+			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
+		}, nil)
+		tc.On("TxsEvents", mock.Anything).Return(&txtypes.GetTxsEventResponse{
+			Txs: []*txtypes.Tx{&txtypes.Tx{}},
 		}, nil)
 
 		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 
-		contract, err := sdk.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
+		contract, err := cosmostypes.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
 		require.NoError(t, err)
-		sender1, err := sdk.AccAddressFromBech32(k1.PublicKeyStr())
+		sender1, err := cosmostypes.AccAddressFromBech32(k1.PublicKeyStr())
 		require.NoError(t, err)
-		msg1 := wasmtypes.NewMsgExecuteContract(sender1, contract, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), sdk.Coins{})
+		msg1 := wasmtypes.NewMsgExecuteContract(sender1, contract, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), cosmostypes.Coins{})
 		d, err := msg1.Marshal()
 		require.NoError(t, err)
 
-		sender2, err := sdk.AccAddressFromBech32(k2.PublicKeyStr())
+		sender2, err := cosmostypes.AccAddressFromBech32(k2.PublicKeyStr())
 		require.NoError(t, err)
-		msg2 := wasmtypes.NewMsgExecuteContract(sender2, contract, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), sdk.Coins{})
+		msg2 := wasmtypes.NewMsgExecuteContract(sender2, contract, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), cosmostypes.Coins{})
 		d2, err := msg2.Marshal()
 		require.NoError(t, err)
 

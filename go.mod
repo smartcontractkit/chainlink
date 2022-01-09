@@ -54,9 +54,12 @@ require (
 	github.com/smartcontractkit/chainlink-terra v0.0.0-20220110020626-b80f1241d28f
 	github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
+	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.5
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
+	github.com/tendermint/tendermint v0.34.15
+	github.com/terra-money/core v0.5.14
 	github.com/terra-project/terra.go v1.0.0
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.9.3
@@ -279,10 +282,8 @@ require (
 	github.com/tendermint/btcd v0.1.1 // indirect
 	github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/tendermint/tendermint v0.34.15 // indirect
 	github.com/tendermint/tm-db v0.6.6 // indirect
 	github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125 // indirect
-	github.com/terra-money/core v0.5.14 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
@@ -319,4 +320,4 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 
-//replace github.com/smartcontractkit/chainlink-terra => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-terra
+replace github.com/smartcontractkit/chainlink-terra => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-terra

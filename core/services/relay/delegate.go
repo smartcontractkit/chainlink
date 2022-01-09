@@ -2,6 +2,7 @@ package relay
 
 import (
 	"encoding/json"
+	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/terratxm"
 
@@ -40,13 +41,13 @@ type delegate struct {
 	ks       keystore.Master
 }
 
-func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evmCh.ChainSet, terraTxm *terratxm.Txm, lggr logger.Logger) *delegate {
+func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evmCh.ChainSet, terraChainID string, tr terraclient.Reader, terraTxm *terratxm.Txm, lggr logger.Logger) *delegate {
 	return &delegate{
 		ks: ks,
 		relayers: map[types.Network]types.Relayer{
 			types.EVM:    evm.NewRelayer(db, chainSet, lggr),
 			types.Solana: solana.NewRelayer(lggr),
-			types.Terra:  terra.NewRelayer(lggr, terraTxm),
+			types.Terra:  terra.NewRelayer(lggr, terraTxm, tr, terraChainID),
 		},
 	}
 }
