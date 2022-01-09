@@ -50,7 +50,6 @@ func (t *ETHTxTask) Type() TaskType {
 func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var chainID StringParam
 	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID")
-
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
