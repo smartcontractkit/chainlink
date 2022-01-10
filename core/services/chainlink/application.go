@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/terratxm"

@@ -1,21 +1,34 @@
 package terrakey
 
 import (
+	"crypto/ecdsa"
 	cryptorand "crypto/rand"
 	"fmt"
 	"io"
+	"math/big"
 
-	cosmosed25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	//terrakey "github.com/smartcontractkit/terra.go/key"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/terra-project/terra.go/msg"
+)
+
+var (
+	curve              = crypto.S256()
+	secpSigningAlgo, _ = keyring.NewSigningAlgoFromString(string(hd.Secp256k1Type), []keyring.SignatureAlgo{hd.Secp256k1})
 )
 
 type Raw []byte
 
 func (raw Raw) Key() Key {
+	d := big.NewInt(0).SetBytes(raw)
+	privKey := secpSigningAlgo.Generate()(d.Bytes())
 	return Key{
-		PrivKey: cosmosed25519.GenPrivKeyFromSecret(raw),
-		secret:  raw,
+		d: d,
+		k: privKey,
 	}
 }
 
@@ -30,8 +43,8 @@ func (raw Raw) GoString() string {
 var _ fmt.GoStringer = &Key{}
 
 type Key struct {
-	*cosmosed25519.PrivKey
-	secret []byte
+	d *big.Int
+	k cryptotypes.PrivKey
 }
 
 func New() Key {
@@ -43,14 +56,18 @@ func MustNewInsecure(reader io.Reader) Key {
 }
 
 func newFrom(reader io.Reader) Key {
-	secret := make([]byte, 32)
-	_, err := io.ReadFull(reader, secret)
+	rawKey, err := ecdsa.GenerateKey(crypto.S256(), reader)
 	if err != nil {
 		panic(err)
 	}
+	privKey := secpSigningAlgo.Generate()(rawKey.D.Bytes())
+	if err != nil {
+		panic(err)
+	}
+
 	return Key{
-		PrivKey: cosmosed25519.GenPrivKeyFromSecret(secret),
-		secret:  secret,
+		d: rawKey.D,
+		k: privKey,
 	}
 }
 
@@ -59,17 +76,22 @@ func (key Key) ID() string {
 }
 
 func (key Key) PublicKey() (pubKey cryptotypes.PubKey) {
-	return key.PubKey()
+	return key.k.PubKey()
 }
 
 // PublicKeyStr retuns the terra address of the public key
 func (key Key) PublicKeyStr() string {
-	addr := msg.AccAddress(key.PubKey().Address())
+	addr := msg.AccAddress(key.k.PubKey().Address())
 	return addr.String()
 }
 
 func (key Key) Raw() Raw {
-	return key.secret
+	//return key.secret
+	return key.d.Bytes()
+}
+
+func (key Key) ToPrivKey() cryptotypes.PrivKey {
+	return key.k
 }
 
 func (key Key) String() string {

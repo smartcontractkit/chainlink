@@ -98,37 +98,48 @@ func (txm *Txm) sendMsgBatch() {
 		idsByFrom[ms.Sender] = append(idsByFrom[ms.Sender], m.ID)
 	}
 
+	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
+	gp := txm.tc.GasPrice()
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s)
 		an, sn, err := txm.tc.Account(sender)
 		if err != nil {
-			// TODO
+			txm.lggr.Errorw("to read account", "err", err, "from", sender.String())
+			continue
 		}
 		key, err := txm.ks.Get(sender.String())
 		if err != nil {
 			txm.lggr.Errorw("unable to find key for from address", "err", err, "from", sender.String())
-			return
+			continue
 		}
 		privKey := NewPrivKey(key)
-		// TODO: probably get gas price once up front
-		resp, err := txm.tc.SignAndBroadcast(msgs, an, sn, txm.tc.GasPrice(), privKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
+		txm.lggr.Debugw("sending a tx", "from", sender, "msgs", msgs)
+		resp, err := txm.tc.SignAndBroadcast(msgs, an, sn, gp, privKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 		if err != nil {
-			// TODO
+			txm.lggr.Errorw("error sending tx", "err", err, "resp", resp)
+			continue
 		}
+		time.Sleep(1 * time.Second)
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
-		txes, err := txm.tc.TxsEvents([]string{fmt.Sprintf("tx.hash = %s", resp.TxResponse.TxHash)})
+		txes, err := txm.tc.TxsEvents([]string{fmt.Sprintf("tx.hash='%s'", resp.TxResponse.TxHash)})
 		if err != nil {
-			// TODO
+			txm.lggr.Errorw("error looking for hash of tx", "err", err, "resp", txes)
+			continue
+		}
+		if txes == nil {
+			continue
 		}
 		if len(txes.Txs) != 1 {
-			// TODO
+			txm.lggr.Errorw("expected one tx to be found", "txes", txes, "num", len(txes.Txs))
+			continue
 		}
 		// Otherwise its definitely onchain, proceed to next batch
 		err = txm.orm.UpdateMsgsWithState(idsByFrom[s], Completed)
 		if err != nil {
-			// TODO
+			continue
 		}
+		txm.lggr.Infow("successfully sent batch", "hash", txes.TxResponses[0].TxHash, "msgs", msgs)
 	}
 }
 

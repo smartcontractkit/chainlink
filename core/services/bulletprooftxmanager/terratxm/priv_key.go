@@ -24,7 +24,7 @@ func (k PrivKey) Bytes() []byte {
 	return []byte{} // does not expose private key
 }
 func (k PrivKey) Sign(msg []byte) ([]byte, error) {
-	return k.key.Sign(msg)
+	return k.key.ToPrivKey().Sign(msg)
 }
 func (k PrivKey) PubKey() cryptotypes.PubKey {
 	return k.key.PublicKey()
