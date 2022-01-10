@@ -106,14 +106,15 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
 		}
 
-		programID, err := solanaGo.PublicKeyFromBase58(spec.ContractID)
+		// use state account as contract ID (unique for each feed, program account is not)
+		stateID, err := solanaGo.PublicKeyFromBase58(spec.ContractID)
 		if err != nil {
 			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.ContractID")
 		}
 
-		stateID, err := solanaGo.PublicKeyFromBase58(config.StateID)
+		programID, err := solanaGo.PublicKeyFromBase58(config.OCR2ProgramID)
 		if err != nil {
-			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.StateID")
+			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.OCR2ProgramID")
 		}
 
 		storeProgramID, err := solanaGo.PublicKeyFromBase58(config.StoreProgramID)
@@ -141,7 +142,6 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
 			NodeEndpointHTTP:   config.NodeEndpointHTTP,
-			NodeEndpointWS:     config.NodeEndpointWS,
 			ProgramID:          programID,
 			StateID:            stateID,
 			StoreProgramID:     storeProgramID,
