@@ -51,7 +51,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-solana v0.0.0-20220110150750-26cf3ee24c90
-	github.com/smartcontractkit/chainlink-terra v0.0.0-20220110020626-b80f1241d28f
+	github.com/smartcontractkit/chainlink-terra v0.0.0-20220110181313-366d471db67b
 	github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -318,4 +318,4 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 
-replace github.com/smartcontractkit/chainlink-terra => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-terra
+//replace github.com/smartcontractkit/chainlink-terra => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-terra
