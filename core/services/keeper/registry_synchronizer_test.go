@@ -13,17 +13,17 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/log"
-	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -51,7 +51,7 @@ var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
 func setupRegistrySync(t *testing.T) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*ethmocks.Client,
+	*evmmocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {

@@ -14,11 +14,12 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -52,7 +53,7 @@ type OCRContractTrackerDB interface {
 type ContractTracker struct {
 	utils.StartStopOnce
 
-	ethClient        eth.Client
+	ethClient        evmclient.Client
 	contract         *offchain_aggregator_wrapper.OffchainAggregator
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer
 	contractCaller   *ocr2aggregator.OCR2AggregatorCaller
@@ -92,7 +93,7 @@ func NewOCRContractTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer,
 	contractCaller *ocr2aggregator.OCR2AggregatorCaller,
-	ethClient eth.Client,
+	ethClient evmclient.Client,
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
@@ -149,7 +150,7 @@ func (t *ContractTracker) Start() error {
 			MinIncomingConfirmations: 1,
 		})
 
-		var latestHead *eth.Head
+		var latestHead *evmtypes.Head
 		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
 		if latestHead != nil {
 			t.setLatestBlockHeight(*latestHead)
@@ -174,14 +175,14 @@ func (t *ContractTracker) Close() error {
 }
 
 // Connect conforms to HeadTrackable
-func (t *ContractTracker) Connect(*eth.Head) error { return nil }
+func (t *ContractTracker) Connect(*evmtypes.Head) error { return nil }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *ContractTracker) OnNewLongestChain(_ context.Context, h *eth.Head) {
+func (t *ContractTracker) OnNewLongestChain(_ context.Context, h *evmtypes.Head) {
 	t.setLatestBlockHeight(*h)
 }
 
-func (t *ContractTracker) setLatestBlockHeight(h eth.Head) {
+func (t *ContractTracker) setLatestBlockHeight(h evmtypes.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64
