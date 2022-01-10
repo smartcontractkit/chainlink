@@ -1,6 +1,7 @@
 package terratxm
 
 import (
+	"regexp"
 	"testing"
 	"time"
 
@@ -16,6 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 )
+
+func TestErrMatch(t *testing.T) {
+	re, err := regexp.Compile(`^.*failed to execute message; message index: (?P<Index>\d{1}):.*$`)
+	require.NoError(t, err)
+	errStr := "rpc error: code = InvalidArgument desc = failed to execute message; message index: 0: Error parsing into type my_first_contract::msg::ExecuteMsg: unknown variant `blah`, expected `increment` or `reset`: execute wasm contract failed: invalid request"
+	m := re.FindStringSubmatch(errStr)
+	assert.Equal(t, m[1], "0")
+	t.Log(len(m))
+}
 
 func TestTxm(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)

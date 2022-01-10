@@ -4,35 +4,37 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/terra.go/msg"
-	"github.com/stretchr/testify/assert"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTxmStartStop(t *testing.T) {
-	t.Skip() // Local only unless we want to add terrad to CI env
+	//t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
+	orm := terratxm.NewORM(db, lggr, pgtest.NewPGCfg(true))
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start())
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	accounts, testdir := terraclient.SetupLocalTerraNode(t, "42")
-	tc, err := terraclient.NewClient("42", "0.01", "1.5", "http://127.0.0.1:26657", "https://fcd.terra.dev/", time.Second, lggr)
+	tc, err := terraclient.NewClient("42", "0.01", "1.5", "http://127.0.0.1:26657", "https://fcd.terra.dev/", 10, lggr)
 	require.NoError(t, err)
 
 	// First create a transmitter key and fund it with 1k uluna
@@ -43,10 +45,9 @@ func TestTxmStartStop(t *testing.T) {
 	require.NoError(t, err)
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
-	resp, err := tc.SignAndBroadcast([]msg.Msg{msg.NewMsgSend(accounts[0].Address, transmitterID, msg.NewCoins(msg.NewInt64Coin("uluna", 100000)))},
+	_, err = tc.SignAndBroadcast([]msg.Msg{msg.NewMsgSend(accounts[0].Address, transmitterID, msg.NewCoins(msg.NewInt64Coin("uluna", 100000)))},
 		an, sn, tc.GasPrice(), accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	require.NoError(t, err)
-	t.Log(resp.TxResponse)
 
 	contractID := terraclient.DeployTestContract(t, accounts[0], terraclient.Account{
 		Name:       "transmitter",
@@ -55,30 +56,47 @@ func TestTxmStartStop(t *testing.T) {
 	}, tc, testdir, "../../../testdata/my_first_contract.wasm")
 
 	// Start txm
-	txm := terratxm.NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb, time.Second)
+	txm := terratxm.NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb, 5*time.Second)
 	require.NoError(t, txm.Start())
 
 	// Change the contract state
 	setMsg := wasmtypes.NewMsgExecuteContract(transmitterID, contractID, []byte(`{"reset":{"count":5}}`), sdk.Coins{})
-	b, err := setMsg.Marshal()
+	validBytes, err := setMsg.Marshal()
 	require.NoError(t, err)
-	id, err := txm.Enqueue(contractID.String(), b)
+	_, err = txm.Enqueue(contractID.String(), validBytes)
 	require.NoError(t, err)
-	t.Log(id)
 
 	// Observe the counter gets set eventually
-	set := false
-	for i := 0; i < 5; i++ {
+	gomega.NewWithT(t).Eventually(func() bool {
 		d, err := tc.ContractStore(contractID.String(), []byte(`{"get_count":{}}`))
 		require.NoError(t, err)
 		t.Log("contract value", string(d))
-		if string(d) == `{"count":5}` {
-			set = true
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-	assert.True(t, set)
+		return string(d) == `{"count":5}`
+	}, 10*time.Second, time.Second).Should(gomega.BeTrue())
+	// Ensure messages are completed
+	gomega.NewWithT(t).Eventually(func() bool {
+		msgs, err := orm.SelectMsgsWithState(terratxm.Completed)
+		require.NoError(t, err)
+		return 1 == len(msgs)
+	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+
+	// Ensure invalid msgs are marked as errored
+	invalidMsg := wasmtypes.NewMsgExecuteContract(transmitterID, contractID, []byte(`{"blah":{"blah":5}}`), sdk.Coins{})
+	invalidBytes, err := invalidMsg.Marshal()
+	require.NoError(t, err)
+	_, err = txm.Enqueue(contractID.String(), invalidBytes)
+	_, err = txm.Enqueue(contractID.String(), invalidBytes)
+	_, err = txm.Enqueue(contractID.String(), validBytes)
+	require.NoError(t, err)
+
+	// Ensure messages are completed
+	gomega.NewWithT(t).Eventually(func() bool {
+		succeeded, err := orm.SelectMsgsWithState(terratxm.Errored)
+		require.NoError(t, err)
+		errored, err := orm.SelectMsgsWithState(terratxm.Errored)
+		require.NoError(t, err)
+		return 2 == len(succeeded) && 2 == len(errored)
+	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
 
 	// Observe the messages have been marked as completed
 	require.NoError(t, txm.Close())

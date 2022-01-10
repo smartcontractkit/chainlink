@@ -295,7 +295,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		// TODO: pull client config from nodes
 		// TODO: If terra enabled
 		chainID := "42"
-		tc, err := terraclient.NewClient("42", "0.01", "1.5", "TODO", "TODO", 10*time.Second, globalLogger)
+		tc, err := terraclient.NewClient("42", "0.01", "1.5", "TODO", "TODO", 10, globalLogger)
 		if err != nil {
 			return nil, err
 		}
