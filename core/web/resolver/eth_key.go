@@ -52,6 +52,7 @@ func (r *ETHKeyResolver) IsFunding() bool {
 	return r.key.state.IsFunding
 }
 
+// ETHBalance returns the ETH balance available
 func (r *ETHKeyResolver) ETHBalance(ctx context.Context) *string {
 	if r.key.chain == nil {
 		return nil
@@ -60,14 +61,7 @@ func (r *ETHKeyResolver) ETHBalance(ctx context.Context) *string {
 	balanceMonitor := r.key.chain.BalanceMonitor()
 
 	if balanceMonitor == nil {
-		balance, err := r.key.chain.Client().BalanceAt(ctx, r.key.state.Address.Address(), nil)
-		if err != nil {
-			return nil
-		}
-
-		value := balance.String()
-
-		return &value
+		return nil
 	}
 
 	balance := balanceMonitor.GetEthBalance(r.key.state.Address.Address())
