@@ -10,14 +10,14 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -71,7 +71,7 @@ type listenerV1 struct {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *eth.Head) {
+func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
@@ -79,7 +79,7 @@ func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	}
 }
 
-func (lsn *listenerV1) setLatestHead(h *eth.Head) {
+func (lsn *listenerV1) setLatestHead(h *evmtypes.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(h.Number)

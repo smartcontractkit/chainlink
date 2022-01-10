@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -61,7 +61,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**eth.Head)
+			head := args.Get(1).(**evmtypes.Head)
 			*head = cltest.Head(10)
 		}).
 		Return(nil)

@@ -9,8 +9,8 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
