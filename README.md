@@ -21,7 +21,7 @@ All major release versions have pre-built docker images available for download f
 If you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
 If you are here to report a bug or request a feature, please [check currently open Issues](https://github.com/smartcontractkit/chainlink/issues).
 For more information about how to get started with Chainlink, check our [official documentation](https://docs.chain.link/).
-Examples of how to utilize and integrate Chainlinks can be found in the [Chainlink Truffle Box](https://github.com/smartcontractkit/box).
+Resources for Solidity developers can be found in the [Chainlink Hardhat Box](https://github.com/smartcontractkit/hardhat-starter-kit).
 
 ## Community
 
@@ -57,7 +57,7 @@ Ethereum node versions currently tested and supported:
 - [Parity/Openethereum](https://github.com/openethereum/openethereum)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
 
-We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run that latest version available.
+We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
 ## Running a local Chainlink node
 
