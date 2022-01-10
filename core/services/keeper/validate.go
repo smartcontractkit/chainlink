@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	// expectedObservationSourceRaw this is the expected observation source of the keeper job.
-	expectedObservationSourceRaw = `
+	// ExpectedObservationSource this is the expected observation source of the keeper job.
+	ExpectedObservationSource = `
 encode_check_upkeep_tx   [type=ethabiencode
                           abi="checkUpkeep(uint256 id, address from)"
                           data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
@@ -35,17 +35,19 @@ encode_perform_upkeep_tx [type=ethabiencode
 perform_upkeep_tx        [type=ethtx
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
+                          from="[$(jobSpec.fromAddress)]"
+                          evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\"jobID\":$(jobSpec.jobID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`
 )
 
-// expectedPipeline it is basically parsed expectedObservationSourceRaw value
+// expectedPipeline it is basically parsed ExpectedObservationSource value
 var expectedPipeline pipeline.Pipeline
 
 func init() {
-	pp, err := pipeline.Parse(expectedObservationSourceRaw)
+	pp, err := pipeline.Parse(ExpectedObservationSource)
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse default observation source: %v", err))
 	}

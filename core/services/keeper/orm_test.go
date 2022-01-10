@@ -32,7 +32,7 @@ func setupKeeperDB(t *testing.T) (
 	gcfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	orm := keeper.NewORM(db, logger.TestLogger(t), nil, cfg, bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), cfg, bulletprooftxmanager.SendEveryStrategy{})
 	return db, cfg, orm
 }
 
