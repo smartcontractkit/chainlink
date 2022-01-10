@@ -82,6 +82,8 @@ perform_upkeep_tx        [type=ethtx
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
+                          from="[$(jobSpec.fromAddress)]"
+                          evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
                           txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
