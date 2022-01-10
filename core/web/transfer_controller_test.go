@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -113,10 +113,10 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
 	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
-	overrides := configtest.GeneralConfigOverrides{
-		// GlobalBalanceMonitorEnabled: null.BoolFrom(false),
-	}
-	app := cltest.NewApplicationWithKeyAndBalanceMonitorDisabled(t, overrides, ethClient, key)
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+
+	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
