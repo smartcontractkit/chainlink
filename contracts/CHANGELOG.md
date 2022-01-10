@@ -11,6 +11,12 @@
 - Changed `ArbitrumValidator#validate` target to `ArbitrumSequencerUptimeFeed` instead of
   Flags contract.
 
+## 0.3.1 - 2022-01-05
+
+### Changed:
+
+- Fixed install issue with npm.
+
 ## 0.3.0 - 2021-12-09
 
 ### Added
