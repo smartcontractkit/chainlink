@@ -173,7 +173,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("errors if submission chain not found", func(t *testing.T) {
-		_, config, ethMock, _, registry, _, job, jpv2, _, _, ch, orm := setup(t)
+		db, _, ethMock, _, _, _, job, jpv2, _, _, ch, orm := setup(t)
 
 		// change chain ID to non-configured chain
 		job.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
@@ -181,26 +181,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 		err := executer.Start()
 		require.NoError(t, err)
-
-		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
-
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
-		registryMock.MockMatchedResponse(
-			"checkUpkeep",
-			func(callArgs ethereum.CallMsg) bool {
-				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
-					callArgs.Gas == 650_000
-			},
-			checkUpkeepResponse,
-		)
-
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), &head)
-		runs := cltest.WaitForPipelineError(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		require.Len(t, runs, 1)
-		assert.True(t, runs[0].HasErrors())
-		assert.True(t, runs[0].HasFatalErrors())
-
+		// TODO we want to see an errored run result once this is completed
+		// https://app.shortcut.com/chainlinklabs/story/25397/remove-failearly-flag-from-eth-call-task
+		cltest.AssertPipelineRunsStays(t, job.PipelineSpecID, db, 0)
 		ethMock.AssertExpectations(t)
 	})
 
