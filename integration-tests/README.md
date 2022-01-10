@@ -44,5 +44,5 @@ GETH_VERSION=v1.10.15
 If you want more fine grained control, have a look over at our [helmenv](https://github.com/smartcontractkit/helmenv/) chainlink charts to get a grasp of how things are structured. We're working on improving the UX of this system, but for now, make use of the `CHARTS` environment variable.
 
 ```sh
-CHARTS={"chainlink":"values":{"env":{"feature_offchain_reporting":"true"}}}
+CHARTS='{"chainlink":{"values":{"env":{"evm_eip1559_dynamic_fees":"true"}}}}'
 ```

@@ -93,6 +93,24 @@ ds2 -> ds2_parse -> answer1;
 answer1 [type=median index=0];
 """
 `
+	OCR2SolanaSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
+isBootstrapPeer = false
+p2pBootstrapPeers = []
+relay = "solana"
+transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
+observationSource = """
+"""
+juelsPerFeeCoinSource = """
+"""
+
+[relayConfig]
+nodeEndpointHTTP = "http://127.0.0.1:8899"
+ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
+storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
+transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"`
 
 	WebhookSpecNoBody = `
 type            = "webhook"
