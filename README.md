@@ -81,7 +81,7 @@ By default this will start on port 6688. You should be able to access the UI at 
 
 Chainlink provides a remote CLI client as well as a UI. Once your node has started, you can open a new terminal window to use the CLI. You will need to log in to authorize the client first:
 
-```base
+```bash
 chainlink admin login
 ```
 
