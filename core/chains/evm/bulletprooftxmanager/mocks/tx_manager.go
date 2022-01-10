@@ -7,7 +7,7 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 
 	common "github.com/ethereum/go-ethereum/common"
 
