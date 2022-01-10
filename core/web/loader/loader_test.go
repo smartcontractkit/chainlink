@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
