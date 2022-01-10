@@ -1,12 +1,11 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
   "private": false,
   "scripts": {
-    "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') === -1) throw new Error('Please use yarn to install dependencies\\n\\n')\"",
     "test": "hardhat test",
     "size": "hardhat size-contracts",
     "clean": "hardhat clean",
@@ -42,6 +41,9 @@
     "hardhat": "^2.4.1",
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-contract-sizer": "^2.0.3",
+    "prettier-plugin-solidity": "1.0.0-beta.18",
+    "solhint": "^3.3.6",
+    "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "^0.7.17",
     "ts-node": "^10.0.0",
     "typechain": "^5.0.0",

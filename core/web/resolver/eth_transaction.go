@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )

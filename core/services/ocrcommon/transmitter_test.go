@@ -6,10 +6,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
