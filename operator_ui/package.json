@@ -7,8 +7,6 @@
     "node": "^12.0.0"
   },
   "scripts": {
-    "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') === -1) throw new Error('Please use yarn to install dependencies\\n\\n')\"",
-    "prestart": "yarn generate",
     "start": "webpack serve --config webpack.dev.js",
     "serve": "serve dist -p 3000 --config webpack.prod.js",
     "test": "jest",

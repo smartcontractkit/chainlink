@@ -6,7 +6,7 @@ import (
 	big "math/big"
 
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 
 	config "github.com/smartcontractkit/chainlink/core/config"
 

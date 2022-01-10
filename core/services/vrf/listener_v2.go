@@ -14,15 +14,16 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -53,7 +54,7 @@ type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
 	l              logger.Logger
-	ethClient      eth.Client
+	ethClient      evmclient.Client
 	logBroadcaster log.Broadcaster
 	txm            bulletprooftxmanager.TxManager
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
@@ -125,7 +126,7 @@ func (lsn *listenerV2) Start() error {
 	})
 }
 
-func (lsn *listenerV2) setLatestHead(head *eth.Head) {
+func (lsn *listenerV2) setLatestHead(head *evmtypes.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(head.Number)
@@ -135,7 +136,7 @@ func (lsn *listenerV2) setLatestHead(head *eth.Head) {
 }
 
 // OnNewLongestChain is called by the head broadcaster when a new head is available.
-func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	lsn.setLatestHead(head)
 }
 
