@@ -4,8 +4,6 @@ import (
 	"math/big"
 	"strings"
 
-	txm "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-
 	types2 "github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"

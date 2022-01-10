@@ -12,7 +12,7 @@ import (
 
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/terratxm"
+	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 
