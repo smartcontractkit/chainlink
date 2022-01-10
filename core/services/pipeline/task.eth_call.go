@@ -92,6 +92,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 
 	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
+		lggr.Errorf("Invalid chain ID %s", chainID)
 		return Result{Error: err}, runInfo
 	}
 

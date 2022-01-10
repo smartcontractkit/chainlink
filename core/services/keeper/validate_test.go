@@ -71,6 +71,7 @@ check_upkeep_tx          [type=ethcall
                           gasTipCap="$(jobSpec.gasTipCap)"
                           gasFeeCap="$(jobSpec.gasFeeCap)"
                           extractRevertReason=true
+													evmChainID="$(jobSpec.evmChainID)"
                           contract="$(jobSpec.contractAddress)"
                           data="$(encode_check_upkeep_tx)"]
 decode_check_upkeep_tx   [type=ethabidecode

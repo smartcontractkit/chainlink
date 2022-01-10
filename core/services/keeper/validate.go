@@ -21,6 +21,7 @@ encode_check_upkeep_tx   [type=ethabiencode
 check_upkeep_tx          [type=ethcall
                           failEarly=true
                           extractRevertReason=true
+                          evmChainID="$(jobSpec.evmChainID)"
                           contract="$(jobSpec.contractAddress)"
                           gas="$(jobSpec.checkUpkeepGasLimit)"
                           gasPrice="$(jobSpec.gasPrice)"
