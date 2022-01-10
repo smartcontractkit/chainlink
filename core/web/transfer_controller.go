@@ -78,7 +78,6 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 	} else {
 		balance, err = chain.Client().BalanceAt(c, fromAddr, nil)
 		if err != nil {
-			// jsonAPIError(c, http.StatusInternalServerError, err)
 			return err
 		}
 	}
@@ -86,7 +85,6 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 	zero := big.NewInt(0)
 
 	if balance == nil || balance.Cmp(zero) == 0 {
-		// jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("balance is too low for this transaction to be executed: %v", balance))
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)
 	}
 
@@ -96,7 +94,6 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 	estimator := chain.TxManager().GetGasEstimator()
 	gasPrice, gasLimit, err = estimator.GetLegacyGas(nil, gasLimit)
 	if err != nil {
-		// jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to estimate gas"))
 		return errors.Wrap(err, "failed to estimate gas")
 	}
 
@@ -106,7 +103,6 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 	amountWithFees := new(big.Int).Add(amountAsBig.ToInt(), fee)
 	if balance.Cmp(amountWithFees) < 0 {
 		// ETH balance is less than the sent amount + fees
-		// jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("balance is too low for this transaction to be executed: %v", balance))
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)
 	}
 
