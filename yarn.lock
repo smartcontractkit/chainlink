@@ -3741,10 +3741,10 @@
     find-up "^4.1.0"
     fs-extra "^8.1.0"
 
-"@openzeppelin/contracts@^4.3.3":
-  version "4.3.3"
-  resolved "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-4.3.3.tgz#ff6ee919fc2a1abaf72b22814bfb72ed129ec137"
-  integrity sha512-tDBopO1c98Yk7Cv/PZlHqrvtVjlgK5R4J6jxLwoO7qxK4xqOiZG+zSkIvGFpPZ0ikc3QOED3plgdqjgNTnBc7g==
+"@openzeppelin/contracts@^4.4.1":
+  version "4.4.1"
+  resolved "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-4.4.1.tgz#3382db2cd83ab565ed9626765e7da92944b45de8"
+  integrity sha512-o+pHCf/yMLSlV5MkDQEzEQL402i6SoRnktru+0rdSxVEFZcTzzGhZCAtZjUFyKGazMSv1TilzMg+RbED1N8XHQ==
 
 "@openzeppelin/test-helpers@^0.5.11":
   version "0.5.11"
@@ -11111,9 +11111,9 @@ got@^7.1.0:
     url-to-options "^1.0.1"
 
 graceful-fs@^4.1.10:
-  version "4.2.8"
-  resolved "https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.8.tgz#e412b8d33f5e006593cbd3cee6df9f2cebbe802a"
-  integrity sha512-qkIilPUYcNhJpd33n0GBXTB1MMPp14TxEsEs0pTrsSVucApsYzW5V+Q8Qxhik6KU3evy+qkAAowTByymK0avdg==
+  version "4.2.9"
+  resolved "https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.9.tgz#041b05df45755e587a24942279b9d113146e1c96"
+  integrity sha512-NtNxqUcXgpW2iMrfqSfR73Glt39K+BLwWsPs94yR63v45T0Wbej7eRmL5cWfwEgqXnmjQp3zaJTshdRW/qC2ZQ==
 
 graceful-fs@^4.1.11, graceful-fs@^4.1.2, graceful-fs@^4.1.6, graceful-fs@^4.1.9:
   version "4.2.3"
@@ -15676,9 +15676,9 @@ printj@~1.1.0:
   integrity sha512-zA2SmoLaxZyArQTOPj5LXecR+RagfPSU5Kw1qP+jkWeNlrq+eJZyY2oS68SU1Z/7/myXM4lo9716laOFAVStCQ==
 
 prismjs@^1.21.0, prismjs@^1.22.0, prismjs@~1.24.0:
-  version "1.25.0"
-  resolved "https://registry.npmjs.org/prismjs/-/prismjs-1.25.0.tgz#6f822df1bdad965734b310b315a23315cf999756"
-  integrity sha512-WCjJHl1KEWbnkQom1+SzftbtXMKQoezOCYs5rECqMN+jP+apI7ftoflyqigqzopSO3hMhTEb0mFClA8lkolgEg==
+  version "1.26.0"
+  resolved "https://registry.npmjs.org/prismjs/-/prismjs-1.26.0.tgz#16881b594828bb6b45296083a8cbab46b0accd47"
+  integrity sha512-HUoH9C5Z3jKkl3UunCyiD5jwk0+Hz0fIgQ2nbwU2Oo/ceuTAQAg+pPVnfdt2TJWRVLcxKh9iuoYDUSc8clb5UQ==
 
 private@^0.1.6, private@^0.1.8:
   version "0.1.8"
