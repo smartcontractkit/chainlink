@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -88,18 +89,9 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
-func retryLogMsg(count int) string {
-	if count == 1 {
-		return "Could not get lock, retrying..."
-	} else if count%1000 == 0 || count&(count-1) == 0 {
-		return "Still waiting for lock..."
-	}
-	return ""
-}
-
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (app chainlink.Application, err error) {
-	appLggr := logger.NewLogger(cfg)
+	appLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
@@ -172,7 +164,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 	if err != nil {
 		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr, cfg)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           sig,

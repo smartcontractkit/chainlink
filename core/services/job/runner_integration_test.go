@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -364,7 +366,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -416,7 +418,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -450,7 +452,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -478,7 +480,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -508,7 +510,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(

@@ -16,11 +16,13 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -50,17 +52,17 @@ type (
 	OCRContractTracker struct {
 		utils.StartStopOnce
 
-		ethClient        eth.Client
+		ethClient        evmclient.Client
 		contract         *offchain_aggregator_wrapper.OffchainAggregator
 		contractFilterer *offchainaggregator.OffchainAggregatorFilterer
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		logBroadcaster   log.Broadcaster
 		jobID            int32
 		logger           logger.Logger
-		ocrdb            OCRContractTrackerDB
+		ocrDB            OCRContractTrackerDB
 		q                pg.Q
-		blockTranslator  BlockTranslator
-		cfg              Config
+		blockTranslator  ocrcommon.BlockTranslator
+		cfg              ocrcommon.Config
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -96,13 +98,13 @@ func NewOCRContractTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,
 	contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
-	ethClient eth.Client,
+	ethClient evmclient.Client,
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
 	db *sqlx.DB,
-	ocrdb OCRContractTrackerDB,
-	cfg Config,
+	ocrDB OCRContractTrackerDB,
+	cfg ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -116,9 +118,9 @@ func NewOCRContractTracker(
 		logBroadcaster,
 		jobID,
 		logger,
-		ocrdb,
+		ocrDB,
 		pg.NewQ(db, logger, cfg),
-		NewBlockTranslator(cfg, ethClient, logger),
+		ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
 		headBroadcaster,
 		nil,
@@ -139,7 +141,7 @@ func NewOCRContractTracker(
 // It ought to be called before starting OCR
 func (t *OCRContractTracker) Start() error {
 	return t.StartOnce("OCRContractTracker", func() (err error) {
-		t.latestRoundRequested, err = t.ocrdb.LoadLatestRoundRequested()
+		t.latestRoundRequested, err = t.ocrDB.LoadLatestRoundRequested()
 		if err != nil {
 			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
 		}
@@ -154,7 +156,7 @@ func (t *OCRContractTracker) Start() error {
 			MinIncomingConfirmations: 1,
 		})
 
-		var latestHead *eth.Head
+		var latestHead *evmtypes.Head
 		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
 		if latestHead != nil {
 			t.setLatestBlockHeight(latestHead)
@@ -179,11 +181,11 @@ func (t *OCRContractTracker) Close() error {
 }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *eth.Head) {
+func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *evmtypes.Head) {
 	t.setLatestBlockHeight(h)
 }
 
-func (t *OCRContractTracker) setLatestBlockHeight(h *eth.Head) {
+func (t *OCRContractTracker) setLatestBlockHeight(h *evmtypes.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64
@@ -290,7 +292,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
 			err = t.q.Transaction(func(tx pg.Queryer) error {
-				if err = t.ocrdb.SaveLatestRoundRequested(tx, *rr); err != nil {
+				if err = t.ocrDB.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}
 				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))
@@ -437,10 +439,6 @@ func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback ti
 	// NOTE: This should be "good enough" 99% of the time.
 	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
 	// Some further improvements could be made:
-	// TODO: Can we increase the backfill depth?
-	// TODO: Can we use the lookback to optimise at all?
-	// TODO: How well can we satisfy the requirements after the latest round of changes to the log broadcaster?
-	// See: https://www.pivotaltracker.com/story/show/177063733
 	t.lrrMu.RLock()
 	defer t.lrrMu.RUnlock()
 	return t.latestRoundRequested.ConfigDigest, t.latestRoundRequested.Epoch, t.latestRoundRequested.Round, nil

@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -23,7 +23,7 @@ type (
 	// services that perform the work described by job specs.  Each active job spec
 	// has 1 or more of these services associated with it.
 	Spawner interface {
-		service.Service
+		services.Service
 		CreateJob(jb *Job, qopts ...pg.QOpt) error
 		DeleteJob(jobID int32, qopts ...pg.QOpt) error
 		ActiveJobs() map[int32]Job

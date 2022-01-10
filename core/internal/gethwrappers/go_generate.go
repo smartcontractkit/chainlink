@@ -22,6 +22,7 @@ package gethwrappers
 // v0.8 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id_v08
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.abi ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.bin VRFOwnerlessConsumerExample vrf_ownerless_consumer_example
 
 //go:generate mockery --recursive --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
 //go:generate mockery --recursive --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
@@ -35,6 +36,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFTestHelper.abi ../../../contracts/solc/v0.8/VRFTestHelper.bin VRFV08TestHelper solidity_vrf_v08_verifier_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin VRFSingleConsumerExample vrf_single_consumer_example
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.abi ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.bin VRFExternalSubOwnerExample vrf_external_sub_owner_example
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8/VRFV2RevertingExample.bin VRFV2RevertingExample vrfv2_reverting_example
 
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:
