@@ -49,6 +49,7 @@ const (
 	PollRequestTypeDrumbeat
 )
 
+// DefaultHibernationPollPeriod defines the hibernation polling period
 const DefaultHibernationPollPeriod = 24 * time.Hour
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
