@@ -20,6 +20,7 @@ $SCRIPTPATH/native_solc6_compile VRFRequestIDBase.sol
 $SCRIPTPATH/native_solc6_compile tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
+$SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol

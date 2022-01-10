@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -70,6 +72,10 @@ func main() {
 	helpers.PanicErr(err)
 	owner.GasPrice = gp
 	switch os.Args[1] {
+	case "bhs-deploy":
+		bhsAddress, tx, _, err := blockhash_store.DeployBlockhashStore(owner, ec)
+		helpers.PanicErr(err)
+		fmt.Println("BlockhashStore", bhsAddress.String(), "hash", tx.Hash())
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
