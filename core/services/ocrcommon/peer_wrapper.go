@@ -155,7 +155,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		peerConfig := ocrnetworking.PeerConfig{
 			NetworkingStack: p.config.P2PNetworkingStack(),
 			PrivKey:         key.PrivKey,
-			Logger:          logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {}),
+			Logger:          NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {}),
 
 			// V1 config
 			V1ListenIP:                         p.config.P2PListenIP(),

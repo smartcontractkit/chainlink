@@ -138,7 +138,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
-	ocrLogger := logger.NewOCRWrapper(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
+	ocrLogger := ocrcommon.NewOCRWrapper(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jobSpec.ID, msg)
 	})
 

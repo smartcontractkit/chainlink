@@ -5,31 +5,80 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var _ Logger = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	config     zap.Config
+	config     *Config
 	name       string
 	fields     []interface{}
 	callerSkip int
 }
 
-func newZapLogger(cfg zap.Config) (Logger, error) {
-	zl, err := cfg.Build()
-	if err != nil {
-		return nil, err
+func newZapLogger(cfg *Config) (Logger, error) {
+	var core zapcore.Core
+	if cfg.ToDisk {
+		core = zapcore.NewTee(newConsoleCore(cfg), newDiskCore(cfg))
+	} else {
+		core = newConsoleCore(cfg)
 	}
-	return &zapLogger{config: cfg, SugaredLogger: zl.Sugar()}, nil
+	return &zapLogger{config: cfg, SugaredLogger: zap.New(core).Sugar()}, nil
+}
+
+func newDiskCore(cfg *Config) zapcore.Core {
+	var (
+		encoder = zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
+		sink    = zapcore.AddSync(&lumberjack.Logger{
+			Filename:   filepath.ToSlash(filepath.Join(cfg.Dir, "log.jsonl")),
+			MaxSize:    cfg.DiskMaxSizeBeforeRotate,
+			MaxAge:     cfg.DiskMaxAgeBeforeDelete,
+			MaxBackups: cfg.DiskMaxBackupsBeforeDelete,
+			Compress:   true,
+		})
+		allLogLevels = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return true })
+	)
+	return zapcore.NewCore(encoder, sink, allLogLevels)
+}
+
+func newConsoleCore(cfg *Config) zapcore.Core {
+	filteredLogLevels := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool { return lvl < cfg.LogLevel })
+
+	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
+
+	var sink zap.Sink
+	if cfg.JsonConsole {
+
+	} else {
+		sink = PrettyConsoleSink{os.Stderr}
+	}
+
+	return zapcore.NewCore(encoder, sink, filteredLogLevels)
+}
+
+func makeEncoderConfig(cfg *Config) zapcore.EncoderConfig {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	if !cfg.UnixTS {
+		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+	encoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+		if l == zapcore.DPanicLevel {
+			enc.AppendString("crit")
+		} else {
+			zapcore.LowercaseLevelEncoder(l, enc)
+		}
+	}
+	return encoderConfig
 }
 
 func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
-	l.config.Level.SetLevel(lvl)
+	l.config.LogLevel = lvl
 }
 
 func (l *zapLogger) With(args ...interface{}) Logger {
@@ -64,7 +113,7 @@ func (l *zapLogger) Named(name string) Logger {
 
 func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	newLogger := *l
-	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
+	newLogger.config.LogLevel = lvl
 	zl, err := newLogger.config.Build()
 	if err != nil {
 		return nil, err
