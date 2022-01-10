@@ -552,6 +552,8 @@ func (n *NullTxManager) Trigger(common.Address)                            { pan
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
+
+// SendEther does nothing, null functionality
 func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }

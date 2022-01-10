@@ -526,6 +526,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks
 	return c, s, assertMocksCalled
 }
 
+// NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
 func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
