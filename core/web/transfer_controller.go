@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 
@@ -42,7 +41,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	}
 
 	if tr.FromAddress == utils.ZeroAddress {
-		jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("withdrawal source address is missing: %v", tr.FromAddress))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("withdrawal source address is missing: %v", tr.FromAddress))
 		return
 	}
 
@@ -64,12 +63,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		zero := big.NewInt(0)
 
 		if balance == nil || balance.Cmp(zero) == 0 {
-			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
-			return
-		}
-
-		if chain.Config().EvmEIP1559DynamicFees() {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "EIP1559 mode is not supported for balance transfers"))
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}
 
@@ -92,14 +86,14 @@ func (tc *TransfersController) Create(c *gin.Context) {
 
 		// ETH balance is less than the sent amount + fees
 		if balance.Cmp(amountWithFees) < 0 {
-			jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("balance is too low for this transaction to be executed: %v", balance))
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("balance is too low for this transaction to be executed: %v", balance))
 			return
 		}
 	}
 
 	etx, err := chain.TxManager().SendEther(chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
+		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return
 	}
 
