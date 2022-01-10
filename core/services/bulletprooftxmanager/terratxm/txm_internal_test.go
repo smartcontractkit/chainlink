@@ -35,7 +35,8 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
 		tc.On("TxsEvents", mock.Anything).Return(&txtypes.GetTxsEventResponse{
-			Txs: []*txtypes.Tx{&txtypes.Tx{}},
+			Txs:         []*txtypes.Tx{&txtypes.Tx{}},
+			TxResponses: []*cosmostypes.TxResponse{{TxHash: "0x123"}},
 		}, nil)
 
 		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
@@ -68,7 +69,8 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
 		tc.On("TxsEvents", mock.Anything).Return(&txtypes.GetTxsEventResponse{
-			Txs: []*txtypes.Tx{&txtypes.Tx{}},
+			Txs:         []*txtypes.Tx{&txtypes.Tx{}},
+			TxResponses: []*cosmostypes.TxResponse{{TxHash: "0x123"}},
 		}, nil)
 
 		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)

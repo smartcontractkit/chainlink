@@ -91,7 +91,8 @@ func (txm *Txm) sendMsgBatch() {
 		var ms wasmtypes.MsgExecuteContract
 		err := ms.Unmarshal(m.Msg)
 		if err != nil {
-			// TODO
+			txm.lggr.Errorw("failed to unmarshal msg, skipping", "err", err, "msg", m)
+			continue
 		}
 		// TODO: simulate and discard if fails
 		msgsByFrom[ms.Sender] = append(msgsByFrom[ms.Sender], &ms)
