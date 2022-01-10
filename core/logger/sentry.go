@@ -3,14 +3,10 @@ package logger
 import (
 	"fmt"
 	"io"
-	"log"
-	"os"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 const (
@@ -20,48 +16,6 @@ const (
 
 	loggerContextName = "Logger"
 )
-
-func init() {
-	// If SENTRY_DSN is set at runtime, sentry will be enabled and send metrics to this URL
-	sentrydsn := os.Getenv("SENTRY_DSN")
-	if sentrydsn == "" {
-		// Do not initialize sentry at all if the DSN is missing
-		return
-	}
-
-	// If SENTRY_ENVIRONMENT is set, it will override everything. Otherwise infers from CHAINLINK_DEV.
-	var sentryenv string
-	if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
-		sentryenv = env
-	} else if os.Getenv("CHAINLINK_DEV") == "true" {
-		sentryenv = "dev"
-	} else {
-		sentryenv = "prod"
-	}
-
-	// If SENTRY_RELEASE is set, it will override everything. Otherwise, static.Version will be used.
-	var sentryrelease string
-	if release := os.Getenv("SENTRY_RELEASE"); release != "" {
-		sentryrelease = release
-	} else {
-		sentryrelease = static.Version
-	}
-
-	// Set SENTRY_DEBUG=true to enable printing of SDK debug messages
-	sentrydebug := os.Getenv("SENTRY_DEBUG") == "true"
-
-	err := sentry.Init(sentry.ClientOptions{
-		// AttachStacktrace is needed to send stacktrace alongside panics
-		AttachStacktrace: true,
-		Dsn:              sentrydsn,
-		Environment:      sentryenv,
-		Release:          sentryrelease,
-		Debug:            sentrydebug,
-	})
-	if err != nil {
-		log.Fatalf("sentry.Init: %s", err)
-	}
-}
 
 type sentryLogger struct {
 	h Logger

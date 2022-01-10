@@ -3,7 +3,6 @@ package logger
 import (
 	"fmt"
 	"math"
-	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -27,16 +26,16 @@ var levelColors = map[string]func(...interface{}) string{
 var blue = color.New(color.FgBlue).SprintFunc()
 var green = color.New(color.FgGreen).SprintFunc()
 
-// PrettyConsole wraps a Sink (Writer, Syncer, Closer), usually stdout, and
+// PrettyConsoleSink wraps a Sink (Writer, Syncer, Closer), usually stdout, and
 // formats the incoming json bytes with colors and white space for readability
 // before passing on to the underlying Writer in Sink.
-type PrettyConsole struct {
+type PrettyConsoleSink struct {
 	zap.Sink
 }
 
 // Write reformats the incoming json bytes with colors, newlines and whitespace
 // for better readability in console.
-func (pc PrettyConsole) Write(b []byte) (int, error) {
+func (pc PrettyConsoleSink) Write(b []byte) (int, error) {
 	if !gjson.ValidBytes(b) {
 		return 0, fmt.Errorf("unable to parse json for pretty console: %s", string(b))
 	}
@@ -47,7 +46,7 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 }
 
 // Close is overridden to prevent accidental closure of stderr/stdout
-func (pc PrettyConsole) Close() error {
+func (pc PrettyConsoleSink) Close() error {
 	switch pc.Sink {
 	case os.Stderr, os.Stdout:
 		// Never close Stderr/Stdout because this will break any future go runtime logging from panics etc
@@ -121,10 +120,4 @@ func coloredLevel(level gjson.Result) string {
 // iso8601UTC formats given time to ISO8601.
 func iso8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
-}
-
-func prettyConsoleSink(s zap.Sink) func(*url.URL) (zap.Sink, error) {
-	return func(*url.URL) (zap.Sink, error) {
-		return PrettyConsole{s}, nil
-	}
 }

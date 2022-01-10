@@ -1,18 +1,19 @@
-package logger
+package ocrcommon
 
 import (
+	"github.com/smartcontractkit/chainlink/core/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 var _ ocrtypes.Logger = &ocrWrapper{}
 
 type ocrWrapper struct {
-	internal  Logger
+	internal  logger.Logger
 	trace     bool
 	saveError func(string)
 }
 
-func NewOCRWrapper(l Logger, trace bool, saveError func(string)) ocrtypes.Logger {
+func NewOCRWrapper(l logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
 	return &ocrWrapper{
 		internal:  l.Helper(2),
 		trace:     trace,

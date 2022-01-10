@@ -107,7 +107,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
-	ocrLogger := logger.NewOCRWrapper(loggerWith, true, func(msg string) {
+	ocrLogger := ocrcommon.NewOCRWrapper(loggerWith, true, func(msg string) {
 		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 

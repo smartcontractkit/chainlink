@@ -6,22 +6,10 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 )
-
-func init() {
-	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
-	if err != nil {
-		log.Fatalf("failed to register pretty printer %+v", err)
-	}
-	err = registerOSSinks()
-	if err != nil {
-		log.Fatalf("failed to register os specific sinks %+v", err)
-	}
-}
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
@@ -96,41 +84,6 @@ type Logger interface {
 	Recover(panicErr interface{})
 }
 
-// Constants for service names for package specific logging configuration
-const (
-	HeadTracker     = "HeadTracker"
-	HeadListener    = "HeadListener"
-	HeadSaver       = "HeadSaver"
-	HeadBroadcaster = "HeadBroadcaster"
-	FluxMonitor     = "FluxMonitor"
-	Keeper          = "Keeper"
-)
-
-func GetLogServices() []string {
-	return []string{
-		HeadTracker,
-		FluxMonitor,
-		Keeper,
-	}
-}
-
-// newProductionConfig returns a new production zap.Config.
-func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
-	config := newBaseConfig()
-	if !unixTS {
-		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	}
-	if !jsonConsole {
-		config.OutputPaths = []string{"pretty://console"}
-	}
-	if toDisk {
-		destination := logFileURI(dir)
-		config.OutputPaths = append(config.OutputPaths, destination)
-		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
-	}
-	return config
-}
-
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
 func NewLogger() Logger {
@@ -175,19 +128,20 @@ func NewLogger() Logger {
 }
 
 type Config struct {
-	LogLevel    zapcore.Level
-	Dir         string
-	JsonConsole bool
-	ToDisk      bool // if false, the Logger will only log to stdout.
-	UnixTS      bool
+	LogLevel                   zapcore.Level
+	Dir                        string
+	JsonConsole                bool
+	UnixTS                     bool
+	ToDisk                     bool // if false, the Logger will only log to stdout
+	DiskMaxSizeBeforeRotate    int  // megabytes
+	DiskMaxAgeBeforeDelete     int  // days
+	DiskMaxBackupsBeforeDelete int  // files
 }
 
 // New returns a new Logger with pretty printing to stdout, prometeus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() Logger {
-	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
-	cfg.Level.SetLevel(c.LogLevel)
-	l, err := newZapLogger(cfg)
+	l, err := newZapLogger(c)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -201,10 +155,20 @@ func InitColor(c bool) {
 	color.NoColor = !c
 }
 
-// newBaseConfig returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
-func newBaseConfig() zap.Config {
-	cfg := zap.NewProductionConfig()
-	cfg.Sampling = nil
-	cfg.EncoderConfig.EncodeLevel = encodeLevel
-	return cfg
+// Constants for service names for package specific logging configuration
+const (
+	HeadTracker     = "HeadTracker"
+	HeadListener    = "HeadListener"
+	HeadSaver       = "HeadSaver"
+	HeadBroadcaster = "HeadBroadcaster"
+	FluxMonitor     = "FluxMonitor"
+	Keeper          = "Keeper"
+)
+
+func GetLogServices() []string {
+	return []string{
+		HeadTracker,
+		FluxMonitor,
+		Keeper,
+	}
 }

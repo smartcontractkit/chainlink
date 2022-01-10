@@ -11,7 +11,7 @@ func init() {
 	logger.InitColor(true)
 }
 
-func TestPrettyConsole_Write(t *testing.T) {
+func TestPrettyConsoleSink_Write(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
@@ -42,7 +42,7 @@ func TestPrettyConsole_Write(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := &testReader{}
-			pc := logger.PrettyConsole{tr}
+			pc := logger.PrettyConsoleSink{tr}
 			_, err := pc.Write([]byte(tt.input))
 
 			if tt.wantError {
