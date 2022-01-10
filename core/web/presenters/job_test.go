@@ -8,7 +8,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/lib/pq"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -33,13 +31,7 @@ func TestJob(t *testing.T) {
 	evmChainID := utils.NewBigI(42)
 
 	// Used in OCR tests
-	var (
-		peerIDStr      = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
-		ocrKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
-	)
-	p2pPeerID, err := peer.Decode(peerIDStr)
-	require.NoError(t, err)
-	peerID := p2pkey.PeerID(p2pPeerID)
+	var ocrKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	ocrKeyID := models.MustSha256HashFromHex(ocrKeyBundleID)
 	transmitterAddress, err := ethkey.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
 	require.NoError(t, err)
@@ -100,6 +92,7 @@ func TestJob(t *testing.T) {
 							"evmChainID": "42"
 						},
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
@@ -169,6 +162,7 @@ func TestJob(t *testing.T) {
 							"evmChainID": "42"
 						},
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
                         "cronSpec": null,
@@ -185,7 +179,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{
 					ContractAddress:                        contractAddress,
-					P2PPeerID:                              peerID,
 					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
@@ -198,6 +191,9 @@ func TestJob(t *testing.T) {
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
 					EVMChainID:                             evmChainID,
+					DatabaseTimeout:                        models.NewInterval(2 * time.Second),
+					ObservationGracePeriod:                 models.NewInterval(3 * time.Second),
+					ContractTransmitterTransmitTimeout:     models.NewInterval(444 * time.Millisecond),
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -227,7 +223,6 @@ func TestJob(t *testing.T) {
 						},
 						"offChainReportingOracleSpec": {
 							"contractAddress": "%s",
-							"p2pPeerID": "p2p_%s",
 							"p2pBootstrapPeers": ["/dns4/chain.link/tcp/1234/p2p/xxx"],
 							"isBootstrapPeer": true,
 							"keyBundleID": "%s",
@@ -239,8 +234,12 @@ func TestJob(t *testing.T) {
 							"contractConfigConfirmations": 1,
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z",
-							"evmChainID": "42"
+							"evmChainID": "42",
+							"databaseTimeout": "2s",
+							"observationGracePeriod": "3s",
+							"contractTransmitterTransmitTimeout": "444ms"
 						},
+						"offChainReporting2OracleSpec": null,
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
@@ -250,7 +249,7 @@ func TestJob(t *testing.T) {
 						"errors": []
 					}
 				}
-			}`, contractAddress, peerIDStr, ocrKeyBundleID, transmitterAddress),
+			}`, contractAddress, ocrKeyBundleID, transmitterAddress),
 		},
 		{
 			name: "keeper spec",
@@ -301,6 +300,7 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
 						"errors": []
@@ -352,6 +352,7 @@ func TestJob(t *testing.T) {
                         "directRequestSpec": null,
                         "keeperSpec": null,
                         "offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
                         "webhookSpec": null,
                         "errors": []
@@ -402,6 +403,7 @@ func TestJob(t *testing.T) {
 						"keeperSpec": null,
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
                         "vrfSpec": null,
 						"errors": []
 					}
@@ -467,6 +469,7 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
 						"errors": [{
 							"id": 200,

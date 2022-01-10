@@ -1,24 +1,22 @@
 package offchainreporting
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/libocr/offchainreporting"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/libocr/offchainreporting"
 )
 
 type ValidationConfig interface {
-	ChainID() *big.Int
 	ChainType() chains.ChainType
 	Dev() bool
 	OCRBlockchainTimeout() time.Duration
@@ -54,7 +52,6 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 	}
 	jb.OffchainreportingOracleSpec = &spec
 
-	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
 	if jb.Type != job.OffchainReporting {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", jb.Type)
 	}
@@ -111,7 +108,7 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 }
 
 func validateTimingParameters(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) error {
-	lc := NewLocalConfig(cfg, spec)
+	lc := toLocalConfig(cfg, spec)
 	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
 
@@ -156,7 +153,6 @@ func validateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, no
 	var err error
 	// top level keys only
 	for _, k := range tree.Keys() {
-		// TODO(#175801577): upstream a way to check for children in go-toml
 		if _, ok := notExpected[k]; ok {
 			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
 		}

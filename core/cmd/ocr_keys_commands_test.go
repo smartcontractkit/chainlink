@@ -47,7 +47,7 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 	output := buffer.String()
 	assert.Contains(t, output, bundleID)
 	assert.Contains(t, output, key.OnChainSigning.Address().String())
-	assert.Contains(t, output, hex.EncodeToString(key.PublicKeyOffChain()[:]))
+	assert.Contains(t, output, hex.EncodeToString(key.PublicKeyOffChain()))
 	pubKeyConfig := key.PublicKeyConfig()
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))
 
@@ -59,7 +59,7 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 	output = buffer.String()
 	assert.Contains(t, output, bundleID)
 	assert.Contains(t, output, key.OnChainSigning.Address().String())
-	assert.Contains(t, output, hex.EncodeToString(key.PublicKeyOffChain()[:]))
+	assert.Contains(t, output, hex.EncodeToString(key.PublicKeyOffChain()))
 	pubKeyConfig = key.PublicKeyConfig()
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))
 }
