@@ -266,6 +266,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					return errors.Wrap(err, "failed to create ExternalInitiatorWebhookSpecs")
 				}
 			}
+		case BlockhashStore:
+			var specID int32
+			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, evm_chain_id, from_address, created_at, updated_at)
+			VALUES (:coordinator_v1_address, :coordinator_v2_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :evm_chain_id, :from_address, NOW(), NOW())
+			RETURNING id;`
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BlockhashStoreSpec); err != nil {
+				return errors.Wrap(err, "failed to create BlockhashStore spec")
+			}
+			jb.BlockhashStoreSpecID = &specID
 		default:
 			o.lggr.Fatalf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -298,9 +307,9 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, offchainreporting_oracle_spec_id, offchainreporting2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, external_job_id, created_at)
+				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, external_job_id, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :offchainreporting_oracle_spec_id, :offchainreporting2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :external_job_id, NOW())
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :external_job_id, NOW())
 		RETURNING *;`
 	return q.GetNamed(query, job, job)
 }
@@ -319,7 +328,8 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 				flux_monitor_spec_id,
 				vrf_spec_id,
 				webhook_spec_id,
-				direct_request_spec_id
+				direct_request_spec_id,
+				blockhash_store_spec_id
 		),
 		deleted_oracle_specs AS (
 			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
@@ -344,6 +354,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_dr_specs AS (
 			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
+		),
+		deleted_blockhash_store_specs AS (
+			DELETE FROM blockhash_store_specs WHERE id IN (SELECT blockhash_store_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
 	res, cancel, err := q.ExecQIter(query, id)
@@ -883,6 +896,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		loadJobType(tx, job, "VRFSpec", "vrf_specs", job.VRFSpecID),
+		loadJobType(tx, job, "BlockhashStoreSpec", "blockhash_store_specs", job.BlockhashStoreSpecID),
 	)
 }
 
