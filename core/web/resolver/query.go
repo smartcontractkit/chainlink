@@ -534,6 +534,7 @@ func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolve
 	return NewGetSQLLoggingPayload(enabled), nil
 }
 
+// OCR2KeyBundles resolves the list of OCR2 key bundles
 func (r *Resolver) OCR2KeyBundles(ctx context.Context) (*OCR2KeyBundlesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err

@@ -15,9 +15,9 @@ type OCR2ChainType string
 const (
 	// OCR2ChainTypeEVM defines OCR2 EVM Chain Type
 	OCR2ChainTypeEVM OCR2ChainType = "EMV"
-	// OCR2ChainType defines OCR2 Solana Chain Type
+	// OCR2ChainTypeSolana defines OCR2 Solana Chain Type
 	OCR2ChainTypeSolana OCR2ChainType = "SOLANA"
-	// OCR2ChainType defines OCR2 Terra Chain Type
+	// OCR2ChainTypeTerra defines OCR2 Terra Chain Type
 	OCR2ChainTypeTerra OCR2ChainType = "TERRA"
 )
 
