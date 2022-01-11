@@ -24,10 +24,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// InFlightTransactionRecheckInterval controls how often the EthBroadcaster
-// will poll the unconfirmed queue to see if it is allowed to send another
-// transaction
-const InFlightTransactionRecheckInterval = 1 * time.Second
+const (
+	// InFlightTransactionRecheckInterval controls how often the EthBroadcaster
+	// will poll the unconfirmed queue to see if it is allowed to send another
+	// transaction
+	InFlightTransactionRecheckInterval = 1 * time.Second
+
+	// TransmitCheckTimeout controls the maximum amount of time that will be
+	// spent on the transmit check.
+	TransmitCheckTimeout = 2 * time.Second
+)
 
 var errEthTxRemoved = errors.New("eth_tx removed")
 
@@ -371,9 +377,9 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		return errors.Wrap(err, "building transmit checker")
 	}
 
-	// If the transmit check does not complete within 2 seconds, the transaction will be sent
+	// If the transmit check does not complete within the timeout, the transaction will be sent
 	// anyway.
-	checkCtx, cancel := context.WithTimeout(parentCtx, 2*time.Second)
+	checkCtx, cancel := context.WithTimeout(parentCtx, TransmitCheckTimeout)
 	defer cancel()
 	err = checker.Check(checkCtx, eb.logger, etx, attempt)
 	if errors.Is(err, context.Canceled) {

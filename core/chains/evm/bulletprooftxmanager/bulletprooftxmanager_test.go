@@ -310,8 +310,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	})
 
 	t.Run("simulate transmit checker", func(t *testing.T) {
-		_, err := db.Exec(`DELETE FROM eth_txes`)
-		require.NoError(t, err)
+		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 
 		checker := bulletprooftxmanager.TransmitCheckerSpec{
 			CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
@@ -337,8 +336,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	})
 
 	t.Run("meta and vrf checker", func(t *testing.T) {
-		_, err := db.Exec(`DELETE FROM eth_txes`)
-		require.NoError(t, err)
+		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
