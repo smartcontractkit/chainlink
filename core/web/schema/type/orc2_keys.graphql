@@ -16,3 +16,9 @@ type OCR2KeyBundlesPayload {
     results: [OCR2KeyBundle!]!
 }
 
+type CreateOCR2KeyBundleSuccess {
+    bundle: OCR2KeyBundle!
+}
+
+union CreateOCR2KeyBundlePayload = CreateOCR2KeyBundleSuccess
+

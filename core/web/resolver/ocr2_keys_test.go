@@ -9,6 +9,7 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 
 	"github.com/stretchr/testify/assert"
@@ -87,6 +88,86 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 					Extensions:    nil,
 					ResolverError: gError,
 					Path:          []interface{}{"ocr2KeyBundles"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation CreateOCR2KeyBundle($chainType: OCR2ChainType!) {
+			createOCR2KeyBundle(chainType: $chainType) {
+				... on CreateOCR2KeyBundleSuccess {
+					bundle {
+						chainType
+						configPublicKey
+						offChainPublicKey
+						onChainPublicKey
+					}
+				}
+			}
+		}
+	`
+
+	gError := errors.New("error")
+	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+	ct, err := ToOCR2ChainType(string(fakeKey.ChainType()))
+	require.NoError(t, err)
+
+	configPublic := fakeKey.ConfigEncryptionPublicKey()
+	d, err := json.Marshal(map[string]interface{}{
+		"createOCR2KeyBundle": map[string]interface{}{
+			"bundle": map[string]interface{}{
+				"chainType":         ct,
+				"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", fakeKey.ChainType(), fakeKey.OnChainPublicKey()),
+				"configPublicKey":   fmt.Sprintf("ocr2cfg_%s_%s", fakeKey.ChainType(), hex.EncodeToString(configPublic[:])),
+				"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", fakeKey.ChainType(), hex.EncodeToString(fakeKey.OffchainPublicKey())),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	variables := map[string]interface{}{
+		"chainType": OCR2ChainTypeEVM,
+	}
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "createOCR2KeyBundle"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Create", chaintype.ChainType("evm")).Return(fakeKey, nil)
+				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "generic error on Create()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Create", chaintype.ChainType("evm")).Return(nil, gError)
+				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"createOCR2KeyBundle"},
 					Message:       gError.Error(),
 				},
 			},

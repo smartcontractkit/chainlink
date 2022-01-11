@@ -49,6 +49,7 @@ type Mutation {
     createJob(input: CreateJobInput!): CreateJobPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createOCR2KeyBundle(chainType: OCR2ChainType!): CreateOCR2KeyBundlePayload!
     createP2PKey: CreateP2PKeyPayload!
     deleteAPIToken(input: DeleteAPITokenInput!): DeleteAPITokenPayload!
     deleteBridge(id: ID!): DeleteBridgePayload!

@@ -14,11 +14,11 @@ type OCR2ChainType string
 
 const (
 	// OCR2ChainTypeEVM defines OCR2 EVM Chain Type
-	OCR2ChainTypeEVM OCR2ChainType = "EVM"
+	OCR2ChainTypeEVM = "EVM"
 	// OCR2ChainTypeSolana defines OCR2 Solana Chain Type
-	OCR2ChainTypeSolana OCR2ChainType = "SOLANA"
+	OCR2ChainTypeSolana = "SOLANA"
 	// OCR2ChainTypeTerra defines OCR2 Terra Chain Type
-	OCR2ChainTypeTerra OCR2ChainType = "TERRA"
+	OCR2ChainTypeTerra = "TERRA"
 )
 
 // ToOCR2ChainType turns a valid string into a OCR2ChainType
@@ -85,7 +85,7 @@ func (r OCR2KeyBundleResolver) ConfigPublicKey() string {
 	return fmt.Sprintf("ocr2cfg_%s_%s", r.key.ChainType(), hex.EncodeToString(configPublic[:]))
 }
 
-// -- OCR2Keys Query --
+// -- OCR2KeyBundles Query --
 
 // OCR2KeyBundlesPayloadResolver defines the OCR2 Key bundles query resolver
 type OCR2KeyBundlesPayloadResolver struct {
@@ -106,4 +106,40 @@ func (r *OCR2KeyBundlesPayloadResolver) Results() []OCR2KeyBundleResolver {
 	}
 
 	return results
+}
+
+// -- CreateOCR2KeyBundle Mutation --
+
+// CreateOCR2KeyBundlePayloadResolver defines the create OCR2 Key bundle mutation resolver
+type CreateOCR2KeyBundlePayloadResolver struct {
+	key *ocr2key.KeyBundle
+}
+
+// NewCreateOCR2KeyBundlePayload returns the create OCR2 key bundle resolver
+func NewCreateOCR2KeyBundlePayload(key *ocr2key.KeyBundle) *CreateOCR2KeyBundlePayloadResolver {
+	return &CreateOCR2KeyBundlePayloadResolver{key: key}
+}
+
+// ToCreateOCR2KeyBundleSuccess resolves the create OCR2 key bundle success
+func (r *CreateOCR2KeyBundlePayloadResolver) ToCreateOCR2KeyBundleSuccess() (*CreateOCR2KeyBundleSuccessResolver, bool) {
+	if r.key == nil {
+		return nil, false
+	}
+
+	return NewCreateOCR2KeyBundleSuccess(r.key), true
+}
+
+// CreateOCR2KeyBundleSuccessResolver defines the create OCR2 key bundle success resolver
+type CreateOCR2KeyBundleSuccessResolver struct {
+	key *ocr2key.KeyBundle
+}
+
+// CreateOCR2KeyBundleSuccessResolver returns the create OCR2 key bundle success resolver
+func NewCreateOCR2KeyBundleSuccess(key *ocr2key.KeyBundle) *CreateOCR2KeyBundleSuccessResolver {
+	return &CreateOCR2KeyBundleSuccessResolver{key: key}
+}
+
+// CreateOCR2KeyBundleSuccessResolver resolves the creates OCR2 key bundle
+func (r *CreateOCR2KeyBundleSuccessResolver) Bundle() *OCR2KeyBundleResolver {
+	return NewOCR2KeyBundle(*r.key)
 }
