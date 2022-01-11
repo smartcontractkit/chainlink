@@ -94,56 +94,14 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		minOutgoingConfirmations = cfg.MinRequiredOutgoingConfirmations()
 	}
 
-	var txMeta bulletprooftxmanager.EthTxMeta
-
-	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:      &txMeta,
-		ErrorUnused: true,
-		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-			switch from {
-			case stringType:
-				switch to {
-				case int32Type:
-					i, err2 := strconv.ParseInt(data.(string), 10, 32)
-					return int32(i), err2
-				case reflect.TypeOf(common.Hash{}):
-					return common.HexToHash(data.(string)), nil
-				}
-			}
-			return data, nil
-		},
-	})
+	txMeta, err := decodeMeta(txMetaMap)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
+		return Result{Error: err}, runInfo
 	}
 
-	err = metaDecoder.Decode(txMetaMap)
+	transmitChecker, err := decodeTransmitChecker(transmitCheckerMap)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
-	}
-
-	var transmitChecker bulletprooftxmanager.TransmitCheckerSpec
-	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:      &transmitChecker,
-		ErrorUnused: true,
-		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-			switch from {
-			case stringType:
-				switch to {
-				case reflect.TypeOf(common.Address{}):
-					return common.HexToAddress(data.(string)), nil
-				}
-			}
-			return data, nil
-		},
-	})
-	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
-	}
-
-	err = checkerDecoder.Decode(transmitCheckerMap)
-	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)}, runInfo
+		return Result{Error: err}, runInfo
 	}
 
 	fromAddr, err := t.keyStore.GetRoundRobinAddress(fromAddrs...)
@@ -161,7 +119,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		ToAddress:      common.Address(toAddr),
 		EncodedPayload: []byte(data),
 		GasLimit:       uint64(gasLimit),
-		Meta:           &txMeta,
+		Meta:           txMeta,
 		Strategy:       strategy,
 		Checker:        transmitChecker,
 	}
@@ -182,4 +140,61 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 
 	return Result{Value: nil}, runInfo
+}
+
+func decodeMeta(metaMap MapParam) (*bulletprooftxmanager.EthTxMeta, error) {
+	var txMeta bulletprooftxmanager.EthTxMeta
+	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:      &txMeta,
+		ErrorUnused: true,
+		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+			switch from {
+			case stringType:
+				switch to {
+				case int32Type:
+					i, err2 := strconv.ParseInt(data.(string), 10, 32)
+					return int32(i), err2
+				case reflect.TypeOf(common.Hash{}):
+					return common.HexToHash(data.(string)), nil
+				}
+			}
+			return data, nil
+		},
+	})
+	if err != nil {
+		return &txMeta, errors.Wrapf(ErrBadInput, "txMeta: %v", err)
+	}
+
+	err = metaDecoder.Decode(metaMap)
+	if err != nil {
+		return &txMeta, errors.Wrapf(ErrBadInput, "txMeta: %v", err)
+	}
+	return &txMeta, nil
+}
+
+func decodeTransmitChecker(checkerMap MapParam) (bulletprooftxmanager.TransmitCheckerSpec, error) {
+	var transmitChecker bulletprooftxmanager.TransmitCheckerSpec
+	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:      &transmitChecker,
+		ErrorUnused: true,
+		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+			switch from {
+			case stringType:
+				switch to {
+				case reflect.TypeOf(common.Address{}):
+					return common.HexToAddress(data.(string)), nil
+				}
+			}
+			return data, nil
+		},
+	})
+	if err != nil {
+		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
+	}
+
+	err = checkerDecoder.Decode(checkerMap)
+	if err != nil {
+		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
+	}
+	return transmitChecker, nil
 }
