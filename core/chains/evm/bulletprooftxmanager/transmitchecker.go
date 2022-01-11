@@ -3,7 +3,6 @@ package bulletprooftxmanager
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -15,34 +14,24 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// simulationTimeout must be short since simulation adds latency to broadcasting a tx which can
-// negatively affect response time.
-const simulationTimeout = 2 * time.Second
-
 var (
-	_ TransmitChecker = NoChecker{}
-	_ TransmitChecker = SimulateChecker{}
+	_ TransmitCheckerFactory = &CheckerFactory{}
+	_ TransmitChecker        = NoChecker{}
+	_ TransmitChecker        = &SimulateChecker{}
+	_ TransmitChecker        = VRFV2Checker{}
 )
 
-// TransmitChecker determines whether a transaction should be submitted on-chain.
-type TransmitChecker interface {
-
-	// ShouldTransmit checks the given transaction. If the transaction should not be sent, an error
-	// indicating why is returned.
-	ShouldTransmit(
-		ctx context.Context,
-		l logger.Logger,
-		tx EthTx,
-		a EthTxAttempt,
-	) error
+// CheckerFactory is a real implementation of TransmitCheckerFactory.
+type CheckerFactory struct {
+	Client evmclient.Client
 }
 
-func buildChecker(spec TransmitCheckerSpec, client evmclient.Client) (TransmitChecker, error) {
+func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error) {
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
-		return SimulateChecker{client}, nil
+		return &SimulateChecker{c.Client}, nil
 	case TransmitCheckerTypeVRFV2:
-		coord, err := vrf_coordinator_v2.NewVRFCoordinatorV2(spec.VRFCoordinatorAddress, client)
+		coord, err := vrf_coordinator_v2.NewVRFCoordinatorV2(spec.VRFCoordinatorAddress, c.Client)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
@@ -57,7 +46,7 @@ func buildChecker(spec TransmitCheckerSpec, client evmclient.Client) (TransmitCh
 // NoChecker is a TransmitChecker that always determines a transaction should be submitted.
 type NoChecker struct{}
 
-func (NoChecker) ShouldTransmit(
+func (NoChecker) Check(
 	_ context.Context,
 	_ logger.Logger,
 	_ EthTx,
@@ -66,11 +55,12 @@ func (NoChecker) ShouldTransmit(
 	return nil
 }
 
+// SimulateChecker simulates transactions, producing an error if they revert on chain.
 type SimulateChecker struct {
 	Client evmclient.Client
 }
 
-func (s SimulateChecker) ShouldTransmit(
+func (s *SimulateChecker) Check(
 	ctx context.Context,
 	l logger.Logger,
 	tx EthTx,
@@ -112,7 +102,7 @@ type VRFV2Checker struct {
 	GetCommitment func(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
 }
 
-func (v VRFV2Checker) ShouldTransmit(
+func (v VRFV2Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
 	tx EthTx,

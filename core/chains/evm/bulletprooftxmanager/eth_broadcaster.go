@@ -31,6 +31,26 @@ const InFlightTransactionRecheckInterval = 1 * time.Second
 
 var errEthTxRemoved = errors.New("eth_tx removed")
 
+// TransmitCheckerFactory creates a transmit checker based on a spec.
+type TransmitCheckerFactory interface {
+
+	// BuildChecker builds a new TransmitChecker based on the given spec.
+	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error)
+}
+
+// TransmitChecker determines whether a transaction should be submitted on-chain.
+type TransmitChecker interface {
+
+	// Check the given transaction. If the transaction should not be sent, an error indicating why
+	// is returned.
+	Check(
+		ctx context.Context,
+		l logger.Logger,
+		tx EthTx,
+		a EthTxAttempt,
+	) error
+}
+
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
 // somewhere has received the transaction successfully.
@@ -58,6 +78,8 @@ type EthBroadcaster struct {
 
 	keyStates []ethkey.State
 
+	checkerFactory TransmitCheckerFactory
+
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
 	// Each key has its own trigger
@@ -73,7 +95,7 @@ type EthBroadcaster struct {
 func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
-	logger logger.Logger) *EthBroadcaster {
+	logger logger.Logger, checkerFactory TransmitCheckerFactory) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
@@ -90,6 +112,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 		estimator:        estimator,
 		eventBroadcaster: eventBroadcaster,
 		keyStates:        keyStates,
+		checkerFactory:   checkerFactory,
 		triggers:         triggers,
 		chStop:           make(chan struct{}),
 		wg:               sync.WaitGroup{},
@@ -346,7 +369,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		return errors.Wrap(err, "parsing transmit checker")
 	}
 
-	checker, err := buildChecker(checkerSpec, eb.ethClient)
+	checker, err := eb.checkerFactory.BuildChecker(checkerSpec)
 	if err != nil {
 		return errors.Wrap(err, "building transmit checker")
 	}
@@ -355,7 +378,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	// anyway.
 	checkCtx, cancel := context.WithTimeout(parentCtx, 2*time.Second)
 	defer cancel()
-	err = checker.ShouldTransmit(checkCtx, eb.logger, etx, attempt)
+	err = checker.Check(checkCtx, eb.logger, etx, attempt)
 	if errors.Is(err, context.Canceled) {
 		eb.logger.Errorw("Transmission checker timed out, sending anyway",
 			"ethTxId", etx.ID,
