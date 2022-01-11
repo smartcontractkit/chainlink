@@ -25,7 +25,7 @@ import (
 )
 
 func TestTxmStartStop(t *testing.T) {
-	//t.Skip() // Local only unless we want to add terrad to CI env
+	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	orm := terratxm.NewORM(db, lggr, pgtest.NewPGCfg(true))

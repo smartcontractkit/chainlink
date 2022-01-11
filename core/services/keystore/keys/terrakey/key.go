@@ -85,10 +85,10 @@ func (key Key) PublicKeyStr() string {
 }
 
 func (key Key) Raw() Raw {
-	//return key.secret
 	return key.d.Bytes()
 }
 
+// ToPrivKey returns the key usable for signing.
 func (key Key) ToPrivKey() cryptotypes.PrivKey {
 	return key.k
 }
