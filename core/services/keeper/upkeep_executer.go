@@ -184,6 +184,10 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 		return
 	}
 
+	evmChainID := ""
+	if ex.job.KeeperSpec.EVMChainID != nil {
+		evmChainID = ex.job.KeeperSpec.EVMChainID.String()
+	}
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"jobID":                 ex.job.ID,
@@ -193,9 +197,10 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice":  gasPrice,
-			"gasTipCap": fee.TipCap,
-			"gasFeeCap": fee.FeeCap,
+			"gasPrice":   gasPrice,
+			"gasTipCap":  fee.TipCap,
+			"gasFeeCap":  fee.FeeCap,
+			"evmChainID": evmChainID,
 		},
 	})
 
