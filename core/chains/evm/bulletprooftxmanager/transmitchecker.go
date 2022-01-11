@@ -15,10 +15,12 @@ import (
 )
 
 var (
+	// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
+	NoChecker TransmitChecker = noChecker{}
+
 	_ TransmitCheckerFactory = &CheckerFactory{}
-	_ TransmitChecker        = NoChecker{}
 	_ TransmitChecker        = &SimulateChecker{}
-	_ TransmitChecker        = VRFV2Checker{}
+	_ TransmitChecker        = &VRFV2Checker{}
 )
 
 // CheckerFactory is a real implementation of TransmitCheckerFactory.
@@ -34,21 +36,21 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 	case TransmitCheckerTypeVRFV2:
 		coord, err := vrf_coordinator_v2.NewVRFCoordinatorV2(spec.VRFCoordinatorAddress, c.Client)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create coordinator at address %v", spec.VRFCoordinatorAddress)
+			return nil, errors.Wrapf(err,
+				"failed to create VRF V2 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
-		return VRFV2Checker{coord.GetCommitment}, nil
+		return &VRFV2Checker{coord.GetCommitment}, nil
 	case "":
-		return NoChecker{}, nil
+		return NoChecker, nil
 	default:
 		return nil, errors.Errorf("unrecognized checker type: %s", spec.CheckerType)
 	}
 }
 
-// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
-type NoChecker struct{}
+type noChecker struct{}
 
 // Check satisfies the TransmitChecker interface.
-func (NoChecker) Check(
+func (noChecker) Check(
 	_ context.Context,
 	_ logger.Logger,
 	_ EthTx,
@@ -111,7 +113,7 @@ type VRFV2Checker struct {
 }
 
 // Check satisfies the TransmitChecker interface.
-func (v VRFV2Checker) Check(
+func (v *VRFV2Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
 	tx EthTx,
