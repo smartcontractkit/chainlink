@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -126,6 +127,11 @@ func main() {
 		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey", "oracle-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*registerKeyAddress), ec)
 		helpers.PanicErr(err)
+
+		// Put key in ECDSA format
+		if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
+			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
+		}
 		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
@@ -133,6 +139,25 @@ func main() {
 		tx, err := coordinator.RegisterProvingKey(owner,
 			common.HexToAddress(*registerKeyOracleAddress),
 			[2]*big.Int{pk.X, pk.Y})
+		helpers.PanicErr(err)
+		fmt.Println("hash", tx.Hash())
+	case "coordinator-deregister-key":
+		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
+		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
+		deregisterKeyUncompressedPubKey := coordinatorDeregisterKey.String("pubkey", "", "uncompressed pubkey")
+		helpers.ParseArgs(coordinatorDeregisterKey, os.Args[2:], "address", "pubkey")
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*deregisterKeyAddress), ec)
+		helpers.PanicErr(err)
+
+		// Put key in ECDSA format
+		if strings.HasPrefix(*deregisterKeyUncompressedPubKey, "0x") {
+			*deregisterKeyUncompressedPubKey = strings.Replace(*deregisterKeyUncompressedPubKey, "0x", "04", 1)
+		}
+		pubBytes, err := hex.DecodeString(*deregisterKeyUncompressedPubKey)
+		helpers.PanicErr(err)
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+		tx, err := coordinator.DeregisterProvingKey(owner, [2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
 		fmt.Println("hash", tx.Hash())
 	case "coordinator-subscription":
