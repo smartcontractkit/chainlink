@@ -231,6 +231,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
+	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the Optimism2 estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.minRequiredOutgoingConfirmations = 0
 	optimismMainnet.ocrContractConfirmations = 1
 	optimismKovan := optimismMainnet
