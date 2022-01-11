@@ -3,6 +3,10 @@ package relay_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 
@@ -40,7 +44,12 @@ func TestNewOCR2Provider(t *testing.T) {
 	keystore.On("Solana").Return(solKey, nil)
 
 	tc := new(terraclient.Reader)
-	d := relay.NewDelegate(&sqlx.DB{}, keystore, &chainsMock.ChainSet{}, "42", *tc, &terratxm.Txm{}, logger.NewLogger())
+	lggr := logger.TestLogger(t)
+	d := relay.NewDelegate(keystore,
+		evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr),
+		solana.NewRelayer(lggr),
+		terra.NewRelayer(lggr, &terratxm.Txm{}, *tc, "42"),
+	)
 
 	// struct for testing multiple specs
 	specs := []struct {

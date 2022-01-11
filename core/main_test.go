@@ -459,7 +459,7 @@ func ExampleRun_chains_evm() {
 	// COMMANDS:
 	//    create     Create a new EVM chain
 	//    delete     Delete an EVM chain
-	//    list       List all chains
+	//    list       List all EVM chains
 	//    configure  Configure an EVM chain
 	//
 	// OPTIONS:
@@ -476,9 +476,44 @@ func ExampleRun_nodes() {
 	//    core.test nodes command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new node
-	//    delete  Delete a node
-	//    list    List all nodes
+	//    evm    Commands for handling EVM node configuration
+	//    terra  Commands for handling Terra node configuration
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_evm() {
+	run("nodes", "evm", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes evm - Commands for handling EVM node configuration
+	//
+	// USAGE:
+	//    core.test nodes evm command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new EVM node
+	//    delete  Delete an EVM node
+	//    list    List all EVM nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_terra() {
+	run("nodes", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes terra - Commands for handling Terra node configuration
+	//
+	// USAGE:
+	//    core.test nodes terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new Terra node
+	//    delete  Delete a Terra node
+	//    list    List all Terra nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

@@ -25,9 +25,9 @@ func (cc *ChainsController) Index(c *gin.Context, size, page, offset int) {
 		return
 	}
 
-	var resources []presenters.ChainResource
+	var resources []presenters.EVMChainResource
 	for _, chain := range chains {
-		resources = append(resources, presenters.NewChainResource(chain))
+		resources = append(resources, presenters.NewEVMChainResource(chain))
 	}
 
 	paginatedResponse(c, "chain", size, page, resources, count, err)
@@ -52,7 +52,7 @@ func (cc *ChainsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+	jsonAPIResponse(c, presenters.NewEVMChainResource(chain), "chain")
 }
 
 func (cc *ChainsController) Create(c *gin.Context) {
@@ -70,7 +70,7 @@ func (cc *ChainsController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, presenters.NewChainResource(chain), "chain", http.StatusCreated)
+	jsonAPIResponseWithStatus(c, presenters.NewEVMChainResource(chain), "chain", http.StatusCreated)
 }
 
 type UpdateChainRequest struct {
@@ -102,7 +102,7 @@ func (cc *ChainsController) Update(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+	jsonAPIResponse(c, presenters.NewEVMChainResource(chain), "chain")
 }
 
 func (cc *ChainsController) Delete(c *gin.Context) {

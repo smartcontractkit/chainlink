@@ -34,6 +34,8 @@ import (
 
 	sqlx "github.com/smartcontractkit/sqlx"
 
+	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
+
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	uuid "github.com/satori/go.uuid"
@@ -483,6 +485,22 @@ func (_m *Application) Stop() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TerraORM provides a mock function with given fields:
+func (_m *Application) TerraORM() terratypes.ORM {
+	ret := _m.Called()
+
+	var r0 terratypes.ORM
+	if rf, ok := ret.Get(0).(func() terratypes.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(terratypes.ORM)
+		}
 	}
 
 	return r0

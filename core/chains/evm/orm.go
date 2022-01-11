@@ -83,7 +83,7 @@ func (o *orm) GetChainsByIDs(ids []utils.Big) (chains []types.Chain, err error) 
 }
 
 func (o *orm) CreateNode(data types.NewNode) (node types.Node, err error) {
-	sql := `INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at)
+	sql := `INSERT INTO evm_nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at)
 	VALUES (:name, :evm_chain_id, :ws_url, :http_url, :send_only, now(), now())
 	RETURNING *;`
 	stmt, err := o.db.PrepareNamed(sql)
@@ -95,7 +95,7 @@ func (o *orm) CreateNode(data types.NewNode) (node types.Node, err error) {
 }
 
 func (o *orm) DeleteNode(id int64) error {
-	sql := `DELETE FROM nodes WHERE id = $1`
+	sql := `DELETE FROM evm_nodes WHERE id = $1`
 	result, err := o.db.Exec(sql, id)
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func (o *orm) EnabledChainsWithNodes() (chains []types.Chain, err error) {
 	if err = o.db.Select(&chains, chainsSQL); err != nil {
 		return
 	}
-	nodesSQL := `SELECT * FROM nodes ORDER BY created_at, id;`
+	nodesSQL := `SELECT * FROM evm_nodes ORDER BY created_at, id;`
 	if err = o.db.Select(&nodes, nodesSQL); err != nil {
 		return
 	}
@@ -131,11 +131,11 @@ func (o *orm) EnabledChainsWithNodes() (chains []types.Chain, err error) {
 }
 
 func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error) {
-	if err = o.db.Get(&count, "SELECT COUNT(*) FROM nodes"); err != nil {
+	if err = o.db.Get(&count, "SELECT COUNT(*) FROM evm_nodes"); err != nil {
 		return
 	}
 
-	sql := `SELECT * FROM nodes ORDER BY created_at, id LIMIT $1 OFFSET $2;`
+	sql := `SELECT * FROM evm_nodes ORDER BY created_at, id LIMIT $1 OFFSET $2;`
 	if err = o.db.Select(&nodes, sql, limit, offset); err != nil {
 		return
 	}
@@ -145,7 +145,7 @@ func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error
 
 // GetNodesByChainID fetches allow nodes for the given chain ids.
 func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []types.Node, err error) {
-	sql := `SELECT * FROM nodes WHERE evm_chain_id = ANY($1) ORDER BY created_at, id;`
+	sql := `SELECT * FROM evm_nodes WHERE evm_chain_id = ANY($1) ORDER BY created_at, id;`
 
 	cids := pq.Array(chainIDs)
 	if err = o.db.Select(&nodes, sql, cids); err != nil {
@@ -156,11 +156,11 @@ func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []types.Node, err 
 }
 
 func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error) {
-	if err = o.db.Get(&count, "SELECT COUNT(*) FROM nodes WHERE evm_chain_id = $1", chainID); err != nil {
+	if err = o.db.Get(&count, "SELECT COUNT(*) FROM evm_nodes WHERE evm_chain_id = $1", chainID); err != nil {
 		return
 	}
 
-	sql := `SELECT * FROM nodes WHERE evm_chain_id = $1 ORDER BY created_at, id LIMIT $2 OFFSET $3;`
+	sql := `SELECT * FROM evm_nodes WHERE evm_chain_id = $1 ORDER BY created_at, id LIMIT $2 OFFSET $3;`
 	if err = o.db.Select(&nodes, sql, chainID, limit, offset); err != nil {
 		return
 	}
@@ -169,7 +169,7 @@ func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types
 }
 
 func (o *orm) Node(id int32) (node types.Node, err error) {
-	err = o.db.Get(&node, "SELECT * FROM nodes WHERE id = $1;", id)
+	err = o.db.Get(&node, "SELECT * FROM evm_nodes WHERE id = $1;", id)
 
 	return
 }

@@ -10,12 +10,6 @@ import (
 	"sync"
 	"time"
 
-	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-
-	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
-
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -23,10 +17,16 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
+	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -44,6 +44,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -77,6 +80,7 @@ type Application interface {
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	EVMORM() evmtypes.ORM
+	TerraORM() terratypes.ORM
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
@@ -105,6 +109,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter                   func(int)
 	ChainSet                 evm.ChainSet
+	terraORM                 terratypes.ORM
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
@@ -289,26 +294,37 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
+	terraORM := terra.NewORM(db)
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		// TODO: parameterize poll period
-		// TODO: pull client config from nodes
-		// TODO: If terra enabled
-		chainID := "42"
-		tc, err := terraclient.NewClient("42", "0.01", "1.5", "TODO", "TODO", 10, globalLogger)
+		nodes, _, err := terraORM.Nodes(0, 1)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to list terra nodes")
 		}
-		txm := terratxm.NewTxm(db, tc, keyStore.Terra(), globalLogger, cfg, eventBroadcaster, 5*time.Second)
+		var terraRelayer relaytypes.Relayer
+		if len(nodes) > 0 {
+			// TODO pool of nodes/clients?
+			node := nodes[0]
+			// TODO from DB
+			terraCfg := terratypes.ChainCfg{
+				FallbackGasPriceULuna: "0.01",
+				GasLimitMultiplier:    "1.5",
+			}
+			tc, err := terraclient.NewClient(node.TerraChainID, terraCfg.FallbackGasPriceULuna,
+				terraCfg.GasLimitMultiplier, node.TendermintURL, node.FCDURL, 10, globalLogger)
+			if err != nil {
+				return nil, err
+			}
+			txm := terratxm.NewTxm(db, tc, keyStore.Terra(), globalLogger, cfg, eventBroadcaster, 5*time.Second)
+			terraRelayer = pkgterra.NewRelayer(globalLogger, txm, tc, node.TerraChainID)
+		}
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
-			db,
 			keyStore,
-			chainSet,
-			chainID,
-			tc,
-			txm,
-			globalLogger,
+			evmrelay.NewRelayer(db, chainSet, globalLogger),
+			solana.NewRelayer(globalLogger),
+			terraRelayer,
 		)
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
@@ -352,6 +368,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	app := &ChainlinkApplication{
 		ChainSet:                 chainSet,
+		terraORM:                 terraORM,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
@@ -556,6 +573,10 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 
 func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
 	return app.ChainSet.ORM()
+}
+
+func (app *ChainlinkApplication) TerraORM() terratypes.ORM {
+	return app.terraORM
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {

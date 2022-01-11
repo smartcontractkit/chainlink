@@ -364,11 +364,17 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/chains/evm/:ID", chc.Update)
 		authv2.DELETE("/chains/evm/:ID", chc.Delete)
 
-		nc := NodesController{app}
-		authv2.GET("/nodes", paginatedRequest(nc.Index))
-		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(nc.Index))
-		authv2.POST("/nodes", nc.Create)
-		authv2.DELETE("/nodes/:ID", nc.Delete)
+		enc := EVMNodesController{app}
+		authv2.GET("/nodes/evm", paginatedRequest(enc.Index))
+		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(enc.Index))
+		authv2.POST("/nodes/evm", enc.Create)
+		authv2.DELETE("/nodes/evm/:ID", enc.Delete)
+
+		tnc := TerraNodesController{app}
+		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))
+		authv2.GET("/chains/terra/:ID/nodes", paginatedRequest(tnc.Index))
+		authv2.POST("/nodes/terra", tnc.Create)
+		authv2.DELETE("/nodes/terra/:ID", tnc.Delete)
 	}
 
 	ping := PingController{app}

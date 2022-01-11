@@ -34,7 +34,7 @@ import (
 )
 
 func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
-	if err := db.Get(&h, `SELECT * FROM heads ORDER BY number ASC LIMIT 1`); err != nil {
+	if err := db.Get(&h, `SELECT * FROM evm_heads ORDER BY number ASC LIMIT 1`); err != nil {
 		t.Fatal(err)
 	}
 	return h
