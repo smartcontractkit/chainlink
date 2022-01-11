@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	_ services.Service = (*Txm)(nil)
-	failedMsgIndexRe, _ = regexp.Compile(`^.*failed to execute message; message index: (?P<Index>\d{1}):.*$`)
+	_                   services.Service = (*Txm)(nil)
+	failedMsgIndexRe, _                  = regexp.Compile(`^.*failed to execute message; message index: (?P<Index>\d{1}):.*$`)
 )
 
 const (
@@ -271,8 +271,7 @@ func (txm *Txm) ConfirmTx(txHash string, broadcasted []TerraMsg) error {
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
 	pollPeriod := 1 * time.Second
-	tries := 100
-	for tries = 0; tries < 10; tries++ {
+	for tries := 0; tries < 100; tries++ {
 		time.Sleep(pollPeriod)
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
