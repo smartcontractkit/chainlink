@@ -533,3 +533,16 @@ func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolve
 
 	return NewGetSQLLoggingPayload(enabled), nil
 }
+
+func (r *Resolver) OCR2KeyBundles(ctx context.Context) (*OCR2KeyBundlesPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	ekbs, err := r.App.GetKeyStore().OCR2().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOCR2KeyBundlesPayload(ekbs), nil
+}
