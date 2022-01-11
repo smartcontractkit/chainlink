@@ -42,7 +42,9 @@ type TransmitCheckerFactory interface {
 type TransmitChecker interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
-	// is returned.
+	// is returned. Errors should only be returned if the checker can confirm that a transaction
+	// should not be sent, other errors (for example connection or other unexpected errors) should
+	// be logged and swallowed.
 	Check(ctx context.Context, l logger.Logger, tx EthTx, a EthTxAttempt) error
 }
 

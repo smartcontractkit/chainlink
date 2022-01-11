@@ -29,7 +29,7 @@ func TestFactory(t *testing.T) {
 	t.Run("no checker", func(t *testing.T) {
 		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{})
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.NoChecker{}, c)
+		require.Equal(t, bulletprooftxmanager.NoChecker, c)
 	})
 
 	t.Run("vrf checker", func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestFactory(t *testing.T) {
 			VRFCoordinatorAddress: cltest.NewAddress(),
 		})
 		require.NoError(t, err)
-		require.IsType(t, bulletprooftxmanager.VRFV2Checker{}, c)
+		require.IsType(t, &bulletprooftxmanager.VRFV2Checker{}, c)
 	})
 
 	t.Run("simulate checker", func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestTransmitCheckers(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("no checker", func(t *testing.T) {
-		checker := bulletprooftxmanager.NoChecker{}
+		checker := bulletprooftxmanager.NoChecker
 		require.NoError(t, checker.Check(ctx, log, bulletprooftxmanager.EthTx{}, bulletprooftxmanager.EthTxAttempt{}))
 	})
 
