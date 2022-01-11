@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// EVMChainResource is an EVM chain JSONAPI resource.
 type EVMChainResource struct {
 	JAID
 	Enabled   bool              `json:"enabled"`
@@ -22,6 +23,7 @@ func (r EVMChainResource) GetName() string {
 	return "evm_chain"
 }
 
+// NewEVMChainResource returns a new EVMChainResource for chain.
 func NewEVMChainResource(chain evmtypes.Chain) EVMChainResource {
 	return EVMChainResource{
 		JAID:      NewJAIDInt64(chain.ID.ToInt().Int64()),
@@ -32,6 +34,7 @@ func NewEVMChainResource(chain evmtypes.Chain) EVMChainResource {
 	}
 }
 
+// EVMNodeResource is an EVM node JSONAPI resource.
 type EVMNodeResource struct {
 	JAID
 	Name       string      `json:"name"`
@@ -47,6 +50,7 @@ func (r EVMNodeResource) GetName() string {
 	return "evm_node"
 }
 
+// NewEVMNodeResource returns a new EVMNodeResource for node.
 func NewEVMNodeResource(node evmtypes.Node) EVMNodeResource {
 	return EVMNodeResource{
 		JAID:       NewJAIDInt32(node.ID),

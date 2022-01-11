@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+// ORM manages terra chains and nodes.
 type ORM interface {
 	CreateNode(NewNode) (Node, error)
 	DeleteNode(int32) error
@@ -12,11 +13,13 @@ type ORM interface {
 	NodesForChain(chainID string, offset, limit int) (nodes []Node, count int, err error)
 }
 
+// ChainCfg is configuration parameters for a terra chain.
 type ChainCfg struct {
 	FallbackGasPriceULuna string
 	GasLimitMultiplier    string
 }
 
+// NewNode defines a new node to create.
 type NewNode struct {
 	Name          string `json:"name"`
 	TerraChainID  string `json:"terraChainId"`
@@ -24,6 +27,7 @@ type NewNode struct {
 	FCDURL        string `json:"fcdURL" db:"fcd_url"`
 }
 
+// Node is an existing node.
 type Node struct {
 	ID            int32
 	Name          string

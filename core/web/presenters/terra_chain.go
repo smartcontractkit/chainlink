@@ -6,6 +6,7 @@ import (
 	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 )
 
+// TerraNodeResource is a Terra node JSONAPI resource.
 type TerraNodeResource struct {
 	JAID
 	Name          string    `json:"name"`
@@ -21,6 +22,7 @@ func (r TerraNodeResource) GetName() string {
 	return "terra_node"
 }
 
+// NewTerraNodeResource returns a new TerraNodeResource for node.
 func NewTerraNodeResource(node terratypes.Node) TerraNodeResource {
 	return TerraNodeResource{
 		JAID:          NewJAIDInt32(node.ID),

@@ -11,10 +11,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TerraNodesController manages Terra nodes.
 type TerraNodesController struct {
 	App chainlink.Application
 }
 
+// Index lists Terra nodes, and optionally filters by chain id.
 func (nc *TerraNodesController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 
@@ -38,6 +40,7 @@ func (nc *TerraNodesController) Index(c *gin.Context, size, page, offset int) {
 	paginatedResponse(c, "node", size, page, resources, count, err)
 }
 
+// Create adds a new Terra node.
 func (nc *TerraNodesController) Create(c *gin.Context) {
 	var request types.NewNode
 
@@ -56,6 +59,7 @@ func (nc *TerraNodesController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewTerraNodeResource(node), "node")
 }
 
+// Delete removes a Terra node.
 func (nc *TerraNodesController) Delete(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("ID"), 10, 32)
 	if err != nil {

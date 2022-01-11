@@ -14,10 +14,12 @@ type orm struct {
 
 var _ types.ORM = (*orm)(nil)
 
+// NewORM returns an ORM backed by db.
 func NewORM(db *sqlx.DB) types.ORM {
 	return &orm{db}
 }
 
+// ErrNoRowsAffected is returned when rows should have been affected but were not.
 var ErrNoRowsAffected = errors.New("no rows affected")
 
 func (o orm) CreateNode(data types.NewNode) (node types.Node, err error) {

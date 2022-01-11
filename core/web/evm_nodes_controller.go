@@ -12,10 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// EVMNodesController manages EVM nodes.
 type EVMNodesController struct {
 	App chainlink.Application
 }
 
+// Index lists EVM nodes, and optionally filters by chain id.
 func (nc *EVMNodesController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 
@@ -45,6 +47,7 @@ func (nc *EVMNodesController) Index(c *gin.Context, size, page, offset int) {
 	paginatedResponse(c, "node", size, page, resources, count, err)
 }
 
+// Create adds a new EVM node.
 func (nc *EVMNodesController) Create(c *gin.Context) {
 	var request types.NewNode
 
@@ -63,6 +66,7 @@ func (nc *EVMNodesController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewEVMNodeResource(node), "node")
 }
 
+// Delete removes an EVM node.
 func (nc *EVMNodesController) Delete(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	if err != nil {

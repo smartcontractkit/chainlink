@@ -14,10 +14,12 @@ import (
 	"go.uber.org/multierr"
 )
 
+// TerraNodePresenter implements TableRenderer for a TerraNodeResource.
 type TerraNodePresenter struct {
 	presenters.TerraNodeResource
 }
 
+// ToRow presents the TerraNodeResource as a slice of strings.
 func (p *TerraNodePresenter) ToRow() []string {
 	row := []string{
 		p.GetID(),
@@ -41,6 +43,7 @@ func (p TerraNodePresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
+// TerraNodePresenters implements TableRenderer for a slice of TerraNodePresenter.
 type TerraNodePresenters []TerraNodePresenter
 
 // RenderTable implements TableRenderer

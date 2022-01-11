@@ -14,10 +14,12 @@ import (
 	null "gopkg.in/guregu/null.v4"
 )
 
+// EVMNodePresenter implements TableRenderer for an EVMNodeResource.
 type EVMNodePresenter struct {
 	presenters.EVMNodeResource
 }
 
+// ToRow presents the EVMNodeResource as a slice of strings.
 func (p *EVMNodePresenter) ToRow() []string {
 	row := []string{
 		p.GetID(),
@@ -41,6 +43,7 @@ func (p EVMNodePresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
+// EVMNodePresenters implements TableRenderer for a slice of EVMNodePresenter.
 type EVMNodePresenters []EVMNodePresenter
 
 // RenderTable implements TableRenderer

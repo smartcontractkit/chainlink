@@ -35,7 +35,7 @@ type delegate struct {
 }
 
 // NewDelegate creates a master relay delegate which manages "relays" which are OCR2 median reporting plugins
-// for various chains (evm and non-evm).
+// for various chains (evm and non-evm). nil Relayers will be disabled.
 func NewDelegate(ks keystore.Master, evmRelayer, solanaRelayer, terraRelayer types.Relayer) *delegate {
 	d := &delegate{
 		ks:       ks,

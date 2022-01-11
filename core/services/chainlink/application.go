@@ -575,6 +575,7 @@ func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
 	return app.ChainSet.ORM()
 }
 
+// TerraORM returns the Terra ORM.
 func (app *ChainlinkApplication) TerraORM() terratypes.ORM {
 	return app.terraORM
 }
