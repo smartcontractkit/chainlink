@@ -89,7 +89,7 @@ func TestPool_Dial(t *testing.T) {
 func TestPool_Dial_Errors(t *testing.T) {
 	t.Run("starts and kicks off retry loop even if dial errors", func(t *testing.T) {
 		node := new(ethmocks.Node)
-		node.On("String").Return("node")
+		node.On("String").Return("node").Maybe()
 		node.On("Close").Maybe()
 		node.Test(t)
 		nodes := []eth.Node{node}
@@ -107,7 +107,7 @@ func TestPool_Dial_Errors(t *testing.T) {
 
 	t.Run("starts and kicks off retry loop even on verification errors", func(t *testing.T) {
 		node := new(ethmocks.Node)
-		node.On("String").Return("node")
+		node.On("String").Return("node").Maybe()
 		node.On("Close").Maybe()
 		node.Test(t)
 		nodes := []eth.Node{node}
