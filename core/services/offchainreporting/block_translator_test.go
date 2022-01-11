@@ -26,16 +26,16 @@ func Test_BlockTranslator(t *testing.T) {
 		assert.Equal(t, big.NewInt(42), to)
 	})
 
-	t.Run("for optimism, returns an initial block number and nil", func(t *testing.T) {
+	t.Run("for optimism, uses the default translator", func(t *testing.T) {
 		bt := offchainreporting.NewBlockTranslator(evmtest.ChainOptimismMainnet(t), ethClient, lggr)
 		from, to := bt.NumberToQueryRange(ctx, 42)
-		assert.Equal(t, big.NewInt(0), from)
-		assert.Equal(t, (*big.Int)(nil), to)
+		assert.Equal(t, big.NewInt(42), from)
+		assert.Equal(t, big.NewInt(42), to)
 
 		bt = offchainreporting.NewBlockTranslator(evmtest.ChainOptimismKovan(t), ethClient, lggr)
 		from, to = bt.NumberToQueryRange(ctx, 42)
-		assert.Equal(t, big.NewInt(0), from)
-		assert.Equal(t, (*big.Int)(nil), to)
+		assert.Equal(t, big.NewInt(42), from)
+		assert.Equal(t, big.NewInt(42), to)
 	})
 
 	t.Run("for arbitrum, returns the ArbitrumBlockTranslator", func(t *testing.T) {
