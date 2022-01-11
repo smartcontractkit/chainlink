@@ -1,5 +1,5 @@
 enum OCR2ChainType {
-    EMV
+    EVM
     TERRA
 	SOLANA
 }
