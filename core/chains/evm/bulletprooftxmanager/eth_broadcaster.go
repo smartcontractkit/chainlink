@@ -43,12 +43,7 @@ type TransmitChecker interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned.
-	Check(
-		ctx context.Context,
-		l logger.Logger,
-		tx EthTx,
-		a EthTxAttempt,
-	) error
+	Check(ctx context.Context, l logger.Logger, tx EthTx, a EthTxAttempt) error
 }
 
 // EthBroadcaster monitors eth_txes for transactions that need to

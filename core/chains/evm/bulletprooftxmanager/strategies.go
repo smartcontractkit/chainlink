@@ -18,6 +18,8 @@ type TxStrategy interface {
 
 var _ TxStrategy = SendEveryStrategy{}
 
+// NewQueueingTxStrategy creates a new TxStrategy that drops the oldest transactions after the
+// queue size is exceeded if a queue size is specified, and otherwise does not drop transactions.
 func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy TxStrategy) {
 	if queueSize > 0 {
 		strategy = NewDropOldestStrategy(subject, queueSize)
@@ -27,6 +29,7 @@ func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy TxStra
 	return
 }
 
+// NewSendEveryStrategy creates a new TxStrategy that does not drop transactions.
 func NewSendEveryStrategy() TxStrategy {
 	return SendEveryStrategy{}
 }
@@ -46,6 +49,8 @@ type DropOldestStrategy struct {
 	queueSize uint32
 }
 
+// NewDropOldestStrategy creates a new TxStrategy that drops the oldest transactions after the
+// queue size is exceeded.
 func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32) DropOldestStrategy {
 	return DropOldestStrategy{subject, queueSize}
 }

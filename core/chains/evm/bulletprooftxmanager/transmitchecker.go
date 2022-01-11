@@ -26,6 +26,7 @@ type CheckerFactory struct {
 	Client evmclient.Client
 }
 
+// BuildChecker satisfies the TransmitCheckerFactory interface.
 func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error) {
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
@@ -46,6 +47,7 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 // NoChecker is a TransmitChecker that always determines a transaction should be submitted.
 type NoChecker struct{}
 
+// Check satisfies the TransmitChecker interface.
 func (NoChecker) Check(
 	_ context.Context,
 	_ logger.Logger,
@@ -60,6 +62,7 @@ type SimulateChecker struct {
 	Client evmclient.Client
 }
 
+// Check satisfies the TransmitChecker interface.
 func (s *SimulateChecker) Check(
 	ctx context.Context,
 	l logger.Logger,
@@ -98,10 +101,16 @@ func (s *SimulateChecker) Check(
 	return nil
 }
 
+// VRFV2Checker is an implementation of TransmitChecker that checks whether a VRF V2 fulfillment
+// has already been fulfilled.
 type VRFV2Checker struct {
+
+	// GetCommitment checks whether a VRF V2 request has been fulfilled on the VRFCoordinatorV2
+	// Solidity contract.
 	GetCommitment func(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
 }
 
+// Check satisfies the TransmitChecker interface.
 func (v VRFV2Checker) Check(
 	ctx context.Context,
 	l logger.Logger,

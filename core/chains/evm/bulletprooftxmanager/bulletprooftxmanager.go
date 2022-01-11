@@ -106,6 +106,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
+// NewBulletproofTxManager creates a new BulletproofTxManager with the given configuration.
 func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
