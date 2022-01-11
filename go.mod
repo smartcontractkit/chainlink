@@ -13,7 +13,7 @@ require (
 	github.com/ethereum/go-ethereum v1.10.11
 	github.com/fatih/color v1.13.0
 	github.com/fxamacker/cbor/v2 v2.3.0
-	github.com/gagliardetto/solana-go v1.0.2
+	github.com/gagliardetto/solana-go v1.0.4
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
@@ -50,7 +50,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.0.0-20220105214423-218ff2c30218
+	github.com/smartcontractkit/chainlink-solana v0.0.0-20220110150750-26cf3ee24c90
 	github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.3.5
@@ -89,7 +89,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/boj/redistore v0.0.0-20180917114910-cd5dcc76aeff // indirect
-	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -111,7 +110,7 @@ require (
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
-	github.com/gagliardetto/binary v0.5.0 // indirect
+	github.com/gagliardetto/binary v0.5.2 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -132,7 +131,6 @@ require (
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/wire v0.5.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
-	github.com/gorilla/rpc v1.2.0 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-bexpr v0.1.10 // indirect
