@@ -22,6 +22,41 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 )
 
+func TestFactory(t *testing.T) {
+	client, _, _ := cltest.NewEthMocksWithDefaultChain(t)
+	factory := &bulletprooftxmanager.CheckerFactory{Client: client}
+
+	t.Run("no checker", func(t *testing.T) {
+		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{})
+		require.NoError(t, err)
+		require.Equal(t, bulletprooftxmanager.NoChecker{}, c)
+	})
+
+	t.Run("vrf checker", func(t *testing.T) {
+		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
+			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
+			VRFCoordinatorAddress: cltest.NewAddress(),
+		})
+		require.NoError(t, err)
+		require.IsType(t, bulletprooftxmanager.VRFV2Checker{}, c)
+	})
+
+	t.Run("simulate checker", func(t *testing.T) {
+		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
+			CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+		})
+		require.NoError(t, err)
+		require.Equal(t, &bulletprooftxmanager.SimulateChecker{Client: client}, c)
+	})
+
+	t.Run("invalid checker type", func(t *testing.T) {
+		_, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
+			CheckerType: "invalid",
+		})
+		require.EqualError(t, err, "unrecognized checker type: invalid")
+	})
+}
+
 func TestTransmitCheckers(t *testing.T) {
 	client := cltest.NewEthClientMockWithDefaultChain(t)
 	log := logger.TestLogger(t)
@@ -29,7 +64,7 @@ func TestTransmitCheckers(t *testing.T) {
 
 	t.Run("no checker", func(t *testing.T) {
 		checker := bulletprooftxmanager.NoChecker{}
-		require.NoError(t, checker.ShouldTransmit(ctx, log, bulletprooftxmanager.EthTx{}, bulletprooftxmanager.EthTxAttempt{}))
+		require.NoError(t, checker.Check(ctx, log, bulletprooftxmanager.EthTx{}, bulletprooftxmanager.EthTxAttempt{}))
 	})
 
 	t.Run("simulate", func(t *testing.T) {
@@ -58,7 +93,7 @@ func TestTransmitCheckers(t *testing.T) {
 					return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
 				}), "latest").Return(nil).Once()
 
-			require.NoError(t, checker.ShouldTransmit(ctx, log, tx, attempt))
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 			client.AssertExpectations(t)
 		})
 
@@ -74,7 +109,7 @@ func TestTransmitCheckers(t *testing.T) {
 					return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
 				}), "latest").Return(&jerr).Once()
 
-			err := checker.ShouldTransmit(ctx, log, tx, attempt)
+			err := checker.Check(ctx, log, tx, attempt)
 			expErrMsg := "transaction reverted during simulation: json-rpc error { Code = 42, Message = 'oh no, it reverted', Data = 'KqYi' }"
 			require.EqualError(t, err, expErrMsg)
 			client.AssertExpectations(t)
@@ -89,7 +124,7 @@ func TestTransmitCheckers(t *testing.T) {
 
 			// Non-revert errors are logged but should not prevent transmission, and do not need
 			// to be passed to the caller
-			require.NoError(t, checker.ShouldTransmit(ctx, log, tx, attempt))
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 			client.AssertExpectations(t)
 		})
 	})
@@ -141,18 +176,18 @@ func TestTransmitCheckers(t *testing.T) {
 
 		t.Run("already fulfilled", func(t *testing.T) {
 			tx, attempt := newTx(t, big.NewInt(1))
-			err := checker.ShouldTransmit(ctx, log, tx, attempt)
+			err := checker.Check(ctx, log, tx, attempt)
 			require.Error(t, err, "request already fulfilled")
 		})
 
 		t.Run("not fulfilled", func(t *testing.T) {
 			tx, attempt := newTx(t, big.NewInt(3))
-			require.NoError(t, checker.ShouldTransmit(ctx, log, tx, attempt))
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 
 		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
 			tx, attempt := newTx(t, big.NewInt(2))
-			require.NoError(t, checker.ShouldTransmit(ctx, log, tx, attempt))
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 	})
 }

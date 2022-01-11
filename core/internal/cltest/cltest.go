@@ -30,7 +30,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -78,6 +77,7 @@ import (
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -180,7 +180,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory bulletprooftxmanager.TransmitCheckerFactory) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start()
@@ -188,7 +188,8 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, ke
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
 	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
+		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr,
+		checkerFactory)
 }
 
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {

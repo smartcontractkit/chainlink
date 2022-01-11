@@ -200,7 +200,8 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	lggr := logger.TestLogger(t)
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
+	checkerFactory := &testCheckerFactory{}
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr, checkerFactory)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
@@ -308,19 +309,12 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.Contains(t, err.Error(), fmt.Sprintf("cannot send transaction on chain ID 0; eth key with address %s is pegged to chain ID 1337", otherAddress.Hex()))
 	})
 
-	t.Run("with meta, simulate checker", func(t *testing.T) {
+	t.Run("simulate transmit checker", func(t *testing.T) {
 		_, err := db.Exec(`DELETE FROM eth_txes`)
 		require.NoError(t, err)
 
-		jobID := int32(25)
-		requestID := gethcommon.HexToHash("abcd")
-		requestTxHash := gethcommon.HexToHash("dcba")
-		meta := bulletprooftxmanager.EthTxMeta{
-			JobID:         jobID,
-			RequestID:     requestID,
-			RequestTxHash: requestTxHash,
-			MaxLink:       "1000000000000000000", // 1e18
-			SubID:         2,
+		checker := bulletprooftxmanager.TransmitCheckerSpec{
+			CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		etx, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
@@ -328,24 +322,21 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
-			Meta:           &meta,
 			Strategy:       bulletprooftxmanager.NewSendEveryStrategy(),
-			Checker: bulletprooftxmanager.TransmitCheckerSpec{
-				CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
-			},
+			Checker:        checker,
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		var m bulletprooftxmanager.EthTxMeta
-		require.NotNil(t, etx.Meta)
-		require.NoError(t, json.Unmarshal(*etx.Meta, &m))
-		require.Equal(t, meta, m)
+		var c bulletprooftxmanager.TransmitCheckerSpec
+		require.NotNil(t, etx.TransmitChecker)
+		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
+		require.Equal(t, checker, c)
 	})
 
-	t.Run("with meta, vrf checker", func(t *testing.T) {
+	t.Run("meta and vrf checker", func(t *testing.T) {
 		_, err := db.Exec(`DELETE FROM eth_txes`)
 		require.NoError(t, err)
 
@@ -360,6 +351,10 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 			SubID:         2,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+		checker := bulletprooftxmanager.TransmitCheckerSpec{
+			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
+			VRFCoordinatorAddress: cltest.NewAddress(),
+		}
 		etx, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -367,10 +362,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 			GasLimit:       gasLimit,
 			Meta:           meta,
 			Strategy:       bulletprooftxmanager.NewSendEveryStrategy(),
-			Checker: bulletprooftxmanager.TransmitCheckerSpec{
-				CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
-				VRFCoordinatorAddress: cltest.NewAddress(),
-			},
+			Checker:        checker,
 		})
 		assert.NoError(t, err)
 		cltest.AssertCount(t, db, "eth_txes", 1)
@@ -380,6 +372,11 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
 		require.Equal(t, meta, m)
+
+		var c bulletprooftxmanager.TransmitCheckerSpec
+		require.NotNil(t, etx.TransmitChecker)
+		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
+		require.Equal(t, checker, c)
 	})
 }
 
@@ -409,7 +406,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("LogSQL").Return(false)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr, &testCheckerFactory{})
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -506,7 +503,8 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 	lggr := logger.TestLogger(t)
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, eventBroadcaster, lggr)
+	checkerFactory := &testCheckerFactory{}
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, eventBroadcaster, lggr, checkerFactory)
 
 	head := cltest.Head(42)
 	// It should not hang or panic
