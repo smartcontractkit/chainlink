@@ -11,9 +11,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	//terrakey "github.com/smartcontractkit/terra.go/key"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/terra-project/terra.go/msg"
+	"github.com/smartcontractkit/terra.go/msg"
 )
 
 var (

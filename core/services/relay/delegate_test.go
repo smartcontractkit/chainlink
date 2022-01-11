@@ -40,7 +40,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	keystore.On("Solana").Return(solKey, nil)
 
 	tc := new(terraclient.Reader)
-	d := relay.NewDelegate(&sqlx.DB{}, keystore, &chainsMock.ChainSet{}, "", *tc, &terratxm.Txm{}, logger.NewLogger())
+	d := relay.NewDelegate(&sqlx.DB{}, keystore, &chainsMock.ChainSet{}, "42", *tc, &terratxm.Txm{}, logger.NewLogger())
 
 	// struct for testing multiple specs
 	specs := []struct {

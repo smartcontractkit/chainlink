@@ -23,8 +23,8 @@ import (
 )
 
 var (
-	_                   services.Service = (*Txm)(nil)
-	failedMsgIndexRe, _                  = regexp.Compile(`^.*failed to execute message; message index: (?P<Index>\d{1}):.*$`)
+	_ services.Service = (*Txm)(nil)
+	failedMsgIndexRe, _ = regexp.Compile(`^.*failed to execute message; message index: (?P<Index>\d{1}):.*$`)
 )
 
 const (
