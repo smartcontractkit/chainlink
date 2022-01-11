@@ -1622,10 +1622,10 @@ type testChecker struct {
 }
 
 func (t *testChecker) Check(
-	ctx context.Context,
-	l logger.Logger,
-	tx bulletprooftxmanager.EthTx,
-	a bulletprooftxmanager.EthTxAttempt,
+	_ context.Context,
+	_ logger.Logger,
+	_ bulletprooftxmanager.EthTx,
+	_ bulletprooftxmanager.EthTxAttempt,
 ) error {
 	return t.err
 }
