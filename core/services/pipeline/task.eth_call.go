@@ -63,6 +63,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasPrice     MaybeBigIntParam
 		gasTipCap    MaybeBigIntParam
 		gasFeeCap    MaybeBigIntParam
+		chainID      StringParam
 	)
 
 	err = multierr.Combine(
@@ -72,6 +73,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
 		errors.Wrap(ResolveParam(&gasTipCap, From(VarExpr(t.GasTipCap, vars), t.GasTipCap)), "gasTipCap"),
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
+		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -88,9 +90,10 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		GasFeeCap: gasFeeCap.BigInt(),
 	}
 
-	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
-		return Result{Error: err}, retryableRunInfo()
+		lggr.Errorf("Invalid chain ID %s", chainID)
+		return Result{Error: err}, runInfo
 	}
 
 	start := time.Now()
