@@ -9,9 +9,10 @@ import (
 type State string
 
 var (
-	Unstarted State = "unstarted"
-	Completed State = "completed"
-	Errored   State = "errored"
+	Unstarted   State = "unstarted"
+	Broadcasted State = "broadcasted"
+	Confirmed   State = "confirmed"
+	Errored     State = "errored"
 )
 
 type TerraMsg struct {

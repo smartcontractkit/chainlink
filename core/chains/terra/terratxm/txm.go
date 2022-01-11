@@ -1,8 +1,8 @@
+//
 package terratxm
 
 import (
 	"encoding/hex"
-	"fmt"
 	"regexp"
 	"strconv"
 	"time"
@@ -25,6 +25,13 @@ import (
 var (
 	_                   services.Service = (*Txm)(nil)
 	failedMsgIndexRe, _                  = regexp.Compile(`^.*failed to execute message; message index: (?P<Index>\d{1}):.*$`)
+)
+
+const (
+	// TODO: reason out a valid upper bound
+	MaxMsgsPerBatch = 50
+	// ~8s per block, so ~80s
+	BlocksUntilTxTimeout = 10
 )
 
 type Txm struct {
@@ -68,6 +75,8 @@ func (txm *Txm) Start() error {
 
 func (txm *Txm) run(sub pg.Subscription) {
 	defer func() { txm.done <- struct{}{} }()
+	// TODO: Confirm or error any txes that are in broadcasted state,
+	// i.e. node crashed while confirming them.
 	for {
 		select {
 		case <-sub.Events():
@@ -90,13 +99,16 @@ func (txm *Txm) sendMsgBatch() {
 	if len(unstarted) == 0 {
 		return
 	}
+	if len(unstarted) > MaxMsgsPerBatch {
+		unstarted = unstarted[:MaxMsgsPerBatch+1]
+	}
 	txm.lggr.Debugw("building a batch", "batch", unstarted)
 	var msgsByFrom = make(map[string][]TerraMsg)
 	for _, m := range unstarted {
 		var ms wasmtypes.MsgExecuteContract
 		err := ms.Unmarshal(m.Msg)
 		if err != nil {
-			// Should be impossible given the check in in Enqueue
+			// Should be impossible given the check in Enqueue
 			txm.lggr.Errorw("failed to unmarshal msg, skipping", "err", err, "msg", m)
 			continue
 		}
@@ -111,49 +123,73 @@ func (txm *Txm) sendMsgBatch() {
 		an, sn, err := txm.tc.Account(sender)
 		if err != nil {
 			txm.lggr.Errorw("to read account", "err", err, "from", sender.String())
+			// If we can't read the account, assume transient api issues and leave msgs unstarted
+			// to retry on next poll.
 			continue
 		}
+
 		key, err := txm.ks.Get(sender.String())
 		if err != nil {
 			txm.lggr.Errorw("unable to find key for from address", "err", err, "from", sender.String())
+			// We check the transmitter key exists when the job is added. So it would have to be deleted
+			// after it was added for this to happen. Retry on next poll should the key be re-added.
 			continue
 		}
-		privKey := NewPrivKey(key)
-		txm.lggr.Infow("sending a tx", "from", sender, "msgs", msgs)
+
+		txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
 		simResults, err := txm.simulate(msgs, sn)
 		if err != nil {
-			txm.lggr.Errorw("unable to estimate gas", "err", err, "from", sender.String())
+			txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
+			// If we can't simulate assume transient api issue and retry on next poll.
 			continue
 		}
-		// Mark failed ones
+		txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.succeeded, "failed", simResults.failed)
 		err = txm.orm.UpdateMsgsWithState(GetIDs(simResults.failed), Errored)
 		if err != nil {
 			txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
+			// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
 			continue
 		}
-		signedTx, err := txm.tc.CreateAndSign(GetMsgs(simResults.succeeded), an, sn, simResults.gasLimit, gp, privKey)
+
+		lb, err := txm.tc.LatestBlock()
+		if err != nil {
+			txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
+			continue
+		}
+		signedTx, err := txm.tc.CreateAndSign(GetMsgs(simResults.succeeded), an, sn, simResults.gasLimit, gp, NewPrivKey(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
 		if err != nil {
 			txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
 			continue
 		}
-		resp, err := txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
-		if err != nil || resp.TxResponse == nil {
-			txm.lggr.Errorw("error sending tx", "err", err, "resp", resp)
+
+		// We need to ensure that we either broadcast successfully and mark the tx as
+		// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
+		var resp *txtypes.BroadcastTxResponse
+		err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
+			err = txm.orm.UpdateMsgsWithState(GetIDs(simResults.succeeded), Broadcasted, pg.WithQueryer(tx))
+			if err != nil {
+				return err
+			}
+			txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.succeeded)
+			resp, err = txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
+			if err != nil {
+				return err
+			}
+			if resp.TxResponse == nil {
+				return errors.New("unexpected nil tx response")
+			}
+			return nil
+		})
+		if err != nil {
+			txm.lggr.Errorw("error broadcasting tx", "err", err, "from", sender.String())
+			// Was unable to broadcast, retry on next poll
 			continue
 		}
-		// Block mode will ensure the tx gets committed, but we still need to poll a little bit
-		// until the tx hash becomes queryable and we can be certain that the next sequence number
-		// can be used.
-		if err := txm.ConfirmTx(resp.TxResponse.TxHash); err != nil {
+
+		if err := txm.ConfirmTx(resp.TxResponse.TxHash, simResults.succeeded); err != nil {
 			txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 			continue
 		}
-		// If confirmed mark these as completed.
-		err = txm.orm.UpdateMsgsWithState(GetIDs(simResults.succeeded), Completed)
-		if err != nil {
-			return
-		}
-		txm.lggr.Infow("successfully sent batch", "hash", resp.TxResponse.TxHash, "msgs", msgs)
 	}
 }
 
@@ -187,8 +223,8 @@ func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) 
 				break
 			}
 			// otherwise there may be more to sim
+			txm.lggr.Errorw("simulation error found in a msg", "retrying", toSim[failureIndex+1:], "failure", toSim[failureIndex], "failureIndex", failureIndex)
 			toSim = toSim[failureIndex+1:]
-			txm.lggr.Errorw("simulation error found in a msg", "retrying", toSim, "failure", toSim[failureIndex])
 		} else {
 			// we're done they all succeeded
 			succeeded = append(succeeded, toSim...)
@@ -227,28 +263,45 @@ func (txm *Txm) failedMsgIndex(err error) (bool, int) {
 	return true, int(index)
 }
 
-func (txm *Txm) ConfirmTx(txHash string) error {
+func (txm *Txm) ConfirmTx(txHash string, broadcasted []TerraMsg) error {
+	// We either mark these broadcasted txes as confirmed or errored.
+	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
+	// Errored: we do not see the txhash onchain after waiting for N blocks worth
+	// of time (plus a small buffer to account for block time variance) where N
+	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
+	// and the tx is not confirmed, we know it has timed out.
 	pollPeriod := 1 * time.Second
-	tries := 10
+	tries := 100
 	for tries = 0; tries < 10; tries++ {
 		time.Sleep(pollPeriod)
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
-		txes, err := txm.tc.TxsEvents([]string{fmt.Sprintf("tx.hash='%s'", txHash)})
+		tx, err := txm.tc.Tx(txHash)
 		if err != nil {
-			txm.lggr.Errorw("error looking for hash of tx", "err", err, "resp", txes)
+			txm.lggr.Errorw("error looking for hash of tx", "err", err, "resp", txHash)
 			continue
 		}
-		if txes == nil {
-			return errors.New("unexpected nil txes")
+		// Sanity check
+		if tx.TxResponse == nil || tx.TxResponse.TxHash != txHash {
+			txm.lggr.Errorw("error looking for hash of tx, unexpected response", "tx", tx, "hash", txHash)
+			continue
 		}
-		if len(txes.Txs) != 1 {
-			txm.lggr.Errorw("expected one tx to be found", "txes", txes, "num", len(txes.Txs))
-			return errors.New("unexpected num confirmed txes != 1")
+		txm.lggr.Infow("successfully sent batch", "hash", txHash, "msgs", broadcasted)
+		// If confirmed mark these as completed.
+		err = txm.orm.UpdateMsgsWithState(GetIDs(broadcasted), Confirmed)
+		if err != nil {
+			return err
 		}
 		return nil
 	}
-	return errors.Errorf("unable to confirm tx in %d poll periods of %v", pollPeriod, tries)
+	// If we are unable to confirm the tx after the timeout period
+	// mark these msgs as errored
+	err := txm.orm.UpdateMsgsWithState(GetIDs(broadcasted), Errored)
+	if err != nil {
+		txm.lggr.Errorw("unable to mark timed out txes as errored", "err", err, "txes", broadcasted, "num", len(broadcasted))
+		return err
+	}
+	return nil
 }
 
 func (txm *Txm) Enqueue(contractID string, msg []byte) (int64, error) {

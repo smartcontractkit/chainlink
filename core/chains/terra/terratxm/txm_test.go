@@ -75,7 +75,7 @@ func TestTxmStartStop(t *testing.T) {
 	}, 10*time.Second, time.Second).Should(gomega.BeTrue())
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		msgs, err := orm.SelectMsgsWithState(terratxm.Completed)
+		msgs, err := orm.SelectMsgsWithState(terratxm.Confirmed)
 		require.NoError(t, err)
 		return 1 == len(msgs)
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
@@ -91,12 +91,13 @@ func TestTxmStartStop(t *testing.T) {
 
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		succeeded, err := orm.SelectMsgsWithState(terratxm.Errored)
+		succeeded, err := orm.SelectMsgsWithState(terratxm.Confirmed)
 		require.NoError(t, err)
 		errored, err := orm.SelectMsgsWithState(terratxm.Errored)
 		require.NoError(t, err)
+		t.Log("errored", len(errored), "succeeded", len(succeeded))
 		return 2 == len(succeeded) && 2 == len(errored)
-	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
+	}, 10*time.Second, time.Second).Should(gomega.BeTrue())
 
 	// Observe the messages have been marked as completed
 	require.NoError(t, txm.Close())

@@ -44,8 +44,9 @@ func (o *ORM) SelectMsgsWithIDs(ids []int64) ([]TerraMsg, error) {
 	return msgs, nil
 }
 
-func (o *ORM) UpdateMsgsWithState(ids []int64, state State) error {
-	res, err := o.q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() WHERE id = ANY($2)`, state, ids)
+func (o *ORM) UpdateMsgsWithState(ids []int64, state State, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	res, err := q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() WHERE id = ANY($2)`, state, ids)
 	if err != nil {
 		return err
 	}
