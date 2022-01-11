@@ -34,9 +34,9 @@ Two new log levels have been added.
 - `[crit]`: *Critical* level logs are more severe than `[error]` and require quick action from the node operator.
 - `[debug] [trace]`: *Trace* level logs contain extra `[debug]` information for development, and must be compiled in via `-tags trace`.
 
-#### Multichain support added
+#### [Beta] Multichain support added
 
-Chainlink now supports connecting to multiple different EVM chains simultaneously.
+As a beta feature, Chainlink now supports connecting to multiple different EVM chains simultaneously.
 
 This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example). Note that you can still have as many eth keys as you like, but each eth key is pegged to one chain only.
 
