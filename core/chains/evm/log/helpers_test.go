@@ -19,10 +19,10 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
