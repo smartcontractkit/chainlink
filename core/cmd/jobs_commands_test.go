@@ -6,16 +6,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+	null "gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
 )
 
 func TestJobPresenter_RenderTable(t *testing.T) {
@@ -204,6 +205,18 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 				JobResource: presenters.JobResource{
 					Type: presenters.OffChainReportingJobSpec,
 					OffChainReportingSpec: &presenters.OffChainReportingSpec{
+						CreatedAt: now,
+					},
+				},
+			},
+			now.Format(time.RFC3339),
+		},
+		{
+			"gets the blockhash store spec created at timestamp",
+			&cmd.JobPresenter{
+				JobResource: presenters.JobResource{
+					Type: presenters.BlockhashStoreJobSpec,
+					BlockhashStoreSpec: &presenters.BlockhashStoreSpec{
 						CreatedAt: now,
 					},
 				},

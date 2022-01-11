@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 
 	"github.com/gin-gonic/gin"
@@ -130,6 +131,8 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jb, err = vrf.ValidatedVRFSpec(request.TOML)
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
+	case job.BlockhashStore:
+		jb, err = blockhashstore.ValidatedSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
 		return

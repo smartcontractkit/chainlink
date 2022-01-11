@@ -701,3 +701,86 @@ func TestResolver_WebhookSpec(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_BlockhashStoreSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+	coordinatorV1Address, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	require.NoError(t, err)
+
+	coordinatorV2Address, err := ethkey.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
+	require.NoError(t, err)
+
+	fromAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	require.NoError(t, err)
+
+	blockhashStoreAddress, err := ethkey.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
+	require.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "blockhash store spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
+					Type: job.BlockhashStore,
+					BlockhashStoreSpec: &job.BlockhashStoreSpec{
+						CoordinatorV1Address:  &coordinatorV1Address,
+						CoordinatorV2Address:  &coordinatorV2Address,
+						CreatedAt:             f.Timestamp(),
+						EVMChainID:            utils.NewBigI(42),
+						FromAddress:           &fromAddress,
+						PollPeriod:            1 * time.Minute,
+						WaitBlocks:            100,
+						LookbackBlocks:        200,
+						BlockhashStoreAddress: blockhashStoreAddress,
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on BlockhashStoreSpec {
+									coordinatorV1Address
+									coordinatorV2Address
+									createdAt
+									evmChainID
+									fromAddress
+									pollPeriod
+									waitBlocks
+									lookbackBlocks
+									blockhashStoreAddress
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "BlockhashStoreSpec",
+							"coordinatorV1Address": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"coordinatorV2Address": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
+							"createdAt": "2021-01-01T00:00:00Z",
+							"evmChainID": "42",
+							"fromAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+							"pollPeriod": "1m0s",
+							"waitBlocks": 100,
+							"lookbackBlocks": 200,
+							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
