@@ -158,10 +158,13 @@ func NewEthTx(t *testing.T, fromAddress common.Address) bulletprooftxmanager.Eth
 
 func MustInsertUnconfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
 	broadcastAt := time.Now()
+	chainID := &FixtureChainID
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case time.Time:
 			broadcastAt = v
+		case *big.Int:
+			chainID = v
 		}
 	}
 	etx := NewEthTx(t, fromAddress)
@@ -170,6 +173,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, non
 	n := nonce
 	etx.Nonce = &n
 	etx.State = bulletprooftxmanager.EthTxUnconfirmed
+	etx.EVMChainID = *utils.NewBig(chainID)
 	require.NoError(t, borm.InsertEthTx(&etx))
 	return etx
 }

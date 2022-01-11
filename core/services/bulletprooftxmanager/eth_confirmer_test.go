@@ -89,17 +89,12 @@ func mustInsertConfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, nonce
 func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
-	config := newTestChainScopedConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, config)
-
-	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
-
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-
-	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
-
+	ec := cltest.NewEthConfirmer(t, db, ethClient, cfg, ethKeyStore, []ethkey.State{state}, nil)
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
 
 	headNum := int64(9000)
@@ -132,6 +127,27 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 		attempt = etx.EthTxAttempts[0]
 
 		assert.Equal(t, int64(42), *attempt.BroadcastBeforeBlockNum)
+	})
+
+	t.Run("only updates eth_tx_attempts for the current chain", func(t *testing.T) {
+		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, cfg.DefaultChainID())
+		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, big.NewInt(1337))
+
+		require.NoError(t, ec.SetBroadcastBeforeBlockNum(headNum))
+
+		etxThisChain, err = borm.FindEthTxWithAttempts(etxThisChain.ID)
+		require.NoError(t, err)
+		require.Len(t, etxThisChain.EthTxAttempts, 1)
+		attempt := etxThisChain.EthTxAttempts[0]
+
+		assert.Equal(t, int64(9000), *attempt.BroadcastBeforeBlockNum)
+
+		etxOtherChain, err = borm.FindEthTxWithAttempts(etxOtherChain.ID)
+		require.NoError(t, err)
+		require.Len(t, etxOtherChain.EthTxAttempts, 1)
+		attempt = etxOtherChain.EthTxAttempts[0]
+
+		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
 }
 
