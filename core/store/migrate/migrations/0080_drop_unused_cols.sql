@@ -2,6 +2,7 @@
 ALTER TABLE offchainreporting_oracle_specs DROP COLUMN monitoring_endpoint;
 ALTER TABLE jobs ADD COLUMN created_at timestamptz;
 
+UPDATE jobs SET created_at=offchainreporting_oracle_specs.created_at FROM offchainreporting_oracle_specs WHERE jobs.offchainreporting_oracle_spec_id = offchainreporting_oracle_specs.id;
 UPDATE jobs SET created_at=direct_request_specs.created_at FROM direct_request_specs WHERE jobs.direct_request_spec_id = direct_request_specs.id;
 UPDATE jobs SET created_at=flux_monitor_specs.created_at FROM flux_monitor_specs WHERE jobs.flux_monitor_spec_id = flux_monitor_specs.id;
 UPDATE jobs SET created_at=keeper_specs.created_at FROM keeper_specs WHERE jobs.keeper_spec_id = keeper_specs.id;
