@@ -58,8 +58,8 @@ type (
 )
 
 // Wraps the input Task for the given dependent task along with a bool variable PropagateResult,
-// which Indicates whether result of InputTask should be propogated to its dependent task.
-// If the edge between these tasks was an implicit edge, then results are not propogated. This is because
+// which Indicates whether result of InputTask should be propagated to its dependent task.
+// If the edge between these tasks was an implicit edge, then results are not propagated. This is because
 // some tasks cannot handle an input from an edge which wasn't specified in the spec.
 type TaskDependency struct {
 	PropagateResult bool

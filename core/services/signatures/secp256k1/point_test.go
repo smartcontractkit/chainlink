@@ -35,7 +35,7 @@ func TestPoint_CloneAndEqual(t *testing.T) {
 		assert.Equal(t, f, g, "clones should be equal")
 		g.Add(g, f)
 		assert.Equal(t, h, f,
-			"modifying a clone shouldn't change originial")
+			"modifying a clone shouldn't change original")
 	}
 }
 

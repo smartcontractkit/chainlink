@@ -1380,8 +1380,8 @@ func TestStartingCountsV1(t *testing.T) {
 		})
 	}
 	txes := append(confirmedTxes, unconfirmedTxes...)
-	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
-			VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id, :simulate);`
+	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
+			VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id);`
 	for _, tx := range txes {
 		_, err = db.NamedExec(sql, &tx)
 		require.NoError(t, err)

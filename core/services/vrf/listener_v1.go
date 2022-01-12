@@ -269,6 +269,13 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
+	lsn.l.Infof("Enqueued randomness request",
+		"requestID", hex.EncodeToString(req.RequestID[:]),
+		"requestJobID", hex.EncodeToString(req.JobID[:]),
+		"keyHash", hex.EncodeToString(req.KeyHash[:]),
+		"fee", req.Fee,
+		"sender", req.Sender.Hex(),
+		"txHash", lb.RawLog().TxHash)
 }
 
 func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
@@ -370,7 +377,15 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 		}
 		return nil
 	}); err != nil {
-		lsn.l.Errorw("Failed executing run", "err", err)
+		lsn.l.Errorw("Failed executing run",
+			"err", err,
+			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"reqTxHash", req.Raw.TxHash)
+	} else {
+		lsn.l.Infow("Executed fulfillment run",
+			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"keyHash", hex.EncodeToString(req.KeyHash[:]),
+			"reqTxHash", req.Raw.TxHash)
 	}
 }
 

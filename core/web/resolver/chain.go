@@ -27,12 +27,12 @@ func NewChains(chains []types.Chain) []*ChainResolver {
 	return resolvers
 }
 
-// ID resolves the chains's unique identifier.
+// ID resolves the chain's unique identifier.
 func (r *ChainResolver) ID() graphql.ID {
 	return graphql.ID(r.chain.ID.String())
 }
 
-// Enabled resolves the chains's enabled field.
+// Enabled resolves the chain's enabled field.
 func (r *ChainResolver) Enabled() bool {
 	return r.chain.Enabled
 }
@@ -42,12 +42,12 @@ func (r *ChainResolver) Config() *ChainConfigResolver {
 	return NewChainConfig(r.chain.Cfg)
 }
 
-// CreatedAt resolves the chains's created at field.
+// CreatedAt resolves the chain's created at field.
 func (r *ChainResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.chain.CreatedAt}
 }
 
-// UpdatedAt resolves the chains's updated at field.
+// UpdatedAt resolves the chain's updated at field.
 func (r *ChainResolver) UpdatedAt() graphql.Time {
 	return graphql.Time{Time: r.chain.UpdatedAt}
 }
