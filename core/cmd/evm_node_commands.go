@@ -33,12 +33,13 @@ func (p *EVMNodePresenter) ToRow() []string {
 	return row
 }
 
+var evmNodeHeaders = []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "Created", "Updated"}
+
 // RenderTable implements TableRenderer
 func (p EVMNodePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "Created", "Updated"}
-	rows := [][]string{}
+	var rows [][]string
 	rows = append(rows, p.ToRow())
-	renderList(headers, rows, rt.Writer)
+	renderList(evmNodeHeaders, rows, rt.Writer)
 
 	return nil
 }
@@ -48,14 +49,13 @@ type EVMNodePresenters []EVMNodePresenter
 
 // RenderTable implements TableRenderer
 func (ps EVMNodePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "Created", "Updated"}
-	rows := [][]string{}
+	var rows [][]string
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(evmNodeHeaders, rows, rt.Writer)
 
 	return nil
 }

@@ -2,15 +2,17 @@ package types
 
 import (
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // ORM manages terra chains and nodes.
 type ORM interface {
-	CreateNode(NewNode) (Node, error)
-	DeleteNode(int32) error
-	Node(int32) (Node, error)
-	Nodes(offset, limit int) (nodes []Node, count int, err error)
-	NodesForChain(chainID string, offset, limit int) (nodes []Node, count int, err error)
+	CreateNode(NewNode, ...pg.QOpt) (Node, error)
+	DeleteNode(int32, ...pg.QOpt) error
+	Node(int32, ...pg.QOpt) (Node, error)
+	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []Node, count int, err error)
+	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []Node, count int, err error)
 }
 
 // ChainCfg is configuration parameters for a terra chain.

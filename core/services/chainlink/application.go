@@ -294,7 +294,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
-	terraORM := terra.NewORM(db)
+	terraORM := terra.NewORM(db, globalLogger, cfg)
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		// TODO: parameterize poll period

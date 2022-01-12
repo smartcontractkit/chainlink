@@ -33,12 +33,13 @@ func (p *TerraNodePresenter) ToRow() []string {
 	return row
 }
 
+var terraNodeHeaders = []string{"ID", "Name", "Chain ID", "Tendermint URL", "FCD URL", "Created", "Updated"}
+
 // RenderTable implements TableRenderer
 func (p TerraNodePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Tendermint URL", "FCD URL", "Created", "Updated"}
-	rows := [][]string{}
+	var rows [][]string
 	rows = append(rows, p.ToRow())
-	renderList(headers, rows, rt.Writer)
+	renderList(terraNodeHeaders, rows, rt.Writer)
 
 	return nil
 }
@@ -48,14 +49,13 @@ type TerraNodePresenters []TerraNodePresenter
 
 // RenderTable implements TableRenderer
 func (ps TerraNodePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Tendermint URL", "FCD URL", "Created", "Updated"}
-	rows := [][]string{}
+	var rows [][]string
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(terraNodeHeaders, rows, rt.Writer)
 
 	return nil
 }

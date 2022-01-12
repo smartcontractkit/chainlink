@@ -11,7 +11,7 @@ ALTER TABLE nodes RENAME TO evm_nodes;
 CREATE TABLE terra_nodes (
     id serial PRIMARY KEY,
     name varchar(255) NOT NULL CHECK (name != ''),
- 	terra_chain_id text NOT NULL, -- REFERENCES terra_chains (id),
+    terra_chain_id text NOT NULL, -- REFERENCES terra_chains (id),
 	tendermint_url text CHECK (tendermint_url != ''),
 	fcd_url text CHECK (fcd_url != ''),
 	created_at timestamptz NOT NULL,
