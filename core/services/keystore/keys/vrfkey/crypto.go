@@ -117,7 +117,7 @@ func FieldHash(msg []byte) *big.Int {
 	return rv
 }
 
-// linearComination returns c*p1+s*p2
+// linearCombination returns c*p1+s*p2
 func linearCombination(c *big.Int, p1 kyber.Point,
 	s *big.Int, p2 kyber.Point) kyber.Point {
 	return Secp256k1Curve.Point().Add(

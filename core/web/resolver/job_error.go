@@ -37,7 +37,7 @@ func (r *JobErrorResolver) Description() string {
 	return r.specError.Description
 }
 
-// Occurrences resolves the job error's number of occurances.
+// Occurrences resolves the job error's number of occurrences.
 func (r *JobErrorResolver) Occurrences() int32 {
 	return int32(r.specError.Occurrences)
 }

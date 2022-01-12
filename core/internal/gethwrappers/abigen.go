@@ -364,7 +364,7 @@ func (%v%v) Topic() common.Hash {
 `, contractName, logName, abi.Events[logName].ID.Hex()))...)
 	}
 
-	// Write the the Address method to the bottom of the file
+	// Write the Address method to the bottom of the file
 	bs = append(bs, []byte(fmt.Sprintf(`
 func (_%v *%v) Address() common.Address {
     return _%v.address

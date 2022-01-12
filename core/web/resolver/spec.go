@@ -375,7 +375,7 @@ func (r *OCRSpecResolver) DatabaseTimeout() string {
 	return r.spec.DatabaseTimeout.Duration().String()
 }
 
-// DatabaseTimeoutEnv resolves resolves the whether spec's database timeout
+// DatabaseTimeoutEnv resolves the whether spec's database timeout
 // config comes from an env var.
 func (r *OCRSpecResolver) DatabaseTimeoutEnv() bool {
 	return r.spec.DatabaseTimeoutEnv
@@ -386,7 +386,7 @@ func (r *OCRSpecResolver) ObservationGracePeriod() string {
 	return r.spec.ObservationGracePeriod.Duration().String()
 }
 
-// ObservationGracePeriodEnv resolves resolves the whether spec's observation grace period
+// ObservationGracePeriodEnv resolves the whether spec's observation grace period
 // config comes from an env var.
 func (r *OCRSpecResolver) ObservationGracePeriodEnv() bool {
 	return r.spec.ObservationGracePeriodEnv
@@ -397,7 +397,7 @@ func (r *OCRSpecResolver) ContractTransmitterTransmitTimeout() string {
 	return r.spec.ContractTransmitterTransmitTimeout.Duration().String()
 }
 
-// ContractTransmitterTransmitTimeoutEnv resolves resolves the whether spec's
+// ContractTransmitterTransmitTimeoutEnv resolves the whether spec's
 // contract transmitter transmit timeout config comes from an env var.
 func (r *OCRSpecResolver) ContractTransmitterTransmitTimeoutEnv() bool {
 	return r.spec.ContractTransmitterTransmitTimeoutEnv
@@ -522,7 +522,7 @@ func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
 	return r.spec.IsBootstrapPeer
 }
 
-// JuelsPerFeeCoinSource resolves the spec's jeuls per fee coin source
+// JuelsPerFeeCoinSource resolves the spec's juels per fee coin source
 func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() *string {
 	if r.spec.JuelsPerFeeCoinPipeline == "" {
 		return nil
