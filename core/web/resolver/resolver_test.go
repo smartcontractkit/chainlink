@@ -39,6 +39,7 @@ type mocks struct {
 	cfg         *configMocks.GeneralConfig
 	scfg        *evmConfigMocks.ChainScopedConfig
 	ocr         *keystoreMocks.OCR
+	ocr2        *keystoreMocks.OCR2
 	csa         *keystoreMocks.CSA
 	keystore    *keystoreMocks.Master
 	ethKs       *keystoreMocks.Eth
@@ -95,6 +96,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		cfg:         &configMocks.GeneralConfig{},
 		scfg:        &evmConfigMocks.ChainScopedConfig{},
 		ocr:         &keystoreMocks.OCR{},
+		ocr2:        &keystoreMocks.OCR2{},
 		csa:         &keystoreMocks.CSA{},
 		keystore:    &keystoreMocks.Master{},
 		ethKs:       &keystoreMocks.Eth{},
@@ -122,6 +124,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.cfg,
 			m.scfg,
 			m.ocr,
+			m.ocr2,
 			m.csa,
 			m.keystore,
 			m.ethKs,
