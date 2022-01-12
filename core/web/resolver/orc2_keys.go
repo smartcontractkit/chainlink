@@ -134,12 +134,12 @@ type CreateOCR2KeyBundleSuccessResolver struct {
 	key *ocr2key.KeyBundle
 }
 
-// CreateOCR2KeyBundleSuccessResolver returns the create OCR2 key bundle success resolver
+// NewCreateOCR2KeyBundleSuccess returns the create OCR2 key bundle success resolver
 func NewCreateOCR2KeyBundleSuccess(key *ocr2key.KeyBundle) *CreateOCR2KeyBundleSuccessResolver {
 	return &CreateOCR2KeyBundleSuccessResolver{key: key}
 }
 
-// CreateOCR2KeyBundleSuccessResolver resolves the creates OCR2 key bundle
+// Bundle resolves the creates OCR2 key bundle
 func (r *CreateOCR2KeyBundleSuccessResolver) Bundle() *OCR2KeyBundleResolver {
 	return NewOCR2KeyBundle(*r.key)
 }
