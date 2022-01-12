@@ -335,11 +335,12 @@ library Cron {
    * @return the original spec
    */
   function validate(Spec memory spec) private pure returns (Spec memory) {
-    validateField(spec.minute, MINUTE, 5, 0, 59);
-    validateField(spec.hour, HOUR, 1, 0, 23);
-    validateField(spec.day, DAY, 1, 1, 31);
-    validateField(spec.month, MONTH, 1, 1, 12);
-    validateField(spec.dayOfWeek, DAY_OF_WEEK, 1, 0, 6);
+    validateField(spec.dayOfWeek, DAY_OF_WEEK, 0, 6);
+    validateField(spec.month, MONTH, 1, 12);
+    uint8 maxDay = maxDayForMonthField(spec.month);
+    validateField(spec.day, DAY, 1, maxDay);
+    validateField(spec.hour, HOUR, 0, 23);
+    validateField(spec.minute, MINUTE, 0, 59);
     return spec;
   }
 
@@ -347,14 +348,12 @@ library Cron {
    * @notice validateField validates the value of a field. It reverts if an error is found.
    * @param field the field to validate
    * @param fieldName the name of the field ex "minute" or "hour"
-   * @param minInterval the minimum interval of the field (usually 1)
    * @param min the minimum value a field can have (usually 1 or 0)
    * @param max the maximum value a field can have (ex minute = 59, hour = 23)
    */
   function validateField(
     Field memory field,
     string memory fieldName,
-    uint8 minInterval,
     uint8 min,
     uint8 max
   ) private pure {
@@ -368,14 +367,14 @@ library Cron {
         revert InvalidField(fieldName, reason);
       }
     } else if (field.fieldType == FieldType.INTERVAL) {
-      if (field.interval < minInterval || field.interval > max) {
+      if (field.interval < 1 || field.interval > max) {
         string memory reason = string(
-          bytes.concat("inverval must be */(", uintToBString(minInterval), "-", uintToBString(max), ")")
+          bytes.concat("inverval must be */(", uintToBString(1), "-", uintToBString(max), ")")
         );
         revert InvalidField(fieldName, reason);
       }
     } else if (field.fieldType == FieldType.RANGE) {
-      if (field.rangeEnd > max) {
+      if (field.rangeEnd > max || field.rangeEnd <= field.rangeStart) {
         string memory reason = string(
           bytes.concat("inverval must be within ", uintToBString(min), "-", uintToBString(max))
         );
@@ -395,6 +394,43 @@ library Cron {
           revert InvalidField(fieldName, reason);
         }
       }
+    } else {
+      revert UnknownFieldType();
+    }
+  }
+
+  /**
+   * @notice maxDayForMonthField returns the maximum valid day given the month field
+   * @param month the month field
+   * @return the max day
+   */
+  function maxDayForMonthField(Field memory month) private pure returns (uint8) {
+    // DEV: ranges are always safe because any two consecutive months will always
+    // contain a month with 31 days
+    if (month.fieldType == FieldType.WILD || month.fieldType == FieldType.RANGE) {
+      return 31;
+    } else if (month.fieldType == FieldType.EXACT) {
+      // DEV: assume leap year in order to get max value
+      return DateTime.getDaysInMonth(month.singleValue, 4);
+    } else if (month.fieldType == FieldType.INTERVAL) {
+      if (month.interval == 9 || month.interval == 11) {
+        return 30;
+      } else {
+        return 31;
+      }
+    } else if (month.fieldType == FieldType.LIST) {
+      uint8 result;
+      for (uint256 idx = 0; idx < month.listLength; idx++) {
+        // DEV: assume leap year in order to get max value
+        uint8 daysInMonth = DateTime.getDaysInMonth(month.list[idx], 4);
+        if (daysInMonth == 31) {
+          return daysInMonth;
+        }
+        if (daysInMonth > result) {
+          result = daysInMonth;
+        }
+      }
+      return result;
     } else {
       revert UnknownFieldType();
     }

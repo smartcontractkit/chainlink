@@ -14,18 +14,16 @@ import (
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
 	q        pg.Q
-	txm      transmitter
 	config   Config
 	strategy bulletprooftxmanager.TxStrategy
 	logger   logger.Logger
 }
 
 // NewORM is the constructor of postgresORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, txm transmitter, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
 		q:        pg.NewQ(db, lggr, config),
-		txm:      txm,
 		config:   config,
 		strategy: strategy,
 		logger:   lggr,
