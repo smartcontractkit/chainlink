@@ -6,15 +6,22 @@ import (
 	"github.com/smartcontractkit/terra.go/msg"
 )
 
+// State represents the state of a given terra msg
 type State string
 
 var (
-	Unstarted   State = "unstarted"
+	// Unstarted means queued but not processed
+	Unstarted State = "unstarted"
+	// Broadcasted means included in the mempool of a node
 	Broadcasted State = "broadcasted"
-	Confirmed   State = "confirmed"
-	Errored     State = "errored"
+	// Confirmed means we're able to retrieve the txhash of the tx which broadcasted the msg
+	Confirmed State = "confirmed"
+	// Errored means the msg reverted in simulation OR the tx containing the message timed out waiting to be confirmed
+	// TODO: when we add gas bumping, we'll address that timeout case
+	Errored State = "errored"
 )
 
+// TerraMsg a terra msg
 type TerraMsg struct {
 	ID         int64
 	ContractID string
@@ -27,7 +34,7 @@ type TerraMsg struct {
 	ExecuteContract *msg.ExecuteContract
 }
 
-func GetMsgs(tms []TerraMsg) []msg.Msg {
+func getMsgs(tms []TerraMsg) []msg.Msg {
 	var msgs []msg.Msg
 	for i := range tms {
 		msgs = append(msgs, tms[i].ExecuteContract)
@@ -35,7 +42,7 @@ func GetMsgs(tms []TerraMsg) []msg.Msg {
 	return msgs
 }
 
-func GetIDs(tms []TerraMsg) []int64 {
+func getIDs(tms []TerraMsg) []int64 {
 	var ids []int64
 	for i := range tms {
 		ids = append(ids, tms[i].ID)

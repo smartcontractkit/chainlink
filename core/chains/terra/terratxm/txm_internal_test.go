@@ -28,7 +28,7 @@ func TestErrMatch(t *testing.T) {
 }
 
 func TestTxm(t *testing.T) {
-	t.Skip() // TODO update this after txm changes
+	t.Skip() // TODO: reenable
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))

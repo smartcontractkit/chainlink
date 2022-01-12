@@ -7,10 +7,12 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+// ORM manages the data model for terra tx management.
 type ORM struct {
 	q pg.Q
 }
 
+// NewORM creates an ORM
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
 	namedLogger := lggr.Named("TerraTxmORM")
 	q := pg.NewQ(db, namedLogger, cfg)
@@ -19,6 +21,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
 	}
 }
 
+// InsertMsg inserts a terra msg, assumed to be a serialized terra ExecuteContractMsg.
 func (o *ORM) InsertMsg(contractID string, msg []byte) (int64, error) {
 	var tm TerraMsg
 	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, msg, state, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`, contractID, msg, Unstarted)
@@ -28,6 +31,7 @@ func (o *ORM) InsertMsg(contractID string, msg []byte) (int64, error) {
 	return tm.ID, nil
 }
 
+// SelectMsgsWithState selects all messages with a given state
 func (o *ORM) SelectMsgsWithState(state State) ([]TerraMsg, error) {
 	var msgs []TerraMsg
 	if err := o.q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1`, state); err != nil {
@@ -36,6 +40,7 @@ func (o *ORM) SelectMsgsWithState(state State) ([]TerraMsg, error) {
 	return msgs, nil
 }
 
+// SelectMsgsWithIDs selects messages the given ids
 func (o *ORM) SelectMsgsWithIDs(ids []int64) ([]TerraMsg, error) {
 	var msgs []TerraMsg
 	if err := o.q.Select(&msgs, `SELECT * FROM terra_msgs WHERE id = ANY($1)`, ids); err != nil {
@@ -44,6 +49,7 @@ func (o *ORM) SelectMsgsWithIDs(ids []int64) ([]TerraMsg, error) {
 	return msgs, nil
 }
 
+// UpdateMsgsWithState update the msgs with the given ids to the given state
 func (o *ORM) UpdateMsgsWithState(ids []int64, state State, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	res, err := q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() WHERE id = ANY($2)`, state, ids)

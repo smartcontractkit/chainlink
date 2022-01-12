@@ -51,7 +51,7 @@ func TestTxmStartStop(t *testing.T) {
 
 	contractID := terraclient.DeployTestContract(t, accounts[0], terraclient.Account{
 		Name:       "transmitter",
-		PrivateKey: terratxm.NewPrivKey(transmitterKey),
+		PrivateKey: terratxm.NewKeyWrapper(transmitterKey),
 		Address:    transmitterID,
 	}, tc, testdir, "../../../testdata/my_first_contract.wasm")
 

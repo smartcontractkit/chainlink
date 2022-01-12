@@ -1,4 +1,3 @@
-//
 package terratxm
 
 import (
@@ -28,12 +27,23 @@ var (
 )
 
 const (
-	// TODO: reason out a valid upper bound
-	MaxMsgsPerBatch = 50
-	// ~8s per block, so ~80s
+	// MaxMsgsPerBatch The max gas limit per block is 1_000_000_000
+	// https://github.com/terra-money/core/blob/d6037b9a12c8bf6b09fe861c8ad93456aac5eebb/app/legacy/migrate.go#L69.
+	// The max msg size is 10KB https://github.com/terra-money/core/blob/d6037b9a12c8bf6b09fe861c8ad93456aac5eebb/x/wasm/types/params.go#L15.
+	// Our msgs are only OCR reports for now, which will not exceed that size.
+	// There appears to be no gas limit per tx, only per block, so theoretically
+	// we could include 1000 msgs which use up to 1M gas.
+	// To be conservative and since the number of messages we'd
+	// have in a batch on average roughly correponds to the number of terra ocr jobs we're running (do not expect more than 100),
+	// we can set a max msgs per batch of 100.
+	MaxMsgsPerBatch = 100
+
+	// BlocksUntilTxTimeout ~8s per block, so ~80s until we give up on the tx getting confirmed
+	// Anecdotally it appears anything more than 4 blocks would be an extremely long wait.
 	BlocksUntilTxTimeout = 10
 )
 
+// Txm manages transactions for the terra blockchain.
 type Txm struct {
 	starter    utils.StartStopOnce
 	eb         pg.EventBroadcaster
@@ -46,6 +56,7 @@ type Txm struct {
 	stop, done chan struct{}
 }
 
+// NewTxm creates a txm
 func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) *Txm {
 	ticker := time.NewTicker(pollPeriod)
 	return &Txm{
@@ -61,6 +72,7 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, ks keystore.Terra, lggr lo
 	}
 }
 
+// Start subscribes to pg notifications about terra msg inserts and processes them.
 func (txm *Txm) Start() error {
 	return txm.starter.StartOnce("terratxm", func() error {
 		sub, err := txm.eb.Subscribe(pg.ChannelInsertOnTerraMsg, "")
@@ -144,7 +156,7 @@ func (txm *Txm) sendMsgBatch() {
 			continue
 		}
 		txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.succeeded, "failed", simResults.failed)
-		err = txm.orm.UpdateMsgsWithState(GetIDs(simResults.failed), Errored)
+		err = txm.orm.UpdateMsgsWithState(getIDs(simResults.failed), Errored)
 		if err != nil {
 			txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
 			// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
@@ -156,7 +168,7 @@ func (txm *Txm) sendMsgBatch() {
 			txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
 			continue
 		}
-		signedTx, err := txm.tc.CreateAndSign(GetMsgs(simResults.succeeded), an, sn, simResults.gasLimit, gp, NewPrivKey(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
+		signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.succeeded), an, sn, simResults.gasLimit, gp, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
 		if err != nil {
 			txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
 			continue
@@ -166,7 +178,7 @@ func (txm *Txm) sendMsgBatch() {
 		// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
 		var resp *txtypes.BroadcastTxResponse
 		err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
-			err = txm.orm.UpdateMsgsWithState(GetIDs(simResults.succeeded), Broadcasted, pg.WithQueryer(tx))
+			err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, pg.WithQueryer(tx))
 			if err != nil {
 				return err
 			}
@@ -186,7 +198,7 @@ func (txm *Txm) sendMsgBatch() {
 			continue
 		}
 
-		if err := txm.ConfirmTx(resp.TxResponse.TxHash, simResults.succeeded); err != nil {
+		if err := txm.confirmTx(resp.TxResponse.TxHash, simResults.succeeded); err != nil {
 			txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 			continue
 		}
@@ -209,7 +221,7 @@ func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) 
 	toSim := msgs
 	for {
 		txm.lggr.Infow("simulating", "toSim", toSim)
-		_, err := txm.tc.SimulateUnsigned(GetMsgs(toSim), sequence)
+		_, err := txm.tc.SimulateUnsigned(getMsgs(toSim), sequence)
 		containsFailure, failureIndex := txm.failedMsgIndex(err)
 		if err != nil && !containsFailure {
 			return nil, err
@@ -232,7 +244,7 @@ func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) 
 		}
 	}
 	// Last simulation with all successful txes to get final gas limit
-	s, err := txm.tc.SimulateUnsigned(GetMsgs(succeeded), sequence)
+	s, err := txm.tc.SimulateUnsigned(getMsgs(succeeded), sequence)
 	containsFailure, _ := txm.failedMsgIndex(err)
 	if err != nil && !containsFailure {
 		return nil, err
@@ -263,7 +275,7 @@ func (txm *Txm) failedMsgIndex(err error) (bool, int) {
 	return true, int(index)
 }
 
-func (txm *Txm) ConfirmTx(txHash string, broadcasted []TerraMsg) error {
+func (txm *Txm) confirmTx(txHash string, broadcasted []TerraMsg) error {
 	// We either mark these broadcasted txes as confirmed or errored.
 	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
 	// Errored: we do not see the txhash onchain after waiting for N blocks worth
@@ -287,7 +299,7 @@ func (txm *Txm) ConfirmTx(txHash string, broadcasted []TerraMsg) error {
 		}
 		txm.lggr.Infow("successfully sent batch", "hash", txHash, "msgs", broadcasted)
 		// If confirmed mark these as completed.
-		err = txm.orm.UpdateMsgsWithState(GetIDs(broadcasted), Confirmed)
+		err = txm.orm.UpdateMsgsWithState(getIDs(broadcasted), Confirmed)
 		if err != nil {
 			return err
 		}
@@ -295,7 +307,7 @@ func (txm *Txm) ConfirmTx(txHash string, broadcasted []TerraMsg) error {
 	}
 	// If we are unable to confirm the tx after the timeout period
 	// mark these msgs as errored
-	err := txm.orm.UpdateMsgsWithState(GetIDs(broadcasted), Errored)
+	err := txm.orm.UpdateMsgsWithState(getIDs(broadcasted), Errored)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark timed out txes as errored", "err", err, "txes", broadcasted, "num", len(broadcasted))
 		return err
@@ -303,6 +315,7 @@ func (txm *Txm) ConfirmTx(txHash string, broadcasted []TerraMsg) error {
 	return nil
 }
 
+// Enqueue enqueue a msg destined for the terra chain.
 func (txm *Txm) Enqueue(contractID string, msg []byte) (int64, error) {
 	// Double check this is an unmarshalable execute contract message.
 	// Add more supported message types as needed.
@@ -319,16 +332,19 @@ func (txm *Txm) Enqueue(contractID string, msg []byte) (int64, error) {
 	return txm.orm.InsertMsg(contractID, msg)
 }
 
+// Close close service
 func (txm *Txm) Close() error {
 	txm.stop <- struct{}{}
 	<-txm.done
 	return nil
 }
 
+// Healthy service is healthy
 func (txm *Txm) Healthy() error {
 	return nil
 }
 
+// Ready service is ready
 func (txm *Txm) Ready() error {
 	return nil
 }

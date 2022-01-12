@@ -42,6 +42,8 @@ type delegate struct {
 	ks       keystore.Master
 }
 
+// NewDelegate creates a master relay delegate which manages "relays" which are OCR2 median reporting plugins
+// for various chains (evm and non-evm).
 func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evmCh.ChainSet, terraChainID string, tr terraclient.Reader, terraTxm *terratxm.Txm, lggr logger.Logger) *delegate {
 	return &delegate{
 		ks: ks,
