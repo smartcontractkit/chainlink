@@ -4,7 +4,10 @@ import (
 	"encoding/hex"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/tendermint/tendermint/crypto/tmhash"
 
 	"github.com/pkg/errors"
 
@@ -209,19 +212,28 @@ func (txm *Txm) sendMsgBatch() {
 
 		// We need to ensure that we either broadcast successfully and mark the tx as
 		// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
+		// We this by first marking it broadcasted then rolling back if the broadcast api call fails.
 		var resp *txtypes.BroadcastTxResponse
 		err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
+			txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
+			err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, &txHash, pg.WithQueryer(tx))
+			if err != nil {
+				return err
+			}
+
 			txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.succeeded)
 			resp, err = txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 			if err != nil {
+				// Rollback marking as broadcasted
 				return err
 			}
 			if resp.TxResponse == nil {
+				// Rollback marking as broadcasted
 				return errors.New("unexpected nil tx response")
 			}
-			err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, &resp.TxResponse.TxHash, pg.WithQueryer(tx))
-			if err != nil {
-				return err
+			if resp.TxResponse.TxHash != txHash {
+				// Should never happen
+				txm.lggr.Errorw("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
 			}
 			return nil
 		})
