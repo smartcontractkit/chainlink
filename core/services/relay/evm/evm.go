@@ -128,13 +128,13 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 		return nil, errors.New("transmitterID is required for non-bootstrap jobs")
 	}
 	transmitterAddress := common.HexToAddress(spec.TransmitterID.String)
-	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
+	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
 
 	contractTransmitter := NewOCRContractTransmitter(
 		contract.Address(),
 		contractCaller,
 		contractABI,
-		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy),
+		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
 		tracker,
 		r.lggr,
 	)
