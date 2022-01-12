@@ -98,10 +98,9 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
 
       // Submit another status update, same status, should ignore
-      timestamp = now()
       tx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
-        .updateStatus(true, timestamp)
+        .updateStatus(true, timestamp.add(1000))
       await expect(tx).not.to.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal('1')
       expect(await arbitrumSequencerUptimeFeed.latestTimestamp()).to.equal(
@@ -109,7 +108,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       )
 
       // Submit another status update, different status, should update
-      timestamp = now()
+      timestamp = timestamp.add(2000)
       tx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
         .updateStatus(false, timestamp)
