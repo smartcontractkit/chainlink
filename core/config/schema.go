@@ -57,7 +57,7 @@ type ConfigSchema struct {
 	DatabaseMaximumTxDuration                  time.Duration                 `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
 	DatabaseTimeout                            models.Duration               `env:"DATABASE_TIMEOUT" default:"0"`
 	DatabaseURL                                string                        `env:"DATABASE_URL"`
-	DefaultChainID                             *big.Int                      `env:"ETH_CHAIN_ID"`
+	DefaultChainID                             *big.Int                      `env:"ETH_CHAIN_ID" default:"1"`
 	DefaultHTTPAllowUnrestrictedNetworkAccess  bool                          `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
 	DefaultHTTPLimit                           int64                         `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	DefaultHTTPTimeout                         models.Duration               `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
