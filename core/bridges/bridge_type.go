@@ -64,7 +64,7 @@ type BridgeType struct {
 	UpdatedAt              time.Time
 }
 
-// NewBridgeType returns a bridge bridge type authentication (with plaintext
+// NewBridgeType returns a bridge type authentication (with plaintext
 // password) and a bridge type (with hashed password, for persisting)
 func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 	*BridgeType, error) {

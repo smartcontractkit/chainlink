@@ -104,7 +104,7 @@ func (receiver contractMockReceiver) mustEncodeResponse(funcName string, respons
 	isStruct := reflect.TypeOf(firstArg).Kind() == reflect.Struct
 
 	if isStruct && len(responseArgs) > 1 {
-		receiver.t.Fatal("cannot encode resonse with struct and multiple return values")
+		receiver.t.Fatal("cannot encode response with struct and multiple return values")
 	} else if isStruct {
 		outputList = structToInterfaceSlice(firstArg)
 	} else {
