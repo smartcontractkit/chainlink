@@ -56,7 +56,7 @@ func (a *ArbitrumBlockTranslator) NumberToQueryRange(ctx context.Context, change
 // Imagine as a virtual array of L1 block numbers indexed by L2 block numbers
 // L1 values are likely duplicated so it looks something like
 // [42, 42, 42, 42, 42, 155, 155, 155, 430, 430, 430, 430, 430, ...]
-// Theoretical max difference between L1 values is typically about 5, "worst case" is 6545 but can be arbtrarily high if sequencer is broken
+// Theoretical max difference between L1 values is typically about 5, "worst case" is 6545 but can be arbitrarily high if sequencer is broken
 // The returned range of L2s from leftmost thru rightmost represent all possible L2s that correspond to the L1 value we are looking for
 // nil can be returned as a rightmost value if the range has no upper bound
 func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int64) (l2lowerBound *big.Int, l2upperBound *big.Int, err error) {

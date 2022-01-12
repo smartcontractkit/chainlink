@@ -74,7 +74,7 @@ func (h *Head) IsInChain(blockHash common.Hash) bool {
 	return false
 }
 
-// HashAtHeight returns the hash of the block at the given heigh, if it is in the chain.
+// HashAtHeight returns the hash of the block at the given height, if it is in the chain.
 // If not in chain, returns the zero hash
 func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 	for {
