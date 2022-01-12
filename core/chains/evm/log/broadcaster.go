@@ -237,7 +237,7 @@ func (b *broadcaster) IsConnected() bool {
 //   - on a connection error
 //
 // This method recreates the subscription in both cases.  In the event of a connection
-// error, it attempts to reconnect.  Any time there'b a change in connection state, it
+// error, it attempts to reconnect.  Any time there's a change in connection state, it
 // notifies its subscribers.
 func (b *broadcaster) startResubscribeLoop() {
 	defer b.wgDone.Done()

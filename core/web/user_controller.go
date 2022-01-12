@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-// UserController manages the current Session's User User.
+// UserController manages the current Session's User.
 type UserController struct {
 	App chainlink.Application
 }

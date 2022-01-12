@@ -81,7 +81,7 @@ func (g *Graph) AddImplicitDependenciesAsEdges() {
 }
 
 // Indicates whether there's an implicit edge from uid -> vid.
-// Implciit edged are ones that weren't added via the TOML spec, but via the pipeline parsing code
+// Implicit edged are ones that weren't added via the TOML spec, but via the pipeline parsing code
 func (g *Graph) IsImplicitEdge(uid, vid int64) bool {
 	edge := g.Edge(uid, vid).(*GraphEdge)
 	if edge == nil {
