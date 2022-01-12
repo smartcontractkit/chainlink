@@ -48,7 +48,7 @@ func Test_ChainsController_Create(t *testing.T) {
 	dbChain, err := chainSet.ORM().Chain(newChainId)
 	require.NoError(t, err)
 
-	resource := presenters.ChainResource{}
+	resource := presenters.EVMChainResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource)
 	require.NoError(t, err)
 
@@ -126,7 +126,7 @@ func Test_ChainsController_Show(t *testing.T) {
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
 			if wantedResult != nil {
-				resource1 := presenters.ChainResource{}
+				resource1 := presenters.EVMChainResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
 				require.NoError(t, err)
 
@@ -192,7 +192,7 @@ func Test_ChainsController_Index(t *testing.T) {
 
 	var links jsonapi.Links
 
-	chains := []presenters.ChainResource{}
+	chains := []presenters.EVMChainResource{}
 	err = web.ParsePaginatedResponse(body, &chains, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
@@ -209,7 +209,7 @@ func Test_ChainsController_Index(t *testing.T) {
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	chains = []presenters.ChainResource{}
+	chains = []presenters.EVMChainResource{}
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &chains, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"].Href)
@@ -305,7 +305,7 @@ func Test_ChainsController_Update(t *testing.T) {
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
 			if beforeUpdate != nil {
-				resource1 := presenters.ChainResource{}
+				resource1 := presenters.EVMChainResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
 				require.NoError(t, err)
 

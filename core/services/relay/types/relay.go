@@ -3,6 +3,8 @@
 package types
 
 import (
+	"fmt"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -30,4 +32,33 @@ type OCR2Provider interface {
 	OffchainConfigDigester() types.OffchainConfigDigester
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
+}
+
+// DisabledRelayer returns a Relayer for n which returns disabled errors instead of OCR2Provider.
+func DisabledRelayer(n Network) Relayer {
+	return &disabledRelayer{n}
+}
+
+type disabledRelayer struct {
+	n Network
+}
+
+func (d disabledRelayer) Start() error {
+	return nil
+}
+
+func (d disabledRelayer) Close() error {
+	return nil
+}
+
+func (d disabledRelayer) Ready() error {
+	return nil
+}
+
+func (d disabledRelayer) Healthy() error {
+	return nil
+}
+
+func (d disabledRelayer) NewOCR2Provider(_ uuid.UUID, _ interface{}) (OCR2Provider, error) {
+	return nil, fmt.Errorf("relayer disabled for %s network", d.n)
 }

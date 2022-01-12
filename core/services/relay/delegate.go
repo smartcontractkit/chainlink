@@ -3,22 +3,14 @@ package relay
 import (
 	"encoding/json"
 
-	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-
-	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
-
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	evmCh "github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -43,16 +35,24 @@ type delegate struct {
 }
 
 // NewDelegate creates a master relay delegate which manages "relays" which are OCR2 median reporting plugins
-// for various chains (evm and non-evm).
-func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evmCh.ChainSet, terraChainID string, tr terraclient.Reader, terraTxm *terratxm.Txm, lggr logger.Logger) *delegate {
-	return &delegate{
-		ks: ks,
-		relayers: map[types.Network]types.Relayer{
-			types.EVM:    evm.NewRelayer(db, chainSet, lggr),
-			types.Solana: solana.NewRelayer(lggr),
-			types.Terra:  terra.NewRelayer(lggr, terraTxm, tr, terraChainID),
-		},
+// for various chains (evm and non-evm). nil Relayers will be disabled.
+func NewDelegate(ks keystore.Master, evmRelayer, solanaRelayer, terraRelayer types.Relayer) *delegate {
+	d := &delegate{
+		ks:       ks,
+		relayers: map[types.Network]types.Relayer{},
 	}
+	d.addRelayer(types.EVM, evmRelayer)
+	d.addRelayer(types.Solana, solanaRelayer)
+	d.addRelayer(types.Terra, terraRelayer)
+	return d
+}
+
+// addRelayer registers the relayer r, or a disabled placeholder if nil.
+func (d delegate) addRelayer(n types.Network, r types.Relayer) {
+	if r == nil {
+		r = types.DisabledRelayer(n)
+	}
+	d.relayers[n] = r
 }
 
 // A delegate relayer on start will start all relayers it manages.

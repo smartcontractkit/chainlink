@@ -16,7 +16,7 @@ import (
 )
 
 type ChainPresenter struct {
-	presenters.ChainResource
+	presenters.EVMChainResource
 }
 
 func (p *ChainPresenter) ToRow() []string {
@@ -147,7 +147,7 @@ func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	var chain presenters.ChainResource
+	var chain presenters.EVMChainResource
 	if err = cli.deserializeAPIResponse(resp, &chain, &jsonapi.Links{}); err != nil {
 		return cli.errorOut(err)
 	}
