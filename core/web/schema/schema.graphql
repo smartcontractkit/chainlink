@@ -30,6 +30,7 @@ type Query {
     node(id: ID!): NodePayload!
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
+    ocr2KeyBundles: OCR2KeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
     solanaKeys: SolanaKeysPayload!
     sqlLogging: GetSQLLoggingPayload!
