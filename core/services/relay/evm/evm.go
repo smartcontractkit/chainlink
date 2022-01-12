@@ -46,7 +46,7 @@ func (r *Relayer) Start() error {
 	return nil
 }
 
-// No peristent subservices to close on relay close
+// No persistent subservices to close on relay close
 func (r *Relayer) Close() error {
 	return nil
 }
