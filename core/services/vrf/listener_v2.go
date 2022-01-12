@@ -371,7 +371,11 @@ func (lsn *listenerV2) processRequestsPerSub(
 					SubID:     vrfRequest.SubId,
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(false), // We already simd
+				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(),
+				Checker: bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
+					VRFCoordinatorAddress: lsn.coordinator.Address(),
+				},
 			}, pg.WithQueryer(tx))
 			return err
 		})
