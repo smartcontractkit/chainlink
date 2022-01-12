@@ -137,7 +137,7 @@ func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
 }
 
 // The external job ID (UUID) can also be encoded into a log topic (32 bytes)
-// by taking the 16 bytes undelying the UUID and right padding it.
+// by taking the 16 bytes underlying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
 }

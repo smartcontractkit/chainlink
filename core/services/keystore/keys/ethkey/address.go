@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// EIP55Address is a newtype for string which persists an ethereum address in
+// EIP55Address is a new type for string which persists an ethereum address in
 // its original string representation which includes a leading 0x, and EIP55
 // checksum which is represented by the case of digits A-F.
 type EIP55Address string
@@ -58,7 +58,7 @@ func (a EIP55Address) String() string {
 	return string(a)
 }
 
-// Hex is idential to String but makes the API similar to common.Address
+// Hex is identical to String but makes the API similar to common.Address
 func (a EIP55Address) Hex() string {
 	return a.String()
 }

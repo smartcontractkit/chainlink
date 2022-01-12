@@ -129,7 +129,7 @@ contract VRFCoordinatorV2 is
   struct Config {
     uint16 minimumRequestConfirmations;
     uint32 maxGasLimit;
-    // Re-entrancy protection.
+    // Reentrancy protection.
     bool reentrancyLock;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.

@@ -46,7 +46,7 @@ import (
 var prometheus *ginprom.Prometheus
 
 func init() {
-	// ensure metrics are regsitered once per instance to avoid registering
+	// ensure metrics are registered once per instance to avoid registering
 	// metrics multiple times (panic)
 	prometheus = ginprom.New(ginprom.Namespace("service"))
 }
