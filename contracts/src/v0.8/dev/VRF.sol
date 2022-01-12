@@ -37,8 +37,8 @@ pragma solidity ^0.8.0;
   * ****************************************************************************
   * @dev DESIGN NOTES
 
-  * @dev The VRF algorithm verified here satisfies the full unqiqueness, full
-  * @dev collision resistance, and full pseudorandomness security properties.
+  * @dev The VRF algorithm verified here satisfies the full uniqueness, full
+  * @dev collision resistance, and full pseudo-randomness security properties.
   * @dev See "SECURITY PROPERTIES" below, and
   * @dev https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-3
 
@@ -518,7 +518,7 @@ contract VRF {
       require(isOnCurve(sHashWitness), "sHashWitness is not on curve");
       // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
       // we use the address of u instead of u itself. Also, here we add the
-      // terms instead of taking the difference, and in the proof consruction in
+      // terms instead of taking the difference, and in the proof construction in
       // vrf.GenerateProof, we correspondingly take the difference instead of
       // taking the sum as they do in step 7 of section 5.1.)
       require(verifyLinearCombinationWithGenerator(c, pk, s, uWitness), "addr(c*pk+s*g)!=_uWitness");

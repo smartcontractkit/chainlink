@@ -428,7 +428,7 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 	return sendErr
 }
 
-// gimulateTransaction pretends to "send" the transaction using eth_call
+// simulateTransaction pretends to "send" the transaction using eth_call
 // returns error on revert
 func simulateTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAttempt, e EthTx) (hexutil.Bytes, error) {
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193

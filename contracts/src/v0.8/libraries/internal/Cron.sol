@@ -12,7 +12,7 @@
   Then, the user stores the Spec on chain. Finally, users use the nextTick(),
   function to determine the datetime of the next cron job run.
 
-  Cron jobs are interpreted acording to this fomat:
+  Cron jobs are interpreted according to this format:
 
   ┌───────────── minute (0 - 59)
   │ ┌───────────── hour (0 - 23)

@@ -1,0 +1,18 @@
+enum OCR2ChainType {
+    EVM
+    TERRA
+	SOLANA
+}
+
+
+type OCR2KeyBundle {
+	chainType: OCR2ChainType
+	configPublicKey: String!
+	onChainPublicKey: String!
+	offChainPublicKey: String!
+}
+
+type OCR2KeyBundlesPayload {
+    results: [OCR2KeyBundle!]!
+}
+
