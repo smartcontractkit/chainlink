@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 )
@@ -57,6 +58,11 @@ type OCR2KeyBundleResolver struct {
 // NewOCR2KeyBundle creates a new GQL OCR2 key bundle resolver
 func NewOCR2KeyBundle(key ocr2key.KeyBundle) *OCR2KeyBundleResolver {
 	return &OCR2KeyBundleResolver{key: key}
+}
+
+// ID returns the OCR2 Key bundle ID
+func (k OCR2KeyBundleResolver) ID() graphql.ID {
+	return graphql.ID(k.key.ID())
 }
 
 // ChainType returns the OCR2 Key bundle chain type
@@ -141,5 +147,52 @@ func NewCreateOCR2KeyBundleSuccess(key *ocr2key.KeyBundle) *CreateOCR2KeyBundleS
 
 // Bundle resolves the creates OCR2 key bundle
 func (r *CreateOCR2KeyBundleSuccessResolver) Bundle() *OCR2KeyBundleResolver {
+	return NewOCR2KeyBundle(*r.key)
+}
+
+// -- DeleteOCR2KeyBundle mutation --
+
+// DeleteOCR2KeyBundlePayloadResolver defines the delete OCR2 Key bundle mutation resolver
+type DeleteOCR2KeyBundlePayloadResolver struct {
+	key *ocr2key.KeyBundle
+	NotFoundErrorUnionType
+}
+
+// NewDeleteOCR2KeyBundlePayloadResolver returns the delete OCR2 key bundle payload resolver
+func NewDeleteOCR2KeyBundlePayloadResolver(key *ocr2key.KeyBundle, err error) *DeleteOCR2KeyBundlePayloadResolver {
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
+			// returning true since the only error triggered by the search is a not found error
+			// and we don't want the default check to happen, since it is a SQL Not Found error check
+			return true
+		}}
+	}
+
+	return &DeleteOCR2KeyBundlePayloadResolver{key: key, NotFoundErrorUnionType: e}
+}
+
+// ToDeleteOCR2KeyBundleSuccess resolves the delete OCR2 key bundle success
+func (r *DeleteOCR2KeyBundlePayloadResolver) ToDeleteOCR2KeyBundleSuccess() (*DeleteOCR2KeyBundleSuccessResolver, bool) {
+	if r.err == nil {
+		return NewDeleteOCR2KeyBundleSuccessResolver(r.key), true
+	}
+
+	return nil, false
+}
+
+// DeleteOCR2KeyBundleSuccessResolver defines the delete OCR2 key bundle success resolver
+type DeleteOCR2KeyBundleSuccessResolver struct {
+	key *ocr2key.KeyBundle
+}
+
+// NewDeleteOCR2KeyBundleSuccessResolver returns the delete OCR2 key bundle success resolver
+func NewDeleteOCR2KeyBundleSuccessResolver(key *ocr2key.KeyBundle) *DeleteOCR2KeyBundleSuccessResolver {
+	return &DeleteOCR2KeyBundleSuccessResolver{key: key}
+}
+
+// Bundle resolves the creates OCR2 key bundle
+func (r *DeleteOCR2KeyBundleSuccessResolver) Bundle() *OCR2KeyBundleResolver {
 	return NewOCR2KeyBundle(*r.key)
 }
