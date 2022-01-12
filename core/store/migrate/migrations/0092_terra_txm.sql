@@ -13,6 +13,7 @@ CREATE TABLE terra_msgs (
 	contract_id text NOT NULL,
     msg bytea NOT NULL,
 	state text NOT NULL,
+	tx_hash text, --TODO: not null for certain states
 	created_at timestamptz NOT NULL,
 	updated_at timestamptz NOT NULL
 );

@@ -89,10 +89,33 @@ func (txm *Txm) Start() error {
 	})
 }
 
+func (txm *Txm) confirmAnyUnconfirmed() {
+	// Confirm any broadcasted but not confirmed txes.
+	// This is an edge case if we crash after having broadcasted but before we confirm.
+	broadcasted, err := txm.orm.SelectMsgsWithState(Broadcasted)
+	if err != nil {
+		// Should never happen but if so, theoretically can retry with a reboot
+		txm.lggr.Errorw("unable to look for broadcasted but unconfirmed txes", "err", err)
+		return
+	}
+	if len(broadcasted) == 0 {
+		return
+	}
+	msgsByTxHash := make(map[string][]TerraMsg)
+	for _, msg := range broadcasted {
+		msgsByTxHash[*msg.TxHash] = append(msgsByTxHash[*msg.TxHash], msg)
+	}
+	for txHash, msgs := range msgsByTxHash {
+		err := txm.confirmTx(txHash, getIDs(msgs))
+		if err != nil {
+			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err)
+		}
+	}
+}
+
 func (txm *Txm) run(sub pg.Subscription) {
 	defer func() { txm.done <- struct{}{} }()
-	// TODO: Confirm or error any txes that are in broadcasted state,
-	// i.e. node crashed while confirming them.
+	txm.confirmAnyUnconfirmed()
 	for {
 		select {
 		case <-sub.Events():
@@ -160,7 +183,7 @@ func (txm *Txm) sendMsgBatch() {
 			continue
 		}
 		txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.succeeded, "failed", simResults.failed)
-		err = txm.orm.UpdateMsgsWithState(getIDs(simResults.failed), Errored)
+		err = txm.orm.UpdateMsgsWithState(getIDs(simResults.failed), Errored, nil)
 		if err != nil {
 			txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
 			// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
@@ -188,10 +211,6 @@ func (txm *Txm) sendMsgBatch() {
 		// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
 		var resp *txtypes.BroadcastTxResponse
 		err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
-			err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, pg.WithQueryer(tx))
-			if err != nil {
-				return err
-			}
 			txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.succeeded)
 			resp, err = txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 			if err != nil {
@@ -199,6 +218,10 @@ func (txm *Txm) sendMsgBatch() {
 			}
 			if resp.TxResponse == nil {
 				return errors.New("unexpected nil tx response")
+			}
+			err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, &resp.TxResponse.TxHash, pg.WithQueryer(tx))
+			if err != nil {
+				return err
 			}
 			return nil
 		})
@@ -208,7 +231,7 @@ func (txm *Txm) sendMsgBatch() {
 			continue
 		}
 
-		if err := txm.confirmTx(resp.TxResponse.TxHash, simResults.succeeded); err != nil {
+		if err := txm.confirmTx(resp.TxResponse.TxHash, getIDs(simResults.succeeded)); err != nil {
 			txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 			continue
 		}
@@ -291,7 +314,7 @@ func (txm *Txm) failedMsgIndex(err error) (bool, int) {
 	return true, int(index)
 }
 
-func (txm *Txm) confirmTx(txHash string, broadcasted []TerraMsg) error {
+func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
 	// We either mark these broadcasted txes as confirmed or errored.
 	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
 	// Errored: we do not see the txhash onchain after waiting for N blocks worth
@@ -314,7 +337,7 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []TerraMsg) error {
 		}
 		txm.lggr.Infow("successfully sent batch", "hash", txHash, "msgs", broadcasted)
 		// If confirmed mark these as completed.
-		err = txm.orm.UpdateMsgsWithState(getIDs(broadcasted), Confirmed)
+		err = txm.orm.UpdateMsgsWithState(broadcasted, Confirmed, nil)
 		if err != nil {
 			return err
 		}
@@ -322,7 +345,7 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []TerraMsg) error {
 	}
 	// If we are unable to confirm the tx after the timeout period
 	// mark these msgs as errored
-	err := txm.orm.UpdateMsgsWithState(getIDs(broadcasted), Errored)
+	err := txm.orm.UpdateMsgsWithState(broadcasted, Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark timed out txes as errored", "err", err, "txes", broadcasted, "num", len(broadcasted))
 		return err

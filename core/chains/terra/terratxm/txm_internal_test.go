@@ -192,7 +192,7 @@ func TestTxm(t *testing.T) {
 		txm.confirmMaxPolls = 2
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
-		err = txm.confirmTx("0x123", []TerraMsg{{ID: i}})
+		err = txm.confirmTx("0x123", []int64{i})
 		require.NoError(t, err)
 		m, err := txm.orm.SelectMsgsWithIDs([]int64{i})
 		require.NoError(t, err)

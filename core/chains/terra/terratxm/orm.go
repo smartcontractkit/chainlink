@@ -1,6 +1,8 @@
 package terratxm
 
 import (
+	"database/sql"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -50,9 +52,19 @@ func (o *ORM) SelectMsgsWithIDs(ids []int64) ([]TerraMsg, error) {
 }
 
 // UpdateMsgsWithState update the msgs with the given ids to the given state
-func (o *ORM) UpdateMsgsWithState(ids []int64, state State, qopts ...pg.QOpt) error {
+// TODO: could enforce state transitions here too
+func (o *ORM) UpdateMsgsWithState(ids []int64, state State, txHash *string, qopts ...pg.QOpt) error {
+	if state == Broadcasted && txHash == nil {
+		return errors.New("txHash is required when updating to broadcasted")
+	}
 	q := o.q.WithOpts(qopts...)
-	res, err := q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() WHERE id = ANY($2)`, state, ids)
+	var res sql.Result
+	var err error
+	if state == Broadcasted {
+		res, err = q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW(), tx_hash = $2 WHERE id = ANY($3)`, state, *txHash, ids)
+	} else {
+		res, err = q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() WHERE id = ANY($2)`, state, ids)
+	}
 	if err != nil {
 		return err
 	}
