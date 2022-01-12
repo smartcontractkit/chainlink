@@ -45,30 +45,34 @@ const (
 
 // Txm manages transactions for the terra blockchain.
 type Txm struct {
-	starter    utils.StartStopOnce
-	eb         pg.EventBroadcaster
-	sub        pg.Subscription
-	ticker     *time.Ticker
-	orm        *ORM
-	lggr       logger.Logger
-	tc         terraclient.ReaderWriter
-	ks         keystore.Terra
-	stop, done chan struct{}
+	starter           utils.StartStopOnce
+	eb                pg.EventBroadcaster
+	sub               pg.Subscription
+	ticker            *time.Ticker
+	orm               *ORM
+	lggr              logger.Logger
+	tc                terraclient.ReaderWriter
+	ks                keystore.Terra
+	stop, done        chan struct{}
+	confirmPollPeriod time.Duration
+	confirmMaxPolls   int
 }
 
 // NewTxm creates a txm
 func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) *Txm {
 	ticker := time.NewTicker(pollPeriod)
 	return &Txm{
-		starter: utils.StartStopOnce{},
-		eb:      eb,
-		orm:     NewORM(db, lggr, cfg),
-		ks:      ks,
-		ticker:  ticker,
-		tc:      tc,
-		lggr:    lggr,
-		stop:    make(chan struct{}),
-		done:    make(chan struct{}),
+		starter:           utils.StartStopOnce{},
+		eb:                eb,
+		orm:               NewORM(db, lggr, cfg),
+		ks:                ks,
+		ticker:            ticker,
+		tc:                tc,
+		lggr:              lggr,
+		stop:              make(chan struct{}),
+		done:              make(chan struct{}),
+		confirmPollPeriod: 1 * time.Second,
+		confirmMaxPolls:   100,
 	}
 }
 
@@ -163,6 +167,12 @@ func (txm *Txm) sendMsgBatch() {
 			continue
 		}
 
+		// Continue if there are no successful txes
+		if len(simResults.succeeded) == 0 {
+			txm.lggr.Warnw("all sim msgs errored, not sending tx", "from", sender.String())
+			continue
+		}
+
 		lb, err := txm.tc.LatestBlock()
 		if err != nil {
 			txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
@@ -243,6 +253,12 @@ func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) 
 			break
 		}
 	}
+	// If none are successful just return the errors
+	if len(succeeded) == 0 {
+		return &simResults{
+			failed: failed,
+		}, nil
+	}
 	// Last simulation with all successful txes to get final gas limit
 	s, err := txm.tc.SimulateUnsigned(getMsgs(succeeded), sequence)
 	containsFailure, _ := txm.failedMsgIndex(err)
@@ -282,9 +298,8 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []TerraMsg) error {
 	// of time (plus a small buffer to account for block time variance) where N
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
-	pollPeriod := 1 * time.Second
-	for tries := 0; tries < 100; tries++ {
-		time.Sleep(pollPeriod)
+	for tries := 0; tries < txm.confirmMaxPolls; tries++ {
+		time.Sleep(txm.confirmPollPeriod)
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)
