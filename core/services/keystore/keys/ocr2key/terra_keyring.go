@@ -65,11 +65,17 @@ func (ok *terraKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.R
 }
 
 func (ok *terraKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+	var cosmosPub cosmosed25519.PubKey
+	err := cosmosPub.UnmarshalAmino(publicKey)
+	if err != nil {
+		return false
+	}
 	hash, err := ok.reportToSigData(reportCtx, report)
 	if err != nil {
 		return false
 	}
-	return ok.PubKey().VerifySignature(hash, signature[32:])
+	result := cosmosPub.VerifySignature(hash, signature[32:])
+	return result
 }
 
 func (ok *terraKeyring) MaxSignatureLength() int {
