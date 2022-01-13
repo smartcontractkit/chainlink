@@ -10,6 +10,7 @@ import (
 // ORM manages terra chains and nodes.
 type ORM interface {
 	EnabledChainsWithNodes(...pg.QOpt) ([]Chain, error)
+	Chain(string, ...pg.QOpt) (Chain, error)
 	CreateNode(NewNode, ...pg.QOpt) (Node, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	Node(int32, ...pg.QOpt) (Node, error)

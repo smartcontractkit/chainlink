@@ -24,6 +24,11 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 // ErrNoRowsAffected is returned when rows should have been affected but were not.
 var ErrNoRowsAffected = errors.New("no rows affected")
 
+var defaultCfg = terraconfig.ChainCfg{
+	FallbackGasPriceULuna: "0.01",
+	GasLimitMultiplier:    1.5,
+}
+
 func (o orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	var nodes []types.Node
@@ -39,13 +44,24 @@ func (o orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err
 		chains = append(chains, types.Chain{
 			ID:    id,
 			Nodes: ns,
-			Cfg: terraconfig.ChainCfg{
-				FallbackGasPriceULuna: "0.01",
-				GasLimitMultiplier:    1.5,
-			},
+			Cfg:   defaultCfg,
 		})
 	}
 	return chains, nil
+}
+
+func (o orm) Chain(id string, qopts ...pg.QOpt) (types.Chain, error) {
+	q := o.q.WithOpts(qopts...)
+	var nodes []types.Node
+	nodesSQL := `SELECT * FROM terra_nodes WHERE terra_chain_id = $1 ORDER BY created_at, id;`
+	if err := q.Select(&nodes, nodesSQL, id); err != nil {
+		return types.Chain{}, err
+	}
+	return types.Chain{
+		ID:    id,
+		Nodes: nodes,
+		Cfg:   defaultCfg,
+	}, nil
 }
 
 func (o orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node types.Node, err error) {

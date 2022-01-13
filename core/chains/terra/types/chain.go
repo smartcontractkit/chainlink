@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -35,6 +36,8 @@ type ChainSetOpts struct {
 var _ terra.ChainSet = (*chainSet)(nil)
 
 type chainSet struct {
+	opts   ChainSetOpts
+	mu     sync.RWMutex
 	chains map[string]terra.Chain
 	lggr   logger.Logger
 }
@@ -46,6 +49,7 @@ func NewChainSet(opts ChainSetOpts) (terra.ChainSet, error) {
 		return nil, errors.Wrap(err, "error loading chains")
 	}
 	cs := &chainSet{
+		opts:   opts,
 		chains: make(map[string]terra.Chain),
 		lggr:   opts.Logger.Named("Terra"),
 	}
@@ -62,10 +66,44 @@ func NewChainSet(opts ChainSetOpts) (terra.ChainSet, error) {
 }
 
 func (c *chainSet) Get(id string) (terra.Chain, error) {
-	return c.chains[id], nil
+	c.mu.RLock()
+	ch := c.chains[id]
+	c.mu.RUnlock()
+	if ch != nil {
+		return ch, nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ch = c.chains[id]
+	if ch != nil {
+		return ch, nil
+	}
+
+	opts := c.opts
+	chain, err := opts.ORM.Chain(id)
+	if err != nil {
+		return nil, err
+	}
+	if len(chain.Nodes) == 0 {
+		return nil, fmt.Errorf("no nodes for terra chain: %s", id)
+	}
+
+	node := chain.Nodes[0] // TODO client pool
+	tChain, err := NewChain(opts.DB, opts.KeyStore, node, opts.Config, opts.EventBroadcaster, chain.Cfg, opts.Logger)
+	if err != nil {
+		return nil, err
+	}
+	err = tChain.Start()
+	if err != nil {
+		return nil, err
+	}
+	c.chains[id] = tChain
+	return tChain, nil
 }
 
 func (c *chainSet) Start() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	for _, ch := range c.chains {
 		if err := ch.Start(); err != nil {
 			c.lggr.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "evmChainID", ch.ID(), "err", err)
@@ -77,6 +115,8 @@ func (c *chainSet) Start() error {
 
 func (c *chainSet) Close() (err error) {
 	c.lggr.Debug("Stopping")
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	for _, c := range c.chains {
 		err = multierr.Combine(err, c.Close())
 	}
@@ -84,6 +124,8 @@ func (c *chainSet) Close() (err error) {
 }
 
 func (c *chainSet) Ready() (err error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	for _, c := range c.chains {
 		err = multierr.Combine(err, c.Ready())
 	}
@@ -91,6 +133,8 @@ func (c *chainSet) Ready() (err error) {
 }
 
 func (c *chainSet) Healthy() (err error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	for _, c := range c.chains {
 		err = multierr.Combine(err, c.Healthy())
 	}
