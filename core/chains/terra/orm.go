@@ -27,7 +27,7 @@ var ErrNoRowsAffected = errors.New("no rows affected")
 func (o orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	var nodes []types.Node
-	nodesSQL := `SELECT * FROM evm_nodes ORDER BY created_at, id;`
+	nodesSQL := `SELECT * FROM terra_nodes ORDER BY created_at, id;`
 	if err = q.Select(&nodes, nodesSQL); err != nil {
 		return
 	}
