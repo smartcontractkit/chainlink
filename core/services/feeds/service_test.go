@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"math/big"
 	"testing"
 	"time"
 
@@ -371,7 +370,6 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			IsOCRBootstrapPeer:        true,
 			OCRBootstrapPeerMultiaddr: null.StringFrom(multiaddr),
 		}
-		chainID    = big.NewInt(1)
 		sendingKey = ethkey.KeyV2{
 			Address: ethkey.EIP55AddressFromAddress(rawKey.Address),
 		}
@@ -385,15 +383,13 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", feedsMgr.ID).Return(feedsMgr, nil)
 	svc.ethKeystore.On("SendingKeys").Return([]ethkey.KeyV2{sendingKey}, nil)
-	svc.cfg.On("ChainID").Return(chainID)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
 	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
 		JobTypes:           []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
-		ChainId:            chainID.Int64(),
-		ChainIds:           []int64{chainID.Int64()},
+		ChainIds:           []int64{svc.cc.Chains()[0].ID().Int64()},
 		AccountAddresses:   []string{sendingKey.Address.String()},
 		IsBootstrapPeer:    true,
 		BootstrapMultiaddr: multiaddr,
