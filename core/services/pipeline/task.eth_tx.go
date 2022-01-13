@@ -29,7 +29,7 @@ type ETHTxTask struct {
 	TxMeta           string `json:"txMeta"`
 	MinConfirmations string `json:"minConfirmations"`
 	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
-	Simulate         string `json:"simulate" mapstructure:"simulate"`
+	TransmitChecker  string `json:"transmitChecker"`
 
 	keyStore ETHKeyStore
 	chainSet evm.ChainSet
@@ -48,7 +48,13 @@ func (t *ETHTxTask) Type() TaskType {
 }
 
 func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
-	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	var chainID StringParam
+	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID")
+	if err != nil {
+		return Result{Error: err}, runInfo
+	}
+
+	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
 		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}, retryableRunInfo()
 	}
@@ -66,7 +72,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		gasLimit              Uint64Param
 		txMetaMap             MapParam
 		maybeMinConfirmations MaybeUint64Param
-		simulate              BoolParam
+		transmitCheckerMap    MapParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
@@ -75,7 +81,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), cfg.EvmGasLimitDefault())), "gasLimit"),
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
 		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
-		errors.Wrap(ResolveParam(&simulate, From(VarExpr(t.Simulate, vars), NonemptyString(t.Simulate), false)), "simulate"),
+		errors.Wrap(ResolveParam(&transmitCheckerMap, From(VarExpr(t.TransmitChecker, vars), JSONWithVarExprs(t.TransmitChecker, vars, false), MapParam{})), "transmitChecker"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -88,32 +94,14 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		minOutgoingConfirmations = cfg.MinRequiredOutgoingConfirmations()
 	}
 
-	var txMeta bulletprooftxmanager.EthTxMeta
-
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:      &txMeta,
-		ErrorUnused: true,
-		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-			switch from {
-			case stringType:
-				switch to {
-				case int32Type:
-					i, err2 := strconv.ParseInt(data.(string), 10, 32)
-					return int32(i), err2
-				case reflect.TypeOf(common.Hash{}):
-					return common.HexToHash(data.(string)), nil
-				}
-			}
-			return data, nil
-		},
-	})
+	txMeta, err := decodeMeta(txMetaMap)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
+		return Result{Error: err}, runInfo
 	}
 
-	err = decoder.Decode(txMetaMap)
+	transmitChecker, err := decodeTransmitChecker(transmitCheckerMap)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
+		return Result{Error: err}, runInfo
 	}
 
 	fromAddr, err := t.keyStore.GetRoundRobinAddress(fromAddrs...)
@@ -124,15 +112,16 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
-	strategy := bulletprooftxmanager.NewSendEveryStrategy(bool(simulate))
+	strategy := bulletprooftxmanager.NewSendEveryStrategy()
 
 	newTx := bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddr,
 		ToAddress:      common.Address(toAddr),
 		EncodedPayload: []byte(data),
 		GasLimit:       uint64(gasLimit),
-		Meta:           &txMeta,
+		Meta:           txMeta,
 		Strategy:       strategy,
+		Checker:        transmitChecker,
 	}
 
 	if minOutgoingConfirmations > 0 {
@@ -151,4 +140,61 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 
 	return Result{Value: nil}, runInfo
+}
+
+func decodeMeta(metaMap MapParam) (*bulletprooftxmanager.EthTxMeta, error) {
+	var txMeta bulletprooftxmanager.EthTxMeta
+	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:      &txMeta,
+		ErrorUnused: true,
+		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+			switch from {
+			case stringType:
+				switch to {
+				case int32Type:
+					i, err2 := strconv.ParseInt(data.(string), 10, 32)
+					return int32(i), err2
+				case reflect.TypeOf(common.Hash{}):
+					return common.HexToHash(data.(string)), nil
+				}
+			}
+			return data, nil
+		},
+	})
+	if err != nil {
+		return &txMeta, errors.Wrapf(ErrBadInput, "txMeta: %v", err)
+	}
+
+	err = metaDecoder.Decode(metaMap)
+	if err != nil {
+		return &txMeta, errors.Wrapf(ErrBadInput, "txMeta: %v", err)
+	}
+	return &txMeta, nil
+}
+
+func decodeTransmitChecker(checkerMap MapParam) (bulletprooftxmanager.TransmitCheckerSpec, error) {
+	var transmitChecker bulletprooftxmanager.TransmitCheckerSpec
+	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result:      &transmitChecker,
+		ErrorUnused: true,
+		DecodeHook: func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+			switch from {
+			case stringType:
+				switch to {
+				case reflect.TypeOf(common.Address{}):
+					return common.HexToAddress(data.(string)), nil
+				}
+			}
+			return data, nil
+		},
+	})
+	if err != nil {
+		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
+	}
+
+	err = checkerDecoder.Decode(checkerMap)
+	if err != nil {
+		return transmitChecker, errors.Wrapf(ErrBadInput, "transmitChecker: %v", err)
+	}
+	return transmitChecker, nil
 }

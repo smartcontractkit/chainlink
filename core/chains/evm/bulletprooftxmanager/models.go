@@ -33,8 +33,23 @@ type EthTxMeta struct {
 	SubID uint64 `json:"SubId"`
 }
 
+// TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
+// on chain.
+type TransmitCheckerSpec struct {
+	// CheckerType is the type of check that should be performed. Empty indicates no check.
+	CheckerType TransmitCheckerType
+
+	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
+	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
+	VRFCoordinatorAddress common.Address
+}
+
 type EthTxState string
 type EthTxAttemptState string
+
+// TransmitCheckerType describes the type of check that should be performed before a transaction is
+// executed on-chain.
+type TransmitCheckerType string
 
 const (
 	EthTxUnstarted               = EthTxState("unstarted")
@@ -47,6 +62,14 @@ const (
 	EthTxAttemptInProgress      = EthTxAttemptState("in_progress")
 	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")
 	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
+
+	// TransmitCheckerTypeSimulate is a checker that simulates the transaction before executing on
+	// chain.
+	TransmitCheckerTypeSimulate = TransmitCheckerType("simulate")
+
+	// TransmitCheckerTypeVRFV2 is a checker that will not submit VRF fulfillment requests that have
+	// already been fulfilled. This could happen if the request was fulfilled by another node.
+	TransmitCheckerTypeVRFV2 = TransmitCheckerType("vrf_v2")
 )
 
 type NullableEIP2930AccessList struct {
@@ -135,9 +158,9 @@ type EthTx struct {
 	// on chains that support it (e.g. Ethereum Mainnet after London hard fork)
 	AccessList NullableEIP2930AccessList
 
-	// Simulate if set to true will cause this eth_tx to be simulated before
-	// initial send and aborted on revert
-	Simulate bool
+	// TransmitChecker defines the check that should be performed before a transaction is submitted on
+	// chain.
+	TransmitChecker *datatypes.JSON
 }
 
 func (e EthTx) GetError() error {
@@ -150,6 +173,25 @@ func (e EthTx) GetError() error {
 // GetID allows EthTx to be used as jsonapi.MarshalIdentifier
 func (e EthTx) GetID() string {
 	return fmt.Sprintf("%d", e.ID)
+}
+
+// GetMeta returns an EthTx's meta in struct form, unmarshalling it from JSON first.
+func (e EthTx) GetMeta() (*EthTxMeta, error) {
+	if e.Meta == nil {
+		return nil, nil
+	}
+	var m EthTxMeta
+	return &m, errors.Wrap(json.Unmarshal(*e.Meta, &m), "unmarshalling meta")
+}
+
+// GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON
+// first.
+func (e EthTx) GetChecker() (TransmitCheckerSpec, error) {
+	if e.TransmitChecker == nil {
+		return TransmitCheckerSpec{}, nil
+	}
+	var t TransmitCheckerSpec
+	return t, errors.Wrap(json.Unmarshal(*e.TransmitChecker, &t), "unmarshalling transmit checker")
 }
 
 type EthTxAttempt struct {
