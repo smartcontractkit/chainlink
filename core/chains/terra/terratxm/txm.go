@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
+
 	"github.com/tendermint/tendermint/crypto/tmhash"
 
 	"github.com/pkg/errors"
@@ -119,13 +121,13 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	for txHash, msgs := range msgsByTxHash {
 		err := txm.confirmTx(txHash, getIDs(msgs))
 		if err != nil {
-			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err)
+			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err, "txhash", txHash)
 		}
 	}
 }
 
 func (txm *Txm) run(sub pg.Subscription) {
-	defer func() { txm.done <- struct{}{} }()
+	defer close(txm.done)
 	txm.confirmAnyUnconfirmed()
 	for {
 		select {
@@ -134,7 +136,6 @@ func (txm *Txm) run(sub pg.Subscription) {
 		case <-txm.ticker.C:
 			txm.sendMsgBatch()
 		case <-txm.stop:
-			txm.sub.Close()
 			return
 		}
 	}
@@ -163,106 +164,122 @@ func (txm *Txm) sendMsgBatch() {
 			continue
 		}
 		m.ExecuteContract = &ms
+		_, err = sdk.AccAddressFromBech32(ms.Sender)
+		if err != nil {
+			// Should never happen, we parse sender on Enqueue
+			txm.lggr.Errorw("unable to parse sender", "err", err, "sender", ms.Sender)
+			continue
+		}
 		msgsByFrom[ms.Sender] = append(msgsByFrom[ms.Sender], m)
 	}
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
 	gp := txm.tc.GasPrice(txm.fallbackGasPrice)
 	for s, msgs := range msgsByFrom {
-		sender, _ := sdk.AccAddressFromBech32(s)
-		an, sn, err := txm.tc.Account(sender)
-		if err != nil {
-			txm.lggr.Errorw("to read account", "err", err, "from", sender.String())
-			// If we can't read the account, assume transient api issues and leave msgs unstarted
-			// to retry on next poll.
-			continue
-		}
-
+		sender, _ := sdk.AccAddressFromBech32(s) // Already checked validity above
 		key, err := txm.ks.Get(sender.String())
 		if err != nil {
 			txm.lggr.Errorw("unable to find key for from address", "err", err, "from", sender.String())
 			// We check the transmitter key exists when the job is added. So it would have to be deleted
 			// after it was added for this to happen. Retry on next poll should the key be re-added.
-			continue
+			return
 		}
+		txm.sendMsgBatchFromAddress(gp, sender, key, msgs)
+	}
+}
 
-		txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
-		simResults, err := txm.simulate(msgs, sn)
+func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs []TerraMsg) {
+	an, sn, err := txm.tc.Account(sender)
+	if err != nil {
+		txm.lggr.Errorw("unable to read account", "err", err, "from", sender.String())
+		// If we can't read the account, assume transient api issues and leave msgs unstarted
+		// to retry on next poll.
+		return
+	}
+
+	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
+	simResults, err := txm.simulate(msgs, sn)
+	if err != nil {
+		txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
+		// If we can't simulate assume transient api issue and retry on next poll.
+		return
+	}
+	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.succeeded, "failed", simResults.failed)
+	err = txm.orm.UpdateMsgsWithState(getIDs(simResults.failed), Errored, nil)
+	if err != nil {
+		txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
+		// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
+		return
+	}
+
+	// Continue if there are no successful txes
+	if len(simResults.succeeded) == 0 {
+		txm.lggr.Warnw("all sim msgs errored, not sending tx", "from", sender.String())
+		return
+	}
+	// Get the gas limit for the successful batch
+	s, err := txm.tc.SimulateUnsigned(getMsgs(simResults.succeeded), sn)
+	if err != nil {
+		// Should never happen
+		txm.lggr.Errorw("unexpected failure after successful simulation", "err", err)
+		return
+	}
+	gasLimit := s.GasInfo.GasUsed
+
+	lb, err := txm.tc.LatestBlock()
+	if err != nil {
+		txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
+		return
+	}
+	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.succeeded), an, sn, gasLimit, txm.gasLimitMultiplier,
+		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
+	if err != nil {
+		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
+		return
+	}
+
+	// We need to ensure that we either broadcast successfully and mark the tx as
+	// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
+	// We do this by first marking it broadcasted then rolling back if the broadcast api call fails.
+	var resp *txtypes.BroadcastTxResponse
+	err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
+		txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
+		err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, &txHash, pg.WithQueryer(tx))
 		if err != nil {
-			txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
-			// If we can't simulate assume transient api issue and retry on next poll.
-			continue
+			return err
 		}
-		txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.succeeded, "failed", simResults.failed)
-		err = txm.orm.UpdateMsgsWithState(getIDs(simResults.failed), Errored, nil)
+
+		txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.succeeded)
+		resp, err = txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 		if err != nil {
-			txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
-			// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
-			continue
+			// Rollback marking as broadcasted
+			return err
 		}
+		if resp.TxResponse == nil {
+			// Rollback marking as broadcasted
+			return errors.New("unexpected nil tx response")
+		}
+		if resp.TxResponse.TxHash != txHash {
+			// Should never happen
+			txm.lggr.Errorw("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
+		}
+		return nil
+	})
+	if err != nil {
+		txm.lggr.Errorw("error broadcasting tx", "err", err, "from", sender.String())
+		// Was unable to broadcast, retry on next poll
+		return
+	}
 
-		// Continue if there are no successful txes
-		if len(simResults.succeeded) == 0 {
-			txm.lggr.Warnw("all sim msgs errored, not sending tx", "from", sender.String())
-			continue
-		}
-
-		lb, err := txm.tc.LatestBlock()
-		if err != nil {
-			txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
-			continue
-		}
-		signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.succeeded), an, sn, simResults.gasLimit, txm.gasLimitMultiplier,
-			gp, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
-		if err != nil {
-			txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
-			continue
-		}
-
-		// We need to ensure that we either broadcast successfully and mark the tx as
-		// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
-		// We this by first marking it broadcasted then rolling back if the broadcast api call fails.
-		var resp *txtypes.BroadcastTxResponse
-		err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
-			txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
-			err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, &txHash, pg.WithQueryer(tx))
-			if err != nil {
-				return err
-			}
-
-			txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.succeeded)
-			resp, err = txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
-			if err != nil {
-				// Rollback marking as broadcasted
-				return err
-			}
-			if resp.TxResponse == nil {
-				// Rollback marking as broadcasted
-				return errors.New("unexpected nil tx response")
-			}
-			if resp.TxResponse.TxHash != txHash {
-				// Should never happen
-				txm.lggr.Errorw("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
-			}
-			return nil
-		})
-		if err != nil {
-			txm.lggr.Errorw("error broadcasting tx", "err", err, "from", sender.String())
-			// Was unable to broadcast, retry on next poll
-			continue
-		}
-
-		if err := txm.confirmTx(resp.TxResponse.TxHash, getIDs(simResults.succeeded)); err != nil {
-			txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
-			continue
-		}
+	if err := txm.confirmTx(resp.TxResponse.TxHash, getIDs(simResults.succeeded)); err != nil {
+		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
+		return
 	}
 }
 
 type simResults struct {
 	failed    []TerraMsg
 	succeeded []TerraMsg
-	gasLimit  uint64
 }
 
 func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) {
@@ -270,6 +287,9 @@ func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) 
 	// If we fail to simulate the batch, remove the offending tx
 	// and try again. Repeat until we have a successful batch.
 	// Keep track of failures so we can mark them as errored.
+	// Note that the error from simulating indicates the first
+	// msg in the slice which failed (it simply loops over the msgs
+	// and simulates them one by one, breaking at the first failure).
 	var succeeded []TerraMsg
 	var failed []TerraMsg
 	toSim := msgs
@@ -297,26 +317,9 @@ func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) 
 			break
 		}
 	}
-	// If none are successful just return the errors
-	if len(succeeded) == 0 {
-		return &simResults{
-			failed: failed,
-		}, nil
-	}
-	// Last simulation with all successful txes to get final gas limit
-	s, err := txm.tc.SimulateUnsigned(getMsgs(succeeded), sequence)
-	containsFailure, _ := txm.failedMsgIndex(err)
-	if err != nil && !containsFailure {
-		return nil, err
-	}
-	if containsFailure {
-		// should never happen
-		return nil, errors.Errorf("unexpected failure after successful simulation err %v", err)
-	}
 	return &simResults{
 		failed:    failed,
 		succeeded: succeeded,
-		gasLimit:  s.GasInfo.GasUsed,
 	}, nil
 }
 
@@ -384,6 +387,11 @@ func (txm *Txm) Enqueue(contractID string, msg []byte) (int64, error) {
 		txm.lggr.Errorw("failed to unmarshal msg, skipping", "err", err, "msg", hex.EncodeToString(msg))
 		return 0, err
 	}
+	_, err = sdk.AccAddressFromBech32(ms.Sender)
+	if err != nil {
+		txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.Sender)
+		return 0, err
+	}
 	// We could consider simulating here too, but that would
 	// introduce another network call and essentially double
 	// the enqueue time. Enqueue is used in the context of OCRs Transmit
@@ -393,6 +401,7 @@ func (txm *Txm) Enqueue(contractID string, msg []byte) (int64, error) {
 
 // Close close service
 func (txm *Txm) Close() error {
+	txm.sub.Close()
 	txm.stop <- struct{}{}
 	<-txm.done
 	return nil

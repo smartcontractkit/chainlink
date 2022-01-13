@@ -133,7 +133,6 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(sr.failed))
 		require.Equal(t, 0, len(sr.succeeded))
-		require.Equal(t, uint64(0), sr.gasLimit)
 		tc.AssertExpectations(t)
 	})
 
@@ -142,16 +141,11 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000,
 		}}, errors.New("failed to execute message; message index: 1:")).Once()
-		// Should simulate one more time
-		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
-			GasUsed: 1_000_000,
-		}}, nil).Once()
 		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}}, 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(sr.failed))
 		require.Equal(t, 1, len(sr.succeeded))
-		require.Equal(t, uint64(1_000_000), sr.gasLimit)
 		tc.AssertExpectations(t)
 	})
 
@@ -165,7 +159,6 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 3, len(sr.failed))
 		require.Equal(t, 0, len(sr.succeeded))
-		require.Equal(t, uint64(0), sr.gasLimit)
 		tc.AssertExpectations(t)
 	})
 
@@ -173,13 +166,12 @@ func TestTxm(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000,
-		}}, nil).Twice()
+		}}, nil).Once()
 		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}, {ID: 3}}, 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(sr.failed))
 		require.Equal(t, 3, len(sr.succeeded))
-		require.Equal(t, uint64(1_000), sr.gasLimit)
 		tc.AssertExpectations(t)
 	})
 
@@ -200,6 +192,39 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(m))
 		assert.Equal(t, Errored, m[0].State)
+		tc.AssertExpectations(t)
+	})
+
+	t.Run("confirm any unconfirmed", func(t *testing.T) {
+		txHash1 := "0x1234"
+		txHash2 := "0x1235"
+		tc := new(tcmocks.ReaderWriter)
+		tc.On("Tx", txHash1).Return(&txtypes.GetTxResponse{
+			TxResponse: &cosmostypes.TxResponse{TxHash: txHash1},
+		}, nil).Once()
+		tc.On("Tx", txHash2).Return(&txtypes.GetTxResponse{
+			TxResponse: &cosmostypes.TxResponse{TxHash: txHash2},
+		}, nil).Once()
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+
+		// Insert and broadcast 2 msgs with different txhashes.
+		id1, err := txm.orm.InsertMsg("blah", []byte{0x01})
+		require.NoError(t, err)
+		id2, err := txm.orm.InsertMsg("blah", []byte{0x02})
+		require.NoError(t, err)
+		err = txm.orm.UpdateMsgsWithState([]int64{id1}, Broadcasted, &txHash1)
+		require.NoError(t, err)
+		err = txm.orm.UpdateMsgsWithState([]int64{id2}, Broadcasted, &txHash2)
+		require.NoError(t, err)
+
+		// Confirm them as in a restart while confirming scenario
+		txm.confirmAnyUnconfirmed()
+		require.NoError(t, err)
+		confirmed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
+		require.NoError(t, err)
+		require.Equal(t, 2, len(confirmed))
+		assert.Equal(t, Confirmed, confirmed[0].State)
+		assert.Equal(t, Confirmed, confirmed[1].State)
 		tc.AssertExpectations(t)
 	})
 }
