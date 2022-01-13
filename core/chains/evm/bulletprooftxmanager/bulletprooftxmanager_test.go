@@ -45,7 +45,8 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	lggr := logger.TestLogger(t)
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
+	checkerFactory := &testCheckerFactory{}
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr, checkerFactory)
 
 	_, err := bptxm.SendEther(big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
