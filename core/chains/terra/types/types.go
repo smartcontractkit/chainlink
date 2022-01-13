@@ -36,6 +36,7 @@ type Node struct {
 	UpdatedAt     time.Time
 }
 
+// Chain is a an existing chain.
 type Chain struct {
 	ID    string
 	Nodes []Node

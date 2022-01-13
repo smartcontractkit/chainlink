@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
+// ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
 	Logger           logger.Logger
@@ -38,6 +39,7 @@ type chainSet struct {
 	lggr   logger.Logger
 }
 
+// NewChainSet returns a new chain set for opts.
 func NewChainSet(opts ChainSetOpts) (terra.ChainSet, error) {
 	dbchains, err := opts.ORM.EnabledChainsWithNodes()
 	if err != nil {
@@ -106,6 +108,7 @@ type chain struct {
 	lggr   logger.Logger
 }
 
+// NewChain returns a new chain backed by node.
 func NewChain(db *sqlx.DB, ks keystore.Terra, node Node, logCfg pg.LogConfig, eb pg.EventBroadcaster, cfg terraconfig.ChainCfg, lggr logger.Logger) (terra.Chain, error) {
 	id := node.TerraChainID
 	client, err := terraclient.NewClient(id,
