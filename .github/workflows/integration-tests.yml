@@ -75,15 +75,14 @@ jobs:
         run: go mod download
       - name: Install Ginkgo CLI
         run: |
-          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.0.0-rc2
-          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.0.0-rc2
-          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.0.0-rc2
+          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.0.0
+          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.0.0
+          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.0.0
           go install github.com/onsi/ginkgo/v2/ginkgo
       - name: Run Tests
-        # Currently skipping Keeper tests due to a possible bug, looking further into it
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          make test_smoke args="-nodes=6 --skip=@keeper"
+          make test_smoke args="-nodes=6"
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
