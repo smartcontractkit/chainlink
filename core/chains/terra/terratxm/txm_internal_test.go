@@ -50,18 +50,20 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	contract, err := cosmostypes.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
 	require.NoError(t, err)
+	fallbackGasPrice := "0.01"
+	gasLimitMultiplier := 1.5
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
-		tc.On("GasPrice").Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
+		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
 		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
 			Header: tmtypes.Header{Height: 1},
 		}}, nil)
-		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
+		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
 		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
@@ -70,7 +72,7 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
 
-		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 
 		// Enqueue a single msg, then send it in a batch
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, sender1, contract))
@@ -88,14 +90,14 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
-		tc.On("GasPrice").Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
+		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
 		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
 			Header: tmtypes.Header{Height: 1},
 		}}, nil)
-		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
+		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
 		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
@@ -104,7 +106,7 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
 
-		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, sender1, contract))
 		require.NoError(t, err)
@@ -126,7 +128,7 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, errors.New("failed to execute message; message index: 0:")).Once()
-		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		sr, err := txm.simulate([]TerraMsg{{ID: 1}}, 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(sr.failed))
@@ -144,7 +146,7 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil).Once()
-		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}}, 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(sr.failed))
@@ -158,7 +160,7 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000,
 		}}, errors.New("failed to execute message; message index: 0:")).Times(3)
-		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}, {ID: 3}}, 0)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(sr.failed))
@@ -172,7 +174,7 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000,
 		}}, nil).Twice()
-		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}, {ID: 3}}, 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(sr.failed))
@@ -187,7 +189,7 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		txm := NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		txm.confirmPollPeriod = 0 * time.Second
 		txm.confirmMaxPolls = 2
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})

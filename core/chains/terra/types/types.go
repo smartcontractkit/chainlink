@@ -18,7 +18,7 @@ type ORM interface {
 // ChainCfg is configuration parameters for a terra chain.
 type ChainCfg struct {
 	FallbackGasPriceULuna string
-	GasLimitMultiplier    string
+	GasLimitMultiplier    float64
 }
 
 // NewNode defines a new node to create.

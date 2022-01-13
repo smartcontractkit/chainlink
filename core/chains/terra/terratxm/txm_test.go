@@ -34,7 +34,9 @@ func TestTxmStartStop(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	accounts, testdir := terraclient.SetupLocalTerraNode(t, "42")
-	tc, err := terraclient.NewClient("42", "0.01", "1.5", "http://127.0.0.1:26657", "https://fcd.terra.dev/", 10, lggr)
+	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
+	gasLimitMultiplier := 1.5
+	tc, err := terraclient.NewClient("42", "http://127.0.0.1:26657", "https://fcd.terra.dev/", 10, lggr)
 	require.NoError(t, err)
 
 	// First create a transmitter key and fund it with 1k uluna
@@ -46,7 +48,7 @@ func TestTxmStartStop(t *testing.T) {
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
 	_, err = tc.SignAndBroadcast([]msg.Msg{msg.NewMsgSend(accounts[0].Address, transmitterID, msg.NewCoins(msg.NewInt64Coin("uluna", 100000)))},
-		an, sn, tc.GasPrice(), accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
+		an, sn, tc.GasPrice(fallbackGasPrice), accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	require.NoError(t, err)
 
 	contractID := terraclient.DeployTestContract(t, accounts[0], terraclient.Account{
@@ -56,7 +58,8 @@ func TestTxmStartStop(t *testing.T) {
 	}, tc, testdir, "../../../testdata/my_first_contract.wasm")
 
 	// Start txm
-	txm := terratxm.NewTxm(db, tc, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb, 5*time.Second)
+	txm, err := terratxm.NewTxm(db, tc, fallbackGasPrice.Amount.String(), gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb, 5*time.Second)
+	require.NoError(t, err)
 	require.NoError(t, txm.Start())
 
 	// Change the contract state
@@ -68,7 +71,7 @@ func TestTxmStartStop(t *testing.T) {
 
 	// Observe the counter gets set eventually
 	gomega.NewWithT(t).Eventually(func() bool {
-		d, err := tc.ContractStore(contractID.String(), []byte(`{"get_count":{}}`))
+		d, err := tc.ContractStore(contractID, []byte(`{"get_count":{}}`))
 		require.NoError(t, err)
 		t.Log("contract value", string(d))
 		return string(d) == `{"count":5}`

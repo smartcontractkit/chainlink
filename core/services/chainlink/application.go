@@ -309,14 +309,17 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			// TODO from DB
 			terraCfg := terratypes.ChainCfg{
 				FallbackGasPriceULuna: "0.01",
-				GasLimitMultiplier:    "1.5",
+				GasLimitMultiplier:    1.5,
 			}
-			tc, err := terraclient.NewClient(node.TerraChainID, terraCfg.FallbackGasPriceULuna,
-				terraCfg.GasLimitMultiplier, node.TendermintURL, node.FCDURL, 10, globalLogger)
+			tc, err := terraclient.NewClient(node.TerraChainID,
+				node.TendermintURL, node.FCDURL, 10, globalLogger)
 			if err != nil {
 				return nil, err
 			}
-			txm := terratxm.NewTxm(db, tc, keyStore.Terra(), globalLogger, cfg, eventBroadcaster, 5*time.Second)
+			txm, err := terratxm.NewTxm(db, tc, terraCfg.FallbackGasPriceULuna, terraCfg.GasLimitMultiplier, keyStore.Terra(), globalLogger, cfg, eventBroadcaster, 5*time.Second)
+			if err != nil {
+				return nil, err
+			}
 			terraRelayer = pkgterra.NewRelayer(globalLogger, txm, tc, node.TerraChainID)
 		}
 		// master/delegate relay is started once, on app start, as root subservice

@@ -48,35 +48,43 @@ const (
 
 // Txm manages transactions for the terra blockchain.
 type Txm struct {
-	starter           utils.StartStopOnce
-	eb                pg.EventBroadcaster
-	sub               pg.Subscription
-	ticker            *time.Ticker
-	orm               *ORM
-	lggr              logger.Logger
-	tc                terraclient.ReaderWriter
-	ks                keystore.Terra
-	stop, done        chan struct{}
-	confirmPollPeriod time.Duration
-	confirmMaxPolls   int
+	starter            utils.StartStopOnce
+	eb                 pg.EventBroadcaster
+	sub                pg.Subscription
+	ticker             *time.Ticker
+	orm                *ORM
+	lggr               logger.Logger
+	tc                 terraclient.ReaderWriter
+	ks                 keystore.Terra
+	stop, done         chan struct{}
+	confirmPollPeriod  time.Duration
+	confirmMaxPolls    int
+	fallbackGasPrice   sdk.DecCoin
+	gasLimitMultiplier float64
 }
 
 // NewTxm creates a txm
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) *Txm {
+func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, gasLimitMultiplier float64, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
 	ticker := time.NewTicker(pollPeriod)
-	return &Txm{
-		starter:           utils.StartStopOnce{},
-		eb:                eb,
-		orm:               NewORM(db, lggr, cfg),
-		ks:                ks,
-		ticker:            ticker,
-		tc:                tc,
-		lggr:              lggr,
-		stop:              make(chan struct{}),
-		done:              make(chan struct{}),
-		confirmPollPeriod: 1 * time.Second,
-		confirmMaxPolls:   100,
+	fgp, err := sdk.NewDecFromStr(fallbackGasPrice)
+	if err != nil {
+		return nil, err
 	}
+	return &Txm{
+		starter:            utils.StartStopOnce{},
+		eb:                 eb,
+		orm:                NewORM(db, lggr, cfg),
+		ks:                 ks,
+		ticker:             ticker,
+		tc:                 tc,
+		lggr:               lggr,
+		stop:               make(chan struct{}),
+		done:               make(chan struct{}),
+		confirmPollPeriod:  1 * time.Second,
+		confirmMaxPolls:    100,
+		fallbackGasPrice:   sdk.NewDecCoinFromDec("uluna", fgp),
+		gasLimitMultiplier: gasLimitMultiplier,
+	}, nil
 }
 
 // Start subscribes to pg notifications about terra msg inserts and processes them.
@@ -159,7 +167,7 @@ func (txm *Txm) sendMsgBatch() {
 	}
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
-	gp := txm.tc.GasPrice()
+	gp := txm.tc.GasPrice(txm.fallbackGasPrice)
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s)
 		an, sn, err := txm.tc.Account(sender)
@@ -204,7 +212,8 @@ func (txm *Txm) sendMsgBatch() {
 			txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
 			continue
 		}
-		signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.succeeded), an, sn, simResults.gasLimit, gp, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
+		signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.succeeded), an, sn, simResults.gasLimit, txm.gasLimitMultiplier,
+			gp, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
 		if err != nil {
 			txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
 			continue
