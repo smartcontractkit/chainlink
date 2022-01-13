@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -296,27 +295,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		// TODO: parameterize poll period
-		nodes, _, err := terraORM.Nodes(0, 1)
+		terraLggr := globalLogger.Named("Terra")
+		terraChainSet, err := terratypes.NewChainSet(terratypes.ChainSetOpts{
+			Config:           cfg,
+			Logger:           terraLggr,
+			DB:               db,
+			KeyStore:         keyStore.Terra(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              terraORM,
+		})
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to list terra nodes")
+			return nil, err
 		}
-		var terraRelayer relaytypes.Relayer
-		if ln := len(nodes); ln > 0 {
-			terraLggr := globalLogger.Named("Terra")
-			terraLggr.Debugf("Found %d nodes, initilizing ChainSet", ln)
-			terraChainSet, err := terratypes.NewChainSet(terratypes.ChainSetOpts{
-				Config:           cfg,
-				Logger:           globalLogger,
-				DB:               db,
-				KeyStore:         keyStore.Terra(),
-				EventBroadcaster: eventBroadcaster,
-				ORM:              terraORM,
-			})
-			if err != nil {
-				return nil, err
-			}
-			terraRelayer = pkgterra.NewRelayer(globalLogger.Named("Relayer"), terraChainSet)
-		}
+		terraRelayer := pkgterra.NewRelayer(terraLggr.Named("Relayer"), terraChainSet)
+
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
 			keyStore,
