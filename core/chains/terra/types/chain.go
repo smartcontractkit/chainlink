@@ -1,7 +1,10 @@
 package types
 
 import (
+	"fmt"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -32,6 +35,7 @@ var _ terra.ChainSet = (*chainSet)(nil)
 
 type chainSet struct {
 	chains map[string]terra.Chain
+	lggr   logger.Logger
 }
 
 func NewChainSet(opts ChainSetOpts) (terra.ChainSet, error) {
@@ -41,6 +45,7 @@ func NewChainSet(opts ChainSetOpts) (terra.ChainSet, error) {
 	}
 	cs := &chainSet{
 		chains: make(map[string]terra.Chain),
+		lggr:   opts.Logger.Named("Terra"),
 	}
 	for _, c := range dbchains {
 		n := c.Nodes[0] //TODO client pool
@@ -58,13 +63,47 @@ func (c *chainSet) Get(id string) (terra.Chain, error) {
 	return c.chains[id], nil
 }
 
+func (c *chainSet) Start() error {
+	for _, ch := range c.chains {
+		if err := ch.Start(); err != nil {
+			c.lggr.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "evmChainID", ch.ID(), "err", err)
+			continue
+		}
+	}
+	return nil
+}
+
+func (c *chainSet) Close() (err error) {
+	c.lggr.Debug("Stopping")
+	for _, c := range c.chains {
+		err = multierr.Combine(err, c.Close())
+	}
+	return
+}
+
+func (c *chainSet) Ready() (err error) {
+	for _, c := range c.chains {
+		err = multierr.Combine(err, c.Ready())
+	}
+	return
+}
+
+func (c *chainSet) Healthy() (err error) {
+	for _, c := range c.chains {
+		err = multierr.Combine(err, c.Healthy())
+	}
+	return
+}
+
 var _ terra.Chain = (*chain)(nil)
 
 type chain struct {
+	utils.StartStopOnce
 	id     string
 	cfg    terraconfig.ChainCfg
 	client *terraclient.Client
 	txm    *terratxm.Txm
+	lggr   logger.Logger
 }
 
 func NewChain(db *sqlx.DB, ks keystore.Terra, node Node, logCfg pg.LogConfig, eb pg.EventBroadcaster, cfg terraconfig.ChainCfg, lggr logger.Logger) (terra.Chain, error) {
@@ -83,6 +122,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, node Node, logCfg pg.LogConfig, eb
 		cfg:    cfg,
 		client: client,
 		txm:    txm,
+		lggr:   lggr,
 	}, nil
 }
 
@@ -103,21 +143,23 @@ func (c *chain) Reader() terraclient.Reader {
 }
 
 func (c *chain) Start() error {
-	//TODO implement me
-	panic("implement me")
+	return c.StartOnce("Chain", func() error {
+		//TODO dial client?
+
+		return c.txm.Start()
+	})
 }
 
 func (c *chain) Close() error {
-	//TODO implement me
-	panic("implement me")
+	return c.StopOnce("Chain", func() error {
+		return c.txm.Close()
+	})
 }
 
 func (c *chain) Ready() error {
-	//TODO implement me
-	panic("implement me")
+	return c.txm.Ready()
 }
 
 func (c *chain) Healthy() error {
-	//TODO implement me
-	panic("implement me")
+	return c.txm.Healthy()
 }
