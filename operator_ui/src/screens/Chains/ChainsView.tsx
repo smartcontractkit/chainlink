@@ -13,6 +13,7 @@ import TablePagination from '@material-ui/core/TablePagination'
 import TableRow from '@material-ui/core/TableRow'
 
 import BaseLink from 'src/components/BaseLink'
+import { BetaAlert } from './BetaAlert'
 import Button from 'src/components/Button'
 import { ChainRow } from './ChainRow'
 import Content from 'src/components/Content'
@@ -77,6 +78,10 @@ export const ChainsView: React.FC<Props> = ({
   return (
     <Content>
       <Grid container>
+        <Grid item xs={12}>
+          <BetaAlert />
+        </Grid>
+
         <Grid item xs={9}>
           <Heading1>Chains</Heading1>
         </Grid>
