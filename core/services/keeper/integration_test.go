@@ -104,7 +104,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 			// setup app
 			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559), true, true)
-			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
+			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			d := 24 * time.Hour
 			// disable full sync ticker for test

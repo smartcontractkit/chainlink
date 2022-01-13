@@ -59,7 +59,7 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 		MinIncomingConfirmationsEnv: spec.MinIncomingConfirmationsEnv,
 		MinContractPayment:          spec.MinContractPayment,
 		Requesters:                  spec.Requesters,
-		// This is hardcoded to runlog. When we support other intiators, we need
+		// This is hardcoded to runlog. When we support other initiators, we need
 		// to change this
 		Initiator:  "runlog",
 		CreatedAt:  spec.CreatedAt,

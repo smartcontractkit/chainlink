@@ -9,11 +9,14 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
@@ -70,6 +73,10 @@ func main() {
 	helpers.PanicErr(err)
 	owner.GasPrice = gp
 	switch os.Args[1] {
+	case "bhs-deploy":
+		bhsAddress, tx, _, err := blockhash_store.DeployBlockhashStore(owner, ec)
+		helpers.PanicErr(err)
+		fmt.Println("BlockhashStore", bhsAddress.String(), "hash", tx.Hash())
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
@@ -120,6 +127,11 @@ func main() {
 		helpers.ParseArgs(coordinatorRegisterKey, os.Args[2:], "address", "pubkey", "oracle-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*registerKeyAddress), ec)
 		helpers.PanicErr(err)
+
+		// Put key in ECDSA format
+		if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
+			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
+		}
 		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
@@ -127,6 +139,25 @@ func main() {
 		tx, err := coordinator.RegisterProvingKey(owner,
 			common.HexToAddress(*registerKeyOracleAddress),
 			[2]*big.Int{pk.X, pk.Y})
+		helpers.PanicErr(err)
+		fmt.Println("hash", tx.Hash())
+	case "coordinator-deregister-key":
+		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
+		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
+		deregisterKeyUncompressedPubKey := coordinatorDeregisterKey.String("pubkey", "", "uncompressed pubkey")
+		helpers.ParseArgs(coordinatorDeregisterKey, os.Args[2:], "address", "pubkey")
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*deregisterKeyAddress), ec)
+		helpers.PanicErr(err)
+
+		// Put key in ECDSA format
+		if strings.HasPrefix(*deregisterKeyUncompressedPubKey, "0x") {
+			*deregisterKeyUncompressedPubKey = strings.Replace(*deregisterKeyUncompressedPubKey, "0x", "04", 1)
+		}
+		pubBytes, err := hex.DecodeString(*deregisterKeyUncompressedPubKey)
+		helpers.PanicErr(err)
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+		tx, err := coordinator.DeregisterProvingKey(owner, [2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
 		fmt.Println("hash", tx.Hash())
 	case "coordinator-subscription":

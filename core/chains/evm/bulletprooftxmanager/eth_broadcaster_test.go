@@ -46,8 +46,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	checkerFactory := &bulletprooftxmanager.CheckerFactory{Client: ethClient}
 
-	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory)
 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	timeNow := time.Now()
@@ -313,7 +314,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          bulletprooftxmanager.EthTxUnstarted,
-				Simulate:       true,
+				TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+				}),
 			}
 			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == uint64(5) && tx.Value().Cmp(big.NewInt(442)) == 0
@@ -353,7 +356,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          bulletprooftxmanager.EthTxUnstarted,
-				Simulate:       true,
+				TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+				}),
 			}
 			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 				return tx.Nonce() == uint64(6) && tx.Value().Cmp(big.NewInt(542)) == 0
@@ -381,7 +386,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 				GasLimit:       gasLimit,
 				CreatedAt:      time.Unix(0, 0),
 				State:          bulletprooftxmanager.EthTxUnstarted,
-				Simulate:       true,
+				TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+				}),
 			}
 
 			jerr := evmclient.JsonError{
@@ -408,6 +415,115 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	})
 
 	ethClient.AssertExpectations(t)
+}
+
+func TestEthBroadcaster_TransmitChecking(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	checkerFactory := &testCheckerFactory{}
+
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, checkerFactory)
+
+	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+	gasLimit := uint64(242)
+
+	t.Run("when transmit checking times out, sends tx as normal", func(t *testing.T) {
+		// Checker will return a canceled error
+		checkerFactory.err = context.Canceled
+
+		ethTx := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: []byte{42, 0, 0},
+			Value:          assets.NewEthValue(442),
+			GasLimit:       gasLimit,
+			CreatedAt:      time.Unix(0, 0),
+			State:          bulletprooftxmanager.EthTxUnstarted,
+			TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+				CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+			}),
+		}
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == 0 && tx.Value().Cmp(big.NewInt(442)) == 0
+		})).Return(nil).Once()
+
+		require.NoError(t, borm.InsertEthTx(&ethTx))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+
+		// Check ethtx was sent
+		ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, ethTx.State)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("when transmit checking succeeds, sends tx as normal", func(t *testing.T) {
+		// Checker will return no error
+		checkerFactory.err = nil
+
+		ethTx := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: []byte{42, 0, 0},
+			Value:          assets.NewEthValue(442),
+			GasLimit:       gasLimit,
+			CreatedAt:      time.Unix(0, 0),
+			State:          bulletprooftxmanager.EthTxUnstarted,
+			TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+				CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+			}),
+		}
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == 1 && tx.Value().Cmp(big.NewInt(442)) == 0
+		})).Return(nil).Once()
+
+		require.NoError(t, borm.InsertEthTx(&ethTx))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+
+		// Check ethtx was sent
+		ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, ethTx.State)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("when transmit errors, fatally error transaction", func(t *testing.T) {
+		// Checker will return a fatal error
+		checkerFactory.err = errors.New("fatal checker error")
+
+		ethTx := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: []byte{42, 0, 0},
+			Value:          assets.NewEthValue(442),
+			GasLimit:       gasLimit,
+			CreatedAt:      time.Unix(0, 0),
+			State:          bulletprooftxmanager.EthTxUnstarted,
+			TransmitChecker: checkerToJson(t, bulletprooftxmanager.TransmitCheckerSpec{
+				CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+			}),
+		}
+
+		require.NoError(t, borm.InsertEthTx(&ethTx))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
+
+		// Check ethtx was sent
+		ethTx, err := borm.FindEthTxWithAttempts(ethTx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, bulletprooftxmanager.EthTxFatalError, ethTx.State)
+		assert.True(t, ethTx.Error.Valid)
+		assert.Equal(t, "fatal checker error", ethTx.Error.String)
+
+		ethClient.AssertExpectations(t)
+	})
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
@@ -438,6 +554,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		estimator,
 		nil,
 		logger.TestLogger(t),
+		&testCheckerFactory{},
 	)
 
 	etx := bulletprooftxmanager.EthTx{
@@ -483,7 +600,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 		assert.Equal(t, int(1600), int(tx.Gas()))
@@ -524,7 +641,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	t.Run("when eth node returns error", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates, &testCheckerFactory{})
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == dummyAddress.Hex()
@@ -555,7 +672,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	t.Run("when eth node returns nonce", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates)
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, keyStates, &testCheckerFactory{})
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == dummyAddress.Hex()
@@ -642,7 +759,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so eth_key_states.next_nonce has not been
@@ -677,7 +794,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -712,7 +829,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -746,7 +863,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -782,7 +899,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -824,7 +941,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+		eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 		// Crashed right after we commit the database transaction that saved
 		// the nonce to the eth_tx so keys.next_nonce has not been
@@ -888,7 +1005,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState})
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, ethKeyStore, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)))
 
@@ -935,7 +1052,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.Equal(t, int64(1), finalNextNonce)
 	})
 
-	t.Run("geth client returns an error in the fatal errors category", func(t *testing.T) {
+	t.Run("geth Client returns an error in the fatal errors category", func(t *testing.T) {
 		fatalErrorExample := "exceeds block gas limit"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
@@ -1030,7 +1147,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	bulletprooftxmanager.SetResumeCallbackOnEthBroadcaster(nil, eb)
 
-	t.Run("geth client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
+	t.Run("geth Client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
 		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
@@ -1071,7 +1188,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("eth client call fails with an unexpected random error", func(t *testing.T) {
+	t.Run("eth Client call fails with an unexpected random error", func(t *testing.T) {
 		retryableErrorExample := "geth shit the bed again"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
@@ -1368,7 +1485,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	kst := new(ksmocks.Eth)
-	eb := cltest.NewEthBroadcaster(t, db, ethClient, kst, evmcfg, []ethkey.State{keyState})
+	eb := cltest.NewEthBroadcaster(t, db, ethClient, kst, evmcfg, []ethkey.State{keyState}, &testCheckerFactory{})
 
 	t.Run("tx signing fails", func(t *testing.T) {
 		etx := bulletprooftxmanager.EthTx{
@@ -1455,7 +1572,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
-	eb := cltest.NewEthBroadcaster(t, db, cltest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{})
+	eb := cltest.NewEthBroadcaster(t, db, cltest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{})
 
 	eb.Trigger(cltest.NewAddress())
 	eb.Trigger(cltest.NewAddress())
@@ -1483,4 +1600,32 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 
 	mustInsertUnstartedEthTx(t, borm, fromAddress)
 	gomega.NewWithT(t).Eventually(ethTxInsertListener.Events()).Should(gomega.Receive())
+}
+
+func checkerToJson(t *testing.T, checker bulletprooftxmanager.TransmitCheckerSpec) *datatypes.JSON {
+	b, err := json.Marshal(checker)
+	require.NoError(t, err)
+	j := datatypes.JSON(b)
+	return &j
+}
+
+type testCheckerFactory struct {
+	err error
+}
+
+func (t *testCheckerFactory) BuildChecker(spec bulletprooftxmanager.TransmitCheckerSpec) (bulletprooftxmanager.TransmitChecker, error) {
+	return &testChecker{t.err}, nil
+}
+
+type testChecker struct {
+	err error
+}
+
+func (t *testChecker) Check(
+	_ context.Context,
+	_ logger.Logger,
+	_ bulletprooftxmanager.EthTx,
+	_ bulletprooftxmanager.EthTxAttempt,
+) error {
+	return t.err
 }

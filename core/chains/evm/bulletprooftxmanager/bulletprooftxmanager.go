@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
 	"github.com/pkg/errors"
@@ -89,6 +88,7 @@ type BulletproofTxManager struct {
 	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
+	checkerFactory   TransmitCheckerFactory
 
 	chHeads        chan *evmtypes.Head
 	trigger        chan common.Address
@@ -106,7 +106,8 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+// NewBulletproofTxManager creates a new BulletproofTxManager with the given configuration.
+func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -119,6 +120,7 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, config Con
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
 		chainID:          *ethClient.ChainID(),
+		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
@@ -151,7 +153,7 @@ func (b *BulletproofTxManager) Start() (merr error) {
 			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
@@ -227,7 +229,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
 			b.logger.ErrorIfClosing(ec, "EthConfirmer")
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 			if err := eb.Start(); err != nil {
@@ -277,6 +279,9 @@ type NewTx struct {
 	PipelineTaskRunID *uuid.UUID
 
 	Strategy TxStrategy
+
+	// Checker defines the check that should be run before a transaction is submitted on chain.
+	Checker TransmitCheckerSpec
 }
 
 // CreateEthTransaction inserts a new transaction
@@ -305,12 +310,12 @@ func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) 
 			return err
 		}
 		err := tx.Get(&etx, `
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
 VALUES (
 $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Strategy.Simulate())
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
 		}
@@ -426,27 +431,6 @@ func sendTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAtt
 		return nil
 	}
 	return sendErr
-}
-
-// gimulateTransaction pretends to "send" the transaction using eth_call
-// returns error on revert
-func simulateTransaction(ctx context.Context, ethClient evmclient.Client, a EthTxAttempt, e EthTx) (hexutil.Bytes, error) {
-	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
-	callArg := map[string]interface{}{
-		"from": e.FromAddress,
-		"to":   &e.ToAddress,
-		"gas":  hexutil.Uint64(a.ChainSpecificGasLimit),
-		// NOTE: Deliberately do not include gas prices. We never want to fatally error a transaction just because the wallet has insufficient eth.
-		// Relevant info regarding EIP1559 transactions: https://github.com/ethereum/go-ethereum/pull/23027
-		"gasPrice":             nil,
-		"maxFeePerGas":         nil,
-		"maxPriorityFeePerGas": nil,
-		"value":                (*hexutil.Big)(e.Value.ToInt()),
-		"data":                 hexutil.Bytes(e.EncodedPayload),
-	}
-	var b hexutil.Bytes
-	baseErr := ethClient.CallContext(ctx, &b, "eth_call", callArg, evmclient.ToBlockNumArg(nil)) // always run simulation on "latest" block
-	return b, errors.Wrap(baseErr, "transaction simulation using eth_call failed")
 }
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address

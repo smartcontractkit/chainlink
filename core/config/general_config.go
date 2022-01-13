@@ -887,7 +887,7 @@ func (c *generalConfig) RPID() string {
 	return c.viper.GetString(envvar.Name("RPID"))
 }
 
-// RPOrigin Fetches the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
+// RPOrigin Fetches the RPOrigin used to configure WebAuthn sessions. The RPOrigin value should be
 // the origin URL where WebAuthn requests initiate (http://localhost:6688/)
 func (c *generalConfig) RPOrigin() string {
 	return c.viper.GetString(envvar.Name("RPOrigin"))

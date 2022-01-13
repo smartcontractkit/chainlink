@@ -24,12 +24,35 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// InFlightTransactionRecheckInterval controls how often the EthBroadcaster
-// will poll the unconfirmed queue to see if it is allowed to send another
-// transaction
-const InFlightTransactionRecheckInterval = 1 * time.Second
+const (
+	// InFlightTransactionRecheckInterval controls how often the EthBroadcaster
+	// will poll the unconfirmed queue to see if it is allowed to send another
+	// transaction
+	InFlightTransactionRecheckInterval = 1 * time.Second
+
+	// TransmitCheckTimeout controls the maximum amount of time that will be
+	// spent on the transmit check.
+	TransmitCheckTimeout = 2 * time.Second
+)
 
 var errEthTxRemoved = errors.New("eth_tx removed")
+
+// TransmitCheckerFactory creates a transmit checker based on a spec.
+type TransmitCheckerFactory interface {
+
+	// BuildChecker builds a new TransmitChecker based on the given spec.
+	BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error)
+}
+
+// TransmitChecker determines whether a transaction should be submitted on-chain.
+type TransmitChecker interface {
+
+	// Check the given transaction. If the transaction should not be sent, an error indicating why
+	// is returned. Errors should only be returned if the checker can confirm that a transaction
+	// should not be sent, other errors (for example connection or other unexpected errors) should
+	// be logged and swallowed.
+	Check(ctx context.Context, l logger.Logger, tx EthTx, a EthTxAttempt) error
+}
 
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
@@ -58,6 +81,8 @@ type EthBroadcaster struct {
 
 	keyStates []ethkey.State
 
+	checkerFactory TransmitCheckerFactory
+
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
 	// Each key has its own trigger
@@ -73,7 +98,7 @@ type EthBroadcaster struct {
 func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
-	logger logger.Logger) *EthBroadcaster {
+	logger logger.Logger, checkerFactory TransmitCheckerFactory) *EthBroadcaster {
 
 	triggers := make(map[gethCommon.Address]chan struct{})
 	logger = logger.Named("EthBroadcaster")
@@ -90,6 +115,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 		estimator:        estimator,
 		eventBroadcaster: eventBroadcaster,
 		keyStates:        keyStates,
+		checkerFactory:   checkerFactory,
 		triggers:         triggers,
 		chStop:           make(chan struct{}),
 		wg:               sync.WaitGroup{},
@@ -333,10 +359,6 @@ func getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err
 	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
 
-// SimulationTimeout must be short since simulation adds latency to
-// broadcasting a tx which can negatively affect response time
-const SimulationTimeout = 2 * time.Second
-
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
 func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
@@ -345,20 +367,36 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 	parentCtx := context.TODO()
 
-	if etx.Simulate {
-		simulationCtx, cancel := context.WithTimeout(parentCtx, SimulationTimeout)
-		defer cancel()
-		if b, err := simulateTransaction(simulationCtx, eb.ethClient, attempt, etx); err != nil {
-			if jErr := evmclient.ExtractRPCError(err); jErr != nil {
-				eb.logger.CriticalW("Transaction reverted during simulation", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
-				etx.Error = null.StringFrom(fmt.Sprintf("transaction reverted during simulation: %s", jErr.String()))
-				return eb.saveFatallyErroredTransaction(&etx)
-			}
-			eb.logger.Warnw("Transaction simulation failed, will attempt to send anyway", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "returnValue", b.String())
-		} else {
-			eb.logger.Debugw("Transaction simulation succeeded", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "returnValue", b.String())
-		}
+	checkerSpec, err := etx.GetChecker()
+	if err != nil {
+		return errors.Wrap(err, "parsing transmit checker")
 	}
+
+	checker, err := eb.checkerFactory.BuildChecker(checkerSpec)
+	if err != nil {
+		return errors.Wrap(err, "building transmit checker")
+	}
+
+	// If the transmit check does not complete within the timeout, the transaction will be sent
+	// anyway.
+	checkCtx, cancel := context.WithTimeout(parentCtx, TransmitCheckTimeout)
+	defer cancel()
+	err = checker.Check(checkCtx, eb.logger, etx, attempt)
+	if errors.Is(err, context.Canceled) {
+		eb.logger.Errorw("Transmission checker timed out, sending anyway",
+			"ethTxId", etx.ID,
+			"meta", etx.Meta,
+			"checker", etx.TransmitChecker)
+	} else if err != nil {
+		etx.Error = null.StringFrom(err.Error())
+		eb.logger.Infow("Transmission checker failed, fatally erroring transaction.",
+			"ethTxId", etx.ID,
+			"meta", etx.Meta,
+			"checker", etx.TransmitChecker,
+			"err", err)
+		return eb.saveFatallyErroredTransaction(&etx)
+	}
+	cancel()
 
 	sendError := sendTransaction(parentCtx, eb.ethClient, attempt, etx, eb.logger)
 
