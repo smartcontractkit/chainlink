@@ -1122,3 +1122,25 @@ func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
 
 	return NewCreateOCR2KeyBundlePayload(&key), nil
 }
+
+// DeleteOCR2KeyBundle resolves a create OCR2 Key bundle mutation
+func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteOCR2KeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id := string(args.ID)
+	key, err := r.App.GetKeyStore().OCR2().Get(id)
+	if err != nil {
+		return NewDeleteOCR2KeyBundlePayloadResolver(nil, err), nil
+	}
+
+	err = r.App.GetKeyStore().OCR2().Delete(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteOCR2KeyBundlePayloadResolver(&key, nil), nil
+}

@@ -23,6 +23,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		query GetOCR2KeyBundles {
 			ocr2KeyBundles {
 				results {
+					id
 					chainType
 					configPublicKey
 					offChainPublicKey
@@ -45,6 +46,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBundles = append(expectedBundles, map[string]interface{}{
+			"id":                k.ID(),
 			"chainType":         ct,
 			"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", k.ChainType(), k.OnChainPublicKey()),
 			"configPublicKey":   fmt.Sprintf("ocr2cfg_%s_%s", k.ChainType(), hex.EncodeToString(configPublic[:])),
@@ -105,6 +107,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 			createOCR2KeyBundle(chainType: $chainType) {
 				... on CreateOCR2KeyBundleSuccess {
 					bundle {
+						id
 						chainType
 						configPublicKey
 						offChainPublicKey
@@ -124,6 +127,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 	d, err := json.Marshal(map[string]interface{}{
 		"createOCR2KeyBundle": map[string]interface{}{
 			"bundle": map[string]interface{}{
+				"id":                fakeKey.ID(),
 				"chainType":         ct,
 				"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", fakeKey.ChainType(), fakeKey.OnChainPublicKey()),
 				"configPublicKey":   fmt.Sprintf("ocr2cfg_%s_%s", fakeKey.ChainType(), hex.EncodeToString(configPublic[:])),
@@ -168,6 +172,112 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 					Extensions:    nil,
 					ResolverError: gError,
 					Path:          []interface{}{"createOCR2KeyBundle"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
+	t.Parallel()
+
+	fakeKey := ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+
+	mutation := `
+		mutation DeleteOCR2KeyBundle($id: ID!) {
+			deleteOCR2KeyBundle(id: $id) {
+				... on DeleteOCR2KeyBundleSuccess {
+					bundle {
+						id
+						chainType
+						configPublicKey
+						offChainPublicKey
+						onChainPublicKey
+					}
+				}
+				... on NotFoundError {
+					message
+					code
+				}
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"id": fakeKey.ID(),
+	}
+
+	ct, err := ToOCR2ChainType(string(fakeKey.ChainType()))
+	require.NoError(t, err)
+
+	configPublic := fakeKey.ConfigEncryptionPublicKey()
+	d, err := json.Marshal(map[string]interface{}{
+		"deleteOCR2KeyBundle": map[string]interface{}{
+			"bundle": map[string]interface{}{
+				"id":                fakeKey.ID(),
+				"chainType":         ct,
+				"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", fakeKey.ChainType(), fakeKey.OnChainPublicKey()),
+				"configPublicKey":   fmt.Sprintf("ocr2cfg_%s_%s", fakeKey.ChainType(), hex.EncodeToString(configPublic[:])),
+				"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", fakeKey.ChainType(), hex.EncodeToString(fakeKey.OffchainPublicKey())),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "deleteOCR2KeyBundle"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Delete", fakeKey.ID()).Return(nil)
+				f.Mocks.ocr2.On("Get", fakeKey.ID()).Return(fakeKey, nil)
+				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "not found error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Get", fakeKey.ID()).Return(fakeKey, gError)
+				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `{
+				"deleteOCR2KeyBundle": {
+					"code": "NOT_FOUND",
+					"message": "error"
+				}
+			}`,
+		},
+		{
+			name:          "generic error on Delete()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Delete", fakeKey.ID()).Return(gError)
+				f.Mocks.ocr2.On("Get", fakeKey.ID()).Return(fakeKey, nil)
+				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"deleteOCR2KeyBundle"},
 					Message:       gError.Error(),
 				},
 			},

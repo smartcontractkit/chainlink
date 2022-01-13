@@ -58,6 +58,7 @@ type Mutation {
     deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteOCR2KeyBundle(id: ID!): DeleteOCR2KeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
