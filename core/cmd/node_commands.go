@@ -31,12 +31,13 @@ func (p *NodePresenter) ToRow() []string {
 	return row
 }
 
+var nodeHeaders = []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "Created", "Updated"}
+
 // RenderTable implements TableRenderer
 func (p NodePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "Created", "Updated"}
 	rows := [][]string{}
 	rows = append(rows, p.ToRow())
-	renderList(headers, rows, rt.Writer)
+	renderList(nodeHeaders, rows, rt.Writer)
 
 	return nil
 }
@@ -45,14 +46,13 @@ type NodePresenters []NodePresenter
 
 // RenderTable implements TableRenderer
 func (ps NodePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(nodeHeaders, rows, rt.Writer)
 
 	return nil
 }
