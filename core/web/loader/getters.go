@@ -96,6 +96,49 @@ func GetJobRunsByIDs(ctx context.Context, ids []int64) ([]pipeline.Run, error) {
 	return runs, nil
 }
 
+// GetSpecsByJobProposalID fetches the spec for a job proposal id.
+func GetSpecsByJobProposalID(ctx context.Context, jpID string) ([]feeds.JobProposalSpec, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.JobProposalSpecsByJobProposalID.Load(ctx, dataloader.StringKey(jpID))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	specs, ok := result.([]feeds.JobProposalSpec)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	return specs, nil
+}
+
+// GetLatestSpecByJobProposalID fetches the latest spec for a job proposal id.
+func GetLatestSpecByJobProposalID(ctx context.Context, jpID string) (*feeds.JobProposalSpec, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.JobProposalSpecsByJobProposalID.Load(ctx, dataloader.StringKey(jpID))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	specs, ok := result.([]feeds.JobProposalSpec)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	max := specs[0]
+	for _, spec := range specs {
+		if spec.Version > max.Version {
+			max = spec
+		}
+	}
+
+	return &max, nil
+}
+
 // GetJobProposalsByFeedsManagerID fetches the job proposals by feeds manager ID.
 func GetJobProposalsByFeedsManagerID(ctx context.Context, id string) ([]feeds.JobProposal, error) {
 	ldr := For(ctx)
