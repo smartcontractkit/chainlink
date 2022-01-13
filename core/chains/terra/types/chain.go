@@ -51,7 +51,7 @@ func NewChainSet(opts ChainSetOpts) (terra.ChainSet, error) {
 	cs := &chainSet{
 		opts:   opts,
 		chains: make(map[string]terra.Chain),
-		lggr:   opts.Logger.Named("Terra"),
+		lggr:   opts.Logger.Named("ChainSet"),
 	}
 	for _, c := range dbchains {
 		n := c.Nodes[0] //TODO client pool
@@ -102,14 +102,19 @@ func (c *chainSet) Get(id string) (terra.Chain, error) {
 }
 
 func (c *chainSet) Start() error {
+	//TODO if terra disabled, warn and return?
+
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	var started int
 	for _, ch := range c.chains {
 		if err := ch.Start(); err != nil {
-			c.lggr.Errorw(fmt.Sprintf("Terra: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "evmChainID", ch.ID(), "err", err)
+			c.lggr.Errorw(fmt.Sprintf("Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "err", err)
 			continue
 		}
+		started++
 	}
+	c.lggr.Info(fmt.Sprintf("Started %d/%d chains", started, len(c.chains)))
 	return nil
 }
 
@@ -155,12 +160,13 @@ type chain struct {
 // NewChain returns a new chain backed by node.
 func NewChain(db *sqlx.DB, ks keystore.Terra, node Node, logCfg pg.LogConfig, eb pg.EventBroadcaster, cfg terraconfig.ChainCfg, lggr logger.Logger) (terra.Chain, error) {
 	id := node.TerraChainID
+	lggr = lggr.With("terraChainID", id)
 	client, err := terraclient.NewClient(id,
-		node.TendermintURL, node.FCDURL, 10, lggr)
+		node.TendermintURL, node.FCDURL, 10, lggr.Named("Client"))
 	if err != nil {
 		return nil, err
 	}
-	txm, err := terratxm.NewTxm(db, client, cfg.FallbackGasPriceULuna, cfg.GasLimitMultiplier, ks, lggr.Named(id), logCfg, eb, 5*time.Second)
+	txm, err := terratxm.NewTxm(db, client, cfg.FallbackGasPriceULuna, cfg.GasLimitMultiplier, ks, lggr, logCfg, eb, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +175,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, node Node, logCfg pg.LogConfig, eb
 		cfg:    cfg,
 		client: client,
 		txm:    txm,
-		lggr:   lggr,
+		lggr:   lggr.Named("Chain"),
 	}, nil
 }
 
@@ -191,14 +197,18 @@ func (c *chain) Reader() terraclient.Reader {
 
 func (c *chain) Start() error {
 	return c.StartOnce("Chain", func() error {
+		c.lggr.Debug("Starting")
 		//TODO dial client?
 
+		c.lggr.Debug("Starting txm")
 		return c.txm.Start()
 	})
 }
 
 func (c *chain) Close() error {
 	return c.StopOnce("Chain", func() error {
+		c.lggr.Debug("Stopping")
+		c.lggr.Debug("Stopping txm")
 		return c.txm.Close()
 	})
 }

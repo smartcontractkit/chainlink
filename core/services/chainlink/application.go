@@ -301,7 +301,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, errors.Wrapf(err, "failed to list terra nodes")
 		}
 		var terraRelayer relaytypes.Relayer
-		if len(nodes) > 0 {
+		if ln := len(nodes); ln > 0 {
+			terraLggr := globalLogger.Named("Terra")
+			terraLggr.Debugf("Found %d nodes, initilizing ChainSet", ln)
 			terraChainSet, err := terratypes.NewChainSet(terratypes.ChainSetOpts{
 				Config:           cfg,
 				Logger:           globalLogger,
@@ -313,7 +315,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			if err != nil {
 				return nil, err
 			}
-			terraRelayer = pkgterra.NewRelayer(globalLogger, terraChainSet)
+			terraRelayer = pkgterra.NewRelayer(globalLogger.Named("Relayer"), terraChainSet)
 		}
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
