@@ -106,7 +106,7 @@ func (c *chainSet) Start() error {
 	defer c.mu.RUnlock()
 	for _, ch := range c.chains {
 		if err := ch.Start(); err != nil {
-			c.lggr.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "evmChainID", ch.ID(), "err", err)
+			c.lggr.Errorw(fmt.Sprintf("Terra: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "evmChainID", ch.ID(), "err", err)
 			continue
 		}
 	}
