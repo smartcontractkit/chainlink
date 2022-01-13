@@ -291,7 +291,7 @@ contract KeeperRegistry is
   }
 
   /**
-   * @notice adds LINK funding for an upkeep by tranferring from the sender's
+   * @notice adds LINK funding for an upkeep by transferring from the sender's
    * LINK balance
    * @param id upkeep to fund
    * @param amount number of LINK to transfer
@@ -344,9 +344,9 @@ contract KeeperRegistry is
   }
 
   /**
-   * @notice recovers LINK funds improperly transfered to the registry
+   * @notice recovers LINK funds improperly transferred to the registry
    * @dev In principle this function’s execution cost could exceed block
-   * gaslimit. However, in our anticipated deployment, the number of upkeeps and
+   * gas limit. However, in our anticipated deployment, the number of upkeeps and
    * keepers will be low enough to avoid this problem.
    */
   function recoverFunds() external onlyOwner {
@@ -465,7 +465,7 @@ contract KeeperRegistry is
   /**
    * @notice update the list of keepers allowed to perform upkeep
    * @param keepers list of addresses allowed to perform upkeep
-   * @param payees addreses corresponding to keepers who are allowed to
+   * @param payees addresses corresponding to keepers who are allowed to
    * move payments which have been accrued
    */
   function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {

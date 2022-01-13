@@ -170,7 +170,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy)
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, bulletprooftxmanager.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()
