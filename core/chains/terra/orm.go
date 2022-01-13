@@ -2,7 +2,7 @@ package terra
 
 import (
 	"github.com/pkg/errors"
-
+	terraconfig "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
@@ -23,6 +23,30 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 
 // ErrNoRowsAffected is returned when rows should have been affected but were not.
 var ErrNoRowsAffected = errors.New("no rows affected")
+
+func (o orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err error) {
+	q := o.q.WithOpts(qopts...)
+	var nodes []types.Node
+	nodesSQL := `SELECT * FROM evm_nodes ORDER BY created_at, id;`
+	if err = q.Select(&nodes, nodesSQL); err != nil {
+		return
+	}
+	nodemap := make(map[string][]types.Node)
+	for _, n := range nodes {
+		nodemap[n.TerraChainID] = append(nodemap[n.TerraChainID], n)
+	}
+	for id, ns := range nodemap {
+		chains = append(chains, types.Chain{
+			ID:    id,
+			Nodes: ns,
+			Cfg: terraconfig.ChainCfg{
+				FallbackGasPriceULuna: "0.01",
+				GasLimitMultiplier:    1.5,
+			},
+		})
+	}
+	return chains, nil
+}
 
 func (o orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node types.Node, err error) {
 	q := o.q.WithOpts(qopts...)

@@ -19,13 +19,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
-	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -304,23 +302,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		var terraRelayer relaytypes.Relayer
 		if len(nodes) > 0 {
-			// TODO pool of nodes/clients?
-			node := nodes[0]
-			// TODO from DB
-			terraCfg := terratypes.ChainCfg{
-				FallbackGasPriceULuna: "0.01",
-				GasLimitMultiplier:    1.5,
-			}
-			tc, err := terraclient.NewClient(node.TerraChainID,
-				node.TendermintURL, node.FCDURL, 10, globalLogger)
+			terraChainSet, err := terratypes.NewChainSet(terratypes.ChainSetOpts{
+				Config:           cfg,
+				Logger:           globalLogger,
+				DB:               db,
+				KeyStore:         keyStore.Terra(),
+				EventBroadcaster: eventBroadcaster,
+				ORM:              terraORM,
+			})
 			if err != nil {
 				return nil, err
 			}
-			txm, err := terratxm.NewTxm(db, tc, terraCfg.FallbackGasPriceULuna, terraCfg.GasLimitMultiplier, keyStore.Terra(), globalLogger, cfg, eventBroadcaster, 5*time.Second)
-			if err != nil {
-				return nil, err
-			}
-			terraRelayer = pkgterra.NewRelayer(globalLogger, txm, tc, node.TerraChainID)
+			terraRelayer = pkgterra.NewRelayer(globalLogger, terraChainSet)
 		}
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
