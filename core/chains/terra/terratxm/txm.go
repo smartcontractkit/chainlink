@@ -306,7 +306,7 @@ func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) 
 			// remove offending msg and retry
 			if failureIndex == len(toSim)-1 {
 				// we're done, last one failed
-				txm.lggr.Errorw("simulation error found in last msg",  "failure", toSim[failureIndex], "failureIndex", failureIndex, "err", err)
+				txm.lggr.Errorw("simulation error found in last msg", "failure", toSim[failureIndex], "failureIndex", failureIndex, "err", err)
 				break
 			}
 			// otherwise there may be more to sim
