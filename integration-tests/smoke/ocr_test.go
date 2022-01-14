@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
-var _ = Describe("OCR Feed @ocr", func() {
+var _ = FDescribe("OCR Feed @ocr", func() {
 	var (
 		err               error
 		env               *environment.Environment

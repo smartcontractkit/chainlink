@@ -184,7 +184,7 @@ require (
 
 require (
 	github.com/smartcontractkit/helmenv v1.0.23
-	github.com/smartcontractkit/integrations-framework v1.0.27
+	github.com/smartcontractkit/integrations-framework v1.0.28
 )
 
 require (

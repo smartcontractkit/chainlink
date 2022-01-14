@@ -1,0 +1,25 @@
+# Retains default and configurable name-values for the integration framework
+#
+# All configuration can be set at runtime with environment variables, for example:
+# KEEP_ENVIRONMENTS=OnFail
+keep_environments: Never # Options: Always, OnFail, Never
+logging:
+    # panic=5, fatal=4, error=3, warn=2, info=1, debug=0, trace=-1
+    level: 0
+
+# Specify the image and version of the chainlink image you want to run tests against. Leave blank for default.
+chainlink_image: 
+chainlink_version: 
+chainlink_env_values:
+
+# Specify the image and version of the simulated geth image you want to run tests against. Leave blank for default.
+# Has no effect when running tests on networks other than the simulated geth instances.
+geth_image:
+geth_version: 
+geth_args:
+
+# Setting an environment file allows for persistent, not ephemeral environments on test execution
+#
+# For example, if an environment is created with helmenv CLI, then the YAML file outputted on creation can be
+# referenced for use of that environment during all the tests
+environment_file:

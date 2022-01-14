@@ -11,6 +11,6 @@ import (
 )
 
 func Test_Suite(t *testing.T) {
-	utils.GinkgoSuite()
+	utils.GinkgoSuite("../")
 	RunSpecs(t, "Integration")
 }
