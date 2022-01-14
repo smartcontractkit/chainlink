@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -1102,4 +1103,44 @@ func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 	}
 
 	return NewSetGlobalLogLevelPayload(args.Level, nil), nil
+}
+
+// CreateOCR2KeyBundle resolves a create OCR2 Key bundle mutation
+func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
+	ChainType OCR2ChainType
+}) (*CreateOCR2KeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	ct := FromOCR2ChainType(args.ChainType)
+	key, err := r.App.GetKeyStore().OCR2().Create(chaintype.ChainType(ct))
+	if err != nil {
+		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received
+		return nil, err
+	}
+
+	return NewCreateOCR2KeyBundlePayload(&key), nil
+}
+
+// DeleteOCR2KeyBundle resolves a create OCR2 Key bundle mutation
+func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteOCR2KeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id := string(args.ID)
+	key, err := r.App.GetKeyStore().OCR2().Get(id)
+	if err != nil {
+		return NewDeleteOCR2KeyBundlePayloadResolver(nil, err), nil
+	}
+
+	err = r.App.GetKeyStore().OCR2().Delete(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteOCR2KeyBundlePayloadResolver(&key, nil), nil
 }

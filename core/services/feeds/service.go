@@ -172,6 +172,10 @@ func (s *service) SyncNodeInfo(id int64) error {
 		return errors.Wrap(err, "could not fetch client")
 	}
 
+	chainIDs := []int64{}
+	for _, c := range s.chainSet.Chains() {
+		chainIDs = append(chainIDs, c.ID().Int64())
+	}
 	// TODO: Update to support multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
@@ -181,8 +185,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		//
 		// We can remove it once the Feeds Manager has been updated and released
 		// https://app.clubhouse.io/chainlinklabs/story/14983/support-multichain-nodes
-		ChainId:            s.cfg.ChainID().Int64(),
-		ChainIds:           []int64{s.cfg.ChainID().Int64()},
+		ChainIds:           chainIDs,
 		AccountAddresses:   addresses,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),

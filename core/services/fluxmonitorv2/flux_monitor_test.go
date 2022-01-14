@@ -47,7 +47,7 @@ const oracleCount uint8 = 17
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
 func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm bulletprooftxmanager.TxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, bulletprooftxmanager.SendEveryStrategy{})
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, bulletprooftxmanager.SendEveryStrategy{}, bulletprooftxmanager.TransmitCheckerSpec{})
 }
 
 var (

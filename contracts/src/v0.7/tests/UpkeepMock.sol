@@ -40,7 +40,7 @@ contract UpkeepMock is KeeperCompatible {
     uint256 startGas = gasleft();
     bool couldCheck = canCheck;
 
-    setCanCheck(false); // test that state modifcations don't stick
+    setCanCheck(false); // test that state modifications don't stick
 
     while (startGas - gasleft() < checkGasToBurn) {} // burn gas
 

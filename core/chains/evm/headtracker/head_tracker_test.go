@@ -368,7 +368,6 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	sub.On("Err").Return(nil)
 
 	// ---------------------
-	lastHead := make(chan struct{})
 	blocks := cltest.NewBlocks(t, 10)
 
 	head0 := blocks.Head(0)
@@ -397,6 +396,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	headSeq.Append(blocksForked.Head(4))
 	headSeq.Append(blocksForked.Head(5)) // Now the new chain is longer
 
+	lastLongestChainAwaiter := cltest.NewAwaiter()
+
 	// the callback is only called for head number 5 because of head sampling
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -422,7 +423,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 				return
 			}
 			assert.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
-			close(lastHead)
+			lastLongestChainAwaiter.ItHappened()
 		}).Return().Once()
 
 	headers := <-chchHeaders
@@ -445,17 +446,14 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 
-	// time.Sleep(1 * time.Second)
 	for _, h := range headSeq.Heads {
-		// waiting shorter time than the head sampling frequency
-		time.Sleep(10 * time.Millisecond)
 		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
 		latestHeadByNumberMu.Unlock()
 		headers <- h
 	}
 
-	gomega.NewWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
+	lastLongestChainAwaiter.AwaitOrFail(t)
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 
@@ -497,7 +495,6 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	sub.On("Err").Return(nil)
 
 	// ---------------------
-	lastHead := make(chan struct{})
 	blocks := cltest.NewBlocks(t, 10)
 
 	head0 := blocks.Head(0) // evmtypes.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
@@ -524,6 +521,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	headSeq.Append(blocksForked.Head(3))
 	headSeq.Append(blocksForked.Head(4))
 	headSeq.Append(blocksForked.Head(5)) // Now the new chain is longer
+
+	lastLongestChainAwaiter := cltest.NewAwaiter()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -577,7 +576,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 			require.Equal(t, h.Parent.Parent.Parent.Hash, blocksForked.Head(2).Hash)
 			require.NotNil(t, h.Parent.Parent.Parent.Parent)
 			require.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
-			close(lastHead)
+			lastLongestChainAwaiter.ItHappened()
 		}).Return().Once()
 
 	ht.Start(t)
@@ -609,7 +608,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		headers <- h
 	}
 
-	gomega.NewWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
+	lastLongestChainAwaiter.AwaitOrFail(t)
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 
