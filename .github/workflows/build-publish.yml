@@ -1,0 +1,28 @@
+name: 'Build Chainlink and Publish'
+
+on:
+  # Mimics old circleci behaviour
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - master
+      - develop
+      - 'release/*'
+
+jobs:
+  build-publish-chainlink:
+    runs-on: ubuntu-20.04
+    environment: build-publish
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+      - name: Build and publish chainlink image
+        uses: ./.github/actions/build-publish-chainlink
+        with:
+          publish: true
+          image-name: test-chainlink
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-secret: ${{ secrets.AWS_ACCESS_KEY_SECRET }}
+          aws-region: ${{ secrets.AWS_REGION }}
