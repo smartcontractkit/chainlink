@@ -1805,6 +1805,12 @@ github.com/smartcontractkit/chainlink-solana v0.0.0-20220110150750-26cf3ee24c90 
 github.com/smartcontractkit/chainlink-solana v0.0.0-20220110150750-26cf3ee24c90/go.mod h1:G121wVp7wU6IAgE0wF1dBXxRjCzGvjHXuB9N1NtJrk0=
 github.com/smartcontractkit/chainlink-terra v0.0.0-20220113152420-d59be8e189e6 h1:6Z4Mi0vS8khy62ZW9k60vIsTmUG19yGcSN2V+k8KM1w=
 github.com/smartcontractkit/chainlink-terra v0.0.0-20220113152420-d59be8e189e6/go.mod h1:HL+Rfv1U8F+Bi4rVAH7O/L6wqV3QsNNMLeQaKDzp7FQ=
+github.com/smartcontractkit/chainlink-terra v0.0.0-20220113192818-208e2c3a157d h1:M02wKLwup3DKerAG+ZRPOfFEaATPJCzFflQ0vklRc4A=
+github.com/smartcontractkit/chainlink-terra v0.0.0-20220113192818-208e2c3a157d/go.mod h1:HL+Rfv1U8F+Bi4rVAH7O/L6wqV3QsNNMLeQaKDzp7FQ=
+github.com/smartcontractkit/chainlink-terra v0.0.0-20220113201749-d12948ec628f h1:rb+1vOrrzRUBbzxuWapYCI5bVvksBxY9EOm6Cee1ohs=
+github.com/smartcontractkit/chainlink-terra v0.0.0-20220113201749-d12948ec628f/go.mod h1:HL+Rfv1U8F+Bi4rVAH7O/L6wqV3QsNNMLeQaKDzp7FQ=
+github.com/smartcontractkit/chainlink-terra v0.0.0-20220113205514-0f574477137f h1:0oTni+/Q7f5GpdNU2OxnQJBk5OnKO22H0t0/WrHXER8=
+github.com/smartcontractkit/chainlink-terra v0.0.0-20220113205514-0f574477137f/go.mod h1:HL+Rfv1U8F+Bi4rVAH7O/L6wqV3QsNNMLeQaKDzp7FQ=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
 github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7 h1:RkwDW6gxsfhKqPvaxm3Qxfw/6l2QWgC0YrA6zgEXT2k=
 github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7/go.mod h1:nq3crM3wVqnyMlM/4ZydTuJ/WyCapAsOt7P94oRgSPg=
