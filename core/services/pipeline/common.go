@@ -36,7 +36,7 @@ type (
 		Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (Result, RunInfo)
 		Base() *BaseTask
 		Outputs() []Task
-		Inputs() []Task
+		Inputs() []TaskDependency
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
 		TaskRetries() uint32
@@ -56,6 +56,15 @@ type (
 		JobPipelineReaperThreshold() time.Duration
 	}
 )
+
+// Wraps the input Task for the given dependent task along with a bool variable PropagateResult,
+// which Indicates whether result of InputTask should be propagated to its dependent task.
+// If the edge between these tasks was an implicit edge, then results are not propagated. This is because
+// some tasks cannot handle an input from an edge which wasn't specified in the spec.
+type TaskDependency struct {
+	PropagateResult bool
+	InputTask       Task
+}
 
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
@@ -303,6 +312,8 @@ const (
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 	TaskTypeMerge            TaskType = "merge"
+	TaskTypeLowercase        TaskType = "lowercase"
+	TaskTypeUppercase        TaskType = "uppercase"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -379,6 +390,10 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMerge:
 		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeLowercase:
+		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeUppercase:
+		task = &UppercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

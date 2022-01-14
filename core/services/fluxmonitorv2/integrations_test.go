@@ -26,6 +26,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -331,7 +331,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 	cb := currentBalance(t, p.fa)
 
 	// used to ensure that the simulated backend has processed the submission,
-	// before we search for the log and checek it.
+	// before we search for the log and check it.
 	srCh := make(chan *faw.FluxAggregatorSubmissionReceived)
 	fromBlock := uint64(0)
 	srSubscription, err := p.fa.aggregatorContract.WatchSubmissionReceived(

@@ -303,7 +303,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			wantErr: "only OCR job type supports multiaddr",
 		},
 		{
-			name:     "ensure an upsert validates the job propsal belongs to the feeds manager",
+			name:     "ensure an upsert validates the job proposal belongs to the feeds manager",
 			proposal: jp,
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)

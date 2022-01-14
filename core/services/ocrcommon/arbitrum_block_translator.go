@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -19,7 +20,7 @@ import (
 // We want to minimise fetches because calling eth_getBlockByNumber is
 // relatively expensive
 type ArbitrumBlockTranslator struct {
-	ethClient eth.Client
+	ethClient evmclient.Client
 	lggr      logger.Logger
 	// l2->l1 cache
 	cache   map[int64]int64
@@ -28,7 +29,7 @@ type ArbitrumBlockTranslator struct {
 }
 
 // NewArbitrumBlockTranslator returns a concrete ArbitrumBlockTranslator
-func NewArbitrumBlockTranslator(ethClient eth.Client, lggr logger.Logger) *ArbitrumBlockTranslator {
+func NewArbitrumBlockTranslator(ethClient evmclient.Client, lggr logger.Logger) *ArbitrumBlockTranslator {
 	return &ArbitrumBlockTranslator{
 		ethClient,
 		lggr.Named("ArbitrumBlockTranslator"),
@@ -55,7 +56,7 @@ func (a *ArbitrumBlockTranslator) NumberToQueryRange(ctx context.Context, change
 // Imagine as a virtual array of L1 block numbers indexed by L2 block numbers
 // L1 values are likely duplicated so it looks something like
 // [42, 42, 42, 42, 42, 155, 155, 155, 430, 430, 430, 430, 430, ...]
-// Theoretical max difference between L1 values is typically about 5, "worst case" is 6545 but can be arbtrarily high if sequencer is broken
+// Theoretical max difference between L1 values is typically about 5, "worst case" is 6545 but can be arbitrarily high if sequencer is broken
 // The returned range of L2s from leftmost thru rightmost represent all possible L2s that correspond to the L1 value we are looking for
 // nil can be returned as a rightmost value if the range has no upper bound
 func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int64) (l2lowerBound *big.Int, l2upperBound *big.Int, err error) {
@@ -65,7 +66,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 		duration := time.Since(mark)
 		a.lggr.Debugw(fmt.Sprintf("BinarySearch completed in %s with %d total lookups", duration, n), "finishedIn", duration, "err", err, "nLookups", n)
 	}()
-	var h *eth.Head
+	var h *evmtypes.Head
 
 	// l2lower..l2upper is the inclusive range of L2 block numbers in which
 	// transactions that called block.number will return the given L1 block

@@ -16,37 +16,42 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
+	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
-	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 	"github.com/smartcontractkit/sqlx"
 )
 
-func newHead() eth.Head {
-	return eth.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
+func newHead() evmtypes.Head {
+	return evmtypes.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
 }
 
 func setup(t *testing.T) (
 	*sqlx.DB,
 	*configtest.TestGeneralConfig,
-	*ethmocks.Client,
+	*evmmocks.Client,
 	*keeper.UpkeepExecuter,
 	keeper.Registry,
 	keeper.UpkeepRegistration,
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
 	*bptxmmocks.TxManager,
+	keystore.Master,
+	evm.Chain,
+	keeper.ORM,
 ) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
@@ -62,7 +67,7 @@ func setup(t *testing.T) (
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(db, logger.TestLogger(t), txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth())
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
@@ -70,7 +75,7 @@ func setup(t *testing.T) (
 	err := executer.Start()
 	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
 	require.NoError(t, err)
-	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
+	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm, keyStore, ch, orm
 }
 
 var checkUpkeepResponse = struct {
@@ -89,7 +94,7 @@ var checkUpkeepResponse = struct {
 
 func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 	t.Parallel()
-	_, _, _, executer, _, _, _, _, _ := setup(t)
+	_, _, _, executer, _, _, _, _, _, _, _, _ := setup(t)
 	err := executer.Start() // already started in setup()
 	require.Error(t, err)
 }
@@ -98,7 +103,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Parallel()
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
-		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm := setup(t)
+		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t)
 
 		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
 		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
@@ -136,8 +141,56 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		txm.AssertExpectations(t)
 	})
 
+	t.Run("errors if submission key not found", func(t *testing.T) {
+		_, config, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t)
+
+		// replace expected key with random one
+		_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
+		require.NoError(t, err)
+		_, err = keyStore.Eth().Delete(job.KeeperSpec.FromAddress.Hex())
+		require.NoError(t, err)
+
+		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
+
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock.MockMatchedResponse(
+			"checkUpkeep",
+			func(callArgs ethereum.CallMsg) bool {
+				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
+					callArgs.Gas == 650_000
+			},
+			checkUpkeepResponse,
+		)
+
+		head := newHead()
+		executer.OnNewLongestChain(context.Background(), &head)
+		runs := cltest.WaitForPipelineError(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		require.Len(t, runs, 1)
+		assert.True(t, runs[0].HasErrors())
+		assert.True(t, runs[0].HasFatalErrors())
+
+		ethMock.AssertExpectations(t)
+	})
+
+	t.Run("errors if submission chain not found", func(t *testing.T) {
+		db, _, ethMock, _, _, _, job, jpv2, _, _, ch, orm := setup(t)
+
+		// change chain ID to non-configured chain
+		job.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
+		lggr := logger.TestLogger(t)
+		executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
+		err := executer.Start()
+		require.NoError(t, err)
+		head := newHead()
+		executer.OnNewLongestChain(context.Background(), &head)
+		// TODO we want to see an errored run result once this is completed
+		// https://app.shortcut.com/chainlinklabs/story/25397/remove-failearly-flag-from-eth-call-task
+		cltest.AssertPipelineRunsStays(t, job.PipelineSpecID, db, 0)
+		ethMock.AssertExpectations(t)
+	})
+
 	t.Run("triggers exactly one upkeep if heads are skipped but later heads arrive within range", func(t *testing.T) {
-		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm := setup(t)
+		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t)
 
 		etxs := []cltest.Awaiter{
 			cltest.NewAwaiter(),
@@ -189,7 +242,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		waitLastRunHeight(t, db, upkeep, 40)
 
 		ethMock.AssertExpectations(t)
-		txm.AssertExpectations(t)
 	})
 }
 
@@ -197,7 +249,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	db, _, ethMock, executer, registry, _, _, _, _ := setup(t)
+	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t)
 
 	wasCalled := atomic.NewBool(false)
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())

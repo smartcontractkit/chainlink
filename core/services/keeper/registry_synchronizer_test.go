@@ -13,17 +13,17 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/log"
-	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -51,12 +51,12 @@ var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
 func setupRegistrySync(t *testing.T) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*ethmocks.Client,
+	*evmmocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
 	db := pgtest.NewSqlxDB(t)
-	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
+	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lbMock := new(logmocks.Broadcaster)
 	lbMock.Test(t)
@@ -79,7 +79,7 @@ func setupRegistrySync(t *testing.T) (
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	orm := keeper.NewORM(db, logger.TestLogger(t), nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
 		Contract:                 contract,

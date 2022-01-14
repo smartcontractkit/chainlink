@@ -62,7 +62,7 @@ func (key Key) PublicKey() (pubKey cryptotypes.PubKey) {
 	return key.PubKey()
 }
 
-// PublicKeyStr retuns the terra address of the public key
+// PublicKeyStr returns the terra address of the public key
 func (key Key) PublicKeyStr() string {
 	addr := msg.AccAddress(key.PubKey().Address())
 	return addr.String()
