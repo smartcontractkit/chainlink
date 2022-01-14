@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
-var _ = FDescribe("OCR Feed @ocr", func() {
+var _ = Describe("OCR Feed @ocr", func() {
 	var (
 		err               error
 		env               *environment.Environment
@@ -71,13 +71,12 @@ var _ = FDescribe("OCR Feed @ocr", func() {
 			err = networks.Default.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
 		})
-
-		By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockserver))
 	})
 
 	Describe("With a single OCR contract", func() {
 		It("performs two rounds", func() {
 			By("setting adapter responses", actions.SetAllAdapterResponses(5, ocrInstances, chainlinkNodes, mockserver))
+			By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockserver))
 			By("starting new round", actions.StartNewRound(1, ocrInstances, networks))
 
 			answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
