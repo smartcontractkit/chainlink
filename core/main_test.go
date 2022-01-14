@@ -423,7 +423,7 @@ func ExampleRun_txs() {
 	//    core.test txs command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Send <amount> Eth from node ETH account <fromAddress> to destination <toAddress>.
+	//    create  Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.
 	//    list    List the Ethereum Transactions in descending order
 	//    show    get information on a specific Ethereum Transaction
 	//
