@@ -41,7 +41,7 @@ func (ok *terraKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report
 	if err != nil {
 		return nil, err
 	}
-	reportLen := make([]byte, 8)
+	reportLen := make([]byte, 4)
 	binary.BigEndian.PutUint32(reportLen[0:], uint32(len(report)))
 	h.Write(reportLen[:])
 	h.Write(report)
@@ -90,5 +90,6 @@ func (ok *terraKeyring) marshal() ([]byte, error) {
 func (ok *terraKeyring) unmarshal(in []byte) error {
 	key := cosmosed25519.GenPrivKeyFromSecret(in)
 	ok.PrivKey = key
+	ok.secret = in
 	return nil
 }
