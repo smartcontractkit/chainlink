@@ -57,6 +57,7 @@ func (o ChainSetOpts) newChain(dbchain Chain) (*chain, error) {
 	return NewChain(o.DB, o.KeyStore, o.Config, o.EventBroadcaster, dbchain, o.Logger)
 }
 
+//go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 var _ terra.ChainSet = (*chainSet)(nil)
 
 type chainSet struct {
