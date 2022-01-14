@@ -52,7 +52,8 @@ func (r *ETHKeyResolver) IsFunding() bool {
 	return r.key.state.IsFunding
 }
 
-func (r *ETHKeyResolver) ETHBalance() *string {
+// ETHBalance returns the ETH balance available
+func (r *ETHKeyResolver) ETHBalance(ctx context.Context) *string {
 	if r.key.chain == nil {
 		return nil
 	}

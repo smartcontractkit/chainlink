@@ -526,29 +526,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
-	dds := `
-encode_check_upkeep_tx   [type=ethabiencode
-                          abi="checkUpkeep(uint256 id, address from)"
-                          data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
-check_upkeep_tx          [type=ethcall
-                          failEarly=true
-                          extractRevertReason=true
-                          contract="$(jobSpec.contractAddress)"
-                          gas="$(jobSpec.checkUpkeepGasLimit)"
-                          gasPrice="$(jobSpec.gasPrice)"
-                          data="$(encode_check_upkeep_tx)"]
-decode_check_upkeep_tx   [type=ethabidecode
-                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
-encode_perform_upkeep_tx [type=ethabiencode
-                          abi="performUpkeep(uint256 id, bytes calldata performData)"
-                          data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
-perform_upkeep_tx        [type=ethtx
-                          minConfirmations=0
-                          to="$(jobSpec.contractAddress)"
-                          data="$(encode_perform_upkeep_tx)"
-                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\"jobID\":$(jobSpec.jobID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`
+	dds := keeper.ExpectedObservationSource
 	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
 	require.NoError(t, err)
 
@@ -591,7 +569,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
-	korm := keeper.NewORM(db, logger.TestLogger(t), nil, cfg, bulletprooftxmanager.SendEveryStrategy{})
+	korm := keeper.NewORM(db, logger.TestLogger(t), cfg, bulletprooftxmanager.SendEveryStrategy{})
 	upkeepID, err := korm.LowestUnsyncedID(registry.ID)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{

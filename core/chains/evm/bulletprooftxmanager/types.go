@@ -233,7 +233,7 @@ func (l *Log) UnmarshalJSON(input []byte) error {
 	}
 	var dec Log
 	if err := json.Unmarshal(input, &dec); err != nil {
-		return errors.Wrap(err, "coult not unmarshal log")
+		return errors.Wrap(err, "could not unmarshal log")
 	}
 	if dec.Address != nil {
 		l.Address = *dec.Address

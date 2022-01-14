@@ -16,9 +16,9 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"

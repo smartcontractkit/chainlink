@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	// DefaultSecretSize is the entroy in bytes to generate a base64 string of 64 characters.
+	// DefaultSecretSize is the entropy in bytes to generate a base64 string of 64 characters.
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
@@ -120,7 +120,7 @@ func StringToHex(in string) string {
 	return AddHexPrefix(hex.EncodeToString([]byte(in)))
 }
 
-// AddHexPrefix adds the previx (0x) to a given hex string.
+// AddHexPrefix adds the prefix (0x) to a given hex string.
 func AddHexPrefix(str string) string {
 	if len(str) < 2 || len(str) > 1 && strings.ToLower(str[0:2]) != "0x" {
 		str = "0x" + str
@@ -857,7 +857,7 @@ var (
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
 	state        atomic.Int32
-	sync.RWMutex // lock is held during statup/shutdown, RLock is held while executing functions dependent on a particular state
+	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
 }
 
 // StartStopOnceState holds the state for StartStopOnce
