@@ -3,6 +3,8 @@ package terratxm
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+
 	"github.com/smartcontractkit/terra.go/msg"
 )
 
@@ -40,10 +42,29 @@ type TerraMsg struct {
 	ExecuteContract *msg.ExecuteContract
 }
 
-func getMsgs(tms []TerraMsg) []msg.Msg {
-	var msgs []msg.Msg
+func getSimMsgs(tms []TerraMsg) []client.SimMsg {
+	var msgs []client.SimMsg
 	for i := range tms {
-		msgs = append(msgs, tms[i].ExecuteContract)
+		msgs = append(msgs, client.SimMsg{
+			ID:  tms[i].ID,
+			Msg: tms[i].ExecuteContract,
+		})
+	}
+	return msgs
+}
+
+func getSimMsgsIDs(msgs []client.SimMsg) []int64 {
+	var ids []int64
+	for i := range msgs {
+		ids = append(ids, msgs[i].ID)
+	}
+	return ids
+}
+
+func getMsgs(simMsgs []client.SimMsg) []msg.Msg {
+	var msgs []msg.Msg
+	for i := range simMsgs {
+		msgs = append(msgs, simMsgs[i].Msg)
 	}
 	return msgs
 }

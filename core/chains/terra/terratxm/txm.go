@@ -2,8 +2,6 @@ package terratxm
 
 import (
 	"encoding/hex"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,8 +25,7 @@ import (
 )
 
 var (
-	_                   services.Service = (*Txm)(nil)
-	failedMsgIndexRe, _                  = regexp.Compile(`^.*failed to execute message; message index: (?P<Index>\d{1}):.*$`)
+	_ services.Service = (*Txm)(nil)
 )
 
 const (
@@ -198,14 +195,14 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 
 	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
-	simResults, err := txm.simulate(msgs, sn)
+	simResults, err := txm.tc.BatchSimulateUnsigned(getSimMsgs(msgs), sn)
 	if err != nil {
 		txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
 		// If we can't simulate assume transient api issue and retry on next poll.
 		return
 	}
-	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.succeeded, "failed", simResults.failed)
-	err = txm.orm.UpdateMsgsWithState(getIDs(simResults.failed), Errored, nil)
+	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.Succeeded, "failed", simResults.Failed)
+	err = txm.orm.UpdateMsgsWithState(getSimMsgsIDs(simResults.Failed), Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
 		// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
@@ -213,12 +210,12 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 
 	// Continue if there are no successful txes
-	if len(simResults.succeeded) == 0 {
+	if len(simResults.Succeeded) == 0 {
 		txm.lggr.Warnw("all sim msgs errored, not sending tx", "from", sender.String())
 		return
 	}
 	// Get the gas limit for the successful batch
-	s, err := txm.tc.SimulateUnsigned(getMsgs(simResults.succeeded), sn)
+	s, err := txm.tc.SimulateUnsigned(getMsgs(simResults.Succeeded), sn)
 	if err != nil {
 		// Should never happen
 		txm.lggr.Errorw("unexpected failure after successful simulation", "err", err)
@@ -231,7 +228,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
 		return
 	}
-	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.succeeded), an, sn, gasLimit, txm.gasLimitMultiplier,
+	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.Succeeded), an, sn, gasLimit, txm.gasLimitMultiplier,
 		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
@@ -244,12 +241,12 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	var resp *txtypes.BroadcastTxResponse
 	err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
 		txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
-		err = txm.orm.UpdateMsgsWithState(getIDs(simResults.succeeded), Broadcasted, &txHash, pg.WithQueryer(tx))
+		err = txm.orm.UpdateMsgsWithState(getSimMsgsIDs(simResults.Succeeded), Broadcasted, &txHash, pg.WithQueryer(tx))
 		if err != nil {
 			return err
 		}
 
-		txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.succeeded)
+		txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.Succeeded)
 		resp, err = txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 		if err != nil {
 			// Rollback marking as broadcasted
@@ -271,72 +268,10 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 
-	if err := txm.confirmTx(resp.TxResponse.TxHash, getIDs(simResults.succeeded)); err != nil {
+	if err := txm.confirmTx(resp.TxResponse.TxHash, getSimMsgsIDs(simResults.Succeeded)); err != nil {
 		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 		return
 	}
-}
-
-type simResults struct {
-	failed    []TerraMsg
-	succeeded []TerraMsg
-}
-
-func (txm *Txm) simulate(msgs []TerraMsg, sequence uint64) (*simResults, error) {
-	// Assumes at least one msg is present.
-	// If we fail to simulate the batch, remove the offending tx
-	// and try again. Repeat until we have a successful batch.
-	// Keep track of failures so we can mark them as errored.
-	// Note that the error from simulating indicates the first
-	// msg in the slice which failed (it simply loops over the msgs
-	// and simulates them one by one, breaking at the first failure).
-	var succeeded []TerraMsg
-	var failed []TerraMsg
-	toSim := msgs
-	for {
-		txm.lggr.Infow("simulating", "toSim", toSim)
-		_, err := txm.tc.SimulateUnsigned(getMsgs(toSim), sequence)
-		containsFailure, failureIndex := txm.failedMsgIndex(err)
-		if err != nil && !containsFailure {
-			return nil, err
-		}
-		if containsFailure {
-			failed = append(failed, toSim[failureIndex])
-			succeeded = append(succeeded, toSim[:failureIndex]...)
-			// remove offending msg and retry
-			if failureIndex == len(toSim)-1 {
-				// we're done, last one failed
-				txm.lggr.Errorw("simulation error found in last msg", "failure", toSim[failureIndex], "failureIndex", failureIndex, "err", err)
-				break
-			}
-			// otherwise there may be more to sim
-			txm.lggr.Errorw("simulation error found in a msg", "retrying", toSim[failureIndex+1:], "failure", toSim[failureIndex], "failureIndex", failureIndex, "err", err)
-			toSim = toSim[failureIndex+1:]
-		} else {
-			// we're done they all succeeded
-			succeeded = append(succeeded, toSim...)
-			break
-		}
-	}
-	return &simResults{
-		failed:    failed,
-		succeeded: succeeded,
-	}, nil
-}
-
-func (txm *Txm) failedMsgIndex(err error) (bool, int) {
-	if err == nil {
-		return false, 0
-	}
-	m := failedMsgIndexRe.FindStringSubmatch(err.Error())
-	if len(m) != 2 {
-		return false, 0
-	}
-	index, err := strconv.ParseInt(m[1], 10, 64)
-	if err != nil {
-		return false, 0
-	}
-	return true, int(index)
 }
 
 func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {

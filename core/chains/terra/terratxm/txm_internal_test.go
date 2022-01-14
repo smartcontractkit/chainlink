@@ -21,13 +21,6 @@ import (
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 )
 
-func TestErrMatch(t *testing.T) {
-	errStr := "rpc error: code = InvalidArgument desc = failed to execute message; message index: 0: Error parsing into type my_first_contract::msg::ExecuteMsg: unknown variant `blah`, expected `increment` or `reset`: execute wasm contract failed: invalid request"
-	m := failedMsgIndexRe.FindStringSubmatch(errStr)
-	require.Equal(t, 2, len(m))
-	assert.Equal(t, m[1], "0")
-}
-
 func generateExecuteMsg(t *testing.T, from, to cosmostypes.AccAddress) []byte {
 	msg1 := wasmtypes.NewMsgExecuteContract(from, to, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), cosmostypes.Coins{})
 	d, err := msg1.Marshal()
@@ -120,58 +113,6 @@ func TestTxm(t *testing.T) {
 		require.Equal(t, 2, len(completed))
 		assert.Equal(t, completed[0].State, Confirmed)
 		assert.Equal(t, completed[1].State, Confirmed)
-		tc.AssertExpectations(t)
-	})
-
-	t.Run("sim single failure single msg", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
-		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
-			GasUsed: 1_000_000,
-		}}, errors.New("failed to execute message; message index: 0:")).Once()
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-		sr, err := txm.simulate([]TerraMsg{{ID: 1}}, 0)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(sr.failed))
-		require.Equal(t, 0, len(sr.succeeded))
-		tc.AssertExpectations(t)
-	})
-
-	t.Run("sim single failure multiple msgs", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
-		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
-			GasUsed: 1_000,
-		}}, errors.New("failed to execute message; message index: 1:")).Once()
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}}, 0)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(sr.failed))
-		require.Equal(t, 1, len(sr.succeeded))
-		tc.AssertExpectations(t)
-	})
-
-	t.Run("sim all failed", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
-		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
-			GasUsed: 1_000,
-		}}, errors.New("failed to execute message; message index: 0:")).Times(3)
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}, {ID: 3}}, 0)
-		require.NoError(t, err)
-		require.Equal(t, 3, len(sr.failed))
-		require.Equal(t, 0, len(sr.succeeded))
-		tc.AssertExpectations(t)
-	})
-
-	t.Run("sim all succeed", func(t *testing.T) {
-		tc := new(tcmocks.ReaderWriter)
-		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
-			GasUsed: 1_000,
-		}}, nil).Once()
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-		sr, err := txm.simulate([]TerraMsg{{ID: 1}, {ID: 2}, {ID: 3}}, 0)
-		require.NoError(t, err)
-		require.Equal(t, 0, len(sr.failed))
-		require.Equal(t, 3, len(sr.succeeded))
 		tc.AssertExpectations(t)
 	})
 

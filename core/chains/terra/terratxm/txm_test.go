@@ -51,6 +51,8 @@ func TestTxmStartStop(t *testing.T) {
 		an, sn, tc.GasPrice(fallbackGasPrice), accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	require.NoError(t, err)
 
+	// TODO: find a way to pull this test artifact from
+	// the chainlink-terra repo instead of copying it to cores testdata
 	contractID := terraclient.DeployTestContract(t, accounts[0], terraclient.Account{
 		Name:       "transmitter",
 		PrivateKey: terratxm.NewKeyWrapper(transmitterKey),
