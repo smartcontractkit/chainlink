@@ -29,8 +29,6 @@ RUN make contracts-operator-ui-build
 FROM golang:1.17-buster
 WORKDIR /chainlink
 
-RUN wget https://github.com/CosmWasm/wasmvm/raw/main/api/libwasmvm.so -O /usr/lib/libwasmvm.so
-
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
@@ -64,7 +62,8 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
 
 COPY --from=1 /go/bin/chainlink /usr/local/bin/
 
-COPY --from=1 /usr/lib/libwasmvm.so /usr/lib/libwasmvm.so
+# dependency of terra-money/core
+COPY --from=1 /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/api/libwasmvm.so /usr/lib/libwasmvm.so
 RUN chmod 755 /usr/lib/libwasmvm.so
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
