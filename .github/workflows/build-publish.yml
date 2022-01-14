@@ -6,7 +6,7 @@ on:
     tags:
       - 'v*'
     branches:
-      - main
+      - master
       - develop
       - 'release/*'
 
