@@ -26,6 +26,10 @@ func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 func Test_ORM(t *testing.T) {
 	_, orm := setupORM(t)
 
+	dbcs, err := orm.EnabledChainsWithNodes()
+	require.NoError(t, err)
+	require.Empty(t, dbcs)
+
 	newNode := types.NewNode{
 		Name:          "first",
 		TerraChainID:  "Columbus-5",
@@ -74,6 +78,25 @@ func Test_ORM(t *testing.T) {
 	if assert.Len(t, gotNodes, 1) {
 		assertEqual(t, newNode2, gotNodes[0])
 	}
+
+	dbcs, err = orm.EnabledChainsWithNodes()
+	require.NoError(t, err)
+	require.Len(t, dbcs, 1)
+
+	newNode3 := types.NewNode{
+		Name:          "third",
+		TerraChainID:  "Bombay-12",
+		TendermintURL: "http://tender.mint.test/bombay-12",
+		FCDURL:        "http://fcd.test/bombay-12",
+	}
+	gotNode3, err := orm.CreateNode(newNode3)
+	require.NoError(t, err)
+	assertEqual(t, newNode3, gotNode3)
+
+	dbcs, err = orm.EnabledChainsWithNodes()
+	require.NoError(t, err)
+	require.Len(t, dbcs, 1)
+
 }
 
 func assertEqual(t *testing.T, newNode types.NewNode, gotNode types.Node) {
