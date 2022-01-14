@@ -34,20 +34,6 @@ func (_m *TxStrategy) PruneQueue(q pg.Queryer) (int64, error) {
 	return r0, r1
 }
 
-// Simulate provides a mock function with given fields:
-func (_m *TxStrategy) Simulate() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // Subject provides a mock function with given fields:
 func (_m *TxStrategy) Subject() uuid.NullUUID {
 	ret := _m.Called()

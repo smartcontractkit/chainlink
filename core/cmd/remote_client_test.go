@@ -104,6 +104,14 @@ func newEthMock(t *testing.T) (*evmmocks.Client, func()) {
 	return ethClient, assertMocksCalled
 }
 
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) (*evmmocks.Client, func()) {
+	t.Helper()
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
+
+	return ethClient, assertMocksCalled
+}
+
 func keyNameForTest(t *testing.T) string {
 	return fmt.Sprintf("%s_test_key.json", t.Name())
 }
