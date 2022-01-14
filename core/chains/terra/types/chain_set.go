@@ -103,9 +103,16 @@ func (c *chainSet) Chain(id string) (terra.Chain, error) {
 		// Already known/started
 		return ch, nil
 	}
+
 	// Unknown/unstarted
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
+
+	// Double check now that we have the lock, so we don't start an orphan.
+	if err := c.StartStopOnce.Ready(); err != nil {
+		return nil, err
+	}
+
 	ch = c.chains[id]
 	if ch != nil {
 		// Someone else beat us to it
@@ -140,8 +147,8 @@ func (c *chainSet) Start() error {
 	return c.StartOnce("ChainSet", func() error {
 		c.lggr.Debug("Starting")
 
-		c.chainsMu.RLock()
-		defer c.chainsMu.RUnlock()
+		c.chainsMu.Lock()
+		defer c.chainsMu.Unlock()
 		var started int
 		for _, ch := range c.chains {
 			if err := ch.Start(); err != nil {
@@ -158,8 +165,9 @@ func (c *chainSet) Start() error {
 func (c *chainSet) Close() error {
 	return c.StopOnce("ChainSet", func() (err error) {
 		c.lggr.Debug("Stopping")
-		c.chainsMu.RLock()
-		defer c.chainsMu.RUnlock()
+
+		c.chainsMu.Lock()
+		defer c.chainsMu.Unlock()
 		for _, c := range c.chains {
 			err = multierr.Combine(err, c.Close())
 		}
