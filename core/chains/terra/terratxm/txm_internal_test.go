@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+
 	"github.com/pkg/errors"
 
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
@@ -21,8 +23,8 @@ import (
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 )
 
-func generateExecuteMsg(t *testing.T, from, to cosmostypes.AccAddress) []byte {
-	msg1 := wasmtypes.NewMsgExecuteContract(from, to, []byte(`{"transmit":{"report_context":"","signatures":[""],"report":""}}`), cosmostypes.Coins{})
+func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) []byte {
+	msg1 := wasmtypes.NewMsgExecuteContract(from, to, msg, cosmostypes.Coins{})
 	d, err := msg1.Marshal()
 	require.NoError(t, err)
 	return d
@@ -48,8 +50,21 @@ func TestTxm(t *testing.T) {
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
+
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+
+		// Enqueue a single msg, then send it in a batch
+		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
+		require.NoError(t, err)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
 		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
+		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&terraclient.BatchSimResults{
+			Failed: nil,
+			Succeeded: []terraclient.SimMsg{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
+				Sender:     sender1.String(),
+				ExecuteMsg: []byte(`1`),
+			}}},
+		}, nil)
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
@@ -64,12 +79,6 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
-
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-
-		// Enqueue a single msg, then send it in a batch
-		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, sender1, contract))
-		require.NoError(t, err)
 		txm.sendMsgBatch()
 
 		// Should be in completed state
@@ -82,8 +91,34 @@ func TestTxm(t *testing.T) {
 
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
+
+		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+
+		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
+		require.NoError(t, err)
+		id2, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`2`), sender2, contract))
+		require.NoError(t, err)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
 		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
+		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&terraclient.BatchSimResults{
+			Failed: nil,
+			Succeeded: []terraclient.SimMsg{
+				{
+					ID: id1,
+					Msg: &wasmtypes.MsgExecuteContract{
+						Sender:     sender1.String(),
+						ExecuteMsg: []byte(`1`),
+					},
+				},
+				{
+					ID: id2,
+					Msg: &wasmtypes.MsgExecuteContract{
+						Sender:     sender2.String(),
+						ExecuteMsg: []byte(`2`),
+					},
+				},
+			},
+		}, nil)
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
@@ -98,13 +133,6 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
-
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-
-		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, sender1, contract))
-		require.NoError(t, err)
-		id2, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, sender2, contract))
-		require.NoError(t, err)
 		txm.sendMsgBatch()
 
 		// Should be in completed state
