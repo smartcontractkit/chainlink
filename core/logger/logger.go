@@ -134,7 +134,6 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool,
 	return config
 }
 
-<<<<<<< HEAD
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
 func NewLogger() Logger {
