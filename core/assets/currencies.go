@@ -185,6 +185,7 @@ func NewEthValue(w int64) Eth {
 }
 
 // NewEthValueS returns a new struct to represent ETH from a string value of Eth (not wei)
+// the underlying value is still wei
 func NewEthValueS(s string) (Eth, error) {
 	e, err := decimal.NewFromString(s)
 	if err != nil {

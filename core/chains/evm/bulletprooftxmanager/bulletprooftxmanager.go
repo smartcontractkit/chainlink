@@ -74,6 +74,7 @@ type TxManager interface {
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 	RegisterResumeCallback(fn ResumeCallback)
+	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error)
 }
 
 type BulletproofTxManager struct {
@@ -352,8 +353,7 @@ func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-// TODO: Make this a method on the bulletprooftxmanager
-func SendEther(q pg.Q, chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func (b *BulletproofTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -369,7 +369,7 @@ func SendEther(q pg.Q, chainID *big.Int, from, to common.Address, value assets.E
 	query := `INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, evm_chain_id, created_at) VALUES (
 :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :evm_chain_id, NOW()
 ) RETURNING eth_txes.*`
-	err = q.GetNamed(query, &etx, etx)
+	err = b.q.GetNamed(query, &etx, etx)
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 
@@ -534,6 +534,11 @@ func (n *NullTxManager) Start() error                                      { ret
 func (n *NullTxManager) Close() error                                      { return nil }
 func (n *NullTxManager) Trigger(common.Address)                            { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
+	return etx, errors.New(n.ErrMsg)
+}
+
+// SendEther does nothing, null functionality
+func (n *NullTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                           { return nil }
