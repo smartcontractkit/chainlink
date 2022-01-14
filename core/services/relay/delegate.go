@@ -173,7 +173,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 		}
 
 		return d.relayers[types.Terra].NewOCR2Provider(externalJobID, terra.OCR2Spec{
-			ChainID:       config.TerraChainID,
+			ChainID:       config.ChainID,
 			ID:            spec.ID,
 			IsBootstrap:   spec.IsBootstrapPeer,
 			ContractID:    spec.ContractID,

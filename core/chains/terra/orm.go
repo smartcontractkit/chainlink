@@ -2,8 +2,10 @@ package terra
 
 import (
 	"github.com/pkg/errors"
-	terraconfig "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+
 	"github.com/smartcontractkit/sqlx"
+
+	terraconfig "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
