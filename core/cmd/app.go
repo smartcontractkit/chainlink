@@ -907,8 +907,22 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",
-					Usage:  "Send <amount> Eth from node ETH account <fromAddress> to destination <toAddress>.",
+					Usage:  "Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.",
 					Action: client.SendEther,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "allows to send a higher amount than the account's balance",
+						},
+						cli.BoolFlag{
+							Name:  "eth",
+							Usage: "allows to send ETH amounts (Default behavior)",
+						},
+						cli.BoolFlag{
+							Name:  "wei",
+							Usage: "allows to send WEI amounts",
+						},
+					},
 				},
 				{
 					Name:   "list",

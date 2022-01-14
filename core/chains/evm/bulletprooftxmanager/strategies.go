@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
@@ -13,37 +14,31 @@ type TxStrategy interface {
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
 	PruneQueue(q pg.Queryer) (n int64, err error)
-	// Simulate indicates whether this transaction can be safely simulated using eth_call
-	// Simulating transactions before send and aborting on revert can save gas
-	// BE CAREFUL - not all transaction types are safe to simulate, e.g. if
-	// they can call arbitrary user-specified code, because there could be a case where
-	// it would erroneously fail during simulation but would succeed for real
-	Simulate() bool
 }
 
 var _ TxStrategy = SendEveryStrategy{}
 
-func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32, simulate bool) (strategy TxStrategy) {
+// NewQueueingTxStrategy creates a new TxStrategy that drops the oldest transactions after the
+// queue size is exceeded if a queue size is specified, and otherwise does not drop transactions.
+func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy TxStrategy) {
 	if queueSize > 0 {
-		strategy = NewDropOldestStrategy(subject, queueSize, simulate)
+		strategy = NewDropOldestStrategy(subject, queueSize)
 	} else {
-		strategy = SendEveryStrategy{simulate}
+		strategy = SendEveryStrategy{}
 	}
 	return
 }
 
-func NewSendEveryStrategy(simulate bool) TxStrategy {
-	return SendEveryStrategy{simulate}
+// NewSendEveryStrategy creates a new TxStrategy that does not drop transactions.
+func NewSendEveryStrategy() TxStrategy {
+	return SendEveryStrategy{}
 }
 
 // SendEveryStrategy will always send the tx
-type SendEveryStrategy struct {
-	simulate bool
-}
+type SendEveryStrategy struct{}
 
 func (SendEveryStrategy) Subject() uuid.NullUUID               { return uuid.NullUUID{} }
 func (SendEveryStrategy) PruneQueue(pg.Queryer) (int64, error) { return 0, nil }
-func (s SendEveryStrategy) Simulate() bool                     { return s.simulate }
 
 var _ TxStrategy = DropOldestStrategy{}
 
@@ -52,11 +47,12 @@ var _ TxStrategy = DropOldestStrategy{}
 type DropOldestStrategy struct {
 	subject   uuid.UUID
 	queueSize uint32
-	simulate  bool
 }
 
-func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32, simulate bool) DropOldestStrategy {
-	return DropOldestStrategy{subject, queueSize, simulate}
+// NewDropOldestStrategy creates a new TxStrategy that drops the oldest transactions after the
+// queue size is exceeded.
+func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32) DropOldestStrategy {
+	return DropOldestStrategy{subject, queueSize}
 }
 
 func (s DropOldestStrategy) Subject() uuid.NullUUID {
@@ -82,8 +78,4 @@ id < (
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
 	}
 	return res.RowsAffected()
-}
-
-func (s DropOldestStrategy) Simulate() bool {
-	return s.simulate
 }

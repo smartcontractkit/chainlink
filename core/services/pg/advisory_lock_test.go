@@ -98,7 +98,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		// Give it plenty of time to have a few tries at getting the lock
 		time.Sleep(cfg.AdvisoryLockCheckInterval() * 5)
 
-		// Release the dummy advisoy lock to allow the lease locker to take it now
+		// Release the dummy advisory lock to allow the lease locker to take it now
 		_, err = conn.ExecContext(context.Background(), `SELECT pg_advisory_unlock($1)`, cfg.AdvisoryLockID())
 		require.NoError(t, err)
 

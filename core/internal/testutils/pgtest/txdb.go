@@ -18,7 +18,7 @@ import (
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
 //
 // The original lib has various problems and is hard to understand because it
-// tries to be more general. The version in thie file is more tightly focused
+// tries to be more general. The version in this file is more tightly focused
 // to our needs and should be easier to reason about and less likely to have
 // subtle bugs/races.
 //

@@ -208,7 +208,7 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 }
 
 // rawKeyRing is an intermediate struct for encrypting / decrypting keyRing
-// it holds only the essential key information to avoid adding unecessary data
+// it holds only the essential key information to avoid adding unnecessary data
 // (like public keys) to the database
 type rawKeyRing struct {
 	Eth    []ethkey.Raw

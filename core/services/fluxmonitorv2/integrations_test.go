@@ -331,7 +331,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 	cb := currentBalance(t, p.fa)
 
 	// used to ensure that the simulated backend has processed the submission,
-	// before we search for the log and checek it.
+	// before we search for the log and check it.
 	srCh := make(chan *faw.FluxAggregatorSubmissionReceived)
 	fromBlock := uint64(0)
 	srSubscription, err := p.fa.aggregatorContract.WatchSubmissionReceived(
