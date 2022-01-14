@@ -31,7 +31,7 @@ var defaultCfg = terraconfig.ChainCfg{
 	GasLimitMultiplier:    1.5,
 }
 
-func (o orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err error) {
+func (o *orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	var nodes []types.Node
 	nodesSQL := `SELECT * FROM terra_nodes ORDER BY created_at, id;`
@@ -52,7 +52,7 @@ func (o orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err
 	return chains, nil
 }
 
-func (o orm) Chain(id string, qopts ...pg.QOpt) (types.Chain, error) {
+func (o *orm) Chain(id string, qopts ...pg.QOpt) (types.Chain, error) {
 	q := o.q.WithOpts(qopts...)
 	var nodes []types.Node
 	nodesSQL := `SELECT * FROM terra_nodes WHERE terra_chain_id = $1 ORDER BY created_at, id;`
@@ -66,7 +66,7 @@ func (o orm) Chain(id string, qopts ...pg.QOpt) (types.Chain, error) {
 	}, nil
 }
 
-func (o orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node types.Node, err error) {
+func (o *orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node types.Node, err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := `INSERT INTO terra_nodes (name, terra_chain_id, tendermint_url, fcd_url, created_at, updated_at)
 	VALUES (:name, :terra_chain_id, :tendermint_url, :fcd_url, now(), now())
@@ -79,7 +79,7 @@ func (o orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node types.Node, 
 	return node, err
 }
 
-func (o orm) DeleteNode(id int32, qopts ...pg.QOpt) error {
+func (o *orm) DeleteNode(id int32, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	sql := `DELETE FROM terra_nodes WHERE id = $1`
 	result, err := q.Exec(sql, id)
@@ -96,7 +96,7 @@ func (o orm) DeleteNode(id int32, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o orm) Node(id int32, qopts ...pg.QOpt) (node types.Node, err error) {
+func (o *orm) Node(id int32, qopts ...pg.QOpt) (node types.Node, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Get(&node, "SELECT * FROM terra_nodes WHERE id = $1;", id)
 

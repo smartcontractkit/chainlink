@@ -78,6 +78,6 @@ func (m mockChainSet) Ready() error { return nil }
 
 func (m mockChainSet) Healthy() error { return nil }
 
-func (m mockChainSet) Get(id string) (terra.Chain, error) {
+func (m mockChainSet) Chain(id string) (terra.Chain, error) {
 	return nil, errors.New("this is a mock ChainSet")
 }
