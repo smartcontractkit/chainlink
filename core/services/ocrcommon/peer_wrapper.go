@@ -1,24 +1,23 @@
 package ocrcommon
 
 import (
-	"net"
-
-	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
-
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
+
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"go.uber.org/multierr"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type PeerWrapperConfig interface {
@@ -123,8 +122,9 @@ func (p *SingletonPeerWrapper) Start() error {
 		// We need to start the peer store wrapper if v1 is required.
 		// Also fallback to listen params if announce params not specified.
 		ns := p.config.P2PNetworkingStack()
+		// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
+		// Fallback to P2PListenPort if it wasn't made explicit
 		var announcePort uint16
-		var announceIP net.IP
 		var peerStore p2ppeerstore.Peerstore
 		if ns == ocrnetworking.NetworkingStackV1 || ns == ocrnetworking.NetworkingStackV1V2 {
 			p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
@@ -136,13 +136,10 @@ func (p *SingletonPeerWrapper) Start() error {
 			}
 
 			peerStore = p.pstoreWrapper.Peerstore
-			announcePort = p.config.P2PListenPort()
-			if p.config.P2PAnnouncePort() != 0 {
+			if p.config.P2PAnnounceIP() != nil && p.config.P2PAnnouncePort() != 0 {
 				announcePort = p.config.P2PAnnouncePort()
-			}
-			announceIP = p.config.P2PListenIP()
-			if p.config.P2PAnnounceIP() != nil {
-				announceIP = p.config.P2PAnnounceIP()
+			} else if p.config.P2PAnnounceIP() != nil {
+				announcePort = p.config.P2PListenPort()
 			}
 		}
 
@@ -166,7 +163,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			// V1 config
 			V1ListenIP:                         p.config.P2PListenIP(),
 			V1ListenPort:                       p.config.P2PListenPort(),
-			V1AnnounceIP:                       announceIP,
+			V1AnnounceIP:                       p.config.P2PAnnounceIP(),
 			V1AnnouncePort:                     announcePort,
 			V1Peerstore:                        peerStore,
 			V1DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
