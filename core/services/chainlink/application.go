@@ -307,14 +307,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		if err != nil {
 			return nil, err
 		}
-		terraRelayer := pkgterra.NewRelayer(terraLggr.Named("Relayer"), terraChainSet)
 
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
 			keyStore,
-			evmrelay.NewRelayer(db, chainSet, globalLogger),
-			solana.NewRelayer(globalLogger),
-			terraRelayer,
+			evmrelay.NewRelayer(db, chainSet, globalLogger.Named("EVM")),
+			solana.NewRelayer(globalLogger.Named("Solana.Relayer")),
+			pkgterra.NewRelayer(terraLggr.Named("Relayer"), terraChainSet),
 		)
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
