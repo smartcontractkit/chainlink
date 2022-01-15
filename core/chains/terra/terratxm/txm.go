@@ -69,6 +69,7 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, g
 	if err != nil {
 		return nil, err
 	}
+	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter:            utils.StartStopOnce{},
 		eb:                 eb,

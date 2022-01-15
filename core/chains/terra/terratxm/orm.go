@@ -16,7 +16,7 @@ type ORM struct {
 
 // NewORM creates an ORM
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
-	namedLogger := lggr.Named("TerraTxmORM")
+	namedLogger := lggr.Named("ORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{
 		q: q,
