@@ -3,12 +3,12 @@ name: 'Build Chainlink and Publish'
 on:
   # Mimics old circleci behaviour
   push:
-    # tags:
-    #   - 'v*'
-    # branches:
-    #   - master
-    #   - develop
-    #   - 'release/*'
+    tags:
+      - 'v*'
+    branches:
+      - master
+      - develop
+      - 'release/*'
 
 jobs:
   build-publish-chainlink:
