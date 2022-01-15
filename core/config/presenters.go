@@ -74,6 +74,7 @@ type EnvPrinter struct {
 	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
+	LogToSplunk                                bool            `json:"LOG_TO_SPLUNK"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 
 	// OCR1
@@ -169,6 +170,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			LogLevel:                           cfg.LogLevel(),
 			LogSQL:                             cfg.LogSQL(),
 			LogToDisk:                          cfg.LogToDisk(),
+			LogToSplunk:                        cfg.LogToSplunk(),
 
 			// OCRV1
 			OCRContractTransmitterTransmitTimeout: ocrTransmitTimeout,

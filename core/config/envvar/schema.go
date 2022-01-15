@@ -63,6 +63,7 @@ type ConfigSchema struct {
 	LogSQL      bool          `env:"LOG_SQL" default:"false"`
 	LogToDisk   bool          `env:"LOG_TO_DISK" default:"false"`
 	LogUnixTS   bool          `env:"LOG_UNIX_TS" default:"false"`
+	LogToSplunk bool          `env:"LOG_TO_SPLUNK" default:"false"`
 
 	// Web Server
 	AllowOrigins                   string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`

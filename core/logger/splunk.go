@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -38,6 +39,7 @@ type splunkSink struct {
 	Index         string // Splunk Index, optional name of the Splunk index to store the event in
 	SkipTLSVerify bool   // Skip verifying the certificate of the HTTP Event Collector
 	events        [][]byte
+	newEvent      chan bool
 	sync.Mutex
 }
 
@@ -61,6 +63,33 @@ func initialize(s *splunkSink) *splunkSink {
 			return time.Now().UnixNano()
 		}
 	}
+	s.newEvent = make(chan bool, 1)
+
+	runSync := func() {
+		err := s.Sync()
+		if err != nil {
+			log.Printf("Error sending to Splunk: %v\n", err)
+		}
+	}
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		atLeastOneEvent := false
+		for {
+			select {
+			case <-s.newEvent:
+				atLeastOneEvent = true
+				if len(s.events) > 50 {
+					atLeastOneEvent = false
+					go runSync()
+				}
+			case <-ticker.C:
+				if atLeastOneEvent {
+					go runSync()
+				}
+			}
+		}
+	}()
 
 	return s
 }
@@ -78,63 +107,67 @@ func newSplunkSink() (*splunkSink, error) {
 	return initialize(s), nil
 }
 
-func (p *splunkSink) Close() error {
+func (s *splunkSink) Close() error {
 	return nil
 }
 
 // Write implement zap.Sink func Write
-func (p *splunkSink) Write(b []byte) (n int, err error) {
+func (s *splunkSink) Write(b []byte) (n int, err error) {
 	e := &event{
-		Time:       p.nowFn(),
-		Host:       p.Hostname,
-		Source:     p.Source,
-		SourceType: p.SourceType,
-		Index:      p.Index,
+		Time:       s.nowFn(),
+		Host:       s.Hostname,
+		Source:     s.Source,
+		SourceType: s.SourceType,
+		Index:      s.Index,
 		Event:      json.RawMessage(b),
 	}
 	encoded, err := json.Marshal(e)
 	if err != nil {
 		return 0, err
 	}
-	p.Lock()
-	defer p.Unlock()
-	p.events = append(p.events, encoded)
+	s.Lock()
+	defer s.Unlock()
+	s.events = append(s.events, encoded)
+	go func() {
+		s.newEvent <- true
+	}()
+
 	return len(b), nil
 }
 
 // Sync implement zap.Sink func Sync
-func (p *splunkSink) Sync() error {
-	eventsLen := len(p.events)
+func (s *splunkSink) Sync() error {
+	eventsLen := len(s.events)
 	if eventsLen > 0 {
-		p.Lock()
-		eventsToLog := p.events[0:eventsLen]
-		p.events = p.events[eventsLen:]
-		p.Unlock()
-		return p.logEvents(eventsToLog)
+		s.Lock()
+		eventsToLog := s.events[0:eventsLen]
+		s.events = s.events[eventsLen:]
+		s.Unlock()
+		return s.logEvents(eventsToLog)
 
 	}
 	return nil
 }
 
-func (p *splunkSink) logEvents(events [][]byte) error {
+func (s *splunkSink) logEvents(events [][]byte) error {
 	buf := new(bytes.Buffer)
 	for _, e := range events {
 		buf.Write(e)
 	}
 
-	return p.doRequest(buf)
+	return s.doRequest(buf)
 }
 
-func (p *splunkSink) doRequest(b *bytes.Buffer) error {
-	url := p.URL
+func (s *splunkSink) doRequest(b *bytes.Buffer) error {
+	url := s.URL
 	req, err := http.NewRequest("POST", url, b)
 	if err != nil {
 		return err
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Splunk "+p.Token)
+	req.Header.Add("Authorization", "Splunk "+s.Token)
 
-	res, err := p.HTTPClient.Do(req)
+	res, err := s.HTTPClient.Do(req)
 	if err != nil && err != io.EOF {
 		return err
 	}

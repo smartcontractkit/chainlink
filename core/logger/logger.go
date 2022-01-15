@@ -1,13 +1,13 @@
 package logger
 
 import (
-	"io"
-	"log"
-	"os"
-
 	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"io"
+	"log"
+	"net/url"
+	"os"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 )
@@ -20,6 +20,14 @@ func init() {
 	err = registerOSSinks()
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
+	}
+	if ok, _ := envvar.LogToSplunk.ParseBool(); ok {
+		err = zap.RegisterSink("splunk", func(url *url.URL) (zap.Sink, error) {
+			return newSplunkSink()
+		})
+		if err != nil {
+			log.Fatalf("failed to register splunk sink %+v", err)
+		}
 	}
 }
 
@@ -166,6 +174,11 @@ func NewLogger() Logger {
 	}
 
 	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	c.ToSplunk, invalid = envvar.LogToSplunk.ParseBool()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}

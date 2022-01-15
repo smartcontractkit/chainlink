@@ -16,6 +16,7 @@ var (
 	RootDir     = New("RootDir", parse.HomeDir)
 	JSONConsole = New("JSONConsole", parse.Bool)
 	LogToDisk   = New("LogToDisk", parse.Bool)
+	LogToSplunk = New("LogToSplunk", parse.Bool)
 	LogUnixTS   = New("LogUnixTS", parse.Bool)
 )
 

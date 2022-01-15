@@ -823,10 +823,9 @@ func (c *generalConfig) LogToDisk() bool {
 	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
 }
 
-
 // LogToSplunk configures sending logs to Splunk.
 func (c *generalConfig) LogToSplunk() bool {
-	return c.viper.GetBool(EnvVarName("LogToSplunk"))
+	return c.getEnvWithFallback(envvar.LogToSplunk).(bool)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger
