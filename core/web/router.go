@@ -365,6 +365,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/chains/evm/:ID", chc.Delete)
 
 		enc := EVMNodesController{app}
+		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
+		authv2.GET("/nodes", paginatedRequest(enc.Index))
+		authv2.POST("/nodes", enc.Create)
+		authv2.DELETE("/nodes/:ID", enc.Delete)
+
 		authv2.GET("/nodes/evm", paginatedRequest(enc.Index))
 		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(enc.Index))
 		authv2.POST("/nodes/evm", enc.Create)
