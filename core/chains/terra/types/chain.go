@@ -38,11 +38,12 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	if len(dbchain.Nodes) == 0 {
 		return nil, fmt.Errorf("no nodes for Terra chain: %s", dbchain.ID)
 	}
-	node := dbchain.Nodes[0] // TODO client pool
 	cfg := dbchain.Cfg
-	id := node.TerraChainID
-	lggr = lggr.With("terraChainID", id)
-	client, err := terraclient.NewClient(id,
+	lggr = lggr.With("terraChainID", dbchain.ID)
+	node := dbchain.Nodes[0] // TODO multi-node client pool https://app.shortcut.com/chainlinklabs/story/26278/terra-multi-node-client-pools
+	lggr.Debugw(fmt.Sprintf("Terra chain %q has %d nodes - using %q", dbchain.ID, len(dbchain.Nodes), node.Name),
+		"tendermint-url", node.TendermintURL)
+	client, err := terraclient.NewClient(dbchain.ID,
 		node.TendermintURL, node.FCDURL, DefaultRequestTimeoutSeconds, lggr.Named("Client"))
 	if err != nil {
 		return nil, err
@@ -52,7 +53,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 		return nil, err
 	}
 	return &chain{
-		id:     id,
+		id:     dbchain.ID,
 		cfg:    cfg,
 		client: client,
 		txm:    txm,

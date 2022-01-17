@@ -126,9 +126,6 @@ func (c *chainSet) Chain(id string) (terra.Chain, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(dbchain.Nodes) == 0 {
-		return nil, fmt.Errorf("no nodes for terra chain: %s", id)
-	}
 
 	// Start it
 	tChain, err := opts.newChain(dbchain)
