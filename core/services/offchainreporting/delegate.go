@@ -5,11 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -18,12 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	ocr "github.com/smartcontractkit/libocr/offchainreporting"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 type Delegate struct {
@@ -182,6 +182,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		var checker bulletprooftxmanager.TransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {
 			checker.CheckerType = bulletprooftxmanager.TransmitCheckerTypeSimulate
+		}
+
+		if concreteSpec.TransmitterAddress == nil {
+			return nil, errors.New("TransmitterAddress is missing")
 		}
 
 		contractTransmitter := NewOCRContractTransmitter(
