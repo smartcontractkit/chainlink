@@ -1,6 +1,6 @@
 name: Build and Publish Chainlink
 
-description: A composite action that allows building and publishing chainlink images
+description: A composite action that allows building and publishing chainlink images. Note that this action only supports public ECR repositories. The value of the registry to login to in the docker/login-action setup is hardcoded to 'public.ecr.aws'
 
 inputs:
   # Inputs for publishing
@@ -25,6 +25,9 @@ inputs:
     required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
+    required: false
+  aws-role-duration-seconds:
+    description: The duration of the role assumed
     required: false
   aws-region: 
     description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
@@ -71,13 +74,14 @@ runs:
       aws-access-key-id: ${{ inputs.aws-access-key-id }}
       aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
       role-to-assume: ${{ inputs.aws-role-to-assume }}
+      role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
       aws-region: ${{ inputs.aws-region }}
 
   - if: inputs.publish == 'true'
     name: Login to ECR
     uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
     with:
-      registry: ${{ inputs.ecr-registry }}
+      registry: public.ecr.aws
 
   - name: Setup Docker Buildx
     uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
