@@ -1,9 +1,12 @@
 package web
 
 import (
+	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -46,6 +49,16 @@ func (nc *TerraNodesController) Create(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// Ensure chain exists.
+	if _, err := nc.App.TerraORM().Chain(request.TerraChainID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Terra chain %s must be added first", request.TerraChainID))
+			return
+		}
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
