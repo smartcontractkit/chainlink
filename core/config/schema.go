@@ -51,6 +51,7 @@ type ConfigSchema struct {
 	DatabaseBackupFrequency                    time.Duration                 `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
 	DatabaseBackupMode                         string                        `env:"DATABASE_BACKUP_MODE" default:"none"`
 	DatabaseBackupURL                          *url.URL                      `env:"DATABASE_BACKUP_URL" default:""`
+	DatabaseBackupOnVersionUpgrade             bool                          `env:"DATABASE_BACKUP_ON_VERSION_UPGRADE" default:"true"`
 	DatabaseListenerMaxReconnectDuration       time.Duration                 `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
 	DatabaseListenerMinReconnectInterval       time.Duration                 `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
 	DatabaseLockingMode                        string                        `env:"DATABASE_LOCKING_MODE" default:"advisorylock"`
