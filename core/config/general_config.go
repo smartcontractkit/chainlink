@@ -74,6 +74,7 @@ type GeneralOnlyConfig interface {
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
 	DatabaseBackupURL() *url.URL
+	DatabaseBackupOnVersionUpgrade() bool
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
@@ -545,6 +546,12 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 		return nil
 	}
 	return uri
+}
+
+// DatabaseBackupOnVersionUpgrade controls whether an automatic backup will be
+// taken before migrations are run, if the node version has been bumped
+func (c *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
+	return c.getWithFallback("DatabaseBackupOnVersionUpgrade", ParseBool).(bool)
 }
 
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir

@@ -37,7 +37,7 @@ type backupResult struct {
 type (
 	DatabaseBackup interface {
 		service.Service
-		RunBackupGracefully(version string)
+		RunBackup(version string) error
 	}
 
 	databaseBackup struct {
@@ -90,11 +90,13 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
 
 func (backup *databaseBackup) Start() error {
 	return backup.StartOnce("DatabaseBackup", func() (err error) {
-		if backup.frequencyIsTooSmall() {
-			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
-		}
-
 		ticker := time.NewTicker(backup.frequency)
+		if backup.frequency == 0 {
+			// Stopping the ticker means it will never fire, effectively disabling periodic backups
+			ticker.Stop()
+		} else if backup.frequencyIsTooSmall() {
+			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s (or set to 0 to disable periodic backups)", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
+		}
 
 		go func() {
 			for {
@@ -103,7 +105,9 @@ func (backup *databaseBackup) Start() error {
 					ticker.Stop()
 					return
 				case <-ticker.C:
-					backup.RunBackupGracefully(static.Version)
+					backup.logger.Infow("Starting automatic database backup, this can take a while. To disable periodic backups, set DATABASE_BACKUP_FREQUENCY=0. To disable database backups entirely, set DATABASE_BACKUP_MODE=none.")
+					//nolint:errcheck
+					backup.RunBackup(static.Version)
 				}
 			}
 		}()
@@ -123,20 +127,20 @@ func (backup *databaseBackup) frequencyIsTooSmall() bool {
 	return backup.frequency < minBackupFrequency
 }
 
-func (backup *databaseBackup) RunBackupGracefully(version string) {
-	backup.logger.Infow("Starting database backup...", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
+func (backup *databaseBackup) RunBackup(version string) error {
+	backup.logger.Debugw("Starting backup", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
 	startAt := time.Now()
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		backup.logger.Errorw("Failed", "duration", duration, "err", err)
-	} else {
-		backup.logger.Infow("Finished successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)
+		backup.logger.Errorw("Backup failed", "duration", duration, "err", err)
+		return err
 	}
+	backup.logger.Infow("Backup completed successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)
+	return nil
 }
 
 func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
-
 	err := os.MkdirAll(backup.outputParentDir, os.ModePerm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create directories on the path: %s", backup.outputParentDir)
