@@ -1046,7 +1046,7 @@ func NewApp(client *Client) *cli.App {
 									Name:  "name",
 									Usage: "node name",
 								},
-								cli.Int64Flag{
+								cli.StringFlag{
 									Name:  "chain-id",
 									Usage: "chain ID",
 								},
