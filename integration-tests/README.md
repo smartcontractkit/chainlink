@@ -30,19 +30,24 @@ make test_smoke args="-nodes=6"
 
 The above will run tests with 6 parallel threads.
 
-### Options
+## Chainlink Values
 
-If you would like to change the Chainlink or Geth versions that are used for environments, you can use the below ENV vars. 
+If you would like to change the Chainlink values that are used for environments, you can use the `framework.yaml` file,
+or set environment variables that are all caps versions of the values found in the config file.
 
-```sh
-CHAINLINK_IMAGE=my/chainlink/image/location
-CHAINLINK_VERSION=1.0.0
-GETH_IMAGE=ethereum/client-go
-GETH_VERSION=v1.10.15
+```yaml
+# Specify the image and version of the chainlink image you want to run tests against. Leave blank for default.
+chainlink_image:      # Image of chainlink node
+chainlink_version:    # Version of the image on the chainlink node
+chainlink_env_values: # Environment values to pass onto the chainlink nodes
+
+# Specify the image and version of the simulated geth image you want to run tests against. Leave blank for default.
+# Has no effect when running tests on networks other than the simulated geth instances.
+geth_image:   # Image of the simulated geth to use
+geth_version: # Version of the geth image
+geth_args:    # List of CLI arguments to pass to simulated geth image. WARNING
 ```
 
-If you want more fine grained control, have a look over at our [helmenv](https://github.com/smartcontractkit/helmenv/) chainlink charts to get a grasp of how things are structured. We're working on improving the UX of this system, but for now, make use of the `CHARTS` environment variable.
+### WARNING
 
-```sh
-CHARTS='{"chainlink":{"values":{"env":{"evm_eip1559_dynamic_fees":"true"}}}}'
-```
+Values passed into `geth_args` will fully REPLACE all existing defaults we use in our launch. This enables freedom from defaults, but you should most definitely look at all the [current defaults](https://github.com/smartcontractkit/helmenv/blob/master/charts/geth/values.yaml#L16) we usually use and replace them as necessary.
