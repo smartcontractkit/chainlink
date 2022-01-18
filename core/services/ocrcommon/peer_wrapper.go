@@ -1,8 +1,6 @@
 package ocrcommon
 
 import (
-	"net"
-
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -123,8 +121,8 @@ func (p *SingletonPeerWrapper) Start() error {
 		// We need to start the peer store wrapper if v1 is required.
 		// Also fallback to listen params if announce params not specified.
 		ns := p.config.P2PNetworkingStack()
-		var announcePort uint16
-		var announceIP net.IP
+		// NewPeer requires that these are both set or unset, otherwise it will error out.
+		v1AnnounceIP, v1AnnouncePort := p.config.P2PAnnounceIP(), p.config.P2PAnnouncePort()
 		var peerStore p2ppeerstore.Peerstore
 		if ns == ocrnetworking.NetworkingStackV1 || ns == ocrnetworking.NetworkingStackV1V2 {
 			p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
@@ -136,26 +134,22 @@ func (p *SingletonPeerWrapper) Start() error {
 			}
 
 			peerStore = p.pstoreWrapper.Peerstore
-			announcePort = p.config.P2PListenPort()
-			if p.config.P2PAnnouncePort() != 0 {
-				announcePort = p.config.P2PAnnouncePort()
-			}
-			announceIP = p.config.P2PListenIP()
-			if p.config.P2PAnnounceIP() != nil {
-				announceIP = p.config.P2PAnnounceIP()
+			// Support someone specifying only the announce IP but leaving out
+			// the port.
+			// We _should not_ handle the case of someone specifying only the
+			// port but leaving out the IP, because the listen IP is typically
+			// an unspecified IP (https://pkg.go.dev/net#IP.IsUnspecified) and
+			// using that for the announce IP will cause other peers to not be
+			// able to connect.
+			if v1AnnounceIP != nil && v1AnnouncePort == 0 {
+				v1AnnouncePort = p.config.P2PListenPort()
 			}
 		}
 
 		// Discover DB is only required for v2
-		// Also fallback to listen addresses if announce not specified
 		var discovererDB ocrnetworkingtypes.DiscovererDatabase
-		var announceAddresses []string
 		if ns == ocrnetworking.NetworkingStackV2 || ns == ocrnetworking.NetworkingStackV1V2 {
 			discovererDB = NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
-			announceAddresses = p.config.P2PV2ListenAddresses()
-			if len(p.config.P2PV2AnnounceAddresses()) != 0 {
-				announceAddresses = p.config.P2PV2AnnounceAddresses()
-			}
 		}
 
 		peerConfig := ocrnetworking.PeerConfig{
@@ -166,14 +160,14 @@ func (p *SingletonPeerWrapper) Start() error {
 			// V1 config
 			V1ListenIP:                         p.config.P2PListenIP(),
 			V1ListenPort:                       p.config.P2PListenPort(),
-			V1AnnounceIP:                       announceIP,
-			V1AnnouncePort:                     announcePort,
+			V1AnnounceIP:                       v1AnnounceIP,
+			V1AnnouncePort:                     v1AnnouncePort,
 			V1Peerstore:                        peerStore,
 			V1DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
 
 			// V2 config
 			V2ListenAddresses:    p.config.P2PV2ListenAddresses(),
-			V2AnnounceAddresses:  announceAddresses,
+			V2AnnounceAddresses:  p.config.P2PV2AnnounceAddresses(), // NewPeer will handle the fallback to listen addresses for us.
 			V2DeltaReconcile:     p.config.P2PV2DeltaReconcile().Duration(),
 			V2DeltaDial:          p.config.P2PV2DeltaDial().Duration(),
 			V2DiscovererDatabase: discovererDB,
