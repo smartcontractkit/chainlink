@@ -16,10 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+// TerraChainPresenter implements TableRenderer for a TerraChainResource
 type TerraChainPresenter struct {
 	presenters.TerraChainResource
 }
 
+// ToRow presents the TerraChainResource as a slice of strings.
 func (p *TerraChainPresenter) ToRow() []string {
 	// NOTE: it's impossible to omitempty null fields when serializing to JSON: https://github.com/golang/go/issues/11939
 	config, err := json.MarshalIndent(p.Config, "", "    ")
@@ -49,6 +51,7 @@ func (p TerraChainPresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
+// TerraChainPresenters implements TableRenderer for a slice of TerraChainPresenters.
 type TerraChainPresenters []TerraChainPresenter
 
 // RenderTable implements TableRenderer
@@ -128,6 +131,7 @@ func (cli *Client) RemoveTerraChain(c *cli.Context) (err error) {
 	return nil
 }
 
+// ConfigureTerraChain configures an existing Terra chain.
 func (cli *Client) ConfigureTerraChain(c *cli.Context) (err error) {
 	chainID := c.String("id")
 	if chainID == "" {

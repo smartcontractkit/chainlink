@@ -16,10 +16,12 @@ import (
 	"go.uber.org/multierr"
 )
 
+// EVMChainPresenter implements TableRenderer for an EVMChainResource.
 type EVMChainPresenter struct {
 	presenters.EVMChainResource
 }
 
+// ToRow presents the EVMChainResource as a slice of strings.
 func (p *EVMChainPresenter) ToRow() []string {
 	// NOTE: it's impossible to omitempty null fields when serializing to JSON: https://github.com/golang/go/issues/11939
 	config, err := json.MarshalIndent(p.Config, "", "    ")
@@ -49,6 +51,7 @@ func (p EVMChainPresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
+// EVMChainPresenters implements TableRenderer for a slice of EVMChainPresenters.
 type EVMChainPresenters []EVMChainPresenter
 
 // RenderTable implements TableRenderer
@@ -128,6 +131,7 @@ func (cli *Client) RemoveEVMChain(c *cli.Context) (err error) {
 	return nil
 }
 
+// ConfigureEVMChain configures an existing EVM chain.
 func (cli *Client) ConfigureEVMChain(c *cli.Context) (err error) {
 	chainID := c.Int64("id")
 	if chainID == 0 {

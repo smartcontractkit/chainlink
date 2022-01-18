@@ -81,7 +81,3 @@ type Chain struct {
 	UpdatedAt time.Time
 	Enabled   bool
 }
-
-func (Chain) TableName() string {
-	return "terra_chains"
-}

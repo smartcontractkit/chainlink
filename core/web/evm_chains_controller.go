@@ -13,10 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// EVMChainsController manages EVM chains.
 type EVMChainsController struct {
 	App chainlink.Application
 }
 
+// Index lists EVM chains.
 func (cc *EVMChainsController) Index(c *gin.Context, size, page, offset int) {
 	chains, count, err := cc.App.EVMORM().Chains(offset, size)
 
@@ -33,11 +35,13 @@ func (cc *EVMChainsController) Index(c *gin.Context, size, page, offset int) {
 	paginatedResponse(c, "chain", size, page, resources, count, err)
 }
 
+// CreateEVMChainRequest is a JSONAPI request for creating an EVM chain.
 type CreateEVMChainRequest struct {
 	ID     utils.Big      `json:"chainID"`
 	Config types.ChainCfg `json:"config"`
 }
 
+// Show gets an EVM chain by chain id.
 func (cc *EVMChainsController) Show(c *gin.Context) {
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(c.Param("ID")))
@@ -55,6 +59,7 @@ func (cc *EVMChainsController) Show(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewEVMChainResource(chain), "chain")
 }
 
+// Create adds a new EVM chain.
 func (cc *EVMChainsController) Create(c *gin.Context) {
 	request := &CreateEVMChainRequest{}
 
@@ -73,11 +78,13 @@ func (cc *EVMChainsController) Create(c *gin.Context) {
 	jsonAPIResponseWithStatus(c, presenters.NewEVMChainResource(chain), "chain", http.StatusCreated)
 }
 
+// UpdateEVMChainRequest is a JSONAPI request for updating an EVM chain.
 type UpdateEVMChainRequest struct {
 	Enabled bool           `json:"enabled"`
 	Config  types.ChainCfg `json:"config"`
 }
 
+// Update configures an existing EVM chain.
 func (cc *EVMChainsController) Update(c *gin.Context) {
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(c.Param("ID")))
@@ -105,6 +112,7 @@ func (cc *EVMChainsController) Update(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewEVMChainResource(chain), "chain")
 }
 
+// Delete removes an EVM chain.
 func (cc *EVMChainsController) Delete(c *gin.Context) {
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(c.Param("ID")))

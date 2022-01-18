@@ -12,10 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// TerraChainsController manages Terra chains.
 type TerraChainsController struct {
 	App chainlink.Application
 }
 
+// Index lists Terra chains.
 func (cc *TerraChainsController) Index(c *gin.Context, size, page, offset int) {
 	chains, count, err := cc.App.TerraORM().Chains(offset, size)
 
@@ -32,11 +34,13 @@ func (cc *TerraChainsController) Index(c *gin.Context, size, page, offset int) {
 	paginatedResponse(c, "terra_chain", size, page, resources, count, err)
 }
 
+// CreateTerraChainRequest is a JSONAPI request for creating a Terra chain.
 type CreateTerraChainRequest struct {
 	ID     string         `json:"chainID"`
 	Config types.ChainCfg `json:"config"`
 }
 
+// Show gets a Terra chain by chain id.
 func (cc *TerraChainsController) Show(c *gin.Context) {
 	chain, err := cc.App.TerraORM().Chain(c.Param("ID"))
 	if err != nil {
@@ -47,6 +51,7 @@ func (cc *TerraChainsController) Show(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewTerraChainResource(chain), "terra_chain")
 }
 
+// Create adds a new Terra chain.
 func (cc *TerraChainsController) Create(c *gin.Context) {
 	request := &CreateTerraChainRequest{}
 
@@ -65,11 +70,13 @@ func (cc *TerraChainsController) Create(c *gin.Context) {
 	jsonAPIResponseWithStatus(c, presenters.NewTerraChainResource(chain), "terra_chain", http.StatusCreated)
 }
 
+// UpdateTerraChainRequest is a JSONAPI request for updating a Terra chain.
 type UpdateTerraChainRequest struct {
 	Enabled bool           `json:"enabled"`
 	Config  types.ChainCfg `json:"config"`
 }
 
+// Update configures an existing Terra chain.
 func (cc *TerraChainsController) Update(c *gin.Context) {
 	var request UpdateTerraChainRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -90,6 +97,7 @@ func (cc *TerraChainsController) Update(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewTerraChainResource(chain), "terra_chain")
 }
 
+// Delete removes a Terra chain.
 func (cc *TerraChainsController) Delete(c *gin.Context) {
 	err := cc.App.GetChains().Terra.Remove(c.Param("ID"))
 

@@ -145,6 +145,7 @@ type ApplicationOpts struct {
 	Version                  string
 }
 
+// Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM   evm.ChainSet
 	Terra terra.ChainSet
@@ -681,6 +682,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	return nil
 }
 
+// GetChains returns Chains.
 func (app *ChainlinkApplication) GetChains() Chains {
 	return app.Chains
 }
