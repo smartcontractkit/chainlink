@@ -523,3 +523,27 @@ func (r *Resolver) SolanaKeys(ctx context.Context) (*SolanaKeysPayloadResolver, 
 
 	return NewSolanaKeysPayload(keys), nil
 }
+
+func (r *Resolver) SQLLogging(ctx context.Context) (*GetSQLLoggingPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	enabled := r.App.GetConfig().LogSQL()
+
+	return NewGetSQLLoggingPayload(enabled), nil
+}
+
+// OCR2KeyBundles resolves the list of OCR2 key bundles
+func (r *Resolver) OCR2KeyBundles(ctx context.Context) (*OCR2KeyBundlesPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	ekbs, err := r.App.GetKeyStore().OCR2().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOCR2KeyBundlesPayload(ekbs), nil
+}

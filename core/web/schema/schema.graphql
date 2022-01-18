@@ -30,8 +30,10 @@ type Query {
     node(id: ID!): NodePayload!
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
+    ocr2KeyBundles: OCR2KeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
     solanaKeys: SolanaKeysPayload!
+    sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!
 }
@@ -47,6 +49,7 @@ type Mutation {
     createJob(input: CreateJobInput!): CreateJobPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createOCR2KeyBundle(chainType: OCR2ChainType!): CreateOCR2KeyBundlePayload!
     createP2PKey: CreateP2PKeyPayload!
     deleteAPIToken(input: DeleteAPITokenInput!): DeleteAPITokenPayload!
     deleteBridge(id: ID!): DeleteBridgePayload!
@@ -55,6 +58,7 @@ type Mutation {
     deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteOCR2KeyBundle(id: ID!): DeleteOCR2KeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!

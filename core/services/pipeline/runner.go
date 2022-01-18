@@ -139,6 +139,9 @@ func (r *runner) destroy() {
 func (r *runner) runReaperLoop() {
 	defer r.wgDone.Done()
 	defer r.destroy()
+	if r.config.JobPipelineReaperInterval() == 0 {
+		return
+	}
 
 	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
 	defer runReaperTicker.Stop()
@@ -386,7 +389,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	// an extremely good reason to change it.
 	ctx, cancel := utils.CombinedContext(ctx, r.chStop)
 	defer cancel()
-	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet {
+	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet && taskTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
 		defer cancel()
 	}

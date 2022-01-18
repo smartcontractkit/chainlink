@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 )
 
 type ConfigItemResolver struct {
@@ -66,7 +67,7 @@ func NewConfig(cfg config.EnvPrinter) *ConfigResolver {
 func (r *ConfigResolver) Items() []*ConfigItemResolver {
 	var cfgs []*ConfigItemResolver
 
-	schemaT := reflect.TypeOf(config.ConfigSchema{})
+	schemaT := reflect.TypeOf(envvar.ConfigSchema{})
 	t := reflect.TypeOf(r.cfg)
 	v := reflect.ValueOf(r.cfg)
 

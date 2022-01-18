@@ -20,13 +20,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -59,7 +59,6 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// Setup config
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 
 	// Generally speaking, most tests that use startNewApplication don't
 	// actually need ChainSets loaded. We can greatly reduce test
@@ -97,10 +96,18 @@ func withKey() func(opts *startOptions) {
 	}
 }
 
-func newEthMock(t *testing.T) (*ethmocks.Client, func()) {
+func newEthMock(t *testing.T) (*evmmocks.Client, func()) {
 	t.Helper()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+
+	return ethClient, assertMocksCalled
+}
+
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) (*evmmocks.Client, func()) {
+	t.Helper()
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
 	return ethClient, assertMocksCalled
 }
@@ -399,7 +406,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, cfg.BridgeResponseURL().String())
 	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
 	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
-	assert.Equal(t, cp.EnvPrinter.LogLevel, config.LogLevel{Level: cfg.LogLevel()})
+	assert.Equal(t, cp.EnvPrinter.LogLevel, cfg.LogLevel())
 	assert.Equal(t, cp.EnvPrinter.LogSQL, cfg.LogSQL())
 	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())

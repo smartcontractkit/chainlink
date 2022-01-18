@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	txm "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
-	txm "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
@@ -41,22 +41,22 @@ func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger) *Relayer
 	}
 }
 
-// No subservices started on relay start, but when the first job is started
+// Start does noop: no subservices started on relay start, but when the first job is started
 func (r *Relayer) Start() error {
 	return nil
 }
 
-// No peristent subservices to close on relay close
+// Close does noop: no persistent subservices to close on relay close
 func (r *Relayer) Close() error {
 	return nil
 }
 
-// Always ready
+// Ready does noop: always ready
 func (r *Relayer) Ready() error {
 	return nil
 }
 
-// Always healthy
+// Healthy does noop: always healthy
 func (r *Relayer) Healthy() error {
 	return nil
 }
@@ -128,13 +128,13 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 		return nil, errors.New("transmitterID is required for non-bootstrap jobs")
 	}
 	transmitterAddress := common.HexToAddress(spec.TransmitterID.String)
-	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
+	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
 
 	contractTransmitter := NewOCRContractTransmitter(
 		contract.Address(),
 		contractCaller,
 		contractABI,
-		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy),
+		ocrcommon.NewTransmitter(chain.TxManager(), transmitterAddress, chain.Config().EvmGasLimitDefault(), strategy, txm.TransmitCheckerSpec{}),
 		tracker,
 		r.lggr,
 	)
@@ -152,12 +152,11 @@ type RelayConfig struct {
 }
 
 type OCR2Spec struct {
-	ID             int32
-	ContractID     string
-	OCRKeyBundleID null.String // Can be specified with env var.
-	TransmitterID  null.String // Will be null for bootstrap jobs
-	IsBootstrap    bool
-	ChainID        *big.Int
+	ID            int32
+	ContractID    string
+	TransmitterID null.String // Will be null for bootstrap jobs
+	IsBootstrap   bool
+	ChainID       *big.Int
 }
 
 var _ services.Service = (*ocr2Provider)(nil)

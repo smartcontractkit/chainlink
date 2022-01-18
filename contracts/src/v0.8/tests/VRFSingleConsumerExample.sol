@@ -93,7 +93,7 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     s_requestConfig.subId = 0;
   }
 
-  // Keep this separate incase the contract want to unsubscribe and then
+  // Keep this separate in case the contract want to unsubscribe and then
   // resubscribe.
   function subscribe() public onlyOwner {
     // Create a subscription, current subId

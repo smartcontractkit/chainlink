@@ -6,9 +6,9 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"golang.org/x/crypto/curve25519"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 var _ ocrtypes.OffchainKeyring = &OffchainKeyring{}
@@ -40,6 +40,10 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*Offchai
 		signingKey:    signingKey,
 		encryptionKey: encryptionKey,
 	}
+	_, err = ok.configEncryptionPublicKey()
+	if err != nil {
+		return nil, err
+	}
 	return ok, nil
 }
 
@@ -62,13 +66,18 @@ func (ok *OffchainKeyring) OffchainPublicKey() ocrtypes.OffchainPublicKey {
 }
 
 func (ok *OffchainKeyring) ConfigEncryptionPublicKey() ocrtypes.ConfigEncryptionPublicKey {
+	cpk, _ := ok.configEncryptionPublicKey()
+	return cpk
+}
+
+func (ok *OffchainKeyring) configEncryptionPublicKey() (ocrtypes.ConfigEncryptionPublicKey, error) {
 	rv, err := curve25519.X25519(ok.encryptionKey[:], curve25519.Basepoint)
 	if err != nil {
-		logger.Errorw("Failure computing public key", "error", err)
+		return [curve25519.PointSize]byte{}, err
 	}
 	var rvFixed [curve25519.PointSize]byte
 	copy(rvFixed[:], rv)
-	return rvFixed
+	return rvFixed, nil
 }
 
 func (ok *OffchainKeyring) marshal() ([]byte, error) {
@@ -96,5 +105,6 @@ func (ok *OffchainKeyring) unmarshal(in []byte) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	_, err = ok.configEncryptionPublicKey()
+	return err
 }

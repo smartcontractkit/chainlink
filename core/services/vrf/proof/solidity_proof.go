@@ -16,7 +16,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 )
 
-// SolidityProof contains precalculations which VRF.sol needs to verifiy proofs
+// SolidityProof contains precalculations which VRF.sol needs to verify proofs
 type SolidityProof struct {
 	P                           *vrfkey.Proof  // The core proof
 	UWitness                    common.Address // Address of P.C*P.PK+P.S*G

@@ -5,9 +5,9 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -36,7 +36,6 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
-		logger.InitLogger(client.Logger)
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{
@@ -601,6 +600,63 @@ func NewApp(client *Client) *cli.App {
 				},
 
 				{
+					Name:  "terra",
+					Usage: "Remote commands for administering the node's terra keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a Terra key",
+							Action: client.CreateTerraKey,
+						},
+						{
+							Name:  "import",
+							Usage: "Import Terra key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportTerraKey,
+						},
+						{
+							Name:  "export",
+							Usage: "Export Terra key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportTerraKey,
+						},
+						{
+							Name:  "delete",
+							Usage: "Delete Terra key if present",
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteTerraKey,
+						},
+						{
+							Name: "list", Usage: "List the Terra keys",
+							Action: client.ListTerraKeys,
+						},
+					},
+				},
+
+				{
 					Name:  "vrf",
 					Usage: "Remote commands for administering the node's vrf keys",
 					Subcommands: cli.Commands{
@@ -851,8 +907,22 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",
-					Usage:  "Send <amount> Eth from node ETH account <fromAddress> to destination <toAddress>.",
+					Usage:  "Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.",
 					Action: client.SendEther,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "allows to send a higher amount than the account's balance",
+						},
+						cli.BoolFlag{
+							Name:  "eth",
+							Usage: "allows to send ETH amounts (Default behavior)",
+						},
+						cli.BoolFlag{
+							Name:  "wei",
+							Usage: "allows to send WEI amounts",
+						},
+					},
 				},
 				{
 					Name:   "list",

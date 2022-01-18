@@ -21,11 +21,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -123,9 +123,6 @@ type ChainlinkApplication struct {
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
-	advisoryLock             pg.AdvisoryLock
-	leaseLock                pg.LeaseLock
-	id                       uuid.UUID
 
 	started     bool
 	startStopMu sync.Mutex
@@ -141,9 +138,6 @@ type ApplicationOpts struct {
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
-	AdvisoryLock             pg.AdvisoryLock
-	LeaseLock                pg.LeaseLock
-	ID                       uuid.UUID
 }
 
 // NewApplication initializes a new store if one is not already
@@ -181,7 +175,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging(), globalLogger)
+		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
@@ -324,16 +318,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	feedsORM := feeds.NewORM(db, opts.Logger, cfg)
-
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	var feedsService feeds.Service
-	chain, err := chainSet.Default()
-	if err != nil {
-		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
+	if cfg.FeatureFeedsManager() {
+		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
+		chain, err := chainSet.Default()
+		if err != nil {
+			globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
+			feedsService = &feeds.NullService{}
+		} else {
+			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
+		}
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
+		feedsService = &feeds.NullService{}
 	}
 
 	app := &ChainlinkApplication{
@@ -358,12 +356,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
-		id:                       opts.ID,
 
 		sqlxDB: opts.SqlxDB,
-
-		advisoryLock: opts.AdvisoryLock,
-		leaseLock:    opts.LeaseLock,
 
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -492,20 +486,6 @@ func (app *ChainlinkApplication) stop() (err error) {
 				app.logger.Debug("Closing Feeds Service...")
 				merr = multierr.Append(merr, app.FeedsService.Close())
 			}
-
-			// Clean up the advisory lock if present
-			if app.advisoryLock != nil {
-				app.advisoryLock.Release()
-			}
-
-			// Let go of the lease
-			if app.leaseLock != nil {
-				app.leaseLock.Release()
-			}
-
-			// DB should pretty much always be closed last (apart from the Nurse)
-			app.logger.Debug("Closing DB...")
-			merr = multierr.Append(merr, app.sqlxDB.Close())
 
 			if app.Nurse != nil {
 				merr = multierr.Append(merr, app.Nurse.Close())
@@ -718,5 +698,5 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 }
 
 func (app *ChainlinkApplication) ID() uuid.UUID {
-	return app.id
+	return app.Config.AppID()
 }
