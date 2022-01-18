@@ -5,8 +5,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	terraconfig "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
-
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -20,19 +18,76 @@ var _ types.ORM = (*orm)(nil)
 
 // NewORM returns an ORM backed by db.
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
-	return &orm{q: pg.NewQ(db, lggr.Named("TerraORM"), cfg)}
+	return &orm{q: pg.NewQ(db, lggr.Named("ORM"), cfg)}
 }
 
 // ErrNoRowsAffected is returned when rows should have been affected but were not.
 var ErrNoRowsAffected = errors.New("no rows affected")
 
-var defaultCfg = terraconfig.ChainCfg{
-	FallbackGasPriceULuna: "0.01",
-	GasLimitMultiplier:    1.5,
+func (o *orm) Chain(id string, qopts ...pg.QOpt) (dbchain types.Chain, err error) {
+	q := o.q.WithOpts(qopts...)
+	chainSQL := `SELECT * FROM terra_chains WHERE id = $1;`
+	if err = q.Get(&dbchain, chainSQL, id); err != nil {
+		return
+	}
+	nodesSQL := `SELECT * FROM terra_nodes WHERE terra_chain_id = $1 ORDER BY created_at, id;`
+	if err = q.Select(&dbchain.Nodes, nodesSQL, id); err != nil {
+		return
+	}
+	return
+}
+
+func (o *orm) CreateChain(id string, config types.ChainCfg, qopts ...pg.QOpt) (chain types.Chain, err error) {
+	q := o.q.WithOpts(qopts...)
+	sql := `INSERT INTO terra_chains (id, cfg, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
+	err = q.Get(&chain, sql, id, config)
+	return
+}
+
+func (o *orm) UpdateChain(id string, enabled bool, config types.ChainCfg, qopts ...pg.QOpt) (chain types.Chain, err error) {
+	q := o.q.WithOpts(qopts...)
+	sql := `UPDATE terra_chains SET enabled = $1, cfg = $2, updated_at = now() WHERE id = $3 RETURNING *`
+	err = q.Get(&chain, sql, enabled, config, id)
+	return
+}
+
+func (o *orm) DeleteChain(id string, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	sql := `DELETE FROM terra_chains WHERE id = $1`
+	result, err := q.Exec(sql, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrNoRowsAffected
+	}
+	return nil
+}
+
+func (o *orm) Chains(offset, limit int, qopts ...pg.QOpt) (chains []types.Chain, count int, err error) {
+	q := o.q.WithOpts(qopts...)
+	if err = q.Get(&count, "SELECT COUNT(*) FROM terra_chains"); err != nil {
+		return
+	}
+
+	sql := `SELECT * FROM terra_chains ORDER BY created_at, id LIMIT $1 OFFSET $2;`
+	if err = q.Select(&chains, sql, limit, offset); err != nil {
+		return
+	}
+
+	return
 }
 
 func (o *orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
+	chainsSQL := `SELECT * FROM terra_chains WHERE enabled ORDER BY created_at, id;`
+	if err = q.Select(&chains, chainsSQL); err != nil {
+		return
+	}
 	var nodes []types.Node
 	nodesSQL := `SELECT * FROM terra_nodes ORDER BY created_at, id;`
 	if err = q.Select(&nodes, nodesSQL); err != nil {
@@ -42,28 +97,10 @@ func (o *orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, er
 	for _, n := range nodes {
 		nodemap[n.TerraChainID] = append(nodemap[n.TerraChainID], n)
 	}
-	for id, ns := range nodemap {
-		chains = append(chains, types.Chain{
-			ID:    id,
-			Nodes: ns,
-			Cfg:   defaultCfg,
-		})
+	for i, c := range chains {
+		chains[i].Nodes = nodemap[c.ID]
 	}
-	return chains, nil
-}
-
-func (o *orm) Chain(id string, qopts ...pg.QOpt) (types.Chain, error) {
-	q := o.q.WithOpts(qopts...)
-	var nodes []types.Node
-	nodesSQL := `SELECT * FROM terra_nodes WHERE terra_chain_id = $1 ORDER BY created_at, id;`
-	if err := q.Select(&nodes, nodesSQL, id); err != nil {
-		return types.Chain{}, err
-	}
-	return types.Chain{
-		ID:    id,
-		Nodes: nodes,
-		Cfg:   defaultCfg,
-	}, nil
+	return
 }
 
 func (o *orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node types.Node, err error) {

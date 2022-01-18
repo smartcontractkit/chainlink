@@ -70,7 +70,7 @@ func (o *orm) Chains(offset, limit int) (chains []types.Chain, count int, err er
 	return
 }
 
-// GetNodesByChainID fetches allow nodes for the given chain ids.
+// GetChainsByIDs fetches allow nodes for the given chain ids.
 func (o *orm) GetChainsByIDs(ids []utils.Big) (chains []types.Chain, err error) {
 	sql := `SELECT * FROM evm_chains WHERE id = ANY($1) ORDER BY created_at, id;`
 

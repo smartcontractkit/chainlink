@@ -4,23 +4,27 @@ import (
 	"testing"
 	"time"
 
-	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
+	wasmtypes "github.com/terra-money/core/x/wasm/types"
+
+	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
+	terracfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
-	wasmtypes "github.com/terra-money/core/x/wasm/types"
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) []byte {
@@ -45,13 +49,19 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	contract, err := cosmostypes.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
 	require.NoError(t, err)
-	fallbackGasPrice := "0.01"
-	gasLimitMultiplier := 1.5
+	logCfg := pgtest.NewPGCfg(true)
+	const chainID = "Chainlinktest-99"
+	terratest.MustInsertChain(t, db, &types.Chain{ID: chainID})
+	require.NoError(t, err)
+	cfg := terracfg.ChainCfg{
+		FallbackGasPriceULuna: "0.01",
+		GasLimitMultiplier:    1.5,
+	}
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, logCfg, nil, time.Second)
 
 		// Enqueue a single msg, then send it in a batch
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
@@ -92,7 +102,7 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
 		require.NoError(t, err)
@@ -150,7 +160,7 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		txm.confirmPollPeriod = 0 * time.Second
 		txm.confirmMaxPolls = 2
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
@@ -174,7 +184,7 @@ func TestTxm(t *testing.T) {
 		tc.On("Tx", txHash2).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash2},
 		}, nil).Once()
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 
 		// Insert and broadcast 2 msgs with different txhashes.
 		id1, err := txm.orm.InsertMsg("blah", []byte{0x01})

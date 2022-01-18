@@ -5,23 +5,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
-
-	"github.com/tendermint/tendermint/crypto/tmhash"
-
-	"github.com/pkg/errors"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/pkg/errors"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -63,9 +62,9 @@ type Txm struct {
 }
 
 // NewTxm creates a txm
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, gasLimitMultiplier float64, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
+func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg config.ChainCfg, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
 	ticker := time.NewTicker(pollPeriod)
-	fgp, err := sdk.NewDecFromStr(fallbackGasPrice)
+	fgp, err := sdk.NewDecFromStr(cfg.FallbackGasPriceULuna)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +72,7 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, g
 	return &Txm{
 		starter:            utils.StartStopOnce{},
 		eb:                 eb,
-		orm:                NewORM(db, lggr, cfg),
+		orm:                NewORM(chainID, db, lggr, logCfg),
 		ks:                 ks,
 		ticker:             ticker,
 		tc:                 tc,
@@ -83,7 +82,7 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, g
 		confirmPollPeriod:  1 * time.Second,
 		confirmMaxPolls:    100,
 		fallbackGasPrice:   sdk.NewDecCoinFromDec("uluna", fgp),
-		gasLimitMultiplier: gasLimitMultiplier,
+		gasLimitMultiplier: cfg.GasLimitMultiplier,
 	}, nil
 }
 

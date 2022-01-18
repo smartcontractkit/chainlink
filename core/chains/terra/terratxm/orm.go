@@ -11,22 +11,24 @@ import (
 
 // ORM manages the data model for terra tx management.
 type ORM struct {
-	q pg.Q
+	chainID string
+	q       pg.Q
 }
 
-// NewORM creates an ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
+// NewORM creates an ORM scoped to chainID.
+func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *ORM {
 	namedLogger := lggr.Named("ORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &ORM{
-		q: q,
+		chainID: chainID,
+		q:       q,
 	}
 }
 
 // InsertMsg inserts a terra msg, assumed to be a serialized terra ExecuteContractMsg.
 func (o *ORM) InsertMsg(contractID string, msg []byte) (int64, error) {
 	var tm TerraMsg
-	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, msg, state, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`, contractID, msg, Unstarted)
+	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, msg, state, terra_chain_id, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`, contractID, msg, Unstarted, o.chainID)
 	if err != nil {
 		return 0, err
 	}
@@ -36,7 +38,7 @@ func (o *ORM) InsertMsg(contractID string, msg []byte) (int64, error) {
 // SelectMsgsWithState selects all messages with a given state
 func (o *ORM) SelectMsgsWithState(state State) ([]TerraMsg, error) {
 	var msgs []TerraMsg
-	if err := o.q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1`, state); err != nil {
+	if err := o.q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2`, state, o.chainID); err != nil {
 		return nil, err
 	}
 	return msgs, nil
@@ -51,7 +53,7 @@ func (o *ORM) SelectMsgsWithIDs(ids []int64) ([]TerraMsg, error) {
 	return msgs, nil
 }
 
-// UpdateMsgsWithState update the msgs with the given ids to the given state
+// UpdateMsgsWithState update the msgs with the given iunstartedds to the given state
 // TODO: could enforce state transitions here too
 func (o *ORM) UpdateMsgsWithState(ids []int64, state State, txHash *string, qopts ...pg.QOpt) error {
 	if state == Broadcasted && txHash == nil {

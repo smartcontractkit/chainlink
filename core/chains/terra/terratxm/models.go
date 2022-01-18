@@ -31,6 +31,7 @@ var (
 // TerraMsg a terra msg
 type TerraMsg struct {
 	ID         int64
+	ChainID    string `db:"terra_chain_id"`
 	ContractID string
 	State      State
 	Msg        []byte

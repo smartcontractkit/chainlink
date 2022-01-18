@@ -1,7 +1,8 @@
-package types
+package terra
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/multierr"
@@ -10,9 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-	terraconfig "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
+	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -27,18 +29,22 @@ var _ terra.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id     string
-	cfg    terraconfig.ChainCfg
+	cfg    config.ChainCfg
+	cfgMu  sync.RWMutex
 	client *terraclient.Client
 	txm    *terratxm.Txm
 	lggr   logger.Logger
 }
 
 // NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain Chain, lggr logger.Logger) (*chain, error) {
+func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain types.Chain, lggr logger.Logger) (*chain, error) {
+	if !dbchain.Enabled {
+		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
+	}
 	if len(dbchain.Nodes) == 0 {
 		return nil, fmt.Errorf("no nodes for Terra chain: %s", dbchain.ID)
 	}
-	cfg := dbchain.Cfg
+	cfg := types.NewChainScopedConfig(dbchain.Cfg)
 	lggr = lggr.With("terraChainID", dbchain.ID)
 	node := dbchain.Nodes[0] // TODO multi-node client pool https://app.shortcut.com/chainlinklabs/story/26278/terra-multi-node-client-pools
 	lggr.Debugw(fmt.Sprintf("Terra chain %q has %d nodes - using %q", dbchain.ID, len(dbchain.Nodes), node.Name),
@@ -48,7 +54,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	if err != nil {
 		return nil, err
 	}
-	txm, err := terratxm.NewTxm(db, client, cfg.FallbackGasPriceULuna, cfg.GasLimitMultiplier, ks, lggr, logCfg, eb, 5*time.Second)
+	txm, err := terratxm.NewTxm(db, client, dbchain.ID, cfg, ks, lggr, logCfg, eb, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +71,16 @@ func (c *chain) ID() string {
 	return c.id
 }
 
-func (c *chain) Config() terraconfig.ChainCfg {
+func (c *chain) Config() config.ChainCfg {
+	c.cfgMu.RLock()
+	defer c.cfgMu.RUnlock()
 	return c.cfg
+}
+
+func (c *chain) SetConfig(cfg types.ChainCfg) {
+	c.cfgMu.Lock()
+	defer c.cfgMu.Unlock()
+	c.cfg = types.NewChainScopedConfig(cfg)
 }
 
 func (c *chain) MsgEnqueuer() terra.MsgEnqueuer {

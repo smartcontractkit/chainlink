@@ -30,6 +30,15 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, dbcs)
 
+	_, err = orm.CreateChain("Columbus-5", types.ChainCfg{})
+	require.NoError(t, err)
+	_, err = orm.CreateChain("Bombay-12", types.ChainCfg{})
+	require.NoError(t, err)
+
+	dbcs, err = orm.EnabledChainsWithNodes()
+	require.NoError(t, err)
+	require.Len(t, dbcs, 2)
+
 	newNode := types.NewNode{
 		Name:          "first",
 		TerraChainID:  "Columbus-5",
@@ -79,10 +88,6 @@ func Test_ORM(t *testing.T) {
 		assertEqual(t, newNode2, gotNodes[0])
 	}
 
-	dbcs, err = orm.EnabledChainsWithNodes()
-	require.NoError(t, err)
-	require.Len(t, dbcs, 1)
-
 	newNode3 := types.NewNode{
 		Name:          "third",
 		TerraChainID:  "Bombay-12",
@@ -92,11 +97,6 @@ func Test_ORM(t *testing.T) {
 	gotNode3, err := orm.CreateNode(newNode3)
 	require.NoError(t, err)
 	assertEqual(t, newNode3, gotNode3)
-
-	dbcs, err = orm.EnabledChainsWithNodes()
-	require.NoError(t, err)
-	require.Len(t, dbcs, 1)
-
 }
 
 func assertEqual(t *testing.T, newNode types.NewNode, gotNode types.Node) {

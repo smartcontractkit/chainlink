@@ -835,7 +835,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChainSet().Add(id.ToInt(), *chainCfg)
+	chain, err := r.App.GetChains().EVM.Add(id.ToInt(), *chainCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -883,7 +883,7 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChainSet().Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
+	chain, err := r.App.GetChains().EVM.Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateChainPayload(nil, nil, err), nil
@@ -917,7 +917,7 @@ func (r *Resolver) DeleteChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	err = r.App.GetChainSet().Remove(id.ToInt())
+	err = r.App.GetChains().EVM.Remove(id.ToInt())
 	if err != nil {
 		return nil, err
 	}
@@ -945,7 +945,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(r.App.GetChainSet(), args.Input.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}

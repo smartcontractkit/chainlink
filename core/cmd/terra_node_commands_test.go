@@ -13,6 +13,12 @@ import (
 	"github.com/urfave/cli"
 )
 
+func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) types.Chain {
+	chain, err := orm.CreateChain(id, types.ChainCfg{})
+	require.NoError(t, err)
+	return chain
+}
+
 func TestClient_IndexTerraNodes(t *testing.T) {
 	t.Parallel()
 
@@ -22,6 +28,7 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	orm := app.TerraORM()
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
+	_ = mustInsertTerraChain(t, orm, "Bombay-12")
 
 	params := types.NewNode{
 		Name:          "second",
@@ -54,6 +61,8 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	orm := app.TerraORM()
 	_, initialNodesCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
+	_ = mustInsertTerraChain(t, orm, "Columbus-5")
+	_ = mustInsertTerraChain(t, orm, "Bombay-12")
 
 	set := flag.NewFlagSet("cli", 0)
 	set.String("name", "first", "")
@@ -103,6 +112,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	orm := app.TerraORM()
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
+	_ = mustInsertTerraChain(t, orm, "Columbus-5")
 
 	params := types.NewNode{
 		Name:          "first",

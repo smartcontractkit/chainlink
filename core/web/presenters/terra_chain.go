@@ -6,6 +6,31 @@ import (
 	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 )
 
+// TerraChainResource is an Terra chain JSONAPI resource.
+type TerraChainResource struct {
+	JAID
+	Enabled   bool                `json:"enabled"`
+	Config    terratypes.ChainCfg `json:"config"`
+	CreatedAt time.Time           `json:"createdAt"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+}
+
+// GetName implements the api2go EntityNamer interface
+func (r TerraChainResource) GetName() string {
+	return "terra_chain"
+}
+
+// NewTerraChainResource returns a new TerraChainResource for chain.
+func NewTerraChainResource(chain terratypes.Chain) TerraChainResource {
+	return TerraChainResource{
+		JAID:      NewJAID(chain.ID),
+		Config:    chain.Cfg,
+		Enabled:   chain.Enabled,
+		CreatedAt: chain.CreatedAt,
+		UpdatedAt: chain.UpdatedAt,
+	}
+}
+
 // TerraNodeResource is a Terra node JSONAPI resource.
 type TerraNodeResource struct {
 	JAID
