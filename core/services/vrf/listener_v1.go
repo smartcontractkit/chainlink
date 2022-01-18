@@ -274,7 +274,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
-	lsn.l.Infof("Enqueued randomness request",
+	lsn.l.Debugw("Enqueued randomness request",
 		"requestID", hex.EncodeToString(req.RequestID[:]),
 		"requestJobID", hex.EncodeToString(req.JobID[:]),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
@@ -387,7 +387,7 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"reqTxHash", req.Raw.TxHash)
 	} else {
-		lsn.l.Infow("Executed fulfillment run",
+		lsn.l.Debugw("Executed fulfillment run",
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"keyHash", hex.EncodeToString(req.KeyHash[:]),
 			"reqTxHash", req.Raw.TxHash)
