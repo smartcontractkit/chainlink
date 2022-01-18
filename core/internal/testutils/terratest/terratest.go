@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 )
 
+// MustInsertChain inserts chain in to db, or fails the test.
 func MustInsertChain(t testing.TB, db *sqlx.DB, chain *types.Chain) {
 	query, args, e := db.BindNamed(`
 INSERT INTO terra_chains (id, cfg, enabled, created_at, updated_at) VALUES (:id, :cfg, :enabled, NOW(), NOW()) RETURNING *;`, chain)

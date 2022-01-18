@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,11 +15,12 @@ import (
 	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
-	terracfg "github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -53,10 +52,7 @@ func TestTxm(t *testing.T) {
 	const chainID = "Chainlinktest-99"
 	terratest.MustInsertChain(t, db, &types.Chain{ID: chainID})
 	require.NoError(t, err)
-	cfg := terracfg.ChainCfg{
-		FallbackGasPriceULuna: "0.01",
-		GasLimitMultiplier:    1.5,
-	}
+	cfg := terra.DefaultConfigSet.Config()
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
@@ -160,9 +156,10 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-		txm.confirmPollPeriod = 0 * time.Second
-		txm.confirmMaxPolls = 2
+		cfg := terra.DefaultConfigSet
+		cfg.ConfirmPollPeriod = 0
+		cfg.ConfirmMaxPolls = 2
+		txm, _ := NewTxm(db, tc, chainID, cfg.Config(), ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		err = txm.confirmTx("0x123", []int64{i})

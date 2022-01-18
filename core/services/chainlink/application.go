@@ -161,7 +161,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	cfg := opts.Config
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
-	evmChainSet := opts.Chains.EVM
+	chains := opts.Chains
 	globalLogger := opts.Logger
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
@@ -206,7 +206,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	subservices = append(subservices, eventBroadcaster, evmChainSet)
+	subservices = append(subservices, eventBroadcaster, chains.EVM)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
@@ -214,12 +214,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, evmChainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(db, evmChainSet, pipelineORM, keyStore, globalLogger, cfg)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger)
+		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
 		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger, cfg)
 	)
 
-	for _, chain := range evmChainSet.Chains() {
+	for _, chain := range chains.EVM.Chains() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
@@ -230,19 +230,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				evmChainSet),
+				chains.EVM),
 			job.Keeper: keeper.NewDelegate(
 				db,
 				jobORM,
 				pipelineRunner,
 				globalLogger,
-				evmChainSet),
+				chains.EVM),
 			job.VRF: vrf.NewDelegate(
 				db,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
-				evmChainSet,
+				chains.EVM,
 				globalLogger,
 				cfg),
 			job.Webhook: webhook.NewDelegate(
@@ -266,7 +266,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineORM,
 			pipelineRunner,
 			db,
-			evmChainSet,
+			chains.EVM,
 			globalLogger,
 		)
 	}
@@ -289,7 +289,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
-			evmChainSet,
+			chains.EVM,
 			globalLogger,
 		)
 	} else {
@@ -297,14 +297,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		// TODO: parameterize poll period
-		terraLggr := globalLogger.Named("Terra")
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
 			keyStore,
-			evmrelay.NewRelayer(db, evmChainSet, globalLogger.Named("EVM")),
+			evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM")),
 			solana.NewRelayer(globalLogger.Named("Solana.Relayer")),
-			pkgterra.NewRelayer(terraLggr.Named("Relayer"), opts.Chains.Terra),
+			pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra),
 		)
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
@@ -313,7 +311,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
-			evmChainSet,
+			chains.EVM,
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
@@ -324,7 +322,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var lbs []utils.DependentAwaiter
-	for _, c := range evmChainSet.Chains() {
+	for _, c := range chains.EVM.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
@@ -335,19 +333,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var feedsService feeds.Service
 	if cfg.FeatureFeedsManager() {
 		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
-		chain, err := evmChainSet.Default()
+		chain, err := chains.EVM.Default()
 		if err != nil {
 			globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 			feedsService = &feeds.NullService{}
 		} else {
-			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), evmChainSet, globalLogger, opts.Version)
+			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chains.EVM, globalLogger, opts.Version)
 		}
 	} else {
 		feedsService = &feeds.NullService{}
 	}
 
 	app := &ChainlinkApplication{
-		Chains:                   opts.Chains,
+		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,

@@ -13,10 +13,10 @@ CREATE TABLE terra_nodes (
     id serial PRIMARY KEY,
     name varchar(255) NOT NULL CHECK (name != ''),
     terra_chain_id text NOT NULL REFERENCES terra_chains (id),
-	tendermint_url text CHECK (tendermint_url != ''),
-	fcd_url text CHECK (fcd_url != ''),
-	created_at timestamptz NOT NULL,
-	updated_at timestamptz NOT NULL
+    tendermint_url text CHECK (tendermint_url != ''),
+    fcd_url text CHECK (fcd_url != ''),
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
 );
 CREATE INDEX idx_nodes_terra_chain_id ON terra_nodes (terra_chain_id);
 CREATE UNIQUE INDEX idx_terra_nodes_unique_name ON terra_nodes (lower(name));
@@ -29,14 +29,14 @@ BEGIN
 END
 $$;
 CREATE TABLE terra_msgs (
-	id BIGSERIAL PRIMARY KEY,
-	terra_chain_id text NOT NULL REFERENCES terra_chains (id),
-	contract_id text NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    terra_chain_id text NOT NULL REFERENCES terra_chains (id),
+    contract_id text NOT NULL,
     msg bytea NOT NULL,
-	state text NOT NULL,
-	tx_hash text, --TODO: not null for certain states
-	created_at timestamptz NOT NULL,
-	updated_at timestamptz NOT NULL
+    state text NOT NULL,
+    tx_hash text, --TODO: not null for certain states
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
 );
 CREATE TRIGGER notify_terra_msg_insertion AFTER INSERT ON terra_msgs FOR EACH STATEMENT EXECUTE PROCEDURE notify_terra_msg_insert();
 CREATE INDEX idx_terra_msgs_terra_chain_id ON terra_nodes (terra_chain_id);

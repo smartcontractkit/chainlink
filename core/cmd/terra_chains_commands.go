@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -28,7 +29,7 @@ func (p *TerraChainPresenter) ToRow() []string {
 
 	row := []string{
 		p.GetID(),
-		fmt.Sprintf("%v", p.Enabled),
+		strconv.FormatBool(p.Enabled),
 		string(config),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),

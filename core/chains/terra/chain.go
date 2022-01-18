@@ -2,7 +2,6 @@ package terra
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"go.uber.org/multierr"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
@@ -29,8 +27,7 @@ var _ terra.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id     string
-	cfg    config.ChainCfg
-	cfgMu  sync.RWMutex
+	cfg    types.Config
 	client *terraclient.Client
 	txm    *terratxm.Txm
 	lggr   logger.Logger
@@ -44,7 +41,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	if len(dbchain.Nodes) == 0 {
 		return nil, fmt.Errorf("no nodes for Terra chain: %s", dbchain.ID)
 	}
-	cfg := types.NewChainScopedConfig(dbchain.Cfg)
+	cfg := types.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("terraChainID", dbchain.ID)
 	node := dbchain.Nodes[0] // TODO multi-node client pool https://app.shortcut.com/chainlinklabs/story/26278/terra-multi-node-client-pools
 	lggr.Debugw(fmt.Sprintf("Terra chain %q has %d nodes - using %q", dbchain.ID, len(dbchain.Nodes), node.Name),
@@ -71,16 +68,12 @@ func (c *chain) ID() string {
 	return c.id
 }
 
-func (c *chain) Config() config.ChainCfg {
-	c.cfgMu.RLock()
-	defer c.cfgMu.RUnlock()
+func (c *chain) Config() terra.Config {
 	return c.cfg
 }
 
-func (c *chain) SetConfig(cfg types.ChainCfg) {
-	c.cfgMu.Lock()
-	defer c.cfgMu.Unlock()
-	c.cfg = types.NewChainScopedConfig(cfg)
+func (c *chain) UpdateConfig(cfg types.ChainCfg) {
+	c.cfg.Update(cfg)
 }
 
 func (c *chain) MsgEnqueuer() terra.MsgEnqueuer {

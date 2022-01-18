@@ -59,6 +59,7 @@ func (o ChainSetOpts) newChain(dbchain types.Chain) (*chain, error) {
 	return NewChain(o.DB, o.KeyStore, o.Config, o.EventBroadcaster, dbchain, o.Logger)
 }
 
+// ChainSet extends terra.ChainSet with mutability and exposes the underlying ORM.
 type ChainSet interface {
 	terra.ChainSet
 
@@ -229,7 +230,8 @@ func (c *chainSet) Configure(id string, enabled bool, config types.ChainCfg) (ty
 		// Chain was toggled to enabled
 		return dbchain, c.initializeChain(&dbchain)
 	case exists:
-		chain.SetConfig(config)
+		// Exists in memory, no toggling: Update in-memory chain
+		chain.UpdateConfig(config)
 	}
 
 	return dbchain, nil

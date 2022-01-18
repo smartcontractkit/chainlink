@@ -9,6 +9,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // ORM manages terra chains and nodes.
@@ -31,10 +32,13 @@ type ORM interface {
 
 // ChainCfg is configuration parameters for a terra chain.
 type ChainCfg struct {
+	ConfirmMaxPolls       null.Int
+	ConfirmPollPeriod     *models.Duration
 	FallbackGasPriceULuna null.String
 	GasLimitMultiplier    null.Float
 }
 
+// Scan deserializes JSON from the database.
 func (c *ChainCfg) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
@@ -43,6 +47,8 @@ func (c *ChainCfg) Scan(value interface{}) error {
 
 	return json.Unmarshal(b, c)
 }
+
+// Value serializes JSON for the database.
 func (c ChainCfg) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra/config"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -46,43 +46,33 @@ const (
 
 // Txm manages transactions for the terra blockchain.
 type Txm struct {
-	starter            utils.StartStopOnce
-	eb                 pg.EventBroadcaster
-	sub                pg.Subscription
-	ticker             *time.Ticker
-	orm                *ORM
-	lggr               logger.Logger
-	tc                 terraclient.ReaderWriter
-	ks                 keystore.Terra
-	stop, done         chan struct{}
-	confirmPollPeriod  time.Duration
-	confirmMaxPolls    int
-	fallbackGasPrice   sdk.DecCoin
-	gasLimitMultiplier float64
+	starter    utils.StartStopOnce
+	eb         pg.EventBroadcaster
+	sub        pg.Subscription
+	ticker     *time.Ticker
+	orm        *ORM
+	lggr       logger.Logger
+	tc         terraclient.ReaderWriter
+	ks         keystore.Terra
+	stop, done chan struct{}
+	cfg        terra.Config
 }
 
 // NewTxm creates a txm
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg config.ChainCfg, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
+func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
 	ticker := time.NewTicker(pollPeriod)
-	fgp, err := sdk.NewDecFromStr(cfg.FallbackGasPriceULuna)
-	if err != nil {
-		return nil, err
-	}
 	lggr = lggr.Named("Txm")
 	return &Txm{
-		starter:            utils.StartStopOnce{},
-		eb:                 eb,
-		orm:                NewORM(chainID, db, lggr, logCfg),
-		ks:                 ks,
-		ticker:             ticker,
-		tc:                 tc,
-		lggr:               lggr,
-		stop:               make(chan struct{}),
-		done:               make(chan struct{}),
-		confirmPollPeriod:  1 * time.Second,
-		confirmMaxPolls:    100,
-		fallbackGasPrice:   sdk.NewDecCoinFromDec("uluna", fgp),
-		gasLimitMultiplier: cfg.GasLimitMultiplier,
+		starter: utils.StartStopOnce{},
+		eb:      eb,
+		orm:     NewORM(chainID, db, lggr, logCfg),
+		ks:      ks,
+		ticker:  ticker,
+		tc:      tc,
+		lggr:    lggr,
+		stop:    make(chan struct{}),
+		done:    make(chan struct{}),
+		cfg:     cfg,
 	}, nil
 }
 
@@ -171,7 +161,7 @@ func (txm *Txm) sendMsgBatch() {
 	}
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
-	gp := txm.tc.GasPrice(txm.fallbackGasPrice)
+	gp := txm.tc.GasPrice(sdk.NewDecCoinFromDec("uluna", txm.cfg.FallbackGasPriceULuna()))
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s) // Already checked validity above
 		key, err := txm.ks.Get(sender.String())
@@ -228,7 +218,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
 		return
 	}
-	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.Succeeded), an, sn, gasLimit, txm.gasLimitMultiplier,
+	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.Succeeded), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
 		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
@@ -281,8 +271,8 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
 	// of time (plus a small buffer to account for block time variance) where N
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
-	for tries := 0; tries < txm.confirmMaxPolls; tries++ {
-		time.Sleep(txm.confirmPollPeriod)
+	for tries := int64(0); tries < txm.cfg.ConfirmMaxPolls(); tries++ {
+		time.Sleep(txm.cfg.ConfirmPollPeriod())
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)

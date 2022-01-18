@@ -104,8 +104,8 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = orm.CreateChain(terraChainID, types.ChainCfg{
-		FallbackGasPriceULuna: null.StringFrom("9.999"),
-		GasLimitMultiplier:    null.FloatFrom(1.55555),
+		FallbackGasPriceULuna: null.StringFrom("99.07"),
+		GasLimitMultiplier:    null.FloatFrom(1.111),
 	})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
