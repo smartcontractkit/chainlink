@@ -60,7 +60,8 @@ type (
 	}
 )
 
-func NewDatabaseBackup(config Config, logger logger.Logger) DatabaseBackup {
+func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
+	lggr = lggr.Named("DatabaseBackup")
 	dbUrl := config.DatabaseURL()
 	dbBackupUrl := config.DatabaseBackupURL()
 	if dbBackupUrl != nil {
@@ -71,13 +72,13 @@ func NewDatabaseBackup(config Config, logger logger.Logger) DatabaseBackup {
 	if config.DatabaseBackupDir() != "" {
 		dir, err := filepath.Abs(config.DatabaseBackupDir())
 		if err != nil {
-			logger.Errorf("Invalid path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+			lggr.Errorf("Invalid path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
 		}
 		outputParentDir = dir
 	}
 
 	return &databaseBackup{
-		logger,
+		lggr,
 		dbUrl,
 		config.DatabaseBackupMode(),
 		config.DatabaseBackupFrequency(),
@@ -123,14 +124,14 @@ func (backup *databaseBackup) frequencyIsTooSmall() bool {
 }
 
 func (backup *databaseBackup) RunBackupGracefully(version string) {
-	backup.logger.Debugw("DatabaseBackup: Starting database backup...", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
+	backup.logger.Infow("Starting database backup...", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
 	startAt := time.Now()
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		backup.logger.Errorw("DatabaseBackup: Failed", "duration", duration, "error", err)
+		backup.logger.Errorw("Failed", "duration", duration, "err", err)
 	} else {
-		backup.logger.Infow("DatabaseBackup: Database backup finished successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)
+		backup.logger.Infow("Finished successfully.", "duration", duration, "fileSize", result.size, "filePath", result.path)
 	}
 }
 
@@ -138,11 +139,11 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
 	err := os.MkdirAll(backup.outputParentDir, os.ModePerm)
 	if err != nil {
-		return nil, errors.Wrapf(err, "DatabaseBackup: Failed to create directories on the path: %s", backup.outputParentDir)
+		return nil, errors.Wrapf(err, "Failed to create directories on the path: %s", backup.outputParentDir)
 	}
 	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "cl_backup_tmp_")
 	if err != nil {
-		return nil, errors.Wrap(err, "DatabaseBackup: Failed to create a tmp file")
+		return nil, errors.Wrap(err, "Failed to create a tmp file")
 	}
 	err = os.Remove(tmpFile.Name())
 	if err != nil {
@@ -169,7 +170,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	}
 
 	maskedArgs := maskArgs(args)
-	backup.logger.Debugf("DatabaseBackup: Running pg_dump with: %v", maskedArgs)
+	backup.logger.Debugf("Running pg_dump with: %v", maskedArgs)
 
 	cmd := exec.Command(
 		"pg_dump", args...,
