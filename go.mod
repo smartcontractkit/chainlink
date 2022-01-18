@@ -10,7 +10,7 @@ require (
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
-	github.com/ethereum/go-ethereum v1.10.15
+	github.com/ethereum/go-ethereum v1.10.11
 	github.com/fatih/color v1.13.0
 	github.com/fxamacker/cbor/v2 v2.3.0
 	github.com/gagliardetto/solana-go v1.0.4
@@ -184,7 +184,7 @@ require (
 
 require (
 	github.com/smartcontractkit/helmenv v1.0.23
-	github.com/smartcontractkit/integrations-framework v1.0.28
+	github.com/smartcontractkit/integrations-framework v1.0.29
 )
 
 require (
