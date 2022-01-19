@@ -72,7 +72,7 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
 	if config.DatabaseBackupDir() != "" {
 		dir, err := filepath.Abs(config.DatabaseBackupDir())
 		if err != nil {
-			lggr.Errorf("Invalid path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+			lggr.Fatalf("Failed to get path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
 		}
 		outputParentDir = dir
 	}
@@ -92,6 +92,7 @@ func (backup *databaseBackup) Start() error {
 	return backup.StartOnce("DatabaseBackup", func() (err error) {
 		ticker := time.NewTicker(backup.frequency)
 		if backup.frequency == 0 {
+			backup.logger.Info("Periodic database backups are disabled; DATABASE_BACKUP_FREQUENCY was set to 0")
 			// Stopping the ticker means it will never fire, effectively disabling periodic backups
 			ticker.Stop()
 		} else if backup.frequencyIsTooSmall() {
