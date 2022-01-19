@@ -20,10 +20,41 @@ type LegacyEthNodeConfig interface {
 	EthereumSecondaryURLs() []url.URL
 }
 
+const missingEnvVarMsg = `USE_LEGACY_ETH_ENV_VARS is on but a required env var was missing: %s
+
+PLEASE READ THIS ADDITIONAL INFO
+
+Chainlink now supports multiple chains, so the way ETH nodes are configured has changed. From version 1.1.0 and up, eth node configuration is stored in the database.
+
+The following environment variables are deprecated:
+
+- ETH_URL
+- ETH_HTTP_URL
+- ETH_SECONDARY_URLS
+
+If you wish to continue using these environment variables (as it used to work in 1.0.0 and below) you must ensure that the following are set:
+
+- USE_LEGACY_ETH_ENV_VARS=true
+- ETH_CHAIN_ID (mandatory)
+- ETH_URL (mandatory)
+- ETH_HTTP_URL (optional)
+- ETH_SECONDARY_URLS (optional)
+
+This will automatically overwrite the database records with the given ENV values every time Chainlink boots.
+
+If, instead, you wish to use the API/CLI/GUI to configure your chains and eth nodes (recommended) you must set the following:
+
+- USE_LEGACY_ETH_ENV_VARS=false (will be default in a future release)
+
+This will cause Chainlink to ignore the values for ETH_URL, ETH_HTTP_URL and ETH_SECONDARY_URLS, and use only the database for its node configuration.
+
+For more information on configuring your node, check the docs: https://docs.chain.link/docs/configuration-variables/
+`
+
 func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logger) error {
 	ethChainID := utils.NewBig(config.DefaultChainID())
 	if ethChainID == nil {
-		return errors.New("ETH_CHAIN_ID must be specified (or set USE_LEGACY_ETH_ENV_VARS=false)")
+		return errors.Errorf(missingEnvVarMsg, "ETH_CHAIN_ID")
 	}
 	lggr.Infow(fmt.Sprintf("USE_LEGACY_ETH_ENV_VARS is on, upserting chain %s and replacing primary/send-only nodes. It is recommended "+
 		"to set USE_LEGACY_ETH_ENV_VARS=false on subsequent runs and use the API to administer chains/nodes instead", ethChainID.String()),
@@ -40,7 +71,7 @@ func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logge
 	stmt := `INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,NOW(),NOW())`
 	primaryWS := config.EthereumURL()
 	if primaryWS == "" {
-		return errors.New("ETH_URL must be specified (or set USE_LEGACY_ETH_ENV_VARS=false)")
+		return errors.Errorf(missingEnvVarMsg, "ETH_URL")
 	}
 	var primaryHTTP null.String
 	if config.EthereumHTTPURL() != nil {
