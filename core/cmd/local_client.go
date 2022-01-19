@@ -190,7 +190,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	sessionORM := app.SessionORM()
@@ -395,7 +395,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {
@@ -780,7 +780,7 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	sig := shutdown.NewSignal()
 	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {
