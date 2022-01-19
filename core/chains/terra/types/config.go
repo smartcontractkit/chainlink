@@ -41,6 +41,16 @@ func (c *config) Update(dbcfg ChainCfg) {
 	c.chainMu.Unlock()
 }
 
+func (c *config) BlocksUntilTxTimeout() int64 {
+	c.chainMu.RLock()
+	ch := c.chain.BlocksUntilTxTimeout
+	c.chainMu.RUnlock()
+	if ch.Valid {
+		return ch.Int64
+	}
+	return c.defaults.BlocksUntilTxTimeout
+}
+
 func (c *config) ConfirmMaxPolls() int64 {
 	c.chainMu.RLock()
 	ch := c.chain.ConfirmMaxPolls
@@ -85,4 +95,14 @@ func (c *config) GasLimitMultiplier() float64 {
 		return ch.Float64
 	}
 	return c.defaults.GasLimitMultiplier
+}
+
+func (c *config) MaxMsgsPerBatch() int64 {
+	c.chainMu.RLock()
+	ch := c.chain.MaxMsgsPerBatch
+	c.chainMu.RUnlock()
+	if ch.Valid {
+		return ch.Int64
+	}
+	return c.defaults.MaxMsgsPerBatch
 }

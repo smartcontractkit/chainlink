@@ -32,10 +32,12 @@ type ORM interface {
 
 // ChainCfg is configuration parameters for a terra chain.
 type ChainCfg struct {
+	BlocksUntilTxTimeout  null.Int
 	ConfirmMaxPolls       null.Int
 	ConfirmPollPeriod     *models.Duration
 	FallbackGasPriceULuna null.String
 	GasLimitMultiplier    null.Float
+	MaxMsgsPerBatch       null.Int
 }
 
 // Scan deserializes JSON from the database.

@@ -114,7 +114,7 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 
 	set := flag.NewFlagSet("cli", 0)
 	set.String("id", terraChainID, "param")
-	set.Parse([]string{"FallbackGasPriceULuna=\"9.999\"", "GasLimitMultiplier=1.55555"})
+	set.Parse([]string{"FallbackGasPriceULuna=\"9.999\"", "GasLimitMultiplier=1.55555"}) //TODO more
 	c := cli.NewContext(nil, set, nil)
 
 	err = client.ConfigureTerraChain(c)

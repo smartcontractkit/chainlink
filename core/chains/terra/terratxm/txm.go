@@ -23,26 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var (
-	_ services.Service = (*Txm)(nil)
-)
-
-const (
-	// MaxMsgsPerBatch The max gas limit per block is 1_000_000_000
-	// https://github.com/terra-money/core/blob/d6037b9a12c8bf6b09fe861c8ad93456aac5eebb/app/legacy/migrate.go#L69.
-	// The max msg size is 10KB https://github.com/terra-money/core/blob/d6037b9a12c8bf6b09fe861c8ad93456aac5eebb/x/wasm/types/params.go#L15.
-	// Our msgs are only OCR reports for now, which will not exceed that size.
-	// There appears to be no gas limit per tx, only per block, so theoretically
-	// we could include 1000 msgs which use up to 1M gas.
-	// To be conservative and since the number of messages we'd
-	// have in a batch on average roughly correponds to the number of terra ocr jobs we're running (do not expect more than 100),
-	// we can set a max msgs per batch of 100.
-	MaxMsgsPerBatch = 100
-
-	// BlocksUntilTxTimeout ~8s per block, so ~80s until we give up on the tx getting confirmed
-	// Anecdotally it appears anything more than 4 blocks would be an extremely long wait.
-	BlocksUntilTxTimeout = 10
-)
+var _ services.Service = (*Txm)(nil)
 
 // Txm manages transactions for the terra blockchain.
 type Txm struct {
@@ -137,8 +118,8 @@ func (txm *Txm) sendMsgBatch() {
 	if len(unstarted) == 0 {
 		return
 	}
-	if len(unstarted) > MaxMsgsPerBatch {
-		unstarted = unstarted[:MaxMsgsPerBatch+1]
+	if max := txm.cfg.MaxMsgsPerBatch(); int64(len(unstarted)) > max {
+		unstarted = unstarted[:max+1]
 	}
 	txm.lggr.Debugw("building a batch", "batch", unstarted)
 	var msgsByFrom = make(map[string][]TerraMsg)
@@ -219,7 +200,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.Succeeded), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
-		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
+		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(txm.cfg.BlocksUntilTxTimeout()))
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
 		return

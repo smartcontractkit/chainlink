@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
@@ -28,11 +31,16 @@ func Test_TerraChainsController_Create(t *testing.T) {
 
 	const newChainId = "Chainlinktest-42"
 
+	minute := models.MustMakeDuration(time.Minute)
 	body, err := json.Marshal(web.CreateTerraChainRequest{
 		ID: newChainId,
 		Config: types.ChainCfg{
+			BlocksUntilTxTimeout:  null.IntFrom(1),
+			ConfirmMaxPolls:       null.IntFrom(10),
+			ConfirmPollPeriod:     &minute,
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
+			MaxMsgsPerBatch:       null.IntFrom(10),
 		},
 	})
 	require.NoError(t, err)
@@ -50,8 +58,12 @@ func Test_TerraChainsController_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, resource.ID, dbChain.ID)
+	assert.Equal(t, resource.Config.BlocksUntilTxTimeout, dbChain.Cfg.BlocksUntilTxTimeout)
+	assert.Equal(t, resource.Config.ConfirmMaxPolls, dbChain.Cfg.ConfirmMaxPolls)
+	assert.Equal(t, resource.Config.ConfirmPollPeriod, dbChain.Cfg.ConfirmPollPeriod)
 	assert.Equal(t, resource.Config.FallbackGasPriceULuna, dbChain.Cfg.FallbackGasPriceULuna)
 	assert.Equal(t, resource.Config.GasLimitMultiplier, dbChain.Cfg.GasLimitMultiplier)
+	assert.Equal(t, resource.Config.MaxMsgsPerBatch, dbChain.Cfg.MaxMsgsPerBatch)
 }
 
 func Test_TerraChainsController_Show(t *testing.T) {
