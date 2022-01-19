@@ -6,12 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
+	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	. "github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 )
 
@@ -20,7 +19,7 @@ func TestORM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	logCfg := pgtest.NewPGCfg(true)
 	const chainID = "Chainlinktest-99"
-	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, terradb.ChainCfg{})
+	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{})
 	require.NoError(t, err)
 	o := NewORM(chainID, db, lggr, logCfg)
 
@@ -33,7 +32,7 @@ func TestORM(t *testing.T) {
 	unstarted, err := o.SelectMsgsWithState(Unstarted)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(unstarted))
-	assert.Equal(t, "hello", string(unstarted[0].Msg))
+	assert.Equal(t, "hello", string(unstarted[0].Raw))
 	assert.Equal(t, chainID, unstarted[0].ChainID)
 	t.Log(unstarted[0].UpdatedAt, unstarted[0].CreatedAt)
 
@@ -43,7 +42,7 @@ func TestORM(t *testing.T) {
 	completed, err := o.SelectMsgsWithState(Confirmed)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(completed))
-	assert.Equal(t, completed[0].Msg, unstarted[0].Msg)
+	assert.Equal(t, completed[0].Raw, unstarted[0].Raw)
 	assert.Equal(t, chainID, unstarted[0].ChainID)
 
 	txHash := "123"

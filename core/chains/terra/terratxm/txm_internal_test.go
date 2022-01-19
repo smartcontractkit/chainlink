@@ -25,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) []byte {

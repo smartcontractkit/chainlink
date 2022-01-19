@@ -32,7 +32,7 @@ CREATE TABLE terra_msgs (
     id BIGSERIAL PRIMARY KEY,
     terra_chain_id text NOT NULL REFERENCES terra_chains (id),
     contract_id text NOT NULL,
-    msg bytea NOT NULL,
+    raw bytea NOT NULL,
     state text NOT NULL,
     tx_hash text, --TODO: not null for certain states
     created_at timestamptz NOT NULL,

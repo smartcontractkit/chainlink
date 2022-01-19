@@ -4,9 +4,15 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
+
+	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 // ORM manages the data model for terra tx management.
@@ -27,8 +33,8 @@ func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *
 
 // InsertMsg inserts a terra msg, assumed to be a serialized terra ExecuteContractMsg.
 func (o *ORM) InsertMsg(contractID string, msg []byte) (int64, error) {
-	var tm TerraMsg
-	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, msg, state, terra_chain_id, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`, contractID, msg, Unstarted, o.chainID)
+	var tm terra.Msg
+	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, raw, state, terra_chain_id, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`, contractID, msg, Unstarted, o.chainID)
 	if err != nil {
 		return 0, err
 	}
@@ -36,8 +42,8 @@ func (o *ORM) InsertMsg(contractID string, msg []byte) (int64, error) {
 }
 
 // SelectMsgsWithState selects all messages with a given state
-func (o *ORM) SelectMsgsWithState(state State) ([]TerraMsg, error) {
-	var msgs []TerraMsg
+func (o *ORM) SelectMsgsWithState(state db.State) (terra.Msgs, error) {
+	var msgs terra.Msgs
 	if err := o.q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2`, state, o.chainID); err != nil {
 		return nil, err
 	}
@@ -45,8 +51,8 @@ func (o *ORM) SelectMsgsWithState(state State) ([]TerraMsg, error) {
 }
 
 // SelectMsgsWithIDs selects messages the given ids
-func (o *ORM) SelectMsgsWithIDs(ids []int64) ([]TerraMsg, error) {
-	var msgs []TerraMsg
+func (o *ORM) SelectMsgsWithIDs(ids []int64) (terra.Msgs, error) {
+	var msgs terra.Msgs
 	if err := o.q.Select(&msgs, `SELECT * FROM terra_msgs WHERE id = ANY($1)`, ids); err != nil {
 		return nil, err
 	}

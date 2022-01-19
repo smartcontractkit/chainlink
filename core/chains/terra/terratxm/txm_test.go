@@ -14,7 +14,6 @@ import (
 
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/terra.go/msg"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -25,6 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 func TestTxmStartStop(t *testing.T) {
@@ -34,7 +35,7 @@ func TestTxmStartStop(t *testing.T) {
 	const chainID = "Chainlinktest-99"
 	logCfg := pgtest.NewPGCfg(true)
 	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
-	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, terradb.ChainCfg{
+	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom(fallbackGasPrice.Amount.String()),
 		GasLimitMultiplier:    null.FloatFrom(1.5),
 	})
@@ -90,7 +91,7 @@ func TestTxmStartStop(t *testing.T) {
 	}, 10*time.Second, time.Second).Should(gomega.BeTrue())
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		msgs, err := orm.SelectMsgsWithState(terratxm.Confirmed)
+		msgs, err := orm.SelectMsgsWithState(Confirmed)
 		require.NoError(t, err)
 		return 1 == len(msgs)
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
@@ -106,9 +107,9 @@ func TestTxmStartStop(t *testing.T) {
 
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		succeeded, err := orm.SelectMsgsWithState(terratxm.Confirmed)
+		succeeded, err := orm.SelectMsgsWithState(Confirmed)
 		require.NoError(t, err)
-		errored, err := orm.SelectMsgsWithState(terratxm.Errored)
+		errored, err := orm.SelectMsgsWithState(Errored)
 		require.NoError(t, err)
 		t.Log("errored", len(errored), "succeeded", len(succeeded))
 		return 2 == len(succeeded) && 2 == len(errored)

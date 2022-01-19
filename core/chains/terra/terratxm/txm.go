@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 var _ services.Service = (*Txm)(nil)
@@ -82,12 +84,12 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	if len(broadcasted) == 0 {
 		return
 	}
-	msgsByTxHash := make(map[string][]TerraMsg)
+	msgsByTxHash := make(map[string]terra.Msgs)
 	for _, msg := range broadcasted {
 		msgsByTxHash[*msg.TxHash] = append(msgsByTxHash[*msg.TxHash], msg)
 	}
 	for txHash, msgs := range msgsByTxHash {
-		err := txm.confirmTx(txHash, getIDs(msgs))
+		err := txm.confirmTx(txHash, msgs.GetIDs())
 		if err != nil {
 			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err, "txhash", txHash)
 		}
@@ -122,10 +124,10 @@ func (txm *Txm) sendMsgBatch() {
 		unstarted = unstarted[:max+1]
 	}
 	txm.lggr.Debugw("building a batch", "batch", unstarted)
-	var msgsByFrom = make(map[string][]TerraMsg)
+	var msgsByFrom = make(map[string]terra.Msgs)
 	for _, m := range unstarted {
 		var ms wasmtypes.MsgExecuteContract
-		err := ms.Unmarshal(m.Msg)
+		err := ms.Unmarshal(m.Raw)
 		if err != nil {
 			// Should be impossible given the check in Enqueue
 			txm.lggr.Errorw("failed to unmarshal msg, skipping", "err", err, "msg", m)
@@ -156,7 +158,7 @@ func (txm *Txm) sendMsgBatch() {
 	}
 }
 
-func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs []TerraMsg) {
+func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs terra.Msgs) {
 	an, sn, err := txm.tc.Account(sender)
 	if err != nil {
 		txm.lggr.Errorw("unable to read account", "err", err, "from", sender.String())
@@ -166,14 +168,14 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 
 	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
-	simResults, err := txm.tc.BatchSimulateUnsigned(getSimMsgs(msgs), sn)
+	simResults, err := txm.tc.BatchSimulateUnsigned(msgs.GetSimMsgs(), sn)
 	if err != nil {
 		txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
 		// If we can't simulate assume transient api issue and retry on next poll.
 		return
 	}
 	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.Succeeded, "failed", simResults.Failed)
-	err = txm.orm.UpdateMsgsWithState(getSimMsgsIDs(simResults.Failed), Errored, nil)
+	err = txm.orm.UpdateMsgsWithState(simResults.Failed.GetSimMsgsIDs(), Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
 		// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
@@ -186,7 +188,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 	// Get the gas limit for the successful batch
-	s, err := txm.tc.SimulateUnsigned(getMsgs(simResults.Succeeded), sn)
+	s, err := txm.tc.SimulateUnsigned(simResults.Succeeded.GetMsgs(), sn)
 	if err != nil {
 		// Should never happen
 		txm.lggr.Errorw("unexpected failure after successful simulation", "err", err)
@@ -199,7 +201,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
 		return
 	}
-	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.Succeeded), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
+	signedTx, err := txm.tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
 		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(txm.cfg.BlocksUntilTxTimeout()))
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
@@ -212,7 +214,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	var resp *txtypes.BroadcastTxResponse
 	err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
 		txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
-		err = txm.orm.UpdateMsgsWithState(getSimMsgsIDs(simResults.Succeeded), Broadcasted, &txHash, pg.WithQueryer(tx))
+		err = txm.orm.UpdateMsgsWithState(simResults.Succeeded.GetSimMsgsIDs(), Broadcasted, &txHash, pg.WithQueryer(tx))
 		if err != nil {
 			return err
 		}
@@ -239,7 +241,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 
-	if err := txm.confirmTx(resp.TxResponse.TxHash, getSimMsgsIDs(simResults.Succeeded)); err != nil {
+	if err := txm.confirmTx(resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs()); err != nil {
 		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 		return
 	}
