@@ -153,7 +153,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		}
 	}
 
-	if !cfg.EthereumDisabled() && !cfg.EVMDisabled() && cfg.UseLegacyEthEnvVars() {
+	if !cfg.EthereumDisabled() && !cfg.EVMDisabled() {
 		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}

@@ -16,7 +16,7 @@ func TestGeneralConfig_Defaults(t *testing.T) {
 	config := NewGeneralConfig()
 	assert.Equal(t, uint64(10), config.BlockBackfillDepth())
 	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
-	assert.Equal(t, big.NewInt(1), config.DefaultChainID())
+	assert.Nil(t, config.DefaultChainID())
 	assert.Equal(t, false, config.EthereumDisabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
