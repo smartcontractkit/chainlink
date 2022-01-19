@@ -35,6 +35,7 @@ type EnvPrinter struct {
 	ClientNodeURL                              string          `json:"CLIENT_NODE_URL"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
+	DatabaseBackupOnVersionUpgrade             bool            `json:"DATABASE_BACKUP_ON_VERSION_UPGRADE"`
 	DatabaseMaximumTxDuration                  time.Duration   `json:"DATABASE_MAXIMUM_TX_DURATION"`
 	DatabaseTimeout                            models.Duration `json:"DATABASE_TIMEOUT"`
 	DatabaseLockingMode                        string          `json:"DATABASE_LOCKING_MODE"`
@@ -128,6 +129,7 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			ClientNodeURL:                         cfg.ClientNodeURL(),
 			DatabaseBackupFrequency:               cfg.DatabaseBackupFrequency(),
 			DatabaseBackupMode:                    string(cfg.DatabaseBackupMode()),
+			DatabaseBackupOnVersionUpgrade:        cfg.DatabaseBackupOnVersionUpgrade(),
 			DatabaseMaximumTxDuration:             cfg.DatabaseMaximumTxDuration(),
 			DatabaseTimeout:                       cfg.DatabaseTimeout(),
 			DatabaseLockingMode:                   cfg.DatabaseLockingMode(),

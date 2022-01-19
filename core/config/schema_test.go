@@ -40,6 +40,7 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseBackupDir":                          "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                    "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                         "DATABASE_BACKUP_MODE",
+		"DatabaseBackupOnVersionUpgrade":             "DATABASE_BACKUP_ON_VERSION_UPGRADE",
 		"DatabaseBackupURL":                          "DATABASE_BACKUP_URL",
 		"DatabaseListenerMaxReconnectDuration":       "DATABASE_LISTENER_MAX_RECONNECT_DURATION",
 		"DatabaseListenerMinReconnectInterval":       "DATABASE_LISTENER_MIN_RECONNECT_INTERVAL",
