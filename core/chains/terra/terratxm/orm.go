@@ -6,13 +6,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-
-	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 // ORM manages the data model for terra tx management.
@@ -34,7 +32,7 @@ func NewORM(chainID string, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *
 // InsertMsg inserts a terra msg, assumed to be a serialized terra ExecuteContractMsg.
 func (o *ORM) InsertMsg(contractID string, msg []byte) (int64, error) {
 	var tm terra.Msg
-	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, raw, state, terra_chain_id, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`, contractID, msg, Unstarted, o.chainID)
+	err := o.q.Get(&tm, `INSERT INTO terra_msgs (contract_id, raw, state, terra_chain_id, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`, contractID, msg, db.Unstarted, o.chainID)
 	if err != nil {
 		return 0, err
 	}
@@ -61,14 +59,14 @@ func (o *ORM) SelectMsgsWithIDs(ids []int64) (terra.Msgs, error) {
 
 // UpdateMsgsWithState update the msgs with the given iunstartedds to the given state
 // TODO: could enforce state transitions here too
-func (o *ORM) UpdateMsgsWithState(ids []int64, state State, txHash *string, qopts ...pg.QOpt) error {
-	if state == Broadcasted && txHash == nil {
+func (o *ORM) UpdateMsgsWithState(ids []int64, state db.State, txHash *string, qopts ...pg.QOpt) error {
+	if state == db.Broadcasted && txHash == nil {
 		return errors.New("txHash is required when updating to broadcasted")
 	}
 	q := o.q.WithOpts(qopts...)
 	var res sql.Result
 	var err error
-	if state == Broadcasted {
+	if state == db.Broadcasted {
 		res, err = q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW(), tx_hash = $2 WHERE id = ANY($3)`, state, *txHash, ids)
 	} else {
 		res, err = q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() WHERE id = ANY($2)`, state, ids)

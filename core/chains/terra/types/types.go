@@ -1,27 +1,27 @@
 package types
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
-	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // ORM manages terra chains and nodes.
 type ORM interface {
-	Chain(string, ...pg.QOpt) (Chain, error)
-	Chains(offset, limit int, qopts ...pg.QOpt) ([]Chain, int, error)
-	CreateChain(id string, config ChainCfg, qopts ...pg.QOpt) (Chain, error)
-	UpdateChain(id string, enabled bool, config ChainCfg, qopts ...pg.QOpt) (Chain, error)
+	Chain(string, ...pg.QOpt) (db.Chain, error)
+	Chains(offset, limit int, qopts ...pg.QOpt) ([]db.Chain, int, error)
+	CreateChain(id string, config db.ChainCfg, qopts ...pg.QOpt) (db.Chain, error)
+	UpdateChain(id string, enabled bool, config db.ChainCfg, qopts ...pg.QOpt) (db.Chain, error)
 	DeleteChain(id string, qopts ...pg.QOpt) error
 
 	// EnabledChainsWithNodes returns enabled chains with nodes (if any) included.
-	EnabledChainsWithNodes(...pg.QOpt) ([]Chain, error)
+	EnabledChainsWithNodes(...pg.QOpt) ([]db.Chain, error)
 
-	CreateNode(NewNode, ...pg.QOpt) (Node, error)
+	CreateNode(NewNode, ...pg.QOpt) (db.Node, error)
 	DeleteNode(int32, ...pg.QOpt) error
-	Node(int32, ...pg.QOpt) (Node, error)
-	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []Node, count int, err error)
-	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []Node, count int, err error)
+	Node(int32, ...pg.QOpt) (db.Node, error)
+	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
+	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
 }
 
 // NewNode defines a new node to create.
