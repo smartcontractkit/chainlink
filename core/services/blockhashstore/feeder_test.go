@@ -158,6 +158,14 @@ func TestFeeder(t *testing.T) {
 			latest:         200,
 			expectedStored: []uint64{150, 153},
 		},
+		{
+			name:           "lookback before 0th block",
+			requests:       []Event{{Block: 20, ID: "request"}},
+			wait:           25,
+			lookback:       100,
+			latest:         50,
+			expectedStored: []uint64{20},
+		},
 	}
 
 	for _, test := range tests {

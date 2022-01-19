@@ -12,7 +12,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -83,7 +82,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 // IsStored satisfies the BHS interface.
 func (c *BulletproofBHS) IsStored(ctx context.Context, blockNum uint64) (bool, error) {
 	_, err := c.bhs.GetBlockhash(&bind.CallOpts{Context: ctx}, big.NewInt(int64(blockNum)))
-	if evmErr := evmclient.ExtractRPCError(err); evmErr != nil {
+	if err != nil && strings.Contains(err.Error(), "reverted") {
 		// Transaction reverted because the blockhash is not stored
 		return false, nil
 	} else if err != nil {
