@@ -58,7 +58,7 @@ type ConfigSchema struct {
 	DatabaseMaximumTxDuration                  time.Duration                 `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
 	DatabaseTimeout                            models.Duration               `env:"DATABASE_TIMEOUT" default:"0"`
 	DatabaseURL                                string                        `env:"DATABASE_URL"`
-	DefaultChainID                             *big.Int                      `env:"ETH_CHAIN_ID" default:"1"`
+	DefaultChainID                             *big.Int                      `env:"ETH_CHAIN_ID"`
 	DefaultHTTPAllowUnrestrictedNetworkAccess  bool                          `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
 	DefaultHTTPLimit                           int64                         `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	DefaultHTTPTimeout                         models.Duration               `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
@@ -191,7 +191,6 @@ type ConfigSchema struct {
 	TriggerFallbackDBPollInterval              time.Duration                 `env:"TRIGGER_FALLBACK_DB_POLL_INTERVAL" default:"30s"`
 	UnAuthenticatedRateLimit                   int64                         `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
 	UnAuthenticatedRateLimitPeriod             time.Duration                 `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
-	UseLegacyEthEnvVars                        bool                          `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field
