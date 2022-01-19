@@ -708,6 +708,11 @@ func (b *BlockhashStoreSpecResolver) PollPeriod() string {
 	return b.spec.PollPeriod.String()
 }
 
+// RunTimeout return's the job's RunTimeout param.
+func (b *BlockhashStoreSpecResolver) RunTimeout() string {
+	return b.spec.RunTimeout.String()
+}
+
 // EVMChainID returns the job's EVMChainID param.
 func (b *BlockhashStoreSpecResolver) EVMChainID() string {
 	return b.spec.EVMChainID.String()

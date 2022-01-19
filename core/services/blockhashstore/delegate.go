@@ -14,11 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ job.Service = &service{}
-
-const feederTimeout = 10 * time.Second
 
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
@@ -116,6 +115,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return []job.Service{&service{
 		feeder:     feeder,
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
+		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
 	}}, nil
 }
@@ -128,9 +128,11 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // service is a job.Service that runs the BHS feeder every pollPeriod.
 type service struct {
+	utils.StartStopOnce
 	feeder     *Feeder
 	stop       chan struct{}
 	pollPeriod time.Duration
+	runTimeout time.Duration
 	logger     logger.Logger
 	parentCtx  context.Context
 	cancel     context.CancelFunc
@@ -138,40 +140,39 @@ type service struct {
 
 // Start the BHS feeder service, satisfying the job.Service interface.
 func (s *service) Start() error {
-	if s.stop != nil {
-		return errors.New("service already started")
-	}
-
-	s.logger.Infow("Starting BHS feeder")
-	ticker := time.NewTicker(s.pollPeriod)
-	s.stop = make(chan struct{})
-	s.parentCtx, s.cancel = context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				s.runFeeder()
-			case <-s.stop:
-				ticker.Stop()
-				return
+	return s.StartOnce("BHS Feeder Service", func() error {
+		s.logger.Infow("Starting BHS feeder")
+		ticker := time.NewTicker(s.pollPeriod)
+		s.stop = make(chan struct{})
+		s.parentCtx, s.cancel = context.WithCancel(context.Background())
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					s.runFeeder()
+				case <-s.stop:
+					ticker.Stop()
+					return
+				}
 			}
-		}
-	}()
-
-	return nil
+		}()
+		return nil
+	})
 }
 
 // Close the BHS feeder service, satisfying the job.Service interface.
-func (s service) Close() error {
-	s.logger.Infow("Stopping BHS feeder")
-	close(s.stop)
-	s.cancel()
-	return nil
+func (s *service) Close() error {
+	return s.StopOnce("BHS Feeder Service", func() error {
+		s.logger.Infow("Stopping BHS feeder")
+		close(s.stop)
+		s.cancel()
+		return nil
+	})
 }
 
 func (s *service) runFeeder() {
 	s.logger.Debugw("Running BHS feeder")
-	ctx, cancel := context.WithTimeout(s.parentCtx, feederTimeout)
+	ctx, cancel := context.WithTimeout(s.parentCtx, s.runTimeout)
 	defer cancel()
 	s.feeder.Run(ctx)
 	s.logger.Debugw("BHS feeder run completed")

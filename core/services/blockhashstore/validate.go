@@ -59,6 +59,9 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.PollPeriod == 0 {
 		spec.PollPeriod = 30 * time.Second
 	}
+	if spec.RunTimeout == 0 {
+		spec.RunTimeout = 15 * time.Second
+	}
 
 	// Validation
 	if spec.WaitBlocks >= spec.LookbackBlocks {

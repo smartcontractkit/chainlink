@@ -8,6 +8,7 @@ CREATE TABLE blockhash_store_specs
     lookback_blocks         bigint                   NOT NULL,
     blockhash_store_address bytea                    NOT NULL,
     poll_period             bigint                   NOT NULL,
+    run_timeout             bigint                   NOT NULL,
     evm_chain_id            numeric(78)
         REFERENCES evm_chains
             DEFERRABLE,

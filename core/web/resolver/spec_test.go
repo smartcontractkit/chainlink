@@ -733,6 +733,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 						EVMChainID:            utils.NewBigI(42),
 						FromAddress:           &fromAddress,
 						PollPeriod:            1 * time.Minute,
+						RunTimeout:            37 * time.Second,
 						WaitBlocks:            100,
 						LookbackBlocks:        200,
 						BlockhashStoreAddress: blockhashStoreAddress,
@@ -752,6 +753,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 									evmChainID
 									fromAddress
 									pollPeriod
+									runTimeout
 									waitBlocks
 									lookbackBlocks
 									blockhashStoreAddress
@@ -772,6 +774,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 							"evmChainID": "42",
 							"fromAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
 							"pollPeriod": "1m0s",
+							"runTimeout": "37s",
 							"waitBlocks": 100,
 							"lookbackBlocks": 200,
 							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A"

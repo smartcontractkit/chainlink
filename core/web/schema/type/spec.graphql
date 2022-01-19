@@ -114,6 +114,7 @@ type BlockhashStoreSpec {
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
     pollPeriod: String!
+    runTimeout: String!
     evmChainID: String!
     fromAddress: String
     createdAt: Time!

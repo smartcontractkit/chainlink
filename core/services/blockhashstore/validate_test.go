@@ -32,6 +32,7 @@ waitBlocks = 59
 lookbackBlocks = 159
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 pollPeriod = "23s"
+runTimeout = "7s"
 evmChainID = "4"
 fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -47,6 +48,7 @@ fromAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"`,
 				require.Equal(t, ethkey.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
 					os.BlockhashStoreSpec.BlockhashStoreAddress)
 				require.Equal(t, 23*time.Second, os.BlockhashStoreSpec.PollPeriod)
+				require.Equal(t, 7*time.Second, os.BlockhashStoreSpec.RunTimeout)
 				require.Equal(t, utils.NewBigI(4), os.BlockhashStoreSpec.EVMChainID)
 				require.Equal(t, &fromAddress,
 					os.BlockhashStoreSpec.FromAddress)
@@ -67,6 +69,7 @@ evmChainID = "4"`,
 				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
 				require.Nil(t, os.BlockhashStoreSpec.FromAddress)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
+				require.Equal(t, 15*time.Second, os.BlockhashStoreSpec.RunTimeout)
 			},
 		},
 		{
