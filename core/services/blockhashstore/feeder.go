@@ -78,12 +78,18 @@ func (f *Feeder) Run(ctx context.Context) {
 	}
 
 	var (
-		fromBlock        = latestBlock - uint64(f.lookbackBlocks)
-		toBlock          = latestBlock - uint64(f.waitBlocks)
+		fromBlock        = int(latestBlock) - f.lookbackBlocks
+		toBlock          = int(latestBlock) - f.waitBlocks
 		blockToRequests  = make(map[uint64]map[string]struct{})
 		requestIDToBlock = make(map[string]uint64)
 	)
-	reqs, err := f.coordinator.Requests(ctx, fromBlock, toBlock)
+	if fromBlock < 0 {
+		fromBlock = 0
+	}
+	if toBlock < 0 {
+		toBlock = 0
+	}
+	reqs, err := f.coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
 	if err != nil {
 		f.logger.Errorw("Failed to fetch VRF requests",
 			"error", err,
@@ -100,7 +106,7 @@ func (f *Feeder) Run(ctx context.Context) {
 		requestIDToBlock[req.ID] = req.Block
 	}
 
-	fuls, err := f.coordinator.Fulfillments(ctx, fromBlock)
+	fuls, err := f.coordinator.Fulfillments(ctx, uint64(fromBlock))
 	if err != nil {
 		f.logger.Errorw("Failed to fetch VRF fulfillments",
 			"error", err,
@@ -131,6 +137,7 @@ func (f *Feeder) Run(ctx context.Context) {
 			} else if stored {
 				f.logger.Infow("Blockhash already stored",
 					"block", block, "latestBlock", latestBlock)
+				f.stored[block] = struct{}{}
 				continue
 			}
 
@@ -148,7 +155,7 @@ func (f *Feeder) Run(ctx context.Context) {
 
 	if f.lastRunBlock != 0 {
 		// Prune stored, anything older than fromBlock can be discarded
-		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ {
+		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < uint64(fromBlock); block++ {
 			delete(f.stored, block)
 		}
 	}
