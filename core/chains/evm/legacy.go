@@ -34,7 +34,7 @@ The following environment variables are DEPRECATED:
 
 Setting ETH_URL will cause Chainlink to automatically overwrite the database records with the given ENV values every time Chainlink boots. This behavior is used mainly to ease the process of upgrading from older versions, and on subsequent runs (once your old settings have been written to the database) it is recommended to unset these ENV vars and use the API commands exclusively to administer chains and nodes.
 
-If you wish to continue using these environment variables (as it used to work in 1.0.0 and below) you must ensure that the following are set:
+If you wish to continue using these environment variables (as it used to work in 1.0.x and below) you must ensure that the following are set:
 
 - ETH_CHAIN_ID (mandatory) <--- CURRENTLY MISSING
 - ETH_URL (mandatory)
