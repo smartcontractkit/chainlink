@@ -1,7 +1,6 @@
 package feeds
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -10,7 +9,6 @@ import (
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
 
 type Config interface {
-	ChainID() *big.Int
 	Dev() bool
 	FeatureOffchainReporting() bool
 	DefaultHTTPTimeout() models.Duration

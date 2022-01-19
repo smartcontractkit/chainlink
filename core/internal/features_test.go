@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -44,8 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -796,7 +795,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
 	defer assertMocksCalled()
-	chchNewHeads := make(chan chan<- *eth.Head, 1)
+	chchNewHeads := make(chan chan<- *evmtypes.Head, 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg)
@@ -826,15 +825,16 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
-	h40 := eth.Head{Hash: utils.NewHash(), Number: 40}
-	h41 := eth.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
-	h42 := eth.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
+	evmChainID := utils.NewBig(cfg.DefaultChainID())
+	h40 := evmtypes.Head{Hash: utils.NewHash(), Number: 40, EVMChainID: evmChainID}
+	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
+	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
 
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *eth.Head) }).
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *evmtypes.Head) }).
 		Return(sub, nil)
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
@@ -856,7 +856,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	require.NoError(t, cc.Start())
-	var newHeads chan<- *eth.Head
+	var newHeads chan<- *evmtypes.Head
 	select {
 	case newHeads = <-chchNewHeads:
 	case <-time.After(10 * time.Second):

@@ -3,7 +3,8 @@ package config
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
@@ -20,21 +21,21 @@ type P2PV2Networking interface {
 // P2PV2ListenAddresses contains the addresses the peer will listen to on the network in <host>:<port> form as
 // accepted by net.Listen, but host and port must be fully specified and cannot be empty.
 func (c *generalConfig) P2PV2ListenAddresses() []string {
-	return c.viper.GetStringSlice(EnvVarName("P2PV2ListenAddresses"))
+	return c.viper.GetStringSlice(envvar.Name("P2PV2ListenAddresses"))
 }
 
 // P2PV2AnnounceAddresses contains the addresses the peer will advertise on the network in <host>:<port> form as
 // accepted by net.Dial. The addresses should be reachable by peers of interest.
 func (c *generalConfig) P2PV2AnnounceAddresses() []string {
-	if c.viper.IsSet(EnvVarName("P2PV2AnnounceAddresses")) {
-		return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
+	if c.viper.IsSet(envvar.Name("P2PV2AnnounceAddresses")) {
+		return c.viper.GetStringSlice(envvar.Name("P2PV2AnnounceAddresses"))
 	}
 	return c.P2PV2ListenAddresses()
 }
 
 // P2PV2AnnounceAddressesRaw returns the raw value passed in
 func (c *generalConfig) P2PV2AnnounceAddressesRaw() []string {
-	return c.viper.GetStringSlice(EnvVarName("P2PV2AnnounceAddresses"))
+	return c.viper.GetStringSlice(envvar.Name("P2PV2AnnounceAddresses"))
 }
 
 // P2PV2Bootstrappers returns the default bootstrapper peers for libocr's v2
@@ -45,7 +46,7 @@ func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrcommontypes.Bootstra
 		var locator ocrcommontypes.BootstrapperLocator
 		err := locator.UnmarshalText([]byte(s))
 		if err != nil {
-			logger.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)
+			c.lggr.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)
 		}
 		locators = append(locators, locator)
 	}
@@ -54,15 +55,15 @@ func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrcommontypes.Bootstra
 
 // P2PV2BootstrappersRaw returns the raw strings for v2 bootstrap peers
 func (c *generalConfig) P2PV2BootstrappersRaw() []string {
-	return c.viper.GetStringSlice(EnvVarName("P2PV2Bootstrappers"))
+	return c.viper.GetStringSlice(envvar.Name("P2PV2Bootstrappers"))
 }
 
 // P2PV2DeltaDial controls how far apart Dial attempts are
 func (c *generalConfig) P2PV2DeltaDial() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaDial", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaDial", parse.Duration).(time.Duration))
 }
 
 // P2PV2DeltaReconcile controls how often a Reconcile message is sent to every peer.
 func (c *generalConfig) P2PV2DeltaReconcile() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaReconcile", ParseDuration).(time.Duration))
+	return models.MustMakeDuration(c.getWithFallback("P2PV2DeltaReconcile", parse.Duration).(time.Duration))
 }

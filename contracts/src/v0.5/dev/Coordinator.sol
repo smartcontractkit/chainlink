@@ -9,7 +9,7 @@ import "./OracleSignaturesDecoder.sol";
 
 
 /**
- * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
+ * @title The Chainlink Coordinator handles oracle service agreements between one or more oracles
  */
 contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface, ServiceAgreementDecoder, OracleSignaturesDecoder {
   using SafeMathChainlink for uint256;

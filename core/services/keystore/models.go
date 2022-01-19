@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
@@ -78,6 +79,7 @@ type keyRing struct {
 	OCR2   map[string]ocr2key.KeyBundle
 	P2P    map[string]p2pkey.KeyV2
 	Solana map[string]solkey.Key
+	Terra  map[string]terrakey.Key
 	VRF    map[string]vrfkey.KeyV2
 }
 
@@ -89,6 +91,7 @@ func newKeyRing() keyRing {
 		OCR2:   make(map[string]ocr2key.KeyBundle),
 		P2P:    make(map[string]p2pkey.KeyV2),
 		Solana: make(map[string]solkey.Key),
+		Terra:  make(map[string]terrakey.Key),
 		VRF:    make(map[string]vrfkey.KeyV2),
 	}
 }
@@ -135,6 +138,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, solkey := range kr.Solana {
 		rawKeys.Solana = append(rawKeys.Solana, solkey.Raw())
 	}
+	for _, terrakey := range kr.Terra {
+		rawKeys.Terra = append(rawKeys.Terra, terrakey.Raw())
+	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
@@ -167,6 +173,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, solanaKey := range kr.Solana {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
 	}
+	var terraIDs []string
+	for _, terraKey := range kr.Terra {
+		terraIDs = append(terraIDs, terraKey.ID())
+	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
@@ -189,13 +199,16 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(solanaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d Solana keys", len(solanaIDs)), "keys", solanaIDs)
 	}
+	if len(terraIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Terra keys", len(terraIDs)), "keys", terraIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
 }
 
 // rawKeyRing is an intermediate struct for encrypting / decrypting keyRing
-// it holds only the essential key information to avoid adding unecessary data
+// it holds only the essential key information to avoid adding unnecessary data
 // (like public keys) to the database
 type rawKeyRing struct {
 	Eth    []ethkey.Raw
@@ -204,6 +217,7 @@ type rawKeyRing struct {
 	OCR2   []ocr2key.Raw
 	P2P    []p2pkey.Raw
 	Solana []solkey.Raw
+	Terra  []terrakey.Raw
 	VRF    []vrfkey.Raw
 }
 
@@ -232,6 +246,10 @@ func (rawKeys rawKeyRing) keys() (keyRing, error) {
 	for _, rawSolKey := range rawKeys.Solana {
 		solKey := rawSolKey.Key()
 		keyRing.Solana[solKey.ID()] = solKey
+	}
+	for _, rawTerraKey := range rawKeys.Terra {
+		terraKey := rawTerraKey.Key()
+		keyRing.Terra[terraKey.ID()] = terraKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()

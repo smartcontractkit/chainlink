@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func makeHTTPRequest(
@@ -21,7 +20,7 @@ func makeHTTPRequest(
 	url URLParam,
 	requestData MapParam,
 	allowUnrestrictedNetworkAccess BoolParam,
-	cfg Config,
+	httpLimit int64,
 ) ([]byte, int, http.Header, time.Duration, error) {
 
 	var bodyReader io.Reader
@@ -33,19 +32,16 @@ func makeHTTPRequest(
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, cfg.DefaultHTTPTimeout().Duration())
-	defer cancel()
-
-	request, err := http.NewRequestWithContext(timeoutCtx, string(method), url.String(), bodyReader)
+	request, err := http.NewRequestWithContext(ctx, string(method), url.String(), bodyReader)
 	if err != nil {
 		return nil, 0, nil, 0, errors.Wrap(err, "failed to create http.Request")
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	httpRequest := utils.HTTPRequest{
+	httpRequest := HTTPRequest{
 		Request: request,
-		Config: utils.HTTPRequestConfig{
-			SizeLimit:                      cfg.DefaultHTTPLimit(),
+		Config: HTTPRequestConfig{
+			SizeLimit:                      httpLimit,
 			AllowUnrestrictedNetworkAccess: bool(allowUnrestrictedNetworkAccess),
 		},
 		Logger: lggr.Named("HTTPRequest"),
@@ -85,4 +81,21 @@ func bestEffortExtractError(responseBytes []byte) string {
 		return resp.ErrorMessage
 	}
 	return string(responseBytes)
+}
+
+func httpRequestCtx(ctx context.Context, t Task, cfg Config) (requestCtx context.Context, cancel context.CancelFunc) {
+	// Only set the default timeout if the task timeout is missing; task
+	// timeout if present will have already been set on the context at a higher
+	// level. If task timeout is explicitly set to zero, we must not override
+	// with the default http timeout here (since it has been explicitly
+	// disabled).
+	//
+	// DefaultHTTPTimeout is not used if set to 0.
+	if _, isSet := t.TaskTimeout(); !isSet && cfg.DefaultHTTPTimeout().Duration() > 0 {
+		requestCtx, cancel = context.WithTimeout(ctx, cfg.DefaultHTTPTimeout().Duration())
+	} else {
+		requestCtx = ctx
+		cancel = func() {}
+	}
+	return
 }

@@ -14,15 +14,16 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -53,7 +54,7 @@ type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
 	l              logger.Logger
-	ethClient      eth.Client
+	ethClient      evmclient.Client
 	logBroadcaster log.Broadcaster
 	txm            bulletprooftxmanager.TxManager
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
@@ -125,7 +126,7 @@ func (lsn *listenerV2) Start() error {
 	})
 }
 
-func (lsn *listenerV2) setLatestHead(head *eth.Head) {
+func (lsn *listenerV2) setLatestHead(head *evmtypes.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(head.Number)
@@ -135,7 +136,7 @@ func (lsn *listenerV2) setLatestHead(head *eth.Head) {
 }
 
 // OnNewLongestChain is called by the head broadcaster when a new head is available.
-func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	lsn.setLatestHead(head)
 }
 
@@ -298,17 +299,23 @@ func (lsn *listenerV2) processRequestsPerSub(
 	// Attempt to process every request, break if we run out of balance
 	var processed = make(map[string]struct{})
 	for _, req := range reqs {
-		// This check to see if the log was consumed needs to be in the same
-		// goroutine as the mark consumed to avoid processing duplicates.
-		if !lsn.shouldProcessLog(req.lb) {
-			continue
-		}
-
 		vrfRequest := req.req
 		rlog := lggr.With(
 			"reqID", vrfRequest.RequestId.String(),
 			"txHash", vrfRequest.Raw.TxHash,
 		)
+
+		// This check to see if the log was consumed needs to be in the same
+		// goroutine as the mark consumed to avoid processing duplicates.
+		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(req.lb)
+		if err != nil {
+			// Do not process, let lb resend it as a retry mechanism.
+			rlog.Errorw("Could not determine if log was already consumed", "error", err)
+			continue
+		} else if consumed {
+			processed[vrfRequest.RequestId.String()] = struct{}{}
+			continue
+		}
 
 		// Check if we can ignore the request due to it's age.
 		if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
@@ -364,7 +371,11 @@ func (lsn *listenerV2) processRequestsPerSub(
 					SubID:     vrfRequest.SubId,
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(false), // We already simd
+				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(),
+				Checker: bulletprooftxmanager.TransmitCheckerSpec{
+					CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
+					VRFCoordinatorAddress: lsn.coordinator.Address(),
+				},
 			}, pg.WithQueryer(tx))
 			return err
 		})
@@ -497,16 +508,6 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32, wg
 	}
 }
 
-func (lsn *listenerV2) shouldProcessLog(lb log.Broadcast) bool {
-	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
-	if err != nil {
-		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
-		// Do not process, let lb resend it as a retry mechanism.
-		return false
-	}
-	return !consumed
-}
-
 func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, nodeMinConfs uint32) uint64 {
 	lsn.respCountMu.Lock()
 	defer lsn.respCountMu.Unlock()
@@ -539,7 +540,11 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled); ok {
 		lsn.l.Infow("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
-		if !lsn.shouldProcessLog(lb) {
+		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
+		if err != nil {
+			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			return
+		} else if consumed {
 			return
 		}
 		lsn.respCountMu.Lock()
@@ -556,7 +561,11 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	req, err := lsn.coordinator.ParseRandomWordsRequested(lb.RawLog())
 	if err != nil {
 		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
-		if !lsn.shouldProcessLog(lb) {
+		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
+		if err != nil {
+			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			return
+		} else if consumed {
 			return
 		}
 		lsn.markLogAsConsumed(lb)

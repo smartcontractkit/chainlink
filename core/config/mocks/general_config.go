@@ -33,6 +33,8 @@ import (
 
 	utils "github.com/smartcontractkit/chainlink/core/utils"
 
+	uuid "github.com/satori/go.uuid"
+
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -92,6 +94,22 @@ func (_m *GeneralConfig) AllowOrigins() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// AppID provides a mock function with given fields:
+func (_m *GeneralConfig) AppID() uuid.UUID {
+	ret := _m.Called()
+
+	var r0 uuid.UUID
+	if rf, ok := ret.Get(0).(func() uuid.UUID); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(uuid.UUID)
+		}
 	}
 
 	return r0
@@ -551,20 +569,6 @@ func (_m *GeneralConfig) DefaultLogLevel() zapcore.Level {
 	return r0
 }
 
-// DefaultMaxHTTPAttempts provides a mock function with given fields:
-func (_m *GeneralConfig) DefaultMaxHTTPAttempts() uint {
-	ret := _m.Called()
-
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
 // Dev provides a mock function with given fields:
 func (_m *GeneralConfig) Dev() bool {
 	ret := _m.Called()
@@ -727,6 +731,20 @@ func (_m *GeneralConfig) FMSimulateTransactions() bool {
 
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *GeneralConfig) FeatureExternalInitiators() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// FeatureFeedsManager provides a mock function with given fields:
+func (_m *GeneralConfig) FeatureFeedsManager() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1591,20 +1609,6 @@ func (_m *GeneralConfig) GlobalLinkContractAddress() (string, bool) {
 	return r0, r1
 }
 
-// GlobalLockRetryInterval provides a mock function with given fields:
-func (_m *GeneralConfig) GlobalLockRetryInterval() models.Duration {
-	ret := _m.Called()
-
-	var r0 models.Duration
-	if rf, ok := ret.Get(0).(func() models.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
 // GlobalMinIncomingConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
 	ret := _m.Called()
@@ -2050,20 +2054,6 @@ func (_m *GeneralConfig) LogLevel() zapcore.Level {
 
 // LogSQL provides a mock function with given fields:
 func (_m *GeneralConfig) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// LogSQLMigrations provides a mock function with given fields:
-func (_m *GeneralConfig) LogSQLMigrations() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2902,20 +2892,6 @@ func (_m *GeneralConfig) ReaperExpiration() models.Duration {
 	return r0
 }
 
-// ReplayFromBlock provides a mock function with given fields:
-func (_m *GeneralConfig) ReplayFromBlock() int64 {
-	ret := _m.Called()
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	return r0
-}
-
 // RootDir provides a mock function with given fields:
 func (_m *GeneralConfig) RootDir() string {
 	ret := _m.Called()
@@ -2995,11 +2971,6 @@ func (_m *GeneralConfig) SessionTimeout() models.Duration {
 	return r0
 }
 
-// SetDialect provides a mock function with given fields: _a0
-func (_m *GeneralConfig) SetDialect(_a0 dialects.DialectName) {
-	_m.Called(_a0)
-}
-
 // SetLogLevel provides a mock function with given fields: lvl
 func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 	ret := _m.Called(lvl)
@@ -3017,20 +2988,6 @@ func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 // SetLogSQL provides a mock function with given fields: logSQL
 func (_m *GeneralConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
-}
-
-// StatsPusherLogging provides a mock function with given fields:
-func (_m *GeneralConfig) StatsPusherLogging() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
 }
 
 // TLSCertPath provides a mock function with given fields:

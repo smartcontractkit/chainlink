@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
 
 func Test_Transmitter_CreateEthTransaction(t *testing.T) {
@@ -27,7 +27,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	txm := new(bptxmmocks.TxManager)
 	strategy := new(bptxmmocks.TxStrategy)
 
-	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, strategy)
+	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, strategy, bulletprooftxmanager.TransmitCheckerSpec{})
 
 	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddress,
