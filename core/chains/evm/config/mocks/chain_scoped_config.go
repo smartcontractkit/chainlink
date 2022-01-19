@@ -531,6 +531,20 @@ func (_m *ChainScopedConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode 
 	return r0
 }
 
+// DatabaseBackupOnVersionUpgrade provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseBackupOnVersionUpgrade() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // DatabaseBackupURL provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseBackupURL() *url.URL {
 	ret := _m.Called()
