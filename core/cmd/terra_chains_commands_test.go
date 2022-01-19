@@ -9,7 +9,8 @@ import (
 	"github.com/urfave/cli"
 	null "gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
@@ -26,7 +27,7 @@ func TestClient_IndexTerraChains(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	chain, err := orm.CreateChain(terraChainID, types.ChainCfg{})
+	chain, err := orm.CreateChain(terraChainID, db.ChainCfg{})
 	require.NoError(t, err)
 
 	require.Nil(t, client.IndexTerraChains(cltest.EmptyCLIContext()))
@@ -73,7 +74,7 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	_, err = orm.CreateChain(terraChainID, types.ChainCfg{})
+	_, err = orm.CreateChain(terraChainID, db.ChainCfg{})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
 	require.NoError(t, err)
@@ -103,7 +104,7 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	_, err = orm.CreateChain(terraChainID, types.ChainCfg{
+	_, err = orm.CreateChain(terraChainID, db.ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom("99.07"),
 		GasLimitMultiplier:    null.FloatFrom(1.111),
 	})

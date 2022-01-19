@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/gin-gonic/gin"
 )
 
 // TerraNodesController manages Terra nodes.
@@ -23,7 +25,7 @@ type TerraNodesController struct {
 func (nc *TerraNodesController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 
-	var nodes []types.Node
+	var nodes []db.Node
 	var count int
 	var err error
 

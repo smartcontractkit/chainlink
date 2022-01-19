@@ -6,11 +6,11 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 // MustInsertChain inserts chain in to db, or fails the test.
-func MustInsertChain(t testing.TB, db *sqlx.DB, chain *types.Chain) {
+func MustInsertChain(t testing.TB, db *sqlx.DB, chain *db.Chain) {
 	query, args, e := db.BindNamed(`
 INSERT INTO terra_chains (id, cfg, enabled, created_at, updated_at) VALUES (:id, :cfg, :enabled, NOW(), NOW()) RETURNING *;`, chain)
 	require.NoError(t, e)

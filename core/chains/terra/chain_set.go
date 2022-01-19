@@ -8,9 +8,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
@@ -55,7 +55,7 @@ func (o ChainSetOpts) validate() (err error) {
 	return
 }
 
-func (o ChainSetOpts) newChain(dbchain types.Chain) (*chain, error) {
+func (o ChainSetOpts) newChain(dbchain db.Chain) (*chain, error) {
 	return NewChain(o.DB, o.KeyStore, o.Config, o.EventBroadcaster, dbchain, o.Logger)
 }
 
@@ -63,9 +63,9 @@ func (o ChainSetOpts) newChain(dbchain types.Chain) (*chain, error) {
 type ChainSet interface {
 	terra.ChainSet
 
-	Add(string, types.ChainCfg) (types.Chain, error)
+	Add(string, db.ChainCfg) (db.Chain, error)
 	Remove(string) error
-	Configure(id string, enabled bool, config types.ChainCfg) (types.Chain, error)
+	Configure(id string, enabled bool, config db.ChainCfg) (db.Chain, error)
 
 	ORM() types.ORM
 }
@@ -151,23 +151,23 @@ func (c *chainSet) Chain(id string) (terra.Chain, error) {
 	return c.chains[id], nil
 }
 
-func (c *chainSet) Add(id string, config types.ChainCfg) (types.Chain, error) {
+func (c *chainSet) Add(id string, config db.ChainCfg) (db.Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
 	if _, exists := c.chains[id]; exists {
-		return types.Chain{}, errors.Errorf("chain already exists with id %s", id)
+		return db.Chain{}, errors.Errorf("chain already exists with id %s", id)
 	}
 
 	dbchain, err := c.opts.ORM.CreateChain(id, config)
 	if err != nil {
-		return types.Chain{}, err
+		return db.Chain{}, err
 	}
 	return dbchain, c.initializeChain(&dbchain)
 }
 
 // Requires a lock on chainsMu
-func (c *chainSet) initializeChain(dbchain *types.Chain) error {
+func (c *chainSet) initializeChain(dbchain *db.Chain) error {
 	// preload nodes
 	nodes, cnt, err := c.opts.ORM.NodesForChain(dbchain.ID, 0, math.MaxInt)
 	if err != nil {
@@ -209,14 +209,14 @@ func (c *chainSet) Remove(id string) error {
 	return chain.Close()
 }
 
-func (c *chainSet) Configure(id string, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (c *chainSet) Configure(id string, enabled bool, config db.ChainCfg) (db.Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
 	// Update configuration stored in the database
 	dbchain, err := c.opts.ORM.UpdateChain(id, enabled, config)
 	if err != nil {
-		return types.Chain{}, err
+		return db.Chain{}, err
 	}
 
 	chain, exists := c.chains[id]
@@ -225,7 +225,7 @@ func (c *chainSet) Configure(id string, enabled bool, config types.ChainCfg) (ty
 	case exists && !enabled:
 		// Chain was toggled to disabled
 		delete(c.chains, id)
-		return types.Chain{}, chain.Close()
+		return db.Chain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
 		return dbchain, c.initializeChain(&dbchain)

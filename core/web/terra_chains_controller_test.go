@@ -9,17 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -34,7 +34,7 @@ func Test_TerraChainsController_Create(t *testing.T) {
 	minute := models.MustMakeDuration(time.Minute)
 	body, err := json.Marshal(web.CreateTerraChainRequest{
 		ID: newChainId,
-		Config: types.ChainCfg{
+		Config: db.ChainCfg{
 			BlocksUntilTxTimeout:  null.IntFrom(1),
 			ConfirmMaxPolls:       null.IntFrom(10),
 			ConfirmPollPeriod:     &minute,
@@ -75,18 +75,18 @@ func Test_TerraChainsController_Show(t *testing.T) {
 		name           string
 		inputId        string
 		wantStatusCode int
-		want           func(t *testing.T, app *cltest.TestApplication) *types.Chain
+		want           func(t *testing.T, app *cltest.TestApplication) *db.Chain
 	}{
 		{
 			inputId: validId,
 			name:    "success",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
-				newChainConfig := types.ChainCfg{
+			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
+				newChainConfig := db.ChainCfg{
 					FallbackGasPriceULuna: null.StringFrom("9.999"),
 					GasLimitMultiplier:    null.FloatFrom(1.55555),
 				}
 
-				chain := types.Chain{
+				chain := db.Chain{
 					ID:      validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
@@ -100,7 +100,7 @@ func Test_TerraChainsController_Show(t *testing.T) {
 		{
 			inputId: "234",
 			name:    "not found",
-			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				return nil
 			},
 			wantStatusCode: http.StatusBadRequest,
@@ -143,13 +143,13 @@ func Test_TerraChainsController_Index(t *testing.T) {
 	newChains := []web.CreateTerraChainRequest{
 		{
 			ID: "Chainlinktest-24",
-			Config: types.ChainCfg{
+			Config: db.ChainCfg{
 				FallbackGasPriceULuna: null.StringFrom("9.999"),
 			},
 		},
 		{
 			ID: "Chainlinktest-30",
-			Config: types.ChainCfg{
+			Config: db.ChainCfg{
 				GasLimitMultiplier: null.FloatFrom(1.55555),
 			},
 		},
@@ -157,7 +157,7 @@ func Test_TerraChainsController_Index(t *testing.T) {
 
 	for _, newChain := range newChains {
 		ch := newChain
-		terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &types.Chain{
+		terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &db.Chain{
 			ID:      ch.ID,
 			Enabled: true,
 			Cfg:     ch.Config,
@@ -212,7 +212,7 @@ func Test_TerraChainsController_Update(t *testing.T) {
 
 	chainUpdate := web.UpdateTerraChainRequest{
 		Enabled: true,
-		Config: types.ChainCfg{
+		Config: db.ChainCfg{
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
 		},
@@ -224,18 +224,18 @@ func Test_TerraChainsController_Update(t *testing.T) {
 		name              string
 		inputId           string
 		wantStatusCode    int
-		chainBeforeUpdate func(t *testing.T, app *cltest.TestApplication) *types.Chain
+		chainBeforeUpdate func(t *testing.T, app *cltest.TestApplication) *db.Chain
 	}{
 		{
 			inputId: validId,
 			name:    "success",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
-				newChainConfig := types.ChainCfg{
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
+				newChainConfig := db.ChainCfg{
 					FallbackGasPriceULuna: null.StringFrom("9.999"),
 					GasLimitMultiplier:    null.FloatFrom(1.55555),
 				}
 
-				chain := types.Chain{
+				chain := db.Chain{
 					ID:      validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
@@ -249,7 +249,7 @@ func Test_TerraChainsController_Update(t *testing.T) {
 		{
 			inputId: "341212",
 			name:    "not found",
-			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				return nil
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -295,13 +295,13 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 
 	controller := setupTerraChainsControllerTest(t)
 
-	newChainConfig := types.ChainCfg{
+	newChainConfig := db.ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom("9.999"),
 		GasLimitMultiplier:    null.FloatFrom(1.55555),
 	}
 
 	const chainId = "Chainlinktest-50"
-	chain := types.Chain{
+	chain := db.Chain{
 		ID:      chainId,
 		Enabled: true,
 		Cfg:     newChainConfig,

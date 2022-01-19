@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/gin-gonic/gin"
 )
 
 // TerraChainsController manages Terra chains.
@@ -36,8 +36,8 @@ func (cc *TerraChainsController) Index(c *gin.Context, size, page, offset int) {
 
 // CreateTerraChainRequest is a JSONAPI request for creating a Terra chain.
 type CreateTerraChainRequest struct {
-	ID     string         `json:"chainID"`
-	Config types.ChainCfg `json:"config"`
+	ID     string      `json:"chainID"`
+	Config db.ChainCfg `json:"config"`
 }
 
 // Show gets a Terra chain by chain id.
@@ -72,8 +72,8 @@ func (cc *TerraChainsController) Create(c *gin.Context) {
 
 // UpdateTerraChainRequest is a JSONAPI request for updating a Terra chain.
 type UpdateTerraChainRequest struct {
-	Enabled bool           `json:"enabled"`
-	Config  types.ChainCfg `json:"config"`
+	Enabled bool        `json:"enabled"`
+	Config  db.ChainCfg `json:"config"`
 }
 
 // Update configures an existing Terra chain.

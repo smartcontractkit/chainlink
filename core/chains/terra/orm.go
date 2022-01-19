@@ -3,6 +3,7 @@ package terra
 import (
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
@@ -24,7 +25,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 // ErrNoRowsAffected is returned when rows should have been affected but were not.
 var ErrNoRowsAffected = errors.New("no rows affected")
 
-func (o *orm) Chain(id string, qopts ...pg.QOpt) (dbchain types.Chain, err error) {
+func (o *orm) Chain(id string, qopts ...pg.QOpt) (dbchain db.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	chainSQL := `SELECT * FROM terra_chains WHERE id = $1;`
 	if err = q.Get(&dbchain, chainSQL, id); err != nil {
@@ -37,14 +38,14 @@ func (o *orm) Chain(id string, qopts ...pg.QOpt) (dbchain types.Chain, err error
 	return
 }
 
-func (o *orm) CreateChain(id string, config types.ChainCfg, qopts ...pg.QOpt) (chain types.Chain, err error) {
+func (o *orm) CreateChain(id string, config db.ChainCfg, qopts ...pg.QOpt) (chain db.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := `INSERT INTO terra_chains (id, cfg, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
 	err = q.Get(&chain, sql, id, config)
 	return
 }
 
-func (o *orm) UpdateChain(id string, enabled bool, config types.ChainCfg, qopts ...pg.QOpt) (chain types.Chain, err error) {
+func (o *orm) UpdateChain(id string, enabled bool, config db.ChainCfg, qopts ...pg.QOpt) (chain db.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := `UPDATE terra_chains SET enabled = $1, cfg = $2, updated_at = now() WHERE id = $3 RETURNING *`
 	err = q.Get(&chain, sql, enabled, config, id)
@@ -68,7 +69,7 @@ func (o *orm) DeleteChain(id string, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *orm) Chains(offset, limit int, qopts ...pg.QOpt) (chains []types.Chain, count int, err error) {
+func (o *orm) Chains(offset, limit int, qopts ...pg.QOpt) (chains []db.Chain, count int, err error) {
 	q := o.q.WithOpts(qopts...)
 	if err = q.Get(&count, "SELECT COUNT(*) FROM terra_chains"); err != nil {
 		return
@@ -82,18 +83,18 @@ func (o *orm) Chains(offset, limit int, qopts ...pg.QOpt) (chains []types.Chain,
 	return
 }
 
-func (o *orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, err error) {
+func (o *orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []db.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	chainsSQL := `SELECT * FROM terra_chains WHERE enabled ORDER BY created_at, id;`
 	if err = q.Select(&chains, chainsSQL); err != nil {
 		return
 	}
-	var nodes []types.Node
+	var nodes []db.Node
 	nodesSQL := `SELECT * FROM terra_nodes ORDER BY created_at, id;`
 	if err = q.Select(&nodes, nodesSQL); err != nil {
 		return
 	}
-	nodemap := make(map[string][]types.Node)
+	nodemap := make(map[string][]db.Node)
 	for _, n := range nodes {
 		nodemap[n.TerraChainID] = append(nodemap[n.TerraChainID], n)
 	}
@@ -103,7 +104,7 @@ func (o *orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []types.Chain, er
 	return
 }
 
-func (o *orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node types.Node, err error) {
+func (o *orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node db.Node, err error) {
 	q := o.q.WithOpts(qopts...)
 	sql := `INSERT INTO terra_nodes (name, terra_chain_id, tendermint_url, fcd_url, created_at, updated_at)
 	VALUES (:name, :terra_chain_id, :tendermint_url, :fcd_url, now(), now())
@@ -133,14 +134,14 @@ func (o *orm) DeleteNode(id int32, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *orm) Node(id int32, qopts ...pg.QOpt) (node types.Node, err error) {
+func (o *orm) Node(id int32, qopts ...pg.QOpt) (node db.Node, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Get(&node, "SELECT * FROM terra_nodes WHERE id = $1;", id)
 
 	return
 }
 
-func (o *orm) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []types.Node, count int, err error) {
+func (o *orm) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
 	q := o.q.WithOpts(qopts...)
 	if err = q.Get(&count, "SELECT COUNT(*) FROM terra_nodes"); err != nil {
 		return
@@ -154,7 +155,7 @@ func (o *orm) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []types.Node, co
 	return
 }
 
-func (o *orm) NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []types.Node, count int, err error) {
+func (o *orm) NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
 	q := o.q.WithOpts(qopts...)
 	if err = q.Get(&count, "SELECT COUNT(*) FROM terra_nodes WHERE terra_chain_id = $1", chainID); err != nil {
 		return

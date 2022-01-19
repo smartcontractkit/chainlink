@@ -5,16 +5,19 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
+	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
-func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) types.Chain {
-	chain, err := orm.CreateChain(id, types.ChainCfg{})
+func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) db.Chain {
+	chain, err := orm.CreateChain(id, db.ChainCfg{})
 	require.NoError(t, err)
 	return chain
 }
@@ -139,7 +142,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func assertEqual(t *testing.T, newNode types.NewNode, gotNode types.Node) {
+func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

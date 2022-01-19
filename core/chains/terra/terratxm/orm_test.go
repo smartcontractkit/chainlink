@@ -6,8 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -19,7 +20,7 @@ func TestORM(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	logCfg := pgtest.NewPGCfg(true)
 	const chainID = "Chainlinktest-99"
-	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, types.ChainCfg{})
+	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, terradb.ChainCfg{})
 	require.NoError(t, err)
 	o := NewORM(chainID, db, lggr, logCfg)
 

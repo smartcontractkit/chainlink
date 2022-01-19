@@ -12,12 +12,13 @@ import (
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 	"gopkg.in/guregu/null.v4"
 
+	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/terra.go/msg"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -33,12 +34,12 @@ func TestTxmStartStop(t *testing.T) {
 	const chainID = "Chainlinktest-99"
 	logCfg := pgtest.NewPGCfg(true)
 	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
-	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, types.ChainCfg{
+	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, terradb.ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom(fallbackGasPrice.Amount.String()),
 		GasLimitMultiplier:    null.FloatFrom(1.5),
 	})
 	require.NoError(t, err)
-	chainCfg := types.NewConfig(dbChain.Cfg, lggr)
+	chainCfg := pkgterra.NewConfig(dbChain.Cfg, pkgterra.DefaultConfigSet, lggr)
 	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start())

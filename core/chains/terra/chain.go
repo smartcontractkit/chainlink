@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -27,21 +26,21 @@ var _ terra.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id     string
-	cfg    types.Config
+	cfg    terra.Config
 	client *terraclient.Client
 	txm    *terratxm.Txm
 	lggr   logger.Logger
 }
 
 // NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain types.Chain, lggr logger.Logger) (*chain, error) {
+func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, lggr logger.Logger) (*chain, error) {
 	if !dbchain.Enabled {
 		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
 	if len(dbchain.Nodes) == 0 {
 		return nil, fmt.Errorf("no nodes for Terra chain: %s", dbchain.ID)
 	}
-	cfg := types.NewConfig(dbchain.Cfg, lggr)
+	cfg := terra.NewConfig(dbchain.Cfg, terra.DefaultConfigSet, lggr)
 	lggr = lggr.With("terraChainID", dbchain.ID)
 	node := dbchain.Nodes[0] // TODO multi-node client pool https://app.shortcut.com/chainlinklabs/story/26278/terra-multi-node-client-pools
 	lggr.Debugw(fmt.Sprintf("Terra chain %q has %d nodes - using %q", dbchain.ID, len(dbchain.Nodes), node.Name),
@@ -72,7 +71,7 @@ func (c *chain) Config() terra.Config {
 	return c.cfg
 }
 
-func (c *chain) UpdateConfig(cfg types.ChainCfg) {
+func (c *chain) UpdateConfig(cfg db.ChainCfg) {
 	c.cfg.Update(cfg)
 }
 

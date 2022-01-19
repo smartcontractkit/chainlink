@@ -3,16 +3,16 @@ package presenters
 import (
 	"time"
 
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 // TerraChainResource is an Terra chain JSONAPI resource.
 type TerraChainResource struct {
 	JAID
-	Enabled   bool                `json:"enabled"`
-	Config    terratypes.ChainCfg `json:"config"`
-	CreatedAt time.Time           `json:"createdAt"`
-	UpdatedAt time.Time           `json:"updatedAt"`
+	Enabled   bool        `json:"enabled"`
+	Config    db.ChainCfg `json:"config"`
+	CreatedAt time.Time   `json:"createdAt"`
+	UpdatedAt time.Time   `json:"updatedAt"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -21,7 +21,7 @@ func (r TerraChainResource) GetName() string {
 }
 
 // NewTerraChainResource returns a new TerraChainResource for chain.
-func NewTerraChainResource(chain terratypes.Chain) TerraChainResource {
+func NewTerraChainResource(chain db.Chain) TerraChainResource {
 	return TerraChainResource{
 		JAID:      NewJAID(chain.ID),
 		Config:    chain.Cfg,
@@ -48,7 +48,7 @@ func (r TerraNodeResource) GetName() string {
 }
 
 // NewTerraNodeResource returns a new TerraNodeResource for node.
-func NewTerraNodeResource(node terratypes.Node) TerraNodeResource {
+func NewTerraNodeResource(node db.Node) TerraNodeResource {
 	return TerraNodeResource{
 		JAID:          NewJAIDInt32(node.ID),
 		Name:          node.Name,

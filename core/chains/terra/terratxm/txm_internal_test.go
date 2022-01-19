@@ -18,7 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
-	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -50,9 +51,9 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	logCfg := pgtest.NewPGCfg(true)
 	const chainID = "Chainlinktest-99"
-	terratest.MustInsertChain(t, db, &types.Chain{ID: chainID})
+	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
 	require.NoError(t, err)
-	cfg := terra.DefaultConfigSet.Config()
+	cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
@@ -156,10 +157,11 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		cfg := terra.DefaultConfigSet
-		cfg.ConfirmPollPeriod = 0
-		cfg.ConfirmMaxPolls = 2
-		txm, _ := NewTxm(db, tc, chainID, cfg.Config(), ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		cfg := terra.NewConfig(terradb.ChainCfg{}, terra.ConfigSet{
+			ConfirmPollPeriod: 0,
+			ConfirmMaxPolls:   2,
+		}, lggr)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		err = txm.confirmTx("0x123", []int64{i})

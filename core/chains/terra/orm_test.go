@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -30,9 +31,9 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, dbcs)
 
-	_, err = orm.CreateChain("Columbus-5", types.ChainCfg{})
+	_, err = orm.CreateChain("Columbus-5", db.ChainCfg{})
 	require.NoError(t, err)
-	_, err = orm.CreateChain("Bombay-12", types.ChainCfg{})
+	_, err = orm.CreateChain("Bombay-12", db.ChainCfg{})
 	require.NoError(t, err)
 
 	dbcs, err = orm.EnabledChainsWithNodes()
@@ -99,7 +100,7 @@ func Test_ORM(t *testing.T) {
 	assertEqual(t, newNode3, gotNode3)
 }
 
-func assertEqual(t *testing.T, newNode types.NewNode, gotNode types.Node) {
+func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)
