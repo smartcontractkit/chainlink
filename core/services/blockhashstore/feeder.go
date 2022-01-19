@@ -8,7 +8,8 @@ import (
 
 // Event contains metadata about a VRF randomness request or fulfillment.
 type Event struct {
-	// ID of the relevant VRF request.
+	// ID of the relevant VRF request. For a VRF V1 request, this will an encoded 32 byte array.
+	// For VRF V2, it will be an integer in string form.
 	ID string
 
 	// Block that the request or fulfillment was included in.

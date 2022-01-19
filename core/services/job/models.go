@@ -471,6 +471,9 @@ type BlockhashStoreSpec struct {
 	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
 	PollPeriod time.Duration `toml:"pollPeriod"`
 
+	// RunTimeout defines the timeout for a single run of the blockhash store feeder.
+	RunTimeout time.Duration `toml:"runTimeout"`
+
 	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
 	EVMChainID *utils.Big `toml:"evmChainID"`
 

@@ -312,6 +312,7 @@ type BlockhashStoreSpec struct {
 	LookbackBlocks        int32                `json:"lookbackBlocks"`
 	BlockhashStoreAddress ethkey.EIP55Address  `json:"blockhashStoreAddress"`
 	PollPeriod            time.Duration        `json:"pollPeriod"`
+	RunTimeout            time.Duration        `json:"runTimeout"`
 	EVMChainID            *utils.Big           `json:"evmChainID"`
 	FromAddress           *ethkey.EIP55Address `json:"fromAddress"`
 	CreatedAt             time.Time            `json:"createdAt"`
@@ -327,6 +328,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 		LookbackBlocks:        spec.LookbackBlocks,
 		BlockhashStoreAddress: spec.BlockhashStoreAddress,
 		PollPeriod:            spec.PollPeriod,
+		RunTimeout:            spec.RunTimeout,
 		EVMChainID:            spec.EVMChainID,
 		FromAddress:           spec.FromAddress,
 	}

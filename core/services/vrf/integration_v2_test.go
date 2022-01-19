@@ -351,6 +351,7 @@ func createBHSJob(t *testing.T, key ethkey.KeyV2, app *cltest.TestApplication, u
 		LookbackBlocks:        200,
 		BlockhashStoreAddress: uni.bhsContractAddress.String(),
 		PollPeriod:            time.Second,
+		RunTimeout:            100 * time.Millisecond,
 		EVMChainID:            1337,
 		FromAdress:            key.Address.String(),
 	})

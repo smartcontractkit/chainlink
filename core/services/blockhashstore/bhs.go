@@ -29,7 +29,7 @@ type BulletproofBHS struct {
 	jobID       uuid.UUID
 	fromAddress common.Address
 	bptxm       bulletprooftxmanager.TxManager
-	abi         abi.ABI
+	abi         *abi.ABI
 	bhs         blockhash_store.BlockhashStoreInterface
 }
 
@@ -40,7 +40,7 @@ func NewBulletproofBHS(
 	bptxm bulletprooftxmanager.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 ) (*BulletproofBHS, error) {
-	bhsABI, err := abi.JSON(strings.NewReader(blockhash_store.BlockhashStoreABI))
+	bhsABI, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
 	if err != nil {
 		// blockhash_store.BlockhashStoreABI is generated code, this should never happen
 		return nil, errors.Wrap(err, "building ABI")
