@@ -195,7 +195,6 @@ type GeneralOnlyConfig interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
-	UseLegacyEthEnvVars() bool
 	Validate() error
 }
 
@@ -358,15 +357,12 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}
 
-	if !c.UseLegacyEthEnvVars() {
-		if c.EthereumURL() != "" {
-			logger.Warn("ETH_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
-		}
+	if c.EthereumURL() == "" {
 		if c.EthereumHTTPURL() != nil {
-			logger.Warn("ETH_HTTP_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
+			logger.Warn("ETH_HTTP_URL has no effect when ETH_URL is not set")
 		}
 		if len(c.EthereumSecondaryURLs()) > 0 {
-			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
+			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when ETH_URL is not set")
 		}
 	}
 
@@ -1636,12 +1632,6 @@ func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
-}
-
-// UseLegacyEthEnvVars will upsert a new chain using the DefaultChainID and
-// upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
-func (c *generalConfig) UseLegacyEthEnvVars() bool {
-	return c.viper.GetBool(EnvVarName("UseLegacyEthEnvVars"))
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

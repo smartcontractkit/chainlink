@@ -191,7 +191,6 @@ func TestConfigSchema(t *testing.T) {
 		"TriggerFallbackDBPollInterval":              "TRIGGER_FALLBACK_DB_POLL_INTERVAL",
 		"UnAuthenticatedRateLimit":                   "UNAUTHENTICATED_RATE_LIMIT",
 		"UnAuthenticatedRateLimitPeriod":             "UNAUTHENTICATED_RATE_LIMIT_PERIOD",
-		"UseLegacyEthEnvVars":                        "USE_LEGACY_ETH_ENV_VARS",
 	}
 
 	schemaT := reflect.TypeOf(ConfigSchema{})

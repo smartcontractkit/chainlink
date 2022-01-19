@@ -190,7 +190,6 @@ type ConfigSchema struct {
 	TriggerFallbackDBPollInterval              time.Duration                 `env:"TRIGGER_FALLBACK_DB_POLL_INTERVAL" default:"30s"`
 	UnAuthenticatedRateLimit                   int64                         `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
 	UnAuthenticatedRateLimitPeriod             time.Duration                 `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
-	UseLegacyEthEnvVars                        bool                          `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field
