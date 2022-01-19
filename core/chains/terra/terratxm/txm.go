@@ -41,15 +41,14 @@ type Txm struct {
 }
 
 // NewTxm creates a txm
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
-	ticker := time.NewTicker(pollPeriod)
+func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},
 		eb:      eb,
 		orm:     NewORM(chainID, db, lggr, logCfg),
 		ks:      ks,
-		ticker:  ticker,
+		ticker:  time.NewTicker(terra.BlockRateSeconds * time.Second),
 		tc:      tc,
 		lggr:    lggr,
 		stop:    make(chan struct{}),
@@ -246,6 +245,17 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 }
 
+func (txm *Txm) confirmPollConfig() (maxPolls int, pollPeriod time.Duration) {
+	blocks := txm.cfg.BlocksUntilTxTimeout()
+	blockPeriod := terra.BlockRateSeconds * time.Second
+	pollPeriod = txm.cfg.ConfirmPollPeriod()
+	if pollPeriod == 0 { // don't divide by zero
+		return 2, 100 * time.Millisecond
+	}
+	maxPolls = int((time.Duration(blocks) * blockPeriod) / pollPeriod)
+	return
+}
+
 func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
 	// We either mark these broadcasted txes as confirmed or errored.
 	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
@@ -253,8 +263,9 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
 	// of time (plus a small buffer to account for block time variance) where N
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
-	for tries := int64(0); tries < txm.cfg.ConfirmMaxPolls(); tries++ {
-		time.Sleep(txm.cfg.ConfirmPollPeriod())
+	maxPolls, pollPeriod := txm.confirmPollConfig()
+	for tries := 0; tries < maxPolls; tries++ {
+		time.Sleep(pollPeriod)
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)

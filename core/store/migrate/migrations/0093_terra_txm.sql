@@ -39,7 +39,7 @@ CREATE TABLE terra_msgs (
     updated_at timestamptz NOT NULL
 );
 CREATE TRIGGER notify_terra_msg_insertion AFTER INSERT ON terra_msgs FOR EACH STATEMENT EXECUTE PROCEDURE notify_terra_msg_insert();
-CREATE INDEX idx_terra_msgs_terra_chain_id ON terra_nodes (terra_chain_id);
+CREATE INDEX idx_terra_msgs_terra_chain_id_state ON terra_msgs (terra_chain_id, state);
 
 -- +goose StatementEnd
 

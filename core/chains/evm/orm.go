@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"database/sql"
 	"math/big"
 
 	"github.com/lib/pq"
@@ -21,8 +22,6 @@ func NewORM(db *sqlx.DB) types.ORM {
 	return &orm{db}
 }
 
-var ErrNoRowsAffected = errors.New("no rows affected")
-
 func (o *orm) Chain(id utils.Big) (chain types.Chain, err error) {
 	sql := `SELECT * FROM evm_chains WHERE id = $1`
 	err = o.db.Get(&chain, sql, id)
@@ -42,8 +41,8 @@ func (o *orm) UpdateChain(id utils.Big, enabled bool, config types.ChainCfg) (ch
 }
 
 func (o *orm) DeleteChain(id utils.Big) error {
-	sql := `DELETE FROM evm_chains WHERE id = $1`
-	result, err := o.db.Exec(sql, id)
+	q := `DELETE FROM evm_chains WHERE id = $1`
+	result, err := o.db.Exec(q, id)
 	if err != nil {
 		return err
 	}
@@ -52,7 +51,7 @@ func (o *orm) DeleteChain(id utils.Big) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return ErrNoRowsAffected
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -95,8 +94,8 @@ func (o *orm) CreateNode(data types.NewNode) (node types.Node, err error) {
 }
 
 func (o *orm) DeleteNode(id int64) error {
-	sql := `DELETE FROM evm_nodes WHERE id = $1`
-	result, err := o.db.Exec(sql, id)
+	q := `DELETE FROM evm_nodes WHERE id = $1`
+	result, err := o.db.Exec(q, id)
 	if err != nil {
 		return err
 	}
@@ -105,7 +104,7 @@ func (o *orm) DeleteNode(id int64) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return ErrNoRowsAffected
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -143,7 +142,7 @@ func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error
 	return
 }
 
-// GetNodesByChainID fetches allow nodes for the given chain ids.
+// GetNodesByChainIDs fetches allow nodes for the given chain ids.
 func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []types.Node, err error) {
 	sql := `SELECT * FROM evm_nodes WHERE evm_chain_id = ANY($1) ORDER BY created_at, id;`
 
@@ -185,7 +184,7 @@ func (o *orm) StoreString(chainID *big.Int, name, val string) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return errors.Wrapf(ErrNoRowsAffected, "no chain found with ID %s", chainID.String())
+		return errors.Wrapf(sql.ErrNoRows, "no chain found with ID %s", chainID.String())
 	}
 	return nil
 }
@@ -201,7 +200,7 @@ func (o *orm) Clear(chainID *big.Int, name string) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return errors.Wrapf(ErrNoRowsAffected, "no chain found with ID %s", chainID.String())
+		return errors.Wrapf(sql.ErrNoRows, "no chain found with ID %s", chainID.String())
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"testing"
 	"time"
@@ -29,14 +30,13 @@ func Test_TerraChainsController_Create(t *testing.T) {
 
 	controller := setupTerraChainsControllerTest(t)
 
-	const newChainId = "Chainlinktest-42"
+	newChainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
 	minute := models.MustMakeDuration(time.Minute)
 	body, err := json.Marshal(web.CreateTerraChainRequest{
 		ID: newChainId,
 		Config: db.ChainCfg{
 			BlocksUntilTxTimeout:  null.IntFrom(1),
-			ConfirmMaxPolls:       null.IntFrom(10),
 			ConfirmPollPeriod:     &minute,
 			FallbackGasPriceULuna: null.StringFrom("9.999"),
 			GasLimitMultiplier:    null.FloatFrom(1.55555),
@@ -59,7 +59,6 @@ func Test_TerraChainsController_Create(t *testing.T) {
 
 	assert.Equal(t, resource.ID, dbChain.ID)
 	assert.Equal(t, resource.Config.BlocksUntilTxTimeout, dbChain.Cfg.BlocksUntilTxTimeout)
-	assert.Equal(t, resource.Config.ConfirmMaxPolls, dbChain.Cfg.ConfirmMaxPolls)
 	assert.Equal(t, resource.Config.ConfirmPollPeriod, dbChain.Cfg.ConfirmPollPeriod)
 	assert.Equal(t, resource.Config.FallbackGasPriceULuna, dbChain.Cfg.FallbackGasPriceULuna)
 	assert.Equal(t, resource.Config.GasLimitMultiplier, dbChain.Cfg.GasLimitMultiplier)
@@ -142,13 +141,13 @@ func Test_TerraChainsController_Index(t *testing.T) {
 
 	newChains := []web.CreateTerraChainRequest{
 		{
-			ID: "Chainlinktest-24",
+			ID: fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999)),
 			Config: db.ChainCfg{
 				FallbackGasPriceULuna: null.StringFrom("9.999"),
 			},
 		},
 		{
-			ID: "Chainlinktest-30",
+			ID: fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999)),
 			Config: db.ChainCfg{
 				GasLimitMultiplier: null.FloatFrom(1.55555),
 			},
@@ -218,7 +217,7 @@ func Test_TerraChainsController_Update(t *testing.T) {
 		},
 	}
 
-	const validId = "Chainlinktest-12"
+	validId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
 	testCases := []struct {
 		name              string
@@ -300,7 +299,7 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 		GasLimitMultiplier:    null.FloatFrom(1.55555),
 	}
 
-	const chainId = "Chainlinktest-50"
+	chainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	chain := db.Chain{
 		ID:      chainId,
 		Enabled: true,

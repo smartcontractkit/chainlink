@@ -1,6 +1,8 @@
 package terratxm_test
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +20,7 @@ func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	logCfg := pgtest.NewPGCfg(true)
-	const chainID = "Chainlinktest-99"
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{})
 	require.NoError(t, err)
 	o := NewORM(chainID, db, lggr, logCfg)

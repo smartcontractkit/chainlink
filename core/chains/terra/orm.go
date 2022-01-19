@@ -1,10 +1,11 @@
 package terra
 
 import (
-	"github.com/pkg/errors"
+	"database/sql"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,9 +22,6 @@ var _ types.ORM = (*orm)(nil)
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 	return &orm{q: pg.NewQ(db, lggr.Named("ORM"), cfg)}
 }
-
-// ErrNoRowsAffected is returned when rows should have been affected but were not.
-var ErrNoRowsAffected = errors.New("no rows affected")
 
 func (o *orm) Chain(id string, qopts ...pg.QOpt) (dbchain db.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
@@ -54,8 +52,8 @@ func (o *orm) UpdateChain(id string, enabled bool, config db.ChainCfg, qopts ...
 
 func (o *orm) DeleteChain(id string, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	sql := `DELETE FROM terra_chains WHERE id = $1`
-	result, err := q.Exec(sql, id)
+	query := `DELETE FROM terra_chains WHERE id = $1`
+	result, err := q.Exec(query, id)
 	if err != nil {
 		return err
 	}
@@ -64,7 +62,7 @@ func (o *orm) DeleteChain(id string, qopts ...pg.QOpt) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return ErrNoRowsAffected
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -119,8 +117,8 @@ func (o *orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node db.Node, er
 
 func (o *orm) DeleteNode(id int32, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	sql := `DELETE FROM terra_nodes WHERE id = $1`
-	result, err := q.Exec(sql, id)
+	query := `DELETE FROM terra_nodes WHERE id = $1`
+	result, err := q.Exec(query, id)
 	if err != nil {
 		return err
 	}
@@ -129,7 +127,7 @@ func (o *orm) DeleteNode(id int32, qopts ...pg.QOpt) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return ErrNoRowsAffected
+		return sql.ErrNoRows
 	}
 	return nil
 }

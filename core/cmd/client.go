@@ -161,13 +161,13 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
-	var chainSets chainlink.Chains
-	chainSets.EVM, err = evm.LoadChainSet(ccOpts)
+	var chains chainlink.Chains
+	chains.EVM, err = evm.LoadChainSet(ccOpts)
 	if err != nil {
 		appLggr.Fatal(err)
 	}
 	terraLggr := appLggr.Named("Terra")
-	chainSets.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
 		Config:           cfg,
 		Logger:           terraLggr,
 		DB:               db,
@@ -184,7 +184,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		ShutdownSignal:           sig,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
-		Chains:                   chainSets,
+		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
 		ExternalInitiatorManager: externalInitiatorManager,

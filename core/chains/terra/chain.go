@@ -2,7 +2,6 @@ package terra
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
@@ -50,7 +49,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	if err != nil {
 		return nil, err
 	}
-	txm, err := terratxm.NewTxm(db, client, dbchain.ID, cfg, ks, lggr, logCfg, eb, 5*time.Second)
+	txm, err := terratxm.NewTxm(db, client, dbchain.ID, cfg, ks, lggr, logCfg, eb)
 	if err != nil {
 		return nil, err
 	}

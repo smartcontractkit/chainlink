@@ -1,6 +1,8 @@
 package terra_test
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,9 +33,11 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, dbcs)
 
-	_, err = orm.CreateChain("Columbus-5", db.ChainCfg{})
+	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_, err = orm.CreateChain(chainIDA, db.ChainCfg{})
 	require.NoError(t, err)
-	_, err = orm.CreateChain("Bombay-12", db.ChainCfg{})
+	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_, err = orm.CreateChain(chainIDB, db.ChainCfg{})
 	require.NoError(t, err)
 
 	dbcs, err = orm.EnabledChainsWithNodes()
@@ -42,7 +46,7 @@ func Test_ORM(t *testing.T) {
 
 	newNode := types.NewNode{
 		Name:          "first",
-		TerraChainID:  "Columbus-5",
+		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 		FCDURL:        "http://fcd.test/columbus-5",
 	}
@@ -56,7 +60,7 @@ func Test_ORM(t *testing.T) {
 
 	newNode2 := types.NewNode{
 		Name:          "second",
-		TerraChainID:  "Bombay-12",
+		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
 		FCDURL:        "http://fcd.test/bombay-12",
 	}
@@ -91,7 +95,7 @@ func Test_ORM(t *testing.T) {
 
 	newNode3 := types.NewNode{
 		Name:          "third",
-		TerraChainID:  "Bombay-12",
+		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
 		FCDURL:        "http://fcd.test/bombay-12",
 	}

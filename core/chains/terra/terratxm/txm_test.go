@@ -1,6 +1,8 @@
 package terratxm_test
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -32,7 +34,7 @@ func TestTxmStartStop(t *testing.T) {
 	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
-	const chainID = "Chainlinktest-99"
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	logCfg := pgtest.NewPGCfg(true)
 	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
 	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{
@@ -71,7 +73,7 @@ func TestTxmStartStop(t *testing.T) {
 	}, tc, testdir, "../../../testdata/my_first_contract.wasm")
 
 	// Start txm
-	txm, err := terratxm.NewTxm(db, tc, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb, 5*time.Second)
+	txm, err := terratxm.NewTxm(db, tc, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
 	require.NoError(t, err)
 	require.NoError(t, txm.Start())
 

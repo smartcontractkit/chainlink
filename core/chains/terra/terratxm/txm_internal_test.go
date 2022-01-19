@@ -1,8 +1,9 @@
 package terratxm
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -52,7 +53,7 @@ func TestTxm(t *testing.T) {
 	contract, err := cosmostypes.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
 	require.NoError(t, err)
 	logCfg := pgtest.NewPGCfg(true)
-	const chainID = "Chainlinktest-99"
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
 	require.NoError(t, err)
 	cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
@@ -60,7 +61,7 @@ func TestTxm(t *testing.T) {
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, logCfg, nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
 
 		// Enqueue a single msg, then send it in a batch
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
@@ -101,7 +102,7 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
 		require.NoError(t, err)
@@ -161,9 +162,8 @@ func TestTxm(t *testing.T) {
 		}, errors.New("not found")).Twice()
 		cfg := terra.NewConfig(terradb.ChainCfg{}, terra.ConfigSet{
 			ConfirmPollPeriod: 0,
-			ConfirmMaxPolls:   2,
 		}, lggr)
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		err = txm.confirmTx("0x123", []int64{i})
@@ -185,7 +185,7 @@ func TestTxm(t *testing.T) {
 		tc.On("Tx", txHash2).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash2},
 		}, nil).Once()
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
 		// Insert and broadcast 2 msgs with different txhashes.
 		id1, err := txm.orm.InsertMsg("blah", []byte{0x01})

@@ -2,7 +2,10 @@ package cmd_test
 
 import (
 	"flag"
+	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,9 +16,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-const terraChainID = "Chainlinktest-99"
+func randTerraChainID() string {
+	return fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+}
 
 func TestClient_IndexTerraChains(t *testing.T) {
 	t.Parallel()
@@ -27,7 +33,7 @@ func TestClient_IndexTerraChains(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	chain, err := orm.CreateChain(terraChainID, db.ChainCfg{})
+	chain, err := orm.CreateChain(randTerraChainID(), db.ChainCfg{})
 	require.NoError(t, err)
 
 	require.Nil(t, client.IndexTerraChains(cltest.EmptyCLIContext()))
@@ -48,6 +54,7 @@ func TestClient_CreateTerraChain(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
+	terraChainID := randTerraChainID()
 	set := flag.NewFlagSet("cli", 0)
 	set.String("id", terraChainID, "")
 	set.Parse([]string{`{}`})
@@ -74,6 +81,7 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
+	terraChainID := randTerraChainID()
 	_, err = orm.CreateChain(terraChainID, db.ChainCfg{})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
@@ -104,10 +112,14 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	_, err = orm.CreateChain(terraChainID, db.ChainCfg{
+	terraChainID := randTerraChainID()
+	minute := models.MustMakeDuration(time.Minute)
+	original := db.ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom("99.07"),
 		GasLimitMultiplier:    null.FloatFrom(1.111),
-	})
+		ConfirmPollPeriod:     &minute,
+	}
+	_, err = orm.CreateChain(terraChainID, original)
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
 	require.NoError(t, err)
@@ -115,7 +127,11 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 
 	set := flag.NewFlagSet("cli", 0)
 	set.String("id", terraChainID, "param")
-	set.Parse([]string{"FallbackGasPriceULuna=\"9.999\"", "GasLimitMultiplier=1.55555"}) //TODO more
+	set.Parse([]string{
+		"BlocksUntilTxTimeout=7",
+		"FallbackGasPriceULuna=\"9.999\"",
+		"GasLimitMultiplier=1.55555",
+	})
 	c := cli.NewContext(nil, set, nil)
 
 	err = client.ConfigureTerraChain(c)
@@ -126,7 +142,9 @@ func TestClient_ConfigureTerraChain(t *testing.T) {
 	ch := chains[initialCount]
 
 	assert.Equal(t, terraChainID, ch.ID)
-	assert.Equal(t, null.StringFrom("9.999"), ch.Cfg.FallbackGasPriceULuna) // this key was changed
-	assert.Equal(t, null.FloatFrom(1.55555), ch.Cfg.GasLimitMultiplier)     // this key was unchanged
+	assert.Equal(t, null.IntFrom(7), ch.Cfg.BlocksUntilTxTimeout)
+	assert.Equal(t, null.StringFrom("9.999"), ch.Cfg.FallbackGasPriceULuna)
+	assert.Equal(t, null.FloatFrom(1.55555), ch.Cfg.GasLimitMultiplier)
+	assert.Equal(t, original.ConfirmPollPeriod, ch.Cfg.ConfirmPollPeriod)
 	assertTableRenders(t, r)
 }

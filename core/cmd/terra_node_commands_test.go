@@ -2,6 +2,8 @@ package cmd_test
 
 import (
 	"flag"
+	"fmt"
+	"math/rand"
 	"strconv"
 	"testing"
 
@@ -31,11 +33,12 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	orm := app.TerraORM()
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
-	_ = mustInsertTerraChain(t, orm, "Bombay-12")
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_ = mustInsertTerraChain(t, orm, chainID)
 
 	params := types.NewNode{
 		Name:          "second",
-		TerraChainID:  "Bombay-12",
+		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/bombay-12",
 		FCDURL:        "http://fcd.test/bombay-12",
 	}
@@ -64,14 +67,16 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	orm := app.TerraORM()
 	_, initialNodesCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
-	_ = mustInsertTerraChain(t, orm, "Columbus-5")
-	_ = mustInsertTerraChain(t, orm, "Bombay-12")
+	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_ = mustInsertTerraChain(t, orm, chainIDA)
+	_ = mustInsertTerraChain(t, orm, chainIDB)
 
 	set := flag.NewFlagSet("cli", 0)
 	set.String("name", "first", "")
 	set.String("tendermint-url", "http://tender.mint.test/columbus-5", "")
 	set.String("fcd-url", "http://fcd.test/columbus-5", "")
-	set.String("chain-id", "Columbus-5", "")
+	set.String("chain-id", chainIDA, "")
 	c := cli.NewContext(nil, set, nil)
 	err = client.CreateTerraNode(c)
 	require.NoError(t, err)
@@ -80,7 +85,7 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	set.String("name", "second", "")
 	set.String("tendermint-url", "http://tender.mint.test/bombay-12", "")
 	set.String("fcd-url", "http://fcd.test/bombay-12", "")
-	set.String("chain-id", "Bombay-12", "")
+	set.String("chain-id", chainIDB, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.CreateTerraNode(c)
 	require.NoError(t, err)
@@ -91,14 +96,14 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	n := nodes[initialNodesCount]
 	assertEqual(t, types.NewNode{
 		Name:          "first",
-		TerraChainID:  "Columbus-5",
+		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 		FCDURL:        "http://fcd.test/columbus-5",
 	}, n)
 	n = nodes[initialNodesCount+1]
 	assertEqual(t, types.NewNode{
 		Name:          "second",
-		TerraChainID:  "Bombay-12",
+		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
 		FCDURL:        "http://fcd.test/bombay-12",
 	}, n)
@@ -115,11 +120,12 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	orm := app.TerraORM()
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
-	_ = mustInsertTerraChain(t, orm, "Columbus-5")
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_ = mustInsertTerraChain(t, orm, chainID)
 
 	params := types.NewNode{
 		Name:          "first",
-		TerraChainID:  "Columbus-5",
+		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 		FCDURL:        "http://fcd.test/columbus-5",
 	}

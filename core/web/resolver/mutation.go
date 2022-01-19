@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -390,7 +389,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 
 	err = r.App.EVMORM().DeleteNode(int64(id))
 	if err != nil {
-		if errors.Is(err, evm.ErrNoRowsAffected) {
+		if errors.Is(err, sql.ErrNoRows) {
 			// Sending the SQL error as the expected error to happen
 			// though the prior check should take this into consideration
 			// so this should never happen anyway
