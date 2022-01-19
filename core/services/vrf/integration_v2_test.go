@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -341,37 +340,6 @@ func createVRFJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplicatio
 	return
 }
 
-func createBHSJob(t *testing.T, key ethkey.KeyV2, app *cltest.TestApplication, uni coordinatorV2Universe) job.Job {
-	jid := uuid.NewV4()
-	s := testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{
-		JobID:                 jid.String(),
-		Name:                  "blockhash-store",
-		CoordinatorV2Address:  uni.rootContractAddress.String(),
-		WaitBlocks:            100,
-		LookbackBlocks:        200,
-		BlockhashStoreAddress: uni.bhsContractAddress.String(),
-		PollPeriod:            time.Second,
-		RunTimeout:            100 * time.Millisecond,
-		EVMChainID:            1337,
-		FromAdress:            key.Address.String(),
-	})
-	jb, err := blockhashstore.ValidatedSpec(s.Toml())
-	require.NoError(t, err)
-
-	require.NoError(t, app.JobSpawner().CreateJob(&jb))
-	gomega.NewWithT(t).Eventually(func() bool {
-		jbs := app.JobSpawner().ActiveJobs()
-		for _, jb := range jbs {
-			if jb.Type == job.BlockhashStore {
-				return true
-			}
-		}
-		return false
-	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
-
-	return jb
-}
-
 // requestRandomness requests randomness from the given vrf consumer contract
 // and asserts that the request ID logged by the RandomWordsRequested event
 // matches the request ID that is returned and set by the consumer contract.
@@ -603,7 +571,9 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	vrfJobs := createVRFJobs(t, []ethkey.KeyV2{vrfKey}, app, uni)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
-	_ = createBHSJob(t, vrfKey, app, uni)
+	_ = createAndStartBHSJob(
+		t, vrfKey.Address.String(), app, uni.bhsContractAddress.String(), "",
+		uni.rootContractAddress.String())
 
 	// Make the randomness request. It will not yet succeed since it is underfunded.
 	numWords := uint32(20)
@@ -632,6 +602,11 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 			return false
 		}
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Wait another 160 blocks so that the request is outside of the 256 block window
+	for i := 0; i < 160; i++ {
+		uni.backend.Commit()
+	}
 
 	// Fund the subscription
 	_, err = consumerContract.TopUpSubscription(consumer, big.NewInt(5e18 /* 5 LINK */))
