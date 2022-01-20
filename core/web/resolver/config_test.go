@@ -174,7 +174,7 @@ func TestResolver_Config(t *testing.T) {
       },
 	  {
 		"key":"SHUTDOWN_GRACE_PERIOD",
-        "value":"10s"
+		"value":"10s"
 	  },
       {
         "key":"ETH_DISABLED",

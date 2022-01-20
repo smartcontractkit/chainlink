@@ -136,7 +136,7 @@ func (l *advisoryLock) loop(ctx context.Context) {
 		case <-ticker.C:
 			var gotLock bool
 
-			qCtx, cancel := DefaultQueryCtxWithParent(ctx)
+			qCtx, cancel := DefaultQueryCtx()
 			l.logger.Trace("Checking advisory lock")
 			err := l.conn.QueryRowContext(qCtx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
