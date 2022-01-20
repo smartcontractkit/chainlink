@@ -37,10 +37,11 @@ type Txm struct {
 	ks         keystore.Terra
 	stop, done chan struct{}
 	cfg        terra.Config
+	gpe        terraclient.ComposedGasPriceEstimator
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
+func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, gpe terraclient.ComposedGasPriceEstimator, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},
@@ -52,6 +53,7 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 		cfg:     cfg,
+		gpe:     gpe,
 	}, nil
 }
 
@@ -144,7 +146,7 @@ func (txm *Txm) sendMsgBatch() {
 	}
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
-	gp := txm.tc.GasPrice(sdk.NewDecCoinFromDec("uluna", txm.cfg.FallbackGasPriceULuna()))
+	prices := txm.gpe.GasPrices()
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s) // Already checked validity above
 		key, err := txm.ks.Get(sender.String())
@@ -154,7 +156,7 @@ func (txm *Txm) sendMsgBatch() {
 			// after it was added for this to happen. Retry on next poll should the key be re-added.
 			continue
 		}
-		txm.sendMsgBatchFromAddress(gp, sender, key, msgs)
+		txm.sendMsgBatchFromAddress(prices["uluna"], sender, key, msgs)
 	}
 }
 

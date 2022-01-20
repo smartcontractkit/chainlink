@@ -2,6 +2,9 @@ package terra
 
 import (
 	"fmt"
+	"time"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/pkg/errors"
 
@@ -46,12 +49,24 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	node := dbchain.Nodes[0] // TODO multi-node client pool https://app.shortcut.com/chainlinklabs/story/26278/terra-multi-node-client-pools
 	lggr.Debugw(fmt.Sprintf("Terra chain %q has %d nodes - using %q", dbchain.ID, len(dbchain.Nodes), node.Name),
 		"tendermint-url", node.TendermintURL)
-	client, err := terraclient.NewClient(dbchain.ID,
-		node.TendermintURL, node.FCDURL, DefaultRequestTimeoutSeconds, lggr.Named("Client"))
+	gpeFCD, err := terraclient.NewFCDGasPriceEstimator(node.FCDURL, DefaultRequestTimeoutSeconds*time.Second, lggr)
 	if err != nil {
 		return nil, err
 	}
-	txm, err := terratxm.NewTxm(db, client, dbchain.ID, cfg, ks, lggr, logCfg, eb)
+	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
+		terraclient.NewCachingGasPriceEstimator(gpeFCD, lggr),
+		terraclient.NewClosureGasPriceEstimator(func() (map[string]sdk.DecCoin, error) {
+			return map[string]sdk.DecCoin{
+				"uluna": sdk.NewDecCoinFromDec("uluna", cfg.FallbackGasPriceULuna()),
+			}, nil
+		}),
+	})
+	client, err := terraclient.NewClient(dbchain.ID,
+		node.TendermintURL, DefaultRequestTimeoutSeconds, lggr.Named("Client"))
+	if err != nil {
+		return nil, err
+	}
+	txm, err := terratxm.NewTxm(db, client, *gpe, dbchain.ID, cfg, ks, lggr, logCfg, eb)
 	if err != nil {
 		return nil, err
 	}
