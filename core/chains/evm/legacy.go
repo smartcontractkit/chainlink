@@ -36,7 +36,7 @@ Setting ETH_URL will cause Chainlink to automatically overwrite the database rec
 
 If you wish to continue using these environment variables (as it used to work in 1.0.x and below) you must ensure that the following are set:
 
-- ETH_CHAIN_ID (mandatory) <--- CURRENTLY MISSING
+- ETH_CHAIN_ID (mandatory)
 - ETH_URL (mandatory)
 - ETH_HTTP_URL (optional)
 - ETH_SECONDARY_URLS (optional)
