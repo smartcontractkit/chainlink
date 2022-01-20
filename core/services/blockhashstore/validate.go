@@ -60,7 +60,7 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 		spec.PollPeriod = 30 * time.Second
 	}
 	if spec.RunTimeout == 0 {
-		spec.RunTimeout = 15 * time.Second
+		spec.RunTimeout = 30 * time.Second
 	}
 
 	// Validation

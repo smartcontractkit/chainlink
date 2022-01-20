@@ -18,6 +18,7 @@ CREATE TABLE blockhash_store_specs
         CONSTRAINT coordinator_v1_address_len_chk CHECK (octet_length(coordinator_v1_address) = 20)
         CONSTRAINT coordinator_v2_address_len_chk CHECK (octet_length(coordinator_v2_address) = 20)
         CONSTRAINT blockhash_store_address_len_chk CHECK (octet_length(blockhash_store_address) = 20)
+        CONSTRAINT at_least_one_coordinator_chk CHECK (coordinator_v1_address IS NOT NULL OR coordinator_v2_address IS NOT NULL)
 );
 ALTER TABLE jobs
     ADD COLUMN blockhash_store_spec_id INT REFERENCES blockhash_store_specs (id),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -22,8 +23,9 @@ func TestFeeder(t *testing.T) {
 		wait           int
 		lookback       int
 		latest         uint64
-		initialStored  []uint64
+		bhs            testBHS
 		expectedStored []uint64
+		expectedErrMsg string
 	}{
 		{
 			name:           "single unfulfilled request",
@@ -48,8 +50,28 @@ func TestFeeder(t *testing.T) {
 			wait:           25,
 			lookback:       100,
 			latest:         200,
-			initialStored:  []uint64{150},
+			bhs:            testBHS{stored: []uint64{150}},
 			expectedStored: []uint64{150},
+		},
+		{
+			name:           "error checking if stored, store anyway",
+			requests:       []Event{{Block: 150, ID: "request"}},
+			wait:           25,
+			lookback:       100,
+			latest:         200,
+			bhs:            testBHS{errorsIsStored: []uint64{150}},
+			expectedStored: []uint64{150},
+			expectedErrMsg: "checking if stored: error checking if stored",
+		},
+		{
+			name:           "error storing, continue to next block anyway",
+			requests:       []Event{{Block: 150, ID: "request"}, {Block: 151, ID: "request"}},
+			wait:           25,
+			lookback:       100,
+			latest:         200,
+			bhs:            testBHS{errorsStore: []uint64{150}},
+			expectedStored: []uint64{151},
+			expectedErrMsg: "storing block: error storing",
 		},
 		{
 			name: "multiple requests same block, some fulfilled",
@@ -174,21 +196,25 @@ func TestFeeder(t *testing.T) {
 				requests:     test.requests,
 				fulfillments: test.fulfillments,
 			}
-			bhs := &testBHS{test.initialStored}
 
 			feeder := NewFeeder(
 				logger.TestLogger(t),
 				coordinator,
-				bhs,
+				&test.bhs,
 				test.wait,
 				test.lookback,
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
 
-			feeder.Run(context.Background())
+			err := feeder.Run(context.Background())
+			if test.expectedErrMsg == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, test.expectedErrMsg)
+			}
 
-			require.ElementsMatch(t, test.expectedStored, bhs.stored)
+			require.ElementsMatch(t, test.expectedStored, test.bhs.stored)
 		})
 	}
 }
@@ -211,20 +237,20 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		})
 
 	// Should store block 100
-	feeder.Run(context.Background())
+	require.NoError(t, feeder.Run(context.Background()))
 	require.ElementsMatch(t, []uint64{100}, bhs.stored)
 
 	// Remove 100 from the BHS and try again, it should not be stored since it's cached in the
 	// feeder
 	bhs.stored = nil
-	feeder.Run(context.Background())
+	require.NoError(t, feeder.Run(context.Background()))
 	require.Empty(t, bhs.stored)
 
 	// Run the feeder on a later block and make sure the cache is pruned
 	feeder.latestBlock = func(ctx context.Context) (uint64, error) {
 		return 500, nil
 	}
-	feeder.Run(context.Background())
+	require.NoError(t, feeder.Run(context.Background()))
 	require.Empty(t, feeder.stored)
 }
 
@@ -255,14 +281,32 @@ func (t *testCoordinator) Fulfillments(_ context.Context, fromBlock uint64) ([]E
 
 type testBHS struct {
 	stored []uint64
+
+	// errorsStore defines which block numbers should return errors on Store.
+	errorsStore []uint64
+
+	// errorsIsStored defines which block numbers should return errors on IsStored.
+	errorsIsStored []uint64
 }
 
 func (t *testBHS) Store(_ context.Context, blockNum uint64) error {
+	for _, e := range t.errorsStore {
+		if e == blockNum {
+			return errors.New("error storing")
+		}
+	}
+
 	t.stored = append(t.stored, blockNum)
 	return nil
 }
 
 func (t *testBHS) IsStored(_ context.Context, blockNum uint64) (bool, error) {
+	for _, e := range t.errorsIsStored {
+		if e == blockNum {
+			return false, errors.New("error checking if stored")
+		}
+	}
+
 	for _, s := range t.stored {
 		if s == blockNum {
 			return true, nil
