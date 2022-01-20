@@ -3,6 +3,8 @@ package terra
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
@@ -34,10 +36,10 @@ type chain struct {
 // NewChain returns a new chain backed by node.
 func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, lggr logger.Logger) (*chain, error) {
 	if !dbchain.Enabled {
-		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
+		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
 	if len(dbchain.Nodes) == 0 {
-		return nil, fmt.Errorf("no nodes for Terra chain: %s", dbchain.ID)
+		return nil, errors.Errorf("no nodes for Terra chain: %s", dbchain.ID)
 	}
 	cfg := terra.NewConfig(dbchain.Cfg, terra.DefaultConfigSet, lggr)
 	lggr = lggr.With("terraChainID", dbchain.ID)

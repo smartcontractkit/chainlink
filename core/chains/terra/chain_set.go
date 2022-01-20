@@ -32,7 +32,7 @@ type ChainSetOpts struct {
 
 func (o ChainSetOpts) validate() (err error) {
 	required := func(s string) error {
-		return fmt.Errorf("%s is required", s)
+		return errors.Errorf("%s is required", s)
 	}
 	if o.Config == nil {
 		err = multierr.Append(err, required("Config"))

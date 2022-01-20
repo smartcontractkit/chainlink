@@ -71,7 +71,7 @@ func TestTxmStartStop(t *testing.T) {
 		Name:       "transmitter",
 		PrivateKey: terratxm.NewKeyWrapper(transmitterKey),
 		Address:    transmitterID,
-	}, tc, testdir, "../../../testdata/my_first_contract.wasm")
+	}, tc, testdir, "../../../testdata/terra/my_first_contract.wasm")
 
 	// Start txm
 	txm, err := terratxm.NewTxm(db, tc, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
