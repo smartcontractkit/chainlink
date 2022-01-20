@@ -208,6 +208,7 @@ func (c *TestGeneralConfig) Dev() bool {
 	return true
 }
 
+// ShutdownGracePeriod returns shutdown grace period duration.
 func (c *TestGeneralConfig) ShutdownGracePeriod() time.Duration {
 	if c.Overrides.ShutdownGracePeriod != nil {
 		return *c.Overrides.ShutdownGracePeriod
