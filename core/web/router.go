@@ -99,7 +99,6 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	schemaOpts := []graphql.SchemaOpt{}
 	if !app.GetConfig().Dev() {
 		schemaOpts = append(schemaOpts,
-			graphql.DisableIntrospection(),
 			graphql.MaxDepth(10),
 		)
 	}
