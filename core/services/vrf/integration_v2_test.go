@@ -727,7 +727,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
-	app.ChainSet.Configure(
+	app.Chains.EVM.Configure(
 		big.NewInt(1337),
 		true,
 		types.ChainCfg{
@@ -1039,7 +1039,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	chain, err := app.ChainSet.Get(big.NewInt(1337))
+	chain, err := app.Chains.EVM.Get(big.NewInt(1337))
 	require.NoError(t, err)
 
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
@@ -1118,7 +1118,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
-	ch, err := app.GetChainSet().Default()
+	ch, err := app.GetChains().EVM.Default()
 	require.NoError(t, err)
 	r, err := ch.Client().TransactionReceipt(context.Background(), attempts[0].Hash)
 	require.NoError(t, err)
@@ -1283,7 +1283,7 @@ func TestStartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDB(t, "vrf_test_starting_counts", true, false)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES (1337, NOW(), NOW())`)
 	require.NoError(t, err)
-	_, err = db.Exec(`INSERT INTO heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)
+	_, err = db.Exec(`INSERT INTO evm_heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)
 	VALUES ($1, 4, $2, NOW(), NOW(), 1337)`, utils.NewHash(), utils.NewHash())
 	require.NoError(t, err)
 

@@ -291,19 +291,19 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	lggr := opts.Logger.Named("EVM")
+	opts.Logger = opts.Logger.Named("EVM")
 	defaultChainID := opts.Config.DefaultChainID()
 	if defaultChainID == nil && len(dbchains) >= 1 {
 		defaultChainID = dbchains[0].ID.ToInt()
 		if len(dbchains) > 1 {
-			lggr.Debugf("Multiple chains present but ETH_CHAIN_ID was not specified, falling back to default chain: %s", defaultChainID.String())
+			opts.Logger.Debugf("Multiple chains present but ETH_CHAIN_ID was not specified, falling back to default chain: %s", defaultChainID.String())
 		}
 	}
 	var err error
-	cll := &chainSet{defaultChainID, make(map[string]*chain), make([]Chain, 0), sync.RWMutex{}, lggr, opts.ORM, opts}
+	cll := &chainSet{defaultChainID, make(map[string]*chain), make([]Chain, 0), sync.RWMutex{}, opts.Logger.Named("ChainSet"), opts.ORM, opts}
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
-		lggr.Infow(fmt.Sprintf("EVM: Loading chain %s", cid), "evmChainID", cid)
+		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := newChain(dbchains[i], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)

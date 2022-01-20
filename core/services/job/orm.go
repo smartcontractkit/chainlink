@@ -191,6 +191,11 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
 					}
+				case relaytypes.Terra:
+					_, err := o.keyStore.Terra().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
+					if err != nil {
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
+					}
 				}
 			}
 

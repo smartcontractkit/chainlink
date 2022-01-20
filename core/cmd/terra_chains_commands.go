@@ -5,21 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-type ChainPresenter struct {
-	presenters.ChainResource
+// TerraChainPresenter implements TableRenderer for a TerraChainResource
+type TerraChainPresenter struct {
+	presenters.TerraChainResource
 }
 
-func (p *ChainPresenter) ToRow() []string {
+// ToRow presents the TerraChainResource as a slice of strings.
+func (p *TerraChainPresenter) ToRow() []string {
 	// NOTE: it's impossible to omitempty null fields when serializing to JSON: https://github.com/golang/go/issues/11939
 	config, err := json.MarshalIndent(p.Config, "", "    ")
 	if err != nil {
@@ -28,7 +31,7 @@ func (p *ChainPresenter) ToRow() []string {
 
 	row := []string{
 		p.GetID(),
-		fmt.Sprintf("%v", p.Enabled),
+		strconv.FormatBool(p.Enabled),
 		string(config),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
@@ -38,7 +41,7 @@ func (p *ChainPresenter) ToRow() []string {
 
 // RenderTable implements TableRenderer
 // Just renders a single row
-func (p ChainPresenter) RenderTable(rt RendererTable) error {
+func (p TerraChainPresenter) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
 	rows = append(rows, p.ToRow())
@@ -48,10 +51,11 @@ func (p ChainPresenter) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-type ChainPresenters []ChainPresenter
+// TerraChainPresenters implements TableRenderer for a slice of TerraChainPresenters.
+type TerraChainPresenters []TerraChainPresenter
 
 // RenderTable implements TableRenderer
-func (ps ChainPresenters) RenderTable(rt RendererTable) error {
+func (ps TerraChainPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
 
@@ -64,19 +68,19 @@ func (ps ChainPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-// IndexChains returns all chains.
-func (cli *Client) IndexChains(c *cli.Context) (err error) {
-	return cli.getPage("/v2/chains/evm", c.Int("page"), &ChainPresenters{})
+// IndexTerraChains returns all Terra chains.
+func (cli *Client) IndexTerraChains(c *cli.Context) (err error) {
+	return cli.getPage("/v2/chains/terra", c.Int("page"), &TerraChainPresenters{})
 }
 
-// CreateChain adds a new chain to the chainlink node
-func (cli *Client) CreateChain(c *cli.Context) (err error) {
+// CreateTerraChain adds a new Terra chain.
+func (cli *Client) CreateTerraChain(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass in the chain's parameters [-id integer] [JSON blob | JSON filepath]"))
+		return cli.errorOut(errors.New("must pass in the chain's parameters [-id string] [JSON blob | JSON filepath]"))
 	}
-	chainID := c.Int64("id")
-	if chainID == 0 {
-		return cli.errorOut(errors.New("missing chain ID [-id integer]"))
+	chainID := c.String("id")
+	if chainID == "" {
+		return cli.errorOut(errors.New("missing chain ID [-id string]"))
 	}
 
 	buf, err := getBufferFromJSON(c.Args().First())
@@ -95,7 +99,7 @@ func (cli *Client) CreateChain(c *cli.Context) (err error) {
 	}
 
 	var resp *http.Response
-	resp, err = cli.HTTP.Post("/v2/chains/evm", bytes.NewBuffer(body))
+	resp, err = cli.HTTP.Post("/v2/chains/terra", bytes.NewBuffer(body))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -105,16 +109,16 @@ func (cli *Client) CreateChain(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &ChainPresenter{})
+	return cli.renderAPIResponse(resp, &TerraChainPresenter{})
 }
 
-// RemoveChain removes a specific Chain by name.
-func (cli *Client) RemoveChain(c *cli.Context) (err error) {
+// RemoveTerraChain removes a specific Terra Chain by id.
+func (cli *Client) RemoveTerraChain(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("must pass the id of the chain to be removed"))
 	}
 	chainID := c.Args().First()
-	resp, err := cli.HTTP.Delete("/v2/chains/evm/" + chainID)
+	resp, err := cli.HTTP.Delete("/v2/chains/terra/" + chainID)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -127,18 +131,19 @@ func (cli *Client) RemoveChain(c *cli.Context) (err error) {
 	return nil
 }
 
-func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
-	chainID := c.Int64("id")
-	if chainID == 0 {
-		return cli.errorOut(errors.New("missing chain ID (usage: chainlink evm chains configure [-id integer] [key1=value1 key2=value2 ...])"))
+// ConfigureTerraChain configures an existing Terra chain.
+func (cli *Client) ConfigureTerraChain(c *cli.Context) (err error) {
+	chainID := c.String("id")
+	if chainID == "" {
+		return cli.errorOut(errors.New("missing chain ID (usage: chainlink terra chains configure [-id string] [key1=value1 key2=value2 ...])"))
 	}
 
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass in at least one chain configuration parameters (usage: chainlink evm chains configure [-id integer] [key1=value1 key2=value2 ...])"))
+		return cli.errorOut(errors.New("must pass in at least one chain configuration parameters (usage: chainlink terra chains configure [-id string] [key1=value1 key2=value2 ...])"))
 	}
 
 	// Fetch existing config
-	resp, err := cli.HTTP.Get(fmt.Sprintf("/v2/chains/evm/%v", chainID))
+	resp, err := cli.HTTP.Get(fmt.Sprintf("/v2/chains/terra/%s", chainID))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -147,7 +152,7 @@ func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	var chain presenters.ChainResource
+	var chain presenters.TerraChainResource
 	if err = cli.deserializeAPIResponse(resp, &chain, &jsonapi.Links{}); err != nil {
 		return cli.errorOut(err)
 	}
@@ -176,6 +181,7 @@ func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
+
 	err = json.Unmarshal(rawUpdates, &config)
 	if err != nil {
 		return cli.errorOut(err)
@@ -190,7 +196,7 @@ func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	resp, err = cli.HTTP.Patch(fmt.Sprintf("/v2/chains/evm/%v", chainID), bytes.NewBuffer(body))
+	resp, err = cli.HTTP.Patch(fmt.Sprintf("/v2/chains/terra/%s", chainID), bytes.NewBuffer(body))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -199,5 +205,6 @@ func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	return cli.renderAPIResponse(resp, &ChainPresenter{})
+
+	return cli.renderAPIResponse(resp, &TerraChainPresenter{})
 }

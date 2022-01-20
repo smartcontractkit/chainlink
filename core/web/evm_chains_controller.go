@@ -13,11 +13,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ChainsController struct {
+// EVMChainsController manages EVM chains.
+type EVMChainsController struct {
 	App chainlink.Application
 }
 
-func (cc *ChainsController) Index(c *gin.Context, size, page, offset int) {
+// Index lists EVM chains.
+func (cc *EVMChainsController) Index(c *gin.Context, size, page, offset int) {
 	chains, count, err := cc.App.EVMORM().Chains(offset, size)
 
 	if err != nil {
@@ -25,20 +27,22 @@ func (cc *ChainsController) Index(c *gin.Context, size, page, offset int) {
 		return
 	}
 
-	var resources []presenters.ChainResource
+	var resources []presenters.EVMChainResource
 	for _, chain := range chains {
-		resources = append(resources, presenters.NewChainResource(chain))
+		resources = append(resources, presenters.NewEVMChainResource(chain))
 	}
 
 	paginatedResponse(c, "chain", size, page, resources, count, err)
 }
 
-type CreateChainRequest struct {
+// CreateEVMChainRequest is a JSONAPI request for creating an EVM chain.
+type CreateEVMChainRequest struct {
 	ID     utils.Big      `json:"chainID"`
 	Config types.ChainCfg `json:"config"`
 }
 
-func (cc *ChainsController) Show(c *gin.Context) {
+// Show gets an EVM chain by chain id.
+func (cc *EVMChainsController) Show(c *gin.Context) {
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(c.Param("ID")))
 	if err != nil {
@@ -52,33 +56,36 @@ func (cc *ChainsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+	jsonAPIResponse(c, presenters.NewEVMChainResource(chain), "chain")
 }
 
-func (cc *ChainsController) Create(c *gin.Context) {
-	request := &CreateChainRequest{}
+// Create adds a new EVM chain.
+func (cc *EVMChainsController) Create(c *gin.Context) {
+	request := &CreateEVMChainRequest{}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	chain, err := cc.App.GetChainSet().Add(request.ID.ToInt(), request.Config)
+	chain, err := cc.App.GetChains().EVM.Add(request.ID.ToInt(), request.Config)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, presenters.NewChainResource(chain), "chain", http.StatusCreated)
+	jsonAPIResponseWithStatus(c, presenters.NewEVMChainResource(chain), "chain", http.StatusCreated)
 }
 
-type UpdateChainRequest struct {
+// UpdateEVMChainRequest is a JSONAPI request for updating an EVM chain.
+type UpdateEVMChainRequest struct {
 	Enabled bool           `json:"enabled"`
 	Config  types.ChainCfg `json:"config"`
 }
 
-func (cc *ChainsController) Update(c *gin.Context) {
+// Update configures an existing EVM chain.
+func (cc *EVMChainsController) Update(c *gin.Context) {
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(c.Param("ID")))
 	if err != nil {
@@ -86,13 +93,13 @@ func (cc *ChainsController) Update(c *gin.Context) {
 		return
 	}
 
-	var request UpdateChainRequest
+	var request UpdateEVMChainRequest
 	if err = c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	chain, err := cc.App.GetChainSet().Configure(id.ToInt(), request.Enabled, request.Config)
+	chain, err := cc.App.GetChains().EVM.Configure(id.ToInt(), request.Enabled, request.Config)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, err)
@@ -102,10 +109,11 @@ func (cc *ChainsController) Update(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+	jsonAPIResponse(c, presenters.NewEVMChainResource(chain), "chain")
 }
 
-func (cc *ChainsController) Delete(c *gin.Context) {
+// Delete removes an EVM chain.
+func (cc *EVMChainsController) Delete(c *gin.Context) {
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(c.Param("ID")))
 	if err != nil {
@@ -113,7 +121,7 @@ func (cc *ChainsController) Delete(c *gin.Context) {
 		return
 	}
 
-	err = cc.App.GetChainSet().Remove(id.ToInt())
+	err = cc.App.GetChains().EVM.Remove(id.ToInt())
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
