@@ -6,6 +6,8 @@ import (
 	"github.com/smartcontractkit/terra.go/key"
 )
 
+// Note we use this strictly for https://github.com/smartcontractkit/terra.go/blob/master/tx/txbuilder.go#L37
+// i.e. inline signing txes.
 var _ key.PrivKey = KeyWrapper{}
 
 // KeyWrapper wrapper around a terra transmitter key

@@ -25,7 +25,7 @@ import (
 )
 
 func TestTxmStartStop(t *testing.T) {
-	t.Skip() // Local only unless we want to add terrad to CI env
+	//t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	orm := terratxm.NewORM(db, lggr, pgtest.NewPGCfg(true))
@@ -34,6 +34,7 @@ func TestTxmStartStop(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	accounts, testdir := terraclient.SetupLocalTerraNode(t, "42")
+	time.Sleep(5 * time.Second)
 	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
 	gasLimitMultiplier := 1.5
 	tc, err := terraclient.NewClient("42", "http://127.0.0.1:26657", "https://fcd.terra.dev/", 10, lggr)
