@@ -64,7 +64,8 @@ type Txm struct {
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, gasLimitMultiplier float64, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
-	ticker := time.NewTicker(pollPeriod)
+	// Jitter in case we have multiple terra chains each with their own client.
+	ticker := time.NewTicker(utils.WithJitter(pollPeriod))
 	fgp, err := sdk.NewDecFromStr(fallbackGasPrice)
 	if err != nil {
 		return nil, err
@@ -283,7 +284,8 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
 	for tries := 0; tries < txm.confirmMaxPolls; tries++ {
-		time.Sleep(txm.confirmPollPeriod)
+		// Jitter in-case we're confirming multiple txes in parallel for different keys
+		time.Sleep(utils.WithJitter(txm.confirmPollPeriod))
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)
