@@ -62,7 +62,7 @@ type Txm struct {
 	gasLimitMultiplier float64
 }
 
-// NewTxm creates a txm
+// NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, gasLimitMultiplier float64, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
 	ticker := time.NewTicker(pollPeriod)
 	fgp, err := sdk.NewDecFromStr(fallbackGasPrice)
@@ -106,7 +106,7 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	broadcasted, err := txm.orm.SelectMsgsWithState(Broadcasted)
 	if err != nil {
 		// Should never happen but if so, theoretically can retry with a reboot
-		txm.lggr.Errorw("unable to look for broadcasted but unconfirmed txes", "err", err)
+		txm.lggr.CriticalW("unable to look for broadcasted but unconfirmed txes", "err", err)
 		return
 	}
 	if len(broadcasted) == 0 {
@@ -158,7 +158,7 @@ func (txm *Txm) sendMsgBatch() {
 		err := ms.Unmarshal(m.Msg)
 		if err != nil {
 			// Should be impossible given the check in Enqueue
-			txm.lggr.Errorw("failed to unmarshal msg, skipping", "err", err, "msg", m)
+			txm.lggr.CriticalW("failed to unmarshal msg, skipping", "err", err, "msg", m)
 			continue
 		}
 		m.ExecuteContract = &ms
@@ -180,7 +180,7 @@ func (txm *Txm) sendMsgBatch() {
 			txm.lggr.Errorw("unable to find key for from address", "err", err, "from", sender.String())
 			// We check the transmitter key exists when the job is added. So it would have to be deleted
 			// after it was added for this to happen. Retry on next poll should the key be re-added.
-			return
+			continue
 		}
 		txm.sendMsgBatchFromAddress(gp, sender, key, msgs)
 	}
