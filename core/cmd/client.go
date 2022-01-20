@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -83,14 +83,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (chainlink.Application, error)
+	NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
 	appLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
@@ -167,7 +167,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
-		ShutdownSignal:           sig,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
@@ -180,7 +179,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 // Runner implements the Run method.
 type Runner interface {
-	Run(chainlink.Application) error
+	Run(context.Context, chainlink.Application) error
 }
 
 // ChainlinkRunner is used to run the node application.
@@ -188,12 +187,7 @@ type ChainlinkRunner struct{}
 
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
-func (n ChainlinkRunner) Run(app chainlink.Application) error {
-	defer func() {
-		if err := app.GetLogger().Sync(); err != nil {
-			log.Println(err)
-		}
-	}()
+func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) error {
 	config := app.GetConfig()
 	mode := gin.ReleaseMode
 	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
@@ -204,7 +198,8 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
-	var g errgroup.Group
+
+	g, gCtx := errgroup.WithContext(ctx)
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
 		log.Fatal("You must specify at least one port to listen on")
@@ -228,26 +223,32 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		})
 	}
 
+	g.Go(func() error {
+		<-gCtx.Done()
+		return server.httpServer.Shutdown(context.Background())
+	})
+
 	return g.Wait()
 }
 
 type server struct {
-	handler *gin.Engine
-	lggr    logger.Logger
+	httpServer *http.Server
+	handler    *gin.Engine
+	lggr       logger.Logger
 }
 
 func (s *server) run(port uint16, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTP on port %d", port)
-	server := createServer(s.handler, port, writeTimeout)
-	err := server.ListenAndServe()
+	s.httpServer = createServer(s.handler, port, writeTimeout)
+	err := s.httpServer.ListenAndServe()
 	s.lggr.ErrorIf(err, "Error starting server")
 	return err
 }
 
 func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
-	server := createServer(s.handler, port, writeTimeout)
-	err := server.ListenAndServeTLS(certFile, keyFile)
+	s.httpServer = createServer(s.handler, port, writeTimeout)
+	err := s.httpServer.ListenAndServeTLS(certFile, keyFile)
 	s.lggr.ErrorIf(err, "Error starting TLS server")
 	return err
 }

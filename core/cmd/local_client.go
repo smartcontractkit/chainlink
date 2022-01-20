@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net/url"
 	"os"
@@ -24,9 +23,8 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -40,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
@@ -59,11 +58,10 @@ func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err erro
 	return
 }
 
-func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger, sig shutdown.Signal) (cleanup func(), err error) {
+func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (err error) {
 	lggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
 
 	lockingMode := cfg.DatabaseLockingMode()
-	cleanup = func() {}
 
 	// Lease will be explicitly released on application stop
 	// Take the lease before any other DB operations
@@ -71,10 +69,9 @@ func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger
 	switch lockingMode {
 	case "lease", "dual":
 		leaseLock = pg.NewLeaseLock(db, cfg.AppID(), lggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
-		if err = leaseLock.TakeAndHold(sig); err != nil {
-			return cleanup, errors.Wrap(err, "failed to take initial lease on database")
+		if err = leaseLock.TakeAndHold(ctx); err != nil {
+			return errors.Wrap(err, "failed to take initial lease on database")
 		}
-		cleanup = leaseLock.Release
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
@@ -82,20 +79,12 @@ func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger
 	switch lockingMode {
 	case "advisorylock", "dual":
 		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
-		if err = advisoryLock.TakeAndHold(); err != nil {
-			return cleanup, errors.Wrap(err, "error acquiring lock")
+		if err = advisoryLock.TakeAndHold(ctx); err != nil {
+			return errors.Wrap(err, "error acquiring lock")
 		}
 	}
 
-	cleanup = func() {
-		if leaseLock != nil {
-			leaseLock.Release()
-		}
-		if advisoryLock != nil {
-			advisoryLock.Release()
-		}
-	}
-	return cleanup, nil
+	return nil
 }
 
 // RunNode starts the Chainlink core.
@@ -128,19 +117,23 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		lggr.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
 	}
 
+	// DB conn is opened before any services have started,
+	// and closed after all services have stopped.
 	db, err := openDB(cli.Config, lggr)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfClosing(db, "db")
 
-	sig := shutdown.NewSignal()
-	cleanup, err := applicationLockDB(cli.Config, db, lggr, sig)
-	defer cleanup()
-	if err != nil {
+	// rootCtx will be cancelled when SIGINT|SIGTERM is received.
+	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
+	go shutdown.CancelOnShutdown(cancelRootCtx)
+
+	if err = applicationLockDB(rootCtx, cli.Config, db, lggr); err != nil {
 		return cli.errorOut(errors.Wrap(err, "obtaining application db lock"))
 	}
-	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
+
+	app, err := cli.AppFactory.NewApplication(cli.Config, db)
 	if err != nil {
 		return errors.Wrap(err, "error initializing application")
 	}
@@ -240,20 +233,52 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	lggr.Info("API exposed for user ", user.Email)
+
+	grp, grpCtx := errgroup.WithContext(rootCtx)
+
 	if err = app.Start(); err != nil {
 		return errors.Wrap(err, "error starting app")
 	}
-	defer func() {
-		lggr.ErrorIf(app.Stop(), "Error stopping app")
-		if err = lggr.Sync(); err != nil {
-			log.Fatal(err)
+
+	grp.Go(func() error {
+		<-grpCtx.Done()
+		if err := app.Stop(); err != nil {
+			return errors.Wrap(err, "error stopping app")
 		}
-	}()
+		return nil
+	})
 
 	lggr.Debug("Environment variables\n", config.NewConfigPrinter(cli.Config))
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
-	return (cli.Runner.Run(app))
+
+	// After SIGTERM grace period, we must fail fast, but try closing DB
+	go func() {
+		<-rootCtx.Done()
+		<-time.After(cli.Config.ShutdownGracePeriod())
+
+		// this code should not execute if the application finished within the grace period
+		lggr.Criticalf("Shutdown grace period exceeded (%v), closing DB and exiting...", cli.Config.ShutdownGracePeriod())
+		lggr.ErrorIfClosing(db, "failed to close DB")
+		lggr.ErrorIf(lggr.Sync(), "failed to sync Logger")
+
+		os.Exit(-1)
+	}()
+
+	grp.Go(func() error {
+		err := cli.Runner.Run(grpCtx, app)
+		// In tests we have custom runners that stop the app gracefully,
+		// therefore we need to cancel rootCtx when the Runner has quit.
+		// In a real application, this does noop.
+		select {
+		case <-rootCtx.Done():
+		default:
+			cancelRootCtx()
+		}
+		return err
+	})
+
+	return grp.Wait()
 }
 
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
@@ -354,9 +379,8 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfClosing(db, "db")
-	sig := shutdown.NewSignal()
 
-	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
+	app, err := cli.AppFactory.NewApplication(cli.Config, db)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -735,13 +759,14 @@ func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err err
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	lggr := cli.Logger.Named("DeleteUser")
+
 	db, err := openDB(cli.Config, lggr)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
 	defer lggr.ErrorIfClosing(db, "db")
-	sig := shutdown.NewSignal()
-	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
+
+	app, err := cli.AppFactory.NewApplication(cli.Config, db)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}

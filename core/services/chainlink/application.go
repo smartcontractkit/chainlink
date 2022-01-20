@@ -5,12 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"reflect"
 	"sync"
-	"time"
-
-	"github.com/smartcontractkit/chainlink/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,12 +36,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -99,7 +95,6 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter                   func(int)
 	ChainSet                 evm.ChainSet
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
@@ -116,7 +111,6 @@ type ChainlinkApplication struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
-	shutdownSignal           shutdown.Signal
 	explorerClient           synchronization.ExplorerClient
 	subservices              []services.Service
 	HealthChecker            services.Checker
@@ -131,7 +125,6 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	EventBroadcaster         pg.EventBroadcaster
-	ShutdownSignal           shutdown.Signal
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
@@ -149,7 +142,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var subservices []services.Service
 	db := opts.SqlxDB
 	cfg := opts.Config
-	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
 	chainSet := opts.ChainSet
 	globalLogger := opts.Logger
@@ -349,9 +341,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
 		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
-		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
-		shutdownSignal:           shutdownSignal,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
@@ -409,12 +399,6 @@ func (app *ChainlinkApplication) Start() error {
 		panic("application is already started")
 	}
 
-	go func() {
-		<-app.shutdownSignal.Wait()
-		app.logger.ErrorIf(app.Stop(), "Error stopping application")
-		app.Exiter(0)
-	}()
-
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(); err != nil {
 			app.logger.Infof("[Feeds Service] %v", err)
@@ -461,47 +445,31 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
-		done := make(chan error)
-		go func() {
-			var merr error
-			defer func() {
-				if lerr := app.logger.Sync(); lerr != nil {
-					merr = multierr.Append(merr, lerr)
-				}
-			}()
-			app.logger.Info("Gracefully exiting...")
+		app.logger.Info("Gracefully exiting...")
 
-			// Stop services in the reverse order from which they were started
-			for i := len(app.subservices) - 1; i >= 0; i-- {
-				service := app.subservices[i]
-				app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
-				merr = multierr.Append(merr, service.Close())
-			}
-
-			app.logger.Debug("Stopping SessionReaper...")
-			merr = multierr.Append(merr, app.SessionReaper.Stop())
-			app.logger.Debug("Closing HealthChecker...")
-			merr = multierr.Append(merr, app.HealthChecker.Close())
-			if app.FeedsService != nil {
-				app.logger.Debug("Closing Feeds Service...")
-				merr = multierr.Append(merr, app.FeedsService.Close())
-			}
-
-			if app.Nurse != nil {
-				merr = multierr.Append(merr, app.Nurse.Close())
-			}
-
-			app.logger.Info("Exited all services")
-
-			app.started = false
-			done <- err
-		}()
-		select {
-		case merr := <-done:
-			err = merr
-		case <-time.After(15 * time.Second):
-			err = errors.New("application timed out shutting down")
+		// Stop services in the reverse order from which they were started
+		for i := len(app.subservices) - 1; i >= 0; i-- {
+			service := app.subservices[i]
+			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			err = multierr.Append(err, service.Close())
 		}
+
+		app.logger.Debug("Stopping SessionReaper...")
+		err = multierr.Append(err, app.SessionReaper.Stop())
+		app.logger.Debug("Closing HealthChecker...")
+		err = multierr.Append(err, app.HealthChecker.Close())
+		if app.FeedsService != nil {
+			app.logger.Debug("Closing Feeds Service...")
+			err = multierr.Append(err, app.FeedsService.Close())
+		}
+
+		if app.Nurse != nil {
+			err = multierr.Append(err, app.Nurse.Close())
+		}
+
+		app.logger.Info("Exited all services")
+
+		app.started = false
 	})
 	return err
 }

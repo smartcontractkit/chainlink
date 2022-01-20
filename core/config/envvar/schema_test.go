@@ -52,6 +52,7 @@ func TestConfigSchema(t *testing.T) {
 		"DefaultHTTPLimit":                           "DEFAULT_HTTP_LIMIT",
 		"DefaultHTTPTimeout":                         "DEFAULT_HTTP_TIMEOUT",
 		"Dev":                                        "CHAINLINK_DEV",
+		"ShutdownGracePeriod":                        "SHUTDOWN_GRACE_PERIOD",
 		"EVMDisabled":                                "EVM_DISABLED",
 		"EthTxReaperInterval":                        "ETH_TX_REAPER_INTERVAL",
 		"EthTxReaperThreshold":                       "ETH_TX_REAPER_THRESHOLD",

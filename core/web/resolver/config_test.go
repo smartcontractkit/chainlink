@@ -44,6 +44,7 @@ func TestResolver_Config(t *testing.T) {
 					DefaultHTTPAllowUnrestrictedNetworkAccess: null.BoolFrom(true),
 					DefaultHTTPTimeout:                        nil,
 					Dev:                                       null.BoolFrom(true),
+					ShutdownGracePeriod:                       nil,
 					Dialect:                                   "",
 					EVMDisabled:                               null.BoolFrom(true),
 					EthereumDisabled:                          null.BoolFrom(true),
@@ -171,6 +172,10 @@ func TestResolver_Config(t *testing.T) {
         "key":"CHAINLINK_DEV",
         "value":"true"
       },
+	  {
+		"key":"SHUTDOWN_GRACE_PERIOD",
+        "value":"10s"
+	  },
       {
         "key":"ETH_DISABLED",
         "value":"true"

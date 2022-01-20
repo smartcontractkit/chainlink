@@ -26,9 +26,10 @@ func Test_AdvisoryLock(t *testing.T) {
 	cfg.Overrides.AdvisoryLockCheckInterval = &check
 
 	t.Run("takes lock", func(t *testing.T) {
+		ctx1, cancel1 := context.WithCancel(context.Background())
 		advLock1 := newAdvisoryLock(t, db, cfg)
 
-		err := advLock1.TakeAndHold()
+		err := advLock1.TakeAndHold(ctx1)
 		require.NoError(t, err)
 
 		var lockTaken bool
@@ -36,10 +37,11 @@ func Test_AdvisoryLock(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, lockTaken)
 
+		ctx2, cancel2 := context.WithCancel(context.Background())
 		started2 := make(chan struct{})
 		advLock2 := newAdvisoryLock(t, db, cfg)
 		go func() {
-			err := advLock2.TakeAndHold()
+			err := advLock2.TakeAndHold(ctx2)
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -47,7 +49,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		// Give it plenty of time for advLock2 to have a few tries at getting the lease
 		time.Sleep(cfg.AdvisoryLockCheckInterval() * 5)
 
-		advLock1.Release()
+		cancel1()
 
 		select {
 		case <-started2:
@@ -59,7 +61,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, lockTaken)
 
-		advLock2.Release()
+		cancel2()
 
 		// pg_locks is not atomic
 		time.Sleep(100 * time.Millisecond)
@@ -70,14 +72,16 @@ func Test_AdvisoryLock(t *testing.T) {
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		advLock := newAdvisoryLock(t, db, cfg)
 
 		// simulate another application holding advisory lock to force it to retry
-		ctx, cancel := pg.DefaultQueryCtx()
-		defer cancel()
-		conn, err := db.Conn(ctx)
+		pctx, pcancel := pg.DefaultQueryCtx()
+		defer pcancel()
+		conn, err := db.Conn(pctx)
 		require.NoError(t, err)
-		_, err = conn.ExecContext(ctx, `SELECT pg_advisory_lock($1)`, cfg.AdvisoryLockID())
+		_, err = conn.ExecContext(pctx, `SELECT pg_advisory_lock($1)`, cfg.AdvisoryLockID())
 		require.NoError(t, err)
 
 		conn2, err := db.Connx(context.Background())
@@ -90,7 +94,7 @@ func Test_AdvisoryLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			err = advLock.TakeAndHold()
+			err = advLock.TakeAndHold(ctx)
 			require.NoError(t, err)
 			close(gotLease)
 		}()
@@ -114,8 +118,6 @@ func Test_AdvisoryLock(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, exists)
-
-		advLock.Release()
 	})
 
 	require.NoError(t, db.Close())

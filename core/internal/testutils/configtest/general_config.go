@@ -49,6 +49,7 @@ type GeneralConfigOverrides struct {
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
 	Dev                                       null.Bool
+	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
 	EVMDisabled                               null.Bool
 	EthereumDisabled                          null.Bool
@@ -205,6 +206,13 @@ func (c *TestGeneralConfig) Dev() bool {
 		return c.Overrides.Dev.Bool
 	}
 	return true
+}
+
+func (c *TestGeneralConfig) ShutdownGracePeriod() time.Duration {
+	if c.Overrides.ShutdownGracePeriod != nil {
+		return *c.Overrides.ShutdownGracePeriod
+	}
+	return c.GeneralConfig.ShutdownGracePeriod()
 }
 
 func (c *TestGeneralConfig) MigrateDatabase() bool {

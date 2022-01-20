@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 )
 
 func newLeaseLock(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) pg.LeaseLock {
@@ -24,16 +23,16 @@ func newLeaseLock(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) 
 
 func Test_LeaseLock(t *testing.T) {
 	cfg, db := heavyweight.FullTestDB(t, "leaselock", true, false)
-	sig := shutdown.NewSignal()
 	duration := 15 * time.Second
 	refresh := 100 * time.Millisecond
 	cfg.Overrides.LeaseLockDuration = &duration
 	cfg.Overrides.LeaseLockRefreshInterval = &refresh
 
 	t.Run("on migrated database", func(t *testing.T) {
+		ctx1, cancel1 := context.WithCancel(context.Background())
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(sig)
+		err := leaseLock1.TakeAndHold(ctx1)
 		require.NoError(t, err)
 
 		var clientID uuid.UUID
@@ -41,11 +40,12 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, leaseLock1.ClientID(), clientID)
 
+		ctx2, cancel2 := context.WithCancel(context.Background())
+		defer cancel2()
 		started2 := make(chan struct{})
 		leaseLock2 := newLeaseLock(t, db, cfg)
 		go func() {
-			defer leaseLock2.Release()
-			err := leaseLock2.TakeAndHold(sig)
+			err := leaseLock2.TakeAndHold(ctx2)
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -53,7 +53,7 @@ func Test_LeaseLock(t *testing.T) {
 		// Give it plenty of time to have a few tries at getting the lease
 		time.Sleep(cfg.LeaseLockRefreshInterval() * 5)
 
-		leaseLock1.Release()
+		cancel1()
 
 		select {
 		case <-started2:
@@ -67,6 +67,7 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
 		leaseLock := newLeaseLock(t, db, cfg)
 
 		otherAppID := uuid.NewV4()
@@ -88,7 +89,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			err = leaseLock.TakeAndHold(sig)
+			err = leaseLock.TakeAndHold(ctx)
 			require.NoError(t, err)
 			close(gotLease)
 		}()
@@ -113,15 +114,16 @@ func Test_LeaseLock(t *testing.T) {
 
 		assert.True(t, exists)
 
-		leaseLock.Release()
+		cancel()
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		err := leaseLock.TakeAndHold(sig)
+		err := leaseLock.TakeAndHold(ctx)
 		require.NoError(t, err)
-		defer leaseLock.Release()
+		defer cancel()
 
 		conn := pg.GetConn(leaseLock)
 
@@ -147,12 +149,13 @@ func Test_LeaseLock(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	t.Run("on virgin database", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
 		_, db := heavyweight.FullTestDB(t, "leaselock", false, false)
 
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(sig)
-		defer leaseLock1.Release()
+		err := leaseLock1.TakeAndHold(ctx)
+		defer cancel()
 		require.NoError(t, err)
 	})
 }
