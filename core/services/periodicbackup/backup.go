@@ -36,7 +36,7 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		service.Service
+		services.Service
 		RunBackup(version string) error
 	}
 
