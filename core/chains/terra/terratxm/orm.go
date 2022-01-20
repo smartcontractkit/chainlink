@@ -57,8 +57,8 @@ func (o *ORM) SelectMsgsWithIDs(ids []int64) (terra.Msgs, error) {
 	return msgs, nil
 }
 
-// UpdateMsgsWithState update the msgs with the given iunstartedds to the given state
-// TODO: could enforce state transitions here too
+// UpdateMsgsWithState update the msgs with the given ids to the given state
+// Note state transitions are validated at the db level.
 func (o *ORM) UpdateMsgsWithState(ids []int64, state db.State, txHash *string, qopts ...pg.QOpt) error {
 	if state == db.Broadcasted && txHash == nil {
 		return errors.New("txHash is required when updating to broadcasted")
