@@ -85,7 +85,8 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 		msgsByTxHash[*msg.TxHash] = append(msgsByTxHash[*msg.TxHash], msg)
 	}
 	for txHash, msgs := range msgsByTxHash {
-		err := txm.confirmTx(txHash, msgs.GetIDs())
+		maxPolls, pollPeriod := txm.confirmPollConfig()
+		err := txm.confirmTx(txHash, msgs.GetIDs(), maxPolls, pollPeriod)
 		if err != nil {
 			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err, "txhash", txHash)
 		}
@@ -239,7 +240,8 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 
-	if err := txm.confirmTx(resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs()); err != nil {
+	maxPolls, pollPeriod := txm.confirmPollConfig()
+	if err := txm.confirmTx(resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs(), maxPolls, pollPeriod); err != nil {
 		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 		return
 	}
@@ -249,21 +251,22 @@ func (txm *Txm) confirmPollConfig() (maxPolls int, pollPeriod time.Duration) {
 	blocks := txm.cfg.BlocksUntilTxTimeout()
 	blockPeriod := txm.cfg.BlockRate()
 	pollPeriod = txm.cfg.ConfirmPollPeriod()
-	if pollPeriod == 0 { // don't divide by zero
-		return 2, 100 * time.Millisecond
+	if pollPeriod == 0 {
+		// don't divide by zero
+		maxPolls = 1
+	} else {
+		maxPolls = int((time.Duration(blocks) * blockPeriod) / pollPeriod)
 	}
-	maxPolls = int((time.Duration(blocks) * blockPeriod) / pollPeriod)
 	return
 }
 
-func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
+func (txm *Txm) confirmTx(txHash string, broadcasted []int64, maxPolls int, pollPeriod time.Duration) error {
 	// We either mark these broadcasted txes as confirmed or errored.
 	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
 	// Errored: we do not see the txhash onchain after waiting for N blocks worth
 	// of time (plus a small buffer to account for block time variance) where N
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
-	maxPolls, pollPeriod := txm.confirmPollConfig()
 	for tries := 0; tries < maxPolls; tries++ {
 		time.Sleep(pollPeriod)
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented

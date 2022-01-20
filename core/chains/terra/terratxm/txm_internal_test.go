@@ -160,13 +160,11 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		cfg := terra.NewConfig(terradb.ChainCfg{}, terra.ConfigSet{
-			ConfirmPollPeriod: 0,
-		}, lggr)
+		cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
 		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
-		err = txm.confirmTx("0x123", []int64{i})
+		err = txm.confirmTx("0x123", []int64{i}, 2, 0)
 		require.NoError(t, err)
 		m, err := txm.orm.SelectMsgsWithIDs([]int64{i})
 		require.NoError(t, err)
