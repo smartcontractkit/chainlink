@@ -2259,8 +2259,8 @@ github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.m
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
 github.com/smartcontractkit/chainlink-solana v0.0.0-20220110150750-26cf3ee24c90 h1:ksLhwtSzUPqPUt9uQDzG90REB+c8ehGlVglY7/Fhrv8=
 github.com/smartcontractkit/chainlink-solana v0.0.0-20220110150750-26cf3ee24c90/go.mod h1:G121wVp7wU6IAgE0wF1dBXxRjCzGvjHXuB9N1NtJrk0=
-github.com/smartcontractkit/chainlink-terra v0.0.0-20220114224909-93492fcecaa7 h1:Rp8LhIQDgXLK6bZpdsa8dIGsbmRIROSlP6QvVFirj0M=
-github.com/smartcontractkit/chainlink-terra v0.0.0-20220114224909-93492fcecaa7/go.mod h1:5I3BwrsDi95S9nthnAqDNxKRI3xhopUoG6GLdmzm/qE=
+github.com/smartcontractkit/chainlink-terra v0.0.5-0.20220120170401-9a61536252dc h1:zmR6a8iYpq8jZ1ro2C6jDSxrl9NvLNhBF4FBnXpVYW8=
+github.com/smartcontractkit/chainlink-terra v0.0.5-0.20220120170401-9a61536252dc/go.mod h1:uBvDiTVIQllcGd/CYjJB23wuYyssO5M8n1oOIvxrGhY=
 github.com/smartcontractkit/helmenv v1.0.23 h1:i6fXppyr8CCSwuat05J/NRpc75bncCDfWemnDjymqBo=
 github.com/smartcontractkit/helmenv v1.0.23/go.mod h1:ef0doolSZf8ckqaWMIK2M+EPXdIKYVzttd6EXaCgCK4=
 github.com/smartcontractkit/integrations-framework v1.0.29 h1:kiv+9sSLfudkf4ghzNATbpb+xgBbzaMFLLRT80BRUCw=

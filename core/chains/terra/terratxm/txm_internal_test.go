@@ -2,26 +2,33 @@ package terratxm
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
-	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
-
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
+	wasmtypes "github.com/terra-money/core/x/wasm/types"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
+	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
-	wasmtypes "github.com/terra-money/core/x/wasm/types"
+
+	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) []byte {
@@ -46,13 +53,16 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	contract, err := cosmostypes.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
 	require.NoError(t, err)
-	fallbackGasPrice := "0.01"
-	gasLimitMultiplier := 1.5
+	logCfg := pgtest.NewPGCfg(true)
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
+	require.NoError(t, err)
+	cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
 
 		// Enqueue a single msg, then send it in a batch
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
@@ -61,7 +71,7 @@ func TestTxm(t *testing.T) {
 		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
 		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&terraclient.BatchSimResults{
 			Failed: nil,
-			Succeeded: []terraclient.SimMsg{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
+			Succeeded: terraclient.SimMsgs{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
 				Sender:     sender1.String(),
 				ExecuteMsg: []byte(`1`),
 			}}},
@@ -93,7 +103,7 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
@@ -106,7 +116,7 @@ func TestTxm(t *testing.T) {
 			tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil).Once()
 			// Note this must be arg dependent, we don't know which order
 			// the procesing will happen in (map iteration by from address).
-			tc.On("BatchSimulateUnsigned", []terraclient.SimMsg{
+			tc.On("BatchSimulateUnsigned", terraclient.SimMsgs{
 				{
 					ID: ids[i],
 					Msg: &wasmtypes.MsgExecuteContract{
@@ -117,7 +127,7 @@ func TestTxm(t *testing.T) {
 				},
 			}, mock.Anything).Return(&terraclient.BatchSimResults{
 				Failed: nil,
-				Succeeded: []terraclient.SimMsg{
+				Succeeded: terraclient.SimMsgs{
 					{
 						ID: ids[i],
 						Msg: &wasmtypes.MsgExecuteContract{
@@ -160,14 +170,13 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-		txm.confirmPollPeriod = 1 * time.Millisecond
-		txm.confirmMaxPolls = 2
+		cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
 		require.NoError(t, txm.orm.UpdateMsgsWithState([]int64{i}, Broadcasted, &txh))
-		err = txm.confirmTx("0x123", []int64{i})
+		err = txm.confirmTx(txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
 		m, err := txm.orm.SelectMsgsWithIDs([]int64{i})
 		require.NoError(t, err)
@@ -186,7 +195,7 @@ func TestTxm(t *testing.T) {
 		tc.On("Tx", txHash2).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash2},
 		}, nil).Once()
-		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
+		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
 		// Insert and broadcast 2 msgs with different txhashes.
 		id1, err := txm.orm.InsertMsg("blah", []byte{0x01})

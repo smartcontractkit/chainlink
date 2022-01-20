@@ -5,86 +5,53 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
-
-	"github.com/tendermint/tendermint/crypto/tmhash"
-
-	"github.com/pkg/errors"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/pkg/errors"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
-var (
-	_ services.Service = (*Txm)(nil)
-)
-
-const (
-	// MaxMsgsPerBatch The max gas limit per block is 1_000_000_000
-	// https://github.com/terra-money/core/blob/d6037b9a12c8bf6b09fe861c8ad93456aac5eebb/app/legacy/migrate.go#L69.
-	// The max msg size is 10KB https://github.com/terra-money/core/blob/d6037b9a12c8bf6b09fe861c8ad93456aac5eebb/x/wasm/types/params.go#L15.
-	// Our msgs are only OCR reports for now, which will not exceed that size.
-	// There appears to be no gas limit per tx, only per block, so theoretically
-	// we could include 1000 msgs which use up to 1M gas.
-	// To be conservative and since the number of messages we'd
-	// have in a batch on average roughly correponds to the number of terra ocr jobs we're running (do not expect more than 100),
-	// we can set a max msgs per batch of 100.
-	MaxMsgsPerBatch = 100
-
-	// BlocksUntilTxTimeout ~8s per block, so ~80s until we give up on the tx getting confirmed
-	// Anecdotally it appears anything more than 4 blocks would be an extremely long wait.
-	BlocksUntilTxTimeout = 10
-)
+var _ services.Service = (*Txm)(nil)
 
 // Txm manages transactions for the terra blockchain.
 type Txm struct {
-	starter            utils.StartStopOnce
-	eb                 pg.EventBroadcaster
-	sub                pg.Subscription
-	ticker             *time.Ticker
-	orm                *ORM
-	lggr               logger.Logger
-	tc                 terraclient.ReaderWriter
-	ks                 keystore.Terra
-	stop, done         chan struct{}
-	confirmPollPeriod  time.Duration
-	confirmMaxPolls    int
-	fallbackGasPrice   sdk.DecCoin
-	gasLimitMultiplier float64
+	starter    utils.StartStopOnce
+	eb         pg.EventBroadcaster
+	sub        pg.Subscription
+	orm        *ORM
+	lggr       logger.Logger
+	tc         terraclient.ReaderWriter
+	ks         keystore.Terra
+	stop, done chan struct{}
+	cfg        terra.Config
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, fallbackGasPrice string, gasLimitMultiplier float64, ks keystore.Terra, lggr logger.Logger, cfg pg.LogConfig, eb pg.EventBroadcaster, pollPeriod time.Duration) (*Txm, error) {
-	// Jitter in case we have multiple terra chains each with their own client.
-	ticker := time.NewTicker(utils.WithJitter(pollPeriod))
-	fgp, err := sdk.NewDecFromStr(fallbackGasPrice)
-	if err != nil {
-		return nil, err
-	}
+func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
 	lggr = lggr.Named("Txm")
 	return &Txm{
-		starter:            utils.StartStopOnce{},
-		eb:                 eb,
-		orm:                NewORM(db, lggr, cfg),
-		ks:                 ks,
-		ticker:             ticker,
-		tc:                 tc,
-		lggr:               lggr,
-		stop:               make(chan struct{}),
-		done:               make(chan struct{}),
-		confirmPollPeriod:  1 * time.Second,
-		confirmMaxPolls:    100,
-		fallbackGasPrice:   sdk.NewDecCoinFromDec("uluna", fgp),
-		gasLimitMultiplier: gasLimitMultiplier,
+		starter: utils.StartStopOnce{},
+		eb:      eb,
+		orm:     NewORM(chainID, db, lggr, logCfg),
+		ks:      ks,
+		tc:      tc,
+		lggr:    lggr,
+		stop:    make(chan struct{}),
+		done:    make(chan struct{}),
+		cfg:     cfg,
 	}, nil
 }
 
@@ -104,7 +71,7 @@ func (txm *Txm) Start() error {
 func (txm *Txm) confirmAnyUnconfirmed() {
 	// Confirm any broadcasted but not confirmed txes.
 	// This is an edge case if we crash after having broadcasted but before we confirm.
-	broadcasted, err := txm.orm.SelectMsgsWithState(Broadcasted)
+	broadcasted, err := txm.orm.SelectMsgsWithState(db.Broadcasted)
 	if err != nil {
 		// Should never happen but if so, theoretically can retry with a reboot
 		txm.lggr.CriticalW("unable to look for broadcasted but unconfirmed txes", "err", err)
@@ -113,12 +80,13 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	if len(broadcasted) == 0 {
 		return
 	}
-	msgsByTxHash := make(map[string][]TerraMsg)
+	msgsByTxHash := make(map[string]terra.Msgs)
 	for _, msg := range broadcasted {
 		msgsByTxHash[*msg.TxHash] = append(msgsByTxHash[*msg.TxHash], msg)
 	}
 	for txHash, msgs := range msgsByTxHash {
-		err := txm.confirmTx(txHash, getIDs(msgs))
+		maxPolls, pollPeriod := txm.confirmPollConfig()
+		err := txm.confirmTx(txHash, msgs.GetIDs(), maxPolls, pollPeriod)
 		if err != nil {
 			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err, "txhash", txHash)
 		}
@@ -128,12 +96,15 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 func (txm *Txm) run(sub pg.Subscription) {
 	defer close(txm.done)
 	txm.confirmAnyUnconfirmed()
+	// Jitter in case we have multiple terra chains each with their own client.
+	tick := time.After(utils.WithJitter(txm.cfg.BlockRate()))
 	for {
 		select {
 		case <-sub.Events():
 			txm.sendMsgBatch()
-		case <-txm.ticker.C:
+		case <-tick:
 			txm.sendMsgBatch()
+			tick = time.After(utils.WithJitter(txm.cfg.BlockRate()))
 		case <-txm.stop:
 			return
 		}
@@ -141,7 +112,7 @@ func (txm *Txm) run(sub pg.Subscription) {
 }
 
 func (txm *Txm) sendMsgBatch() {
-	unstarted, err := txm.orm.SelectMsgsWithState(Unstarted)
+	unstarted, err := txm.orm.SelectMsgsWithState(db.Unstarted)
 	if err != nil {
 		txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 		return
@@ -149,14 +120,14 @@ func (txm *Txm) sendMsgBatch() {
 	if len(unstarted) == 0 {
 		return
 	}
-	if len(unstarted) > MaxMsgsPerBatch {
-		unstarted = unstarted[:MaxMsgsPerBatch+1]
+	if max := txm.cfg.MaxMsgsPerBatch(); int64(len(unstarted)) > max {
+		unstarted = unstarted[:max+1]
 	}
 	txm.lggr.Debugw("building a batch", "batch", unstarted)
-	var msgsByFrom = make(map[string][]TerraMsg)
+	var msgsByFrom = make(map[string]terra.Msgs)
 	for _, m := range unstarted {
 		var ms wasmtypes.MsgExecuteContract
-		err := ms.Unmarshal(m.Msg)
+		err := ms.Unmarshal(m.Raw)
 		if err != nil {
 			// Should be impossible given the check in Enqueue
 			txm.lggr.CriticalW("failed to unmarshal msg, skipping", "err", err, "msg", m)
@@ -173,7 +144,7 @@ func (txm *Txm) sendMsgBatch() {
 	}
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
-	gp := txm.tc.GasPrice(txm.fallbackGasPrice)
+	gp := txm.tc.GasPrice(sdk.NewDecCoinFromDec("uluna", txm.cfg.FallbackGasPriceULuna()))
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s) // Already checked validity above
 		key, err := txm.ks.Get(sender.String())
@@ -187,7 +158,7 @@ func (txm *Txm) sendMsgBatch() {
 	}
 }
 
-func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs []TerraMsg) {
+func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs terra.Msgs) {
 	an, sn, err := txm.tc.Account(sender)
 	if err != nil {
 		txm.lggr.Errorw("unable to read account", "err", err, "from", sender.String())
@@ -197,14 +168,14 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 
 	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
-	simResults, err := txm.tc.BatchSimulateUnsigned(getSimMsgs(msgs), sn)
+	simResults, err := txm.tc.BatchSimulateUnsigned(msgs.GetSimMsgs(), sn)
 	if err != nil {
 		txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
 		// If we can't simulate assume transient api issue and retry on next poll.
 		return
 	}
 	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.Succeeded, "failed", simResults.Failed)
-	err = txm.orm.UpdateMsgsWithState(getSimMsgsIDs(simResults.Failed), Errored, nil)
+	err = txm.orm.UpdateMsgsWithState(simResults.Failed.GetSimMsgsIDs(), db.Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
 		// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
@@ -217,7 +188,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 	// Get the gas limit for the successful batch
-	s, err := txm.tc.SimulateUnsigned(getMsgs(simResults.Succeeded), sn)
+	s, err := txm.tc.SimulateUnsigned(simResults.Succeeded.GetMsgs(), sn)
 	if err != nil {
 		// Should never happen
 		txm.lggr.Errorw("unexpected failure after successful simulation", "err", err)
@@ -230,8 +201,8 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
 		return
 	}
-	signedTx, err := txm.tc.CreateAndSign(getMsgs(simResults.Succeeded), an, sn, gasLimit, txm.gasLimitMultiplier,
-		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(BlocksUntilTxTimeout))
+	signedTx, err := txm.tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
+		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(txm.cfg.BlocksUntilTxTimeout()))
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
 		return
@@ -243,7 +214,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	var resp *txtypes.BroadcastTxResponse
 	err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
 		txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
-		err = txm.orm.UpdateMsgsWithState(getSimMsgsIDs(simResults.Succeeded), Broadcasted, &txHash, pg.WithQueryer(tx))
+		err = txm.orm.UpdateMsgsWithState(simResults.Succeeded.GetSimMsgsIDs(), db.Broadcasted, &txHash, pg.WithQueryer(tx))
 		if err != nil {
 			return err
 		}
@@ -270,22 +241,36 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 
-	if err := txm.confirmTx(resp.TxResponse.TxHash, getSimMsgsIDs(simResults.Succeeded)); err != nil {
+	maxPolls, pollPeriod := txm.confirmPollConfig()
+	if err := txm.confirmTx(resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs(), maxPolls, pollPeriod); err != nil {
 		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 		return
 	}
 }
 
-func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
+func (txm *Txm) confirmPollConfig() (maxPolls int, pollPeriod time.Duration) {
+	blocks := txm.cfg.BlocksUntilTxTimeout()
+	blockPeriod := txm.cfg.BlockRate()
+	pollPeriod = txm.cfg.ConfirmPollPeriod()
+	if pollPeriod == 0 {
+		// don't divide by zero
+		maxPolls = 1
+	} else {
+		maxPolls = int((time.Duration(blocks) * blockPeriod) / pollPeriod)
+	}
+	return
+}
+
+func (txm *Txm) confirmTx(txHash string, broadcasted []int64, maxPolls int, pollPeriod time.Duration) error {
 	// We either mark these broadcasted txes as confirmed or errored.
 	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
 	// Errored: we do not see the txhash onchain after waiting for N blocks worth
 	// of time (plus a small buffer to account for block time variance) where N
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
-	for tries := 0; tries < txm.confirmMaxPolls; tries++ {
+	for tries := 0; tries < maxPolls; tries++ {
 		// Jitter in-case we're confirming multiple txes in parallel for different keys
-		time.Sleep(utils.WithJitter(txm.confirmPollPeriod))
+		time.Sleep(utils.WithJitter(pollPeriod))
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)
@@ -300,7 +285,7 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
 		}
 		txm.lggr.Infow("successfully sent batch", "hash", txHash, "msgs", broadcasted)
 		// If confirmed mark these as completed.
-		err = txm.orm.UpdateMsgsWithState(broadcasted, Confirmed, nil)
+		err = txm.orm.UpdateMsgsWithState(broadcasted, db.Confirmed, nil)
 		if err != nil {
 			return err
 		}
@@ -308,7 +293,7 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64) error {
 	}
 	// If we are unable to confirm the tx after the timeout period
 	// mark these msgs as errored
-	err := txm.orm.UpdateMsgsWithState(broadcasted, Errored, nil)
+	err := txm.orm.UpdateMsgsWithState(broadcasted, db.Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark timed out txes as errored", "err", err, "txes", broadcasted, "num", len(broadcasted))
 		return err

@@ -537,7 +537,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Waiting for flux monitor to finish Register process in log broadcaster
 			// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
 			g.Eventually(func() uint32 {
-				lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
+				lb := evmtest.MustGetDefaultChain(t, app.GetChains().EVM).LogBroadcaster()
 				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
 			}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
@@ -684,7 +684,7 @@ ds1 -> ds1_parse
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
 	g.Eventually(func() uint32 {
-		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
+		lb := evmtest.MustGetDefaultChain(t, app.GetChains().EVM).LogBroadcaster()
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
 	}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 

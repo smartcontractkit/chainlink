@@ -1,14 +1,19 @@
 package web
 
 import (
+	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/gin-gonic/gin"
 )
 
 // TerraNodesController manages Terra nodes.
@@ -20,7 +25,7 @@ type TerraNodesController struct {
 func (nc *TerraNodesController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 
-	var nodes []types.Node
+	var nodes []db.Node
 	var count int
 	var err error
 
@@ -46,6 +51,16 @@ func (nc *TerraNodesController) Create(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// Ensure chain exists.
+	if _, err := nc.App.TerraORM().Chain(request.TerraChainID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Terra chain %s must be added first", request.TerraChainID))
+			return
+		}
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 

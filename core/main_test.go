@@ -441,7 +441,8 @@ func ExampleRun_chains() {
 	//    core.test chains command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm  Commands for handling EVM chains
+	//    evm    Commands for handling EVM chains
+	//    terra  Commands for handling Terra chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -461,6 +462,25 @@ func ExampleRun_chains_evm() {
 	//    delete     Delete an EVM chain
 	//    list       List all EVM chains
 	//    configure  Configure an EVM chain
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_chains_terra() {
+	run("chains", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains terra - Commands for handling Terra chains
+	//
+	// USAGE:
+	//    core.test chains terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create     Create a new Terra chain
+	//    delete     Delete a Terra chain
+	//    list       List all Terra chains
+	//    configure  Configure a Terra chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help

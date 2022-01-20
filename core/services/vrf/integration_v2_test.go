@@ -727,7 +727,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
-	app.ChainSet.Configure(
+	app.Chains.EVM.Configure(
 		big.NewInt(1337),
 		true,
 		types.ChainCfg{
@@ -1039,7 +1039,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	chain, err := app.ChainSet.Get(big.NewInt(1337))
+	chain, err := app.Chains.EVM.Get(big.NewInt(1337))
 	require.NoError(t, err)
 
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
@@ -1118,7 +1118,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
-	ch, err := app.GetChainSet().Default()
+	ch, err := app.GetChains().EVM.Default()
 	require.NoError(t, err)
 	r, err := ch.Client().TransactionReceipt(context.Background(), attempts[0].Hash)
 	require.NoError(t, err)

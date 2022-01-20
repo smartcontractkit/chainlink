@@ -1,11 +1,14 @@
 package terra_test
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
@@ -30,9 +33,20 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, dbcs)
 
+	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_, err = orm.CreateChain(chainIDA, db.ChainCfg{})
+	require.NoError(t, err)
+	chainIDB := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	_, err = orm.CreateChain(chainIDB, db.ChainCfg{})
+	require.NoError(t, err)
+
+	dbcs, err = orm.EnabledChainsWithNodes()
+	require.NoError(t, err)
+	require.Len(t, dbcs, 2)
+
 	newNode := types.NewNode{
 		Name:          "first",
-		TerraChainID:  "Columbus-5",
+		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 		FCDURL:        "http://fcd.test/columbus-5",
 	}
@@ -46,7 +60,7 @@ func Test_ORM(t *testing.T) {
 
 	newNode2 := types.NewNode{
 		Name:          "second",
-		TerraChainID:  "Bombay-12",
+		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
 		FCDURL:        "http://fcd.test/bombay-12",
 	}
@@ -79,27 +93,18 @@ func Test_ORM(t *testing.T) {
 		assertEqual(t, newNode2, gotNodes[0])
 	}
 
-	dbcs, err = orm.EnabledChainsWithNodes()
-	require.NoError(t, err)
-	require.Len(t, dbcs, 1)
-
 	newNode3 := types.NewNode{
 		Name:          "third",
-		TerraChainID:  "Bombay-12",
+		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
 		FCDURL:        "http://fcd.test/bombay-12",
 	}
 	gotNode3, err := orm.CreateNode(newNode3)
 	require.NoError(t, err)
 	assertEqual(t, newNode3, gotNode3)
-
-	dbcs, err = orm.EnabledChainsWithNodes()
-	require.NoError(t, err)
-	require.Len(t, dbcs, 1)
-
 }
 
-func assertEqual(t *testing.T, newNode types.NewNode, gotNode types.Node) {
+func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

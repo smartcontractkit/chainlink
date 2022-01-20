@@ -1,42 +1,55 @@
 package terratxm_test
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/require"
+	wasmtypes "github.com/terra-money/core/x/wasm/types"
+	"gopkg.in/guregu/null.v4"
+
+	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/terra.go/msg"
-	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/core/utils"
+
+	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
 func TestTxmStartStop(t *testing.T) {
 	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
-	orm := terratxm.NewORM(db, lggr, pgtest.NewPGCfg(true))
+	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	logCfg := pgtest.NewPGCfg(true)
+	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
+	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{
+		FallbackGasPriceULuna: null.StringFrom(fallbackGasPrice.Amount.String()),
+		GasLimitMultiplier:    null.FloatFrom(1.5),
+	})
+	require.NoError(t, err)
+	chainCfg := pkgterra.NewConfig(dbChain.Cfg, pkgterra.DefaultConfigSet, lggr)
+	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start())
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	accounts, testdir := terraclient.SetupLocalTerraNode(t, "42")
 	time.Sleep(5 * time.Second)
-	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
-	gasLimitMultiplier := 1.5
 	tc, err := terraclient.NewClient("42", "http://127.0.0.1:26657", "https://fcd.terra.dev/", 10, lggr)
 	require.NoError(t, err)
 
@@ -61,7 +74,7 @@ func TestTxmStartStop(t *testing.T) {
 	}, tc, testdir, "../../../testdata/my_first_contract.wasm")
 
 	// Start txm
-	txm, err := terratxm.NewTxm(db, tc, fallbackGasPrice.Amount.String(), gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb, 5*time.Second)
+	txm, err := terratxm.NewTxm(db, tc, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
 	require.NoError(t, err)
 	require.NoError(t, txm.Start())
 
@@ -81,7 +94,7 @@ func TestTxmStartStop(t *testing.T) {
 	}, 10*time.Second, time.Second).Should(gomega.BeTrue())
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		msgs, err := orm.SelectMsgsWithState(terratxm.Confirmed)
+		msgs, err := orm.SelectMsgsWithState(Confirmed)
 		require.NoError(t, err)
 		return 1 == len(msgs)
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
@@ -97,9 +110,9 @@ func TestTxmStartStop(t *testing.T) {
 
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		succeeded, err := orm.SelectMsgsWithState(terratxm.Confirmed)
+		succeeded, err := orm.SelectMsgsWithState(Confirmed)
 		require.NoError(t, err)
-		errored, err := orm.SelectMsgsWithState(terratxm.Errored)
+		errored, err := orm.SelectMsgsWithState(Errored)
 		require.NoError(t, err)
 		t.Log("errored", len(errored), "succeeded", len(succeeded))
 		return 2 == len(succeeded) && 2 == len(errored)

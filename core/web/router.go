@@ -357,12 +357,19 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 
-		chc := ChainsController{app}
-		authv2.GET("/chains/evm", paginatedRequest(chc.Index))
-		authv2.POST("/chains/evm", chc.Create)
-		authv2.GET("/chains/evm/:ID", chc.Show)
-		authv2.PATCH("/chains/evm/:ID", chc.Update)
-		authv2.DELETE("/chains/evm/:ID", chc.Delete)
+		echc := EVMChainsController{app}
+		authv2.GET("/chains/evm", paginatedRequest(echc.Index))
+		authv2.POST("/chains/evm", echc.Create)
+		authv2.GET("/chains/evm/:ID", echc.Show)
+		authv2.PATCH("/chains/evm/:ID", echc.Update)
+		authv2.DELETE("/chains/evm/:ID", echc.Delete)
+
+		tchc := TerraChainsController{app}
+		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
+		authv2.POST("/chains/terra", tchc.Create)
+		authv2.GET("/chains/terra/:ID", tchc.Show)
+		authv2.PATCH("/chains/terra/:ID", tchc.Update)
+		authv2.DELETE("/chains/terra/:ID", tchc.Delete)
 
 		enc := EVMNodesController{app}
 		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration

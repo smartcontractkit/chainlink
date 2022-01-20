@@ -22,14 +22,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_ChainsController_Create(t *testing.T) {
+func Test_EVMChainsController_Create(t *testing.T) {
 	t.Parallel()
 
-	controller := setupChainsControllerTest(t)
+	controller := setupEVMChainsControllerTest(t)
 
 	newChainId := *utils.NewBigI(42)
 
-	body, err := json.Marshal(web.CreateChainRequest{
+	body, err := json.Marshal(web.CreateEVMChainRequest{
 		ID: newChainId,
 		Config: types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(1),
@@ -44,7 +44,7 @@ func Test_ChainsController_Create(t *testing.T) {
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-	chainSet := controller.app.GetChainSet()
+	chainSet := controller.app.GetChains().EVM
 	dbChain, err := chainSet.ORM().Chain(newChainId)
 	require.NoError(t, err)
 
@@ -59,7 +59,7 @@ func Test_ChainsController_Create(t *testing.T) {
 	assert.Equal(t, resource.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
 }
 
-func Test_ChainsController_Show(t *testing.T) {
+func Test_EVMChainsController_Show(t *testing.T) {
 	t.Parallel()
 
 	validId := utils.NewBigI(12)
@@ -116,7 +116,7 @@ func Test_ChainsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupChainsControllerTest(t)
+			controller := setupEVMChainsControllerTest(t)
 
 			wantedResult := tc.want(t, controller.app)
 			resp, cleanup := controller.client.Get(
@@ -140,12 +140,12 @@ func Test_ChainsController_Show(t *testing.T) {
 	}
 }
 
-func Test_ChainsController_Index(t *testing.T) {
+func Test_EVMChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	controller := setupChainsControllerTest(t)
+	controller := setupEVMChainsControllerTest(t)
 
-	newChains := []web.CreateChainRequest{
+	newChains := []web.CreateEVMChainRequest{
 		{
 			ID: *utils.NewBigI(24),
 			Config: types.ChainCfg{
@@ -223,10 +223,10 @@ func Test_ChainsController_Index(t *testing.T) {
 	assert.Equal(t, newChains[1].Config.MinIncomingConfirmations, chains[0].Config.MinIncomingConfirmations)
 }
 
-func Test_ChainsController_Update(t *testing.T) {
+func Test_EVMChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	chainUpdate := web.UpdateChainRequest{
+	chainUpdate := web.UpdateEVMChainRequest{
 		Enabled: true,
 		Config: types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(55),
@@ -290,7 +290,7 @@ func Test_ChainsController_Update(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupChainsControllerTest(t)
+			controller := setupEVMChainsControllerTest(t)
 
 			beforeUpdate := tc.chainBeforeUpdate(t, controller.app)
 
@@ -320,10 +320,10 @@ func Test_ChainsController_Update(t *testing.T) {
 	}
 }
 
-func Test_ChainsController_Delete(t *testing.T) {
+func Test_EVMChainsController_Delete(t *testing.T) {
 	t.Parallel()
 
-	controller := setupChainsControllerTest(t)
+	controller := setupEVMChainsControllerTest(t)
 
 	newChainConfig := types.ChainCfg{
 		BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
@@ -383,12 +383,12 @@ func Test_ChainsController_Delete(t *testing.T) {
 	})
 }
 
-type TestChainsController struct {
+type TestEVMChainsController struct {
 	app    *cltest.TestApplication
 	client cltest.HTTPClientCleaner
 }
 
-func setupChainsControllerTest(t *testing.T) *TestChainsController {
+func setupEVMChainsControllerTest(t *testing.T) *TestEVMChainsController {
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplication(t)
@@ -396,7 +396,7 @@ func setupChainsControllerTest(t *testing.T) *TestChainsController {
 
 	client := app.NewHTTPClient()
 
-	return &TestChainsController{
+	return &TestEVMChainsController{
 		app:    app,
 		client: client,
 	}

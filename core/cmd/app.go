@@ -953,7 +953,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "create",
 							Usage:  "Create a new EVM chain",
-							Action: client.CreateChain,
+							Action: client.CreateEVMChain,
 							Flags: []cli.Flag{
 								cli.Int64Flag{
 									Name:  "id",
@@ -964,19 +964,57 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "delete",
 							Usage:  "Delete an EVM chain",
-							Action: client.RemoveChain,
+							Action: client.RemoveEVMChain,
 						},
 						{
 							Name:   "list",
 							Usage:  "List all EVM chains",
-							Action: client.IndexChains,
+							Action: client.IndexEVMChains,
 						},
 						{
 							Name:   "configure",
 							Usage:  "Configure an EVM chain",
-							Action: client.ConfigureChain,
+							Action: client.ConfigureEVMChain,
 							Flags: []cli.Flag{
 								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name:  "terra",
+					Usage: "Commands for handling Terra chains",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new Terra chain",
+							Action: client.CreateTerraChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete a Terra chain",
+							Action: client.RemoveTerraChain,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all Terra chains",
+							Action: client.IndexTerraChains,
+						},
+						{
+							Name:   "configure",
+							Usage:  "Configure a Terra chain",
+							Action: client.ConfigureTerraChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
 									Name:  "id",
 									Usage: "chain ID",
 								},
