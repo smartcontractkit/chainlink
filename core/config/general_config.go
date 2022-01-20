@@ -515,7 +515,7 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 // DatabaseBackupOnVersionUpgrade controls whether an automatic backup will be
 // taken before migrations are run, if the node version has been bumped
 func (c *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return c.getWithFallback("DatabaseBackupOnVersionUpgrade", ParseBool).(bool)
+	return c.getWithFallback("DatabaseBackupOnVersionUpgrade", parse.Bool).(bool)
 }
 
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
