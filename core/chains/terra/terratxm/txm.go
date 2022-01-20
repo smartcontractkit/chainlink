@@ -31,7 +31,6 @@ type Txm struct {
 	starter    utils.StartStopOnce
 	eb         pg.EventBroadcaster
 	sub        pg.Subscription
-	ticker     *time.Ticker
 	orm        *ORM
 	lggr       logger.Logger
 	tc         terraclient.ReaderWriter
@@ -48,7 +47,6 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.
 		eb:      eb,
 		orm:     NewORM(chainID, db, lggr, logCfg),
 		ks:      ks,
-		ticker:  time.NewTicker(terra.BlockRateSeconds * time.Second),
 		tc:      tc,
 		lggr:    lggr,
 		stop:    make(chan struct{}),
@@ -97,12 +95,14 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 func (txm *Txm) run(sub pg.Subscription) {
 	defer close(txm.done)
 	txm.confirmAnyUnconfirmed()
+	tick := time.After(txm.cfg.BlockRate())
 	for {
 		select {
 		case <-sub.Events():
 			txm.sendMsgBatch()
-		case <-txm.ticker.C:
+		case <-tick:
 			txm.sendMsgBatch()
+			tick = time.After(txm.cfg.BlockRate())
 		case <-txm.stop:
 			return
 		}
@@ -247,7 +247,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 
 func (txm *Txm) confirmPollConfig() (maxPolls int, pollPeriod time.Duration) {
 	blocks := txm.cfg.BlocksUntilTxTimeout()
-	blockPeriod := terra.BlockRateSeconds * time.Second
+	blockPeriod := txm.cfg.BlockRate()
 	pollPeriod = txm.cfg.ConfirmPollPeriod()
 	if pollPeriod == 0 { // don't divide by zero
 		return 2, 100 * time.Millisecond
