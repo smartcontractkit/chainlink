@@ -45,7 +45,7 @@ func TestORM(t *testing.T) {
 	broadcasted, err := o.SelectMsgsWithState(Broadcasted)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(broadcasted))
-	assert.Equal(t, broadcasted[0].Msg, unstarted[0].Msg)
+	assert.Equal(t, broadcasted[0].Raw, unstarted[0].Raw)
 	require.NotNil(t, broadcasted[0].TxHash)
 	assert.Equal(t, *broadcasted[0].TxHash, txHash)
 	assert.Equal(t, chainID, broadcasted[0].ChainID)

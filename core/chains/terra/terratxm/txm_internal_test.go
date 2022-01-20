@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -70,7 +71,7 @@ func TestTxm(t *testing.T) {
 		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
 		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&terraclient.BatchSimResults{
 			Failed: nil,
-			Succeeded: []terraclient.SimMsg{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
+			Succeeded: terraclient.SimMsgs{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
 				Sender:     sender1.String(),
 				ExecuteMsg: []byte(`1`),
 			}}},
@@ -104,45 +105,54 @@ func TestTxm(t *testing.T) {
 
 		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
-		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
+		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
-		id2, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`2`), sender2, contract))
+		id2, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender2, contract))
 		require.NoError(t, err)
-		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
-		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
-		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&terraclient.BatchSimResults{
-			Failed: nil,
-			Succeeded: []terraclient.SimMsg{
+		ids := []int64{id1, id2}
+		senders := []string{sender1.String(), sender2.String()}
+		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01"))).Once()
+		for i := 0; i < 2; i++ {
+			tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil).Once()
+			// Note this must be arg dependent, we don't know which order
+			// the procesing will happen in (map iteration by from address).
+			tc.On("BatchSimulateUnsigned", terraclient.SimMsgs{
 				{
-					ID: id1,
+					ID: ids[i],
 					Msg: &wasmtypes.MsgExecuteContract{
-						Sender:     sender1.String(),
-						ExecuteMsg: []byte(`1`),
+						Sender:     senders[i],
+						ExecuteMsg: []byte(fmt.Sprintf(`%d`, i)),
+						Contract:   contract.String(),
 					},
 				},
-				{
-					ID: id2,
-					Msg: &wasmtypes.MsgExecuteContract{
-						Sender:     sender2.String(),
-						ExecuteMsg: []byte(`2`),
+			}, mock.Anything).Return(&terraclient.BatchSimResults{
+				Failed: nil,
+				Succeeded: terraclient.SimMsgs{
+					{
+						ID: ids[i],
+						Msg: &wasmtypes.MsgExecuteContract{
+							Sender:     senders[i],
+							ExecuteMsg: []byte(fmt.Sprintf(`%d`, i)),
+							Contract:   contract.String(),
+						},
 					},
 				},
-			},
-		}, nil)
-		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
-			GasUsed: 1_000_000,
-		}}, nil)
-		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-			Header: tmtypes.Header{Height: 1},
-		}}, nil)
-		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
-		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{
-			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
-		}, nil)
-		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{
-			Tx:         &txtypes.Tx{},
-			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
-		}, nil)
+			}, nil).Once()
+			tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
+				GasUsed: 1_000_000,
+			}}, nil).Once()
+			tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
+				Header: tmtypes.Header{Height: 1},
+			}}, nil).Once()
+			tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil).Once()
+			tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{
+				TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
+			}, nil).Once()
+			tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{
+				Tx:         &txtypes.Tx{},
+				TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
+			}, nil).Once()
+		}
 		txm.sendMsgBatch()
 
 		// Should be in completed state
@@ -164,7 +174,9 @@ func TestTxm(t *testing.T) {
 		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
-		err = txm.confirmTx("0x123", []int64{i}, 2, 0)
+		txh := "0x123"
+		require.NoError(t, txm.orm.UpdateMsgsWithState([]int64{i}, Broadcasted, &txh))
+		err = txm.confirmTx(txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
 		m, err := txm.orm.SelectMsgsWithIDs([]int64{i})
 		require.NoError(t, err)

@@ -39,7 +39,7 @@ type Txm struct {
 	cfg        terra.Config
 }
 
-// NewTxm creates a txm
+// NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
 	lggr = lggr.Named("Txm")
 	return &Txm{
@@ -74,7 +74,7 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	broadcasted, err := txm.orm.SelectMsgsWithState(db.Broadcasted)
 	if err != nil {
 		// Should never happen but if so, theoretically can retry with a reboot
-		txm.lggr.Errorw("unable to look for broadcasted but unconfirmed txes", "err", err)
+		txm.lggr.CriticalW("unable to look for broadcasted but unconfirmed txes", "err", err)
 		return
 	}
 	if len(broadcasted) == 0 {
@@ -96,14 +96,15 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 func (txm *Txm) run(sub pg.Subscription) {
 	defer close(txm.done)
 	txm.confirmAnyUnconfirmed()
-	tick := time.After(txm.cfg.BlockRate())
+	// Jitter in case we have multiple terra chains each with their own client.
+	tick := time.After(utils.WithJitter(txm.cfg.BlockRate()))
 	for {
 		select {
 		case <-sub.Events():
 			txm.sendMsgBatch()
 		case <-tick:
 			txm.sendMsgBatch()
-			tick = time.After(txm.cfg.BlockRate())
+			tick = time.After(utils.WithJitter(txm.cfg.BlockRate()))
 		case <-txm.stop:
 			return
 		}
@@ -129,7 +130,7 @@ func (txm *Txm) sendMsgBatch() {
 		err := ms.Unmarshal(m.Raw)
 		if err != nil {
 			// Should be impossible given the check in Enqueue
-			txm.lggr.Errorw("failed to unmarshal msg, skipping", "err", err, "msg", m)
+			txm.lggr.CriticalW("failed to unmarshal msg, skipping", "err", err, "msg", m)
 			continue
 		}
 		m.ExecuteContract = &ms
@@ -151,7 +152,7 @@ func (txm *Txm) sendMsgBatch() {
 			txm.lggr.Errorw("unable to find key for from address", "err", err, "from", sender.String())
 			// We check the transmitter key exists when the job is added. So it would have to be deleted
 			// after it was added for this to happen. Retry on next poll should the key be re-added.
-			return
+			continue
 		}
 		txm.sendMsgBatchFromAddress(gp, sender, key, msgs)
 	}
@@ -268,7 +269,8 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64, maxPolls int, poll
 	// is TimeoutHeight - HeightAtBroadcast. In other words, if we wait for that long
 	// and the tx is not confirmed, we know it has timed out.
 	for tries := 0; tries < maxPolls; tries++ {
-		time.Sleep(pollPeriod)
+		// Jitter in-case we're confirming multiple txes in parallel for different keys
+		time.Sleep(utils.WithJitter(pollPeriod))
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)

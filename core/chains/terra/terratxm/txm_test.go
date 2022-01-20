@@ -31,7 +31,7 @@ import (
 )
 
 func TestTxmStartStop(t *testing.T) {
-	//t.Skip() // Local only unless we want to add terrad to CI env
+	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
