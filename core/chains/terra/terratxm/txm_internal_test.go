@@ -62,7 +62,7 @@ func TestTxm(t *testing.T) {
 		terraclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
 			"uluna": cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")),
 		}),
-	})
+	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)

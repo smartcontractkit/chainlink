@@ -277,7 +277,11 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64, maxPolls int, poll
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)
 		if err != nil {
-			txm.lggr.Errorw("error looking for hash of tx", "err", err, "resp", txHash)
+			if strings.Contains(err.Error(), "not found") {
+				txm.lggr.Infow("txhash not found yet, still confirming", "hash", txHash)
+			} else {
+				txm.lggr.Errorw("error looking for hash of tx", "err", err, "hash", txHash)
+			}
 			continue
 		}
 		// Sanity check

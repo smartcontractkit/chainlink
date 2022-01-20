@@ -41,7 +41,7 @@ func TestTxmStartStop(t *testing.T) {
 		terraclient.NewFixedGasPriceEstimator(map[string]sdk.DecCoin{
 			"uluna": fallbackGasPrice,
 		}),
-	})
+	}, lggr)
 	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom(fallbackGasPrice.Amount.String()),
 		GasLimitMultiplier:    null.FloatFrom(1.5),

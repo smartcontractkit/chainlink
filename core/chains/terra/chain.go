@@ -60,7 +60,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 				"uluna": sdk.NewDecCoinFromDec("uluna", cfg.FallbackGasPriceULuna()),
 			}, nil
 		}),
-	})
+	}, lggr)
 	client, err := terraclient.NewClient(dbchain.ID,
 		node.TendermintURL, DefaultRequestTimeoutSeconds, lggr.Named("Client"))
 	if err != nil {
