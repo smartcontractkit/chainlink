@@ -965,7 +965,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 		var matched []pipeline.Run
 		for _, pr := range prs {
-			if pr.State != state {
+			if !pr.State.Finished() && pr.State != state {
 				continue
 			}
 
