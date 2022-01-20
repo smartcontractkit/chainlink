@@ -354,7 +354,7 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 	return err
 }
 
-// SetLogSQL enables or disables the log sql statemnts
+// SetLogSQL enables or disables the log sql statements
 func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 
 	// Enforces selection of --enable or --disable

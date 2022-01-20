@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
@@ -47,7 +46,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
@@ -83,12 +81,39 @@ func TestPipelineORM_Integration(t *testing.T) {
 		RequestData: `{"hi": "hello"}`,
 	}
 
-	answer1.BaseTask = pipeline.NewBaseTask(6, "answer1", []pipeline.Task{ds1_multiply, ds2_multiply}, nil, 0)
+	answer1.BaseTask = pipeline.NewBaseTask(
+		6,
+		"answer1",
+		[]pipeline.TaskDependency{
+			{PropagateResult: true, InputTask: pipeline.Task(ds1_multiply)},
+			{PropagateResult: true, InputTask: pipeline.Task(ds2_multiply)}},
+		nil,
+		0)
 	answer2.BaseTask = pipeline.NewBaseTask(7, "answer2", nil, nil, 1)
-	ds1_multiply.BaseTask = pipeline.NewBaseTask(2, "ds1_multiply", []pipeline.Task{ds1_parse}, []pipeline.Task{answer1}, 0)
-	ds2_multiply.BaseTask = pipeline.NewBaseTask(5, "ds2_multiply", []pipeline.Task{ds2_parse}, []pipeline.Task{answer1}, 0)
-	ds1_parse.BaseTask = pipeline.NewBaseTask(1, "ds1_parse", []pipeline.Task{ds1}, []pipeline.Task{ds1_multiply}, 0)
-	ds2_parse.BaseTask = pipeline.NewBaseTask(4, "ds2_parse", []pipeline.Task{ds2}, []pipeline.Task{ds2_multiply}, 0)
+	ds1_multiply.BaseTask = pipeline.NewBaseTask(
+		2,
+		"ds1_multiply",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1_parse)}},
+		[]pipeline.Task{answer1},
+		0)
+	ds2_multiply.BaseTask = pipeline.NewBaseTask(
+		5,
+		"ds2_multiply",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2_parse)}},
+		[]pipeline.Task{answer1},
+		0)
+	ds1_parse.BaseTask = pipeline.NewBaseTask(
+		1,
+		"ds1_parse",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1)}},
+		[]pipeline.Task{ds1_multiply},
+		0)
+	ds2_parse.BaseTask = pipeline.NewBaseTask(
+		4,
+		"ds2_parse",
+		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2)}},
+		[]pipeline.Task{ds2_multiply},
+		0)
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 	expectedTasks := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}

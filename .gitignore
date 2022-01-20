@@ -53,3 +53,8 @@ core/cmd/vrfkey1
 
 # left behind by webpack - compiled frontend assets
 core/web/assets
+
+# Integration Tests
+integration-tests/logs/
+tests-*.xml
+*.test

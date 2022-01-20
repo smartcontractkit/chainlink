@@ -63,12 +63,12 @@ func (ekb *EncryptedKeyBundle) SetID(value string) error {
 	return nil
 }
 
-// NewKeyBundle makes a new set of OCR key bundles from cryptographically secure entropy
-func NewKeyBundle() (*KeyBundle, error) {
-	return NewKeyBundleFrom(cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
+// New makes a new set of OCR key bundles from cryptographically secure entropy
+func New() (*KeyBundle, error) {
+	return NewFrom(cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
 }
 
-func NewKeyBundleFrom(onChainSigning io.Reader, offChainSigning io.Reader, offChainEncryption io.Reader) (*KeyBundle, error) {
+func NewFrom(onChainSigning io.Reader, offChainSigning io.Reader, offChainEncryption io.Reader) (*KeyBundle, error) {
 	ecdsaKey, err := ecdsa.GenerateKey(curve, onChainSigning)
 	if err != nil {
 		return nil, err
@@ -127,7 +127,7 @@ func (pk *KeyBundle) PublicKeyAddressOnChain() ocrtypes.OnChainSigningAddress {
 	return ocrtypes.OnChainSigningAddress(pk.onChainSigning.Address())
 }
 
-// PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
+// PublicKeyOffChain returns the public component of the keypair used in SignOffChain
 func (pk *KeyBundle) PublicKeyOffChain() ocrtypes.OffchainPublicKey {
 	return ocrtypes.OffchainPublicKey(pk.offChainSigning.PublicKey())
 }

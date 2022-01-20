@@ -26,12 +26,14 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -46,7 +48,7 @@ import (
 var prometheus *ginprom.Prometheus
 
 func init() {
-	// ensure metrics are regsitered once per instance to avoid registering
+	// ensure metrics are registered once per instance to avoid registering
 	// metrics multiple times (panic)
 	prometheus = ginprom.New(ginprom.Namespace("service"))
 }
@@ -89,18 +91,9 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
-func retryLogMsg(count int) string {
-	if count == 1 {
-		return "Could not get lock, retrying..."
-	} else if count%1000 == 0 || count&(count-1) == 0 {
-		return "Still waiting for lock..."
-	}
-	return ""
-}
-
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (app chainlink.Application, err error) {
-	appLggr := logger.NewLogger(cfg)
+	appLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
@@ -160,17 +153,30 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
-	chainSet, err := evm.LoadChainSet(ccOpts)
+	var chains chainlink.Chains
+	chains.EVM, err = evm.LoadChainSet(ccOpts)
 	if err != nil {
 		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr, cfg)
+	terraLggr := appLggr.Named("Terra")
+	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		Config:           cfg,
+		Logger:           terraLggr,
+		DB:               db,
+		KeyStore:         keyStore.Terra(),
+		EventBroadcaster: eventBroadcaster,
+		ORM:              terra.NewORM(db, terraLggr, cfg),
+	})
+	if err != nil {
+		appLggr.Fatal(err)
+	}
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           sig,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
-		ChainSet:                 chainSet,
+		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
 		ExternalInitiatorManager: externalInitiatorManager,

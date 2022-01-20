@@ -27,7 +27,6 @@ services:
       - EXPLORER_SECRET
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
-      - ENABLE_EXPERIMENTAL_ADAPTERS
     env_file:
       - chainlink-variables.env
     ports:
@@ -59,7 +58,6 @@ services:
       - CHAINLINK_DEV
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
-      - ENABLE_EXPERIMENTAL_ADAPTERS
     env_file:
       - chainlink-variables.env
     ports:

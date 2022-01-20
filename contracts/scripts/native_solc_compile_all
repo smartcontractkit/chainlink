@@ -20,6 +20,7 @@ $SCRIPTPATH/native_solc6_compile VRFRequestIDBase.sol
 $SCRIPTPATH/native_solc6_compile tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc6_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
+$SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
@@ -43,10 +44,12 @@ $SCRIPTPATH/native_solc8_compile dev/VRFConsumerBaseV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFConsumerV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFMaliciousConsumerV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFTestHelper.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFV2RevertingExample.sol
 
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_compile tests/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFSingleConsumerExample.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFOwnerlessConsumerExample.sol
 
 $SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol

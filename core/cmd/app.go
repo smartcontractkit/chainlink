@@ -5,9 +5,9 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func removeHidden(cmds ...cli.Command) []cli.Command {
@@ -36,7 +36,6 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
-		logger.InitLogger(client.Logger)
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{
@@ -429,7 +428,7 @@ func NewApp(client *Client) *cli.App {
 
 				{
 					Name:  "ocr",
-					Usage: "Remote commands for administering the node's off chain reporting keys",
+					Usage: "Remote commands for administering the node's legacy off chain reporting keys",
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
@@ -481,6 +480,178 @@ func NewApp(client *Client) *cli.App {
 								},
 							},
 							Action: client.ExportOCRKey,
+						},
+					},
+				},
+
+				{
+					Name:  "ocr2",
+					Usage: "Remote commands for administering the node's off chain reporting keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  format(`Create an OCR2 key bundle, encrypted with password from the password file, and store it in the database`),
+							Action: client.CreateOCR2KeyBundle,
+						},
+						{
+							Name:  "delete",
+							Usage: format(`Deletes the encrypted OCR2 key bundle matching the given ID`),
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteOCR2KeyBundle,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available OCR2 key bundles`),
+							Action: client.ListOCR2KeyBundles,
+						},
+						{
+							Name:  "import",
+							Usage: format(`Imports an OCR2 key bundle from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportOCR2Key,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports an OCR2 key bundle to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportOCR2Key,
+						},
+					},
+				},
+
+				{
+					Name:  "solana",
+					Usage: "Remote commands for administering the node's solana keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a Solana key",
+							Action: client.CreateSolanaKey,
+						},
+						{
+							Name:  "import",
+							Usage: "Import Solana key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportSolanaKey,
+						},
+						{
+							Name:  "export",
+							Usage: "Export Solana key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportSolanaKey,
+						},
+						{
+							Name:  "delete",
+							Usage: "Delete Solana key if present",
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteSolanaKey,
+						},
+						{
+							Name: "list", Usage: "List the Solana keys",
+							Action: client.ListSolanaKeys,
+						},
+					},
+				},
+
+				{
+					Name:  "terra",
+					Usage: "Remote commands for administering the node's terra keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a Terra key",
+							Action: client.CreateTerraKey,
+						},
+						{
+							Name:  "import",
+							Usage: "Import Terra key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportTerraKey,
+						},
+						{
+							Name:  "export",
+							Usage: "Export Terra key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportTerraKey,
+						},
+						{
+							Name:  "delete",
+							Usage: "Delete Terra key if present",
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteTerraKey,
+						},
+						{
+							Name: "list", Usage: "List the Terra keys",
+							Action: client.ListTerraKeys,
 						},
 					},
 				},
@@ -736,8 +907,22 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "create",
-					Usage:  "Send <amount> Eth from node ETH account <fromAddress> to destination <toAddress>.",
+					Usage:  "Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.",
 					Action: client.SendEther,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "allows to send a higher amount than the account's balance",
+						},
+						cli.BoolFlag{
+							Name:  "eth",
+							Usage: "allows to send ETH amounts (Default behavior)",
+						},
+						cli.BoolFlag{
+							Name:  "wei",
+							Usage: "allows to send WEI amounts",
+						},
+					},
 				},
 				{
 					Name:   "list",
@@ -768,7 +953,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "create",
 							Usage:  "Create a new EVM chain",
-							Action: client.CreateChain,
+							Action: client.CreateEVMChain,
 							Flags: []cli.Flag{
 								cli.Int64Flag{
 									Name:  "id",
@@ -779,19 +964,57 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "delete",
 							Usage:  "Delete an EVM chain",
-							Action: client.RemoveChain,
+							Action: client.RemoveEVMChain,
 						},
 						{
 							Name:   "list",
-							Usage:  "List all chains",
-							Action: client.IndexChains,
+							Usage:  "List all EVM chains",
+							Action: client.IndexEVMChains,
 						},
 						{
 							Name:   "configure",
 							Usage:  "Configure an EVM chain",
-							Action: client.ConfigureChain,
+							Action: client.ConfigureEVMChain,
 							Flags: []cli.Flag{
 								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name:  "terra",
+					Usage: "Commands for handling Terra chains",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new Terra chain",
+							Action: client.CreateTerraChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete a Terra chain",
+							Action: client.RemoveTerraChain,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all Terra chains",
+							Action: client.IndexTerraChains,
+						},
+						{
+							Name:   "configure",
+							Usage:  "Configure a Terra chain",
+							Action: client.ConfigureTerraChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
 									Name:  "id",
 									Usage: "chain ID",
 								},
@@ -806,41 +1029,86 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
 				{
-					Name:   "create",
-					Usage:  "Create a new node",
-					Action: client.CreateNode,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "name",
-							Usage: "node name",
+					Name:  "evm",
+					Usage: "Commands for handling EVM node configuration",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new EVM node",
+							Action: client.CreateEVMNode,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "name",
+									Usage: "node name",
+								},
+								cli.StringFlag{
+									Name:  "ws-url",
+									Usage: "Websocket URL",
+								},
+								cli.StringFlag{
+									Name:  "http-url",
+									Usage: "HTTP URL, optional",
+								},
+								cli.Int64Flag{
+									Name:  "chain-id",
+									Usage: "chain ID",
+								},
+								cli.StringFlag{
+									Name:  "type",
+									Usage: "primary|secondary",
+								},
+							},
 						},
-						cli.StringFlag{
-							Name:  "ws-url",
-							Usage: "Websocket URL",
+						{
+							Name:   "delete",
+							Usage:  "Delete an EVM node",
+							Action: client.RemoveEVMNode,
 						},
-						cli.StringFlag{
-							Name:  "http-url",
-							Usage: "HTTP URL, optional",
-						},
-						cli.Int64Flag{
-							Name:  "chain-id",
-							Usage: "chain ID",
-						},
-						cli.StringFlag{
-							Name:  "type",
-							Usage: "primary|secondary",
+						{
+							Name:   "list",
+							Usage:  "List all EVM nodes",
+							Action: client.IndexEVMNodes,
 						},
 					},
 				},
 				{
-					Name:   "delete",
-					Usage:  "Delete a node",
-					Action: client.RemoveNode,
-				},
-				{
-					Name:   "list",
-					Usage:  "List all nodes",
-					Action: client.IndexNodes,
+					Name:  "terra",
+					Usage: "Commands for handling Terra node configuration",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new Terra node",
+							Action: client.CreateTerraNode,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "name",
+									Usage: "node name",
+								},
+								cli.StringFlag{
+									Name:  "chain-id",
+									Usage: "chain ID",
+								},
+								cli.StringFlag{
+									Name:  "tendermint-url",
+									Usage: "Tendermint URL",
+								},
+								cli.StringFlag{
+									Name:  "fcd-url",
+									Usage: "FCD URL",
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete a Terra node",
+							Action: client.RemoveTerraNode,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all Terra nodes",
+							Action: client.IndexTerraNodes,
+						},
+					},
 				},
 			},
 		},

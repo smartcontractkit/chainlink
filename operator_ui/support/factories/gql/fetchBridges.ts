@@ -1,4 +1,4 @@
-// buildFeedsManager builds a feeds manager for the FetchFeedsManagers query.
+// buildBridge builds a Bridge for the FetchBridges query.
 export function buildBridge(
   overrides?: Partial<BridgesPayload_ResultsFields>,
 ): BridgesPayload_ResultsFields {

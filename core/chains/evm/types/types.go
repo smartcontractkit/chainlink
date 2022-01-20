@@ -105,7 +105,6 @@ func (Chain) TableName() string {
 type Node struct {
 	ID         int32
 	Name       string
-	EVMChain   Chain
 	EVMChainID utils.Big
 	WSURL      null.String `db:"ws_url"`
 	HTTPURL    null.String `db:"http_url"`

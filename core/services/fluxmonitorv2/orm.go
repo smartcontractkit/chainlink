@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -32,17 +32,19 @@ type orm struct {
 	q        pg.Q
 	txm      transmitter
 	strategy bulletprooftxmanager.TxStrategy
+	checker  bulletprooftxmanager.TransmitCheckerSpec
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy bulletprooftxmanager.TxStrategy) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy bulletprooftxmanager.TxStrategy, checker bulletprooftxmanager.TransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
 		q,
 		txm,
 		strategy,
+		checker,
 		namedLogger,
 	}
 }
@@ -121,8 +123,8 @@ func (o *orm) CreateEthTransaction(
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
-		Meta:           nil,
 		Strategy:       o.strategy,
+		Checker:        o.checker,
 	}, qopts...)
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }

@@ -10,10 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func TestGeneralConfig_Defaults(t *testing.T) {
-	config := NewGeneralConfig()
+	config := NewGeneralConfig(logger.TestLogger(t))
 	assert.Equal(t, uint64(10), config.BlockBackfillDepth())
 	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
@@ -22,9 +26,36 @@ func TestGeneralConfig_Defaults(t *testing.T) {
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 }
 
+func TestGeneralConfig_GlobalOCRDatabaseTimeout(t *testing.T) {
+	t.Setenv(envvar.Name("OCRDatabaseTimeout"), "3s")
+	config := NewGeneralConfig(logger.TestLogger(t))
+
+	timeout, ok := config.GlobalOCRDatabaseTimeout()
+	require.True(t, ok)
+	require.Equal(t, 3*time.Second, timeout)
+}
+
+func TestGeneralConfig_GlobalOCRObservationGracePeriod(t *testing.T) {
+	t.Setenv(envvar.Name("OCRObservationGracePeriod"), "3s")
+	config := NewGeneralConfig(logger.TestLogger(t))
+
+	timeout, ok := config.GlobalOCRObservationGracePeriod()
+	require.True(t, ok)
+	require.Equal(t, 3*time.Second, timeout)
+}
+
+func TestGeneralConfig_GlobalOCRContractTransmitterTransmitTimeout(t *testing.T) {
+	t.Setenv(envvar.Name("OCRContractTransmitterTransmitTimeout"), "3s")
+	config := NewGeneralConfig(logger.TestLogger(t))
+
+	timeout, ok := config.GlobalOCRContractTransmitterTransmitTimeout()
+	require.True(t, ok)
+	require.Equal(t, 3*time.Second, timeout)
+}
+
 func TestGeneralConfig_sessionSecret(t *testing.T) {
 	t.Parallel()
-	config := NewGeneralConfig()
+	config := NewGeneralConfig(logger.TestLogger(t))
 	// config.Set("ROOT", path.Join("/tmp/chainlink_test", "TestConfig_sessionSecret"))
 	// err := os.MkdirAll(config.RootDir(), os.FileMode(0770))
 	// require.NoError(t, err)
@@ -44,42 +75,42 @@ func TestConfig_readFromFile(t *testing.T) {
 	v := viper.New()
 	v.Set("ROOT", "../../tools/clroot/")
 
-	config := newGeneralConfigWithViper(v)
+	config := newGeneralConfigWithViper(v, logger.TestLogger(t))
 	assert.Equal(t, config.RootDir(), "../../tools/clroot/")
 	assert.Equal(t, config.Dev(), true)
 	assert.Equal(t, config.TLSPort(), uint16(0))
 }
 
 func TestStore_bigIntParser(t *testing.T) {
-	val, err := ParseBigInt("0")
+	val, err := parse.BigInt("0")
 	assert.NoError(t, err)
 	assert.Equal(t, new(big.Int).SetInt64(0), val)
 
-	val, err = ParseBigInt("15")
+	val, err = parse.BigInt("15")
 	assert.NoError(t, err)
 	assert.Equal(t, new(big.Int).SetInt64(15), val)
 
-	val, err = ParseBigInt("x")
+	val, err = parse.BigInt("x")
 	assert.Error(t, err)
 	assert.Nil(t, val)
 
-	val, err = ParseBigInt("")
+	val, err = parse.BigInt("")
 	assert.Error(t, err)
 	assert.Nil(t, val)
 }
 
 func TestStore_levelParser(t *testing.T) {
-	val, err := ParseLogLevel("ERROR")
+	val, err := parse.LogLevel("ERROR")
 	assert.NoError(t, err)
-	assert.Equal(t, LogLevel{zapcore.ErrorLevel}, val)
+	assert.Equal(t, zapcore.ErrorLevel, val)
 
-	val, err = ParseLogLevel("")
+	val, err = parse.LogLevel("")
 	assert.NoError(t, err)
-	assert.Equal(t, LogLevel{zapcore.InfoLevel}, val)
+	assert.Equal(t, zapcore.InfoLevel, val)
 
-	val, err = ParseLogLevel("primus sucks")
+	val, err = parse.LogLevel("primus sucks")
 	assert.Error(t, err)
-	assert.Equal(t, val, LogLevel{})
+	assert.Equal(t, val, zapcore.Level(0))
 }
 
 func TestStore_urlParser(t *testing.T) {
@@ -95,7 +126,7 @@ func TestStore_urlParser(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			i, err := ParseURL(test.input)
+			i, err := parse.URL(test.input)
 
 			if test.wantError {
 				assert.Error(t, err)
@@ -110,14 +141,14 @@ func TestStore_urlParser(t *testing.T) {
 }
 
 func TestStore_boolParser(t *testing.T) {
-	val, err := ParseBool("true")
+	val, err := parse.Bool("true")
 	assert.NoError(t, err)
 	assert.Equal(t, true, val)
 
-	val, err = ParseBool("false")
+	val, err = parse.Bool("false")
 	assert.NoError(t, err)
 	assert.Equal(t, false, val)
 
-	_, err = ParseBool("")
+	_, err = parse.Bool("")
 	assert.Error(t, err)
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ import (
 // ex: 0x1234ABCD
 const funcSigLength = 10
 
-func NewContractMockReceiver(t *testing.T, ethMock *ethmocks.Client, abi abi.ABI, address common.Address) contractMockReceiver {
+func NewContractMockReceiver(t *testing.T, ethMock *evmmocks.Client, abi abi.ABI, address common.Address) contractMockReceiver {
 	return contractMockReceiver{
 		t:       t,
 		ethMock: ethMock,
@@ -29,7 +29,7 @@ func NewContractMockReceiver(t *testing.T, ethMock *ethmocks.Client, abi abi.ABI
 
 type contractMockReceiver struct {
 	t       *testing.T
-	ethMock *ethmocks.Client
+	ethMock *evmmocks.Client
 	abi     abi.ABI
 	address common.Address
 }
@@ -104,7 +104,7 @@ func (receiver contractMockReceiver) mustEncodeResponse(funcName string, respons
 	isStruct := reflect.TypeOf(firstArg).Kind() == reflect.Struct
 
 	if isStruct && len(responseArgs) > 1 {
-		receiver.t.Fatal("cannot encode resonse with struct and multiple return values")
+		receiver.t.Fatal("cannot encode response with struct and multiple return values")
 	} else if isStruct {
 		outputList = structToInterfaceSlice(firstArg)
 	} else {
