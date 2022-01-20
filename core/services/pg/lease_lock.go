@@ -86,22 +86,38 @@ func (l *leaseLock) TakeAndHold(sig shutdown.Signal) (err error) {
 	retryCount := 0
 	isInitial := true
 
+	ctxStop, cancel := utils.ContextFromChan(l.chStop)
+	defer cancel()
+
 	for {
-		ctx, cancel := utils.ContextFromChan(l.chStop)
-		ctx, cancel2 := DefaultQueryCtxWithParent(ctx)
-		if l.conn == nil {
-			if err := l.checkoutConn(ctx); err != nil {
-				return errors.Wrap(err, "failed to checkout initial connection")
+		var gotLease bool
+		var err error
+
+		err = func() error {
+			ctx, cancel := DefaultQueryCtxWithParent(ctxStop)
+			defer cancel()
+			if l.conn == nil {
+				if err = l.checkoutConn(ctx); err != nil {
+					return errors.Wrap(err, "lease lock failed to checkout initial connection")
+				}
 			}
-		}
-		gotLease, err := l.getLease(ctx, isInitial)
-		cancel2()
-		cancel()
-		if err != nil {
-			return multierr.Combine(
-				errors.Wrap(err, "failed to get lock"),
-				l.conn.Close(),
-			)
+			gotLease, err = l.getLease(ctx, isInitial)
+			if errors.Is(err, sql.ErrConnDone) {
+				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
+				l.conn = nil
+				return err
+			}
+			return nil
+		}()
+
+		if errors.Is(err, sql.ErrConnDone) {
+			continue
+		} else if err != nil {
+			err = errors.Wrap(err, "failed to get lease lock")
+			if l.conn != nil {
+				err = multierr.Combine(err, l.conn.Close())
+			}
+			return err
 		}
 		if gotLease {
 			break
@@ -111,16 +127,17 @@ func (l *leaseLock) TakeAndHold(sig shutdown.Signal) (err error) {
 		retryCount++
 		select {
 		case <-l.chStop:
-			return multierr.Combine(
-				errors.New("stopped"),
-				l.conn.Close(),
-			)
+			err = errors.New("stopped")
+			if l.conn != nil {
+				err = multierr.Combine(err, l.conn.Close())
+			}
+			return err
 		case <-sig.Wait():
 			return multierr.Combine(
 				errors.New("application shutdown"),
 				l.conn.Close(),
 			)
-		case <-time.After(l.refreshInterval):
+		case <-time.After(utils.WithJitter(l.refreshInterval)):
 		}
 	}
 	l.logger.Debug("Got exclusive lease on database")
@@ -131,10 +148,11 @@ func (l *leaseLock) TakeAndHold(sig shutdown.Signal) (err error) {
 
 // checkout dedicated connection for lease lock to bypass any DB contention
 func (l *leaseLock) checkoutConn(ctx context.Context) (err error) {
-	l.conn, err = l.db.Connx(ctx)
+	newConn, err := l.db.Connx(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed checking out connection from pool")
 	}
+	l.conn = newConn
 	if err = l.setInitialTimeouts(ctx); err != nil {
 		return multierr.Combine(
 			errors.Wrap(err, "failed to set initial timeouts"),
@@ -156,8 +174,8 @@ func (l *leaseLock) setInitialTimeouts(ctx context.Context) error {
 }
 
 func (l *leaseLock) logRetry(count int) {
-	if count%1000 == 0 || count&(count-1) == 0 {
-		l.logger.Infow("Another application is currently holding the database lease (or a previous instance exited uncleanly), waiting for lease to expire...", "failCount", count+1)
+	if count%1000 == 0 || (count < 1000 && count&(count-1) == 0) {
+		l.logger.Infow("Another application is currently holding the database lease (or a previous instance exited uncleanly), waiting for lease to expire...", "tryCount", count)
 	}
 }
 
@@ -171,6 +189,9 @@ func (l *leaseLock) loop() {
 
 	ticker := time.NewTicker(l.refreshInterval)
 	defer ticker.Stop()
+
+	ctxStop, cancel := utils.ContextFromChan(l.chStop)
+	defer cancel()
 
 	for {
 		select {
@@ -186,17 +207,15 @@ func (l *leaseLock) loop() {
 			}
 			return
 		case <-ticker.C:
-			ctx, cancel := utils.ContextFromChan(l.chStop)
-			ctx, cancel2 := context.WithTimeout(ctx, l.leaseDuration)
+			ctx, cancel := context.WithTimeout(ctxStop, l.leaseDuration)
 			gotLease, err := l.getLease(ctx, false)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
-				if err = l.refreshConn(ctx); err != nil {
+				if err = l.checkoutConn(ctx); err != nil {
 					l.logger.Warnw("Error trying to refresh connection", "err", err)
 				}
 				gotLease, err = l.getLease(ctx, false)
 			}
-			cancel2()
 			cancel()
 			if err != nil {
 				l.logger.Errorw("Error trying to refresh database lease", "err", err)
@@ -205,13 +224,6 @@ func (l *leaseLock) loop() {
 			}
 		}
 	}
-}
-
-func (l *leaseLock) refreshConn(ctx context.Context) error {
-	if err := l.conn.Close(); err != nil {
-		l.logger.Warnw("refreshConn: error closing dead connection", "err", err)
-	}
-	return errors.Wrap(l.checkoutConn(ctx), "refreshConn: failed to checkout conn")
 }
 
 // initialSQL is necessary because the application attempts to take the lease
@@ -226,6 +238,7 @@ var initialSQL = []string{
 // If the lease is currently held by someone else, returns false
 // If some other error occurred, returns the error
 func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool, err error) {
+	l.logger.Trace("Refreshing database lease")
 	leaseDuration := fmt.Sprintf("%f seconds", l.leaseDuration.Seconds())
 
 	// NOTE: Uses database time for all calculations since it's conceivable

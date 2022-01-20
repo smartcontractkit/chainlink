@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Check for changed files
         id: changedfiles
-        uses: futuratrepadeira/changed-files@186b5b30b1f5e44ed655a59652746c3ce00d53ef # Version v3.1.1
+        uses: umani/changed-files@1d252c611c64289d35243fc37ece7323ea5e93e1 # Version 3.3.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: '^docs/CHANGELOG.*$'

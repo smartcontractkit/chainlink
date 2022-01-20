@@ -9,26 +9,26 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type TestChainOpts struct {
-	Client         eth.Client
+	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	GeneralConfig  config.GeneralConfig
 	ChainCfg       evmtypes.ChainCfg
-	HeadTracker    httypes.Tracker
+	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
 	TxManager      bulletprooftxmanager.TxManager
 	KeyStore       keystore.Eth
@@ -49,7 +49,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		EventBroadcaster: pg.NewNullEventBroadcaster(),
 	}
 	if testopts.Client != nil {
-		opts.GenEthClient = func(c evmtypes.Chain) eth.Client {
+		opts.GenEthClient = func(c evmtypes.Chain) evmclient.Client {
 			return testopts.Client
 		}
 	}
@@ -59,7 +59,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(evmtypes.Chain) httypes.Tracker {
+		opts.GenHeadTracker = func(evmtypes.Chain) httypes.HeadTracker {
 			return testopts.HeadTracker
 		}
 	}

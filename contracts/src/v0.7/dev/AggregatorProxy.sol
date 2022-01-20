@@ -7,7 +7,7 @@ import "../interfaces/AggregatorProxyInterface.sol";
 /**
  * @title A trusted proxy for updating where current answers are read from
  * @notice This contract provides a consistent address for the
- * CurrentAnwerInterface but delegates where it reads from to the owner, who is
+ * CurrentAnswerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
 contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {

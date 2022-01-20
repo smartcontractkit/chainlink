@@ -12,7 +12,7 @@ type P2PKeyResolver struct {
 	key p2pkey.KeyV2
 }
 
-func NewP2PKeyResolver(key p2pkey.KeyV2) P2PKeyResolver {
+func NewP2PKey(key p2pkey.KeyV2) P2PKeyResolver {
 	return P2PKeyResolver{key: key}
 }
 
@@ -28,52 +28,74 @@ func (k P2PKeyResolver) PublicKey() string {
 	return k.key.PublicKeyHex()
 }
 
+// -- P2PKeys Query --
+
 type P2PKeysPayloadResolver struct {
 	keys []p2pkey.KeyV2
 }
 
-func NewP2PKeysPayloadResolver(keys []p2pkey.KeyV2) *P2PKeysPayloadResolver {
+func NewP2PKeysPayload(keys []p2pkey.KeyV2) *P2PKeysPayloadResolver {
 	return &P2PKeysPayloadResolver{keys: keys}
 }
 
 func (r *P2PKeysPayloadResolver) Results() []P2PKeyResolver {
 	var results []P2PKeyResolver
 	for _, k := range r.keys {
-		results = append(results, NewP2PKeyResolver(k))
+		results = append(results, NewP2PKey(k))
 	}
 	return results
 }
 
-type CreateP2PKeyPayloadResolver struct {
+// -- CreateP2PKey Mutation --
+
+type CreateP2PKeySuccessResolver struct {
 	key p2pkey.KeyV2
 }
 
-func NewCreateP2PKeyPayloadResolver(key p2pkey.KeyV2) *CreateP2PKeyPayloadResolver {
-	return &CreateP2PKeyPayloadResolver{key: key}
+func NewCreateP2PKeySuccess(key p2pkey.KeyV2) *CreateP2PKeySuccessResolver {
+	return &CreateP2PKeySuccessResolver{key: key}
 }
 
-func (r *CreateP2PKeyPayloadResolver) Key() P2PKeyResolver {
-	return NewP2PKeyResolver(r.key)
+func (r *CreateP2PKeySuccessResolver) P2PKey() P2PKeyResolver {
+	return NewP2PKey(r.key)
 }
+
+type CreateP2PKeyPayloadResolver struct {
+	p2pKey p2pkey.KeyV2
+}
+
+func NewCreateP2PKeyPayload(key p2pkey.KeyV2) *CreateP2PKeyPayloadResolver {
+	return &CreateP2PKeyPayloadResolver{p2pKey: key}
+}
+
+func (r *CreateP2PKeyPayloadResolver) P2PKey() P2PKeyResolver {
+	return NewP2PKey(r.p2pKey)
+}
+
+func (r *CreateP2PKeyPayloadResolver) ToCreateP2PKeySuccess() (*CreateP2PKeySuccessResolver, bool) {
+	return NewCreateP2PKeySuccess(r.p2pKey), true
+}
+
+// -- DeleteP2PKey Mutation --
 
 type DeleteP2PKeySuccessResolver struct {
-	key p2pkey.KeyV2
+	p2pKey p2pkey.KeyV2
 }
 
-func NewDeleteP2PKeySuccessResolver(key p2pkey.KeyV2) *DeleteP2PKeySuccessResolver {
-	return &DeleteP2PKeySuccessResolver{key: key}
+func NewDeleteP2PKeySuccess(p2pKey p2pkey.KeyV2) *DeleteP2PKeySuccessResolver {
+	return &DeleteP2PKeySuccessResolver{p2pKey: p2pKey}
 }
 
-func (r *DeleteP2PKeySuccessResolver) Key() P2PKeyResolver {
-	return NewP2PKeyResolver(r.key)
+func (r *DeleteP2PKeySuccessResolver) P2PKey() P2PKeyResolver {
+	return NewP2PKey(r.p2pKey)
 }
 
 type DeleteP2PKeyPayloadResolver struct {
-	key p2pkey.KeyV2
+	p2pKey p2pkey.KeyV2
 	NotFoundErrorUnionType
 }
 
-func NewDeleteP2PKeyPayloadResolver(key p2pkey.KeyV2, err error) *DeleteP2PKeyPayloadResolver {
+func NewDeleteP2PKeyPayload(p2pKey p2pkey.KeyV2, err error) *DeleteP2PKeyPayloadResolver {
 	var e NotFoundErrorUnionType
 
 	if err != nil {
@@ -82,12 +104,12 @@ func NewDeleteP2PKeyPayloadResolver(key p2pkey.KeyV2, err error) *DeleteP2PKeyPa
 		}}
 	}
 
-	return &DeleteP2PKeyPayloadResolver{key: key, NotFoundErrorUnionType: e}
+	return &DeleteP2PKeyPayloadResolver{p2pKey: p2pKey, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteP2PKeyPayloadResolver) ToDeleteP2PKeySuccess() (*DeleteP2PKeySuccessResolver, bool) {
 	if r.err == nil {
-		return NewDeleteP2PKeySuccessResolver(r.key), true
+		return NewDeleteP2PKeySuccess(r.p2pKey), true
 	}
 	return nil, false
 }
