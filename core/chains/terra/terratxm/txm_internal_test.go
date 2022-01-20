@@ -161,7 +161,7 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
 		txm, _ := NewTxm(db, tc, fallbackGasPrice, gasLimitMultiplier, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil, time.Second)
-		txm.confirmPollPeriod = 0 * time.Second
+		txm.confirmPollPeriod = 1 * time.Millisecond
 		txm.confirmMaxPolls = 2
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
