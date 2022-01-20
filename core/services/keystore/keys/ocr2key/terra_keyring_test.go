@@ -1,6 +1,7 @@
 package ocr2key
 
 import (
+	cryptorand "crypto/rand"
 	"testing"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -8,8 +9,10 @@ import (
 )
 
 func TestTerraKeyRing_Sign_Verify(t *testing.T) {
-	kr1 := newTerraKeyring()
-	kr2 := newTerraKeyring()
+	kr1, err := newTerraKeyring(cryptorand.Reader)
+	require.NoError(t, err)
+	kr2, err := newTerraKeyring(cryptorand.Reader)
+	require.NoError(t, err)
 	ctx := ocrtypes.ReportContext{}
 	report := ocrtypes.Report{}
 	sig, err := kr1.Sign(ctx, report)
