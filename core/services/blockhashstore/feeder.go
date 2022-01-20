@@ -3,6 +3,9 @@ package blockhashstore
 import (
 	"context"
 
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -71,11 +74,11 @@ type Feeder struct {
 }
 
 // Run the feeder.
-func (f *Feeder) Run(ctx context.Context) {
+func (f *Feeder) Run(ctx context.Context) error {
 	latestBlock, err := f.latestBlock(ctx)
 	if err != nil {
 		f.logger.Errorw("Failed to fetch current block number", "error", err)
-		return
+		return errors.Wrap(err, "fetching block number")
 	}
 
 	var (
@@ -97,7 +100,7 @@ func (f *Feeder) Run(ctx context.Context) {
 			"latestBlock", latestBlock,
 			"fromBlock", fromBlock,
 			"toBlock", toBlock)
-		return
+		return errors.Wrap(err, "fetching VRF requests")
 	}
 	for _, req := range reqs {
 		if _, ok := blockToRequests[req.Block]; !ok {
@@ -114,7 +117,7 @@ func (f *Feeder) Run(ctx context.Context) {
 			"latestBlock", latestBlock,
 			"fromBlock", fromBlock,
 			"toBlock", toBlock)
-		return
+		return errors.Wrap(err, "fetching VRF fulfillments")
 	}
 	for _, ful := range fuls {
 		requestBlock, ok := requestIDToBlock[ful.ID]
@@ -124,6 +127,7 @@ func (f *Feeder) Run(ctx context.Context) {
 		delete(blockToRequests[requestBlock], ful.ID)
 	}
 
+	var errs error
 	for block, unfulfilledReqs := range blockToRequests {
 		if len(unfulfilledReqs) > 0 {
 			if _, ok := f.stored[block]; ok {
@@ -135,9 +139,11 @@ func (f *Feeder) Run(ctx context.Context) {
 				f.logger.Errorw("Failed to check if block is already stored, attempting to store anyway",
 					"error", err,
 					"block", block)
+				errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
 			} else if stored {
 				f.logger.Infow("Blockhash already stored",
-					"block", block, "latestBlock", latestBlock)
+					"block", block, "latestBlock", latestBlock,
+					"unfulfilledReqIDs", limitReqIDs(unfulfilledReqs))
 				f.stored[block] = struct{}{}
 				continue
 			}
@@ -146,10 +152,13 @@ func (f *Feeder) Run(ctx context.Context) {
 			err = f.bhs.Store(ctx, block)
 			if err != nil {
 				f.logger.Errorw("Failed to store block", "error", err, "block", block)
+				errs = multierr.Append(errs, errors.Wrap(err, "storing block"))
 				continue
 			}
+
 			f.logger.Infow("Stored blockhash",
-				"block", block, "latestBlock", latestBlock)
+				"block", block, "latestBlock", latestBlock,
+				"unfulfilledReqIDs", limitReqIDs(unfulfilledReqs))
 			f.stored[block] = struct{}{}
 		}
 	}
@@ -157,8 +166,25 @@ func (f *Feeder) Run(ctx context.Context) {
 	if f.lastRunBlock != 0 {
 		// Prune stored, anything older than fromBlock can be discarded
 		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < uint64(fromBlock); block++ {
-			delete(f.stored, block)
+			if _, ok := f.stored[block]; ok {
+				delete(f.stored, block)
+				f.logger.Debugw("Pruned block from stored cache",
+					"block", block, "latestBlock", latestBlock)
+			}
 		}
 	}
 	f.lastRunBlock = latestBlock
+	return errs
+}
+
+// limitReqIDs converts a set of request IDs to a slice limited to 50 IDs max.
+func limitReqIDs(reqs map[string]struct{}) []string {
+	var reqIDs []string
+	for id := range reqs {
+		reqIDs = append(reqIDs, id)
+		if len(reqIDs) >= 50 {
+			break
+		}
+	}
+	return reqIDs
 }

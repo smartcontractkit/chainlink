@@ -69,7 +69,7 @@ evmChainID = "4"`,
 				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
 				require.Nil(t, os.BlockhashStoreSpec.FromAddress)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
-				require.Equal(t, 15*time.Second, os.BlockhashStoreSpec.RunTimeout)
+				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.RunTimeout)
 			},
 		},
 		{

@@ -174,6 +174,11 @@ func (s *service) runFeeder() {
 	s.logger.Debugw("Running BHS feeder")
 	ctx, cancel := context.WithTimeout(s.parentCtx, s.runTimeout)
 	defer cancel()
-	s.feeder.Run(ctx)
-	s.logger.Debugw("BHS feeder run completed")
+	err := s.feeder.Run(ctx)
+	if err == nil {
+		s.logger.Debugw("BHS feeder run completed successfully")
+	} else {
+		s.logger.Errorw("BHS feeder run was at least partially unsuccessful",
+			"error", err)
+	}
 }
