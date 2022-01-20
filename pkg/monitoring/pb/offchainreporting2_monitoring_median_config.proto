@@ -1,0 +1,12 @@
+syntax="proto3";
+
+package pb;
+option go_package = ".;pb";
+
+message NumericalMedianConfigProto {
+    bool alpha_report_infinite = 1;
+    uint64 alpha_report_ppb = 2;
+    bool alpha_accept_infinite = 3;
+    uint64 alpha_accept_ppb = 4;
+    uint64 delta_c_nanoseconds = 5;
+}
