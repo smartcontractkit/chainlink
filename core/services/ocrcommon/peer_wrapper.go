@@ -172,15 +172,17 @@ func (p *SingletonPeerWrapper) Start() error {
 			V2DeltaDial:          p.config.P2PV2DeltaDial().Duration(),
 			V2DiscovererDatabase: discovererDB,
 
-			EndpointConfig: ocrnetworking.EndpointConfig{
-				// V1 and V2 config
+			V1EndpointConfig: ocrnetworking.EndpointConfigV1{
 				IncomingMessageBufferSize: p.config.P2PIncomingMessageBufferSize(),
 				OutgoingMessageBufferSize: p.config.P2POutgoingMessageBufferSize(),
-
-				// V1 Config
 				NewStreamTimeout:       p.config.P2PNewStreamTimeout(),
 				DHTLookupInterval:      p.config.P2PDHTLookupInterval(),
 				BootstrapCheckInterval: p.config.P2PBootstrapCheckInterval(),
+			},
+
+			V2EndpointConfig: ocrnetworking.EndpointConfigV2{
+				IncomingMessageBufferSize: p.config.P2PIncomingMessageBufferSize(),
+				OutgoingMessageBufferSize: p.config.P2POutgoingMessageBufferSize(),
 			},
 		}
 
