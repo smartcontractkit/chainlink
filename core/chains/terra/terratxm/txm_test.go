@@ -30,7 +30,7 @@ import (
 	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
-func TestTxmStartStop(t *testing.T) {
+func TestTxm_Integration(t *testing.T) {
 	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
@@ -54,7 +54,7 @@ func TestTxmStartStop(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	accounts, testdir := terraclient.SetupLocalTerraNode(t, "42")
-	tc, err := terraclient.NewClient("42", "http://127.0.0.1:26657", 20, lggr)
+	tc, err := terraclient.NewClient("42", "http://127.0.0.1:26657", terra.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
 
 	// First create a transmitter key and fund it with 1k uluna

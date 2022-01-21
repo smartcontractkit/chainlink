@@ -65,7 +65,7 @@ func (txm *Txm) Start() error {
 			return err
 		}
 		txm.sub = sub
-		go txm.run(sub)
+		go txm.run()
 		return nil
 	})
 }
@@ -95,14 +95,14 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	}
 }
 
-func (txm *Txm) run(sub pg.Subscription) {
+func (txm *Txm) run() {
 	defer close(txm.done)
 	txm.confirmAnyUnconfirmed()
 	// Jitter in case we have multiple terra chains each with their own client.
 	tick := time.After(utils.WithJitter(txm.cfg.BlockRate()))
 	for {
 		select {
-		case <-sub.Events():
+		case <-txm.sub.Events():
 			txm.sendMsgBatch()
 		case <-tick:
 			txm.sendMsgBatch()
@@ -147,6 +147,12 @@ func (txm *Txm) sendMsgBatch() {
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
 	prices := txm.gpe.GasPrices()
+	gasPrice, ok := prices["uluna"]
+	if !ok {
+		// Should be impossible
+		txm.lggr.CriticalW("unexpected empty uluna price")
+		return
+	}
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s) // Already checked validity above
 		key, err := txm.ks.Get(sender.String())
@@ -156,7 +162,7 @@ func (txm *Txm) sendMsgBatch() {
 			// after it was added for this to happen. Retry on next poll should the key be re-added.
 			continue
 		}
-		txm.sendMsgBatchFromAddress(prices["uluna"], sender, key, msgs)
+		txm.sendMsgBatchFromAddress(gasPrice, sender, key, msgs)
 	}
 }
 
