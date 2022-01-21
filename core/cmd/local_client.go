@@ -131,7 +131,35 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	// rootCtx will be cancelled when SIGINT|SIGTERM is received.
 	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
-	go shutdown.CancelOnShutdown(cancelRootCtx)
+
+	// cleanExit is used to skip "fail fast" routine
+	cleanExit := make(chan struct{})
+	var shutdownStartTime time.Time
+	defer func() {
+		close(cleanExit)
+		log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+	}()
+
+	go shutdown.HandleShutdown(func() {
+		shutdownStartTime = time.Now()
+		cancelRootCtx()
+
+		select {
+		case <-cleanExit:
+			return
+		case <-time.After(cli.Config.ShutdownGracePeriod()):
+		}
+
+		log.Printf("Shutdown grace period of %v exceeded, closing DB and exiting...\n", cli.Config.ShutdownGracePeriod())
+		if err = db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v\n", err)
+		}
+		if err = lggr.Sync(); err != nil {
+			log.Printf("Failed to sync Logger: %v", err)
+		}
+
+		os.Exit(-1)
+	})
 
 	releaseDbLock, err := applicationLockDB(cli.Config, db, lggr)
 	if err != nil {
@@ -257,23 +285,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	lggr.Debug("Environment variables\n", config.NewConfigPrinter(cli.Config))
 
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
-
-	// After SIGTERM grace period, we must fail fast, but try closing DB
-	go func() {
-		<-rootCtx.Done()
-		<-time.After(cli.Config.ShutdownGracePeriod())
-
-		// this code should not execute if the application finished within the grace period
-		log.Printf("Shutdown grace period of %v exceeded, closing DB and exiting...\n", cli.Config.ShutdownGracePeriod())
-		if err = db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v\n", err)
-		}
-		if err = lggr.Sync(); err != nil {
-			log.Printf("Failed to sync Logger: %v", err)
-		}
-
-		os.Exit(-1)
-	}()
 
 	grp.Go(func() error {
 		err = cli.Runner.Run(grpCtx, app)

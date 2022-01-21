@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCancelOnShutdown(t *testing.T) {
+func TestHandleShutdown(t *testing.T) {
 	proc, err := os.FindProcess(os.Getpid())
 	require.NoError(t, err)
 
@@ -22,7 +22,7 @@ func TestCancelOnShutdown(t *testing.T) {
 	for name, sig := range tests {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			go CancelOnShutdown(cancel)
+			go HandleShutdown(cancel)
 
 			// have to wait for ossignal.Notify
 			time.Sleep(time.Second)
