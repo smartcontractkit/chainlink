@@ -57,6 +57,12 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			"getting chain ID %d: %w", jb.BlockhashStoreSpec.EVMChainID.ToInt(), err)
 	}
 
+	if jb.BlockhashStoreSpec.WaitBlocks < int32(chain.Config().EvmFinalityDepth()) {
+		return nil, fmt.Errorf(
+			"waitBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
+			chain.Config().EvmFinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
+	}
+
 	keys, err := d.ks.SendingKeys()
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
@@ -117,6 +123,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
+		stop:       make(chan struct{}),
 	}}, nil
 }
 
@@ -143,7 +150,6 @@ func (s *service) Start() error {
 	return s.StartOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Starting BHS feeder")
 		ticker := time.NewTicker(s.pollPeriod)
-		s.stop = make(chan struct{})
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
 		go func() {
 			for {

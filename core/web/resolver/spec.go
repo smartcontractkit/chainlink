@@ -714,8 +714,9 @@ func (b *BlockhashStoreSpecResolver) RunTimeout() string {
 }
 
 // EVMChainID returns the job's EVMChainID param.
-func (b *BlockhashStoreSpecResolver) EVMChainID() string {
-	return b.spec.EVMChainID.String()
+func (b *BlockhashStoreSpecResolver) EVMChainID() *string {
+	chainID := b.spec.EVMChainID.String()
+	return &chainID
 }
 
 // FromAddress returns the job's FromAddress param, if any.

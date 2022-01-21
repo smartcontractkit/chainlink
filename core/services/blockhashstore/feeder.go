@@ -48,7 +48,7 @@ func NewFeeder(
 	latestBlock func(ctx context.Context) (uint64, error),
 ) *Feeder {
 	return &Feeder{
-		logger:         logger,
+		lggr:           logger,
 		coordinator:    coordinator,
 		bhs:            bhs,
 		waitBlocks:     waitBlocks,
@@ -62,7 +62,7 @@ func NewFeeder(
 // Feeder checks recent VRF coordinator events and stores any blockhashes for blocks within
 // waitBlocks and lookbackBlocks that have unfulfilled requests.
 type Feeder struct {
-	logger         logger.Logger
+	lggr           logger.Logger
 	coordinator    Coordinator
 	bhs            BHS
 	waitBlocks     int
@@ -77,7 +77,7 @@ type Feeder struct {
 func (f *Feeder) Run(ctx context.Context) error {
 	latestBlock, err := f.latestBlock(ctx)
 	if err != nil {
-		f.logger.Errorw("Failed to fetch current block number", "error", err)
+		f.lggr.Errorw("Failed to fetch current block number", "error", err)
 		return errors.Wrap(err, "fetching block number")
 	}
 
@@ -91,11 +91,12 @@ func (f *Feeder) Run(ctx context.Context) error {
 		fromBlock = 0
 	}
 	if toBlock < 0 {
-		toBlock = 0
+		// Nothing to process, no blocks are in range.
+		return nil
 	}
 	reqs, err := f.coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
 	if err != nil {
-		f.logger.Errorw("Failed to fetch VRF requests",
+		f.lggr.Errorw("Failed to fetch VRF requests",
 			"error", err,
 			"latestBlock", latestBlock,
 			"fromBlock", fromBlock,
@@ -112,7 +113,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 
 	fuls, err := f.coordinator.Fulfillments(ctx, uint64(fromBlock))
 	if err != nil {
-		f.logger.Errorw("Failed to fetch VRF fulfillments",
+		f.lggr.Errorw("Failed to fetch VRF fulfillments",
 			"error", err,
 			"latestBlock", latestBlock,
 			"fromBlock", fromBlock,
@@ -129,38 +130,39 @@ func (f *Feeder) Run(ctx context.Context) error {
 
 	var errs error
 	for block, unfulfilledReqs := range blockToRequests {
-		if len(unfulfilledReqs) > 0 {
-			if _, ok := f.stored[block]; ok {
-				// Already stored
-				continue
-			}
-			stored, err := f.bhs.IsStored(ctx, block)
-			if err != nil {
-				f.logger.Errorw("Failed to check if block is already stored, attempting to store anyway",
-					"error", err,
-					"block", block)
-				errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
-			} else if stored {
-				f.logger.Infow("Blockhash already stored",
-					"block", block, "latestBlock", latestBlock,
-					"unfulfilledReqIDs", limitReqIDs(unfulfilledReqs))
-				f.stored[block] = struct{}{}
-				continue
-			}
-
-			// Block needs to be stored
-			err = f.bhs.Store(ctx, block)
-			if err != nil {
-				f.logger.Errorw("Failed to store block", "error", err, "block", block)
-				errs = multierr.Append(errs, errors.Wrap(err, "storing block"))
-				continue
-			}
-
-			f.logger.Infow("Stored blockhash",
+		if len(unfulfilledReqs) == 0 {
+			continue
+		}
+		if _, ok := f.stored[block]; ok {
+			// Already stored
+			continue
+		}
+		stored, err := f.bhs.IsStored(ctx, block)
+		if err != nil {
+			f.lggr.Errorw("Failed to check if block is already stored, attempting to store anyway",
+				"error", err,
+				"block", block)
+			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
+		} else if stored {
+			f.lggr.Infow("Blockhash already stored",
 				"block", block, "latestBlock", latestBlock,
 				"unfulfilledReqIDs", limitReqIDs(unfulfilledReqs))
 			f.stored[block] = struct{}{}
+			continue
 		}
+
+		// Block needs to be stored
+		err = f.bhs.Store(ctx, block)
+		if err != nil {
+			f.lggr.Errorw("Failed to store block", "error", err, "block", block)
+			errs = multierr.Append(errs, errors.Wrap(err, "storing block"))
+			continue
+		}
+
+		f.lggr.Infow("Stored blockhash",
+			"block", block, "latestBlock", latestBlock,
+			"unfulfilledReqIDs", limitReqIDs(unfulfilledReqs))
+		f.stored[block] = struct{}{}
 	}
 
 	if f.lastRunBlock != 0 {
@@ -168,7 +170,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < uint64(fromBlock); block++ {
 			if _, ok := f.stored[block]; ok {
 				delete(f.stored, block)
-				f.logger.Debugw("Pruned block from stored cache",
+				f.lggr.Debugw("Pruned block from stored cache",
 					"block", block, "latestBlock", latestBlock)
 			}
 		}
