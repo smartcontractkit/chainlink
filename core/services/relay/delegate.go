@@ -158,6 +158,11 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			StoreProgramID:     storeProgramID,
 			TransmissionsID:    transmissionsID,
 			TransmissionSigner: transmissionSigner,
+			UsePreflight:       config.UsePreflight,
+			Commitment:         config.Commitment,
+			PollingInterval:    config.PollingInterval,
+			PollingCtxTimeout:  config.PollingCtxTimeout,
+			StaleTimeout:       config.StaleTimeout,
 		})
 	case types.Terra:
 		var config terra.RelayConfig
