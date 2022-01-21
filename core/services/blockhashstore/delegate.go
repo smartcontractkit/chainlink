@@ -124,6 +124,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
 		stop:       make(chan struct{}),
+		done:       make(chan struct{}),
 	}}, nil
 }
 
@@ -137,7 +138,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 type service struct {
 	utils.StartStopOnce
 	feeder     *Feeder
-	stop       chan struct{}
+	stop, done chan struct{}
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
@@ -152,6 +153,7 @@ func (s *service) Start() error {
 		ticker := time.NewTicker(s.pollPeriod)
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
 		go func() {
+			defer close(s.done)
 			for {
 				select {
 				case <-ticker.C:
@@ -172,6 +174,7 @@ func (s *service) Close() error {
 		s.logger.Infow("Stopping BHS feeder")
 		close(s.stop)
 		s.cancel()
+		<-s.done
 		return nil
 	})
 }
