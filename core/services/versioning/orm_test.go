@@ -3,6 +3,7 @@ package versioning
 import (
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -66,25 +67,30 @@ func Test_Version_CheckVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	// invalid app version semver returns error
-	err = CheckVersion(db, lggr, "unset")
+	_, _, err = CheckVersion(db, lggr, "unset")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `Application version "unset" is not valid semver`)
-	err = CheckVersion(db, lggr, "some old bollocks")
+	_, _, err = CheckVersion(db, lggr, "some old bollocks")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `Application version "some old bollocks" is not valid semver`)
 
 	// lower version returns error
-	err = CheckVersion(db, lggr, "9.9.7")
+	_, _, err = CheckVersion(db, lggr, "9.9.7")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Application version (9.9.7) is older than database version (9.9.8). Only Chainlink 9.9.8 or later can be run on this database")
 
 	// equal version is ok
-	err = CheckVersion(db, lggr, "9.9.8")
+	var appv, dbv *semver.Version
+	appv, dbv, err = CheckVersion(db, lggr, "9.9.8")
 	require.NoError(t, err)
+	assert.Equal(t, "9.9.8", appv.String())
+	assert.Equal(t, "9.9.8", dbv.String())
 
 	// greater version is ok
-	err = CheckVersion(db, lggr, "9.9.9")
+	appv, dbv, err = CheckVersion(db, lggr, "9.9.9")
 	require.NoError(t, err)
+	assert.Equal(t, "9.9.9", appv.String())
+	assert.Equal(t, "9.9.8", dbv.String())
 }
 
 func TestORM_NodeVersion_FindLatestNodeVersion(t *testing.T) {

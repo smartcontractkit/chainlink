@@ -381,7 +381,6 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 
 	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[0])
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[1])
-
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
