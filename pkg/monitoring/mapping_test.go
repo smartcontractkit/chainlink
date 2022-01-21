@@ -58,13 +58,6 @@ func TestMapping(t *testing.T) {
 		require.Equal(t, decodedChainConfig["network_id"], chainConfig.GetNetworkID())
 		require.Equal(t, decodedChainConfig["chain_id"], chainConfig.GetChainID())
 
-		// Deprecated in favour of chain_config
-		solanaChainConfig, ok := transmission["solana_chain_config"].(map[string]interface{})
-		require.True(t, ok)
-		require.Equal(t, solanaChainConfig["network_name"], "")
-		require.Equal(t, solanaChainConfig["network_id"], "")
-		require.Equal(t, solanaChainConfig["chain_id"], "")
-
 		decodedFeedConfig, ok := transmission["feed_config"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, decodedFeedConfig, feedConfig.ToMapping())

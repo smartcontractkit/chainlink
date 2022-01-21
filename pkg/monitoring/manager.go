@@ -62,7 +62,7 @@ func (m *managerImpl) Start(backgroundCtx context.Context, backgroundWg *sync.Wa
 			if !shouldRestartMonitor {
 				continue
 			}
-			m.log.Infow("change in feeds configuration detected", "feeds", updatedFeeds)
+			m.log.Infow("change in feeds configuration detected", "feeds", fmt.Sprintf("%#v", updatedFeeds))
 			// Terminate previous managed function if not the first run.
 			if localCtxCancel != nil && localWg != nil {
 				localCtxCancel()

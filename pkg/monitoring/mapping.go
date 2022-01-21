@@ -35,12 +35,6 @@ func MakeTransmissionMapping(
 				"int": int32(envelope.Round),
 			},
 		},
-		// Deprecated in favour of chain_config.
-		"solana_chain_config": map[string]interface{}{
-			"network_name": "",
-			"network_id":   "",
-			"chain_id":     "",
-		},
 		"chain_config": map[string]interface{}{
 			"link.chain.ocr2.chain_config": chainConfig.ToMapping(),
 		},

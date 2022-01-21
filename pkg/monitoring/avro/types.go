@@ -32,8 +32,9 @@ var (
 
 // Opts represents the optional fields of a complex type.
 type Opts struct {
-	Doc       string `json:"doc,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
+	Doc       string
+	Namespace string
+	Default   interface{}
 }
 
 type record struct {
@@ -55,9 +56,10 @@ func Record(name string, opts Opts, fields Fields) Schema {
 }
 
 type field struct {
-	Name string `json:"name"`
-	Doc  string `json:"doc,omitempty"`
-	Typ  Schema `json:"type"`
+	Name    string      `json:"name"`
+	Doc     string      `json:"doc,omitempty"`
+	Typ     Schema      `json:"type"`
+	Default interface{} `json:"default,omitempty"`
 }
 
 type IField interface {
@@ -71,6 +73,7 @@ func Field(name string, opts Opts, typ Schema) IField {
 		name,
 		opts.Doc,
 		typ,
+		opts.Default,
 	}
 }
 
