@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// DefaultRequestTimeoutSeconds is the default Terra client timeout.
-const DefaultRequestTimeoutSeconds = 10
+// DefaultRequestTimeout is the default Terra client timeout.
+const DefaultRequestTimeout = 10 * time.Second
 
 var _ terra.Chain = (*chain)(nil)
 
@@ -49,7 +49,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	node := dbchain.Nodes[0] // TODO multi-node client pool https://app.shortcut.com/chainlinklabs/story/26278/terra-multi-node-client-pools
 	lggr.Debugw(fmt.Sprintf("Terra chain %q has %d nodes - using %q", dbchain.ID, len(dbchain.Nodes), node.Name),
 		"tendermint-url", node.TendermintURL)
-	gpeFCD, err := terraclient.NewFCDGasPriceEstimator(node.FCDURL, DefaultRequestTimeoutSeconds*time.Second, lggr)
+	gpeFCD, err := terraclient.NewFCDGasPriceEstimator(node.FCDURL, DefaultRequestTimeout, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 		}),
 	}, lggr)
 	client, err := terraclient.NewClient(dbchain.ID,
-		node.TendermintURL, DefaultRequestTimeoutSeconds, lggr.Named("Client"))
+		node.TendermintURL, DefaultRequestTimeout, lggr.Named("Client"))
 	if err != nil {
 		return nil, err
 	}
