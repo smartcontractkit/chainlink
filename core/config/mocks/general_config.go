@@ -1835,6 +1835,20 @@ func (_m *GeneralConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return r0
 }
 
+// KeeperCheckUpkeepGasPriceFeatureEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // KeeperDefaultTransactionQueueDepth provides a mock function with given fields:
 func (_m *GeneralConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	ret := _m.Called()
@@ -3008,20 +3022,6 @@ func (_m *GeneralConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
-// UseLegacyEthEnvVars provides a mock function with given fields:
-func (_m *GeneralConfig) UseLegacyEthEnvVars() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

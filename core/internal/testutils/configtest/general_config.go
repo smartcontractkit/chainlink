@@ -78,6 +78,7 @@ type GeneralConfigOverrides struct {
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
+	KeeperCheckUpkeepGasPriceFeatureEnabled   null.Bool
 	LogLevel                                  *config.LogLevel
 	DefaultLogLevel                           *config.LogLevel
 	LogSQL                                    null.Bool
@@ -377,6 +378,13 @@ func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 		return uint32(c.Overrides.KeeperRegistrySyncUpkeepQueueSize.Int64)
 	}
 	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
+}
+
+func (c *TestGeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	if c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Valid {
+		return c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Bool
+	}
+	return c.GeneralConfig.KeeperCheckUpkeepGasPriceFeatureEnabled()
 }
 
 func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
