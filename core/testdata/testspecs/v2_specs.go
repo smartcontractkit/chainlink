@@ -110,7 +110,12 @@ juelsPerFeeCoinSource = """
 nodeEndpointHTTP = "http://127.0.0.1:8899"
 ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
-transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"`
+transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
+usePreflight       = true
+commitment         = "processed"
+pollingInterval    = "2s"
+pollingCtxTimeout  = "4s"
+staleTimeout       = "30s"`
 
 	WebhookSpecNoBody = `
 type            = "webhook"
