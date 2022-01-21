@@ -225,7 +225,14 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 
 	g.Go(func() error {
 		<-gCtx.Done()
-		return server.httpServer.Shutdown(context.Background())
+		var err error
+		if server.httpServer != nil {
+			err = server.httpServer.Shutdown(context.Background())
+		}
+		if server.tlsServer != nil {
+			err = multierr.Combine(err, server.tlsServer.Shutdown(context.Background()))
+		}
+		return err
 	})
 
 	return g.Wait()
@@ -233,6 +240,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 
 type server struct {
 	httpServer *http.Server
+	tlsServer  *http.Server
 	handler    *gin.Engine
 	lggr       logger.Logger
 }
@@ -247,8 +255,8 @@ func (s *server) run(port uint16, writeTimeout time.Duration) error {
 
 func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
-	s.httpServer = createServer(s.handler, port, writeTimeout)
-	err := s.httpServer.ListenAndServeTLS(certFile, keyFile)
+	s.tlsServer = createServer(s.handler, port, writeTimeout)
+	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
 	s.lggr.ErrorIf(err, "Error starting TLS server")
 	return err
 }

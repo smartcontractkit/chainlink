@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,7 +16,8 @@ import (
 
 // AdvisoryLock is an interface for postgresql advisory locks.
 type AdvisoryLock interface {
-	TakeAndHold(ctx context.Context) error
+	TakeAndHold() error
+	Release()
 }
 
 // advisoryLock implements the Locker interface.
@@ -25,32 +27,38 @@ type advisoryLock struct {
 	conn          *sqlx.Conn
 	checkInterval time.Duration
 	logger        logger.Logger
+
+	chStop chan struct{}
+	wg     sync.WaitGroup
 }
 
 // NewAdvisoryLock returns an advisoryLocker
 func NewAdvisoryLock(db *sqlx.DB, id int64, lggr logger.Logger, checkInterval time.Duration) AdvisoryLock {
-	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id)}
+	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id), make(chan struct{}), sync.WaitGroup{}}
 }
 
 // TakeAndHold will block and wait indefinitely until it can get its first lock
 // NOT THREAD SAFE
-func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
+func (l *advisoryLock) TakeAndHold() (err error) {
 	l.logger.Debug("Taking initial advisory lock...")
 	retryCount := 0
+
+	ctxStop, cancel := utils.ContextFromChan(l.chStop)
+	defer cancel()
 
 	for {
 		var gotLock bool
 		var err error
 
 		err = func() error {
-			qCtx, cancel := DefaultQueryCtxWithParent(ctx)
+			ctx, cancel := DefaultQueryCtxWithParent(ctxStop)
 			defer cancel()
 			if l.conn == nil {
-				if err = l.checkoutConn(qCtx); err != nil {
+				if err = l.checkoutConn(ctx); err != nil {
 					return errors.Wrap(err, "advisory lock failed to checkout initial connection")
 				}
 			}
-			gotLock, err = l.getLock(qCtx)
+			gotLock, err = l.getLock(ctx)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				l.conn = nil
@@ -74,7 +82,7 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 		l.logRetry(retryCount)
 		retryCount++
 		select {
-		case <-ctx.Done():
+		case <-l.chStop:
 			err = errors.New("stopped")
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
@@ -85,7 +93,8 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 	}
 
 	l.logger.Debug("Got advisory lock")
-	go l.loop(ctx)
+	l.wg.Add(1)
+	go l.loop()
 	return nil
 }
 
@@ -116,16 +125,21 @@ func (l *advisoryLock) logRetry(count int) {
 
 const checkAdvisoryLockStmt = `SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND (classid::bigint << 32) | objid::bigint = $1)`
 
-func (l *advisoryLock) loop(ctx context.Context) {
+func (l *advisoryLock) loop() {
+	defer l.wg.Done()
+
 	ticker := time.NewTicker(utils.WithJitter(l.checkInterval))
 	defer ticker.Stop()
 
+	ctxStop, cancel := utils.ContextFromChan(l.chStop)
+	defer cancel()
+
 	for {
 		select {
-		case <-ctx.Done():
-			qCtx, cancel := DefaultQueryCtx()
+		case <-l.chStop:
+			ctx, cancel := DefaultQueryCtx()
 			err := multierr.Combine(
-				utils.JustError(l.conn.ExecContext(qCtx, `SELECT pg_advisory_unlock($1)`, l.id)),
+				utils.JustError(l.conn.ExecContext(ctx, `SELECT pg_advisory_unlock($1)`, l.id)),
 				l.conn.Close(),
 			)
 			cancel()
@@ -136,16 +150,16 @@ func (l *advisoryLock) loop(ctx context.Context) {
 		case <-ticker.C:
 			var gotLock bool
 
-			qCtx, cancel := DefaultQueryCtx()
+			ctx, cancel := DefaultQueryCtxWithParent(ctxStop)
 			l.logger.Trace("Checking advisory lock")
-			err := l.conn.QueryRowContext(qCtx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
+			err := l.conn.QueryRowContext(ctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
 				// conn was closed and advisory lock lost, try to check out a new connection and re-lock
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
-				if err = l.checkoutConn(qCtx); err != nil {
+				if err = l.checkoutConn(ctx); err != nil {
 					l.logger.Warnw("Error trying to checkout connection", "err", err)
 				}
-				gotLock, err = l.getLock(qCtx)
+				gotLock, err = l.getLock(ctx)
 			}
 			cancel()
 			if err != nil {
@@ -156,4 +170,11 @@ func (l *advisoryLock) loop(ctx context.Context) {
 			ticker.Reset(utils.WithJitter(l.checkInterval))
 		}
 	}
+}
+
+// Unlock releases the lock and DB connection.
+// Should only be called once, and ends the lifecycle of the lock object
+func (l *advisoryLock) Release() {
+	close(l.chStop)
+	l.wg.Wait()
 }

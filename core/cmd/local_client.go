@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/url"
 	"os"
@@ -58,10 +59,11 @@ func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err erro
 	return
 }
 
-func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (err error) {
+func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (release func(), err error) {
 	lggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
 
 	lockingMode := cfg.DatabaseLockingMode()
+	release = func() {}
 
 	// Lease will be explicitly released on application stop
 	// Take the lease before any other DB operations
@@ -69,9 +71,10 @@ func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.D
 	switch lockingMode {
 	case "lease", "dual":
 		leaseLock = pg.NewLeaseLock(db, cfg.AppID(), lggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
-		if err = leaseLock.TakeAndHold(ctx); err != nil {
-			return errors.Wrap(err, "failed to take initial lease on database")
+		if err = leaseLock.TakeAndHold(); err != nil {
+			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
+		release = leaseLock.Release
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
@@ -79,12 +82,13 @@ func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.D
 	switch lockingMode {
 	case "advisorylock", "dual":
 		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
-		if err = advisoryLock.TakeAndHold(ctx); err != nil {
-			return errors.Wrap(err, "error acquiring lock")
+		if err = advisoryLock.TakeAndHold(); err != nil {
+			return nil, errors.Wrap(err, "error acquiring lock")
 		}
+		release = advisoryLock.Release
 	}
 
-	return nil
+	return release, nil
 }
 
 // RunNode starts the Chainlink core.
@@ -129,7 +133,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
 	go shutdown.CancelOnShutdown(cancelRootCtx)
 
-	if err = applicationLockDB(rootCtx, cli.Config, db, lggr); err != nil {
+	releaseDbLock, err := applicationLockDB(cli.Config, db, lggr)
+	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "obtaining application db lock"))
 	}
 
@@ -242,7 +247,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		<-grpCtx.Done()
-		if err := app.Stop(); err != nil {
+		defer releaseDbLock()
+		if err = app.Stop(); err != nil {
 			return errors.Wrap(err, "error stopping app")
 		}
 		return nil
@@ -258,15 +264,19 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		<-time.After(cli.Config.ShutdownGracePeriod())
 
 		// this code should not execute if the application finished within the grace period
-		lggr.Criticalf("Shutdown grace period exceeded (%v), closing DB and exiting...", cli.Config.ShutdownGracePeriod())
-		lggr.ErrorIfClosing(db, "failed to close DB")
-		lggr.ErrorIf(lggr.Sync(), "failed to sync Logger")
+		log.Printf("Shutdown grace period of %v exceeded, closing DB and exiting...\n", cli.Config.ShutdownGracePeriod())
+		if err = db.Close(); err != nil {
+			log.Printf("Failed to close DB: %v\n", err)
+		}
+		if err = lggr.Sync(); err != nil {
+			log.Printf("Failed to sync Logger: %v", err)
+		}
 
 		os.Exit(-1)
 	}()
 
 	grp.Go(func() error {
-		err := cli.Runner.Run(grpCtx, app)
+		err = cli.Runner.Run(grpCtx, app)
 		// In tests we have custom runners that stop the app gracefully,
 		// therefore we need to cancel rootCtx when the Runner has quit.
 		// In a real application, this does noop.

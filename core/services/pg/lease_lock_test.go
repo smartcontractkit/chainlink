@@ -29,10 +29,9 @@ func Test_LeaseLock(t *testing.T) {
 	cfg.Overrides.LeaseLockRefreshInterval = &refresh
 
 	t.Run("on migrated database", func(t *testing.T) {
-		ctx1, cancel1 := context.WithCancel(context.Background())
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(ctx1)
+		err := leaseLock1.TakeAndHold()
 		require.NoError(t, err)
 
 		var clientID uuid.UUID
@@ -40,12 +39,11 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, leaseLock1.ClientID(), clientID)
 
-		ctx2, cancel2 := context.WithCancel(context.Background())
-		defer cancel2()
 		started2 := make(chan struct{})
 		leaseLock2 := newLeaseLock(t, db, cfg)
 		go func() {
-			err := leaseLock2.TakeAndHold(ctx2)
+			defer leaseLock2.Release()
+			err := leaseLock2.TakeAndHold()
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -53,7 +51,7 @@ func Test_LeaseLock(t *testing.T) {
 		// Give it plenty of time to have a few tries at getting the lease
 		time.Sleep(cfg.LeaseLockRefreshInterval() * 5)
 
-		cancel1()
+		leaseLock1.Release()
 
 		select {
 		case <-started2:
@@ -67,7 +65,6 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally on initial take wait", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
 		leaseLock := newLeaseLock(t, db, cfg)
 
 		otherAppID := uuid.NewV4()
@@ -89,7 +86,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			err = leaseLock.TakeAndHold(ctx)
+			err = leaseLock.TakeAndHold()
 			require.NoError(t, err)
 			close(gotLease)
 		}()
@@ -114,16 +111,15 @@ func Test_LeaseLock(t *testing.T) {
 
 		assert.True(t, exists)
 
-		cancel()
+		leaseLock.Release()
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		err := leaseLock.TakeAndHold(ctx)
+		err := leaseLock.TakeAndHold()
 		require.NoError(t, err)
-		defer cancel()
+		defer leaseLock.Release()
 
 		conn := pg.GetConn(leaseLock)
 
@@ -149,13 +145,12 @@ func Test_LeaseLock(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	t.Run("on virgin database", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
 		_, db := heavyweight.FullTestDB(t, "leaselock", false, false)
 
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(ctx)
-		defer cancel()
+		err := leaseLock1.TakeAndHold()
+		defer leaseLock1.Release()
 		require.NoError(t, err)
 	})
 }
