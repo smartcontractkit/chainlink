@@ -115,7 +115,7 @@ type BlockhashStoreSpec {
     blockhashStoreAddress: String!
     pollPeriod: String!
     runTimeout: String!
-    evmChainID: String!
+    evmChainID: String
     fromAddress: String
     createdAt: Time!
 }
