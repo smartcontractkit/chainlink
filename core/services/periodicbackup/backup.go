@@ -129,7 +129,7 @@ func (backup *databaseBackup) frequencyIsTooSmall() bool {
 }
 
 func (backup *databaseBackup) RunBackup(version string) error {
-	backup.logger.Debugw("Starting backup", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
+	backup.logger.Debugw("Starting backup", "mode", backup.mode, "url", backup.databaseURL.Redacted(), "directory", backup.outputParentDir)
 	startAt := time.Now()
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
