@@ -60,6 +60,7 @@ type (
 	}
 )
 
+// NewDatabaseBackup instantiates a *databaseBackup
 func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
 	lggr = lggr.Named("DatabaseBackup")
 	dbUrl := config.DatabaseURL()
