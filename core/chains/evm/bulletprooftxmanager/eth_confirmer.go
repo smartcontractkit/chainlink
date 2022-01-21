@@ -241,8 +241,12 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 // the attempt is already broadcast it _must_ have been before this head.
 func (ec *EthConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 	_, err := ec.q.Exec(
-		`UPDATE eth_tx_attempts SET broadcast_before_block_num = $1 WHERE broadcast_before_block_num IS NULL AND state = 'broadcast'`,
-		blockNum,
+		`UPDATE eth_tx_attempts
+SET broadcast_before_block_num = $1 
+FROM eth_txes
+WHERE eth_tx_attempts.broadcast_before_block_num IS NULL AND eth_tx_attempts.state = 'broadcast'
+AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
+		blockNum, ec.chainID.String(),
 	)
 	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 }
@@ -627,7 +631,7 @@ RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff, ec.c
 		}
 
 		ec.lggr.CriticalW(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
-			"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
+			"Current block height is %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 			"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 			"an external wallet has been used to send a transaction from account %s with nonce %v."+
 			" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Depado/ginprom"
+	"github.com/Masterminds/semver/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
@@ -99,35 +100,26 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)
 
-	// Set up periodic backup
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
-		var version *versioning.NodeVersion
-		var versionString string
-
-		version, err = verORM.FindLatestNodeVersion()
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				appLggr.Debugf("Failed to find any node version in the DB: %w", err)
-			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-				appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
-			} else {
-				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
-			}
-		}
-
-		if version != nil {
-			versionString = version.Version
-		}
-
-		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, appLggr)
-		databaseBackup.RunBackupGracefully(versionString)
-	}
-
-	// Check before migration so we don't do anything destructive to the
-	// database if this app version is too old
 	if static.Version != "unset" {
-		if err = versioning.CheckVersion(db, appLggr, static.Version); err != nil {
+		var appv, dbv *semver.Version
+		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
+		if err != nil {
+			// Exit immediately and don't touch the database if the app version is too old
 			return nil, errors.Wrap(err, "CheckVersion")
+		}
+
+		// Take backup if app version is newer than DB version
+		// Need to do this BEFORE migration
+		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
+			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
+				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				} else {
+					return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
+				}
+			}
 		}
 	}
 
@@ -146,7 +138,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		}
 	}
 
-	if cfg.UseLegacyEthEnvVars() {
+	if !cfg.EthereumDisabled() && !cfg.EVMDisabled() {
 		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}
@@ -190,6 +182,25 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 	})
+}
+
+func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
+	if appv == nil {
+		lggr.Debug("Application version is missing, skipping automatic DB backup.")
+		return nil
+	}
+	if dbv == nil {
+		lggr.Debug("Database version is missing, skipping automatic DB backup.")
+		return nil
+	}
+	if !appv.GreaterThan(dbv) {
+		lggr.Debugf("Application version %s is older or equal to database version %s, skipping automatic DB backup.", appv.String(), dbv.String())
+		return nil
+	}
+	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic databsae backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
+
+	databaseBackup := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	return databaseBackup.RunBackup(appv.String())
 }
 
 // Runner implements the Run method.
