@@ -414,12 +414,6 @@ func (app *ChainlinkApplication) Start() error {
 		panic("application is already started")
 	}
 
-	go func() {
-		<-app.shutdownSignal.Wait()
-		app.logger.ErrorIf(app.Stop(), "Error stopping application")
-		app.Exiter(0)
-	}()
-
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(); err != nil {
 			app.logger.Infof("[Feeds Service] %v", err)
@@ -620,7 +614,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					utils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      utils.NewHash(),
