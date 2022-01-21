@@ -15,7 +15,7 @@ import (
 	null "gopkg.in/guregu/null.v4"
 )
 
-func TestClient_IndexChains(t *testing.T) {
+func TestClient_IndexEVMChains(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t,
@@ -35,15 +35,15 @@ func TestClient_IndexChains(t *testing.T) {
 	chain, err := orm.CreateChain(*id, types.ChainCfg{})
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexChains(cltest.EmptyCLIContext()))
-	chains := *r.Renders[0].(*cmd.ChainPresenters)
+	require.Nil(t, client.IndexEVMChains(cltest.EmptyCLIContext()))
+	chains := *r.Renders[0].(*cmd.EVMChainPresenters)
 	require.Len(t, chains, initialCount+1)
 	c := chains[initialCount]
 	assert.Equal(t, chain.ID.ToInt().String(), c.ID)
 	assertTableRenders(t, r)
 }
 
-func TestClient_CreateChain(t *testing.T) {
+func TestClient_CreateEVMChain(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t,
@@ -64,7 +64,7 @@ func TestClient_CreateChain(t *testing.T) {
 	set.Parse([]string{`{}`})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.CreateChain(c)
+	err = client.CreateEVMChain(c)
 	require.NoError(t, err)
 
 	chains, _, err := orm.Chains(0, 25)
@@ -75,7 +75,7 @@ func TestClient_CreateChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func TestClient_RemoveChain(t *testing.T) {
+func TestClient_RemoveEVMChain(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t,
@@ -102,7 +102,7 @@ func TestClient_RemoveChain(t *testing.T) {
 	set.Parse([]string{"99"})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveChain(c)
+	err = client.RemoveEVMChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
@@ -111,7 +111,7 @@ func TestClient_RemoveChain(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func TestClient_ConfigureChain(t *testing.T) {
+func TestClient_ConfigureEVMChain(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t,
@@ -144,7 +144,7 @@ func TestClient_ConfigureChain(t *testing.T) {
 	set.Parse([]string{"BlockHistoryEstimatorBlockDelay=9", "EvmGasBumpPercent=null"})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.ConfigureChain(c)
+	err = client.ConfigureEVMChain(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)

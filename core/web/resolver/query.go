@@ -408,7 +408,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			return nil, err
 		}
 
-		chain, err := r.App.GetChainSet().Get(state.EVMChainID.ToInt())
+		chain, err := r.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 		if errors.Cause(err) == evm.ErrNoChains {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.Address,

@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -160,7 +161,20 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
-	chainSet, err := evm.LoadChainSet(ccOpts)
+	var chains chainlink.Chains
+	chains.EVM, err = evm.LoadChainSet(ccOpts)
+	if err != nil {
+		appLggr.Fatal(err)
+	}
+	terraLggr := appLggr.Named("Terra")
+	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		Config:           cfg,
+		Logger:           terraLggr,
+		DB:               db,
+		KeyStore:         keyStore.Terra(),
+		EventBroadcaster: eventBroadcaster,
+		ORM:              terra.NewORM(db, terraLggr, cfg),
+	})
 	if err != nil {
 		appLggr.Fatal(err)
 	}
@@ -169,7 +183,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Config:                   cfg,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
-		ChainSet:                 chainSet,
+		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
 		ExternalInitiatorManager: externalInitiatorManager,

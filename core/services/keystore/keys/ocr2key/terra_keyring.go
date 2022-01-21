@@ -41,7 +41,7 @@ func (ok *terraKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report
 	if err != nil {
 		return nil, err
 	}
-	reportLen := make([]byte, 8)
+	reportLen := make([]byte, 4)
 	binary.BigEndian.PutUint32(reportLen[0:], uint32(len(report)))
 	h.Write(reportLen[:])
 	h.Write(report)
@@ -65,11 +65,17 @@ func (ok *terraKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.R
 }
 
 func (ok *terraKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+	var cosmosPub cosmosed25519.PubKey
+	err := cosmosPub.UnmarshalAmino(publicKey)
+	if err != nil {
+		return false
+	}
 	hash, err := ok.reportToSigData(reportCtx, report)
 	if err != nil {
 		return false
 	}
-	return ok.PubKey().VerifySignature(hash, signature[32:])
+	result := cosmosPub.VerifySignature(hash, signature[32:])
+	return result
 }
 
 func (ok *terraKeyring) MaxSignatureLength() int {
@@ -84,5 +90,6 @@ func (ok *terraKeyring) marshal() ([]byte, error) {
 func (ok *terraKeyring) unmarshal(in []byte) error {
 	key := cosmosed25519.GenPrivKeyFromSecret(in)
 	ok.PrivKey = key
+	ok.secret = in
 	return nil
 }

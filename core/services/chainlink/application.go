@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"sync"
 
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -15,10 +17,14 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
+	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -37,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -63,12 +70,13 @@ type Application interface {
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
-	GetChainSet() evm.ChainSet
+	GetChains() Chains
 
 	// V2 Jobs (TOML specified)
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	EVMORM() evmtypes.ORM
+	TerraORM() terratypes.ORM
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
@@ -96,6 +104,7 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	ChainSet                 evm.ChainSet
+	Chains                   Chains
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
@@ -127,10 +136,16 @@ type ApplicationOpts struct {
 	EventBroadcaster         pg.EventBroadcaster
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
-	ChainSet                 evm.ChainSet
+	Chains                   Chains
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
+}
+
+// Chains holds a ChainSet for each type of chain.
+type Chains struct {
+	EVM   evm.ChainSet
+	Terra terra.ChainSet
 }
 
 // NewApplication initializes a new store if one is not already
@@ -143,7 +158,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.SqlxDB
 	cfg := opts.Config
 	keyStore := opts.KeyStore
-	chainSet := opts.ChainSet
+	chains := opts.Chains
 	globalLogger := opts.Logger
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
@@ -188,7 +203,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	subservices = append(subservices, eventBroadcaster, chainSet)
+	subservices = append(subservices, eventBroadcaster, chains.EVM)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
@@ -196,12 +211,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger, cfg)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger)
+		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, keyStore, globalLogger, cfg)
 		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger, cfg)
 	)
 
-	for _, chain := range chainSet.Chains() {
+	for _, chain := range chains.EVM.Chains() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
@@ -212,19 +227,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				chainSet),
+				chains.EVM),
 			job.Keeper: keeper.NewDelegate(
 				db,
 				jobORM,
 				pipelineRunner,
 				globalLogger,
-				chainSet),
+				chains.EVM),
 			job.VRF: vrf.NewDelegate(
 				db,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
-				chainSet,
+				chains.EVM,
 				globalLogger,
 				cfg),
 			job.Webhook: webhook.NewDelegate(
@@ -248,7 +263,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineORM,
 			pipelineRunner,
 			db,
-			chainSet,
+			chains.EVM,
 			globalLogger,
 		)
 	}
@@ -271,7 +286,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
-			chainSet,
+			chains.EVM,
 			globalLogger,
 		)
 	} else {
@@ -281,10 +296,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
-			db,
 			keyStore,
-			chainSet,
-			globalLogger,
+			evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM")),
+			solana.NewRelayer(globalLogger.Named("Solana.Relayer")),
+			pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra),
 		)
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
@@ -293,7 +308,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
-			chainSet,
+			chains.EVM,
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
@@ -304,7 +319,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var lbs []utils.DependentAwaiter
-	for _, c := range chainSet.Chains() {
+	for _, c := range chains.EVM.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
@@ -315,19 +330,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var feedsService feeds.Service
 	if cfg.FeatureFeedsManager() {
 		feedsORM := feeds.NewORM(db, opts.Logger, cfg)
-		chain, err := chainSet.Default()
+		chain, err := chains.EVM.Default()
 		if err != nil {
 			globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 			feedsService = &feeds.NullService{}
 		} else {
-			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
+			feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chains.EVM, globalLogger, opts.Version)
 		}
 	} else {
 		feedsService = &feeds.NullService{}
 	}
 
 	app := &ChainlinkApplication{
-		ChainSet:                 chainSet,
+		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
@@ -376,7 +391,7 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 	// TODO: Implement other service loggers
 	switch serviceName {
 	case logger.HeadTracker:
-		for _, c := range app.ChainSet.Chains() {
+		for _, c := range app.Chains.EVM.Chains() {
 			c.HeadTracker().SetLogLevel(level)
 		}
 	case logger.FluxMonitor:
@@ -398,6 +413,12 @@ func (app *ChainlinkApplication) Start() error {
 	if app.started {
 		panic("application is already started")
 	}
+
+	go func() {
+		<-app.shutdownSignal.Wait()
+		app.logger.ErrorIf(app.Stop(), "Error stopping application")
+		app.Exiter(0)
+	}()
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(); err != nil {
@@ -445,31 +466,47 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
-		app.logger.Info("Gracefully exiting...")
+		done := make(chan error)
+		go func() {
+			var merr error
+			defer func() {
+				if lerr := app.logger.Sync(); lerr != nil {
+					merr = multierr.Append(merr, lerr)
+				}
+			}()
+			app.logger.Info("Gracefully exiting...")
 
-		// Stop services in the reverse order from which they were started
-		for i := len(app.subservices) - 1; i >= 0; i-- {
-			service := app.subservices[i]
-			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
-			err = multierr.Append(err, service.Close())
+			// Stop services in the reverse order from which they were started
+			for i := len(app.subservices) - 1; i >= 0; i-- {
+				service := app.subservices[i]
+				app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+				merr = multierr.Append(merr, service.Close())
+			}
+
+			app.logger.Debug("Stopping SessionReaper...")
+			merr = multierr.Append(merr, app.SessionReaper.Stop())
+			app.logger.Debug("Closing HealthChecker...")
+			merr = multierr.Append(merr, app.HealthChecker.Close())
+			if app.FeedsService != nil {
+				app.logger.Debug("Closing Feeds Service...")
+				merr = multierr.Append(merr, app.FeedsService.Close())
+			}
+
+			if app.Nurse != nil {
+				merr = multierr.Append(merr, app.Nurse.Close())
+			}
+
+			app.logger.Info("Exited all services")
+
+			app.started = false
+			done <- err
+		}()
+		select {
+		case merr := <-done:
+			err = merr
+		case <-time.After(15 * time.Second):
+			err = errors.New("application timed out shutting down")
 		}
-
-		app.logger.Debug("Stopping SessionReaper...")
-		err = multierr.Append(err, app.SessionReaper.Stop())
-		app.logger.Debug("Closing HealthChecker...")
-		err = multierr.Append(err, app.HealthChecker.Close())
-		if app.FeedsService != nil {
-			app.logger.Debug("Closing Feeds Service...")
-			err = multierr.Append(err, app.FeedsService.Close())
-		}
-
-		if app.Nurse != nil {
-			err = multierr.Append(err, app.Nurse.Close())
-		}
-
-		app.logger.Info("Exited all services")
-
-		app.started = false
 	})
 	return err
 }
@@ -507,7 +544,12 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 }
 
 func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
-	return app.ChainSet.ORM()
+	return app.Chains.EVM.ORM()
+}
+
+// TerraORM returns the Terra ORM.
+func (app *ChainlinkApplication) TerraORM() terratypes.ORM {
+	return app.Chains.Terra.ORM()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
@@ -626,7 +668,7 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 }
 
 func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64) error {
-	chain, err := app.ChainSet.Get(chainID)
+	chain, err := app.Chains.EVM.Get(chainID)
 	if err != nil {
 		return err
 	}
@@ -634,8 +676,9 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	return nil
 }
 
-func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
-	return app.ChainSet
+// GetChains returns Chains.
+func (app *ChainlinkApplication) GetChains() Chains {
+	return app.Chains
 }
 
 func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
