@@ -36,6 +36,7 @@ const (
 	OffchainReporting2 Type = "offchainreporting2"
 	Keeper             Type = "keeper"
 	VRF                Type = "vrf"
+	BlockhashStore     Type = "blockhashstore"
 	Webhook            Type = "webhook"
 )
 
@@ -68,6 +69,7 @@ var (
 		Keeper:             true,
 		VRF:                true,
 		Webhook:            true,
+		BlockhashStore:     false,
 	}
 	supportsAsync = map[Type]bool{
 		Cron:               true,
@@ -78,6 +80,7 @@ var (
 		Keeper:             true,
 		VRF:                true,
 		Webhook:            true,
+		BlockhashStore:     false,
 	}
 	schemaVersions = map[Type]uint32{
 		Cron:               1,
@@ -88,6 +91,7 @@ var (
 		Keeper:             3,
 		VRF:                1,
 		Webhook:            1,
+		BlockhashStore:     1,
 	}
 )
 
@@ -110,6 +114,8 @@ type Job struct {
 	VRFSpec                        *VRFSpec
 	WebhookSpecID                  *int32
 	WebhookSpec                    *WebhookSpec
+	BlockhashStoreSpecID           *int32
+	BlockhashStoreSpec             *BlockhashStoreSpec
 	PipelineSpecID                 int32
 	PipelineSpec                   *pipeline.Spec
 	JobSpecErrors                  []SpecError
@@ -438,4 +444,45 @@ type VRFSpec struct {
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // For v2 jobs. Optional, defaults to 24hr if not provided.
 	CreatedAt                time.Time     `toml:"-"`
 	UpdatedAt                time.Time     `toml:"-"`
+}
+
+// BlockhashStoreSpec defines the job spec for the blockhash store feeder.
+type BlockhashStoreSpec struct {
+	ID int32
+
+	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
+	// no V1 coordinator will be watched.
+	CoordinatorV1Address *ethkey.EIP55Address `toml:"coordinatorV1Address"`
+
+	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
+	// no V2 coordinator will be watched.
+	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
+
+	// WaitBlocks defines the number of blocks to wait before a hash is stored.
+	WaitBlocks int32 `toml:"waitBlocks"`
+
+	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
+	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
+	// into.
+	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
+
+	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
+	PollPeriod time.Duration `toml:"pollPeriod"`
+
+	// RunTimeout defines the timeout for a single run of the blockhash store feeder.
+	RunTimeout time.Duration `toml:"runTimeout"`
+
+	// EVMChainID defines the chain ID for monitoring and storing of blockhashes.
+	EVMChainID *utils.Big `toml:"evmChainID"`
+
+	// FromAddress is the sender address that should be used to store blockhashes.
+	FromAddress *ethkey.EIP55Address `toml:"fromAddress"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
 }
