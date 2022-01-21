@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -288,6 +289,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		err = cli.Runner.Run(grpCtx, app)
+		if err == http.ErrServerClosed {
+			err = nil
+		}
 		// In tests we have custom runners that stop the app gracefully,
 		// therefore we need to cancel rootCtx when the Runner has quit.
 		// In a real application, this does noop.
