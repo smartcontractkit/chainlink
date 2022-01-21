@@ -210,6 +210,26 @@ export const generateJobDefinition = (
       }
 
       break
+
+    case 'BlockhashStoreSpec':
+      values = {
+        ...extractJobFields(job),
+        ...extractSpecFields(
+          job.spec,
+          'coordinatorV1Address',
+          'coordinatorV2Address',
+          'waitBlocks',
+          'lookbackBlocks',
+          'blockhashStoreAddress',
+          'pollPeriod',
+          'runTimeout',
+          'evmChainID',
+          'fromAddress',
+        ),
+        ...extractObservationSourceField(job),
+      }
+
+      break
     default:
       return { definition: '', envDefinition: '' }
     case 'WebhookSpec':

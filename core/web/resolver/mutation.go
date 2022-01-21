@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -965,6 +966,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = vrf.ValidatedVRFSpec(args.Input.TOML)
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
+	case job.BlockhashStore:
+		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

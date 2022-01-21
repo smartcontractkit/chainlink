@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // JobRenderer wraps the JSONAPI Job Resource and adds rendering functionality
@@ -108,6 +107,10 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 	case presenters.WebhookJobSpec:
 		if p.WebhookSpec != nil {
 			return p.WebhookSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.BlockhashStoreJobSpec:
+		if p.BlockhashStoreSpec != nil {
+			return p.BlockhashStoreSpec.CreatedAt.Format(time.RFC3339)
 		}
 	default:
 		return "unknown"
