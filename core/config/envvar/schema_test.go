@@ -42,6 +42,7 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseBackupDir":                          "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                    "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                         "DATABASE_BACKUP_MODE",
+		"DatabaseBackupOnVersionUpgrade":             "DATABASE_BACKUP_ON_VERSION_UPGRADE",
 		"DatabaseBackupURL":                          "DATABASE_BACKUP_URL",
 		"DatabaseListenerMaxReconnectDuration":       "DATABASE_LISTENER_MAX_RECONNECT_DURATION",
 		"DatabaseListenerMinReconnectInterval":       "DATABASE_LISTENER_MIN_RECONNECT_INTERVAL",
@@ -155,7 +156,6 @@ func TestConfigSchema(t *testing.T) {
 		"TriggerFallbackDBPollInterval":              "TRIGGER_FALLBACK_DB_POLL_INTERVAL",
 		"UnAuthenticatedRateLimit":                   "UNAUTHENTICATED_RATE_LIMIT",
 		"UnAuthenticatedRateLimitPeriod":             "UNAUTHENTICATED_RATE_LIMIT_PERIOD",
-		"UseLegacyEthEnvVars":                        "USE_LEGACY_ETH_ENV_VARS",
 
 		// OCR v2
 		"OCR2BlockchainTimeout":                  "OCR2_BLOCKCHAIN_TIMEOUT",

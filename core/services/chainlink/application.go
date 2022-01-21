@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -249,6 +250,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			job.Cron: cron.NewDelegate(
 				pipelineRunner,
 				globalLogger),
+			job.BlockhashStore: blockhashstore.NewDelegate(
+				globalLogger,
+				chains.EVM,
+				keyStore.Eth()),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)

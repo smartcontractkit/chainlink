@@ -220,6 +220,8 @@ func (l *leaseLock) loop() {
 	}
 }
 
+// initialSQL is necessary because the application attempts to take the lease
+// lock BEFORE running migrations
 var initialSQL = []string{
 	`CREATE TABLE IF NOT EXISTS lease_lock (client_id uuid NOT NULL, expires_at timestamptz NOT NULL)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS only_one_lease_lock ON lease_lock ((client_id IS NOT NULL))`,
@@ -243,35 +245,25 @@ func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool
 				}
 			}
 		}
-		if _, err = tx.Exec(`LOCK TABLE lease_lock`); err != nil {
-			return errors.Wrap(err, "failed to lock lease_lock table")
-		}
-		var count int
-		err = tx.Get(&count, `SELECT count(*) FROM lease_lock`)
-		if count == 0 {
-			// first time anybody claimed a lock on this table
-			_, err = tx.Exec(`INSERT INTO lease_lock (client_id, expires_at) VALUES ($1, NOW()+$2::interval)`, l.id, leaseDuration)
-			gotLease = true
-			return errors.Wrap(err, "failed to create initial lease_lock")
-		} else if count > 1 {
-			return errors.Errorf("expected only one row in lease_lock, got %d", count)
-		}
+
+		// Upsert the lease_lock, only overwriting an existing one if the existing one has expired
 		var res sql.Result
 		res, err = tx.Exec(`
-UPDATE lease_lock
-SET client_id = $1, expires_at = NOW()+$2::interval
-WHERE (
-	lease_lock.client_id = $1
-	OR
-	lease_lock.expires_at < NOW()
-)`, l.id, leaseDuration)
+INSERT INTO lease_lock (client_id, expires_at) VALUES ($1, NOW()+$2::interval) ON CONFLICT ((client_id IS NOT NULL)) DO UPDATE SET
+client_id = EXCLUDED.client_id,
+expires_at = EXCLUDED.expires_at
+WHERE
+lease_lock.client_id = $1
+OR
+lease_lock.expires_at < NOW()
+`, l.id, leaseDuration)
 		if err != nil {
-			return errors.Wrap(err, "failed to update lease_lock")
+			return errors.Wrap(err, "failed to upsert lease_lock")
 		}
 		var rowsAffected int64
 		rowsAffected, err = res.RowsAffected()
 		if err != nil {
-			return errors.Wrap(err, "failed to update lease_lock (RowsAffected)")
+			return errors.Wrap(err, "failed to get RowsAffected for lease lock upsert")
 		}
 		if rowsAffected > 0 {
 			gotLease = true

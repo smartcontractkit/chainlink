@@ -52,10 +52,11 @@ type ConfigSchema struct {
 	LeaseLockDuration         time.Duration `env:"LEASE_LOCK_DURATION" default:"10s"`
 	LeaseLockRefreshInterval  time.Duration `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
 	// Database Autobackups
-	DatabaseBackupDir       string        `env:"DATABASE_BACKUP_DIR"`
-	DatabaseBackupFrequency time.Duration `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
-	DatabaseBackupMode      string        `env:"DATABASE_BACKUP_MODE" default:"none"`
-	DatabaseBackupURL       *url.URL      `env:"DATABASE_BACKUP_URL"`
+	DatabaseBackupDir              string        `env:"DATABASE_BACKUP_DIR"`
+	DatabaseBackupFrequency        time.Duration `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
+	DatabaseBackupMode             string        `env:"DATABASE_BACKUP_MODE" default:"none"`
+	DatabaseBackupOnVersionUpgrade bool          `env:"DATABASE_BACKUP_ON_VERSION_UPGRADE" default:"true"`
+	DatabaseBackupURL              *url.URL      `env:"DATABASE_BACKUP_URL"`
 
 	// Logging
 	JSONConsole bool          `env:"JSON_CONSOLE" default:"false"`
@@ -99,7 +100,6 @@ type ConfigSchema struct {
 	EthereumSecondaryURL  string `env:"ETH_SECONDARY_URL"` //nodoc
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
-	UseLegacyEthEnvVars   bool   `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 	// Global
 	DefaultChainID   *big.Int `env:"ETH_CHAIN_ID"`
 	EVMDisabled      bool     `env:"EVM_DISABLED" default:"false"`

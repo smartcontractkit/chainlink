@@ -21,10 +21,7 @@ func NewBlockTranslator(cfg Config, client evmclient.Client, lggr logger.Logger)
 	switch cfg.ChainType() {
 	case chains.Arbitrum:
 		return NewArbitrumBlockTranslator(client, lggr)
-	case chains.Optimism:
-		return newOptimismBlockTranslator()
-
-	case chains.XDai, chains.ExChain:
+	case chains.XDai, chains.ExChain, chains.Optimism:
 		fallthrough
 	default:
 		return &l1BlockTranslator{}
@@ -38,16 +35,3 @@ func (*l1BlockTranslator) NumberToQueryRange(_ context.Context, changedInL1Block
 }
 
 func (*l1BlockTranslator) OnNewLongestChain(context.Context, *evmtypes.Head) {}
-
-type optimismBlockTranslator struct{}
-
-func newOptimismBlockTranslator() *optimismBlockTranslator {
-	return &optimismBlockTranslator{}
-}
-
-func (*optimismBlockTranslator) NumberToQueryRange(_ context.Context, changedInL1Block uint64) (fromBlock *big.Int, toBlock *big.Int) {
-	// TODO: OPTIMISE THIS
-	// Currently we simply query the entire block range. This is correct, but very slow and suboptimal
-	// https://app.clubhouse.io/chainlinklabs/story/11524/optimise-blocktranslator-ocr-for-optimism
-	return big.NewInt(0), nil
-}
