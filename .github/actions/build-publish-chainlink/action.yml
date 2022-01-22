@@ -150,12 +150,13 @@ runs:
 
   - if: inputs.sign-images == 'true'
     name: Write signing key to disk (only needed for `cosign sign --key`)
-    run: |
-      echo "${{ inputs.cosign-private-key }}" > cosign.key
+    shell: sh
+    run: echo "${{ inputs.cosign-private-key }}" > cosign.key
 
   - if: inputs.sign-images == 'true'
     name: Sign the published Docker image
-    run: |
-      cosign sign --key cosign.key ${{ inputs.ecr-registry }}/${{ inputs.image-name }}@${{ steps.meta-nonroot.outputs.digest }}
+    shell: sh
     env:
       COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+    run: cosign sign --key cosign.key ${{ inputs.ecr-registry }}/${{ inputs.image-name }}@${{ steps.meta-nonroot.outputs.digest }}
+
