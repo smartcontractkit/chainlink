@@ -1,4 +1,4 @@
-name: Build, Sign and Publish Chainlink
+name: Build and Publish Chainlink
 
 description: A composite action that allows building and publishing signed chainlink images. Note that this action only supports public ECR repositories. The value of the registry to login to in the docker/login-action setup is hardcoded to 'public.ecr.aws'
 
