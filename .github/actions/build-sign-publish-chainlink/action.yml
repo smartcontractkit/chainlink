@@ -1,22 +1,22 @@
-name: Build and Publish Chainlink
+name: Build, Sign and Publish Chainlink
 
-description: A composite action that allows building and publishing chainlink images. Note that this action only supports public ECR repositories. The value of the registry to login to in the docker/login-action setup is hardcoded to 'public.ecr.aws'
+description: A composite action that allows building and publishing signed chainlink images. Note that this action only supports public ECR repositories. The value of the registry to login to in the docker/login-action setup is hardcoded to 'public.ecr.aws'
 
 inputs:
   # Inputs for publishing
   publish:
     description: When set to the string boolean value of "true", the resulting built image will be published
-    default: "false" 
+    default: "false"
     required: false
-  
+
   image-name:
     description: The name of the image, should match the repository name in ECR
     required: true
-  
+
   ecr-registry:
     description: The ECR registry to push to, used in docker/login-action and for tagging images
     default: public.ecr.aws/chainlink
-    required: false 
+    required: false
   aws-access-key-id:
     description: The IAM access key used to authenticate to ECR, used in configuring docker/login-action
     required: false
@@ -29,9 +29,23 @@ inputs:
   aws-role-duration-seconds:
     description: The duration of the role assumed
     required: false
-  aws-region: 
+  aws-region:
     description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
-    required: false    
+    required: false
+
+  # Inputs for signing
+  sign-images:
+    description: When set to the string boolean value of "true", the resulting build image will be signed
+    default: "false"
+    required: false
+
+  cosign-private-key:
+    description: The private key to be used with cosign to sign the image
+    required: false
+
+  cosign-password:
+    description: The password to decrypt the cosign private key needed to sign the image
+    required: false
 
 runs:
   using: composite
@@ -85,7 +99,7 @@ runs:
 
   - name: Setup Docker Buildx
     uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-  
+
   - name: Generate docker metadata for root image
     id: meta-root
     uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
@@ -93,8 +107,8 @@ runs:
       # list of Docker images to use as base name for tags
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
-      
-  
+
+
   - name: Build and push root docker image
     uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229 # v2.7.0
     with:
@@ -105,8 +119,8 @@ runs:
       build-args: |
         CHAINLINK_USER:root
         ${{ env.shared-build-args }}
-  
-  - name: Generate docker metadata for non-root image 
+
+  - name: Generate docker metadata for non-root image
     id: meta-nonroot
     uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
     with:
@@ -116,7 +130,7 @@ runs:
         suffix=-nonroot,onlatest=true
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
-  
+
   - name: Build and push non-root docker image
     uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229 # v2.7.0
     with:
@@ -127,3 +141,19 @@ runs:
       build-args: |
         CHAINLINK_USER:chainlink
         ${{ env.shared-build-args }}
+
+  - if: inputs.sign-images == 'true'
+    name: Install cosign
+    uses: sigstore/cosign-installer@1e95c1de343b5b0c23352d6417ee3e48d5bcd422 # v1.4.0
+      with:
+        cosign-release: 'v1.4.0'
+
+  - if: inputs.sign-images == 'true'
+    name: Write signing key to disk (only needed for `cosign sign --key`)
+    run: echo "${{ inputs.cosign-private-key }}" > cosign.key
+
+  - if: inputs.sign-images == 'true'
+    name: Sign the published Docker image
+    run: cosign sign --key cosign.key ${{ inputs.ecr-registry }}/${{ inputs.image-name }}@${{ steps.meta-nonroot.outputs.digest }}
+    env:
+      COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
