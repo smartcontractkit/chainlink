@@ -75,7 +75,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 
 	Describe("With a single OCR contract", func() {
 		It("performs two rounds", func() {
-			By("setting adapter responses", actions.SetAllAdapterResponses(5, ocrInstances, chainlinkNodes, mockserver))
+			By("setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstances, chainlinkNodes, mockserver))
 			By("Creating OCR jobs", actions.CreateOCRJobs(ocrInstances, chainlinkNodes, mockserver))
 			By("starting new round", actions.StartNewRound(1, ocrInstances, networks))
 
@@ -83,7 +83,7 @@ var _ = Describe("OCR Feed @ocr", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(answer.Int64()).Should(Equal(int64(5)), "latest answer from OCR is not as expected")
 
-			By("setting adapter responses", actions.SetAllAdapterResponses(10, ocrInstances, chainlinkNodes, mockserver))
+			By("setting adapter responses", actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, chainlinkNodes, mockserver))
 			By("starting new round", actions.StartNewRound(2, ocrInstances, networks))
 
 			answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
