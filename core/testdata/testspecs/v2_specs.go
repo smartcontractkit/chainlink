@@ -116,6 +116,21 @@ commitment         = "processed"
 pollingInterval    = "2s"
 pollingCtxTimeout  = "4s"
 staleTimeout       = "30s"`
+	OCR2TerraSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+contractID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+isBootstrapPeer = false
+p2pBootstrapPeers = []
+relay = "terra"
+transmitterID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+observationSource = """
+"""
+juelsPerFeeCoinSource = """
+"""
+
+[relayConfig]
+chainID = "Chainlink-99"`
 
 	WebhookSpecNoBody = `
 type            = "webhook"
