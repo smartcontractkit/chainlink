@@ -33,7 +33,7 @@ func (t *CBORParseTask) Type() TaskType {
 }
 
 func (t *CBORParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
-	_, err := CheckInputs(inputs, -1, -1, 0)
+	err := CheckInputs(inputs)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}

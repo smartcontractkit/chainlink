@@ -48,7 +48,7 @@ func (t *HTTPTask) Type() TaskType {
 }
 
 func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
-	_, err := CheckInputs(inputs, -1, -1, 0)
+	err := CheckInputs(inputs)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}

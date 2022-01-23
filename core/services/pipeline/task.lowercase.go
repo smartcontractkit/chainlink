@@ -25,7 +25,7 @@ func (t *LowercaseTask) Type() TaskType {
 }
 
 func (t *LowercaseTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
-	_, err := CheckInputs(inputs, 0, 1, 0)
+	err := CheckInputsLen(inputs, 0, 1)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}

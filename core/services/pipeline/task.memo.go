@@ -20,7 +20,7 @@ func (t *MemoTask) Type() TaskType {
 }
 
 func (t *MemoTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (Result, RunInfo) {
-	_, err := CheckInputs(inputs, 0, 1, 0)
+	err := CheckInputsLen(inputs, 0, 1)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task value missing")}, RunInfo{}
 	}

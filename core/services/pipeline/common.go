@@ -427,23 +427,34 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	return task, nil
 }
 
-func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
-	if minLen >= 0 && len(inputs) < minLen {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+// CheckInputsLen checks that inputs is error free and the expected length.
+func CheckInputsLen(inputs []Result, minLen, maxLen int) error {
+	if minLen > 0 && len(inputs) < minLen {
+		return errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	} else if maxLen >= 0 && len(inputs) > maxLen {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+		return errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
 	}
-	var vals []interface{}
-	var errs int
+	return CheckInputs(inputs)
+}
+
+// CheckInputs returns ErrTooManyErrors if inputs contains an Error.
+func CheckInputs(inputs []Result) error {
 	for _, input := range inputs {
 		if input.Error != nil {
-			errs++
-			continue
+			return ErrTooManyErrors
 		}
-		vals = append(vals, input.Value)
 	}
-	if maxErrors >= 0 && errs > maxErrors {
-		return nil, ErrTooManyErrors
+	return nil
+}
+
+// GetInputs returns the Values from inputs and checks that it is error free.
+func GetInputs(inputs []Result) ([]interface{}, error) {
+	vals := make([]interface{}, len(inputs))
+	for i, input := range inputs {
+		if input.Error != nil {
+			return nil, ErrTooManyErrors
+		}
+		vals[i] = input.Value
 	}
 	return vals, nil
 }

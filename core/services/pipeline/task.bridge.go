@@ -39,7 +39,7 @@ func (t *BridgeTask) Type() TaskType {
 }
 
 func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
-	inputValues, err := CheckInputs(inputs, -1, -1, 0)
+	inputValues, err := GetInputs(inputs)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}

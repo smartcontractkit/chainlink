@@ -60,7 +60,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 	cfg := chain.Config()
 	txManager := chain.TxManager()
-	_, err = CheckInputs(inputs, -1, -1, 0)
+	err = CheckInputs(inputs)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}

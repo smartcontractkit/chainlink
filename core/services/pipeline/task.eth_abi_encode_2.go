@@ -29,7 +29,7 @@ func (t *ETHABIEncodeTask2) Type() TaskType {
 }
 
 func (t *ETHABIEncodeTask2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (Result, RunInfo) {
-	_, err := CheckInputs(inputs, -1, -1, 0)
+	err := CheckInputs(inputs)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, RunInfo{}
 	}
