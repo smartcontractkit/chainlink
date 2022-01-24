@@ -60,11 +60,11 @@ func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err erro
 	return
 }
 
-func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (release func(), err error) {
+func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (cleanup func(), err error) {
 	lggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
 
 	lockingMode := cfg.DatabaseLockingMode()
-	release = func() {}
+	cleanup = func() {}
 
 	// Lease will be explicitly released on application stop
 	// Take the lease before any other DB operations
@@ -75,7 +75,6 @@ func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger
 		if err = leaseLock.TakeAndHold(); err != nil {
 			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
-		release = leaseLock.Release
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
@@ -84,12 +83,20 @@ func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger
 	case "advisorylock", "dual":
 		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
 		if err = advisoryLock.TakeAndHold(); err != nil {
-			return nil, errors.Wrap(err, "error acquiring lock")
+			return cleanup, errors.Wrap(err, "error acquiring lock")
 		}
-		release = advisoryLock.Release
 	}
 
-	return release, nil
+	cleanup = func() {
+		if leaseLock != nil {
+			leaseLock.Release()
+		}
+		if advisoryLock != nil {
+			advisoryLock.Release()
+		}
+	}
+
+	return cleanup, nil
 }
 
 // RunNode starts the Chainlink core.

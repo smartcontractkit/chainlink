@@ -172,14 +172,14 @@ func TestResolver_Config(t *testing.T) {
         "key": "DEFAULT_HTTP_TIMEOUT",
         "value": "15s"
       },
-	  {
-		"key":"SHUTDOWN_GRACE_PERIOD",
-		"value":"5s"
-	  },
       {
         "key": "CHAINLINK_DEV",
         "value": "true"
       },
+	  {
+		"key":"SHUTDOWN_GRACE_PERIOD",
+		"value":"5s"
+	  },
       {
         "key": "ETH_DISABLED",
         "value": "true"
