@@ -52,11 +52,11 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.0.0-20220110150750-26cf3ee24c90
-	github.com/smartcontractkit/chainlink-terra v0.0.5-0.20220121175052-3d6a42dcb60d
-	github.com/smartcontractkit/helmenv v1.0.23
-	github.com/smartcontractkit/integrations-framework v1.0.29
-	github.com/smartcontractkit/libocr v0.0.0-20211210213233-5443fb9db7f7
+	github.com/smartcontractkit/chainlink-solana v0.2.3-0.20220121213958-5b4d7cdb0ba2
+  github.com/smartcontractkit/chainlink-terra v0.0.5-0.20220121175052-3d6a42dcb60d
+	github.com/smartcontractkit/helmenv v1.0.25
+	github.com/smartcontractkit/integrations-framework v1.0.35
+	github.com/smartcontractkit/libocr v0.0.0-20220121130134-5d2b1d5f424b
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.5

@@ -25,6 +25,9 @@ import (
 // DefaultRequestTimeout is the default Terra client timeout.
 const DefaultRequestTimeout = 10 * time.Second
 
+//go:generate mockery --name MsgEnqueuer --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
+//go:generate mockery --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
+//go:generate mockery --name Chain --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 var _ terra.Chain = (*chain)(nil)
 
 type chain struct {
