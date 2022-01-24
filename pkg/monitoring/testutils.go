@@ -295,6 +295,9 @@ func generateEnvelope() (Envelope, error) {
 		Transmitter: types.Account(hexutil.Encode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(rand.Intn(32)),
 		})),
+
+		NativeTokenBalance: rand.Uint64(),
+		LinkBalance:        rand.Uint64(),
 	}, nil
 }
 
@@ -343,6 +346,12 @@ func (d *devnullMetrics) SetHeadTrackerCurrentHead(blockNumber uint64, networkNa
 }
 
 func (d *devnullMetrics) SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string) {
+}
+
+func (d *devnullMetrics) SetFeedContractNativeTokenBalance(balance uint64, chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+
+func (d *devnullMetrics) SetFeedContractLinkBalance(balance uint64, chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
 func (d *devnullMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {

@@ -39,6 +39,13 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 		avro.Field("transmissions_account", avro.Opts{Doc: "[32]byte", Default: avro.Null}, avro.Union{avro.Null, avro.Bytes}),
 		avro.Field("state_account", avro.Opts{Doc: "[32]byte", Default: avro.Null}, avro.Union{avro.Null, avro.Bytes}),
 	})),
+	avro.Field("balances", avro.Opts{Default: avro.Null}, avro.Union{
+		avro.Null,
+		avro.Record("balances", avro.Opts{}, avro.Fields{
+			avro.Field("native_token_balance", avro.Opts{Doc: "uint64"}, avro.Bytes),
+			avro.Field("link_balance", avro.Opts{Doc: "uint64"}, avro.Bytes),
+		}),
+	}),
 })
 
 var configSetSimplifiedAvroSchema = avro.Record("config_set_simplified", avro.Opts{Namespace: "link.chain.ocr2"}, avro.Fields{

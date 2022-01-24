@@ -61,6 +61,13 @@ func TestMapping(t *testing.T) {
 		decodedFeedConfig, ok := transmission["feed_config"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, decodedFeedConfig, feedConfig.ToMapping())
+
+		balancesUnion, ok := transmission["balances"].(map[string]interface{})
+		require.True(t, ok)
+		balances, ok := balancesUnion["link.chain.ocr2.balances"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, balances["native_token_balance"], uint64ToBeBytes(envelope.NativeTokenBalance))
+		require.Equal(t, balances["link_balance"], uint64ToBeBytes(envelope.LinkBalance))
 	})
 
 	t.Run("MakeSimplifiedConfigSetMapping", func(t *testing.T) {

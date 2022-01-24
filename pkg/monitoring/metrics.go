@@ -11,6 +11,8 @@ import (
 type Metrics interface {
 	SetHeadTrackerCurrentHead(blockNumber uint64, networkName, chainID, networkID string)
 	SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string)
+	SetFeedContractNativeTokenBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetFeedContractLinkBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string)
 	SetOffchainAggregatorAnswers(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
@@ -36,6 +38,18 @@ var (
 			Help: "Exposes metadata for individual feeds. It should simply be set to 1, as the relevant info is in the labels.",
 		},
 		[]string{"chain_id", "contract_address", "feed_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name", "symbol"},
+	)
+	feedContractNativeTokenBalance = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "feed_contract_native_token_balance",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
+	feedContractLinkBalance = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "feed_contract_link_balance",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
 	nodeMetadata = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -79,6 +93,8 @@ var DefaultMetrics Metrics
 func init() {
 	prometheus.MustRegister(headTrackerCurrentHead)
 	prometheus.MustRegister(feedContractMetadata)
+	prometheus.MustRegister(feedContractNativeTokenBalance)
+	prometheus.MustRegister(feedContractLinkBalance)
 	prometheus.MustRegister(nodeMetadata)
 	prometheus.MustRegister(offchainAggregatorAnswers)
 	prometheus.MustRegister(offchainAggregatorAnswersTotal)
@@ -96,6 +112,14 @@ func (d *defaultMetrics) SetHeadTrackerCurrentHead(blockNumber uint64, networkNa
 
 func (d *defaultMetrics) SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string) {
 	feedContractMetadata.WithLabelValues(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol).Set(1)
+}
+
+func (d *defaultMetrics) SetFeedContractNativeTokenBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractNativeTokenBalance.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(balance))
+}
+
+func (d *defaultMetrics) SetFeedContractLinkBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractLinkBalance.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(balance))
 }
 
 func (d *defaultMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {

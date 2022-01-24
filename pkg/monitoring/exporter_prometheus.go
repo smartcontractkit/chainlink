@@ -81,6 +81,30 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	p.updateLabels(prometheusLabels{
 		sender: string(envelope.Transmitter),
 	})
+	p.metrics.SetFeedContractNativeTokenBalance(
+		envelope.NativeTokenBalance,
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
+	p.metrics.SetFeedContractLinkBalance(
+		envelope.LinkBalance,
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
 	p.metrics.SetNodeMetadata(
 		p.chainConfig.GetChainID(),
 		p.chainConfig.GetNetworkID(),

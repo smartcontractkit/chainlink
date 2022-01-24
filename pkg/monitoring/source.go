@@ -30,4 +30,8 @@ type Envelope struct {
 	// extra
 	BlockNumber uint64
 	Transmitter types.Account
+
+	// balances
+	NativeTokenBalance uint64
+	LinkBalance        uint64
 }
