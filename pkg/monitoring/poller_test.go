@@ -64,7 +64,7 @@ func TestPoller(t *testing.T) {
 				testCase.pollInterval,
 				testCase.readTimeout,
 				testCase.bufferCapacity)
-			go poller.Start(ctx)
+			go poller.Run(ctx)
 			readCount := 0
 
 		COUNTER:

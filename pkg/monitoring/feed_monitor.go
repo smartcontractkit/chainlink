@@ -6,7 +6,7 @@ import (
 )
 
 type FeedMonitor interface {
-	Start(ctx context.Context, wg *sync.WaitGroup)
+	Run(ctx context.Context, wg *sync.WaitGroup)
 }
 
 func NewFeedMonitor(
@@ -27,8 +27,8 @@ type feedMonitor struct {
 	exporters []Exporter
 }
 
-// Start should be executed as a goroutine
-func (f *feedMonitor) Start(ctx context.Context, wg *sync.WaitGroup) {
+// Run should be executed as a goroutine
+func (f *feedMonitor) Run(ctx context.Context, wg *sync.WaitGroup) {
 	f.log.Infow("starting feed monitor")
 	for {
 		// Wait for an update.

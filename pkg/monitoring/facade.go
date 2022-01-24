@@ -83,7 +83,7 @@ func Facade(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		rddPoller.Start(bgCtx)
+		rddPoller.Run(bgCtx)
 	}()
 
 	manager := NewManager(
@@ -93,7 +93,7 @@ func Facade(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		manager.Start(bgCtx, wg, monitor.Start)
+		manager.Run(bgCtx, wg, monitor.Run)
 	}()
 
 	// Configure HTTP server
@@ -103,7 +103,7 @@ func Facade(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		http.Start(bgCtx, wg)
+		http.Run(bgCtx, wg)
 	}()
 
 	// Handle signals from the OS

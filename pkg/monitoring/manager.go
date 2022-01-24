@@ -12,7 +12,7 @@ import (
 
 // Manager restarts the managed function with a new list of updates whenever something changed.
 type Manager interface {
-	Start(backgroundCtx context.Context, backgroundWg *sync.WaitGroup, managed ManagedFunc)
+	Run(backgroundCtx context.Context, backgroundWg *sync.WaitGroup, managed ManagedFunc)
 	HTTPHandler() http.Handler
 }
 
@@ -38,7 +38,7 @@ type managerImpl struct {
 	currentFeedsMu sync.Mutex
 }
 
-func (m *managerImpl) Start(backgroundCtx context.Context, backgroundWg *sync.WaitGroup, managed ManagedFunc) {
+func (m *managerImpl) Run(backgroundCtx context.Context, backgroundWg *sync.WaitGroup, managed ManagedFunc) {
 	var localCtx context.Context
 	var localCtxCancel context.CancelFunc
 	var localWg *sync.WaitGroup

@@ -12,7 +12,7 @@ import (
 // It's used to export metrics to prometheus, to query the node for configurations, etc.
 type HttpServer interface {
 	Handle(path string, handler http.Handler)
-	Start(ctx context.Context, wg *sync.WaitGroup)
+	Run(ctx context.Context, wg *sync.WaitGroup)
 }
 
 func NewHttpServer(baseCtx context.Context, addr string, log Logger) HttpServer {
@@ -38,8 +38,8 @@ func (h *httpServer) Handle(path string, handler http.Handler) {
 	h.mux.Handle(path, handler)
 }
 
-// Start should be executed as a goroutine
-func (h *httpServer) Start(ctx context.Context, wg *sync.WaitGroup) {
+// Run should be executed as a goroutine
+func (h *httpServer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

@@ -76,13 +76,13 @@ func BenchmarkManager(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		rddPoller.Start(ctx)
+		rddPoller.Run(ctx)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		manager.Start(ctx, wg, monitor.Start)
+		manager.Run(ctx, wg, monitor.Run)
 	}()
 
 	b.ReportAllocs()

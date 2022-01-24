@@ -6,9 +6,10 @@ import (
 )
 
 type Poller interface {
-	Start(context.Context)
+	Run(context.Context)
 	// You should never close the channel returned by Updates()!
-	// You should always read from the channel returned by Updates() in a select statement with the same context you passed to Start()
+	// You should always read from the channel returned by Updates() in a
+	// select statement with the same context you passed to Run()
 	Updates() <-chan interface{}
 }
 
@@ -37,8 +38,8 @@ type sourcePoller struct {
 	fetchTimeout time.Duration
 }
 
-// Start should be executed as a goroutine
-func (s *sourcePoller) Start(ctx context.Context) {
+// Run should be executed as a goroutine
+func (s *sourcePoller) Run(ctx context.Context) {
 	s.log.Debugw("poller started")
 	// Initial fetch.
 	data, err := s.source.Fetch(ctx)

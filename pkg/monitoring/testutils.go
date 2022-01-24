@@ -436,7 +436,7 @@ type fakePoller struct {
 	ch         chan interface{}
 }
 
-func (f *fakePoller) Start(ctx context.Context) {
+func (f *fakePoller) Run(ctx context.Context) {
 	source := &fakeRddSource{1, 2}
 	for i := 0; i < f.numUpdates; i++ {
 		updates, _ := source.Fetch(ctx)

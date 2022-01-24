@@ -31,7 +31,7 @@ func TestManager(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			poller.Start(ctx)
+			poller.Run(ctx)
 		}()
 
 		manager := NewManager(
@@ -52,7 +52,7 @@ func TestManager(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			manager.Start(ctx, wg, managed)
+			manager.Run(ctx, wg, managed)
 		}()
 
 		wg.Wait()

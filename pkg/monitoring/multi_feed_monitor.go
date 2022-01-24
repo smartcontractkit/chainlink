@@ -6,7 +6,7 @@ import (
 )
 
 type MultiFeedMonitor interface {
-	Start(ctx context.Context, wg *sync.WaitGroup, feeds []FeedConfig)
+	Run(ctx context.Context, wg *sync.WaitGroup, feeds []FeedConfig)
 }
 
 func NewMultiFeedMonitor(
@@ -56,8 +56,8 @@ type multiFeedMonitor struct {
 
 const bufferCapacity = 100
 
-// Start should be executed as a goroutine.
-func (m *multiFeedMonitor) Start(ctx context.Context, wg *sync.WaitGroup, feeds []FeedConfig) {
+// Run should be executed as a goroutine.
+func (m *multiFeedMonitor) Run(ctx context.Context, wg *sync.WaitGroup, feeds []FeedConfig) {
 	wg.Add(len(feeds))
 	for _, feedConfig := range feeds {
 		go func(feedConfig FeedConfig) {
@@ -83,7 +83,7 @@ func (m *multiFeedMonitor) Start(ctx context.Context, wg *sync.WaitGroup, feeds 
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				poller.Start(ctx)
+				poller.Run(ctx)
 			}()
 
 			exporters := []Exporter{
@@ -112,7 +112,7 @@ func (m *multiFeedMonitor) Start(ctx context.Context, wg *sync.WaitGroup, feeds 
 				poller,
 				exporters,
 			)
-			feedMonitor.Start(ctx, wg)
+			feedMonitor.Run(ctx, wg)
 		}(feedConfig)
 	}
 }
