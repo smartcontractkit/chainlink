@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
@@ -329,7 +328,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.evmORM.On("Node", fakeID).Return(fakeNode, nil)
-				f.Mocks.evmORM.On("DeleteNode", int64(2)).Return(evm.ErrNoRowsAffected)
+				f.Mocks.evmORM.On("DeleteNode", int64(2)).Return(sql.ErrNoRows)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     mutation,

@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -376,7 +377,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					CreatedAt: f.Timestamp(),
 					Cfg:       cfg,
 				}, nil)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: input,
@@ -449,7 +450,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					CreatedAt: f.Timestamp(),
 					Cfg:       cfg,
 				}, gError)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: input,
@@ -502,7 +503,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 				}, nil)
 				f.Mocks.chainSet.On("Remove", chainID.ToInt()).Return(nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: variables,
@@ -541,7 +542,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 				}, nil)
 				f.Mocks.chainSet.On("Remove", chainID.ToInt()).Return(gError)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: variables,
@@ -677,7 +678,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					CreatedAt: f.Timestamp(),
 					Cfg:       cfg,
 				}, nil)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: input,
@@ -745,7 +746,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 				}
 
 				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: input,
@@ -777,7 +778,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 				}
 
 				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
 			variables: input,

@@ -233,7 +233,7 @@ SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
 FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
 	join eth_receipts er on eta.hash = er.tx_hash
 WHERE et.meta->'RequestID' is not null
-AND er.block_number >= (SELECT number FROM heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
+AND er.block_number >= (SELECT number FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
 GROUP BY meta->'RequestID'
 	`
 	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery

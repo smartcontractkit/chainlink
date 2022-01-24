@@ -46,7 +46,7 @@ func (o *orm) UpsertNodeVersion(version NodeVersion) error {
 	}
 
 	return pg.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx pg.Queryer) error {
-		if err := CheckVersion(tx, logger.NullLogger, version.Version); err != nil {
+		if _, _, err := CheckVersion(tx, logger.NullLogger, version.Version); err != nil {
 			return err
 		}
 
@@ -65,35 +65,35 @@ created_at = EXCLUDED.created_at
 
 // CheckVersion returns an error if there is a valid semver version in the
 // node_versions table that is lower than the current app version
-func CheckVersion(q pg.Queryer, lggr logger.Logger, appVersion string) error {
+func CheckVersion(q pg.Queryer, lggr logger.Logger, appVersion string) (appv, dbv *semver.Version, err error) {
 	lggr = lggr.Named("Version")
 	var dbVersion string
-	err := q.Get(&dbVersion, `SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`)
+	err = q.Get(&dbVersion, `SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`)
 	if errors.Is(err, sql.ErrNoRows) {
-		lggr.Debug("No previous version set")
-		return nil
+		lggr.Debugw("No previous version set", "appVersion", appVersion)
+		return nil, nil, nil
 	} else if err != nil {
 		pqErr, ok := err.(*pgconn.PgError)
 		if ok && pqErr.Code == "42P01" && pqErr.Message == `relation "node_versions" does not exist` {
-			lggr.Debug("Previous version not set; node_versions table does not exist")
-			return nil
+			lggr.Debugw("Previous version not set; node_versions table does not exist", "appVersion", appVersion)
+			return nil, nil, nil
 		}
-		return err
+		return nil, nil, err
 	}
 
 	dbv, dberr := semver.NewVersion(dbVersion)
 	appv, apperr := semver.NewVersion(appVersion)
 	if dberr != nil {
 		lggr.Warnf("Database version %q is not valid semver; skipping version check", dbVersion)
-		return nil
+		return nil, nil, nil
 	}
 	if apperr != nil {
-		return errors.Errorf("Application version %q is not valid semver", appVersion)
+		return nil, nil, errors.Errorf("Application version %q is not valid semver", appVersion)
 	}
 	if dbv.GreaterThan(appv) {
-		return errors.Errorf("Application version (%s) is older than database version (%s). Only Chainlink %s or later can be run on this database", appv, dbv, dbv)
+		return nil, nil, errors.Errorf("Application version (%s) is older than database version (%s). Only Chainlink %s or later can be run on this database", appv, dbv, dbv)
 	}
-	return nil
+	return appv, dbv, nil
 }
 
 // FindLatestNodeVersion looks up the latest node version

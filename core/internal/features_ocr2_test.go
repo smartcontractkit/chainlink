@@ -212,7 +212,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
-	chainSet := appBootstrap.GetChainSet()
+	chainSet := appBootstrap.GetChains().EVM
 	require.NotNil(t, chainSet)
 	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
 type               = "offchainreporting2"
