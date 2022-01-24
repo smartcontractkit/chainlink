@@ -14,6 +14,10 @@ func GWei(n int64) *big.Int {
 	return new(big.Int).Mul(big.NewInt(n), big.NewInt(params.GWei))
 }
 
+func UEther(n int64) *big.Int {
+	return new(big.Int).Mul(big.NewInt(n), big.NewInt(params.GWei*1000))
+}
+
 func Ether(n int64) *big.Int {
 	return new(big.Int).Mul(big.NewInt(n), big.NewInt(params.Ether))
 }
