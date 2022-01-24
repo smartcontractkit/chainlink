@@ -37,10 +37,11 @@ type Txm struct {
 	ks         keystore.Terra
 	stop, done chan struct{}
 	cfg        terra.Config
+	gpe        terraclient.ComposedGasPriceEstimator
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
+func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, gpe terraclient.ComposedGasPriceEstimator, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},
@@ -52,6 +53,7 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, chainID string, cfg terra.
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 		cfg:     cfg,
+		gpe:     gpe,
 	}, nil
 }
 
@@ -63,7 +65,7 @@ func (txm *Txm) Start() error {
 			return err
 		}
 		txm.sub = sub
-		go txm.run(sub)
+		go txm.run()
 		return nil
 	})
 }
@@ -93,14 +95,14 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	}
 }
 
-func (txm *Txm) run(sub pg.Subscription) {
+func (txm *Txm) run() {
 	defer close(txm.done)
 	txm.confirmAnyUnconfirmed()
 	// Jitter in case we have multiple terra chains each with their own client.
 	tick := time.After(utils.WithJitter(txm.cfg.BlockRate()))
 	for {
 		select {
-		case <-sub.Events():
+		case <-txm.sub.Events():
 			txm.sendMsgBatch()
 		case <-tick:
 			txm.sendMsgBatch()
@@ -144,7 +146,13 @@ func (txm *Txm) sendMsgBatch() {
 	}
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
-	gp := txm.tc.GasPrice(sdk.NewDecCoinFromDec("uluna", txm.cfg.FallbackGasPriceULuna()))
+	prices := txm.gpe.GasPrices()
+	gasPrice, ok := prices["uluna"]
+	if !ok {
+		// Should be impossible
+		txm.lggr.CriticalW("unexpected empty uluna price")
+		return
+	}
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s) // Already checked validity above
 		key, err := txm.ks.Get(sender.String())
@@ -154,7 +162,7 @@ func (txm *Txm) sendMsgBatch() {
 			// after it was added for this to happen. Retry on next poll should the key be re-added.
 			continue
 		}
-		txm.sendMsgBatchFromAddress(gp, sender, key, msgs)
+		txm.sendMsgBatchFromAddress(gasPrice, sender, key, msgs)
 	}
 }
 
@@ -275,7 +283,11 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64, maxPolls int, poll
 		// so we can build a new batch
 		tx, err := txm.tc.Tx(txHash)
 		if err != nil {
-			txm.lggr.Errorw("error looking for hash of tx", "err", err, "resp", txHash)
+			if strings.Contains(err.Error(), "not found") {
+				txm.lggr.Infow("txhash not found yet, still confirming", "hash", txHash)
+			} else {
+				txm.lggr.Errorw("error looking for hash of tx", "err", err, "hash", txHash)
+			}
 			continue
 		}
 		// Sanity check
