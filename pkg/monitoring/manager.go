@@ -12,11 +12,11 @@ import (
 
 // Manager restarts the managed function with a new list of updates whenever something changed.
 type Manager interface {
-	Run(backgroundCtx context.Context, backgroundWg *sync.WaitGroup, managed ManagedFunc)
+	Run(backgroundCtx context.Context, managed ManagedFunc)
 	HTTPHandler() http.Handler
 }
 
-type ManagedFunc func(localCtx context.Context, localWg *sync.WaitGroup, feeds []FeedConfig)
+type ManagedFunc func(localCtx context.Context, feeds []FeedConfig)
 
 func NewManager(
 	log Logger,
@@ -38,7 +38,7 @@ type managerImpl struct {
 	currentFeedsMu sync.Mutex
 }
 
-func (m *managerImpl) Run(backgroundCtx context.Context, backgroundWg *sync.WaitGroup, managed ManagedFunc) {
+func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
 	var localCtx context.Context
 	var localCtxCancel context.CancelFunc
 	var localWg *sync.WaitGroup
@@ -74,7 +74,7 @@ func (m *managerImpl) Run(backgroundCtx context.Context, backgroundWg *sync.Wait
 			localWg.Add(1)
 			go func() {
 				defer localWg.Done()
-				managed(localCtx, localWg, updatedFeeds)
+				managed(localCtx, updatedFeeds)
 			}()
 		case <-backgroundCtx.Done():
 			if localCtxCancel != nil {

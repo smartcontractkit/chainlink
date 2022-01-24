@@ -55,7 +55,11 @@ func BenchmarkMultichainMonitor(b *testing.B) {
 		transmissionSchema,
 		configSetSimplifiedSchema,
 	)
-	go monitor.Run(ctx, wg, feeds)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitor.Run(ctx, feeds)
+	}()
 
 	envelope, err := generateEnvelope()
 	if err != nil {

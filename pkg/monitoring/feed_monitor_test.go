@@ -68,7 +68,11 @@ func TestFeedMonitor(t *testing.T) {
 		poller,
 		exporters,
 	)
-	go monitor.Run(ctx, &sync.WaitGroup{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitor.Run(ctx)
+	}()
 
 	count := 0
 	var messages []producerMessage

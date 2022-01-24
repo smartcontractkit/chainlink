@@ -6,7 +6,7 @@ import (
 )
 
 type FeedMonitor interface {
-	Run(ctx context.Context, wg *sync.WaitGroup)
+	Run(ctx context.Context)
 }
 
 func NewFeedMonitor(
@@ -27,9 +27,12 @@ type feedMonitor struct {
 	exporters []Exporter
 }
 
-// Run should be executed as a goroutine
-func (f *feedMonitor) Run(ctx context.Context, wg *sync.WaitGroup) {
+// Run should be executed as a goroutine.
+// Signal termination by cancelling ctx; then wait for Run() to exit.
+func (f *feedMonitor) Run(ctx context.Context) {
 	f.log.Infow("starting feed monitor")
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
 	for {
 		// Wait for an update.
 		var update interface{}
@@ -41,6 +44,7 @@ func (f *feedMonitor) Run(ctx context.Context, wg *sync.WaitGroup) {
 			}
 			return
 		}
+		// TODO (dru) do we need a worker pool here?
 		wg.Add(len(f.exporters))
 		for _, exp := range f.exporters {
 			go func(exp Exporter) {

@@ -93,7 +93,7 @@ func Facade(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		manager.Run(bgCtx, wg, monitor.Run)
+		manager.Run(bgCtx, monitor.Run)
 	}()
 
 	// Configure HTTP server
@@ -103,7 +103,7 @@ func Facade(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		http.Run(bgCtx, wg)
+		http.Run(bgCtx)
 	}()
 
 	// Handle signals from the OS

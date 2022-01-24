@@ -45,7 +45,11 @@ func TestMultiFeedMonitorToMakeSureAllGoroutinesTerminate(t *testing.T) {
 		transmissionSchema,
 		configSetSimplifiedSchema,
 	)
-	go monitor.Run(ctx, wg, feeds)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitor.Run(ctx, feeds)
+	}()
 
 	count := 0
 	messages := []producerMessage{}
@@ -115,7 +119,11 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 		transmissionSchema,
 		configSetSimplifiedSchema,
 	)
-	go monitor.Run(ctx, wg, feeds)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitor.Run(ctx, feeds)
+	}()
 
 	var count int64 = 0
 	messages := []producerMessage{}

@@ -12,7 +12,7 @@ import (
 // It's used to export metrics to prometheus, to query the node for configurations, etc.
 type HttpServer interface {
 	Handle(path string, handler http.Handler)
-	Run(ctx context.Context, wg *sync.WaitGroup)
+	Run(ctx context.Context)
 }
 
 func NewHttpServer(baseCtx context.Context, addr string, log Logger) HttpServer {
@@ -39,7 +39,9 @@ func (h *httpServer) Handle(path string, handler http.Handler) {
 }
 
 // Run should be executed as a goroutine
-func (h *httpServer) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (h *httpServer) Run(ctx context.Context) {
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

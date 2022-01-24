@@ -82,7 +82,7 @@ func BenchmarkManager(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		manager.Run(ctx, wg, monitor.Run)
+		manager.Run(ctx, monitor.Run)
 	}()
 
 	b.ReportAllocs()

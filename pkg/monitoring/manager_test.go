@@ -38,7 +38,9 @@ func TestManager(t *testing.T) {
 			newNullLogger(),
 			poller,
 		)
-		managed := func(ctx context.Context, localWg *sync.WaitGroup, _ []FeedConfig) {
+		managed := func(ctx context.Context, _ []FeedConfig) {
+			localWg := &sync.WaitGroup{}
+			defer localWg.Wait()
 			localWg.Add(numGoroutinesPerManaged)
 			for i := 0; i < numGoroutinesPerManaged; i++ {
 				go func(i int, ctx context.Context) {
@@ -52,7 +54,7 @@ func TestManager(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			manager.Run(ctx, wg, managed)
+			manager.Run(ctx, managed)
 		}()
 
 		wg.Wait()
