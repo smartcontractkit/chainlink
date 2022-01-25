@@ -149,6 +149,7 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 	for _, test := range []struct {
 		name                   string
 		currentTipCap          *big.Int
+		currentBaseFee         *big.Int
 		originalFee            gas.DynamicFee
 		tipCapDefault          *big.Int
 		bumpPercent            uint16
@@ -162,12 +163,13 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		{
 			name:                   "defaults",
 			currentTipCap:          nil,
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
+			currentBaseFee:         nil,
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(4000)},
 			tipCapDefault:          assets.GWei(20),
 			bumpPercent:            20,
 			bumpWei:                toBigInt("5e9"), // 0.5 GWei
 			maxGasPriceWei:         assets.GWei(5000),
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(36), FeeCap: assets.GWei(5000)},
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(36), FeeCap: assets.GWei(4800)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 1.0,
 			expectedLimit:          100000,
@@ -175,12 +177,13 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		{
 			name:                   "original + percentage wins",
 			currentTipCap:          nil,
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
+			currentBaseFee:         nil,
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(100)},
 			tipCapDefault:          assets.GWei(20),
 			bumpPercent:            30,
 			bumpWei:                toBigInt("5e9"),  // 0.5 GWei
-			maxGasPriceWei:         toBigInt("5e11"), // 0.5 uEther
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(39), FeeCap: assets.GWei(5000)},
+			maxGasPriceWei:         toBigInt("5e11"), // 500GWei
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(39), FeeCap: assets.GWei(130)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 1.1,
 			expectedLimit:          110000,
@@ -188,12 +191,13 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		{
 			name:                   "original + fixed wins",
 			currentTipCap:          nil,
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
+			currentBaseFee:         nil,
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(400)},
 			tipCapDefault:          assets.GWei(20),
 			bumpPercent:            20,
 			bumpWei:                toBigInt("8e9"),  // 0.8 GWei
-			maxGasPriceWei:         toBigInt("5e11"), // 0.5 uEther
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(38), FeeCap: assets.GWei(5000)},
+			maxGasPriceWei:         toBigInt("5e11"), // 500GWei
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(38), FeeCap: assets.GWei(480)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 0.8,
 			expectedLimit:          80000,
@@ -201,12 +205,13 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		{
 			name:                   "default + percentage wins",
 			currentTipCap:          nil,
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
+			currentBaseFee:         nil,
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(400)},
 			tipCapDefault:          assets.GWei(40),
 			bumpPercent:            20,
 			bumpWei:                toBigInt("5e9"),  // 0.5 GWei
-			maxGasPriceWei:         toBigInt("5e11"), // 0.5 uEther
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(48), FeeCap: assets.GWei(5000)},
+			maxGasPriceWei:         toBigInt("5e11"), // 500GWei
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(48), FeeCap: assets.GWei(480)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 1.0,
 			expectedLimit:          100000,
@@ -214,12 +219,13 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		{
 			name:                   "default + fixed wins",
 			currentTipCap:          assets.GWei(48),
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
+			currentBaseFee:         nil,
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(400)},
 			tipCapDefault:          assets.GWei(40),
 			bumpPercent:            20,
 			bumpWei:                toBigInt("9e9"),  // 0.9 GWei
-			maxGasPriceWei:         toBigInt("5e11"), // 0.5 uEther
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(49), FeeCap: assets.GWei(5000)},
+			maxGasPriceWei:         toBigInt("5e11"), // 500GWei
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(49), FeeCap: assets.GWei(480)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 1.0,
 			expectedLimit:          100000,
@@ -227,38 +233,57 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 		{
 			name:                   "higher current tip cap wins",
 			currentTipCap:          assets.GWei(50),
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
+			currentBaseFee:         nil,
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(400)},
 			tipCapDefault:          assets.GWei(40),
 			bumpPercent:            20,
 			bumpWei:                toBigInt("9e9"),  // 0.9 GWei
-			maxGasPriceWei:         toBigInt("5e11"), // 0.5 uEther
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(50), FeeCap: assets.GWei(5000)},
+			maxGasPriceWei:         toBigInt("5e11"), // 500GWei
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(50), FeeCap: assets.GWei(480)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 1.0,
 			expectedLimit:          100000,
 		},
 		{
-			name:                   "max increased uses new higher max for FeeCap",
+			name:                   "if bumped tip cap would exceed bumped fee cap, adds fixed value to expectedFee",
 			currentTipCap:          nil,
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
-			tipCapDefault:          assets.GWei(20),
-			bumpPercent:            20,
-			bumpWei:                toBigInt("5e9"), // 0.5 GWei
-			maxGasPriceWei:         assets.GWei(8000),
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(36), FeeCap: assets.GWei(8000)},
+			currentBaseFee:         nil,
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(10), FeeCap: assets.GWei(20)},
+			tipCapDefault:          assets.GWei(5),
+			bumpPercent:            5,
+			bumpWei:                assets.GWei(50),
+			maxGasPriceWei:         toBigInt("5e11"), // 500GWei
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(60), FeeCap: assets.GWei(70)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 1.0,
 			expectedLimit:          100000,
 		},
 		{
-			name:                   "max decreased uses previous higher max for FeeCap",
-			currentTipCap:          nil,
-			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(5000)},
+			name:                   "ignores current base fee and uses previous fee cap if calculated fee cap would be lower",
+			currentTipCap:          assets.GWei(20),
+			currentBaseFee:         assets.GWei(100),
+			originalFee:            gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(400)},
 			tipCapDefault:          assets.GWei(20),
 			bumpPercent:            20,
 			bumpWei:                toBigInt("5e9"), // 0.5 GWei
-			maxGasPriceWei:         assets.GWei(3000),
-			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(36), FeeCap: assets.GWei(5000)},
+			maxGasPriceWei:         assets.GWei(5000),
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(36), FeeCap: assets.GWei(480)},
+			originalLimit:          100000,
+			limitMultiplierPercent: 1.0,
+			expectedLimit:          100000,
+		},
+		{
+			name:           "uses current base fee to calculate fee cap if that would be higher than the existing one",
+			currentTipCap:  assets.GWei(20),
+			currentBaseFee: assets.GWei(1000),
+			originalFee:    gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(400)},
+			tipCapDefault:  assets.GWei(20),
+			bumpPercent:    20,
+			bumpWei:        toBigInt("5e9"), // 0.5 GWei
+			maxGasPriceWei: assets.GWei(5000),
+			// base fee * 4 blocks * 1.125 % plus new tip cap to give max
+			// 1000 * (1.125 ^ 4) + 36 ~= 1637
+			expectedFee:            gas.DynamicFee{TipCap: assets.GWei(36), FeeCap: big.NewInt(1637806640625)},
 			originalLimit:          100000,
 			limitMultiplierPercent: 1.0,
 			expectedLimit:          100000,
@@ -272,7 +297,10 @@ func Test_BumpDynamicFeeOnly(t *testing.T) {
 			cfg.On("EvmGasBumpWei").Return(test.bumpWei)
 			cfg.On("EvmMaxGasPriceWei").Return(test.maxGasPriceWei)
 			cfg.On("EvmGasLimitMultiplier").Return(test.limitMultiplierPercent)
-			actual, limit, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), test.currentTipCap, test.originalFee, test.originalLimit)
+			if test.currentBaseFee != nil {
+				cfg.On("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").Return(uint16(4))
+			}
+			actual, limit, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), test.currentTipCap, test.currentBaseFee, test.originalFee, test.originalLimit)
 			require.NoError(t, err)
 			if actual.TipCap.Cmp(test.expectedFee.TipCap) != 0 {
 				t.Fatalf("TipCap not equal, expected %s but got %s", test.expectedFee.TipCap.String(), actual.TipCap.String())
@@ -295,10 +323,19 @@ func Test_BumpDynamicFeeOnly_HitsMaxError(t *testing.T) {
 	cfg.On("EvmGasBumpWei").Return(assets.Wei(5000000000))
 	cfg.On("EvmMaxGasPriceWei").Return(assets.GWei(40))
 
-	originalFee := gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(100)}
-	_, _, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), nil, originalFee, 42)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "bumped tip cap of 45000000000 would exceed configured max gas price of 40000000000 (original fee: tip cap 30000000000, fee cap 100000000000)")
+	t.Run("tip cap hits max", func(t *testing.T) {
+		originalFee := gas.DynamicFee{TipCap: assets.GWei(30), FeeCap: assets.GWei(100)}
+		_, _, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), nil, nil, originalFee, 42)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "bumped tip cap of 45000000000 would exceed configured max gas price of 40000000000 (original fee: tip cap 30000000000, fee cap 100000000000)")
+	})
+
+	t.Run("fee cap hits max", func(t *testing.T) {
+		originalFee := gas.DynamicFee{TipCap: assets.GWei(10), FeeCap: assets.GWei(100)}
+		_, _, err := gas.BumpDynamicFeeOnly(cfg, logger.TestLogger(t), nil, nil, originalFee, 42)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "bumped fee cap of 150000000000 would exceed configured max gas price of 40000000000 (original fee: tip cap 10000000000, fee cap 100000000000)")
+	})
 }
 
 // toBigInt is used to convert scientific notation string to a *big.Int

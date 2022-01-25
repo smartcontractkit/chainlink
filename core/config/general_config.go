@@ -204,6 +204,9 @@ type GeneralOnlyConfig interface {
 // If set the global ENV will override everything
 // The second bool indicates if it is set or not
 type GlobalConfig interface {
+	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
+	GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool)
+
 	GlobalBalanceMonitorEnabled() (bool, bool)
 	GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool)
 	GlobalBlockHistoryEstimatorBatchSize() (uint32, bool)
@@ -1470,6 +1473,20 @@ func (*generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+func (*generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+	val, ok := lookupEnv(EnvVarName("EvmGasFeeCapDefault"), ParseBigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
+}
+func (*generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
+	val, ok := lookupEnv(EnvVarName("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks"), ParseUint16)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint16), ok
 }
 func (*generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 	val, ok := lookupEnv(EnvVarName("EvmGasLimitDefault"), ParseUint64)
