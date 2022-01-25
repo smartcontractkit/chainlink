@@ -494,7 +494,9 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32, wg
 				if !ok {
 					panic(fmt.Sprintf("VRFListenerV2: invariant violated, expected log.Broadcast got %T", i))
 				}
-				lsn.handleLog(lb, minConfs)
+				gracefulpanic.WrapRecover(func() {
+					lsn.handleLog(lb, minConfs)
+				})
 			}
 		}
 	}
