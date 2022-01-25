@@ -64,7 +64,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	// Give the job.Spawner ample time to discover the job and start its service
 	// (because Postgres events don't seem to work here)
-	time.Sleep(3 * time.Second)
+	// time.Sleep(3 * time.Second)
 
 	// Make the request
 	{
