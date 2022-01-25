@@ -112,20 +112,6 @@ func (_m *Reader) ContractStore(contractAddress types.AccAddress, queryMsg []byt
 	return r0, r1
 }
 
-// GasPrice provides a mock function with given fields: fallback
-func (_m *Reader) GasPrice(fallback types.DecCoin) types.DecCoin {
-	ret := _m.Called(fallback)
-
-	var r0 types.DecCoin
-	if rf, ok := ret.Get(0).(func(types.DecCoin) types.DecCoin); ok {
-		r0 = rf(fallback)
-	} else {
-		r0 = ret.Get(0).(types.DecCoin)
-	}
-
-	return r0
-}
-
 // LatestBlock provides a mock function with given fields:
 func (_m *Reader) LatestBlock() (*tmservice.GetLatestBlockResponse, error) {
 	ret := _m.Called()

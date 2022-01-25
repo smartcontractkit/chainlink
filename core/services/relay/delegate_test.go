@@ -47,9 +47,9 @@ func TestNewOCR2Provider(t *testing.T) {
 
 	// setup terra mocks
 	terraChain := new(terraMock.Chain)
-	terraChain.On("Config").Return(terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr))
+	terraChain.On("Config").Return(terra.NewConfig("delegate-test", terradb.ChainCfg{}, lggr))
 	terraChain.On("MsgEnqueuer").Return(new(terraMock.MsgEnqueuer))
-	terraChain.On("Reader").Return(new(terraMock.Reader))
+	terraChain.On("Reader", "").Return(new(terraMock.Reader), nil)
 
 	terraChains := new(terraMock.ChainSet)
 	terraChains.On("Chain", "Chainlink-99").Return(terraChain, nil)

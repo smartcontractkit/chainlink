@@ -31,7 +31,7 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	t.Skip() // Local only unless we want to add terrad to CI env
+	//t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
@@ -47,7 +47,7 @@ func TestTxm_Integration(t *testing.T) {
 		GasLimitMultiplier:    null.FloatFrom(1.5),
 	})
 	require.NoError(t, err)
-	chainCfg := pkgterra.NewConfig(dbChain.Cfg, pkgterra.DefaultConfigSet, lggr)
+	chainCfg := pkgterra.NewConfig("Bombay-1", dbChain.Cfg, lggr)
 	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start())
@@ -77,9 +77,9 @@ func TestTxm_Integration(t *testing.T) {
 		Address:    transmitterID,
 	}, tc, testdir, "../../../testdata/terra/my_first_contract.wasm")
 
+	tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 	// Start txm
-	txm, err := terratxm.NewTxm(db, tc, *gpe, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
-	require.NoError(t, err)
+	txm := terratxm.NewTxm(db, tcFn, *gpe, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
 	require.NoError(t, txm.Start())
 
 	// Change the contract state

@@ -29,7 +29,7 @@ func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 func Test_ORM(t *testing.T) {
 	_, orm := setupORM(t)
 
-	dbcs, err := orm.EnabledChainsWithNodes()
+	dbcs, err := orm.EnabledChains()
 	require.NoError(t, err)
 	require.Empty(t, dbcs)
 
@@ -40,7 +40,7 @@ func Test_ORM(t *testing.T) {
 	_, err = orm.CreateChain(chainIDB, db.ChainCfg{})
 	require.NoError(t, err)
 
-	dbcs, err = orm.EnabledChainsWithNodes()
+	dbcs, err = orm.EnabledChains()
 	require.NoError(t, err)
 	require.Len(t, dbcs, 2)
 
@@ -48,7 +48,6 @@ func Test_ORM(t *testing.T) {
 		Name:          "first",
 		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
-		FCDURL:        "http://fcd.test/columbus-5",
 	}
 	gotNode, err := orm.CreateNode(newNode)
 	require.NoError(t, err)
@@ -62,7 +61,6 @@ func Test_ORM(t *testing.T) {
 		Name:          "second",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
-		FCDURL:        "http://fcd.test/bombay-12",
 	}
 	gotNode2, err := orm.CreateNode(newNode2)
 	require.NoError(t, err)
@@ -97,7 +95,6 @@ func Test_ORM(t *testing.T) {
 		Name:          "third",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
-		FCDURL:        "http://fcd.test/bombay-12",
 	}
 	gotNode3, err := orm.CreateNode(newNode3)
 	require.NoError(t, err)
@@ -110,5 +107,4 @@ func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	assert.Equal(t, newNode.Name, gotNode.Name)
 	assert.Equal(t, newNode.TerraChainID, gotNode.TerraChainID)
 	assert.Equal(t, newNode.TendermintURL, gotNode.TendermintURL)
-	assert.Equal(t, newNode.FCDURL, gotNode.FCDURL)
 }
