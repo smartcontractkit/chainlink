@@ -1880,7 +1880,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		attempt4_2 = etx4.EthTxAttempts[0]
 		assert.Nil(t, attempt4_2.GasPrice)
 		assert.Equal(t, assets.GWei(42).String(), attempt4_2.GasTipCap.String())
-		assert.Equal(t, assets.GWei(1000).String(), attempt4_2.GasFeeCap.String())
+		assert.Equal(t, assets.GWei(120).String(), attempt4_2.GasFeeCap.String())
 		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt1_2.State)
 
 		ethClient.AssertExpectations(t)
