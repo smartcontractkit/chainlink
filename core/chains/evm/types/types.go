@@ -97,11 +97,6 @@ type Chain struct {
 	UpdatedAt time.Time
 	Enabled   bool
 }
-
-func (Chain) TableName() string {
-	return "evm_chains"
-}
-
 type Node struct {
 	ID         int32
 	Name       string
