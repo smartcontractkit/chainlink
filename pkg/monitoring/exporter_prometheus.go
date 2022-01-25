@@ -146,7 +146,7 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	)
 }
 
-func (p *prometheusExporter) Cleanup() {
+func (p *prometheusExporter) Cleanup(_ context.Context) {
 	p.labelsMu.Lock()
 	defer p.labelsMu.Unlock()
 	p.metrics.Cleanup(

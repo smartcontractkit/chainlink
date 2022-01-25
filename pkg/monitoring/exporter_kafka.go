@@ -117,4 +117,4 @@ func (k *kafkaExporter) Export(ctx context.Context, data interface{}) {
 	}(key, envelope)
 }
 
-func (k *kafkaExporter) Cleanup() {} // noop
+func (k *kafkaExporter) Cleanup(_ context.Context) {} // noop

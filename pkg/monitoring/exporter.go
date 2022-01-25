@@ -9,7 +9,7 @@ type Exporter interface {
 	// Export is executed on each update on a monitored feed
 	Export(ctx context.Context, data interface{})
 	// Cleanup is executed once a monitor for a specific feed is terminated.
-	Cleanup()
+	Cleanup(ctx context.Context)
 }
 
 // ExporterFactory is used to create a new exporter for each feed that needs to be monitored.

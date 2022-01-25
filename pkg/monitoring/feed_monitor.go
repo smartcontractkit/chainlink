@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"sync"
+	"time"
 )
 
 type FeedMonitor interface {
@@ -34,6 +35,7 @@ func (f *feedMonitor) Run(ctx context.Context) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
+	// Listen for updates
 	updates := make(chan interface{})
 	wg.Add(len(f.pollers))
 	for _, poller := range f.pollers {
@@ -53,13 +55,13 @@ func (f *feedMonitor) Run(ctx context.Context) {
 	}
 
 	// Consume updates.
+CONSUME_LOOP:
 	for {
 		var update interface{}
 		select {
 		case update = <-updates:
 		case <-ctx.Done():
-			f.cleanup()
-			return
+			break CONSUME_LOOP
 		}
 		// TODO (dru) do we need a worker pool here?
 		wg.Add(len(f.exporters))
@@ -70,10 +72,15 @@ func (f *feedMonitor) Run(ctx context.Context) {
 			}(exp)
 		}
 	}
-}
 
-func (f *feedMonitor) cleanup() {
+	// Cleanup: give exporters the chance to cleanup before they exit!
+	cleanupContext, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	wg.Add(len(f.exporters))
 	for _, exp := range f.exporters {
-		exp.Cleanup()
+		go func(exp Exporter) {
+			defer wg.Done()
+			exp.Cleanup(cleanupContext)
+		}(exp)
 	}
 }
