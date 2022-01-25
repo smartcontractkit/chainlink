@@ -8,9 +8,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
 func TestFeedMonitor(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 

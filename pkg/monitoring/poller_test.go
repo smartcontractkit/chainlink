@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
 func TestPoller(t *testing.T) {
@@ -55,6 +56,7 @@ func TestPoller(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			defer goleak.VerifyNone(t)
 			ctx, cancel := context.WithTimeout(context.Background(), testCase.duration)
 			defer cancel()
 			source := &fakeSourceWithWait{testCase.waitOnRead}

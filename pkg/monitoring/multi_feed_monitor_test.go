@@ -8,11 +8,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
 const numFeeds = 10
 
-func TestMultiFeedMonitorToMakeSureAllGoroutinesTerminate(t *testing.T) {
+func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
+	// Synchronous mode means that the a source update is produced and the
+	// corresponding exporter message is consumed in the same goroutine.
+	defer goleak.VerifyNone(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	wg := &sync.WaitGroup{}
@@ -95,6 +100,8 @@ LOOP:
 }
 
 func TestMultiFeedMonitorForPerformance(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	wg := &sync.WaitGroup{}

@@ -38,16 +38,16 @@ func NewProducer(ctx context.Context, log Logger, cfg config.Kafka) (Producer, e
 		make(chan kafka.Event),
 		cfg,
 	}
-	go p.run(ctx)
+	go p.drainDeliveryChan(ctx)
 	return p, nil
 }
 
-// run should be executed as a goroutine.
-func (p *producer) run(ctx context.Context) {
+// drainDeliveryChan should be executed as a goroutine.
+func (p *producer) drainDeliveryChan(ctx context.Context) {
 	for {
 		select {
 		case event := <-p.deliveryChan:
-			p.log.Debugw("received delivery confirmation", "event", event.String())
+			p.log.Debugw("received delivery event", "event", event.String())
 		case <-ctx.Done():
 			p.backend.Close()
 			return

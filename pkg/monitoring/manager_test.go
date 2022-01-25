@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
 const numPollerUpdates = 10
@@ -18,6 +19,7 @@ func TestManager(t *testing.T) {
 		// Poller fires 10 rounds of updates.
 		// The manager identifies these updates, terminates the current running managed function and starts a new one.
 		// The managed function in turn runs 10 noop goroutines and increments/decrements a goroutine counter.
+		defer goleak.VerifyNone(t)
 
 		var goRoutineCounter int64 = 0
 		wg := &sync.WaitGroup{}

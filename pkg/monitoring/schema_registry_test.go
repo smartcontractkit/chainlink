@@ -5,6 +5,7 @@ import (
 
 	"github.com/riferrei/srclient"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
 const baseSchema = `
@@ -19,6 +20,8 @@ const extendedSchema = `
 ]}`
 
 func TestSchemaRegistry(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	t.Run("EnsureSchema", func(t *testing.T) {
 		client := srclient.CreateMockSchemaRegistryClient("http://127.0.0.1:6767")
 		registry := &schemaRegistry{client, newNullLogger()}
