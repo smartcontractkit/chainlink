@@ -127,6 +127,7 @@ type ConfigSchema struct {
 	EvmGasBumpThreshold        uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
 	EvmGasBumpTxDepth          uint16   `env:"ETH_GAS_BUMP_TX_DEPTH"`
 	EvmGasBumpWei              *big.Int `env:"ETH_GAS_BUMP_WEI"`
+	EvmGasFeeCapDefault        *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
 	EvmGasLimitDefault         uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
 	EvmGasLimitMultiplier      float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
 	EvmGasLimitTransfer        uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
@@ -139,11 +140,12 @@ type ConfigSchema struct {
 	EvmMinGasPriceWei          *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
 	EvmNonceAutoSync           bool     `env:"ETH_NONCE_AUTO_SYNC"`
 	// Gas Estimation
-	GasEstimatorMode                           string `env:"GAS_ESTIMATOR_MODE"`
-	BlockHistoryEstimatorBatchSize             uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
-	BlockHistoryEstimatorBlockDelay            uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"`
-	BlockHistoryEstimatorBlockHistorySize      uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
-	BlockHistoryEstimatorTransactionPercentile uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
+	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
+	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
+	BlockHistoryEstimatorBlockDelay                uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"`
+	BlockHistoryEstimatorBlockHistorySize          uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
+	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16 `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
+	BlockHistoryEstimatorTransactionPercentile     uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
 
 	// Job Pipeline and tasks
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`

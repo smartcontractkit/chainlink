@@ -65,6 +65,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasBumpPercent                   null.Int
 	GlobalEvmGasBumpTxDepth                   null.Int
 	GlobalEvmGasBumpWei                       *big.Int
+	GlobalEvmGasFeeCapDefault                 *big.Int
 	GlobalEvmGasLimitDefault                  null.Int
 	GlobalEvmGasLimitMultiplier               null.Float
 	GlobalEvmGasPriceDefault                  *big.Int
@@ -452,6 +453,14 @@ func (c *TestGeneralConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
 		return c.Overrides.GlobalBalanceMonitorEnabled.Bool, true
 	}
 	return c.GeneralConfig.GlobalBalanceMonitorEnabled()
+}
+
+// GlobalEvmGasFeeCapDefault is the override for EvmGasFeeCapDefault
+func (c *TestGeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmGasFeeCapDefault != nil {
+		return c.Overrides.GlobalEvmGasFeeCapDefault, true
+	}
+	return c.GeneralConfig.GlobalEvmGasFeeCapDefault()
 }
 
 func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {

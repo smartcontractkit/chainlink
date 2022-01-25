@@ -960,6 +960,27 @@ func (_m *GeneralConfig) GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, 
 	return r0, r1
 }
 
+// GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalBlockHistoryEstimatorTransactionPercentile provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool) {
 	ret := _m.Called()
@@ -1193,6 +1214,29 @@ func (_m *GeneralConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
 
 // GlobalEvmGasBumpWei provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasFeeCapDefault provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	ret := _m.Called()
 
 	var r0 *big.Int

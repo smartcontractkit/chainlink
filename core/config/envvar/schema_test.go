@@ -70,6 +70,7 @@ func TestConfigSchema(t *testing.T) {
 		"EvmGasBumpThreshold":                        "ETH_GAS_BUMP_THRESHOLD",
 		"EvmGasBumpTxDepth":                          "ETH_GAS_BUMP_TX_DEPTH",
 		"EvmGasBumpWei":                              "ETH_GAS_BUMP_WEI",
+		"EvmGasFeeCapDefault":                        "EVM_GAS_FEE_CAP_DEFAULT",
 		"EvmGasLimitDefault":                         "ETH_GAS_LIMIT_DEFAULT",
 		"EvmGasLimitMultiplier":                      "ETH_GAS_LIMIT_MULTIPLIER",
 		"EvmGasLimitTransfer":                        "ETH_GAS_LIMIT_TRANSFER",
