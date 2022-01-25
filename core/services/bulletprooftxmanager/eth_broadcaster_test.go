@@ -240,7 +240,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
 		rnd := int64(1000000000 + rand.Intn(5000))
 		cfg.Overrides.GlobalEvmGasTipCapDefault = big.NewInt(rnd)
-		cfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(rnd + 1)
+		cfg.Overrides.GlobalEvmGasFeeCapDefault = big.NewInt(rnd + 1)
+		cfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(rnd + 2)
 
 		eipTxWithoutAl := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
