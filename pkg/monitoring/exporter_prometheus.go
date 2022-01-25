@@ -79,8 +79,7 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 		return
 	}
 	p.updateLabels(prometheusLabels{
-		oracleName: string(envelope.Transmitter),
-		sender:     string(envelope.Transmitter),
+		sender: string(envelope.Transmitter),
 	})
 	p.metrics.SetNodeMetadata(
 		p.chainConfig.GetChainID(),
@@ -149,30 +148,34 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 func (p *prometheusExporter) Cleanup(_ context.Context) {
 	p.labelsMu.Lock()
 	defer p.labelsMu.Unlock()
-	p.metrics.Cleanup(
-		p.labels.networkName,
-		p.labels.networkID,
-		p.labels.chainID,
-		p.labels.oracleName,
-		p.labels.sender,
-		p.labels.feedName,
-		p.labels.feedPath,
-		p.labels.symbol,
-		p.labels.contractType,
-		p.labels.contractStatus,
-		p.labels.contractAddress,
-		p.labels.feedID,
-	)
+	for sender := range p.labels.senders {
+		p.metrics.Cleanup(
+			p.labels.networkName,
+			p.labels.networkID,
+			p.labels.chainID,
+			sender,
+			sender,
+			p.labels.feedName,
+			p.labels.feedPath,
+			p.labels.symbol,
+			p.labels.contractType,
+			p.labels.contractStatus,
+			p.labels.contractAddress,
+			p.labels.feedID,
+		)
+	}
 }
 
 // Labels
 
+// prometheusLabels is a helper which stores the labels used an instance of this exporter.
+// They are useful at Cleanup time, when this exporter needs to delete all the labels it created.
 type prometheusLabels struct {
 	networkName     string
 	networkID       string
 	chainID         string
-	oracleName      string
 	sender          string
+	senders         map[string]struct{} // A set of unique senders!
 	feedName        string
 	feedPath        string
 	symbol          string
@@ -194,11 +197,11 @@ func (p *prometheusExporter) updateLabels(newLabels prometheusLabels) {
 	if newLabels.chainID != "" {
 		p.labels.chainID = newLabels.chainID
 	}
-	if newLabels.oracleName != "" {
-		p.labels.oracleName = newLabels.oracleName
+	if p.labels.senders == nil {
+		p.labels.senders = map[string]struct{}{}
 	}
 	if newLabels.sender != "" {
-		p.labels.sender = newLabels.sender
+		p.labels.senders[newLabels.sender] = struct{}{}
 	}
 	if newLabels.feedName != "" {
 		p.labels.feedName = newLabels.feedName
