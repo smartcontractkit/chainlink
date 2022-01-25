@@ -1,3 +1,6 @@
+//go:build terra
+// +build terra
+
 package terra
 
 import (

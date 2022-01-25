@@ -46,6 +46,7 @@ import (
 )
 
 var prometheus *ginprom.Prometheus
+var terraNewChainSet func()
 
 func init() {
 	// ensure metrics are registered once per instance to avoid registering

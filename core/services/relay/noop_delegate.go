@@ -1,5 +1,5 @@
-//go:build terra
-// +build terra
+//go:build !terra
+// +build !terra
 
 package relay
 
@@ -7,15 +7,16 @@ import (
 	"encoding/json"
 
 	evmchain "github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 
 	uuid "github.com/satori/go.uuid"
@@ -28,11 +29,9 @@ var (
 	SupportedRelayers = map[types.Network]struct{}{
 		types.EVM:    {},
 		types.Solana: {},
-		types.Terra:  {},
 	}
 	_ types.Relayer = &evm.Relayer{}
 	_ types.Relayer = &solana.Relayer{}
-	_ types.Relayer = &terra.Relayer{}
 )
 
 type delegate struct {
@@ -45,14 +44,13 @@ type delegate struct {
 func NewDelegate(ks keystore.Master, globalLogger logger.Logger, db *sqlx.DB, evmChain evmchain.ChainSet, terraChain terra.ChainSet) *delegate {
 	evmRelayer := evm.NewRelayer(db, evmChain, globalLogger.Named("EVM"))
 	solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
-	terraRelayer := terra.NewRelayer(globalLogger.Named("Terra.Relayer"), terraChain)
+	//pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra),
 	d := &delegate{
 		ks:       ks,
 		relayers: map[types.Network]types.Relayer{},
 	}
 	d.addRelayer(types.EVM, evmRelayer)
 	d.addRelayer(types.Solana, solanaRelayer)
-	d.addRelayer(types.Terra, terraRelayer)
 	return d
 }
 
@@ -172,26 +170,6 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			PollingInterval:    config.PollingInterval,
 			PollingCtxTimeout:  config.PollingCtxTimeout,
 			StaleTimeout:       config.StaleTimeout,
-		})
-	case types.Terra:
-		var config terra.RelayConfig
-		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
-		if err != nil {
-			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
-		}
-
-		if !spec.IsBootstrapPeer {
-			if !spec.TransmitterID.Valid {
-				return nil, errors.New("transmitterID is required for non-bootstrap jobs")
-			}
-		}
-
-		return d.relayers[types.Terra].NewOCR2Provider(externalJobID, terra.OCR2Spec{
-			ChainID:       config.ChainID,
-			ID:            spec.ID,
-			IsBootstrap:   spec.IsBootstrapPeer,
-			ContractID:    spec.ContractID,
-			TransmitterID: spec.TransmitterID.String,
 		})
 	default:
 		return nil, errors.Errorf("unknown relayer network type: %s", spec.Relay)

@@ -1,11 +1,10 @@
-//go:build terra
-// +build terra
+//go:build !terra
+// +build !terra
 
 package types
 
 import (
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
@@ -27,10 +26,9 @@ type ORM interface {
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
 }
 
-// NewNode defines a new node to create.
 type NewNode struct {
 	Name          string `json:"name"`
-	TerraChainID  string `json:"terraChainId"`
+	TerraChainID  string
 	TendermintURL string `json:"tendermintURL" db:"tendermint_url"`
 	FCDURL        string `json:"fcdURL" db:"fcd_url"`
 }

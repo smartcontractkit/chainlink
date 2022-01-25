@@ -17,8 +17,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -44,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -306,9 +303,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		// master/delegate relay is started once, on app start, as root subservice
 		relay := relay.NewDelegate(
 			keyStore,
-			evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM")),
-			solana.NewRelayer(globalLogger.Named("Solana.Relayer")),
-			pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra),
+			globalLogger,
+			db,
+			chains.EVM,
+			chains.Terra,
+			//evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM")),
+			//solana.NewRelayer(globalLogger.Named("Solana.Relayer")),
+			//pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra),
 		)
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
