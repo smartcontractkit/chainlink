@@ -110,6 +110,7 @@ runs:
 
 
   - name: Build and push root docker image
+    id: buildpush-root
     uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229 # v2.7.0
     with:
       push: ${{ inputs.publish }}
@@ -132,6 +133,7 @@ runs:
       tags: ${{ env.shared-tag-list }}
 
   - name: Build and push non-root docker image
+    id: buildpush-nonroot
     uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229 # v2.7.0
     with:
       push: ${{ inputs.publish }}
@@ -154,9 +156,24 @@ runs:
     run: echo "${{ inputs.cosign-private-key }}" > cosign.key
 
   - if: inputs.sign-images == 'true'
-    name: Sign the published Docker image
+    name: Sign the published root Docker image
     shell: sh
     env:
       COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
-    run: cosign sign --key cosign.key ${{ inputs.ecr-registry }}/${{ inputs.image-name }}@${{ steps.meta-nonroot.outputs.digest }}
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
+      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+
+      cosign sign --key cosign.key "$IMAGE_NAME"
+
+  - if: inputs.sign-images == 'true'
+    name: Sign the published non-root Docker image
+    shell: sh
+    env:
+      COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
+      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+
+      cosign sign --key cosign.key "$IMAGE_NAME"
 
