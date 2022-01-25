@@ -115,7 +115,7 @@ func (c *chain) getClient(name string) (*terraclient.Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client")
 	}
-	//TODO log about it
+	c.lggr.Debugw("Created client", "name", name, "tendermint-url", node.TendermintURL)
 	return client, nil
 }
 

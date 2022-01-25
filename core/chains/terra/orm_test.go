@@ -99,6 +99,10 @@ func Test_ORM(t *testing.T) {
 	gotNode3, err := orm.CreateNode(newNode3)
 	require.NoError(t, err)
 	assertEqual(t, newNode3, gotNode3)
+
+	gotNamed, err := orm.NodeNamed("third")
+	require.NoError(t, err)
+	assertEqual(t, newNode3, gotNamed)
 }
 
 func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
