@@ -117,39 +117,37 @@ func (r *Run) StringOutputs() ([]*string, error) {
 	// The UI expects all outputs to be strings.
 	var outputs []*string
 	// Note for async jobs, Outputs can be nil/invalid
-	if r.Outputs.Valid {
+	if r.Outputs.Valid && r.Outputs.Val != nil {
 		outs, ok := r.Outputs.Val.([]interface{})
+		// `ok` will be `false` if r.Outputs.Val is nil for any reason...
 		if !ok {
 			return nil, fmt.Errorf("unable to process output type %T", r.Outputs.Val)
 		}
 
-		if r.Outputs.Valid && r.Outputs.Val != nil {
-			for _, out := range outs {
-				switch v := out.(type) {
-				case string:
-					s := v
-					outputs = append(outputs, &s)
-				case map[string]interface{}:
-					b, _ := json.Marshal(v)
-					bs := string(b)
-					outputs = append(outputs, &bs)
-				case decimal.Decimal:
-					s := v.String()
-					outputs = append(outputs, &s)
-				case *big.Int:
-					s := v.String()
-					outputs = append(outputs, &s)
-				case float64:
-					s := fmt.Sprintf("%f", v)
-					outputs = append(outputs, &s)
-				case nil:
-					outputs = append(outputs, nil)
-				default:
-					return nil, fmt.Errorf("unable to process output type %T", out)
-				}
+		for _, out := range outs {
+			switch v := out.(type) {
+			case string:
+				s := v
+				outputs = append(outputs, &s)
+			case map[string]interface{}:
+				b, _ := json.Marshal(v)
+				bs := string(b)
+				outputs = append(outputs, &bs)
+			case decimal.Decimal:
+				s := v.String()
+				outputs = append(outputs, &s)
+			case *big.Int:
+				s := v.String()
+				outputs = append(outputs, &s)
+			case float64:
+				s := fmt.Sprintf("%f", v)
+				outputs = append(outputs, &s)
+			case nil:
+				outputs = append(outputs, nil)
+			default:
+				return nil, fmt.Errorf("unable to process output type %T", out)
 			}
 		}
-	}
 
 	return outputs, nil
 }
