@@ -175,9 +175,9 @@ func (p *SingletonPeerWrapper) Start() error {
 			V1EndpointConfig: ocrnetworking.EndpointConfigV1{
 				IncomingMessageBufferSize: p.config.P2PIncomingMessageBufferSize(),
 				OutgoingMessageBufferSize: p.config.P2POutgoingMessageBufferSize(),
-				NewStreamTimeout:       p.config.P2PNewStreamTimeout(),
-				DHTLookupInterval:      p.config.P2PDHTLookupInterval(),
-				BootstrapCheckInterval: p.config.P2PBootstrapCheckInterval(),
+				NewStreamTimeout:          p.config.P2PNewStreamTimeout(),
+				DHTLookupInterval:         p.config.P2PDHTLookupInterval(),
+				BootstrapCheckInterval:    p.config.P2PBootstrapCheckInterval(),
 			},
 
 			V2EndpointConfig: ocrnetworking.EndpointConfigV2{
