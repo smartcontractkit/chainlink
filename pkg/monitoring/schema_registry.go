@@ -63,7 +63,8 @@ func (s *schemaRegistry) EnsureSchema(subject, spec string) (Schema, error) {
 // Helpers
 
 func isNotFoundErr(err error) bool {
-	return strings.HasPrefix(err.Error(), "404 Not Found")
+	return strings.HasPrefix(err.Error(), "404 Not Found") ||
+		strings.HasPrefix(err.Error(), "Subject not found")
 }
 
 func isEqualJSON(a, b string) (bool, error) {

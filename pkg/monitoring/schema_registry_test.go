@@ -26,11 +26,8 @@ func TestSchemaRegistry(t *testing.T) {
 		client := srclient.CreateMockSchemaRegistryClient("http://127.0.0.1:6767")
 		registry := &schemaRegistry{client, newNullLogger()}
 
-		// Note: because the mock schema registry panics(!) upon calling GetLatestSchema()
-		// when querying for an inexistent subject, we can't test the case where the
-		// schema does not exist and is first created by EnsureSchema!
-		newSchema, err := client.CreateSchema("config_set", baseSchema, srclient.Avro)
-		require.NoError(t, err, "no error when creating the schema")
+		newSchema, err := registry.EnsureSchema("config_set", baseSchema)
+		require.NoError(t, err, "no error when fetching a new schema")
 
 		existingSchema, err := registry.EnsureSchema("config_set", baseSchema)
 		require.NoError(t, err, "no error when fetching existing schema")
