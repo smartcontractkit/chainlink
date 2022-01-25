@@ -23,7 +23,11 @@ import (
 )
 
 // DefaultRequestTimeout is the default Terra client timeout.
-const DefaultRequestTimeout = 10 * time.Second
+// Note that while the terra node is processing a heavy block,
+// requests can be delayed significantly (https://github.com/tendermint/tendermint/issues/6899),
+// however there's nothing we can do but wait until the block is processed.
+// So we set a fairly high timeout here.
+const DefaultRequestTimeout = 30 * time.Second
 
 //go:generate mockery --name MsgEnqueuer --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 //go:generate mockery --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
