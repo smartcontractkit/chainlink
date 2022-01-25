@@ -2,6 +2,9 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -61,5 +64,26 @@ func TestManager(t *testing.T) {
 
 		wg.Wait()
 		require.Equal(t, int64(0), goRoutineCounter, "all child goroutines are gone")
+	})
+
+	t.Run("should expose the current feeds to http", func(t *testing.T) {
+		feeds := []FeedConfig{generateFeedConfig()}
+		manager := &managerImpl{
+			newNullLogger(),
+			&fakePoller{0, make(chan interface{})},
+			feeds,
+			sync.Mutex{},
+		}
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/debug", nil)
+		manager.HTTPHandler().ServeHTTP(rec, req)
+		dec := json.NewDecoder(rec.Body)
+		decodedFeeds := []fakeFeedConfig{}
+		err := dec.Decode(&decodedFeeds)
+		require.NoError(t, err)
+		require.Equal(t, len(feeds), len(decodedFeeds))
+		for i, feed := range feeds {
+			require.Equal(t, feed, decodedFeeds[i])
+		}
 	})
 }

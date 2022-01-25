@@ -111,35 +111,35 @@ func generate32ByteArr() [32]byte {
 }
 
 type fakeFeedConfig struct {
-	name           string
-	path           string
-	symbol         string
-	heartbeatSec   int64
-	contractType   string
-	contractStatus string
+	Name           string `json:"name,omitempty"`
+	Path           string `json:"path,omitempty"`
+	Symbol         string `json:"symbol,omitempty"`
+	HeartbeatSec   int64  `json:"heartbeat,omitempty"`
+	ContractType   string `json:"contract_type,omitempty"`
+	ContractStatus string `json:"status,omitempty"`
 	// This functions as a feed identifier.
-	contractAddress []byte
+	ContractAddress []byte `json:"contract_address,omitempty"`
 }
 
-func (f fakeFeedConfig) GetName() string           { return f.name }
-func (f fakeFeedConfig) GetPath() string           { return f.path }
-func (f fakeFeedConfig) GetSymbol() string         { return f.symbol }
-func (f fakeFeedConfig) GetHeartbeatSec() int64    { return f.heartbeatSec }
-func (f fakeFeedConfig) GetContractType() string   { return f.contractType }
-func (f fakeFeedConfig) GetContractStatus() string { return f.contractStatus }
+func (f fakeFeedConfig) GetName() string           { return f.Name }
+func (f fakeFeedConfig) GetPath() string           { return f.Path }
+func (f fakeFeedConfig) GetSymbol() string         { return f.Symbol }
+func (f fakeFeedConfig) GetHeartbeatSec() int64    { return f.HeartbeatSec }
+func (f fakeFeedConfig) GetContractType() string   { return f.ContractType }
+func (f fakeFeedConfig) GetContractStatus() string { return f.ContractStatus }
 func (f fakeFeedConfig) GetContractAddress() string {
-	return base64.StdEncoding.EncodeToString(f.contractAddress)
+	return base64.StdEncoding.EncodeToString(f.ContractAddress)
 }
-func (f fakeFeedConfig) GetContractAddressBytes() []byte { return f.contractAddress }
+func (f fakeFeedConfig) GetContractAddressBytes() []byte { return f.ContractAddress }
 func (f fakeFeedConfig) ToMapping() map[string]interface{} {
 	return map[string]interface{}{
-		"feed_name":        f.name,
-		"feed_path":        f.path,
-		"symbol":           f.symbol,
-		"heartbeat_sec":    int64(f.heartbeatSec),
-		"contract_type":    f.contractType,
-		"contract_status":  f.contractStatus,
-		"contract_address": f.contractAddress,
+		"feed_name":        f.Name,
+		"feed_path":        f.Path,
+		"symbol":           f.Symbol,
+		"heartbeat_sec":    int64(f.HeartbeatSec),
+		"contract_type":    f.ContractType,
+		"contract_status":  f.ContractStatus,
+		"contract_address": f.ContractAddress,
 		// These are solana specific but are kept here for backwards compatibility in Avro.
 		"transmissions_account": map[string]interface{}{
 			"bytes": []byte{},
@@ -155,13 +155,13 @@ func generateFeedConfig() FeedConfig {
 	coin := coins[rand.Intn(len(coins))]
 	contractAddress := generate32ByteArr()
 	return fakeFeedConfig{
-		name:            fmt.Sprintf("%s / usd", coin),
-		path:            fmt.Sprintf("%s-usd", coin),
-		symbol:          "$",
-		heartbeatSec:    1,
-		contractType:    "ocr2",
-		contractStatus:  "status",
-		contractAddress: contractAddress[:],
+		Name:            fmt.Sprintf("%s / usd", coin),
+		Path:            fmt.Sprintf("%s-usd", coin),
+		Symbol:          "$",
+		HeartbeatSec:    1,
+		ContractType:    "ocr2",
+		ContractStatus:  "status",
+		ContractAddress: contractAddress[:],
 	}
 }
 
