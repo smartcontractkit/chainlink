@@ -31,19 +31,27 @@ func TestMultiFeedMonitorToMakeSureAllGoroutinesTerminate(t *testing.T) {
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
 
-	monitor := NewMultiFeedMonitor(
-		chainCfg,
-
+	prometheusExporterFactory := NewPrometheusExporterFactory(
 		newNullLogger(),
-		factory,
-		producer,
 		&devnullMetrics{},
-
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
+	)
+	kafkaExporterFactory := NewKafkaExporterFactory(
+		newNullLogger(),
+		producer,
 
 		transmissionSchema,
 		configSetSimplifiedSchema,
+
+		cfg.Kafka.ConfigSetSimplifiedTopic,
+		cfg.Kafka.TransmissionTopic,
+	)
+
+	monitor := NewMultiFeedMonitor(
+		chainCfg,
+		newNullLogger(),
+
+		[]SourceFactory{factory},
+		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
 	)
 	wg.Add(1)
 	go func() {
@@ -105,19 +113,27 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
 
-	monitor := NewMultiFeedMonitor(
-		chainCfg,
-
+	prometheusExporterFactory := NewPrometheusExporterFactory(
 		newNullLogger(),
-		factory,
-		producer,
 		&devnullMetrics{},
-
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
+	)
+	kafkaExporterFactory := NewKafkaExporterFactory(
+		newNullLogger(),
+		producer,
 
 		transmissionSchema,
 		configSetSimplifiedSchema,
+
+		cfg.Kafka.ConfigSetSimplifiedTopic,
+		cfg.Kafka.TransmissionTopic,
+	)
+
+	monitor := NewMultiFeedMonitor(
+		chainCfg,
+		newNullLogger(),
+
+		[]SourceFactory{factory},
+		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
 	)
 	wg.Add(1)
 	go func() {

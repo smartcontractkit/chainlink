@@ -44,19 +44,27 @@ func BenchmarkManager(b *testing.B) {
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := NewRandomDataSourceFactory(ctx, wg, log)
 
-	monitor := NewMultiFeedMonitor(
-		chainCfg,
-
+	prometheusExporterFactory := NewPrometheusExporterFactory(
 		log,
-		factory,
-		producer,
 		&devnullMetrics{},
-
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
-
+	)
+	kafkaExporterFactory := NewKafkaExporterFactory(
+		log,
+		producer,
 		transmissionSchema,
 		configSetSimplifiedSchema,
+		cfg.Kafka.TransmissionTopic,
+		cfg.Kafka.ConfigSetSimplifiedTopic,
+	)
+
+	monitor := NewMultiFeedMonitor(
+		chainCfg,
+		log,
+		[]SourceFactory{factory},
+		[]ExporterFactory{
+			prometheusExporterFactory,
+			kafkaExporterFactory,
+		},
 	)
 
 	source := NewFakeRDDSource(5, 6) // Always produce 5 random feeds.

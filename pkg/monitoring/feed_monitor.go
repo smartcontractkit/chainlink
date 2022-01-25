@@ -11,19 +11,19 @@ type FeedMonitor interface {
 
 func NewFeedMonitor(
 	log Logger,
-	poller Poller,
+	pollers []Poller,
 	exporters []Exporter,
 ) FeedMonitor {
 	return &feedMonitor{
 		log,
-		poller,
+		pollers,
 		exporters,
 	}
 }
 
 type feedMonitor struct {
 	log       Logger
-	poller    Poller
+	pollers   []Poller
 	exporters []Exporter
 }
 
@@ -33,15 +33,32 @@ func (f *feedMonitor) Run(ctx context.Context) {
 	f.log.Infow("starting feed monitor")
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
+
+	updates := make(chan interface{})
+	wg.Add(len(f.pollers))
+	for _, poller := range f.pollers {
+		go func(poller Poller) {
+			defer wg.Done()
+			select {
+			case update := <-poller.Updates():
+				select {
+				case updates <- update:
+				case <-ctx.Done():
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}(poller)
+	}
+
+	// Consume updates.
 	for {
-		// Wait for an update.
 		var update interface{}
 		select {
-		case update = <-f.poller.Updates():
+		case update = <-updates:
 		case <-ctx.Done():
-			for _, exp := range f.exporters {
-				exp.Cleanup()
-			}
+			f.cleanup()
 			return
 		}
 		// TODO (dru) do we need a worker pool here?
@@ -52,5 +69,11 @@ func (f *feedMonitor) Run(ctx context.Context) {
 				exp.Export(ctx, update)
 			}(exp)
 		}
+	}
+}
+
+func (f *feedMonitor) cleanup() {
+	for _, exp := range f.exporters {
+		exp.Cleanup()
 	}
 }

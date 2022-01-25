@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
@@ -11,47 +12,26 @@ type MultiFeedMonitor interface {
 
 func NewMultiFeedMonitor(
 	chainConfig ChainConfig,
-
 	log Logger,
-	sourceFactory SourceFactory,
-	producer Producer,
-	metrics Metrics,
 
-	transmissionTopic string,
-	configSetSimplifiedTopic string,
-
-	transmissionSchema Schema,
-	configSetSimplifiedSchema Schema,
+	sourceFactories []SourceFactory,
+	exporterFactories []ExporterFactory,
 ) MultiFeedMonitor {
 	return &multiFeedMonitor{
 		chainConfig,
-
 		log,
-		sourceFactory,
-		producer,
-		metrics,
 
-		transmissionTopic,
-		configSetSimplifiedTopic,
-
-		transmissionSchema,
-		configSetSimplifiedSchema,
+		sourceFactories,
+		exporterFactories,
 	}
 }
 
 type multiFeedMonitor struct {
 	chainConfig ChainConfig
 
-	log           Logger
-	sourceFactory SourceFactory
-	producer      Producer
-	metrics       Metrics
-
-	transmissionTopic        string
-	configSetSimplifiedTopic string
-
-	transmissionSchema        Schema
-	configSetSimplifiedSchema Schema
+	log               Logger
+	sourceFactories   []SourceFactory
+	exporterFactories []ExporterFactory
 }
 
 const bufferCapacity = 100
@@ -60,19 +40,20 @@ const bufferCapacity = 100
 func (m *multiFeedMonitor) Run(ctx context.Context, feeds []FeedConfig) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
-	wg.Add(len(feeds))
-	for _, feedConfig := range feeds {
-		go func(feedConfig FeedConfig, wg *sync.WaitGroup) {
-			defer wg.Done()
 
-			feedLogger := m.log.With(
-				"feed", feedConfig.GetName(),
-				"network", m.chainConfig.GetNetworkName(),
-			)
-			source, err := m.sourceFactory.NewSource(m.chainConfig, feedConfig)
+FEED_LOOP:
+	for _, feedConfig := range feeds {
+		feedLogger := m.log.With(
+			"feed", feedConfig.GetName(),
+			"network", m.chainConfig.GetNetworkName(),
+		)
+		// Create data sources
+		pollers := make([]Poller, len(m.sourceFactories))
+		for i, sourceFactory := range m.sourceFactories {
+			source, err := sourceFactory.NewSource(m.chainConfig, feedConfig)
 			if err != nil {
-				feedLogger.Errorw("failed to create new source", "error", err)
-				return
+				feedLogger.Errorw("failed to create new source", "error", err, "source-type", fmt.Sprintf("%T", sourceFactory))
+				continue FEED_LOOP
 			}
 			poller := NewSourcePoller(
 				source,
@@ -81,40 +62,36 @@ func (m *multiFeedMonitor) Run(ctx context.Context, feeds []FeedConfig) {
 				m.chainConfig.GetReadTimeout(),
 				bufferCapacity,
 			)
-
-			wg.Add(1)
-			go func() {
+			pollers[i] = poller
+		}
+		// Create exporters
+		exporters := make([]Exporter, len(m.exporterFactories))
+		for i, exporterFactory := range m.exporterFactories {
+			exporter, err := exporterFactory.NewExporter(m.chainConfig, feedConfig)
+			if err != nil {
+				feedLogger.Errorw("failed to create new exporter", "error", err, "exporter-type", fmt.Sprintf("%T", exporterFactory))
+				continue FEED_LOOP
+			}
+			exporters[i] = exporter
+		}
+		// Run poller goroutines.
+		wg.Add(len(pollers))
+		for _, poller := range pollers {
+			go func(poller Poller) {
 				defer wg.Done()
 				poller.Run(ctx)
-			}()
-
-			exporters := []Exporter{
-				NewPrometheusExporter(
-					m.chainConfig,
-					feedConfig,
-					feedLogger.With("component", "prometheus-exporter"),
-					m.metrics,
-				),
-				NewKafkaExporter(
-					m.chainConfig,
-					feedConfig,
-					feedLogger.With("component", "kafka-exporter"),
-					m.producer,
-
-					m.transmissionSchema,
-					m.configSetSimplifiedSchema,
-
-					m.transmissionTopic,
-					m.configSetSimplifiedTopic,
-				),
-			}
-
-			feedMonitor := NewFeedMonitor(
-				feedLogger.With("component", "feed-monitor"),
-				poller,
-				exporters,
-			)
+			}(poller)
+		}
+		// Run feed monitor.
+		feedMonitor := NewFeedMonitor(
+			feedLogger.With("component", "feed-monitor"),
+			pollers,
+			exporters,
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			feedMonitor.Run(ctx)
-		}(feedConfig, wg)
+		}()
 	}
 }

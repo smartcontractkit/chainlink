@@ -7,13 +7,26 @@ import (
 	"time"
 )
 
-func NewPrometheusExporter(
-	chainConfig ChainConfig,
-	feedConfig FeedConfig,
+func NewPrometheusExporterFactory(
 	log Logger,
 	metrics Metrics,
-) Exporter {
-	metrics.SetFeedContractMetadata(
+) ExporterFactory {
+	return &prometheusExporterFactory{
+		log,
+		metrics,
+	}
+}
+
+type prometheusExporterFactory struct {
+	log     Logger
+	metrics Metrics
+}
+
+func (f *prometheusExporterFactory) NewExporter(
+	chainConfig ChainConfig,
+	feedConfig FeedConfig,
+) (Exporter, error) {
+	f.metrics.SetFeedContractMetadata(
 		chainConfig.GetChainID(),
 		feedConfig.GetContractAddress(),
 		feedConfig.GetContractAddress(),
@@ -28,8 +41,8 @@ func NewPrometheusExporter(
 	p := &prometheusExporter{
 		chainConfig,
 		feedConfig,
-		log,
-		metrics,
+		f.log,
+		f.metrics,
 		prometheusLabels{},
 		sync.Mutex{},
 	}
@@ -45,7 +58,7 @@ func NewPrometheusExporter(
 		contractAddress: feedConfig.GetContractAddress(),
 		feedID:          feedConfig.GetContractAddress(),
 	})
-	return p
+	return p, nil
 }
 
 type prometheusExporter struct {

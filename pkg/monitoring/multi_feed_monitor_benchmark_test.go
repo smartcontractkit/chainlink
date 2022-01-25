@@ -41,19 +41,27 @@ func BenchmarkMultichainMonitor(b *testing.B) {
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
 
-	monitor := NewMultiFeedMonitor(
-		chainCfg,
-
+	prometheusExporterFactory := NewPrometheusExporterFactory(
 		newNullLogger(),
-		factory,
-		producer,
 		&devnullMetrics{},
-
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
-
+	)
+	kafkaExporterFactory := NewKafkaExporterFactory(
+		newNullLogger(),
+		producer,
 		transmissionSchema,
 		configSetSimplifiedSchema,
+		cfg.Kafka.TransmissionTopic,
+		cfg.Kafka.ConfigSetSimplifiedTopic,
+	)
+
+	monitor := NewMultiFeedMonitor(
+		chainCfg,
+		newNullLogger(),
+		[]SourceFactory{factory},
+		[]ExporterFactory{
+			prometheusExporterFactory,
+			kafkaExporterFactory,
+		},
 	)
 	wg.Add(1)
 	go func() {

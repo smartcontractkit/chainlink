@@ -11,3 +11,8 @@ type Exporter interface {
 	// Cleanup is executed once a monitor for a specific feed is terminated.
 	Cleanup()
 }
+
+// ExporterFactory is used to create a new exporter for each feed that needs to be monitored.
+type ExporterFactory interface {
+	NewExporter(chainConfig ChainConfig, feedConfig FeedConfig) (Exporter, error)
+}

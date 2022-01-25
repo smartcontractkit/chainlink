@@ -42,30 +42,36 @@ func TestFeedMonitor(t *testing.T) {
 
 	cfg := config.Config{}
 
-	exporters := []Exporter{
-		NewPrometheusExporter(
-			chainConfig,
-			feedConfig,
-			newNullLogger(),
-			&devnullMetrics{},
-		),
-		NewKafkaExporter(
-			chainConfig,
-			feedConfig,
-			newNullLogger(),
-			producer,
+	prometheusExporterFactory := NewPrometheusExporterFactory(
+		newNullLogger(),
+		&devnullMetrics{},
+	)
+	kafkaExporterFactory := NewKafkaExporterFactory(
+		newNullLogger(),
+		producer,
 
-			transmissionSchema,
-			configSetSimplifiedSchema,
+		transmissionSchema,
+		configSetSimplifiedSchema,
 
-			cfg.Kafka.TransmissionTopic,
-			cfg.Kafka.ConfigSetSimplifiedTopic,
-		),
-	}
+		cfg.Kafka.TransmissionTopic,
+		cfg.Kafka.ConfigSetSimplifiedTopic,
+	)
+	prometheusExporter, err := prometheusExporterFactory.NewExporter(
+		chainConfig,
+		feedConfig,
+	)
+	require.NoError(t, err)
+	kafkaExporter, err := kafkaExporterFactory.NewExporter(
+		chainConfig,
+		feedConfig,
+	)
+	require.NoError(t, err)
+
+	exporters := []Exporter{prometheusExporter, kafkaExporter}
 
 	monitor := NewFeedMonitor(
 		newNullLogger(),
-		poller,
+		[]Poller{poller},
 		exporters,
 	)
 	wg.Add(1)

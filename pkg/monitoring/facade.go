@@ -19,6 +19,8 @@ func Facade(
 	chainConfig ChainConfig,
 	sourceFactory SourceFactory,
 	feedParser FeedParser,
+	extraSourceFactories []SourceFactory,
+	extraExporterFactories []ExporterFactory,
 ) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
@@ -53,19 +55,27 @@ func Facade(
 
 	metrics := DefaultMetrics
 
-	monitor := NewMultiFeedMonitor(
-		chainConfig,
-
-		log,
-		sourceFactory,
-		producer,
+	prometheusExporterFactory := NewPrometheusExporterFactory(
+		log.With("component", "prometheus-exporter"),
 		metrics,
-
-		cfg.Kafka.ConfigSetSimplifiedTopic,
-		cfg.Kafka.TransmissionTopic,
+	)
+	kafkaExporterFactory := NewKafkaExporterFactory(
+		log.With("component", "kafka-exporter"),
+		producer,
 
 		transmissionSchema,
 		configSetSimplifiedSchema,
+
+		cfg.Kafka.ConfigSetSimplifiedTopic,
+		cfg.Kafka.TransmissionTopic,
+	)
+
+	monitor := NewMultiFeedMonitor(
+		chainConfig,
+		log,
+
+		append([]SourceFactory{sourceFactory}, extraSourceFactories...),
+		append([]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}, extraExporterFactories...),
 	)
 
 	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser)

@@ -5,10 +5,7 @@ import (
 	"sync"
 )
 
-func NewKafkaExporter(
-	chainConfig ChainConfig,
-	feedConfig FeedConfig,
-
+func NewKafkaExporterFactory(
 	log Logger,
 	producer Producer,
 
@@ -17,11 +14,8 @@ func NewKafkaExporter(
 
 	transmissionTopic string,
 	configSetSimplifiedTopic string,
-) Exporter {
-	return &kafkaExporter{
-		chainConfig,
-		feedConfig,
-
+) ExporterFactory {
+	return &kafkaExporterFactory{
 		log,
 		producer,
 
@@ -31,6 +25,36 @@ func NewKafkaExporter(
 		transmissionTopic,
 		configSetSimplifiedTopic,
 	}
+}
+
+type kafkaExporterFactory struct {
+	log      Logger
+	producer Producer
+
+	transmissionSchema        Schema
+	configSetSimplifiedSchema Schema
+
+	transmissionTopic        string
+	configSetSimplifiedTopic string
+}
+
+func (k *kafkaExporterFactory) NewExporter(
+	chainConfig ChainConfig,
+	feedConfig FeedConfig,
+) (Exporter, error) {
+	return &kafkaExporter{
+		chainConfig,
+		feedConfig,
+
+		k.log.With("feed", feedConfig.GetName()),
+		k.producer,
+
+		k.transmissionSchema,
+		k.configSetSimplifiedSchema,
+
+		k.transmissionTopic,
+		k.configSetSimplifiedTopic,
+	}, nil
 }
 
 type kafkaExporter struct {
