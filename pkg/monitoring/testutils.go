@@ -387,7 +387,10 @@ func (k *keepLatestMetrics) SetOffchainAggregatorSubmissionReceivedValues(value 
 
 // Producer
 
-type producerMessage struct{ key, value []byte }
+type producerMessage struct {
+	key, value []byte
+	topic      string
+}
 
 type fakeProducer struct {
 	sendCh chan producerMessage
@@ -396,7 +399,7 @@ type fakeProducer struct {
 
 func (f fakeProducer) Produce(key, value []byte, topic string) error {
 	select {
-	case f.sendCh <- producerMessage{key, value}:
+	case f.sendCh <- producerMessage{key, value, topic}:
 	case <-f.ctx.Done():
 	}
 	return nil

@@ -79,8 +79,8 @@ func (k *kafkaExporter) Export(ctx context.Context, data interface{}) {
 		return
 	}
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
 	defer wg.Wait()
+	wg.Add(2)
 	go func(key []byte, envelope Envelope) {
 		defer wg.Done()
 		transmissionMapping, err := MakeTransmissionMapping(envelope, k.chainConfig, k.feedConfig)
@@ -100,18 +100,18 @@ func (k *kafkaExporter) Export(ctx context.Context, data interface{}) {
 	}(key, envelope)
 	go func(key []byte, envelope Envelope) {
 		defer wg.Done()
-		transmissionMapping, err := MakeTransmissionMapping(envelope, k.chainConfig, k.feedConfig)
+		configSetSimplifiedMapping, err := MakeConfigSetSimplifiedMapping(envelope, k.feedConfig)
 		if err != nil {
-			k.log.Errorw("failed to map transmission", "error", err)
+			k.log.Errorw("failed to map config_set_simplified", "error", err)
 			return
 		}
-		transmissionEncoded, err := k.transmissionSchema.Encode(transmissionMapping)
+		configSetSimplifiedEncoded, err := k.configSetSimplifiedSchema.Encode(configSetSimplifiedMapping)
 		if err != nil {
-			k.log.Errorw("failed to encode transmission to Avro", "payload", transmissionMapping, "error", err)
+			k.log.Errorw("failed to encode config_set_simplified to Avro", "payload", configSetSimplifiedMapping, "error", err)
 			return
 		}
-		if err := k.producer.Produce(key, transmissionEncoded, k.transmissionTopic); err != nil {
-			k.log.Errorw("failed to publish transmission", "payload", transmissionMapping, "error", err)
+		if err := k.producer.Produce(key, configSetSimplifiedEncoded, k.configSetSimplifiedTopic); err != nil {
+			k.log.Errorw("failed to publish config_set_simplified", "payload", configSetSimplifiedMapping, "error", err)
 			return
 		}
 	}(key, envelope)
