@@ -67,6 +67,7 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	require.Equal(t, originalKeyRing.OCR2[ocr2_evm.ID()].ID(), decryptedKeyRing.OCR2[ocr2_evm.ID()].ID())
 	require.Equal(t, originalKeyRing.OCR2[ocr2_sol.ID()].ID(), decryptedKeyRing.OCR2[ocr2_sol.ID()].ID())
 	require.Equal(t, originalKeyRing.OCR2[ocr2_ter.ID()].ID(), decryptedKeyRing.OCR2[ocr2_ter.ID()].ID())
+	require.Equal(t, ocr2_ter.OnChainPublicKey(), decryptedKeyRing.OCR2[ocr2_ter.ID()].OnChainPublicKey())
 	require.Equal(t, originalKeyRing.OCR2[ocr2_evm.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_evm.ID()].ChainType())
 	require.Equal(t, originalKeyRing.OCR2[ocr2_sol.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_sol.ID()].ChainType())
 	require.Equal(t, originalKeyRing.OCR2[ocr2_ter.ID()].ChainType(), decryptedKeyRing.OCR2[ocr2_ter.ID()].ChainType())
