@@ -158,9 +158,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		case <-time.After(cli.Config.ShutdownGracePeriod()):
 		}
 
-		log.Printf("Shutdown grace period of %v exceeded, closing DB and exiting...\n", cli.Config.ShutdownGracePeriod())
+		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", cli.Config.ShutdownGracePeriod())
 		if err = db.Close(); err != nil {
-			log.Printf("Failed to close DB: %v\n", err)
+			lggr.Criticalf("Failed to close DB: %v", err)
 		}
 		if err = lggr.Sync(); err != nil {
 			log.Printf("Failed to sync Logger: %v", err)
@@ -301,12 +301,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 		// In tests we have custom runners that stop the app gracefully,
 		// therefore we need to cancel rootCtx when the Runner has quit.
-		// In a real application, this does noop.
-		select {
-		case <-rootCtx.Done():
-		default:
-			cancelRootCtx()
-		}
+		cancelRootCtx()
 		return err
 	})
 
