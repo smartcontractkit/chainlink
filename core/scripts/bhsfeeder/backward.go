@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 )
 
+// BATCH_SIZE is the size of the batch of storeVerifyHeader transactions to send on-chain
+// at a time.
 const BATCH_SIZE uint64 = 5
 
 type backwardFeeder struct {
@@ -107,6 +109,8 @@ func (f *backwardFeeder) store(blockNum *big.Int) (*types.Transaction, error) {
 	return tx, nil
 }
 
+// createStoreVerifyHeaderTxBatch creates a batch of BlockhashStore.storeVerifyHeader transactions
+// and decrements the given feedFrom integer appropriately.
 func (f *backwardFeeder) createStoreVerifyHeaderTxBatch(feedFrom *big.Int) (txs []*types.Transaction, err error) {
 	nonce, err := f.ethClient.PendingNonceAt(context.Background(), f.account.From)
 	if err != nil {
@@ -136,6 +140,8 @@ func (f *backwardFeeder) createStoreVerifyHeaderTxBatch(feedFrom *big.Int) (txs 
 	return txs, nil
 }
 
+// createStoreVerifyHeaderTx creates a BlockhashStore.storeVerifyHeader transaction from
+// the given toStore and after block numbers.
 func (f *backwardFeeder) createStoreVerifyHeaderTx(nonce uint64, toStore, after *big.Int) (*types.Transaction, error) {
 	blockHeader, err := serializedBlockHeader(f.ethClient, after, f.chainID)
 	if err != nil {
@@ -168,6 +174,7 @@ func (f *backwardFeeder) createStoreVerifyHeaderTx(nonce uint64, toStore, after 
 	return tx, nil
 }
 
+// sendTxBatch sends the given batch of transactions to the eth node and waits for them to be mined.
 func (f *backwardFeeder) sendTxBatch(txs []*types.Transaction) error {
 	fmt.Println("Sending batch of", len(txs), "transactions")
 	for i, tx := range txs {
@@ -198,12 +205,12 @@ func (f *backwardFeeder) feed() error {
 		return errors.Wrap(err, "create and send store earliest tx")
 	}
 
-	// store current blocknumber - 1
 	blockNumber, err := f.ethClient.BlockNumber(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "get latest block number")
 	}
 
+	// store current blocknumber - 1
 	txNow, err := f.store(big.NewInt(int64(blockNumber) - 1))
 	if err != nil {
 		return errors.Wrap(err, "create and send store tx")

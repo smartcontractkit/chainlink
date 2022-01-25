@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 )
 
+// LOOKBACK_BLOCKS is how many blocks the forward feeder will subtract from the latest block number
+// and start feeding forward from.
 const LOOKBACK_BLOCKS uint64 = 5
 
 type forwardFeeder struct {
