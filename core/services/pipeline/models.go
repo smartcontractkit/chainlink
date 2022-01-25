@@ -148,6 +148,7 @@ func (r *Run) StringOutputs() ([]*string, error) {
 				return nil, fmt.Errorf("unable to process output type %T", out)
 			}
 		}
+	}
 
 	return outputs, nil
 }
