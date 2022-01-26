@@ -103,6 +103,7 @@ func (c *chain) getClient(name string) (*terraclient.Client, error) {
 		if cnt == 0 {
 			return nil, errors.New("no nodes available")
 		}
+		// #nosec
 		node = nodes[rand.Intn(len(nodes))]
 	} else { // Named node
 		var err error
