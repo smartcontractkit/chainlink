@@ -28,6 +28,20 @@ func (_m *Service) ApproveJobProposal(ctx context.Context, id int64) error {
 	return r0
 }
 
+// CancelJobProposal provides a mock function with given fields: ctx, id
+func (_m *Service) CancelJobProposal(ctx context.Context, id int64) error {
+	ret := _m.Called(ctx, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *Service) Close() error {
 	ret := _m.Called()
@@ -107,6 +121,29 @@ func (_m *Service) GetJobProposal(id int64) (*feeds.JobProposal, error) {
 	return r0, r1
 }
 
+// GetJobProposalsByManagersIDs provides a mock function with given fields: ids
+func (_m *Service) GetJobProposalsByManagersIDs(ids []int64) ([]feeds.JobProposal, error) {
+	ret := _m.Called(ids)
+
+	var r0 []feeds.JobProposal
+	if rf, ok := ret.Get(0).(func([]int64) []feeds.JobProposal); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetManager provides a mock function with given fields: id
 func (_m *Service) GetManager(id int64) (*feeds.FeedsManager, error) {
 	ret := _m.Called(id)
@@ -123,6 +160,50 @@ func (_m *Service) GetManager(id int64) (*feeds.FeedsManager, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(int64) error); ok {
 		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetManagers provides a mock function with given fields: ids
+func (_m *Service) GetManagers(ids []int64) ([]feeds.FeedsManager, error) {
+	ret := _m.Called(ids)
+
+	var r0 []feeds.FeedsManager
+	if rf, ok := ret.Get(0).(func([]int64) []feeds.FeedsManager); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.FeedsManager)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IsJobManaged provides a mock function with given fields: ctx, jobID
+func (_m *Service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
+	ret := _m.Called(ctx, jobID)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context, int64) bool); ok {
+		r0 = rf(ctx, jobID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, jobID)
 	} else {
 		r1 = ret.Error(1)
 	}

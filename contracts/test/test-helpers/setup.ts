@@ -1,47 +1,48 @@
-import { ethers } from "hardhat";
-import { Signer } from "ethers";
+import { ethers } from 'hardhat'
+import { Signer } from 'ethers'
 
 export interface Contracts {
-  contract1: Signer;
-  contract2: Signer;
-  contract3: Signer;
-  contract4: Signer;
-  contract5: Signer;
-  contract6: Signer;
-  contract7: Signer;
-  contract8: Signer;
+  contract1: Signer
+  contract2: Signer
+  contract3: Signer
+  contract4: Signer
+  contract5: Signer
+  contract6: Signer
+  contract7: Signer
+  contract8: Signer
 }
 
 export interface Roles {
-  defaultAccount: Signer;
-  oracleNode: Signer;
-  oracleNode1: Signer;
-  oracleNode2: Signer;
-  oracleNode3: Signer;
-  oracleNode4: Signer;
-  stranger: Signer;
-  consumer: Signer;
+  defaultAccount: Signer
+  oracleNode: Signer
+  oracleNode1: Signer
+  oracleNode2: Signer
+  oracleNode3: Signer
+  oracleNode4: Signer
+  stranger: Signer
+  consumer: Signer
 }
 
 export interface Personas {
-  Default: Signer;
-  Carol: Signer;
-  Eddy: Signer;
-  Nancy: Signer;
-  Ned: Signer;
-  Neil: Signer;
-  Nelly: Signer;
-  Norbert: Signer;
+  Default: Signer
+  Carol: Signer
+  Eddy: Signer
+  Nancy: Signer
+  Ned: Signer
+  Neil: Signer
+  Nelly: Signer
+  Norbert: Signer
+  Nick: Signer
 }
 
 export interface Users {
-  contracts: Contracts;
-  roles: Roles;
-  personas: Personas;
+  contracts: Contracts
+  roles: Roles
+  personas: Personas
 }
 
 export async function getUsers() {
-  let accounts = await ethers.getSigners();
+  let accounts = await ethers.getSigners()
 
   const personas: Personas = {
     Default: accounts[0],
@@ -52,7 +53,8 @@ export async function getUsers() {
     Norbert: accounts[5],
     Carol: accounts[6],
     Eddy: accounts[7],
-  };
+    Nick: accounts[8],
+  }
 
   const contracts: Contracts = {
     contract1: accounts[0],
@@ -63,7 +65,7 @@ export async function getUsers() {
     contract6: accounts[5],
     contract7: accounts[6],
     contract8: accounts[7],
-  };
+  }
 
   const roles: Roles = {
     defaultAccount: accounts[0],
@@ -74,12 +76,12 @@ export async function getUsers() {
     oracleNode4: accounts[5],
     stranger: accounts[6],
     consumer: accounts[7],
-  };
+  }
 
   const users: Users = {
     personas,
     roles,
     contracts,
-  };
-  return users;
+  }
+  return users
 }

@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -18,11 +15,12 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type (
@@ -34,9 +32,10 @@ type (
 	}
 
 	balanceMonitor struct {
-		logger         *logger.Logger
-		db             *gorm.DB
+		utils.StartStopOnce
+		logger         logger.Logger
 		ethClient      eth.Client
+		chainID        string
 		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
@@ -47,11 +46,12 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger *logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient eth.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
+		utils.StartStopOnce{},
 		logger,
-		db,
 		ethClient,
+		ethClient.ChainID().String(),
 		ethKeyStore,
 		make(map[gethCommon.Address]*assets.Eth),
 		new(sync.RWMutex),
@@ -62,14 +62,18 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.E
 }
 
 func (bm *balanceMonitor) Start() error {
-	// Always query latest balance on start
-	(&worker{bm}).Work()
-	return nil
+	return bm.StartOnce("BalanceMonitor", func() error {
+		// Always query latest balance on start
+		(&worker{bm}).Work()
+		return nil
+	})
 }
 
 // Close shuts down the BalanceMonitor, should not be used after this
 func (bm *balanceMonitor) Close() error {
-	return bm.sleeperTask.Stop()
+	return bm.StopOnce("BalanceMonitor", func() error {
+		return bm.sleeperTask.Stop()
+	})
 }
 
 func (bm *balanceMonitor) Ready() error {
@@ -81,11 +85,17 @@ func (bm *balanceMonitor) Healthy() error {
 }
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head) {
-	bm.checkBalance(&head)
+func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *eth.Head) {
+	ok := bm.IfStarted(func() {
+		bm.checkBalance(head)
+	})
+	if !ok {
+		bm.logger.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.State())
+	}
+
 }
 
-func (bm *balanceMonitor) checkBalance(head *models.Head) {
+func (bm *balanceMonitor) checkBalance(head *eth.Head) {
 	bm.logger.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }
@@ -98,20 +108,18 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	bm.ethBalances[address] = &ethBal
 	bm.ethBalancesMtx.Unlock()
 
-	loggerFields := []interface{}{
+	lgr := bm.logger.Named("balance_log").With(
 		"address", address.Hex(),
 		"ethBalance", ethBal.String(),
-		"weiBalance", ethBal.ToInt(),
-		"id", "balance_log",
-	}
+		"weiBalance", ethBal.ToInt())
 
 	if oldBal == nil {
-		bm.logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		lgr.Infof("ETH balance for %s: %s", address.Hex(), ethBal.String())
 		return
 	}
 
 	if ethBal.Cmp(oldBal) != 0 {
-		bm.logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		lgr.Infof("New ETH balance for %s: %s", address.Hex(), ethBal.String())
 	}
 }
 
@@ -121,8 +129,31 @@ func (bm *balanceMonitor) GetEthBalance(address gethCommon.Address) *assets.Eth 
 	return bm.ethBalances[address]
 }
 
+var promETHBalance = promauto.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Name: "eth_balance",
+		Help: "Each Ethereum account's balance",
+	},
+	[]string{"account", "evmChainID"},
+)
+
+func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
+	balanceFloat, err := ApproximateFloat64(balance)
+
+	if err != nil {
+		bm.logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
+		return
+	}
+
+	promETHBalance.WithLabelValues(from.Hex(), bm.chainID).Set(balanceFloat)
+}
+
 type worker struct {
 	bm *balanceMonitor
+}
+
+func (*worker) Name() string {
+	return "BalanceMonitorWorker"
 }
 
 func (w *worker) Work() {
@@ -170,34 +201,15 @@ func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error                                            { return nil }
-func (*NullBalanceMonitor) Close() error                                            { return nil }
-func (*NullBalanceMonitor) Ready() error                                            { return nil }
-func (*NullBalanceMonitor) Healthy() error                                          { return nil }
-func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
-
-var promETHBalance = promauto.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "eth_balance",
-		Help: "Each Ethereum account's balance",
-	},
-	[]string{"account"},
-)
-
-func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
-	balanceFloat, err := ApproximateFloat64(balance)
-
-	if err != nil {
-		bm.logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
-		return
-	}
-
-	promETHBalance.WithLabelValues(from.Hex()).Set(balanceFloat)
-}
+func (*NullBalanceMonitor) Start() error                                          { return nil }
+func (*NullBalanceMonitor) Close() error                                          { return nil }
+func (*NullBalanceMonitor) Ready() error                                          { return nil }
+func (*NullBalanceMonitor) Healthy() error                                        { return nil }
+func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())
-	weif := new(big.Float).SetInt(models.WeiPerEth)
+	weif := new(big.Float).SetInt(eth.WeiPerEth)
 	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {

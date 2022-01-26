@@ -3,7 +3,7 @@ pragma solidity ^0.7.0;
 import "../ChainlinkClient.sol";
 import "../Chainlink.sol";
 
-contract MultiWordConsumer is ChainlinkClient{
+contract MultiWordConsumer is ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
   bytes32 internal specId;
@@ -18,16 +18,11 @@ contract MultiWordConsumer is ChainlinkClient{
   uint256 public jpyInt;
 
   event RequestFulfilled(
-    bytes32 indexed requestId,  // User-defined ID
+    bytes32 indexed requestId, // User-defined ID
     bytes indexed price
   );
 
-  event RequestMultipleFulfilled(
-    bytes32 indexed requestId,
-    bytes32 indexed usd,
-    bytes32 indexed eur,
-    bytes32 jpy
-  );
+  event RequestMultipleFulfilled(bytes32 indexed requestId, bytes32 indexed usd, bytes32 indexed eur, bytes32 jpy);
 
   event RequestMultipleFulfilledWithCustomURLs(
     bytes32 indexed requestId,
@@ -40,50 +35,24 @@ contract MultiWordConsumer is ChainlinkClient{
     address _link,
     address _oracle,
     bytes32 _specId
-  )
-    public
-  {
+  ) public {
     setChainlinkToken(_link);
     setChainlinkOracle(_oracle);
     specId = _specId;
   }
 
-  function setSpecID(
-    bytes32 _specId
-  )
-    public
-  {
+  function setSpecID(bytes32 _specId) public {
     specId = _specId;
   }
 
-  function requestEthereumPrice(
-    string memory _currency,
-    uint256 _payment
-  )
-    public
-  {
-    requestEthereumPriceByCallback(_currency, _payment, address(this));
+  function requestEthereumPrice(string memory _currency, uint256 _payment) public {
+    Chainlink.Request memory req = buildOperatorRequest(specId, this.fulfillBytes.selector);
+    sendOperatorRequest(req, _payment);
   }
 
-  function requestEthereumPriceByCallback(
-    string memory _currency,
-    uint256 _payment,
-    address _callback
-  )
-    public
-  {
-    Chainlink.Request memory req = buildChainlinkRequest(specId, _callback, this.fulfillBytes.selector);
-    requestOracleData(req, _payment);
-  }
-
-  function requestMultipleParameters(
-    string memory _currency,
-    uint256 _payment
-  )
-    public
-  {
-    Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillMultipleParameters.selector);
-    requestOracleData(req, _payment);
+  function requestMultipleParameters(string memory _currency, uint256 _payment) public {
+    Chainlink.Request memory req = buildOperatorRequest(specId, this.fulfillMultipleParameters.selector);
+    sendOperatorRequest(req, _payment);
   }
 
   function requestMultipleParametersWithCustomURLs(
@@ -94,17 +63,15 @@ contract MultiWordConsumer is ChainlinkClient{
     string memory _urlJPY,
     string memory _pathJPY,
     uint256 _payment
-  )
-    public
-  {
-    Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillMultipleParametersWithCustomURLs.selector);
+  ) public {
+    Chainlink.Request memory req = buildOperatorRequest(specId, this.fulfillMultipleParametersWithCustomURLs.selector);
     req.add("urlUSD", _urlUSD);
     req.add("pathUSD", _pathUSD);
     req.add("urlEUR", _urlEUR);
     req.add("pathEUR", _pathEUR);
     req.add("urlJPY", _urlJPY);
     req.add("pathJPY", _pathJPY);
-    requestOracleData(req, _payment);
+    sendOperatorRequest(req, _payment);
   }
 
   function cancelRequest(
@@ -113,26 +80,17 @@ contract MultiWordConsumer is ChainlinkClient{
     uint256 _payment,
     bytes4 _callbackFunctionId,
     uint256 _expiration
-  ) 
-    public
-  {
+  ) public {
     ChainlinkRequestInterface requested = ChainlinkRequestInterface(_oracle);
     requested.cancelOracleRequest(_requestId, _payment, _callbackFunctionId, _expiration);
   }
 
-  function withdrawLink()
-    public
-  {
+  function withdrawLink() public {
     LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
     require(_link.transfer(msg.sender, _link.balanceOf(address(this))), "Unable to transfer");
   }
 
-  function addExternalRequest(
-    address _oracle,
-    bytes32 _requestId
-  )
-    external
-  {
+  function addExternalRequest(address _oracle, bytes32 _requestId) external {
     addChainlinkExternalRequest(_oracle, _requestId);
   }
 
@@ -141,10 +99,7 @@ contract MultiWordConsumer is ChainlinkClient{
     bytes32 _usd,
     bytes32 _eur,
     bytes32 _jpy
-  )
-    public
-    recordChainlinkFulfillment(_requestId)
-  {
+  ) public recordChainlinkFulfillment(_requestId) {
     emit RequestMultipleFulfilled(_requestId, _usd, _eur, _jpy);
     usd = _usd;
     eur = _eur;
@@ -156,24 +111,19 @@ contract MultiWordConsumer is ChainlinkClient{
     uint256 _usd,
     uint256 _eur,
     uint256 _jpy
-  )
-    public
-    recordChainlinkFulfillment(_requestId)
-  {
+  ) public recordChainlinkFulfillment(_requestId) {
     emit RequestMultipleFulfilledWithCustomURLs(_requestId, _usd, _eur, _jpy);
     usdInt = _usd;
     eurInt = _eur;
     jpyInt = _jpy;
   }
 
-  function fulfillBytes(
-    bytes32 _requestId,
-    bytes memory _price
-  )
-    public
-    recordChainlinkFulfillment(_requestId)
-  {
+  function fulfillBytes(bytes32 _requestId, bytes memory _price) public recordChainlinkFulfillment(_requestId) {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
+  }
+
+  function publicGetNextRequestCount() external view returns (uint256) {
+    return getNextRequestCount();
   }
 }

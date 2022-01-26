@@ -1,15 +1,20 @@
 package ethkey
 
-import "time"
+import (
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
+)
 
 type State struct {
-	ID        int32 `gorm:"primary_key"`
-	Address   EIP55Address
-	NextNonce int64
-	IsFunding bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	lastUsed  time.Time
+	ID         int32
+	Address    EIP55Address
+	NextNonce  int64
+	IsFunding  bool
+	EVMChainID utils.Big
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	lastUsed   time.Time
 }
 
 func (State) TableName() string {

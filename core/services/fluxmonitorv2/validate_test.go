@@ -76,7 +76,7 @@ answer1 [type=median index=0];
 				assert.Equal(t, "@every 1m", spec.DrumbeatSchedule)
 				assert.Equal(t, 10*time.Second, spec.DrumbeatRandomDelay)
 				assert.Equal(t, false, spec.PollTimerDisabled)
-				assert.Equal(t, assets.NewLink(1000000000000000000), spec.MinPayment)
+				assert.Equal(t, assets.NewLinkFromJuels(1000000000000000000), spec.MinPayment)
 				assert.NotZero(t, j.Pipeline)
 			},
 		},
@@ -133,7 +133,7 @@ ds1 -> ds1_parse;
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
+				assert.EqualError(t, err, "PollTimerPeriod (400ms) must be equal or greater than the smallest value of MaxTaskDuration param, DEFAULT_HTTP_TIMEOUT config var, or MinTimeout of all tasks (500ms)")
 			},
 		},
 		{

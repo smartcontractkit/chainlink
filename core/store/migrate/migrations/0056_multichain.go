@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 
 	"github.com/pressly/goose/v3"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func init() {
@@ -38,8 +40,6 @@ CREATE TABLE nodes (
 
 CREATE INDEX idx_nodes_evm_chain_id ON nodes (evm_chain_id);
 CREATE UNIQUE INDEX idx_nodes_unique_name ON nodes (lower(name));
-
-INSERT INTO evm_chains (id, created_at, updated_at) VALUES (%[1]s, NOW(), NOW());
 `
 
 const down56 = `
@@ -48,17 +48,21 @@ DROP TABLE evm_chains;
 `
 
 func Up56(tx *sql.Tx) error {
-	chainIDStr := os.Getenv("ETH_CHAIN_ID")
-	if chainIDStr == "" {
-		chainIDStr = "1"
+	if _, err := tx.Exec(up56); err != nil {
+		return err
 	}
-	chainID, ok := new(big.Int).SetString(chainIDStr, 10)
-	if !ok {
-		panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
-	}
-
-	sql := fmt.Sprintf(up56, chainID.String())
-	if _, err := tx.Exec(sql); err != nil {
+	dbURL := os.Getenv("DATABASE_URL")
+	if !strings.Contains(dbURL, "_test") {
+		chainIDStr := os.Getenv("ETH_CHAIN_ID")
+		if chainIDStr == "" {
+			logger.Warn("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
+			chainIDStr = "1"
+		}
+		chainID, ok := new(big.Int).SetString(chainIDStr, 10)
+		if !ok {
+			panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
+		}
+		_, err := tx.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
 		return err
 	}
 	return nil

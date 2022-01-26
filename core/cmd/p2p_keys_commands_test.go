@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestP2PKeyPresenter_RenderTable(t *testing.T) {
@@ -60,7 +62,9 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 func TestClient_ListP2PKeys(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EthereumDisabled = null.BoolFrom(true)
+	}))
 	key, err := app.GetKeyStore().P2P().Create()
 	require.NoError(t, err)
 
@@ -91,7 +95,9 @@ func TestClient_CreateP2PKey(t *testing.T) {
 func TestClient_DeleteP2PKey(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EthereumDisabled = null.BoolFrom(true)
+	}))
 	client, _ := app.NewClientAndRenderer()
 
 	key, err := app.GetKeyStore().P2P().Create()
@@ -115,7 +121,9 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 
 	defer deleteKeyExportFile(t)
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EthereumDisabled = null.BoolFrom(true)
+	}))
 	client, _ := app.NewClientAndRenderer()
 	_, err := app.GetKeyStore().P2P().Create()
 	require.NoError(t, err)
@@ -144,7 +152,7 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 	require.NoError(t, client.ExportP2PKey(c))
 	require.NoError(t, utils.JustError(os.Stat(keyName)))
 
-	require.NoError(t, utils.JustError(app.GetKeyStore().P2P().Delete(key.ID())))
+	require.NoError(t, utils.JustError(app.GetKeyStore().P2P().Delete(key.PeerID())))
 	requireP2PKeyCount(t, app, 0)
 
 	set = flag.NewFlagSet("test P2P import", 0)

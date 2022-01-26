@@ -7,10 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"gorm.io/gorm/schema"
-
-	"gorm.io/gorm"
-
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
@@ -69,20 +65,6 @@ func (pkb PublicKeyBytes) Value() (driver.Value, error) {
 	return []byte(pkb), nil
 }
 
-// GormDataType gorm common data type
-func (PublicKeyBytes) GormDataType() string {
-	return "bytea"
-}
-
-// GormDBDataType gorm db data type
-func (PublicKeyBytes) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "postgres":
-		return "BYTEA"
-	}
-	return ""
-}
-
 func (k Key) GetPeerID() (PeerID, error) {
 	peerID, err := peer.IDFromPrivateKey(k)
 	if err != nil {
@@ -100,13 +82,13 @@ func (k Key) PeerID() PeerID {
 }
 
 type EncryptedP2PKey struct {
-	ID               int32 `gorm:"primary_key"`
+	ID               int32
 	PeerID           PeerID
-	PubKey           PublicKeyBytes `gorm:"type:bytea"`
+	PubKey           PublicKeyBytes
 	EncryptedPrivKey []byte
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	DeletedAt        gorm.DeletedAt
+	DeletedAt        *time.Time
 }
 
 func (EncryptedP2PKey) TableName() string {
@@ -129,15 +111,15 @@ func (ep2pk EncryptedP2PKey) Decrypt(auth string) (k Key, err error) {
 	var cryptoJSON keystore.CryptoJSON
 	err = json.Unmarshal(ep2pk.EncryptedPrivKey, &cryptoJSON)
 	if err != nil {
-		return k, errors.Wrapf(err, "invalid JSON for key 0x%x", ep2pk.PubKey)
+		return k, errors.Wrapf(err, "invalid JSON for P2P key %s (0x%x)", ep2pk.PeerID.String(), ep2pk.PubKey)
 	}
 	marshalledPrivK, err := keystore.DecryptDataV3(cryptoJSON, adulteratedPassword(auth))
 	if err != nil {
-		return k, errors.Wrapf(err, "could not decrypt key 0x%x", ep2pk.PubKey)
+		return k, errors.Wrapf(err, "could not decrypt P2P key %s (0x%x)", ep2pk.PeerID.String(), ep2pk.PubKey)
 	}
 	privK, err := cryptop2p.UnmarshalPrivateKey(marshalledPrivK)
 	if err != nil {
-		return k, errors.Wrapf(err, "could not unmarshal private key for 0x%x", ep2pk.PubKey)
+		return k, errors.Wrapf(err, "could not unmarshal P2P private key for %s (0x%x)", ep2pk.PeerID.String(), ep2pk.PubKey)
 	}
 	return Key{
 		privK,

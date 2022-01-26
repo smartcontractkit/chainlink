@@ -17,7 +17,7 @@ import (
 type PublicKey [CompressedPublicKeyLength]byte
 
 // CompressedPublicKeyLength is the length of a secp256k1 public key's x
-// ordinate as a uint256, concatenated with 00 if y is even, 01 if odd.
+// coordinate as a uint256, concatenated with 00 if y is even, 01 if odd.
 const CompressedPublicKeyLength = 33
 
 func init() {
@@ -37,12 +37,6 @@ func (k *PublicKey) Set(l PublicKey) {
 func (k *PublicKey) Point() (kyber.Point, error) {
 	p := (&Secp256k1{}).Point()
 	return p, p.UnmarshalBinary(k[:])
-}
-
-// NewPublicKey returns the PublicKey corresponding to rawKey
-func NewPublicKey(rawKey [CompressedPublicKeyLength]byte) *PublicKey {
-	rv := PublicKey(rawKey)
-	return &rv
 }
 
 // NewPublicKeyFromHex returns the PublicKey encoded by 0x-hex string hex, or errors

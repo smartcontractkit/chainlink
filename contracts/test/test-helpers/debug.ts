@@ -3,7 +3,7 @@
  *
  * This file contains functionality for debugging tests, like creating loggers.
  */
-import debug from "debug";
+import debug from 'debug'
 
 /**
  * This creates a debug logger instance to be used within our internal code.
@@ -13,5 +13,5 @@ import debug from "debug";
  * @param name The root namespace to assign to the log messages
  */
 export function makeDebug(name: string): debug.Debugger {
-  return debug(name);
+  return debug(name)
 }

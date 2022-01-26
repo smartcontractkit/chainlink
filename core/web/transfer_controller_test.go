@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,8 +18,7 @@ import (
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -42,16 +40,13 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	count, err := app.GetStore().CountOf(bulletprooftxmanager.EthTx{})
-	require.NoError(t, err)
-	assert.Equal(t, 1, count)
+	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
 }
 
 func TestTransfersController_TransferError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -73,8 +68,7 @@ func TestTransfersController_TransferError(t *testing.T) {
 func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()

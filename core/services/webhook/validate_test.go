@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestValidatedWebJobSpec(t *testing.T) {
@@ -96,8 +96,8 @@ func TestValidatedWebJobSpec(t *testing.T) {
             """
             `,
 			mock: func(t *testing.T, eim *webhookmocks.ExternalInitiatorManager) {
-				eim.On("FindExternalInitiatorByName", "foo").Return(models.ExternalInitiator{ID: 42}, nil).Once()
-				eim.On("FindExternalInitiatorByName", "bar").Return(models.ExternalInitiator{ID: 43}, nil).Once()
+				eim.On("FindExternalInitiatorByName", "foo").Return(bridges.ExternalInitiator{ID: 42}, nil).Once()
+				eim.On("FindExternalInitiatorByName", "bar").Return(bridges.ExternalInitiator{ID: 43}, nil).Once()
 			},
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -134,9 +134,9 @@ func TestValidatedWebJobSpec(t *testing.T) {
             """
             `,
 			mock: func(t *testing.T, eim *webhookmocks.ExternalInitiatorManager) {
-				eim.On("FindExternalInitiatorByName", "foo").Return(models.ExternalInitiator{ID: 42}, nil).Once()
-				eim.On("FindExternalInitiatorByName", "bar").Return(models.ExternalInitiator{}, errors.New("something exploded")).Once()
-				eim.On("FindExternalInitiatorByName", "baz").Return(models.ExternalInitiator{}, errors.New("something exploded")).Once()
+				eim.On("FindExternalInitiatorByName", "foo").Return(bridges.ExternalInitiator{ID: 42}, nil).Once()
+				eim.On("FindExternalInitiatorByName", "bar").Return(bridges.ExternalInitiator{}, errors.New("something exploded")).Once()
+				eim.On("FindExternalInitiatorByName", "baz").Return(bridges.ExternalInitiator{}, errors.New("something exploded")).Once()
 			},
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.EqualError(t, err, "unable to find external initiator named bar: something exploded; unable to find external initiator named baz: something exploded")

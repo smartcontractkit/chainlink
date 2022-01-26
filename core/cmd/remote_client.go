@@ -20,8 +20,11 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -34,7 +37,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
 	}
 
-	var request models.ExternalInitiatorRequest
+	var request bridges.ExternalInitiatorRequest
 	request.Name = c.Args().Get(0)
 
 	// process optional URL
@@ -194,7 +197,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	return nil
 }
 
-func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
+func (cli *Client) buildSessionRequest(flag string) (sessions.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)
 	}
@@ -220,7 +223,7 @@ func getTOMLString(s string) (string, error) {
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("you must first login through the CLI")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}
@@ -249,26 +252,38 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-// SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) (err error) {
+// SetEvmGasPriceDefault specifies the minimum gas price to use for outgoing transactions
+func (cli *Client) SetEvmGasPriceDefault(c *clipkg.Context) (err error) {
+	var adjustedAmount *big.Int
 	if c.NArg() != 1 {
 		return cli.errorOut(errors.New("expecting an amount"))
 	}
-
 	value := c.Args().Get(0)
 	amount, ok := new(big.Float).SetString(value)
 	if !ok {
 		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
 	}
-
 	if c.IsSet("gwei") {
 		amount.Mul(amount, big.NewFloat(1000000000))
 	}
+	var chainID *big.Int
+	if c.IsSet("evmChainID") {
+		var ok bool
+		chainID, ok = new(big.Int).SetString(c.String("evmChainID"), 10)
+		if !ok {
+			return cli.errorOut(fmt.Errorf("invalid evmChainID %s", value))
+		}
+	}
+	adjustedAmount, _ = amount.Int(nil)
 
-	adjustedAmount, _ := amount.Int(nil)
 	request := struct {
-		EvmGasPriceDefault string `json:"ethGasPriceDefault"`
-	}{EvmGasPriceDefault: adjustedAmount.String()}
+		EvmGasPriceDefault string     `json:"ethGasPriceDefault"`
+		EvmChainID         *utils.Big `json:"evmChainID"`
+	}{
+		EvmGasPriceDefault: adjustedAmount.String(),
+		EvmChainID:         utils.NewBig(chainID),
+	}
+
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)
@@ -305,13 +320,13 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	cwl := presenters.ConfigPrinter{}
+	cwl := config.ConfigPrinter{}
 	err = cli.renderAPIResponse(resp, &cwl)
 	return err
 }
 
 func normalizePassword(password string) string {
-	return url.PathEscape(strings.TrimSpace(password))
+	return url.QueryEscape(strings.TrimSpace(password))
 }
 
 // SetLogLevel sets the log level on the node
@@ -350,9 +365,6 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	// Sets logSql to true || false based on the --enabled flag
 	logSql := c.Bool("enable")
 
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	request := web.LogPatchRequest{SqlEnabled: &logSql}
 	requestData, err := json.Marshal(request)
 	if err != nil {

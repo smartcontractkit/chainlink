@@ -1,7 +1,14 @@
 package web
 
 import (
+	"context"
+	"database/sql"
 	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -9,14 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 // JobsController manages jobs
@@ -33,7 +38,7 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 		size = 1000
 	}
 
-	jobs, count, err := jc.App.JobORM().JobsV2(offset, size)
+	jobs, count, err := jc.App.JobORM().FindJobs(offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -47,24 +52,28 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 }
 
 // Show returns the details of a job
+// :ID could be both job ID and external job ID
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
+	var err error
 	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
+		// Find a job by external job ID
+		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
+	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
+		// Find a job by job ID
+		jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
+	} else {
+		jsonAPIError(c, http.StatusUnprocessableEntity, pErr)
 		return
 	}
-
-	jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
-		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
-		return
-	}
-
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+		if errors.Cause(err) == sql.ErrNoRows {
+			jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
+		} else {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -89,13 +98,14 @@ func (jc *JobsController) Create(c *gin.Context) {
 	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
+		return
 	}
 
 	var jb job.Job
-	config := jc.App.GetStore().Config
+	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetEVMConfig(), request.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
@@ -103,7 +113,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetConfig(), request.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
@@ -114,15 +124,18 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jb, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
+		return
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	jb, err = jc.App.AddJobV2(c.Request.Context(), jb, jb.Name)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
+		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
@@ -137,20 +150,23 @@ func (jc *JobsController) Create(c *gin.Context) {
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
+	j := job.Job{}
+	err := j.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	err = jc.App.DeleteJob(c.Request.Context(), jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	// Delete the job
+	err = jc.App.DeleteJob(c.Request.Context(), j.ID)
+	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+
 		return
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
+
 		return
 	}
 

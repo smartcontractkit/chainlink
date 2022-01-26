@@ -8,18 +8,10 @@ interface WithdrawalInterface {
    * @param recipient is the address to send the LINK to
    * @param amount is the amount of LINK to send
    */
-  function withdraw(
-    address recipient,
-    uint256 amount
-  ) external;
+  function withdraw(address recipient, uint256 amount) external;
 
   /**
    * @notice query the available amount of LINK to withdraw by msg.sender
    */
-  function withdrawable()
-    external
-    view
-    returns (
-      uint256
-    );
+  function withdrawable() external view returns (uint256);
 }

@@ -1,0 +1,45 @@
+type Chain {
+    id: ID!
+    enabled: Boolean!
+    config: ChainConfig!
+    nodes: [Node!]!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+union ChainPayload = Chain | NotFoundError
+
+type ChainsPayload implements PaginatedPayload {
+    results: [Chain!]!
+    metadata: PaginationMetadata!
+}
+
+input CreateChainInput {
+    id: ID!
+    config: ChainConfigInput!
+    keySpecificConfigs: [KeySpecificChainConfigInput]!
+}
+
+type CreateChainSuccess {
+    chain: Chain!
+}
+
+union CreateChainPayload = CreateChainSuccess | InputErrors
+
+input UpdateChainInput {
+    enabled: Boolean!
+    config: ChainConfigInput!
+    keySpecificConfigs: [KeySpecificChainConfigInput]!
+}
+
+type UpdateChainSuccess {
+    chain: Chain!
+}
+
+union UpdateChainPayload = UpdateChainSuccess | NotFoundError | InputErrors
+
+type DeleteChainSuccess {
+    chain: Chain!
+}
+
+union DeleteChainPayload = DeleteChainSuccess | NotFoundError

@@ -7,10 +7,10 @@ import (
 
 // FluxMonitorRoundStatsV2 defines the stats for a round
 type FluxMonitorRoundStatsV2 struct {
-	ID              uint64         `gorm:"primary key;not null;auto_increment"`
-	PipelineRunID   null.Int64     `gorm:"default:null"`
-	Aggregator      common.Address `gorm:"not null"`
-	RoundID         uint32         `gorm:"not null"`
-	NumNewRoundLogs uint64         `gorm:"not null;default 0"`
-	NumSubmissions  uint64         `gorm:"not null;default 0"`
+	ID              uint64
+	PipelineRunID   null.Int64
+	Aggregator      common.Address
+	RoundID         uint32
+	NumNewRoundLogs uint64
+	NumSubmissions  uint64
 }

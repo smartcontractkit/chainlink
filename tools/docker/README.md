@@ -147,13 +147,6 @@ To remove any containers, volumes, and networks related to our docker-compose se
 ./compose clean
 ```
 
-Individual clean commands are included for CI purposes when matrix jobs are being executed.
-
-```sh
-./compose test:down
-./compose test:ts:down
-```
-
 ### Running your own commands based off of docker-compose
 
 The following commands allow you do just about anything:

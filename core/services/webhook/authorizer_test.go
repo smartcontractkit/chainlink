@@ -4,15 +4,23 @@ import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/sqlx"
+
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/multierr"
 )
+
+func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bridges.ORM {
+	return bridges.NewORM(db, logger.TestLogger(t), cfg)
+}
 
 type eiEnabledCfg struct{}
 
@@ -23,23 +31,26 @@ type eiDisabledCfg struct{}
 func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
-	eiFoo := cltest.MustInsertExternalInitiator(t, db)
-	eiBar := cltest.MustInsertExternalInitiator(t, db)
+	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
+	eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
 	jobWithFooAndBarEI, webhookSpecWithFooAndBarEI := cltest.MustInsertWebhookSpec(t, db)
 	jobWithBarEI, webhookSpecWithBarEI := cltest.MustInsertWebhookSpec(t, db)
 	jobWithNoEI, _ := cltest.MustInsertWebhookSpec(t, db)
 
-	require.NoError(t, multierr.Combine(
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "foo", "name": "webhookSpecWithFooAndBarEI"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "bar", "name": "webhookSpecWithFooAndBarEI"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecWithBarEI.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
-	))
+	_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiFoo.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "foo", "name": "webhookSpecWithFooAndBarEI"}`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiBar.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "bar", "name": "webhookSpecWithFooAndBarEI"}`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiBar.ID, webhookSpecWithBarEI.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
+	require.NoError(t, err)
 
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, nil, nil)
+		a := webhook.NewAuthorizer(db.DB, nil, nil)
 
 		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -53,7 +64,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, &models.User{}, nil)
+		a := webhook.NewAuthorizer(db.DB, &sessions.User{}, nil)
 
 		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -67,7 +78,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, nil, &eiFoo)
+		a := webhook.NewAuthorizer(db.DB, nil, &eiFoo)
 
 		can, err := a.CanRun(context.Background(), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)

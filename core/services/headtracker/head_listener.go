@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -14,55 +13,55 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/atomic"
 )
 
 var (
-	promNumHeadsReceived = promauto.NewCounter(prometheus.CounterOpts{
+	promNumHeadsReceived = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_heads_received",
 		Help: "The total number of heads seen",
-	})
-	promEthConnectionErrors = promauto.NewCounter(prometheus.CounterOpts{
+	}, []string{"evmChainID"})
+	promEthConnectionErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_eth_connection_errors",
 		Help: "The total number of eth node connection errors",
-	})
+	}, []string{"evmChainID"})
 )
 
+//go:generate mockery --name Config --output ./mocks/ --case=underscore
 type Config interface {
-	ChainID() *big.Int
-	EvmHeadTrackerHistoryDepth() uint
-	EvmHeadTrackerMaxBufferSize() uint
-	EvmHeadTrackerSamplingInterval() time.Duration
 	BlockEmissionIdleWarningThreshold() time.Duration
-	EthereumURL() string
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
+	EvmHeadTrackerHistoryDepth() uint32
+	EvmHeadTrackerMaxBufferSize() uint32
+	EvmHeadTrackerSamplingInterval() time.Duration
 }
 
 type HeadListener struct {
 	config           Config
 	ethClient        eth.Client
-	headers          chan *models.Head
+	chainID          big.Int
+	headers          chan *eth.Head
 	headSubscription ethereum.Subscription
 	connectedMutex   sync.RWMutex
 	connected        bool
-	receivesHeads    int32
+	receivesHeads    atomic.Bool
 	sleeper          utils.Sleeper
 
-	log      *logger.Logger
-	muLogger sync.RWMutex
+	log logger.Logger
 
 	chStop chan struct{}
-	wgDone *sync.WaitGroup
 }
 
-func NewHeadListener(l *logger.Logger,
+func NewHeadListener(l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	chStop chan struct{},
-	wgDone *sync.WaitGroup,
 	sleepers ...utils.Sleeper,
 ) *HeadListener {
+	if ethClient == nil {
+		panic("head listener requires non-nil ethclient")
+	}
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
 		sleeper = sleepers[0]
@@ -72,31 +71,18 @@ func NewHeadListener(l *logger.Logger,
 	return &HeadListener{
 		config:    config,
 		ethClient: ethClient,
+		chainID:   *ethClient.ChainID(),
 		sleeper:   sleeper,
-		log:       l,
+		log:       l.Named("listener"),
 		chStop:    chStop,
-		wgDone:    wgDone,
 	}
 }
 
-// SetLogger sets and reconfigures the log for the head tracker service
-func (hl *HeadListener) SetLogger(logger *logger.Logger) {
-	hl.muLogger.Lock()
-	defer hl.muLogger.Unlock()
-	hl.log = logger
-}
-
-func (hl *HeadListener) logger() *logger.Logger {
-	hl.muLogger.RLock()
-	defer hl.muLogger.RUnlock()
-	return hl.log
-}
-
-func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header models.Head) error) {
-	defer hl.wgDone.Done()
+func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header *eth.Head) error, done func()) {
+	defer done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.logger().Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))
+			hl.log.Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))
 		}
 	}()
 
@@ -111,8 +97,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			hl.logger().Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
-			hl.headers = nil
+			hl.log.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
 			continue
 		} else {
 			break
@@ -122,7 +107,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
 // Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
-func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header models.Head) error) error {
+func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header *eth.Head) error) error {
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
 	t := time.NewTicker(noHeadsAlarmDuration)
 
@@ -134,17 +119,20 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 			// We've received a head, reset the no heads alarm
 			t.Stop()
 			t = time.NewTicker(noHeadsAlarmDuration)
-			atomic.StoreInt32(&hl.receivesHeads, 1)
+			hl.receivesHeads.Store(true)
 			if !open {
 				return errors.New("HeadTracker: headers prematurely closed")
 			}
 			if blockHeader == nil {
-				hl.logger().Error("HeadTracker: got nil block header")
+				hl.log.Error("got nil block header")
 				continue
 			}
-			promNumHeadsReceived.Inc()
+			if blockHeader.EVMChainID == nil || !utils.NewBig(&hl.chainID).Equal(blockHeader.EVMChainID) {
+				panic(fmt.Sprintf("head listener for %s received block header for %s", &hl.chainID, blockHeader.EVMChainID))
+			}
+			promNumHeadsReceived.WithLabelValues(hl.chainID.String()).Inc()
 
-			err := handleNewHead(ctx, *blockHeader)
+			err := handleNewHead(ctx, blockHeader)
 			if ctx.Err() != nil {
 				// the 'ctx' context is closed only on ht.done - on shutdown, so it's safe to return nil
 				return nil
@@ -159,8 +147,8 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning
-			logger.Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarmDuration))
-			atomic.StoreInt32(&hl.receivesHeads, 0)
+			hl.log.Warn(fmt.Sprintf("have not received a head for %v", noHeadsAlarmDuration))
+			hl.receivesHeads.Store(false)
 		}
 	}
 }
@@ -171,21 +159,21 @@ func (hl *HeadListener) subscribe() bool {
 	hl.sleeper.Reset()
 	for {
 		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.logger().Error("failed when unsubscribe from head", err)
+			hl.log.Error("failed when unsubscribe from head", err)
 			return false
 		}
 
-		hl.logger().Info("HeadListener: Connecting to ethereum node ", hl.config.EthereumURL(), " in ", hl.sleeper.Duration())
+		hl.log.Debugf("Subscribing to new heads on chain %s (retry interval %s)", hl.chainID.String(), hl.sleeper.Duration())
 		select {
 		case <-hl.chStop:
 			return false
 		case <-time.After(hl.sleeper.After()):
 			err := hl.subscribeToHead()
 			if err != nil {
-				promEthConnectionErrors.Inc()
-				hl.logger().Warnw(fmt.Sprintf("HeadListener: Failed to connect to ethereum node %v", hl.config.EthereumURL()), "err", err)
+				promEthConnectionErrors.WithLabelValues(hl.chainID.String()).Inc()
+				hl.log.Warnw(fmt.Sprintf("Failed to subscribe to heads on chain %s", hl.chainID.String()), "err", err)
 			} else {
-				hl.logger().Info("HeadListener: Connected to ethereum node ", hl.config.EthereumURL())
+				hl.log.Debugf("Subscribed to heads on chain %s", hl.chainID.String())
 				return true
 			}
 		}
@@ -196,14 +184,12 @@ func (hl *HeadListener) subscribeToHead() error {
 	hl.connectedMutex.Lock()
 	defer hl.connectedMutex.Unlock()
 
-	hl.headers = make(chan *models.Head)
+	hl.headers = make(chan *eth.Head)
 
 	sub, err := hl.ethClient.SubscribeNewHead(context.Background(), hl.headers)
 	if err != nil {
+		close(hl.headers)
 		return errors.Wrap(err, "EthClient#SubscribeNewHead")
-	}
-	if err := verifyEthereumChainID(hl); err != nil {
-		return errors.Wrap(err, "verifyEthereumChainID failed")
 	}
 
 	hl.headSubscription = sub
@@ -223,12 +209,6 @@ func (hl *HeadListener) unsubscribeFromHead() error {
 	hl.headSubscription.Unsubscribe()
 	hl.connected = false
 
-	// ht.headers will be nil if subscription failed, channel closed, and
-	// receiveHeaders returned from the loop. listenForNewHeads will set it to
-	// nil in that case to avoid a double close panic.
-	if hl.headers != nil {
-		close(hl.headers)
-	}
 	return nil
 }
 
@@ -238,22 +218,4 @@ func (hl *HeadListener) Connected() bool {
 	defer hl.connectedMutex.RUnlock()
 
 	return hl.connected
-}
-
-// chainIDVerify checks whether or not the ChainID from the Chainlink config
-// matches the ChainID reported by the ETH node connected to this Chainlink node.
-func verifyEthereumChainID(ht *HeadListener) error {
-	ethereumChainID, err := ht.ethClient.ChainID(context.Background())
-	if err != nil {
-		return err
-	}
-
-	if ethereumChainID.Cmp(ht.config.ChainID()) != 0 {
-		return fmt.Errorf(
-			"ethereum ChainID doesn't match chainlink config.ChainID: config ID=%d, eth RPC ID=%d",
-			ht.config.ChainID(),
-			ethereumChainID,
-		)
-	}
-	return nil
 }

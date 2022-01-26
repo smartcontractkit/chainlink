@@ -8,22 +8,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	heaps "github.com/theodesp/go-heaps"
+	"github.com/theodesp/go-heaps/pairing"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	heaps "github.com/theodesp/go-heaps"
-	"github.com/theodesp/go-heaps/pairing"
-	"gorm.io/gorm"
 )
 
 var (
@@ -47,9 +46,8 @@ type listenerV1 struct {
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner
 	pipelineORM     pipeline.ORM
-	vorm            keystore.VRFORM
 	job             job.Job
-	db              *gorm.DB
+	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
 	vrfks           keystore.VRF
@@ -78,7 +76,7 @@ type listenerV1 struct {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head models.Head) {
+func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
@@ -86,7 +84,7 @@ func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head models.Head) {
 	}
 }
 
-func (lsn *listenerV1) setLatestHead(h models.Head) {
+func (lsn *listenerV1) setLatestHead(h *eth.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(h.Number)
@@ -104,13 +102,8 @@ func (lsn *listenerV1) getLatestHead() uint64 {
 // Start complies with job.Service
 func (lsn *listenerV1) Start() error {
 	return lsn.StartOnce("VRFListener", func() error {
-		// Take the larger of the global vs specific
-		// Note that runtime changes to incoming confirmations require a job delete/add
-		// because we need to resubscribe to the lb with the new min.
-		minConfs := lsn.cfg.MinIncomingConfirmations()
-		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
-			minConfs = lsn.job.VRFSpec.Confirmations
-		}
+		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
+
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinator.Address(),
 			ParseLog: lsn.coordinator.ParseLog,
@@ -123,20 +116,20 @@ func (lsn *listenerV1) Start() error {
 				},
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(): {},
 			},
-			// If we set this to minConfs, since both the log broadcaster and head broadcaster get heads
-			// at the same time from the head tracker whether we process the log at minConfs or minConfs+1
-			// would depend on the order in which their OnNewLongestChain callbacks got called.
-			// We listen one block early so that the log can be stored in pendingRequests
-			// to avoid this.
-			NumConfirmations: uint64(minConfs - 1),
+			// If we set this to MinIncomingConfirmations, since both the log broadcaster and head broadcaster get heads
+			// at the same time from the head tracker whether we process the log at MinIncomingConfirmations or
+			// MinIncomingConfirmations+1 would depend on the order in which their OnNewLongestChain callbacks got
+			// called.
+			// We listen one block early so that the log can be stored in pendingRequests to avoid this.
+			MinIncomingConfirmations: spec.MinIncomingConfirmations - 1,
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
 		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
 		if latestHead != nil {
-			lsn.setLatestHead(*latestHead)
+			lsn.setLatestHead(latestHead)
 		}
-		go lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
+		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		return nil
 	})
@@ -203,7 +196,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.newHead:
-			gracefulpanic.WrapRecover(func() {
+			recovery.WrapRecover(lsn.l, func() {
 				toProcess := lsn.extractConfirmedLogs()
 				for _, r := range toProcess {
 					lsn.ProcessRequest(r.req, r.lb)
@@ -215,7 +208,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 }
 
 func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
-	lsn.l.Infow("VRFListener: listening for run requests",
+	lsn.l.Infow("Listening for run requests",
 		"gasLimit", lsn.cfg.EvmGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
@@ -237,14 +230,16 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 				}
-				lsn.handleLog(lb, minConfs)
+				recovery.WrapRecover(lsn.l, func() {
+					lsn.handleLog(lb, minConfs)
+				})
 			}
 		}
 	}
 }
 
 func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
-	lsn.l.Infow("VRFListener: log received", lb.String(), lb.DecodedLog())
+	lsn.l.Infow("Log received", lb.String(), lb.DecodedLog())
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
 		if !lsn.shouldProcessLog(lb) {
 			return
@@ -262,7 +257,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
-		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
@@ -279,14 +274,19 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
+	lsn.l.Debugw("Enqueued randomness request",
+		"requestID", hex.EncodeToString(req.RequestID[:]),
+		"requestJobID", hex.EncodeToString(req.JobID[:]),
+		"keyHash", hex.EncodeToString(req.KeyHash[:]),
+		"fee", req.Fee,
+		"sender", req.Sender.Hex(),
+		"txHash", lb.RawLog().TxHash)
 }
 
 func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
+	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
 		return false
 	}
@@ -294,11 +294,8 @@ func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
 }
 
 func (lsn *listenerV1) markLogAsConsumed(lb log.Broadcast) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
-	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
-	lsn.l.ErrorIf(errors.Wrapf(err, "VRFListener: unable to mark log %v as consumed", lb.String()))
+	err := lsn.logBroadcaster.MarkConsumed(lb)
+	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
 func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
@@ -313,14 +310,14 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 		newConfs = 200
 	}
 	if lsn.respCount[req.RequestID] > 0 {
-		lsn.l.Warnw("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
+		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,
 			"blockHash", req.Raw.BlockHash,
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 	}
-	return req.Raw.BlockNumber + uint64(minConfs)*(1<<lsn.respCount[req.RequestID])
+	return req.Raw.BlockNumber + newConfs
 }
 
 func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {
@@ -342,16 +339,16 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	// so we don't process the request.
 	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
 	if err != nil {
-		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
-		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
+		lsn.l.Infow("Request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
 		lsn.markLogAsConsumed(lb)
 		return
 	}
 
-	lsn.l.Infow("VRFListener: received log request",
+	lsn.l.Infow("Received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
@@ -378,14 +375,22 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	})
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
-	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx *gorm.DB) error {
+	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.logBroadcaster.MarkConsumed(tx, lb); err != nil {
-			logger.Errorw("VRFListener: failed mark consumed", "err", err)
+		if err = lsn.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx)); err != nil {
+			lsn.l.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
 	}); err != nil {
-		logger.Errorw("VRFListener: failed executing run", "err", err)
+		lsn.l.Errorw("Failed executing run",
+			"err", err,
+			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"reqTxHash", req.Raw.TxHash)
+	} else {
+		lsn.l.Debugw("Executed fulfillment run",
+			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"keyHash", hex.EncodeToString(req.KeyHash[:]),
+			"reqTxHash", req.Raw.TxHash)
 	}
 }
 
@@ -402,7 +407,7 @@ func (lsn *listenerV1) Close() error {
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
-		logger.Error("VRFListener: l mailbox is over capacity - dropped the oldest l")
+		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
 	}
 }
 

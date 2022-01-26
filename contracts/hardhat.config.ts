@@ -1,6 +1,9 @@
-import "@nomiclabs/hardhat-waffle";
-import "hardhat-contract-sizer";
-import "hardhat-abi-exporter";
+import '@typechain/hardhat'
+import '@nomiclabs/hardhat-ethers'
+import '@nomiclabs/hardhat-waffle'
+import 'hardhat-contract-sizer'
+import 'hardhat-abi-exporter'
+import 'solidity-coverage'
 
 const COMPILER_SETTINGS = {
   optimizer: {
@@ -8,22 +11,26 @@ const COMPILER_SETTINGS = {
     runs: 1000000,
   },
   metadata: {
-    bytecodeHash: "none",
+    bytecodeHash: 'none',
   },
-};
+}
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
 export default {
   abiExporter: {
-    path: "./abi",
+    path: './abi',
   },
   paths: {
-    artifacts: "./artifacts",
-    cache: "./cache",
-    sources: "./src",
-    tests: "./test",
+    artifacts: './artifacts',
+    cache: './cache',
+    sources: './src',
+    tests: './test',
+  },
+  typechain: {
+    outDir: './typechain',
+    target: 'ethers-v5',
   },
   networks: {
     hardhat: {},
@@ -31,23 +38,23 @@ export default {
   solidity: {
     compilers: [
       {
-        version: "0.4.24",
+        version: '0.4.24',
         settings: COMPILER_SETTINGS,
       },
       {
-        version: "0.5.0",
+        version: '0.5.0',
         settings: COMPILER_SETTINGS,
       },
       {
-        version: "0.6.6",
+        version: '0.6.6',
         settings: COMPILER_SETTINGS,
       },
       {
-        version: "0.7.6",
+        version: '0.7.6',
         settings: COMPILER_SETTINGS,
       },
       {
-        version: "0.8.6",
+        version: '0.8.6',
         settings: COMPILER_SETTINGS,
       },
     ],
@@ -57,4 +64,7 @@ export default {
     runOnCompile: false,
     disambiguatePaths: false,
   },
-};
+  mocha: {
+    timeout: 100000,
+  },
+}

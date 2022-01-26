@@ -6,10 +6,11 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"go.uber.org/zap/zapcore"
 )
 
 // LogController manages the logger config
@@ -27,18 +28,15 @@ type LogPatchRequest struct {
 func (cc *LogController) Get(c *gin.Context) {
 	var svcs, lvls []string
 	svcs = append(svcs, "Global")
-	lvls = append(lvls, cc.App.GetStore().Config.LogLevel().String())
+	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetStore().Config.LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	logSvcs := logger.GetLogServices()
+	logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 	for _, svcName := range logSvcs {
-		lvl, err := cc.App.GetLogger().ServiceLogLevel(svcName)
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error getting service log level for %s service: %v", svcName, err))
-			return
-		}
+		lvl, _ := logORM.GetServiceLogLevel(svcName)
 
 		svcs = append(svcs, svcName)
 		lvls = append(lvls, lvl)
@@ -48,8 +46,9 @@ func (cc *LogController) Get(c *gin.Context) {
 		JAID: presenters.JAID{
 			ID: "log",
 		},
-		ServiceName: svcs,
-		LogLevel:    lvls,
+		ServiceName:     svcs,
+		LogLevel:        lvls,
+		DefaultLogLevel: cc.App.GetConfig().DefaultLogLevel().String(),
 	}
 
 	jsonAPIResponse(c, response, "log")
@@ -57,6 +56,7 @@ func (cc *LogController) Get(c *gin.Context) {
 
 // Patch sets a log level and enables sql logging for the logger
 func (cc *LogController) Patch(c *gin.Context) {
+	ctx := c.Request.Context()
 	request := &LogPatchRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -79,53 +79,45 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
-		if err = cc.App.GetConfig().SetLogLevel(c.Request.Context(), ll.String()); err != nil {
+		if err := cc.App.SetLogLevel(ll); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
 	}
 	svcs = append(svcs, "Global")
-	lvls = append(lvls, cc.App.GetStore().Config.LogLevel().String())
+	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	if request.SqlEnabled != nil {
-		if err := cc.App.GetConfig().SetLogSQLStatements(c.Request.Context(), *request.SqlEnabled); err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
-		cc.App.GetStore().SetLogging(*request.SqlEnabled)
+		cc.App.GetConfig().SetLogSQL(*request.SqlEnabled)
 	}
+
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetStore().Config.LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	if len(request.ServiceLogLevel) > 0 {
+		logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 		for _, svcLogLvl := range request.ServiceLogLevel {
 			svcName := svcLogLvl[0]
 			svcLvl := svcLogLvl[1]
-			var level zapcore.Level
-			if err := level.UnmarshalText([]byte(svcLvl)); err != nil {
-				jsonAPIError(c, http.StatusInternalServerError, err)
-				return
-			}
 
-			if err := cc.App.SetServiceLogger(c.Request.Context(), svcName, level); err != nil {
-				jsonAPIError(c, http.StatusInternalServerError, err)
-				return
-			}
-
-			ll, err := cc.App.GetLogger().ServiceLogLevel(svcName)
+			var lvl zapcore.Level
+			err := lvl.UnmarshalText([]byte(svcLvl))
 			if err != nil {
+				jsonAPIError(c, http.StatusBadRequest, err)
+				return
+			}
+
+			if err := cc.App.SetServiceLogLevel(ctx, svcName, lvl); err != nil {
 				jsonAPIError(c, http.StatusInternalServerError, err)
 				return
 			}
+
+			ll, _ := logORM.GetServiceLogLevel(svcName)
 
 			svcs = append(svcs, svcName)
 			lvls = append(lvls, ll)
 		}
 	}
-
-	// Set default logger with new configurations
-	logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
-	cc.App.GetLogger().SetDB(cc.App.GetStore().DB)
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{

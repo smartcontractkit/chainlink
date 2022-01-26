@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -35,15 +35,16 @@ type testCase struct {
 func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestEVMConfig(t)
-	cfg.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 	logLevel := config.LogLevel{Level: zapcore.WarnLevel}
-	cfg.GeneralConfig.Overrides.LogLevel = &logLevel
+	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
-	cfg.GeneralConfig.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
+	cfg.Overrides.LogSQL = null.BoolFrom(sqlEnabled)
+	defaultLogLevel := config.LogLevel{Level: zapcore.WarnLevel}
+	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -55,25 +56,22 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &svcLogConfig))
 
+	require.Equal(t, "warn", svcLogConfig.DefaultLogLevel)
+
 	for i, svcName := range svcLogConfig.ServiceName {
 
 		if svcName == "Global" {
-			assert.Equal(t, svcLogConfig.LogLevel[i], logLevel.String())
+			assert.Equal(t, logLevel.String(), svcLogConfig.LogLevel[i])
 		}
 
 		if svcName == "IsSqlEnabled" {
-			assert.Equal(t, svcLogConfig.LogLevel[i], strconv.FormatBool(sqlEnabled))
+			assert.Equal(t, strconv.FormatBool(sqlEnabled), svcLogConfig.LogLevel[i])
 		}
 	}
 }
 
 func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
-	require.NoError(t, app.Start())
-	client := app.NewHTTPClient()
 
 	sqlTrue := true
 	sqlFalse := false
@@ -164,7 +162,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor, logger.Keeper}, ","),
 			svcLevel: strings.Join([]string{"debug", "warning", "infa"}, ","),
 
-			expectedErrorCode: http.StatusInternalServerError,
+			expectedErrorCode: http.StatusBadRequest,
 		},
 		{
 			Description: "Set incorrect service names",
@@ -173,57 +171,64 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			svcName:  strings.Join([]string{logger.HeadTracker, "FLUX-MONITOR", "SHKEEPER"}, ","),
 			svcLevel: strings.Join([]string{"debug", "warning", "info"}, ","),
 
-			expectedErrorCode: http.StatusInternalServerError,
+			expectedErrorCode: http.StatusBadRequest,
 		},
 	}
 
 	for _, tc := range cases {
-		request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
+		tc := tc
+		t.Run(tc.Description, func(t *testing.T) {
+			app := cltest.NewApplicationEVMDisabled(t)
+			require.NoError(t, app.Start())
+			client := app.NewHTTPClient()
 
-		if tc.svcName != "" {
-			svcs := strings.Split(tc.svcName, ",")
-			lvls := strings.Split(tc.svcLevel, ",")
+			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
 
-			serviceLogLevel := make([][2]string, len(svcs))
+			if tc.svcName != "" {
+				svcs := strings.Split(tc.svcName, ",")
+				lvls := strings.Split(tc.svcLevel, ",")
 
-			for i, p := range svcs {
-				serviceLogLevel[i][0] = p
-				serviceLogLevel[i][1] = lvls[i]
+				serviceLogLevel := make([][2]string, len(svcs))
+
+				for i, p := range svcs {
+					serviceLogLevel[i][0] = p
+					serviceLogLevel[i][1] = lvls[i]
+				}
+				request.ServiceLogLevel = serviceLogLevel
 			}
-			request.ServiceLogLevel = serviceLogLevel
-		}
 
-		requestData, _ := json.Marshal(request)
-		buf := bytes.NewBuffer(requestData)
+			requestData, _ := json.Marshal(request)
+			buf := bytes.NewBuffer(requestData)
 
-		resp, cleanup := client.Patch("/v2/log", buf)
-		defer cleanup()
+			resp, cleanup := client.Patch("/v2/log", buf)
+			defer cleanup()
 
-		svcLogConfig := presenters.ServiceLogConfigResource{}
-		if tc.expectedErrorCode != 0 {
-			cltest.AssertServerResponse(t, resp, tc.expectedErrorCode)
-		} else {
-			cltest.AssertServerResponse(t, resp, http.StatusOK)
-			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &svcLogConfig))
+			svcLogConfig := presenters.ServiceLogConfigResource{}
+			if tc.expectedErrorCode != 0 {
+				cltest.AssertServerResponse(t, resp, tc.expectedErrorCode)
+			} else {
+				cltest.AssertServerResponse(t, resp, http.StatusOK)
+				require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &svcLogConfig))
 
-			for i, svcName := range svcLogConfig.ServiceName {
+				for i, svcName := range svcLogConfig.ServiceName {
 
-				if svcName == "Global" {
-					assert.Equal(t, tc.expectedLogLevel.String(), svcLogConfig.LogLevel[i])
-				}
+					if svcName == "Global" {
+						assert.Equal(t, tc.expectedLogLevel.String(), svcLogConfig.LogLevel[i])
+					}
 
-				if svcName == "IsSqlEnabled" {
-					assert.Equal(t, strconv.FormatBool(tc.expectedLogSQL), svcLogConfig.LogLevel[i])
-				}
+					if svcName == "IsSqlEnabled" {
+						assert.Equal(t, strconv.FormatBool(tc.expectedLogSQL), svcLogConfig.LogLevel[i])
+					}
 
-				if svcName == logger.HeadTracker {
-					assert.Equal(t, tc.expectedSvcLevel[logger.HeadTracker].String(), svcLogConfig.LogLevel[i])
-				}
+					if svcName == logger.HeadTracker {
+						assert.Equal(t, tc.expectedSvcLevel[logger.HeadTracker].String(), svcLogConfig.LogLevel[i])
+					}
 
-				if svcName == logger.FluxMonitor {
-					assert.Equal(t, tc.expectedSvcLevel[logger.FluxMonitor].String(), svcLogConfig.LogLevel[i])
+					if svcName == logger.FluxMonitor {
+						assert.Equal(t, tc.expectedSvcLevel[logger.FluxMonitor].String(), svcLogConfig.LogLevel[i])
+					}
 				}
 			}
-		}
+		})
 	}
 }

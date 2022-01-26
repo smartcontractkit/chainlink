@@ -101,7 +101,6 @@ import "./VRFRequestIDBase.sol";
  * @dev until it calls responds to a request.
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
-
   using SafeMathChainlink for uint256;
 
   /**
@@ -118,12 +117,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @param requestId The Id initially returned by requestRandomness
    * @param randomness the VRF output
    */
-  function fulfillRandomness(
-    bytes32 requestId,
-    uint256 randomness
-  )
-    internal
-    virtual;
+  function fulfillRandomness(bytes32 requestId, uint256 randomness) internal virtual;
 
   /**
    * @dev In order to keep backwards compatibility we have kept the user
@@ -132,7 +126,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * Given that it adds no security, and can easily lead to misunderstandings,
    * we have removed it from usage and can now provide a simpler API.
    */
-  uint256 constant private USER_SEED_PLACEHOLDER = 0;
+  uint256 private constant USER_SEED_PLACEHOLDER = 0;
 
   /**
    * @notice requestRandomness initiates a request for VRF output given _seed
@@ -159,20 +153,12 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @dev concurrent requests. It is passed as the first argument to
    * @dev fulfillRandomness.
    */
-  function requestRandomness(
-    bytes32 _keyHash,
-    uint256 _fee
-  )
-    internal
-    returns (
-      bytes32 requestId
-    )
-  {
+  function requestRandomness(bytes32 _keyHash, uint256 _fee) internal returns (bytes32 requestId) {
     LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, USER_SEED_PLACEHOLDER));
     // This is the seed passed to VRFCoordinator. The oracle will mix this with
     // the hash of the block containing this request to obtain the seed/input
     // which is finally passed to the VRF cryptographic machinery.
-    uint256 vRFSeed  = makeVRFInputSeed(_keyHash, USER_SEED_PLACEHOLDER, address(this), nonces[_keyHash]);
+    uint256 vRFSeed = makeVRFInputSeed(_keyHash, USER_SEED_PLACEHOLDER, address(this), nonces[_keyHash]);
     // nonces[_keyHash] must stay in sync with
     // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
     // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest).
@@ -183,13 +169,14 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     return makeRequestId(_keyHash, vRFSeed);
   }
 
-  LinkTokenInterface immutable internal LINK;
-  address immutable private vrfCoordinator;
+  LinkTokenInterface internal immutable LINK;
+  address private immutable vrfCoordinator;
 
   // Nonces for each VRF key from which randomness has been requested.
   //
   // Must stay in sync with VRFCoordinator[_keyHash][this]
-  mapping(bytes32 /* keyHash */ => uint256 /* nonce */) private nonces;
+  mapping(bytes32 => uint256) /* keyHash */ /* nonce */
+    private nonces;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
@@ -197,10 +184,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    *
    * @dev https://docs.chain.link/docs/link-token-contracts
    */
-  constructor(
-    address _vrfCoordinator,
-    address _link
-  ) {
+  constructor(address _vrfCoordinator, address _link) {
     vrfCoordinator = _vrfCoordinator;
     LINK = LinkTokenInterface(_link);
   }
@@ -208,14 +192,8 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
   // the origin of the call
-  function rawFulfillRandomness(
-    bytes32 requestId,
-    uint256 randomness
-  )
-    external
-  {
+  function rawFulfillRandomness(bytes32 requestId, uint256 randomness) external {
     require(msg.sender == vrfCoordinator, "Only VRFCoordinator can fulfill");
     fulfillRandomness(requestId, randomness);
   }
 }
-

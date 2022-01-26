@@ -1,10 +1,10 @@
 package web
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +19,7 @@ type TransactionsController struct {
 
 // Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
-	txs, count, err := tc.App.GetStore().EthTransactionsWithAttempts(offset, size)
+	txs, count, err := tc.App.BPTXMORM().EthTransactionsWithAttempts(offset, size)
 	ptxs := make([]presenters.EthTxResource, len(txs))
 	for i, tx := range txs {
 		tx.EthTxAttempts[0].EthTx = tx
@@ -28,14 +28,14 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }
 
-// Show returns the details of a Ethereum Transasction details.
+// Show returns the details of a Ethereum Transaction details.
 // Example:
 //  "<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 
-	ethTxAttempt, err := tc.App.GetStore().FindEthTxAttempt(hash)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	ethTxAttempt, err := tc.App.BPTXMORM().FindEthTxAttempt(hash)
+	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 		return
 	}

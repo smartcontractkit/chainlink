@@ -25,7 +25,7 @@ import { Delete } from './Delete'
 import { KeyBundle } from './KeyBundle'
 import { useDispatch } from 'react-redux'
 import { deleteNotification, createNotification } from './Notifications'
-import { Copy } from './Copy'
+import { CopyIconButton } from 'components/Copy/CopyIconButton'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -44,9 +44,8 @@ const KEY_TYPE = 'P2P'
 
 export const P2PKeys = withStyles(styles)(
   ({ classes }: WithStyles<typeof styles>) => {
-    const [p2pKeys, setP2Keys] = React.useState<
-      jsonapi.ApiResponse<models.P2PKey[]>['data']
-    >()
+    const [p2pKeys, setP2Keys] =
+      React.useState<jsonapi.ApiResponse<models.P2PKey[]>['data']>()
     const { error, ErrorComponent, setError } = useErrorHandler()
     const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !p2pKeys)
     const dispatch = useDispatch()
@@ -140,7 +139,7 @@ export const P2PKeys = withStyles(styles)(
                         primary={
                           <b>
                             Peer ID: {key.attributes.peerId}{' '}
-                            <Copy data={key.attributes.peerId} />
+                            <CopyIconButton data={key.attributes.peerId} />
                           </b>
                         }
                         secondary={[

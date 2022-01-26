@@ -7,6 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //
@@ -25,7 +27,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (t *MedianTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam
@@ -38,7 +40,7 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, inputs []Result) (result 
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
@@ -49,14 +51,14 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, inputs []Result) (result 
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}
+		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}, runInfo
 	} else if len(values) == 0 {
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}
+		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}, runInfo
 	}
 
 	err = decimalValues.UnmarshalPipelineParam(values)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	sort.Slice(decimalValues, func(i, j int) bool {
@@ -64,8 +66,8 @@ func (t *MedianTask) Run(_ context.Context, vars Vars, inputs []Result) (result 
 	})
 	k := len(decimalValues) / 2
 	if len(decimalValues)%2 == 1 {
-		return Result{Value: decimalValues[k]}
+		return Result{Value: decimalValues[k]}, runInfo
 	}
 	median := decimalValues[k].Add(decimalValues[k-1]).Div(decimal.NewFromInt(2))
-	return Result{Value: median}
+	return Result{Value: median}, runInfo
 }

@@ -5,18 +5,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // ETHKeyResource represents a ETH key JSONAPI resource. It holds the hex
 // representation of the address plus its ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
-	Address     string       `json:"address"`
-	EthBalance  *assets.Eth  `json:"ethBalance"`
-	LinkBalance *assets.Link `json:"linkBalance"`
-	IsFunding   bool         `json:"isFunding"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
+	EVMChainID     utils.Big    `json:"evmChainID"`
+	Address        string       `json:"address"`
+	EthBalance     *assets.Eth  `json:"ethBalance"`
+	LinkBalance    *assets.Link `json:"linkBalance"`
+	IsFunding      bool         `json:"isFunding"`
+	CreatedAt      time.Time    `json:"createdAt"`
+	UpdatedAt      time.Time    `json:"updatedAt"`
+	MaxGasPriceWei utils.Big    `json:"maxGasPriceWei"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -37,6 +40,7 @@ type NewETHKeyOption func(*ETHKeyResource) error
 func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) (*ETHKeyResource, error) {
 	r := &ETHKeyResource{
 		JAID:        NewJAID(k.Address.Hex()),
+		EVMChainID:  state.EVMChainID,
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
 		LinkBalance: nil,
@@ -67,6 +71,14 @@ func SetETHKeyEthBalance(ethBalance *assets.Eth) NewETHKeyOption {
 func SetETHKeyLinkBalance(linkBalance *assets.Link) NewETHKeyOption {
 	return func(r *ETHKeyResource) error {
 		r.LinkBalance = linkBalance
+
+		return nil
+	}
+}
+
+func SetETHKeyMaxGasPriceWei(maxGasPriceWei utils.Big) NewETHKeyOption {
+	return func(r *ETHKeyResource) error {
+		r.MaxGasPriceWei = maxGasPriceWei
 
 		return nil
 	}

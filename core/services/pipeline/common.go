@@ -3,7 +3,9 @@ package pipeline
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"net/url"
 	"reflect"
 	"sort"
@@ -14,21 +16,24 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
 		Type() TaskType
 		ID() int
 		DotID() string
-		Run(ctx context.Context, vars Vars, inputs []Result) Result
+		Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (Result, RunInfo)
 		Base() *BaseTask
 		Outputs() []Task
 		Inputs() []Task
@@ -47,9 +52,6 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		EvmGasLimitDefault() uint64
-		EvmMaxQueuedTransactions() uint64
-		MinRequiredOutgoingConfirmations() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -72,6 +74,34 @@ const (
 	InputTaskKey = "input"
 )
 
+// RunInfo contains additional information about the finished TaskRun
+type RunInfo struct {
+	IsRetryable bool
+	IsPending   bool
+}
+
+// retryableMeta should be returned if the error is non-deterministic; i.e. a
+// repeated attempt sometime later _might_ succeed where the current attempt
+// failed
+func retryableRunInfo() RunInfo {
+	return RunInfo{IsRetryable: true}
+}
+
+func pendingRunInfo() RunInfo {
+	return RunInfo{IsPending: true}
+}
+
+func isRetryableHTTPError(statusCode int, err error) bool {
+	if statusCode >= 400 && statusCode < 500 {
+		// Client errors are not likely to succeed by resubmitting the exact same information again
+		return false
+	} else if statusCode >= 500 {
+		// Remote errors _might_ work on a retry
+		return true
+	}
+	return err != nil
+}
+
 // Result is the result of a TaskRun
 type Result struct {
 	Value interface{}
@@ -80,7 +110,7 @@ type Result struct {
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
 func (result Result) OutputDB() JSONSerializable {
-	return JSONSerializable{Val: result.Value, Null: result.Value == nil}
+	return JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
 }
 
 // ErrorDB dumps a single result error for a pipeline_task_run
@@ -94,13 +124,24 @@ func (result Result) ErrorDB() null.String {
 
 // FinalResult is the result of a Run
 type FinalResult struct {
-	Values []interface{}
-	Errors []error
+	Values      []interface{}
+	AllErrors   []error
+	FatalErrors []error
+}
+
+// HasFatalErrors returns true if the final result has any errors
+func (result FinalResult) HasFatalErrors() bool {
+	for _, err := range result.FatalErrors {
+		if err != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // HasErrors returns true if the final result has any errors
 func (result FinalResult) HasErrors() bool {
-	for _, err := range result.Errors {
+	for _, err := range result.AllErrors {
 		if err != nil {
 			return true
 		}
@@ -110,10 +151,10 @@ func (result FinalResult) HasErrors() bool {
 
 // SingularResult returns a single result if the FinalResult only has one set of outputs/errors
 func (result FinalResult) SingularResult() (Result, error) {
-	if len(result.Errors) != 1 || len(result.Values) != 1 {
+	if len(result.FatalErrors) != 1 || len(result.Values) != 1 {
 		return Result{}, errors.Errorf("cannot cast FinalResult to singular result; it does not have exactly 1 error and exactly 1 output: %#v", result)
 	}
-	return Result{Error: result.Errors[0], Value: result.Values[0]}, nil
+	return Result{Error: result.FatalErrors[0], Value: result.Values[0]}, nil
 }
 
 // TaskRunResult describes the result of a task run, suitable for database
@@ -128,6 +169,8 @@ type TaskRunResult struct {
 	Attempts   uint
 	CreatedAt  time.Time
 	FinishedAt null.Time
+	// runInfo is never persisted
+	runInfo RunInfo
 }
 
 func (result *TaskRunResult) IsPending() bool {
@@ -143,43 +186,66 @@ type TaskRunResults []TaskRunResult
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
-func (trrs TaskRunResults) FinalResult() FinalResult {
+func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	var found bool
 	var fr FinalResult
 	sort.Slice(trrs, func(i, j int) bool {
 		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
 	})
 	for _, trr := range trrs {
+		fr.AllErrors = append(fr.AllErrors, trr.Result.Error)
 		if trr.IsTerminal() {
 			fr.Values = append(fr.Values, trr.Result.Value)
-			fr.Errors = append(fr.Errors, trr.Result.Error)
+			fr.FatalErrors = append(fr.FatalErrors, trr.Result.Error)
 			found = true
 		}
 	}
 
 	if !found {
-		logger.Errorw("expected at least one task to be final", "tasks", trrs)
-		panic("expected at least one task to be final")
+		l.Panicw("Expected at least one task to be final", "tasks", trrs)
 	}
 	return fr
 }
 
 type JSONSerializable struct {
-	Val  interface{}
-	Null bool
+	Val   interface{}
+	Valid bool
 }
 
+// UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
-	return json.Unmarshal(bs, &js.Val)
+	str := string(bs)
+	if str == "" || str == "null" {
+		js.Valid = false
+		return nil
+	}
+
+	err := json.Unmarshal(bs, &js.Val)
+	js.Valid = err == nil
+	return err
 }
 
+// MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
+	if !js.Valid {
+		return []byte("null"), nil
+	}
 	switch x := js.Val.(type) {
 	case []byte:
-		return json.Marshal(string(x))
+		// Don't need to HEX encode if it is a valid JSON string
+		if json.Valid(x) {
+			return json.Marshal(string(x))
+		}
+
+		// Don't need to HEX encode if it is already HEX encoded value
+		if utils.IsHexBytes(x) {
+			return json.Marshal(string(x))
+		}
+
+		return json.Marshal(hex.EncodeToString(x))
 	default:
 		return json.Marshal(js.Val)
 	}
@@ -187,7 +253,7 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 
 func (js *JSONSerializable) Scan(value interface{}) error {
 	if value == nil {
-		*js = JSONSerializable{Null: true}
+		*js = JSONSerializable{}
 		return nil
 	}
 	bytes, ok := value.([]byte)
@@ -201,14 +267,14 @@ func (js *JSONSerializable) Scan(value interface{}) error {
 }
 
 func (js JSONSerializable) Value() (driver.Value, error) {
-	if js.Null {
+	if !js.Valid {
 		return nil, nil
 	}
 	return js.MarshalJSON()
 }
 
 func (js *JSONSerializable) Empty() bool {
-	return js == nil || js.Null
+	return js == nil || !js.Valid
 }
 
 type TaskType string
@@ -235,11 +301,15 @@ const (
 	TaskTypeETHCall          TaskType = "ethcall"
 	TaskTypeETHTx            TaskType = "ethtx"
 	TaskTypeETHABIEncode     TaskType = "ethabiencode"
+	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
+	TaskTypeMerge            TaskType = "merge"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
+	TaskTypeMemo  TaskType = "memo"
+	TaskTypeFail  TaskType = "fail"
 )
 
 var (
@@ -281,6 +351,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeJSONParse:
 		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMemo:
+		task = &MemoTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeDivide:
@@ -297,12 +369,18 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:
 		task = &ETHABIEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIEncode2:
+		task = &ETHABIEncodeTask2{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIDecode:
 		task = &ETHABIDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIDecodeLog:
 		task = &ETHABIDecodeLogTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeCBORParse:
 		task = &CBORParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeFail:
+		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMerge:
+		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
@@ -355,4 +433,15 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 		return nil, ErrTooManyErrors
 	}
 	return vals, nil
+}
+
+func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
+	if str == "" {
+		return chainSet.Default()
+	}
+	id, ok := new(big.Int).SetString(str, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
+	}
+	return chainSet.Get(id)
 }

@@ -17,6 +17,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/KeeperRegistry.abi ../../../contracts/solc/v0.7/KeeperRegistry.bin KeeperRegistry keeper_registry_wrapper
+
 // v0.8 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id_v08
@@ -30,6 +32,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin VRFCoordinatorV2 vrf_coordinator_v2
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin VRFConsumerV2 vrf_consumer_v2
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.abi ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.bin VRFMaliciousConsumerV2 vrf_malicious_consumer_v2
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFTestHelper.abi ../../../contracts/solc/v0.8/VRFTestHelper.bin VRFV08TestHelper solidity_vrf_v08_verifier_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin VRFSingleConsumerExample vrf_single_consumer_example
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.abi ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.bin VRFExternalSubOwnerExample vrf_external_sub_owner_example
 
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:

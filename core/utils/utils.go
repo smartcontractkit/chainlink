@@ -11,28 +11,21 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"go.uber.org/atomic"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
-	"github.com/tevino/abool"
+	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
-	null "gopkg.in/guregu/null.v4"
 )
 
 const (
@@ -40,8 +33,6 @@ const (
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
-	// EVMWordHexLen the length of an EVM Word Hex
-	EVMWordHexLen = EVMWordByteLen * 2
 )
 
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
@@ -51,22 +42,6 @@ var ZeroAddress = common.Address{}
 // EmptyHash is a hash of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
-
-// WithoutZeroAddresses returns a list of addresses excluding the zero address.
-func WithoutZeroAddresses(addresses []common.Address) []common.Address {
-	var withoutZeros []common.Address
-	for _, address := range addresses {
-		if address != ZeroAddress {
-			withoutZeros = append(withoutZeros, address)
-		}
-	}
-	return withoutZeros
-}
-
-// Uint64ToHex converts the given uint64 value to a hex-value string.
-func Uint64ToHex(i uint64) string {
-	return fmt.Sprintf("0x%x", i)
-}
 
 var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
 
@@ -85,14 +60,6 @@ func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
-}
-
-// NullISO8601UTC returns formatted time if valid, empty string otherwise.
-func NullISO8601UTC(t null.Time) string {
-	if t.Valid {
-		return ISO8601UTC(t.Time)
-	}
-	return ""
 }
 
 // DurationFromNow returns the amount of time since the Time
@@ -136,17 +103,6 @@ func RemoveHexPrefix(str string) string {
 // HasHexPrefix returns true if the string starts with 0x.
 func HasHexPrefix(str string) bool {
 	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
-}
-
-// DecodeEthereumTx takes an RLP hex encoded Ethereum transaction and
-// returns a Transaction struct with all the fields accessible.
-func DecodeEthereumTx(hex string) (types.Transaction, error) {
-	var tx types.Transaction
-	b, err := hexutil.Decode(hex)
-	if err != nil {
-		return tx, err
-	}
-	return tx, rlp.DecodeBytes(b, &tx)
 }
 
 // IsEmptyAddress checks that the address is empty, synonymous with the zero
@@ -193,7 +149,7 @@ type Sleeper interface {
 // BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
 	backoff.Backoff
-	beenRun *abool.AtomicBool
+	beenRun *atomic.Bool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
@@ -205,13 +161,13 @@ func NewBackoffSleeper() *BackoffSleeper {
 			Min: 1 * time.Second,
 			Max: 10 * time.Second,
 		},
-		beenRun: abool.New(),
+		beenRun: atomic.NewBool(false),
 	}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
 func (bs *BackoffSleeper) Sleep() {
-	if bs.beenRun.SetToIf(false, true) {
+	if bs.beenRun.CAS(false, true) {
 		return
 	}
 	time.Sleep(bs.Backoff.Duration())
@@ -219,7 +175,7 @@ func (bs *BackoffSleeper) Sleep() {
 
 // After returns the duration for the next stop, and increments the backoff.
 func (bs *BackoffSleeper) After() time.Duration {
-	if bs.beenRun.SetToIf(false, true) {
+	if bs.beenRun.CAS(false, true) {
 		return 0
 	}
 	return bs.Backoff.Duration()
@@ -227,7 +183,7 @@ func (bs *BackoffSleeper) After() time.Duration {
 
 // Duration returns the current duration value.
 func (bs *BackoffSleeper) Duration() time.Duration {
-	if !bs.beenRun.IsSet() {
+	if !bs.beenRun.Load() {
 		return 0
 	}
 	return bs.ForAttempt(bs.Attempt())
@@ -235,7 +191,7 @@ func (bs *BackoffSleeper) Duration() time.Duration {
 
 // Reset resets the backoff intervals.
 func (bs *BackoffSleeper) Reset() {
-	bs.beenRun.UnSet()
+	bs.beenRun.Store(false)
 	bs.Backoff.Reset()
 }
 
@@ -256,17 +212,6 @@ func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 			continue
 		}
 	}
-}
-
-// MaxBigs finds the maximum value of a list of big.Ints.
-func MaxBigs(first *big.Int, bigs ...*big.Int) *big.Int {
-	max := first
-	for _, n := range bigs {
-		if max.Cmp(n) < 0 {
-			max = n
-		}
-	}
-	return max
 }
 
 // MaxUint32 finds the maximum value of a list of uint32s.
@@ -348,11 +293,6 @@ func Sha256(in string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// StripBearer removes the 'Bearer: ' prefix from the HTTP Authorization header.
-func StripBearer(authorizationStr string) string {
-	return strings.TrimPrefix(strings.TrimSpace(authorizationStr), "Bearer ")
-}
-
 // IsQuoted checks if the first and last characters are either " or '.
 func IsQuoted(input []byte) bool {
 	return len(input) >= 2 &&
@@ -406,14 +346,6 @@ func MustHash(in string) common.Hash {
 	return common.BytesToHash(out)
 }
 
-// LogListeningAddress returns the LogListeningAddress
-func LogListeningAddress(address common.Address) string {
-	if address == ZeroAddress {
-		return "[all]"
-	}
-	return address.String()
-}
-
 // JustError takes a tuple and returns the last entry, the error.
 func JustError(_ interface{}, err error) error {
 	return err
@@ -449,14 +381,6 @@ func HexToBig(s string) *big.Int {
 		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, s))
 	}
 	return n
-}
-
-// Uint256ToHex returns the hex representation of n, or error if out of bounds
-func Uint256ToHex(n *big.Int) (string, error) {
-	if err := CheckUint256(n); err != nil {
-		return "", err
-	}
-	return common.BigToHash(n).Hex(), nil
 }
 
 // Uint256ToBytes32 returns the bytes32 encoding of the big int provided
@@ -496,6 +420,8 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 		return decimal.NewFromFloat(v), nil
 	case float32:
 		return decimal.NewFromFloat32(v), nil
+	case big.Int:
+		return decimal.NewFromBigInt(&v, 0), nil
 	case *big.Int:
 		return decimal.NewFromBigInt(v, 0), nil
 	case decimal.Decimal:
@@ -521,6 +447,20 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 // receives or is closed.
 func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-chStop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
+// ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
+// receives or is closed.
+func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	go func() {
 		select {
 		case <-chStop:
@@ -558,8 +498,7 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 			ctxTimeout, cancel2 = context.WithTimeout(ctx, sig)
 			ch = reflect.ValueOf(ctxTimeout.Done())
 		default:
-			logger.Errorf("utils.CombinedContext cannot accept a value of type %T, skipping", sig)
-			continue
+			panic(fmt.Sprintf("utils.CombinedContext cannot accept a value of type %T, skipping", sig))
 		}
 		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
 	}
@@ -744,26 +683,6 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
-// LogIfError logs an error if not nil
-func LogIfError(err *error, msg string) {
-	if *err != nil {
-		logger.Errorf(msg+": %+v", *err)
-	}
-}
-
-// DebugPanic logs a panic exception being called
-func DebugPanic() {
-	//revive:disable:defer
-	if err := recover(); err != nil {
-		pc := make([]uintptr, 10) // at least 1 entry needed
-		runtime.Callers(5, pc)
-		f := runtime.FuncForPC(pc[0])
-		file, line := f.FileLine(pc[0])
-		logger.Errorf("Caught panic in %v (%v#%v): %v", f.Name(), file, line, err)
-		panic(err)
-	}
-}
-
 type TickerBase interface {
 	Resume()
 	Pause()
@@ -787,7 +706,7 @@ func NewPausableTicker(duration time.Duration) PausableTicker {
 }
 
 // Ticks retrieves the ticks from a PausableTicker
-func (t PausableTicker) Ticks() <-chan time.Time {
+func (t *PausableTicker) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	if t.ticker == nil {
@@ -824,7 +743,7 @@ func (t *PausableTicker) Destroy() {
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
-	beenRun *abool.AtomicBool
+	beenRun *atomic.Bool
 }
 
 func NewCronTicker(schedule string) (CronTicker, error) {
@@ -837,15 +756,15 @@ func NewCronTicker(schedule string) (CronTicker, error) {
 		}
 	})
 	if err != nil {
-		return CronTicker{beenRun: abool.New()}, err
+		return CronTicker{beenRun: atomic.NewBool(false)}, err
 	}
-	return CronTicker{Cron: cron, ch: ch, beenRun: abool.New()}, nil
+	return CronTicker{Cron: cron, ch: ch, beenRun: atomic.NewBool(false)}, nil
 }
 
 // Start - returns true if the CronTicker was actually started, false otherwise
 func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		if t.beenRun.SetToIf(false, true) {
+		if t.beenRun.CAS(false, true) {
 			t.Cron.Start()
 			return true
 		}
@@ -856,7 +775,7 @@ func (t *CronTicker) Start() bool {
 // Stop - returns true if the CronTicker was actually stopped, false otherwise
 func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		if t.beenRun.SetToIf(true, false) {
+		if t.beenRun.CAS(true, false) {
 			t.Cron.Stop()
 			return true
 		}
@@ -891,7 +810,7 @@ func NewResettableTimer() ResettableTimer {
 }
 
 // Ticks retrieves the ticks from a ResettableTimer
-func (t ResettableTimer) Ticks() <-chan time.Time {
+func (t *ResettableTimer) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	if t.timer == nil {
@@ -1042,6 +961,7 @@ func (once *StartStopOnce) Healthy() error {
 
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {
+	// #nosec
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
@@ -1087,19 +1007,4 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
-}
-
-func Example_boxOutput() {
-	fmt.Println()
-	fmt.Print(BoxOutput("%s is %d", "foo", 17))
-	// Output:
-	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// →  foo is 17  ←
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }

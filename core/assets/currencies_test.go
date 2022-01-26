@@ -12,7 +12,7 @@ import (
 func TestAssets_NewLinkAndString(t *testing.T) {
 	t.Parallel()
 
-	link := assets.NewLink(0)
+	link := assets.NewLinkFromJuels(0)
 
 	assert.Equal(t, "0", link.String())
 
@@ -32,7 +32,7 @@ func TestAssets_NewLinkAndString(t *testing.T) {
 func TestAssets_NewLinkAndLink(t *testing.T) {
 	t.Parallel()
 
-	link := assets.NewLink(0)
+	link := assets.NewLinkFromJuels(0)
 
 	assert.Equal(t, "0.000000000000000000", link.Link())
 
@@ -55,7 +55,7 @@ func TestAssets_NewLinkAndLink(t *testing.T) {
 func TestAssets_Link_MarshalJson(t *testing.T) {
 	t.Parallel()
 
-	link := assets.NewLink(1)
+	link := assets.NewLinkFromJuels(1)
 
 	b, err := json.Marshal(link)
 	assert.NoError(t, err)

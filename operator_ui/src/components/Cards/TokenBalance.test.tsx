@@ -1,29 +1,30 @@
 import React from 'react'
+import { render, screen } from 'support/test-utils'
 import TokenBalanceCard from '../../../src/components/Cards/TokenBalance'
-import { mount } from 'enzyme'
+
+const { queryByText } = screen
 
 describe('components/Cards/TokenBalance', () => {
   it('renders the title and a loading indicator when it is fetching', () => {
-    const wrapper = mount(
-      <TokenBalanceCard title="Ether Balance" value={undefined} />,
-    )
+    render(<TokenBalanceCard title="Ether Balance" value={undefined} />)
 
-    expect(wrapper.text()).toContain('Ether Balance...')
+    expect(queryByText('Ether Balance')).toBeInTheDocument()
+    expect(queryByText('...')).toBeInTheDocument()
   })
 
   it('renders the title and the error message', () => {
-    const wrapper = mount(
-      <TokenBalanceCard title="Ether Balance" error="An Error" />,
-    )
+    render(<TokenBalanceCard title="Ether Balance" error="An Error" />)
 
-    expect(wrapper.text()).toContain('Ether BalanceAn Error')
+    expect(queryByText('Ether Balance')).toBeInTheDocument()
+    expect(queryByText('An Error')).toBeInTheDocument()
   })
 
   it('renders the title and the formatted balance', () => {
-    const wrapper = mount(
+    render(
       <TokenBalanceCard title="Ether Balance" value="7779070000000000000000" />,
     )
 
-    expect(wrapper.text()).toContain('Ether Balance7.779070k')
+    expect(queryByText('Ether Balance')).toBeInTheDocument()
+    expect(queryByText('7.779070k')).toBeInTheDocument()
   })
 })

@@ -1,10 +1,16 @@
 import React from 'react'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { logConfigFactory } from 'factories/jsonApiLogConfig'
 import { LoggingCard } from './LoggingCard'
-import { act } from 'react-dom/test-utils'
+import {
+  renderWithRouter,
+  screen,
+  waitForElementToBeRemoved,
+} from 'support/test-utils'
+import userEvent from '@testing-library/user-event'
+import Notifications from 'pages/Notifications'
+
+const { findByText, getByRole, getByText, getByTestId } = screen
 
 describe('pages/Configuration/LoggingCard', () => {
   it('renders the logging configuration card', async () => {
@@ -15,44 +21,43 @@ describe('pages/Configuration/LoggingCard', () => {
 
     global.fetch.getOnce(globPath('/v2/log'), logConfig)
 
-    const wrapper = mountWithProviders(<LoggingCard />)
-    await syncFetch(wrapper)
+    renderWithRouter(<LoggingCard />)
 
-    expect(wrapper.find('input[name="level"]').first().props().value).toEqual(
-      'info',
-    )
-    expect(
-      wrapper.find('input[name="sqlEnabled"]').first().props().checked,
-    ).toEqual(false)
+    await waitForElementToBeRemoved(getByText('Loading...'))
+
+    expect(getByTestId('logging-form')).toHaveFormValues({
+      level: 'info',
+      sqlEnabled: false,
+    })
   })
 
   it('updates the logging configuration', async () => {
     const logConfig = logConfigFactory({
       serviceName: ['Global', 'IsSqlEnabled'],
-      logLevel: ['info', 'false'],
+      logLevel: ['debug', 'false'],
+      defaultLogLevel: 'warn',
     })
 
     global.fetch.getOnce(globPath('/v2/log'), logConfig)
-    const submit = global.fetch.patchOnce(globPath('/v2/log'), logConfig)
+    global.fetch.patchOnce(globPath('/v2/log'), logConfig)
 
-    const wrapper = mountWithProviders(<LoggingCard />)
-    await syncFetch(wrapper)
-
-    act(() => {
-      const selectInput = wrapper.find('#select-level').first()
-      const selectOnChange = selectInput.prop('onChange')
-      if (selectOnChange) {
-        selectOnChange({
-          target: { name: 'level', value: 'debug' },
-        } as any)
-      }
-    })
-
-    wrapper.find('form').simulate('submit')
-    await syncFetch(wrapper)
-
-    expect(submit.lastCall()[1].body).toEqual(
-      '{"level":"debug","sqlEnabled":false}',
+    renderWithRouter(
+      <>
+        <Notifications />
+        <LoggingCard />
+      </>,
     )
+
+    await waitForElementToBeRemoved(getByText('Loading...'))
+
+    userEvent.click(
+      getByRole('checkbox', { name: /log sql statements \(debug only\)/i }),
+    )
+
+    userEvent.click(getByRole('button', { name: 'Update' }))
+
+    expect(
+      await findByText('Logging Configuration Updated'),
+    ).toBeInTheDocument()
   })
 })

@@ -3,7 +3,6 @@
 ENVIRONMENT ?= release
 
 GOPATH ?= $(HOME)/go
-BUILDER ?= smartcontract/builder
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
@@ -32,14 +31,13 @@ operator-ui-autoinstall: | yarndep operator-ui
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
-		go get github.com/smartcontractkit/gencodec; \
+		go install github.com/smartcontractkit/gencodec@latest; \
 	fi || true
 	go mod download
 
 .PHONY: yarndep
 yarndep: ## Ensure all yarn dependencies are installed
 	yarn install --frozen-lockfile --prefer-offline
-	./tools/bin/restore-solc-cache
 
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
@@ -47,13 +45,10 @@ install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
 chainlink: operator-ui ## Build the chainlink binary.
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: chainlink-build
 chainlink-build:
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 	go build $(GOFLAGS) -o chainlink ./core/
 	cp chainlink $(GOBIN)/chainlink
 
@@ -61,7 +56,6 @@ chainlink-build:
 operator-ui: ## Build the static frontend UI.
 	yarn setup:chainlink
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
 .PHONY: contracts-operator-ui-build
 contracts-operator-ui-build: # only compiles tsc and builds contracts and operator-ui
@@ -76,11 +70,14 @@ abigen:
 go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and their go wrappers
 	./contracts/scripts/native_solc_compile_all
 	go generate ./core/internal/gethwrappers
-	go run ./packr/main.go ./core/services/eth/
 
 .PHONY: testdb
 testdb: ## Prepares the test database
 	go run ./core/main.go local db preparetest
+
+.PHONY: testdb
+testdb-user-only: ## Prepares the test database
+	go run ./core/main.go local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit
@@ -91,9 +88,8 @@ presubmit:
 
 .PHONY: docker
 docker: ## Build the docker image.
-		docker build \
+	docker build \
 		-f $(DOCKERFILE) \
-		--build-arg BUILDER=$(BUILDER) \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		--build-arg CHAINLINK_USER=$(CHAINLINK_USER) \

@@ -1,8 +1,10 @@
 import React from 'react'
 import { jobRunAPIResponse } from 'factories/jsonApiOcrJobRun'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { transformPipelineJobRun } from '../../transformJobRuns'
 import { PipelineJobRunOverview } from './PipelineJobRunOverview'
+import { render, screen } from 'support/test-utils'
+
+const { queryByText } = screen
 
 describe('PipelineJobRunOverview', () => {
   it('displays an overview & json tab by default', () => {
@@ -20,21 +22,15 @@ describe('PipelineJobRunOverview', () => {
 
     const jobRun = transformPipelineJobRun('1')(apiResponse.data)
 
-    const component = mountWithProviders(
-      <PipelineJobRunOverview jobRun={jobRun} />,
-    )
-
-    // There should be 2 dividers for 3 tasks
-    expect(component.find('Divider').length).toEqual(2)
+    render(<PipelineJobRunOverview jobRun={jobRun} />)
 
     // Should contain attributes of the failed task
     // eslint-disable-next-line no-useless-escape
-    expect(component.text()).toContain(`requestData: {\"hi\": \"hello\"}`)
-    expect(component.text()).toContain('url: http://localhost:8001')
-    expect(component.text()).toContain('method: POST')
+    expect(queryByText(/: \{"hi": "hello"\}/i)).toBeInTheDocument()
+    expect(queryByText(/: http:\/\/localhost:8001/i)).toBeInTheDocument()
 
     // Should not contain attributes of tasks that were not run
-    expect(component.text()).not.toContain('path: data,result')
-    expect(component.text()).not.toContain('times: 100')
+    expect(queryByText(': data,result')).toBeNull()
+    expect(queryByText(': 100')).toBeNull()
   })
 })

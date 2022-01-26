@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"math/big"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -14,40 +17,147 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
-	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
-
-	gormpostgres "gorm.io/driver/postgres"
-
-	"go.uber.org/multierr"
-
-	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/health"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/fatih/color"
+	"github.com/kylelemons/godebug/diff"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
-	"gorm.io/gorm"
+	"go.uber.org/multierr"
+	null "gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/health"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0700)
+
+func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
+	uri := cfg.DatabaseURL()
+	appid := cfg.AppID()
+	static.SetConsumerName(&uri, "App", &appid)
+	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
+	db, err = pg.NewConnection(uri.String(), string(dialect), pg.Config{
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
+	})
+	err = errors.Wrap(err, "failed to open db")
+	return
+}
+
+func applicationLockDB(cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger, sig shutdown.Signal) (cleanup func(), err error) {
+	lggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
+
+	lockingMode := cfg.DatabaseLockingMode()
+	cleanup = func() {}
+
+	// Lease will be explicitly released on application stop
+	// Take the lease before any other DB operations
+	var leaseLock pg.LeaseLock
+	switch lockingMode {
+	case "lease", "dual":
+		leaseLock = pg.NewLeaseLock(db, cfg.AppID(), lggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
+		if err = leaseLock.TakeAndHold(sig); err != nil {
+			return cleanup, errors.Wrap(err, "failed to take initial lease on database")
+		}
+		cleanup = leaseLock.Release
+	}
+
+	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
+	var advisoryLock pg.Locker
+	switch lockingMode {
+	case "advisorylock", "dual":
+		advisoryLock, err = advisoryLockTakeAndHold(context.Background(), lggr, db.DB, time.Second, sig)
+		if err != nil {
+			return cleanup, errors.Wrap(err, "error acquiring lock")
+		}
+	}
+
+	cleanup = func() {
+		if leaseLock != nil {
+			leaseLock.Release()
+		}
+		if advisoryLock != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if err := advisoryLock.Unlock(ctx); err != nil {
+				lggr.Error(err)
+			}
+		}
+	}
+	return cleanup, nil
+}
+
+// Try to immediately acquire an advisory lock. The lock will be released on application stop.
+func advisoryLockTakeAndHold(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration, sig shutdown.Signal) (pg.Locker, error) {
+	lggr = lggr.Named("AdvisoryLock")
+	const lockID int64 = 1027321974924625846
+	lockRetryInterval := time.Second
+
+	lggr = lggr.Named("AdvisoryLock")
+	lggr.Debug("Taking advisory lock...")
+
+	initCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	lock, err := pg.NewLock(initCtx, lockID, db)
+	if err != nil {
+		return nil, err
+	}
+
+	ticker := time.NewTicker(lockRetryInterval)
+	defer ticker.Stop()
+	retryCount := 0
+	for {
+		lockCtx, cancel := context.WithTimeout(ctx, timeout)
+		gotLock, err := lock.Lock(lockCtx)
+		if errors.Is(err, sql.ErrConnDone) {
+			lggr.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
+			// Initialize new lock (opening new connection) if the current connection is dead
+			if lock, err = pg.NewLock(initCtx, lockID, db); err != nil {
+				cancel()
+				return nil, err
+			}
+			continue
+		}
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+		if gotLock {
+			break
+		}
+
+		select {
+		case <-ticker.C:
+			retryCount++
+			if msg := retryLogMsg(retryCount); msg != "" {
+				lggr.Infow(msg, "failCount", retryCount)
+			}
+			continue
+		case <-sig.Wait():
+			return nil, errors.New("application shutdown")
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
+		}
+	}
+
+	lggr.Debug("Got advisory lock")
+
+	return &lock, nil
+}
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -56,28 +166,34 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
+	lggr := cli.Logger.Named("RunNode")
+	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
+
 	if cli.Config.Dev() {
-		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 	if cli.Config.EthereumDisabled() {
-		logger.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
+		lggr.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
 	}
 
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
-
+	db, err := openDB(cli.Config, lggr)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
+	defer lggr.ErrorIfClosing(db, "db")
 
-	err = cli.Config.SetLogLevel(context.Background(), zapcore.DebugLevel.String())
+	sig := shutdown.NewSignal()
+	cleanup, err := applicationLockDB(cli.Config, db, lggr, sig)
+	defer cleanup()
 	if err != nil {
-		return cli.errorOut(err)
+		return cli.errorOut(errors.Wrap(err, "obtaining application db lock"))
+	}
+	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	store := app.GetStore()
+	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
 	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore)
 	if err != nil {
@@ -95,76 +211,84 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 	}
 
-	err = keyStore.Migrate(vrfpwd)
+	chainSet := app.GetChainSet()
+	dflt, err := chainSet.Default()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	err = keyStore.Migrate(vrfpwd, dflt.ID())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
 	}
 
-	skey, sexisted, fkey, fexisted, err := keyStore.Eth().EnsureKeys()
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	if !fexisted {
-		logger.Infow("New funding address created", "address", fkey.Address.Hex())
-	}
-	if !sexisted {
-		logger.Infow("New sending address created", "address", skey.Address.Hex())
+	for _, ch := range chainSet.Chains() {
+		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+		if err2 != nil {
+			return cli.errorOut(err)
+		}
+		if !fexisted {
+			lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
+		}
+		if !sexisted {
+			lggr.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
+		}
 	}
 
-	ocrKey, didExist, err := keyStore.OCR().EnsureKey()
+	ocrKey, didExist, err := app.GetKeyStore().OCR().EnsureKey()
 	if err != nil {
-		return errors.Wrap(err, "failed to ensure ocr key")
+		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr key"))
 	}
 	if !didExist {
-		logger.Infof("Created OCR key with ID %s", ocrKey.ID())
+		lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 	}
-	p2pKey, didExist, err := keyStore.P2P().EnsureKey()
+	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
 	if err != nil {
-		return errors.Wrap(err, "failed to ensure p2p key")
+		return cli.errorOut(errors.Wrap(err, "failed to ensure p2p key"))
 	}
 	if !didExist {
-		logger.Infof("Created P2P key with ID %s", p2pKey.ID())
+		lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
 	}
 
-	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
-		logger.Warn(e)
+	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {
+		lggr.Warn(e)
 	}
 
-	var user models.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(store); err != nil && err != ErrNoCredentialFile {
+	var user sessions.User
+	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
 		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
 	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(store); err != nil {
+	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
 		if err == ErrorNoAPICredentialsAvailable {
 			return cli.errorOut(err)
 		}
 		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
 
-	logger.Info("API exposed for user ", user.Email)
+	lggr.Info("API exposed for user ", user.Email)
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
-	defer loggedStop(app)
-	err = logConfigVariables(cli.Config)
+	defer func() {
+		lggr.ErrorIf(app.Stop(), "Error stopping app")
+		if err = lggr.Sync(); err != nil {
+			log.Println(err)
+		}
+	}()
+	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
-		return err
+		return cli.errorOut(err)
 	}
 
-	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
+	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
-func loggedStop(app chainlink.Application) {
-	logger.WarnIf(app.Stop())
-}
-
-func checkFilePermissions(rootDir string) error {
+func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
-		logger.Errorf("error checking perms of 'tls' directory: %v", err)
+		lggr.Errorf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
 		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
 		if err != nil {
@@ -173,12 +297,12 @@ func checkFilePermissions(rootDir string) error {
 
 		err = filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				logger.Errorf(`error checking perms of "%v": %v`, path, err)
+				lggr.Errorf(`error checking perms of "%v": %v`, path, err)
 				return err
 			}
 			if utils.TooPermissive(info.Mode().Perm(), ownerPermsMask) {
 				newPerms := info.Mode().Perm() & ownerPermsMask
-				logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, info.Mode().Perm(), newPerms)
+				lggr.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, info.Mode().Perm(), newPerms)
 				return utils.EnsureFilepathMaxPerms(path, newPerms)
 			}
 			return nil
@@ -200,7 +324,7 @@ func checkFilePermissions(rootDir string) error {
 		}
 		if utils.TooPermissive(fileInfo.Mode().Perm(), ownerPermsMask) {
 			newPerms := fileInfo.Mode().Perm() & ownerPermsMask
-			logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
+			lggr.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
 			err = utils.EnsureFilepathMaxPerms(path, newPerms)
 			if err != nil {
 				return err
@@ -208,11 +332,11 @@ func checkFilePermissions(rootDir string) error {
 		}
 		owned, err := utils.IsFileOwnedByChainlink(fileInfo)
 		if err != nil {
-			logger.Warn(err)
+			lggr.Warn(err)
 			continue
 		}
 		if !owned {
-			logger.Warnf("The file %v is not owned by the user running chainlink. This will be made mandatory in the future.", path)
+			lggr.Warnf("The file %v is not owned by the user running chainlink. This will be made mandatory in the future.", path)
 		}
 	}
 	return nil
@@ -226,13 +350,13 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 
-func logConfigVariables(cfg config.GeneralConfig) error {
-	wlc, err := presenters.NewConfigPrinter(cfg)
+func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
+	wlc, err := config.NewConfigPrinter(cfg)
 	if err != nil {
 		return err
 	}
 
-	logger.Debug("Environment variables\n", wlc)
+	lggr.Debug("Environment variables\n", wlc)
 	return nil
 }
 
@@ -244,6 +368,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	gasPriceWei := c.Uint64("gasPriceWei")
 	overrideGasLimit := c.Uint64("gasLimit")
 	addressHex := c.String("address")
+	chainIDStr := c.String("evmChainID")
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
@@ -251,12 +376,26 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cli.Config.SetDialect(dialects.PostgresWithoutLock)
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
+	var chainID *big.Int
+	if chainIDStr != "" {
+		var ok bool
+		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)
+		if !ok {
+			return cli.errorOut(errors.Wrap(err, "invalid evmChainID"))
+		}
+	}
+
+	lggr := cli.Logger.Named("RebroadcastTransactions")
+	db, err := openDB(cli.Config, lggr)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfClosing(db, "db")
+	sig := shutdown.NewSignal()
+
+	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {
@@ -267,10 +406,14 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	store := app.GetStore()
+	chain, err := app.GetChainSet().Get(chainID)
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	keyStore := app.GetKeyStore()
 
-	ethClient := app.GetEthClient()
+	ethClient := chain.Client()
+
 	err = ethClient.Dial(context.TODO())
 	if err != nil {
 		return err
@@ -281,18 +424,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	err = store.Start()
+	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+
+	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
 	if err != nil {
 		return cli.errorOut(err)
 	}
-
-	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
-
-	allKeys, err := keyStore.Eth().GetAll()
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, evmcfg, keyStore.Eth(), store.AdvisoryLocker, allKeys, nil, nil, logger.Default)
+	ec := bulletprooftxmanager.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -355,7 +493,6 @@ func (cli *Client) Status(c *clipkg.Context) error {
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
 // This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
@@ -368,11 +505,26 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
-	logger.Infof("Resetting database: %#v", parsed.String())
+	lggr := cli.Logger
+	lggr.Infof("Resetting database: %#v", parsed.String())
+	lggr.Debugf("Dropping and recreating database: %#v", parsed.String())
 	if err := dropAndCreateDB(parsed); err != nil {
 		return cli.errorOut(err)
 	}
-	if err := migrateDB(cfg); err != nil {
+	lggr.Debugf("Migrating database: %#v", parsed.String())
+	if err := migrateDB(cfg, lggr); err != nil {
+		return cli.errorOut(err)
+	}
+	schema, err := dumpSchema(cfg)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	lggr.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
+	var baseVersionID int64 = 54
+	if err := downAndUpDB(cfg, lggr, baseVersionID); err != nil {
+		return cli.errorOut(err)
+	}
+	if err := checkSchema(cfg, schema); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -384,7 +536,25 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
-	if err := insertFixtures(cfg); err != nil {
+	userOnly := c.Bool("user-only")
+	var fixturePath = "../store/fixtures/fixtures.sql"
+	if userOnly {
+		fixturePath = "../store/fixtures/user_only_fixture.sql"
+	}
+	if err := insertFixtures(cfg, fixturePath); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+// PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
+// testing against testnets. Does not include fake chain fixtures.
+func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
+	if err := cli.ResetDatabase(c); err != nil {
+		return cli.errorOut(err)
+	}
+	cfg := cli.Config
+	if err := insertFixtures(cfg, "../store/fixtures/user_only_fixtures.sql"); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -392,15 +562,14 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(cfg); err != nil {
+	cli.Logger.Infof("Migrating database: %#v", parsed.String())
+	if err := migrateDB(cfg, cli.Logger); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -418,21 +587,12 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err := migrate.Rollback(db, version); err != nil {
+	if err := migrate.Rollback(db.DB, cli.Logger, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -441,46 +601,28 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	version, err := migrate.Current(db)
+	version, err := migrate.Current(db.DB, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
-	logger.Infof("Database version: %v", version)
+	cli.Logger.Infof("Database version: %v", version)
 	return nil
 }
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err = migrate.Status(db); err != nil {
+	if err = migrate.Status(db.DB, cli.Logger); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -488,33 +630,37 @@ func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 
 // CreateMigration displays the database migration status
 func (cli *Client) CreateMigration(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-
-	db := postgres.UnwrapGormDB(orm.DB).DB
 
 	migrationType := c.String("type")
 	if migrationType != "go" {
 		migrationType = "sql"
 	}
 
-	if err = migrate.Create(db, c.Args().First(), migrationType); err != nil {
+	if err = migrate.Create(db.DB, c.Args().First(), migrationType); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
+}
+
+func newConnection(cfg config.GeneralConfig, lggr logger.Logger) (*sqlx.DB, error) {
+	parsed := cfg.DatabaseURL()
+	if parsed.String() == "" {
+		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+	}
+	config := pg.Config{
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
+	}
+	db, err := pg.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
+	return db, err
 }
 
 func dropAndCreateDB(parsed url.URL) (err error) {
@@ -543,24 +689,62 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	return nil
 }
 
-func migrateDB(config config.GeneralConfig) error {
-	dbURL := config.DatabaseURL()
-	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+func migrateDB(config config.GeneralConfig, lggr logger.Logger) error {
+	db, err := newConnection(config, lggr)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err = migrate.Migrate(db); err != nil {
+	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
-	orm.SetLogging(config.LogSQLStatements())
-	return orm.Close()
+	return db.Close()
 }
 
-func insertFixtures(config config.GeneralConfig) (err error) {
+func downAndUpDB(cfg config.GeneralConfig, lggr logger.Logger, baseVersionID int64) error {
+	db, err := newConnection(cfg, lggr)
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+	if err = migrate.Rollback(db.DB, lggr, null.IntFrom(baseVersionID)); err != nil {
+		return fmt.Errorf("test rollback failed: %v", err)
+	}
+	if err = migrate.Migrate(db.DB, lggr); err != nil {
+		return fmt.Errorf("second migrateDB failed: %v", err)
+	}
+	return db.Close()
+}
+
+func dumpSchema(cfg config.GeneralConfig) (string, error) {
+	dbURL := cfg.DatabaseURL()
+	args := []string{
+		dbURL.String(),
+		"--schema-only",
+	}
+	cmd := exec.Command(
+		"pg_dump", args...,
+	)
+
+	schema, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to dump schema: %v", err)
+	}
+	return string(schema), nil
+}
+
+func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
+	newSchema, err := dumpSchema(cfg)
+	if err != nil {
+		return err
+	}
+	df := diff.Diff(prevSchema, newSchema)
+	if len(df) > 0 {
+		fmt.Println(df)
+		return errors.New("schema pre- and post- rollback does not match (ctrl+f for '+' or '-' to find the changed lines)")
+	}
+	return nil
+}
+
+func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err error) {
 	dbURL := config.DatabaseURL()
 	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
 	if err != nil {
@@ -576,7 +760,7 @@ func insertFixtures(config config.GeneralConfig) (err error) {
 	if !ok {
 		return errors.New("could not get runtime.Caller(1)")
 	}
-	filepath := path.Join(path.Dir(filename), "../store/fixtures/fixtures.sql")
+	filepath := path.Join(path.Dir(filename), pathToFixtures)
 	fixturesSQL, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return err
@@ -587,26 +771,31 @@ func insertFixtures(config config.GeneralConfig) (err error) {
 
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	evmcfg := config.NewEVMConfig(cli.Config)
-	app, err := cli.AppFactory.NewApplication(evmcfg)
+	lggr := cli.Logger.Named("DeleteUser")
+	db, err := openDB(cli.Config, lggr)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "opening db"))
+	}
+	defer lggr.ErrorIfClosing(db, "db")
+	sig := shutdown.NewSignal()
+	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {
 			err = multierr.Append(err, serr)
 		}
 	}()
-	store := app.GetStore()
-	user, err := store.FindUser()
+	orm := app.SessionORM()
+	user, err := orm.FindUser()
 	if err == nil {
-		logger.Info("No such API user ", user.Email)
+		app.GetLogger().Info("No such API user ", user.Email)
 		return err
 	}
-	err = store.DeleteUser()
+	err = orm.DeleteUser()
 	if err == nil {
-		logger.Info("Deleted API user ", user.Email)
+		app.GetLogger().Info("Deleted API user ", user.Email)
 	}
 	return err
 }
@@ -615,12 +804,8 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	addressHex := c.String("address")
 	nextNonce := c.Uint64("nextNonce")
-	dbURL := cli.Config.DatabaseURL()
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
-	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: dbURL.String(),
-	}), &gorm.Config{})
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -630,11 +815,15 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 
-	res := db.Exec(`UPDATE eth_key_states SET next_nonce = ? WHERE address = ?`, nextNonce, address)
-	if res.Error != nil {
+	res, err := db.Exec(`UPDATE eth_key_states SET next_nonce = $1 WHERE address = $2`, nextNonce, address)
+	if err != nil {
 		return cli.errorOut(err)
 	}
-	if res.RowsAffected == 0 {
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if rowsAffected == 0 {
 		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
 	}
 	return nil

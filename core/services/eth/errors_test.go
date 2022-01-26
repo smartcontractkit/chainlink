@@ -209,6 +209,17 @@ func Test_Eth_Errors(t *testing.T) {
 		assert.False(t, err.IsFeeTooHigh())
 		assert.False(t, err.IsFeeTooLow())
 	})
+
+	t.Run("moonriver errors", func(t *testing.T) {
+		err := eth.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(Stale)")
+		assert.True(t, err.IsNonceTooLowError())
+		assert.False(t, err.IsTransactionAlreadyInMempool())
+		assert.False(t, err.Fatal())
+		err = eth.NewSendErrorS("primary http (http://***REDACTED***:9933) call failed: submit transaction to pool failed: Pool(AlreadyImported)")
+		assert.True(t, err.IsTransactionAlreadyInMempool())
+		assert.False(t, err.IsNonceTooLowError())
+		assert.False(t, err.Fatal())
+	})
 }
 
 func Test_Eth_Errors_Fatal(t *testing.T) {

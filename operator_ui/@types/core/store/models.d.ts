@@ -70,42 +70,6 @@ declare module 'core/store/models' {
   type AddressCollection = common.Address[]
   //#endregion common.go
 
-  //#region bridge_type.go
-  /**
-   * BridgeTypeRequest is the incoming record used to create a BridgeType
-   */
-  export interface BridgeTypeRequest {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
-   */
-  export interface BridgeTypeAuthentication {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    incomingToken: string
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeType is used for external adapters and has fields for
-   * the name of the adapter and its URL.
-   */
-  export interface BridgeType {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-  //#endregion bridge_type.go
-
   /**
    * Tx contains fields necessary for an Ethereum transaction with
    * an additional field for the TxAttempt.
@@ -178,6 +142,7 @@ declare module 'core/store/models' {
   export interface SessionRequest {
     email: string
     password: string
+    webauthndata: string
   }
   //#endregion user.go
   //#region bulk.go
@@ -232,6 +197,22 @@ declare module 'core/store/models' {
     toml: string
   }
 
+  export interface CreateChainRequest {
+    chainID: string
+    config: Record<string, JSONPrimitive>
+  }
+
+  export interface UpdateChainRequest {
+    config: Record<string, JSONPrimitive>
+    enabled: boolean
+  }
+  export interface CreateNodeRequest {
+    name: string
+    evmChainID: string
+    httpURL: string
+    wsURL: string
+  }
+
   export type PipelineTaskOutput = string | null
   export type PipelineTaskError = string | null
 
@@ -252,7 +233,10 @@ declare module 'core/store/models' {
       initiator: 'runlog'
       contractAddress: common.Address
       minIncomingConfirmations: number | null
+      minIncomingConfirmationsEnv?: boolean
       createdAt: time.Time
+      requesters: common.Address[]
+      evmChainID: string
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -273,11 +257,12 @@ declare module 'core/store/models' {
       idleTimerPeriod: string
       pollTimerDisabled: false
       pollTimerPeriod: string
-      drumbeatEnabled:     boolean
-      drumbeatSchedule?:    string
+      drumbeatEnabled: boolean
+      drumbeatSchedule?: string
       drumbeatRandomDelay?: string
       minPayment: number | null
       createdAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -298,12 +283,18 @@ declare module 'core/store/models' {
       monitoringEndpoint: string
       transmitterAddress: common.Address
       observationTimeout: string
+      observationTimeoutEnv?: boolean
       blockchainTimeout: string
+      blockchainTimeoutEnv?: boolean
       contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerSubscribeIntervalEnv?: boolean
       contractConfigTrackerPollInterval: string
+      contractConfigTrackerPollIntervalEnv?: boolean
       contractConfigConfirmations: number
+      contractConfigConfirmationsEnv?: boolean
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -320,6 +311,7 @@ declare module 'core/store/models' {
       fromAddress: common.Address
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -362,11 +354,14 @@ declare module 'core/store/models' {
     type: 'vrf'
     keeperSpec: null
     vrfSpec: {
-      confirmations: number
+      minIncomingConfirmations: number
       publicKey: string
-      coordinatorAddress: common.Address,
+      coordinatorAddress: common.Address
+      fromAddress: string
+      pollPeriod: string
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     directRequestSpec: null
@@ -385,8 +380,18 @@ declare module 'core/store/models' {
     | VRFJob
 
   export type Chain = {
-    config: Record<string, JSONPrimitive>,
-    createdAt: time.Time,
+    config: Record<string, JSONPrimitive>
+    enabled: boolean
+    createdAt: time.Time
+    updatedAt: time.Time
+  }
+
+  export type Node = {
+    name: string
+    evmChainID: string
+    httpURL: string
+    wsURL: string
+    createdAt: time.Time
     updatedAt: time.Time
   }
 
@@ -407,13 +412,24 @@ declare module 'core/store/models' {
 
   // We really need to change the API for this. It not only returns levels but
   // true/false for IsSQLEnabled
-  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error' | "true" | "false"
-  export type LogServiceName = 'Global' | 'IsSqlEnabled' | 'header_tracker' | 'fluxmonitor'
+  export type LogConfigLevel =
+    | 'debug'
+    | 'info'
+    | 'warn'
+    | 'error'
+    | 'true'
+    | 'false'
+  export type LogServiceName =
+    | 'Global'
+    | 'IsSqlEnabled'
+    | 'header_tracker'
+    | 'fluxmonitor'
 
   export interface LogConfig {
     // Stupidly this also returns boolean strings
-    logLevel: LogConfigLevel[] ;
-    serviceName: string[];
+    logLevel: LogConfigLevel[]
+    serviceName: string[]
+    defaultLogLevel: string
   }
 
   export interface LogConfigRequest {
@@ -425,40 +441,40 @@ declare module 'core/store/models' {
     publicKey: string
   }
 
-  export interface FeedsManager {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    isConnectionActive: boolean
-    bootstrapPeerMultiaddr?: string
-    createdAt: time.Time
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface BeginWebAuthnRegistrationV2Request {}
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface BeginWebAuthnRegistrationV2 {}
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface FinishWebAuthnRegistrationV2Request {
+    id: string
+    rawId: string
+    type: string
+    response: {
+      attestationObject: string
+      clientDataJSON: string
+    }
   }
 
-  export interface CreateFeedsManagerRequest {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    bootstrapPeerMultiaddr?: string
-  }
-
-  export interface UpdateFeedsManagerRequest {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    bootstrapPeerMultiaddr?: string
-  }
-
-  export interface JobProposal {
-    spec: string
-    status: string
-    external_job_id: string | null
-    createdAt: time.Time
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface FinishWebAuthnRegistrationV2 {
+    id: string
+    rawId: string
+    type: string
+    response: {
+      attestationObject: string
+      clientDataJSON: string
+    }
   }
 
   export interface UpdateJobProposalSpecRequest {
@@ -478,4 +494,3 @@ export interface PipelineTaskRun {
   dotId: string
   type: string
 }
-

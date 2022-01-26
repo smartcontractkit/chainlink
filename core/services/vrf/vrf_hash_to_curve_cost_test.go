@@ -44,7 +44,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, &key)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
-	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	parsed, err := abi.JSON(strings.NewReader(
 		solidity_vrf_verifier_wrapper.VRFTestHelperABI))
 	require.NoError(t, err, "could not parse VRF ABI")

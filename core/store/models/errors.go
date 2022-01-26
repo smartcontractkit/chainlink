@@ -1,33 +1,8 @@
 package models
 
 import (
-	"fmt"
 	"strings"
 )
-
-// DatabaseAccessError is an error that occurs during database access.
-type DatabaseAccessError struct {
-	msg string
-}
-
-func (e *DatabaseAccessError) Error() string { return e.msg }
-
-// NewDatabaseAccessError returns a database access error.
-func NewDatabaseAccessError(msg string) error {
-	return &DatabaseAccessError{msg}
-}
-
-// ValidationError is an error that occurs during validation.
-type ValidationError struct {
-	msg string
-}
-
-func (e *ValidationError) Error() string { return e.msg }
-
-// NewValidationError returns a validation error.
-func NewValidationError(msg string, values ...interface{}) error {
-	return &ValidationError{msg: fmt.Sprintf(msg, values...)}
-}
 
 // JSONAPIErrors holds errors conforming to the JSONAPI spec.
 type JSONAPIErrors struct {

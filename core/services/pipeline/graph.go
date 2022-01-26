@@ -46,14 +46,6 @@ type GraphNode struct {
 	attrs map[string]string
 }
 
-func NewGraphNode(n graph.Node, dotID string, attrs map[string]string) *GraphNode {
-	return &GraphNode{
-		Node:  n,
-		attrs: attrs,
-		dotID: dotID,
-	}
-}
-
 func (n *GraphNode) DOTID() string {
 	return n.dotID
 }
@@ -107,6 +99,7 @@ func (p *Pipeline) UnmarshalText(bs []byte) (err error) {
 	*p = *parsed
 	return nil
 }
+
 func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	var minTimeout time.Duration = 1<<63 - 1
 	var aTimeoutSet bool

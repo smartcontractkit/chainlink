@@ -3,13 +3,12 @@ package vrf
 import (
 	"bytes"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 )
 
@@ -44,11 +43,14 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	if bytes.Equal(spec.PublicKey[:], empty[:]) {
 		return jb, errors.Wrap(ErrKeyNotSet, "publicKey")
 	}
-	if spec.Confirmations == 0 {
-		return jb, errors.Wrap(ErrKeyNotSet, "confirmations")
+	if spec.MinIncomingConfirmations == 0 {
+		return jb, errors.Wrap(ErrKeyNotSet, "minIncomingConfirmations")
 	}
 	if spec.CoordinatorAddress.String() == "" {
 		return jb, errors.Wrap(ErrKeyNotSet, "coordinatorAddress")
+	}
+	if spec.RequestedConfsDelay < 0 {
+		return jb, errors.Wrap(ErrKeyNotSet, "requestedConfsDelay must be >= 0")
 	}
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {

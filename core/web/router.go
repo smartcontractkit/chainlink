@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -23,63 +23,47 @@ import (
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
 	"github.com/unrolled/secure"
-)
 
-var prometheus *ginprom.Prometheus
-
-func init() {
-	gin.DebugPrintRouteFunc = printRoutes
-
-	// ensure metrics are regsitered once per instance to avoid registering
-	// metrics multiple times (panic)
-	prometheus = ginprom.New(ginprom.Namespace("service"))
-}
-
-func printRoutes(httpMethod, absolutePath, handlerName string, nuHandlers int) {
-	logger.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
-}
-
-const (
-	// SessionName is the session name
-	SessionName = "clsession"
-	// SessionIDKey is the session ID key in the session map
-	SessionIDKey = "clsession_id"
-	// SessionUserKey is the User key in the session map
-	SessionUserKey = "user"
-	// SessionExternalInitiatorKey is the External Initiator key in the session map
-	SessionExternalInitiatorKey = "external_initiator"
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/web/auth"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
+	"github.com/smartcontractkit/chainlink/core/web/resolver"
+	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
 // Router listens and responds to requests to the node for valid paths.
-func Router(app chainlink.Application) *gin.Engine {
+func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
 	engine := gin.New()
-	store := app.GetStore()
-	config := store.Config
+	config := app.GetConfig()
 	secret, err := config.SessionSecret()
 	if err != nil {
-		logger.Panic(err)
+		app.GetLogger().Panic(err)
 	}
 	sessionStore := sessions.NewCookieStore(secret)
 	sessionStore.Options(config.SessionOptions())
 	cors := uiCorsHandler(config)
+	if prometheus != nil {
+		prometheus.Use(engine)
+	}
 
-	prometheus.Use(engine)
 	engine.Use(
 		limits.RequestSizeLimiter(config.DefaultHTTPLimit()),
-		loggerFunc(),
+		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
 		secureMiddleware(config),
-		prometheus.Instrument(),
 	)
+	if prometheus != nil {
+		engine.Use(prometheus.Instrument())
+	}
 	engine.Use(helmet.Default())
 
 	api := engine.Group(
@@ -88,7 +72,7 @@ func Router(app chainlink.Application) *gin.Engine {
 			config.AuthenticatedRateLimitPeriod().Duration(),
 			config.AuthenticatedRateLimit(),
 		),
-		sessions.Sessions(SessionName, sessionStore),
+		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
 	metricRoutes(app, api)
@@ -96,9 +80,32 @@ func Router(app chainlink.Application) *gin.Engine {
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(app.NewBox(), engine, config)
+	guiAssetRoutes(engine, config, app.GetLogger())
+
+	api.POST("/query",
+		auth.AuthenticateGQL(app.SessionORM()),
+		loader.Middleware(app),
+		graphqlHandler(app),
+	)
 
 	return engine
+}
+
+// Defining the Graphql handler
+func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
+	rootSchema := schema.MustGetRootSchema()
+
+	schema := graphql.MustParseSchema(rootSchema,
+		&resolver.Resolver{
+			App: app,
+		},
+	)
+
+	h := relay.Handler{Schema: schema}
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
 }
 
 func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
@@ -152,10 +159,10 @@ func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
 	return secureFunc
 }
 func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	group := r.Group("/debug", RequireAuth(app.GetStore(), AuthenticateBySession))
+	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
-	if app.GetStore().Config.Dev() {
+	if app.GetConfig().Dev() {
 		// No authentication because `go tool pprof` doesn't support it
 		pprofGroup := r.Group("/debug/pprof")
 		pprofGroup.GET("/", pprofHandler(pprof.Index))
@@ -181,14 +188,14 @@ func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
 }
 
 func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	config := app.GetStore().Config
+	config := app.GetConfig()
 	unauth := r.Group("/", rateLimiter(
 		config.UnAuthenticatedRateLimitPeriod().Duration(),
 		config.UnAuthenticatedRateLimit(),
 	))
-	sc := SessionsController{app}
+	sc := NewSessionsController(app)
 	unauth.POST("/sessions", sc.Create)
-	auth := r.Group("/", RequireAuth(app.GetStore(), AuthenticateBySession))
+	auth := r.Group("/", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
@@ -205,12 +212,19 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	psec := PipelineJobSpecErrorsController{app}
 	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
-	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
+	authv2 := r.Group("/v2", auth.Authenticate(app.SessionORM(),
+		auth.AuthenticateByToken,
+		auth.AuthenticateBySession,
+	))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.POST("/user/token", uc.NewAPIToken)
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
+
+		wa := NewWebAuthnController(app)
+		authv2.GET("/enroll_webauthn", wa.BeginRegistration)
+		authv2.POST("/enroll_webauthn", wa.FinishRegistration)
 
 		eia := ExternalInitiatorsController{app}
 		authv2.GET("/external_initiators", paginatedRequest(eia.Index))
@@ -250,6 +264,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
+		authv2.PUT("/keys/eth/:keyID", ekc.Update)
 		authv2.DELETE("/keys/eth/:keyID", ekc.Delete)
 		authv2.POST("/keys/eth/import", ekc.Import)
 		authv2.POST("/keys/eth/export/:address", ekc.Export)
@@ -271,6 +286,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
 		authv2.POST("/keys/csa", csakc.Create)
+		authv2.POST("/keys/csa/import", csakc.Import)
+		authv2.POST("/keys/csa/export/:ID", csakc.Export)
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
@@ -289,6 +306,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/job_proposals", jpc.Index)
 		authv2.GET("/job_proposals/:id", jpc.Show)
 		authv2.POST("/job_proposals/:id/approve", jpc.Approve)
+		authv2.POST("/job_proposals/:id/cancel", jpc.Cancel)
 		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
 		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
 
@@ -311,6 +329,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		chc := ChainsController{app}
 		authv2.GET("/chains/evm", paginatedRequest(chc.Index))
 		authv2.POST("/chains/evm", chc.Create)
+		authv2.GET("/chains/evm/:ID", chc.Show)
+		authv2.PATCH("/chains/evm/:ID", chc.Update)
 		authv2.DELETE("/chains/evm/:ID", chc.Delete)
 
 		nc := NodesController{app}
@@ -321,10 +341,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	userOrEI := r.Group("/v2", RequireAuth(app.GetStore(),
-		AuthenticateExternalInitiator,
-		AuthenticateByToken,
-		AuthenticateBySession,
+	userOrEI := r.Group("/v2", auth.Authenticate(app.SessionORM(),
+		auth.AuthenticateExternalInitiator,
+		auth.AuthenticateByToken,
+		auth.AuthenticateBySession,
 	))
 	userOrEI.GET("/ping", ping.Show)
 	userOrEI.POST("/jobs/:ID/runs", prc.Create)
@@ -339,7 +359,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConfig) {
+func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
 	// Serve static files
 	assetsRouterHandlers := []gin.HandlerFunc{}
 	if !config.Dev() {
@@ -351,7 +371,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 
 	assetsRouterHandlers = append(
 		assetsRouterHandlers,
-		ServeGzippedAssets("/assets", &BoxFileSystem{Box: box}),
+		ServeGzippedAssets("/assets", assetFs, lggr),
 	)
 
 	// Get Operator UI Assets
@@ -386,17 +406,17 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 		}
 
 		// Render the React index page for any other unknown requests
-		file, err := box.Open("index.html")
+		file, err := assetFs.Open("index.html")
 		if err != nil {
-			if err == os.ErrNotExist {
+			if err == fs.ErrNotExist {
 				c.AbortWithStatus(http.StatusNotFound)
 			} else {
-				logger.Errorf("failed to open static file '%s': %+v", path, err)
+				lggr.Errorf("failed to open static file '%s': %+v", path, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 			}
-
+			return
 		}
-		defer logger.ErrorIfCalling(file.Close, "failed when close file")
+		defer lggr.ErrorIfClosing(file, "file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})
@@ -405,11 +425,11 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
-func loggerFunc() gin.HandlerFunc {
+func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			logger.Error("Web request log error: ", err.Error())
+			lggr.Error("Web request log error: ", err.Error())
 			// Implicitly relies on limits.RequestSizeLimiter
 			// overriding of c.Request.Body to abort gin's Context
 			// inside ioutil.ReadAll.
@@ -427,12 +447,12 @@ func loggerFunc() gin.HandlerFunc {
 		c.Next()
 		end := time.Now()
 
-		logger.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
+		lggr.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,
 			"query", redact(c.Request.URL.Query()),
-			"body", readBody(rdr),
+			"body", readBody(rdr, lggr),
 			"clientIP", c.ClientIP(),
 			"errors", c.Errors.String(),
 			"servedAt", end.Format("2006-01-02 15:04:05"),
@@ -458,11 +478,11 @@ func uiCorsHandler(config WebSecurityConfig) gin.HandlerFunc {
 	return cors.New(c)
 }
 
-func readBody(reader io.Reader) string {
+func readBody(reader io.Reader, lggr logger.Logger) string {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(reader)
 	if err != nil {
-		logger.Warn("unable to read from body for sanitization: ", err)
+		lggr.Warn("unable to read from body for sanitization: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 
@@ -472,7 +492,7 @@ func readBody(reader io.Reader) string {
 
 	s, err := readSanitizedJSON(buf)
 	if err != nil {
-		logger.Warn("unable to sanitize json for logging: ", err)
+		lggr.Warn("unable to sanitize json for logging: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 	return s

@@ -10,6 +10,7 @@ import (
 
 type ChainResource struct {
 	JAID
+	Enabled   bool           `json:"enabled"`
 	Config    types.ChainCfg `json:"config"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
@@ -24,6 +25,7 @@ func NewChainResource(chain types.Chain) ChainResource {
 	return ChainResource{
 		JAID:      NewJAIDInt64(chain.ID.ToInt().Int64()),
 		Config:    chain.Cfg,
+		Enabled:   chain.Enabled,
 		CreatedAt: chain.CreatedAt,
 		UpdatedAt: chain.UpdatedAt,
 	}
@@ -34,7 +36,7 @@ type NodeResource struct {
 	Name       string      `json:"name"`
 	EVMChainID utils.Big   `json:"evmChainID"`
 	WSURL      null.String `json:"wsURL"`
-	HTTPURL    string      `json:"httpURL"`
+	HTTPURL    null.String `json:"httpURL"`
 	CreatedAt  time.Time   `json:"createdAt"`
 	UpdatedAt  time.Time   `json:"updatedAt"`
 }
@@ -46,7 +48,7 @@ func (r NodeResource) GetName() string {
 
 func NewNodeResource(node types.Node) NodeResource {
 	return NodeResource{
-		JAID:       NewJAIDInt64(node.ID),
+		JAID:       NewJAIDInt32(node.ID),
 		Name:       node.Name,
 		EVMChainID: node.EVMChainID,
 		WSURL:      node.WSURL,

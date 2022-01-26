@@ -1,8 +1,10 @@
 import React from 'react'
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
-import mountWithTheme from '../../../support/test-helpers/mountWithTheme'
 import Activity from '../../../src/components/Dashboards/Activity'
 import { JobRunV2 } from 'core/store/models'
+import { cleanup, renderWithRouter, screen } from 'support/test-utils'
+
+const { queryByText } = screen
 
 const CREATED_AT = '2019-06-11T14:37:42.077995-07:00'
 
@@ -24,8 +26,10 @@ describe('components/Dashboards/Activity', () => {
         }),
       },
     ]
-    const component = mountWithTheme(<Activity runs={runs} pageSize={1} />)
-    expect(component.text()).toContain('Run: runA')
+
+    renderWithRouter(<Activity runs={runs} pageSize={1} />)
+
+    expect(queryByText('Run: runA')).toBeInTheDocument()
   })
 
   it('displays a "View More" link when there is more than 1 page of runs', () => {
@@ -60,24 +64,22 @@ describe('components/Dashboards/Activity', () => {
       },
     ]
 
-    const componentWithMore = mountWithTheme(
-      <Activity runs={runs} pageSize={1} count={2} />,
-    )
-    expect(componentWithMore.text()).toContain('View More')
+    renderWithRouter(<Activity runs={runs} pageSize={1} count={2} />)
+    expect(queryByText('View More')).toBeInTheDocument()
 
-    const componentWithoutMore = mountWithTheme(
-      <Activity runs={runs} pageSize={2} count={2} />,
-    )
-    expect(componentWithoutMore.text()).not.toContain('View More')
+    cleanup()
+
+    renderWithRouter(<Activity runs={runs} pageSize={2} count={2} />)
+    expect(queryByText('View More')).toBeNull()
   })
 
   it('can show a loading message', () => {
-    const component = mountWithTheme(<Activity pageSize={1} />)
-    expect(component.text()).toContain('Loading ...')
+    renderWithRouter(<Activity pageSize={1} />)
+    expect(queryByText('Loading ...')).toBeInTheDocument()
   })
 
   it('can show a no activity message', () => {
-    const component = mountWithTheme(<Activity runs={[]} pageSize={1} />)
-    expect(component.text()).toContain('No recent activity')
+    renderWithRouter(<Activity runs={[]} pageSize={1} />)
+    expect(queryByText('No recent activity')).toBeInTheDocument()
   })
 })

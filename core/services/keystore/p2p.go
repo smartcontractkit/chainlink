@@ -4,24 +4,26 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
+//go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
+
 type P2P interface {
-	Get(id string) (p2pkey.KeyV2, error)
+	Get(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 	GetAll() ([]p2pkey.KeyV2, error)
 	Create() (p2pkey.KeyV2, error)
 	Add(key p2pkey.KeyV2) error
-	Delete(id string) (p2pkey.KeyV2, error)
+	Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 	Import(keyJSON []byte, password string) (p2pkey.KeyV2, error)
-	Export(id string, password string) ([]byte, error)
+	Export(id p2pkey.PeerID, password string) ([]byte, error)
 	EnsureKey() (p2pkey.KeyV2, bool, error)
 
 	GetV1KeysAsV2() ([]p2pkey.KeyV2, error)
 
-	GetOrFirst(id string) (p2pkey.KeyV2, error)
+	GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 }
 
 type p2p struct {
@@ -36,7 +38,7 @@ func newP2PKeyStore(km *keyManager) *p2p {
 	}
 }
 
-func (ks *p2p) Get(id string) (p2pkey.KeyV2, error) {
+func (ks *p2p) Get(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -82,7 +84,7 @@ func (ks *p2p) Add(key p2pkey.KeyV2) error {
 	return ks.safeAddKey(key)
 }
 
-func (ks *p2p) Delete(id string) (p2pkey.KeyV2, error) {
+func (ks *p2p) Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -92,8 +94,9 @@ func (ks *p2p) Delete(id string) (p2pkey.KeyV2, error) {
 	if err != nil {
 		return p2pkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key, func(db *gorm.DB) error {
-		return db.Exec(`DELETE FROM p2p_peers WHERE peer_id = ?`, key.ID()).Error
+	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
+		_, err2 := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, key.ID())
+		return err2
 	})
 	return key, err
 }
@@ -114,7 +117,7 @@ func (ks *p2p) Import(keyJSON []byte, password string) (p2pkey.KeyV2, error) {
 	return key, ks.keyManager.safeAddKey(key)
 }
 
-func (ks *p2p) Export(id string, password string) ([]byte, error) {
+func (ks *p2p) Export(id p2pkey.PeerID, password string) ([]byte, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -158,7 +161,11 @@ func (ks *p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks p2p) GetOrFirst(id string) (p2pkey.KeyV2, error) {
+var (
+	ErrNoP2PKey = errors.New("no p2p keys exist")
+)
+
+func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -167,23 +174,23 @@ func (ks p2p) GetOrFirst(id string) (p2pkey.KeyV2, error) {
 	if id != "" {
 		return ks.getByID(id)
 	} else if len(ks.keyRing.P2P) == 1 {
-		logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
+		ks.logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
 		for _, key := range ks.keyRing.P2P {
 			return key, nil
 		}
 	} else if len(ks.keyRing.P2P) == 0 {
-		return p2pkey.KeyV2{}, errors.New("no p2p keys exist")
+		return p2pkey.KeyV2{}, ErrNoP2PKey
 	}
 	return p2pkey.KeyV2{}, errors.New(
-		"multiple p2p keys found but peer ID was not set - you must specify a P2P_PEER_ID" +
+		"multiple p2p keys found but peer ID was not set - you must specify a P2P_PEER_ID " +
 			"env var or set the peer id in the job spec if you have more than one key",
 	)
 }
 
-func (ks *p2p) getByID(id string) (p2pkey.KeyV2, error) {
-	key, found := ks.keyRing.P2P[id]
+func (ks *p2p) getByID(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
+	key, found := ks.keyRing.P2P[id.Raw()]
 	if !found {
-		return p2pkey.KeyV2{}, fmt.Errorf("unable to find P2P key with id %s", id)
+		return p2pkey.KeyV2{}, KeyNotFoundError{ID: id.String(), KeyType: "P2P"}
 	}
 	return key, nil
 }

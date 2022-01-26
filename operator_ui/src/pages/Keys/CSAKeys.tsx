@@ -17,7 +17,7 @@ import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Typography from '@material-ui/core/Typography'
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
-import { Copy } from './Copy'
+import { CopyIconButton } from 'components/Copy/CopyIconButton'
 
 const styles = () => {
   return createStyles({
@@ -33,12 +33,13 @@ const styles = () => {
 interface Props extends WithStyles<typeof styles> {}
 
 export const CSAKeys = withStyles(styles)(({ classes }: Props) => {
-  const [csaKeys, setCSAKeys] = React.useState<
-    jsonapi.ApiResponse<models.CSAKey[]>['data']
-  >()
+  const [csaKeys, setCSAKeys] =
+    React.useState<jsonapi.ApiResponse<models.CSAKey[]>['data']>()
   const { error, setError } = useErrorHandler()
   const [isFetching, setIsFetching] = React.useState<boolean>(true)
-  const { isLoading } = useLoadingPlaceholder(!error && !csaKeys)
+  const { isLoading, LoadingPlaceholder } = useLoadingPlaceholder(
+    !error && !csaKeys,
+  )
 
   // Load the CSA Keys
   React.useEffect(() => {
@@ -108,6 +109,14 @@ export const CSAKeys = withStyles(styles)(({ classes }: Props) => {
               </TableRow>
             </TableHead>
             <TableBody>
+              {isLoading && (
+                <TableRow>
+                  <TableCell component="th" scope="row" colSpan={5}>
+                    <LoadingPlaceholder />
+                  </TableCell>
+                </TableRow>
+              )}
+
               {csaKeys?.length === 0 && (
                 <TableRow>
                   <TableCell component="th" scope="row" colSpan={5}>
@@ -121,7 +130,7 @@ export const CSAKeys = withStyles(styles)(({ classes }: Props) => {
                   <TableCell>
                     <Typography variant="body1">
                       {key.attributes.publicKey}{' '}
-                      <Copy data={key.attributes.publicKey} />
+                      <CopyIconButton data={key.attributes.publicKey} />
                     </Typography>
                   </TableCell>
                 </TableRow>

@@ -5,6 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //
@@ -24,10 +26,10 @@ func (t *DivideTask) Type() TaskType {
 	return TaskTypeDivide
 }
 
-func (t *DivideTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *DivideTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -41,13 +43,13 @@ func (t *DivideTask) Run(_ context.Context, vars Vars, inputs []Result) (result 
 		errors.Wrap(ResolveParam(&maybePrecision, From(VarExpr(t.Precision, vars), t.Precision)), "precision"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	if precision, isSet := maybePrecision.Int32(); isSet {
-		return Result{Value: a.Decimal().DivRound(b.Decimal(), precision)}
+		return Result{Value: a.Decimal().DivRound(b.Decimal(), precision)}, runInfo
 	}
 	// Note that decimal library defaults to rounding to 16 precision
 	// https://github.com/shopspring/decimal/blob/2568a29459476f824f35433dfbef158d6ad8618c/decimal.go#L44
-	return Result{Value: a.Decimal().Div(b.Decimal())}
+	return Result{Value: a.Decimal().Div(b.Decimal())}, runInfo
 }

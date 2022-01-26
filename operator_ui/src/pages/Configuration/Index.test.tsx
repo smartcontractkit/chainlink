@@ -1,32 +1,30 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import syncFetch from 'test-helpers/syncFetch'
+import { renderWithRouter, screen } from 'support/test-utils'
 import globPath from 'test-helpers/globPath'
-import Configuration from 'pages/Configuration/Index'
 import configurationFactory from 'factories/configuration'
+
+import Configuration from 'pages/Configuration/Index'
+
+const { findByText, queryByText } = screen
 
 describe('pages/Configuration', () => {
   it('renders the list of configuration options', async () => {
-    expect.assertions(4)
-
     const configurationResponse = configurationFactory({
       BAND: 'Major Lazer',
       SINGER: 'Bob Marley',
     })
     global.fetch.getOnce(globPath('/v2/config'), configurationResponse)
 
-    const wrapper = mountWithProviders(
-      <Route path="/config" component={Configuration} />,
-      {
-        initialEntries: [`/config`],
-      },
-    )
-    await syncFetch(wrapper)
+    renderWithRouter(<Route path="/config" component={Configuration} />, {
+      initialEntries: ['/config'],
+    })
 
-    expect(wrapper.text()).toContain('BAND')
-    expect(wrapper.text()).toContain('Major Lazer')
-    expect(wrapper.text()).toContain('SINGER')
-    expect(wrapper.text()).toContain('Bob Marley')
+    expect(await findByText('Configuration')).toBeInTheDocument()
+
+    expect(queryByText('BAND')).toBeInTheDocument()
+    expect(queryByText('Major Lazer')).toBeInTheDocument()
+    expect(queryByText('SINGER')).toBeInTheDocument()
+    expect(queryByText('Bob Marley')).toBeInTheDocument()
   })
 })

@@ -18,10 +18,10 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: '^docs/CHANGELOG.*$'
       - name: Make a comment
-        uses: unsplash/comment-on-pr@d1a1d5dd1eb1bb657a01f4d92dd5e4d5bb7857d3 # Version v1.2.0
+        uses: unsplash/comment-on-pr@ffe8f97ccc63ce12c3c23c6885b169db67958d3b # Version v1.2.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: contains(steps.changedfiles.outputs.files_updated, 'CHANGELOG') != true && contains(steps.changedfiles.outputs.files_created, 'CHANGELOG') != true
         with:
           msg: "I see that you haven't updated any CHANGELOG files. Would it make sense to do so?"
-          check_for_duplicate_msg: false
+          check_for_duplicate_msg: true

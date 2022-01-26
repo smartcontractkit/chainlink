@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -24,7 +24,7 @@ func (vrfkc *VRFKeysController) Index(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.NewVRFKeyResources(keys), "vrfKey")
+	jsonAPIResponse(c, presenters.NewVRFKeyResources(keys, vrfkc.App.GetLogger()), "vrfKey")
 }
 
 // Create and return a VRF key
@@ -36,7 +36,7 @@ func (vrfkc *VRFKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.NewVRFKeyResource(pk), "vrfKey")
+	jsonAPIResponse(c, presenters.NewVRFKeyResource(pk, vrfkc.App.GetLogger()), "vrfKey")
 }
 
 // Delete a VRF key
@@ -55,14 +55,14 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.NewVRFKeyResource(key), "vrfKey")
+	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
 
 // Import imports a VRF key
 // Example:
 // "Post <application>/keys/vrf/import"
 func (vrfkc *VRFKeysController) Import(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -76,14 +76,14 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewVRFKeyResource(key), "vrfKey")
+	jsonAPIResponse(c, presenters.NewVRFKeyResource(key, vrfkc.App.GetLogger()), "vrfKey")
 }
 
 // Export exports a VRF key
 // Example:
 // "Post <application>/keys/vrf/export/:keyID"
 func (vrfkc *VRFKeysController) Export(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
 	keyID := c.Param("keyID")
 	// New password to re-encrypt the export with

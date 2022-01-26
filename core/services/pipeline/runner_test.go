@@ -12,24 +12,40 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
+func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+	orm := new(mocks.ORM)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
+
+	orm.On("GetQ").Return(q)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t))
+	return r, orm
+}
+
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -39,11 +55,8 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
-	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
 
-	_, bridge := cltest.NewBridgeType(t, "example-bridge")
-	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, db.Create(&bridge).Error)
+	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -54,13 +67,10 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(db)
-
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r, _ := newRunner(t, db, cfg)
 
 	s := fmt.Sprintf(`
-ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
@@ -79,26 +89,28 @@ ds3->ds3_parse->ds3_multiply->median;
 median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
-`, s2.URL, s4.URL, s5.URL)
+`, bt.Name.String(), s2.URL, s4.URL, s5.URL)
 	d, err := pipeline.Parse(s)
 	require.NoError(t, err)
 
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
-	finalResults := trrs.FinalResult()
+	finalResults := trrs.FinalResult(lggr)
 	require.Len(t, finalResults.Values, 3)
-	require.Len(t, finalResults.Errors, 3)
+	require.Len(t, finalResults.AllErrors, 12)
+	require.Len(t, finalResults.FatalErrors, 3)
 	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
-	assert.Nil(t, finalResults.Errors[0])
+	assert.Nil(t, finalResults.FatalErrors[0])
 	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
-	assert.Nil(t, finalResults.Errors[1])
+	assert.Nil(t, finalResults.FatalErrors[1])
 	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
-	assert.Nil(t, finalResults.Errors[2])
+	assert.Nil(t, finalResults.FatalErrors[2])
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
@@ -114,7 +126,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	t.Parallel()
 
 	specTemplate := `
-        ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": $(foo)}>]
+        ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": $(foo)}>]
         ds1_parse [type=jsonparse lax=false  path="data,result" data="$(ds1)"]
         ds1_multiply [type=multiply input="$(ds1_parse.result)" times="$(ds1_parse.times)"]
 
@@ -133,7 +145,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
         median [type=median values=<[ $(ds1_multiply), $(ds2_multiply), $(ds3_multiply) ]> index=0]
         ds4 [type=http method="GET" url="%s" index=1]
 
-        submit [type=bridge name="submit"
+        submit [type=bridge name="%s"
                 includeInputAtKey="%s"
                 requestData=<{
                     "median": $(median),
@@ -185,9 +197,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
-			cfg := cltest.NewTestEVMConfig(t)
+			db := pgtest.NewSqlxDB(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
 			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
@@ -206,14 +217,15 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			}
 
 			// 1. Setup bridge
-			ds1 := makeBridge(t, store, "example-bridge", expectedRequestDS1, map[string]interface{}{
+			ds1, bridgeName := makeBridge(t, db, expectedRequestDS1, map[string]interface{}{
 				"data": map[string]interface{}{
 					"result": map[string]interface{}{
 						"result": decimal.NewFromInt(9700),
 						"times":  "1000000000000000000",
 					},
 				},
-			})
+			},
+				cfg)
 			defer ds1.Close()
 
 			// 2. Setup success HTTP
@@ -229,21 +241,18 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer ds4.Close()
 
 			// 3. Setup final bridge task
-			submit := makeBridge(t, store, "submit", expectedRequestSubmit, map[string]interface{}{"ok": true})
+			submit, submitBridgeName := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true}, cfg)
 			defer submit.Close()
 
-			orm := new(mocks.ORM)
-			orm.On("DB").Return(store.DB)
-
-			runner := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
-			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
+			runner, _ := newRunner(t, db, cfg)
+			specStr := fmt.Sprintf(specTemplate, bridgeName, ds2.URL, ds4.URL, submitBridgeName, test.includeInputAtKey)
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), *logger.Default)
+			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), logger.TestLogger(t))
 			require.NoError(t, err)
 			require.Len(t, taskRunResults, len(p.Tasks))
 
@@ -279,14 +288,99 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	}
 }
 
+func Test_PipelineRunner_CBORParse(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+
+	t.Run("diet mode, empty CBOR", func(t *testing.T) {
+		s := `
+decode_log  [type="ethabidecodelog"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"
+             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
+
+decode_cbor [type="cborparse"
+             data="$(decode_log.cborPayload)"
+			 mode=diet]
+
+decode_log -> decode_cbor;
+`
+		d, err := pipeline.Parse(s)
+		require.NoError(t, err)
+
+		spec := pipeline.Spec{DotDagSource: s}
+		global := make(map[string]interface{})
+		jobRun := make(map[string]interface{})
+		global["jobRun"] = jobRun
+		jobRun["logData"] = hexutil.MustDecode("0x0000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d17a526ff5d8f916fa2f4a218f6ce0a6e410a0d7823f8238979f8579c2145fd6f0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d64ef935700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006148ef28000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000")
+		jobRun["logTopics"] = []common.Hash{
+			common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+			common.HexToHash("0x3963386131316165393962363463373161663333376235643831633737353230"),
+		}
+		vars := pipeline.NewVarsFrom(global)
+
+		lggr := logger.TestLogger(t)
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, len(d.Tasks))
+
+		finalResults := trrs.FinalResult(lggr)
+		require.Len(t, finalResults.Values, 1)
+		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
+		require.Len(t, finalResults.FatalErrors, 1)
+		assert.Nil(t, finalResults.FatalErrors[0])
+	})
+
+	t.Run("standard mode, string value", func(t *testing.T) {
+		s := `
+decode_log  [type="ethabidecodelog"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"
+             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
+
+decode_cbor [type="cborparse"
+             data="$(decode_log.cborPayload)"
+			 mode=standard]
+
+decode_log -> decode_cbor;
+`
+		d, err := pipeline.Parse(s)
+		require.NoError(t, err)
+
+		spec := pipeline.Spec{DotDagSource: s}
+		global := make(map[string]interface{})
+		jobRun := make(map[string]interface{})
+		global["jobRun"] = jobRun
+		jobRun["logData"] = hexutil.MustDecode("0x0000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d17a526ff5d8f916fa2f4a218f6ce0a6e410a0d7823f8238979f8579c2145fd6f0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d64ef935700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006148ef2800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000463666F6F00000000000000000000000000000000000000000000000000000000")
+		jobRun["logTopics"] = []common.Hash{
+			common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+			common.HexToHash("0x3963386131316165393962363463373161663333376235643831633737353230"),
+		}
+		vars := pipeline.NewVarsFrom(global)
+
+		lggr := logger.TestLogger(t)
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
+		require.NoError(t, err)
+		require.Len(t, trrs, len(d.Tasks))
+
+		finalResults := trrs.FinalResult(lggr)
+		require.Len(t, finalResults.Values, 1)
+		assert.Equal(t, "foo", finalResults.Values[0])
+		require.Len(t, finalResults.FatalErrors, 1)
+		assert.Nil(t, finalResults.FatalErrors[0])
+	})
+}
+
 func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// We want to test the scenario where one or multiple APIs time out,
 	// but a sufficient number of them still complete within the desired time frame
 	// and so we can still obtain a median.
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewSqlxDB(t)
 	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
+	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+
+	orm.On("GetQ").Return(q)
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		res.WriteHeader(http.StatusOK)
@@ -310,9 +404,9 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r, _ := newRunner(t, db, cfg)
 
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -321,7 +415,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(ctx, spec, vars, *logger.Default)
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars, logger.TestLogger(t))
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal() {
@@ -330,14 +424,48 @@ answer1 [type=median                      index=0];
 	}
 }
 
-func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
 	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
+	orm.On("GetQ").Return(q)
+	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			args.Get(0).(*pipeline.Run).ID = 1
+		}).
+		Return(nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	lggr := logger.TestLogger(t)
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr)
+
+	spec := pipeline.Spec{DotDagSource: `
+fail_but_i_dont_care [type=fail]
+succeed1             [type=memo value=10]
+succeed2             [type=memo value=11]
+final                [type=mean]
+
+fail_but_i_dont_care -> final;
+succeed1 -> final;
+succeed2 -> final;
+`}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, finalResult, err := r.ExecuteAndInsertFinishedRun(context.Background(), spec, vars, lggr, false)
+	require.NoError(t, err)
+	assert.True(t, finalResult.HasErrors())
+	assert.False(t, finalResult.HasFatalErrors())
+	require.Len(t, finalResult.Values, 1)
+	assert.Equal(t, "10.5", finalResult.Values[0].(decimal.Decimal).String())
+}
+
+func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{"val": 2}
+	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
@@ -346,28 +474,25 @@ b2 [type=multiply input="$(a)" times=3]
 c [type=median values=<[ $(b1), $(b2) ]> index=0]
 a->b1->c;
 a->b2->c;`,
-	}, pipeline.NewVarsFrom(input), *logger.Default)
+	}, pipeline.NewVarsFrom(input), lggr)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasErrors())
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
 
 	// a = 4
 	// (b1 = 8) + (b2 = 12)
 	// c = 20 / 2
 
-	result, err := trrs.FinalResult().SingularResult()
+	result, err := trrs.FinalResult(lggr).SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
 }
 
 func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, pgtest.NewSqlxDB(t), cfg)
 	input := map[string]interface{}{"val": 2}
+	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
@@ -375,19 +500,18 @@ b1 [type=multiply input="$(a)" times=2 index=0]
 b2 [type=multiply input="$(a)" times=3 index=1]
 a->b1;
 a->b2;`,
-	}, pipeline.NewVarsFrom(input), *logger.Default)
+	}, pipeline.NewVarsFrom(input), lggr)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(trrs))
-	result := trrs.FinalResult()
-	assert.Equal(t, false, result.HasErrors())
+	result := trrs.FinalResult(lggr)
+	assert.Equal(t, false, result.HasFatalErrors())
 
 	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
 	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
 }
 
 func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewSqlxDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -412,11 +536,9 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
-	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
 
-	_, bridge := cltest.NewBridgeType(t, "example-bridge")
-	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	cfg := cltest.NewTestGeneralConfig(t)
+	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -427,14 +549,10 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r, orm := newRunner(t, db, cfg)
 
 	s := fmt.Sprintf(`
-ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
@@ -453,7 +571,7 @@ ds3->ds3_parse->ds3_multiply->median;
 median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
-`, s2.URL, s4.URL, s5.URL)
+`, bt.Name.String(), s2.URL, s4.URL, s5.URL)
 	_, err = pipeline.Parse(s)
 	require.NoError(t, err)
 
@@ -462,12 +580,13 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Start a new run
 	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
 	// we should receive a call to CreateRun because it's contains an async task
-	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
-		run := args.Get(1).(*pipeline.Run)
+	orm.On("CreateRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(0).(*pipeline.Run)
 		run.ID = 1 // give it a valid "id"
 	}).Once()
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	lggr := logger.TestLogger(t)
+	incomplete, err := r.Run(context.Background(), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -475,35 +594,35 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// TODO: test a pending run that's not marked async=true, that is not allowed
 
 	// Trigger run resumption with no new data
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
+	incomplete, err = r.Run(context.Background(), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
 	// Now simulate a new result coming in
 	task := run.ByDotID("ds1")
 	task.Error = null.NewString("", false)
-	task.Output = &pipeline.JSONSerializable{
-		Val:  `{"data":{"result":"9700"}}` + "\n",
-		Null: false,
+	task.Output = pipeline.JSONSerializable{
+		Val:   `{"data":{"result":"9700"}}` + "\n",
+		Valid: true,
 	}
 	// Trigger run resumption
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	incomplete, err = r.Run(context.Background(), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
 
 	require.Len(t, run.Outputs.Val, 3)
-	require.Len(t, run.Errors, 3)
+	require.Len(t, run.FatalErrors, 3)
 	outputs := run.Outputs.Val.([]interface{})
 	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
-	assert.True(t, run.Errors[0].IsZero())
+	assert.True(t, run.FatalErrors[0].IsZero())
 	assert.Equal(t, "foo-index-1", outputs[1].(string))
-	assert.True(t, run.Errors[1].IsZero())
+	assert.True(t, run.FatalErrors[1].IsZero())
 	assert.Equal(t, "bar-index-2", outputs[2].(string))
-	assert.True(t, run.Errors[2].IsZero())
+	assert.True(t, run.FatalErrors[2].IsZero())
 
 	var errorResults []pipeline.TaskRun
 	for _, trr := range run.PipelineTaskRuns {
@@ -516,8 +635,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 }
 
 func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewSqlxDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -542,11 +660,9 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
-	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
 
-	_, bridge := cltest.NewBridgeType(t, "example-bridge")
-	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	cfg := cltest.NewTestGeneralConfig(t)
+	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -557,14 +673,10 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r, orm := newRunner(t, db, cfg)
 
 	s := fmt.Sprintf(`
-ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
@@ -583,7 +695,7 @@ ds3->ds3_parse->ds3_multiply->median;
 median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
-`, s2.URL, s4.URL, s5.URL)
+`, bt.Name.String(), s2.URL, s4.URL, s5.URL)
 	_, err = pipeline.Parse(s)
 	require.NoError(t, err)
 
@@ -592,37 +704,37 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Start a new run
 	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
 	// we should receive a call to CreateRun because it's contains an async task
-	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
-		run := args.Get(1).(*pipeline.Run)
+	orm.On("CreateRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(0).(*pipeline.Run)
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	// Simulate updated task run data
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(true, nil).Run(func(args mock.Arguments) {
-		run := args.Get(1).(*pipeline.Run)
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(true, nil).Run(func(args mock.Arguments) {
+		run := args.Get(0).(*pipeline.Run)
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
-		task.Output = &pipeline.JSONSerializable{
-			Val:  `{"data":{"result":"9700"}}` + "\n",
-			Null: false,
+		task.Output = pipeline.JSONSerializable{
+			Val:   `{"data":{"result":"9700"}}` + "\n",
+			Valid: true,
 		}
 	}).Once()
 	// StoreRun is called again to store the final result
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	incomplete, err := r.Run(context.Background(), &run, logger.TestLogger(t), false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
 
 	require.Len(t, run.Outputs.Val, 3)
-	require.Len(t, run.Errors, 3)
+	require.Len(t, run.FatalErrors, 3)
 	outputs := run.Outputs.Val.([]interface{})
 	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
-	assert.True(t, run.Errors[0].IsZero())
+	assert.True(t, run.FatalErrors[0].IsZero())
 	assert.Equal(t, "foo-index-1", outputs[1].(string))
-	assert.True(t, run.Errors[1].IsZero())
+	assert.True(t, run.FatalErrors[1].IsZero())
 	assert.Equal(t, "bar-index-2", outputs[2].(string))
-	assert.True(t, run.Errors[2].IsZero())
+	assert.True(t, run.FatalErrors[2].IsZero())
 
 	var errorResults []pipeline.TaskRun
 	for _, trr := range run.PipelineTaskRuns {

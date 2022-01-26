@@ -5,41 +5,56 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
 //go:generate mockery --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 var (
-	ErrOCRDisabled = errors.New("ocr is disabled")
+	ErrOCRDisabled        = errors.New("ocr is disabled")
+	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
+
+	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_job_proposal_requests",
+		Help: "Metric to track job proposal requests",
+	})
 )
 
+// Service represents a behavior of the feeds service
 type Service interface {
 	Start() error
 	Close() error
 
 	ApproveJobProposal(ctx context.Context, id int64) error
 	CountManagers() (int64, error)
+	CancelJobProposal(ctx context.Context, id int64) error
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	GetJobProposal(id int64) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
+	GetManagers(ids []int64) ([]FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
 	ListJobProposals() ([]JobProposal, error)
+	GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 	ProposeJob(jp *JobProposal) (int64, error)
 	RegisterManager(ms *FeedsManager) (int64, error)
 	RejectJobProposal(ctx context.Context, id int64) error
 	SyncNodeInfo(id int64) error
 	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
 	UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error
+	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
 
 	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
@@ -48,34 +63,45 @@ type service struct {
 	utils.StartStopOnce
 
 	orm         ORM
-	verORM      versioning.ORM
+	jobORM      job.ORM
+	q           pg.Q
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
+	p2pKeyStore keystore.P2P
 	jobSpawner  job.Spawner
 	cfg         Config
-	txm         postgres.TransactionManager
 	connMgr     ConnectionsManager
+	chainSet    evm.ChainSet
+	lggr        logger.Logger
+	version     string
 }
 
 // NewService constructs a new feeds service
 func NewService(
 	orm ORM,
-	verORM versioning.ORM,
-	txm postgres.TransactionManager,
+	jobORM job.ORM,
+	db *sqlx.DB,
 	jobSpawner job.Spawner,
-	csaKeyStore keystore.CSA,
-	ethKeyStore keystore.Eth,
+	keyStore keystore.Master,
 	cfg Config,
+	chainSet evm.ChainSet,
+	lggr logger.Logger,
+	version string,
 ) *service {
+	lggr = lggr.Named("Feeds")
 	svc := &service{
 		orm:         orm,
-		verORM:      verORM,
-		txm:         txm,
+		jobORM:      jobORM,
+		q:           pg.NewQ(db, lggr, cfg),
 		jobSpawner:  jobSpawner,
-		csaKeyStore: csaKeyStore,
-		ethKeyStore: ethKeyStore,
+		p2pKeyStore: keyStore.P2P(),
+		csaKeyStore: keyStore.CSA(),
+		ethKeyStore: keyStore.Eth(),
 		cfg:         cfg,
-		connMgr:     newConnectionsManager(),
+		connMgr:     newConnectionsManager(lggr),
+		chainSet:    chainSet,
+		lggr:        lggr,
+		version:     version,
 	}
 
 	return svc
@@ -91,10 +117,10 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 		return 0, err
 	}
 	if count >= 1 {
-		return 0, errors.New("only a single feeds manager is supported")
+		return 0, ErrSingleFeedsManager
 	}
 
-	id, err := s.orm.CreateManager(context.Background(), mgr)
+	id, err := s.orm.CreateManager(mgr)
 	if err != nil {
 		return 0, err
 	}
@@ -140,21 +166,18 @@ func (s *service) SyncNodeInfo(id int64) error {
 		addresses = append(addresses, k.Address.String())
 	}
 
-	nodeVer, err := s.verORM.FindLatestNodeVersion()
-	if err != nil {
-		return errors.Wrap(err, "could not get latest node verion")
-	}
-
 	// Make the remote call to FMS
 	fmsClient, err := s.connMgr.GetClient(id)
 	if err != nil {
 		return errors.Wrap(err, "could not fetch client")
 	}
 
+	// TODO: Update to support multiple chains
+	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes: jobtypes,
 		// ChainID is deprecated but we still need to pass it in for backwards
-		// compatability. We now use ChainIds in order to support multichain.
+		// compatibility. We now use ChainIds in order to support multichain.
 		//
 		// We can remove it once the Feeds Manager has been updated and released
 		// https://app.clubhouse.io/chainlinklabs/story/14983/support-multichain-nodes
@@ -163,7 +186,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		AccountAddresses:   addresses,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
-		Version:            nodeVer.Version,
+		Version:            s.version,
 	})
 	if err != nil {
 		return err
@@ -175,25 +198,15 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateFeedsManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
-
-	err := s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
-		err := s.orm.UpdateManager(ctx, mgr)
-		if err != nil {
-			return errors.Wrap(err, "could not update manager")
-		}
-
-		return nil
-	})
+	err := s.orm.UpdateManager(mgr, pg.WithParentCtx(ctx))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not update manager")
 	}
 
-	logger.Infof("Restarting connection")
+	s.lggr.Infof("Restarting connection")
 
 	if err = s.connMgr.Disconnect(mgr.ID); err != nil {
-		logger.Info("[Feeds] Feeds Manager not connected, attempting to connect")
+		s.lggr.Info("Feeds Manager not connected, attempting to connect")
 	}
 
 	// Establish a new connection
@@ -209,7 +222,7 @@ func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) erro
 
 // ListManagerServices lists all the manager services.
 func (s *service) ListManagers() ([]FeedsManager, error) {
-	managers, err := s.orm.ListManagers(context.Background())
+	managers, err := s.orm.ListManagers()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get a list of managers")
 	}
@@ -223,7 +236,7 @@ func (s *service) ListManagers() ([]FeedsManager, error) {
 
 // GetManager gets a manager service by id.
 func (s *service) GetManager(id int64) (*FeedsManager, error) {
-	manager, err := s.orm.GetManager(context.Background(), id)
+	manager, err := s.orm.GetManager(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get manager by ID")
 	}
@@ -232,9 +245,23 @@ func (s *service) GetManager(id int64) (*FeedsManager, error) {
 	return manager, nil
 }
 
+// GetManagers get managers services by ids.
+func (s *service) GetManagers(ids []int64) ([]FeedsManager, error) {
+	managers, err := s.orm.GetManagers(ids)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get managers by IDs")
+	}
+
+	for _, manager := range managers {
+		manager.IsConnectionActive = s.connMgr.IsConnected(manager.ID)
+	}
+
+	return managers, nil
+}
+
 // CountManagerServices gets the total number of manager services
 func (s *service) CountManagers() (int64, error) {
-	return s.orm.CountManagers(context.Background())
+	return s.orm.CountManagers()
 }
 
 // Lists all JobProposals
@@ -242,7 +269,12 @@ func (s *service) CountManagers() (int64, error) {
 // When we support multiple feed managers, we will need to change this to filter
 // by feeds manager
 func (s *service) ListJobProposals() ([]JobProposal, error) {
-	return s.orm.ListJobProposals(context.Background())
+	return s.orm.ListJobProposals()
+}
+
+// GetJobProposalsByManagersIDs gets job proposals by feeds managers IDs
+func (s *service) GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error) {
+	return s.orm.GetJobProposalsByManagersIDs(ids)
 }
 
 // CreateJobProposal creates a job proposal.
@@ -251,7 +283,7 @@ func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 		return 0, err
 	}
 
-	return s.orm.CreateJobProposal(context.Background(), jp)
+	return s.orm.CreateJobProposal(jp)
 }
 
 // ProposeJob creates a job proposal if it does not exist. If it already exists
@@ -263,7 +295,8 @@ func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 // generated by another feeds manager or they maliciously send an existing uuid
 // belonging to another feeds manager, we do not update it.
 func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
-	ctx := context.Background()
+	// Track the given job proposal request
+	promJobProposalRequest.Inc()
 
 	// Validate the job spec
 	err := s.validateJobProposal(jp)
@@ -271,48 +304,57 @@ func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 		return 0, err
 	}
 
-	existing, err := s.orm.GetJobProposalByRemoteUUID(ctx, jp.RemoteUUID)
+	existing, err := s.orm.GetJobProposalByRemoteUUID(jp.RemoteUUID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, errors.Wrap(err, "failed to check existence of job proposal")
 		}
 	}
 
-	// Validation checks if a job proposal exists
-	if existing != nil {
+	if err == nil {
 		// Ensure that if the job proposal exists, that it belongs to the feeds manager.
 		if jp.FeedsManagerID != existing.FeedsManagerID {
 			return 0, errors.New("cannot update a job proposal belonging to another feeds manager")
 		}
 
 		if existing.Status == JobProposalStatusApproved {
-			return 0, errors.New("cannot repropose a job that has already been approved")
+			return 0, errors.New("cannot re-propose a job that has already been approved")
 		}
 	}
 
 	// Reset the job proposal
 	jp.Status = JobProposalStatusPending
 
-	return s.orm.UpsertJobProposal(ctx, jp)
+	// Upsert job proposal
+	id, err := s.orm.UpsertJobProposal(jp)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to upsert job proposal")
+	}
+
+	return id, nil
 }
 
 // GetJobProposal gets a job proposal by id.
 func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
-	return s.orm.GetJobProposal(context.Background(), id)
+	return s.orm.GetJobProposal(id)
 }
 
 func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
-	jp, err := s.orm.GetJobProposal(ctx, id)
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
-		return errors.Wrap(err, "job proposal does not exist")
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Wrap(err, "job proposal does not exist")
+		}
+
+		return errors.Wrap(err, "database error")
 	}
 
-	if jp.Status != JobProposalStatusPending {
-		return errors.New("must be a pending job proposal")
+	if !jp.CanEditSpec() {
+		return errors.New("must be a pending or cancelled job proposal")
 	}
 
 	// Update the spec
-	if err = s.orm.UpdateJobProposalSpec(ctx, id, spec); err != nil {
+	if err = s.orm.UpdateJobProposalSpec(id, spec, pg.WithParentCtx(ctx)); err != nil {
 		return errors.Wrap(err, "could not update job proposal")
 	}
 
@@ -320,9 +362,9 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 }
 
 func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(ctx, id)
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
-		return errors.Wrap(err, "job proposal does not exist")
+		return errors.Wrap(err, "job proposal error")
 	}
 
 	fmsClient, err := s.connMgr.GetClient(jp.FeedsManagerID)
@@ -330,27 +372,24 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client is not connected")
 	}
 
-	if jp.Status != JobProposalStatusPending {
-		return errors.New("must be a pending job proposal")
+	if jp.Status != JobProposalStatusPending && jp.Status != JobProposalStatusCancelled {
+		return errors.New("must be a pending or cancelled job proposal")
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
 
 	j, err := s.generateJob(jp.Spec)
 	if err != nil {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
-	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
 		// Create the job
-		_, err = s.jobSpawner.CreateJob(ctx, *j, j.Name)
-		if err != nil {
+		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
 		// Approve the job
-		if err = s.orm.ApproveJobProposal(ctx, id, j.ExternalJobID, JobProposalStatusApproved); err != nil {
+		if err = s.orm.ApproveJobProposal(id, j.ExternalJobID, JobProposalStatusApproved, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -371,7 +410,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 }
 
 func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(ctx, id)
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "job proposal does not exist")
 	}
@@ -385,10 +424,9 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending job proposal")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
-	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
-		if err = s.orm.UpdateJobProposalStatus(ctx, id, JobProposalStatusRejected); err != nil {
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
+		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -405,6 +443,61 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (s *service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
+	return s.orm.IsJobManaged(jobID, pg.WithParentCtx(ctx))
+}
+
+func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
+	if err != nil {
+		return errors.Wrap(err, "job proposal does not exist")
+	}
+
+	if jp.Status != JobProposalStatusApproved {
+		return errors.New("must be a approved job proposal")
+	}
+
+	fmsClient, err := s.connMgr.GetClient(jp.FeedsManagerID)
+	if err != nil {
+		return errors.Wrap(err, "fms rpc client")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, pg.DefaultQueryTimeout)
+	defer cancel()
+
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
+		if err = s.orm.CancelJobProposal(id, pg.WithQueryer(tx)); err != nil {
+			return err
+		}
+
+		// Delete the job
+		var j job.Job
+		j, err = s.jobORM.FindJobByExternalJobID(jp.ExternalJobID.UUID, pg.WithQueryer(tx))
+		if err != nil {
+			return errors.Wrap(err, "job does not exist")
+		}
+
+		if err = s.jobSpawner.DeleteJob(j.ID, pg.WithQueryer(tx)); err != nil {
+			return err
+		}
+
+		// Send to FMS Client
+		if _, err = fmsClient.CancelledJob(ctx, &pb.CancelledJobRequest{
+			Uuid: jp.RemoteUUID.String(),
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (s *service) Start() error {
@@ -454,7 +547,7 @@ func (s *service) connectFeedManager(mgr FeedsManager, privkey []byte) {
 			// Sync the node's information with FMS once connected
 			err := s.SyncNodeInfo(mgr.ID)
 			if err != nil {
-				logger.Infof("[Feeds] Error syncing node info: %v", err)
+				s.lggr.Infof("Error syncing node info: %v", err)
 			}
 		},
 	})
@@ -473,7 +566,7 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	return keys[0].Raw(), nil
 }
 
-// Unsafe_SetFMSClient sets the FMSClient on the service.
+// Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
 //
 // We need to be able to inject a mock for the client to facilitate integration
 // tests.
@@ -492,10 +585,10 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	var js job.Job
 	switch jobType {
 	case job.OffchainReporting:
-		js, err = offchainreporting.ValidatedOracleSpecToml(s.cfg, spec)
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
 			return nil, ErrOCRDisabled
 		}
+		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:
@@ -523,3 +616,52 @@ func (s *service) validateJobProposal(jp *JobProposal) error {
 
 	return nil
 }
+
+var _ Service = &NullService{}
+
+type NullService struct{}
+
+func (ns NullService) Start() error { return nil }
+func (ns NullService) Close() error { return nil }
+func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) CountManagers() (int64, error) { return 0, nil }
+func (ns NullService) CancelJobProposal(ctx context.Context, id int64) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) CreateJobProposal(jp *JobProposal) (int64, error) {
+	return 0, errors.New("feeds manager is disabled")
+}
+func (ns NullService) GetJobProposal(id int64) (*JobProposal, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) GetManager(id int64) (*FeedsManager, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) GetManagers(ids []int64) ([]FeedsManager, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) ListManagers() ([]FeedsManager, error)    { return nil, nil }
+func (ns NullService) ListJobProposals() ([]JobProposal, error) { return nil, nil }
+func (ns NullService) GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error) {
+	return nil, errors.New("feeds manager is disabled")
+}
+func (ns NullService) ProposeJob(jp *JobProposal) (int64, error) {
+	return 0, errors.New("feeds manager is disabled")
+}
+func (ns NullService) RegisterManager(ms *FeedsManager) (int64, error) {
+	return 0, errors.New("feeds manager is disabled")
+}
+func (ns NullService) RejectJobProposal(ctx context.Context, id int64) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) SyncNodeInfo(id int64) error { return nil }
+func (ns NullService) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
+	return errors.New("feeds manager is disabled")
+}
+func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) { return false, nil }
+func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager)           {}

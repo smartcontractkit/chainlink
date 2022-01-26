@@ -8,23 +8,13 @@ import "./interfaces/OwnableInterface.sol";
  * @notice A contract with helpers for basic contract ownership.
  */
 contract ConfirmedOwnerWithProposal is OwnableInterface {
-
   address private s_owner;
   address private s_pendingOwner;
 
-  event OwnershipTransferRequested(
-    address indexed from,
-    address indexed to
-  );
-  event OwnershipTransferred(
-    address indexed from,
-    address indexed to
-  );
+  event OwnershipTransferRequested(address indexed from, address indexed to);
+  event OwnershipTransferred(address indexed from, address indexed to);
 
-  constructor(
-    address newOwner,
-    address pendingOwner
-  ) {
+  constructor(address newOwner, address pendingOwner) {
     require(newOwner != address(0), "Cannot set owner to zero");
 
     s_owner = newOwner;
@@ -37,23 +27,14 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
    * @notice Allows an owner to begin transferring ownership to a new address,
    * pending.
    */
-  function transferOwnership(
-    address to
-  )
-    public
-    override
-    onlyOwner()
-  {
+  function transferOwnership(address to) public override onlyOwner {
     _transferOwnership(to);
   }
 
   /**
    * @notice Allows an ownership transfer to be completed by the recipient.
    */
-  function acceptOwnership()
-    external
-    override
-  {
+  function acceptOwnership() external override {
     require(msg.sender == s_pendingOwner, "Must be proposed owner");
 
     address oldOwner = s_owner;
@@ -66,25 +47,14 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
   /**
    * @notice Get the current owner
    */
-  function owner()
-    public
-    view
-    override
-    returns (
-      address
-    )
-  {
+  function owner() public view override returns (address) {
     return s_owner;
   }
 
   /**
    * @notice validate, transfer ownership, and emit relevant events
    */
-  function _transferOwnership(
-    address to
-  )
-    private
-  {
+  function _transferOwnership(address to) private {
     require(to != msg.sender, "Cannot transfer to self");
 
     s_pendingOwner = to;
@@ -95,10 +65,7 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
   /**
    * @notice validate access
    */
-  function _validateOwnership()
-    internal
-    view
-  {
+  function _validateOwnership() internal view {
     require(msg.sender == s_owner, "Only callable by owner");
   }
 
@@ -109,5 +76,4 @@ contract ConfirmedOwnerWithProposal is OwnableInterface {
     _validateOwnership();
     _;
   }
-
 }

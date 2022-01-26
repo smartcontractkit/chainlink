@@ -1,8 +1,6 @@
 package offchainreporting
 
 import (
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -11,18 +9,16 @@ import (
 type RunResultSaver struct {
 	utils.StartStopOnce
 
-	db             *sqlx.DB
 	runResults     <-chan pipeline.Run
 	pipelineRunner pipeline.Runner
 	done           chan struct{}
 	logger         logger.Logger
 }
 
-func NewResultRunSaver(db *sqlx.DB, runResults <-chan pipeline.Run, pipelineRunner pipeline.Runner, done chan struct{},
+func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.Runner, done chan struct{},
 	logger logger.Logger,
 ) *RunResultSaver {
 	return &RunResultSaver{
-		db:             db,
 		runResults:     runResults,
 		pipelineRunner: pipelineRunner,
 		done:           done,
@@ -39,8 +35,7 @@ func (r *RunResultSaver) Start() error {
 					r.logger.Infow("RunSaver: saving job run", "run", run)
 					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
 					// are produced and the successful TaskRuns do not provide value.
-					_, err := r.pipelineRunner.InsertFinishedRun(r.db, run, false)
-					if err != nil {
+					if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
 						r.logger.Errorw("error inserting finished results", "err", err)
 					}
 				case <-r.done:
@@ -61,9 +56,8 @@ func (r *RunResultSaver) Close() error {
 		for {
 			select {
 			case run := <-r.runResults:
-				r.logger.Infow("RunSaver: saving job run before exiting", "run", run, "task results")
-				_, err := r.pipelineRunner.InsertFinishedRun(r.db, run, false)
-				if err != nil {
+				r.logger.Infow("RunSaver: saving job run before exiting", "run", run)
+				if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}
 			default:

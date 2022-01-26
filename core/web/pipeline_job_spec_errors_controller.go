@@ -2,13 +2,13 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 // PipelineJobSpecErrorsController manages PipelineJobSpecError requests
@@ -27,7 +27,7 @@ func (psec *PipelineJobSpecErrorsController) Destroy(c *gin.Context) {
 	}
 
 	err = psec.App.JobORM().DismissError(context.Background(), jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("PipelineJobSpecError not found"))
 		return
 	}

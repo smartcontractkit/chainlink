@@ -19,21 +19,6 @@ var (
 	_ log.Listener = (*RegistrySynchronizer)(nil)
 )
 
-type RegistrySynchronizer struct {
-	chStop           chan struct{}
-	contract         *keeper_registry_wrapper.KeeperRegistry
-	interval         time.Duration
-	job              job.Job
-	jrm              job.ORM
-	logBroadcaster   log.Broadcaster
-	mailRoom         MailRoom
-	minConfirmations uint64
-	orm              ORM
-	logger           *logger.Logger
-	wgDone           sync.WaitGroup
-	utils.StartStopOnce
-}
-
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
 type MailRoom struct {
 	mbUpkeepCanceled   *utils.Mailbox
@@ -42,17 +27,36 @@ type MailRoom struct {
 	mbUpkeepRegistered *utils.Mailbox
 }
 
+type RegistrySynchronizerOptions struct {
+	Job                      job.Job
+	Contract                 *keeper_registry_wrapper.KeeperRegistry
+	ORM                      ORM
+	JRM                      job.ORM
+	LogBroadcaster           log.Broadcaster
+	SyncInterval             time.Duration
+	MinIncomingConfirmations uint32
+	Logger                   logger.Logger
+	SyncUpkeepQueueSize      uint32
+}
+
+type RegistrySynchronizer struct {
+	chStop                   chan struct{}
+	contract                 *keeper_registry_wrapper.KeeperRegistry
+	interval                 time.Duration
+	job                      job.Job
+	jrm                      job.ORM
+	logBroadcaster           log.Broadcaster
+	mailRoom                 MailRoom
+	minIncomingConfirmations uint32
+	orm                      ORM
+	logger                   logger.Logger
+	wgDone                   sync.WaitGroup
+	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
+	utils.StartStopOnce
+}
+
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
-func NewRegistrySynchronizer(
-	job job.Job,
-	contract *keeper_registry_wrapper.KeeperRegistry,
-	orm ORM,
-	jrm job.ORM,
-	logBroadcaster log.Broadcaster,
-	syncInterval time.Duration,
-	minConfirmations uint64,
-	logger *logger.Logger,
-) *RegistrySynchronizer {
+func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchronizer {
 	mailRoom := MailRoom{
 		mbUpkeepCanceled:   utils.NewMailbox(50),
 		mbSyncRegistry:     utils.NewMailbox(1),
@@ -60,16 +64,17 @@ func NewRegistrySynchronizer(
 		mbUpkeepRegistered: utils.NewMailbox(50),
 	}
 	return &RegistrySynchronizer{
-		chStop:           make(chan struct{}),
-		contract:         contract,
-		interval:         syncInterval,
-		job:              job,
-		jrm:              jrm,
-		logBroadcaster:   logBroadcaster,
-		mailRoom:         mailRoom,
-		minConfirmations: minConfirmations,
-		orm:              orm,
-		logger:           logger,
+		chStop:                   make(chan struct{}),
+		contract:                 opts.Contract,
+		interval:                 opts.SyncInterval,
+		job:                      opts.Job,
+		jrm:                      opts.JRM,
+		logBroadcaster:           opts.LogBroadcaster,
+		mailRoom:                 mailRoom,
+		minIncomingConfirmations: opts.MinIncomingConfirmations,
+		orm:                      opts.ORM,
+		logger:                   opts.Logger.Named("RegistrySynchronizer"),
+		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 	}
 }
 
@@ -86,9 +91,15 @@ func (rs *RegistrySynchronizer) Start() error {
 				keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
 				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
 				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
+				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic(): {
+					{},
+					{},
+					{
+						log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
+					},
+				},
 			},
-			NumConfirmations: rs.minConfirmations,
+			MinIncomingConfirmations: rs.minIncomingConfirmations,
 		}
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
 

@@ -28,8 +28,8 @@ func format(i *big.Int, precision int) string {
 // Link contains a field to represent the smallest units of LINK
 type Link big.Int
 
-// NewLink returns a new struct to represent LINK from it's smallest unit
-func NewLink(w int64) *Link {
+// NewLinkFromJuels returns a new struct to represent LINK from it's smallest unit
+func NewLinkFromJuels(w int64) *Link {
 	return (*Link)(big.NewInt(w))
 }
 

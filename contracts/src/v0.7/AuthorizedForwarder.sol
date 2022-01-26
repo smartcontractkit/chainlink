@@ -6,32 +6,31 @@ import "./ConfirmedOwnerWithProposal.sol";
 import "./AuthorizedReceiver.sol";
 import "./vendor/Address.sol";
 
-contract AuthorizedForwarder is
-  ConfirmedOwnerWithProposal,
-  AuthorizedReceiver
-{
+contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
 
   address public immutable getChainlinkToken;
 
-  event OwnershipTransferRequestedWithMessage(
-    address indexed from,
-    address indexed to,
-    bytes message
-  );
+  event OwnershipTransferRequestedWithMessage(address indexed from, address indexed to, bytes message);
 
   constructor(
     address link,
     address owner,
     address recipient,
     bytes memory message
-  )
-    ConfirmedOwnerWithProposal(owner, recipient)
-  {
+  ) ConfirmedOwnerWithProposal(owner, recipient) {
     getChainlinkToken = link;
     if (recipient != address(0)) {
       emit OwnershipTransferRequestedWithMessage(owner, recipient, message);
     }
+  }
+
+  /**
+   * @notice The type and version of this contract
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure virtual returns (string memory) {
+    return "AuthorizedForwarder 1.0.0";
   }
 
   /**
@@ -40,14 +39,8 @@ contract AuthorizedForwarder is
    * @param to address
    * @param data to forward
    */
-  function forward(
-    address to,
-    bytes calldata data
-  )
-    external
-    validateAuthorizedSender()
-  {
-    require(to != getChainlinkToken, "Cannot #forward to Link token");
+  function forward(address to, bytes calldata data) external validateAuthorizedSender {
+    require(to != getChainlinkToken, "Cannot forward to Link token");
     _forward(to, data);
   }
 
@@ -57,27 +50,16 @@ contract AuthorizedForwarder is
    * @param to address
    * @param data to forward
    */
-  function ownerForward(
-    address to,
-    bytes calldata data
-  )
-    external
-    onlyOwner()
-  {
+  function ownerForward(address to, bytes calldata data) external onlyOwner {
     _forward(to, data);
   }
 
   /**
    * @notice Transfer ownership with instructions for recipient
-   * @param to address proposed recipeint of ownership
+   * @param to address proposed recipient of ownership
    * @param message instructions for recipient upon accepting ownership
    */
-  function transferOwnershipWithMessage(
-    address to,
-    bytes memory message
-  )
-    public
-  {
+  function transferOwnershipWithMessage(address to, bytes calldata message) external {
     transferOwnership(to);
     emit OwnershipTransferRequestedWithMessage(msg.sender, to, message);
   }
@@ -86,27 +68,16 @@ contract AuthorizedForwarder is
    * @notice concrete implementation of AuthorizedReceiver
    * @return bool of whether sender is authorized
    */
-  function _canSetAuthorizedSenders()
-    internal
-    view
-    override
-    returns (bool)
-  {
+  function _canSetAuthorizedSenders() internal view override returns (bool) {
     return owner() == msg.sender;
   }
 
   /**
    * @notice common forwarding functionality and validation
    */
-  function _forward(
-    address to,
-    bytes calldata data
-  )
-    private
-  {
+  function _forward(address to, bytes calldata data) private {
     require(to.isContract(), "Must forward to a contract");
-    (bool status,) = to.call(data);
+    (bool status, ) = to.call(data);
     require(status, "Forwarded call failed");
   }
-
 }

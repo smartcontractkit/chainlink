@@ -7,8 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -98,7 +100,9 @@ func TestModeTask(t *testing.T) {
 				BaseTask:      pipeline.NewBaseTask(0, "mode", nil, nil, 0),
 				AllowedFaults: test.allowedFaults,
 			}
-			output := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
+			output, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 			if output.Error != nil {
 				require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
@@ -112,87 +116,95 @@ func TestModeTask(t *testing.T) {
 		})
 	}
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.name+" (VarExpr)", func(t *testing.T) {
-			t.Parallel()
+	t.Run("VarExpr", func(t *testing.T) {
+		for _, test := range tests {
+			test := test
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
 
-			var inputs []interface{}
-			for _, input := range test.inputs {
-				if input.Error != nil {
-					inputs = append(inputs, input.Error)
-				} else {
-					inputs = append(inputs, input.Value)
+				var inputs []interface{}
+				for _, input := range test.inputs {
+					if input.Error != nil {
+						inputs = append(inputs, input.Error)
+					} else {
+						inputs = append(inputs, input.Value)
+					}
 				}
-			}
-			vars := pipeline.NewVarsFrom(map[string]interface{}{
-				"foo": map[string]interface{}{"bar": inputs},
+				vars := pipeline.NewVarsFrom(map[string]interface{}{
+					"foo": map[string]interface{}{"bar": inputs},
+				})
+				task := pipeline.ModeTask{
+					BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Values:        "$(foo.bar)",
+					AllowedFaults: test.allowedFaults,
+				}
+				output, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+				assert.False(t, runInfo.IsPending)
+				assert.False(t, runInfo.IsRetryable)
+				if output.Error != nil {
+					require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
+					require.Nil(t, output.Value)
+				} else {
+					require.Equal(t, map[string]interface{}{
+						"results":     test.wantResults,
+						"occurrences": test.wantOccurrences,
+					}, output.Value)
+					require.NoError(t, output.Error)
+				}
 			})
-			task := pipeline.ModeTask{
-				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Values:        "$(foo.bar)",
-				AllowedFaults: test.allowedFaults,
-			}
-			output := task.Run(context.Background(), vars, nil)
-			if output.Error != nil {
-				require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
-				require.Nil(t, output.Value)
-			} else {
-				require.Equal(t, map[string]interface{}{
-					"results":     test.wantResults,
-					"occurrences": test.wantOccurrences,
-				}, output.Value)
-				require.NoError(t, output.Error)
-			}
-		})
-	}
+		}
+	})
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.name+" (JSONWithVarExprs)", func(t *testing.T) {
-			t.Parallel()
+	t.Run("JSONWithVarExprs", func(t *testing.T) {
+		for _, test := range tests {
+			test := test
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
 
-			var inputs []interface{}
-			for _, input := range test.inputs {
-				if input.Error != nil {
-					inputs = append(inputs, input.Error)
-				} else {
-					inputs = append(inputs, input.Value)
+				var inputs []interface{}
+				for _, input := range test.inputs {
+					if input.Error != nil {
+						inputs = append(inputs, input.Error)
+					} else {
+						inputs = append(inputs, input.Value)
+					}
 				}
-			}
-			var valuesParam string
-			var vars pipeline.Vars
-			switch len(inputs) {
-			case 0:
-				valuesParam = "[]"
-				vars = pipeline.NewVarsFrom(nil)
-			case 1:
-				valuesParam = "[ $(foo) ]"
-				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0]})
-			case 3:
-				valuesParam = "[ $(foo), $(bar), $(chain) ]"
-				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2]})
-			case 4:
-				valuesParam = "[ $(foo), $(bar), $(chain), $(link) ]"
-				vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2], "link": inputs[3]})
-			}
+				var valuesParam string
+				var vars pipeline.Vars
+				switch len(inputs) {
+				case 0:
+					valuesParam = "[]"
+					vars = pipeline.NewVarsFrom(nil)
+				case 1:
+					valuesParam = "[ $(foo) ]"
+					vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0]})
+				case 3:
+					valuesParam = "[ $(foo), $(bar), $(chain) ]"
+					vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2]})
+				case 4:
+					valuesParam = "[ $(foo), $(bar), $(chain), $(link) ]"
+					vars = pipeline.NewVarsFrom(map[string]interface{}{"foo": inputs[0], "bar": inputs[1], "chain": inputs[2], "link": inputs[3]})
+				}
 
-			task := pipeline.ModeTask{
-				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
-				Values:        valuesParam,
-				AllowedFaults: test.allowedFaults,
-			}
-			output := task.Run(context.Background(), vars, nil)
-			if output.Error != nil {
-				require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
-				require.Nil(t, output.Value)
-			} else {
-				require.Equal(t, map[string]interface{}{
-					"results":     test.wantResults,
-					"occurrences": test.wantOccurrences,
-				}, output.Value)
-				require.NoError(t, output.Error)
-			}
-		})
-	}
+				task := pipeline.ModeTask{
+					BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
+					Values:        valuesParam,
+					AllowedFaults: test.allowedFaults,
+				}
+				output, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, nil)
+				assert.False(t, runInfo.IsPending)
+				assert.False(t, runInfo.IsRetryable)
+				if output.Error != nil {
+					require.Equal(t, test.wantErrorCause, errors.Cause(output.Error))
+					require.Nil(t, output.Value)
+				} else {
+					require.Equal(t, map[string]interface{}{
+						"results":     test.wantResults,
+						"occurrences": test.wantOccurrences,
+					}, output.Value)
+					require.NoError(t, output.Error)
+				}
+			})
+		}
+	})
 }

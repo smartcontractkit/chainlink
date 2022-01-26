@@ -13,11 +13,10 @@ import {
   ResourceActionType,
 } from './reducers/actions'
 
-export type GetNormalizedData<T extends AnyFunc> = ReturnType<
-  T
-> extends ThunkAction<any, any, any, UpsertAction<infer A>>
-  ? A
-  : never
+export type GetNormalizedData<T extends AnyFunc> =
+  ReturnType<T> extends ThunkAction<any, any, any, UpsertAction<infer A>>
+    ? A
+    : never
 
 type Errors =
   | jsonapi.AuthenticationError
@@ -33,15 +32,14 @@ const createErrorAction = (error: Error, type: string) => ({
   error: error.stack,
 })
 
-const curryErrorHandler = (dispatch: Dispatch, type: string) => (
-  error: Error,
-) => {
-  if (error instanceof jsonapi.AuthenticationError) {
-    sendSignOut(dispatch)
-  } else {
-    dispatch(createErrorAction(error, type))
+const curryErrorHandler =
+  (dispatch: Dispatch, type: string) => (error: Error) => {
+    if (error instanceof jsonapi.AuthenticationError) {
+      sendSignOut(dispatch)
+    } else {
+      dispatch(createErrorAction(error, type))
+    }
   }
-}
 
 export const notifySuccess = (component: React.ReactNode, props: object) => {
   return {
@@ -51,10 +49,20 @@ export const notifySuccess = (component: React.ReactNode, props: object) => {
   }
 }
 
+export const notifySuccessMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_SUCCESS_MSG,
+  msg,
+})
+
 export const notifyError = (component: React.ReactNode, error: Error) => ({
   type: NotifyActionType.NOTIFY_ERROR,
   component,
   error,
+})
+
+export const notifyErrorMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_ERROR_MSG,
+  msg,
 })
 
 /**
@@ -88,13 +96,108 @@ const signInFailAction = () => ({ type: AuthActionType.RECEIVE_SIGNIN_FAIL })
 function sendSignIn(data: Parameter<Sessions['createSession']>) {
   return (dispatch: Dispatch) => {
     dispatch({ type: AuthActionType.REQUEST_SIGNIN })
-
     return api.sessions
       .createSession(data)
       .then((doc) => dispatch(signInSuccessAction(doc)))
       .catch((error: Errors) => {
         if (error instanceof jsonapi.AuthenticationError) {
-          dispatch(signInFailAction())
+          // Read the response to see if we're hitting a required MFA 401
+          try {
+            if (error.errors.length == 0 || error.errors[0].detail === null) {
+              dispatch(signInFailAction())
+              return
+            }
+            const errorResponse = error.errors[0].detail
+            // Our response is good and we need to complete our challenge.
+            errorResponse
+              .json()
+              .then((challengeData: any) => {
+                if (!challengeData) {
+                  // Ensure the data structure we're expecting is present
+                  dispatch(signInFailAction())
+                  return
+                }
+
+                // Throws if navigator is unavailable or user cancels flow
+                try {
+                  const publicKey = JSON.parse(
+                    challengeData['errors'][0]['detail'],
+                  )
+
+                  publicKey.publicKey.challenge = bufferDecode(
+                    publicKey.publicKey.challenge,
+                  )
+                  publicKey.publicKey.allowCredentials.forEach(
+                    (listItem: any) => {
+                      listItem.id = bufferDecode(listItem.id)
+                    },
+                  )
+
+                  if (navigator.credentials === undefined) {
+                    alert(
+                      'Could not access credential subsystem in the browser. Must be using HTTPS or localhost.',
+                    )
+                    dispatch(signInFailAction())
+                    return
+                  }
+
+                  navigator.credentials
+                    .get({
+                      publicKey: publicKey.publicKey,
+                    })
+                    .then((assertion: Credential | null) => {
+                      if (assertion === null) {
+                        // This likely means the user did not follow through
+                        // with the attestation/authentication
+                        dispatch(signInFailAction())
+                        return
+                      }
+
+                      const pkassertion = assertion as PublicKeyCredential
+                      const response =
+                        pkassertion.response as AuthenticatorAssertionResponse
+
+                      const authData = response.authenticatorData
+                      const clientDataJSON = response.clientDataJSON
+                      const rawId = pkassertion.rawId
+                      const sig = response.signature
+                      const userHandle = response.userHandle
+
+                      // Build our response assertion
+                      const waData = JSON.stringify({
+                        id: assertion.id,
+                        rawId: bufferEncode(rawId),
+                        type: assertion.type,
+                        response: {
+                          authenticatorData: bufferEncode(authData),
+                          clientDataJSON: bufferEncode(clientDataJSON),
+                          signature: bufferEncode(sig),
+                          userHandle: bufferEncode(userHandle),
+                        },
+                      })
+
+                      data.webauthndata = waData
+
+                      // Retry login with this new attestation
+                      return api.sessions
+                        .createSession(data)
+                        .then((doc) => dispatch(signInSuccessAction(doc)))
+                        .catch((_error: Errors) => {
+                          dispatch(signInFailAction())
+                        })
+                    })
+                } catch {
+                  dispatch(signInFailAction())
+                }
+              })
+              .catch((_error: Errors) => {
+                // The detail field was not parsable JSON
+                dispatch(signInFailAction())
+              })
+          } catch {
+            // There was no data in our 401 response. So this is just a bad password
+            dispatch(signInFailAction())
+          }
         } else {
           dispatch(
             createErrorAction(error, AuthActionType.RECEIVE_SIGNIN_ERROR),
@@ -116,6 +219,88 @@ function sendSignOut(dispatch: Dispatch) {
     .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
 }
 
+// Base64 to ArrayBuffer
+function bufferDecode(value: any) {
+  return Uint8Array.from(atob(value), (c) => c.charCodeAt(0))
+}
+
+// ArrayBuffer to URLBase64
+function bufferEncode(value: ArrayBuffer | null) {
+  if (value === null) {
+    return ''
+  }
+
+  const uint8View = new Uint8Array(value)
+  const ar = String.fromCharCode.apply(null, Array.from(uint8View))
+  return btoa(ar).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
+
+function completeKeyRegistration(response: any) {
+  const credentialCreationOptions = response['data']['attributes']['settings']
+  credentialCreationOptions.publicKey.challenge = bufferDecode(
+    credentialCreationOptions.publicKey.challenge,
+  )
+  credentialCreationOptions.publicKey.user.id = bufferDecode(
+    credentialCreationOptions.publicKey.user.id,
+  )
+  if (credentialCreationOptions.publicKey.excludeCredentials) {
+    credentialCreationOptions.publicKey.excludeCredentials.forEach(
+      (excludeCredential: any) => {
+        excludeCredential.id = bufferDecode(excludeCredential.id)
+      },
+    )
+  }
+
+  return navigator.credentials.create({
+    publicKey: credentialCreationOptions.publicKey,
+  })
+}
+
+function sendBeginRegistration() {
+  if (navigator.credentials === undefined) {
+    alert(
+      'Could not access credential subsystem in the browser. Must be using HTTPS or localhost.',
+    )
+    return
+  }
+
+  return api.v2.webauthn
+    .beginKeyRegistration({})
+    .then((response) =>
+      completeKeyRegistration(response).then(
+        (credential: Credential | null) => {
+          if (credential === null) {
+            alert(
+              'Error, could not generate credential. User declined to enroll?',
+            )
+            return
+          }
+
+          const pkcredential = credential as PublicKeyCredential
+          const response =
+            pkcredential.response as AuthenticatorAttestationResponse
+
+          const credentialStr = {
+            id: credential.id,
+            rawId: bufferEncode(pkcredential.rawId),
+            type: credential.type,
+            response: {
+              attestationObject: bufferEncode(response.attestationObject),
+              clientDataJSON: bufferEncode(response.clientDataJSON),
+            },
+          }
+          return api.v2.webauthn.finishKeyRegistration(credentialStr)
+        },
+      ),
+    )
+    .catch((err) => {
+      alert(
+        'Key registration error, ensure MFA_RPID and MFA_RPORIGIN environment variables are set.\n' +
+          err,
+      )
+    })
+}
+
 const RECEIVE_CREATE_SUCCESS_ACTION = {
   type: ResourceActionType.RECEIVE_CREATE_SUCCESS,
 }
@@ -125,16 +310,14 @@ const receiveDeleteSuccess = (id: string) => ({
   id,
 })
 
-const receiveUpdateSuccess = (response: Response) => ({
-  type: ResourceActionType.RECEIVE_UPDATE_SUCCESS,
-  response,
-})
-
 export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
+
 export const submitSignOut = () => sendSignOut
 
-export const deleteJobSpec = (
+export const beginRegistration = () => sendBeginRegistration()
+
+export const deleteChain = (
   id: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode,
@@ -142,10 +325,10 @@ export const deleteJobSpec = (
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    const endpoint = api.v2.jobs
+    const endpoint = api.v2.chains
 
     return endpoint
-      .destroyJobSpec(id)
+      .destroyChain(id)
       .then((doc) => {
         dispatch(receiveDeleteSuccess(id))
         dispatch(notifySuccess(successCallback, doc))
@@ -179,55 +362,6 @@ export const createJobRunV2 = (
         curryErrorHandler(
           dispatch,
           ResourceActionType.RECEIVE_CREATE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
-export const createBridge = (
-  data: Parameter<typeof api.v2.bridgeTypes.createBridge>,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_CREATE })
-
-    return api.v2.bridgeTypes
-      .createBridge(data)
-
-      .then((doc: any) => {
-        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
-        dispatch(notifySuccess(successCallback, doc.data))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_CREATE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
-export const updateBridge = (
-  params: Parameter<typeof api.v2.bridgeTypes.updateBridge>,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_UPDATE })
-
-    return api.v2.bridgeTypes
-      .updateBridge(params)
-      .then((doc: any) => {
-        dispatch(receiveUpdateSuccess(doc.data))
-        dispatch(notifySuccess(successCallback, doc.data))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_UPDATE_ERROR,
         )(error)
         dispatch(notifyError(errorCallback, error))
       })
@@ -283,7 +417,7 @@ interface UpsertAction<TNormalizedData> extends Action<string> {
 function request<
   TNormalizedData,
   TApiArgs extends Array<any>,
-  TApiResp extends Promise<any>
+  TApiResp extends Promise<any>,
 >(
   type: string, // CHECKME -- stricten this type when we can
   prefix: RestAction,
@@ -365,18 +499,6 @@ export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
   (json) => normalize(json, { camelizeKeys: false }),
-)
-
-export const fetchBridges = requestFetch(
-  'BRIDGES',
-  api.v2.bridgeTypes.getBridges,
-  (json) => normalize(json, { endpoint: 'currentPageBridges' }),
-)
-
-export const fetchBridgeSpec = requestFetch(
-  'BRIDGE',
-  api.v2.bridgeTypes.getBridgeSpec,
-  (json) => normalize(json),
 )
 
 export const deleteCompletedJobRuns = (updatedBefore: string) =>

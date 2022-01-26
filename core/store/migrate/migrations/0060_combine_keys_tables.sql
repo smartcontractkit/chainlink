@@ -25,8 +25,8 @@ ALTER TABLE p2p_peers DROP CONSTRAINT p2p_peers_peer_id_fkey;
 
 -- +goose Down
 DROP TABLE encrypted_key_rings;
-DROP TABLE eth_key_states;
 ALTER TABLE eth_txes DROP CONSTRAINT eth_txes_from_address_fkey;
+DROP TABLE eth_key_states;
 ALTER TABLE eth_txes ADD CONSTRAINT eth_txes_from_address_fkey FOREIGN KEY (from_address) REFERENCES keys(address);
 ALTER TABLE vrf_specs ADD CONSTRAINT vrf_specs_public_key_fkey FOREIGN KEY (public_key) REFERENCES encrypted_vrf_keys(public_key) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE offchainreporting_oracle_specs ADD CONSTRAINT offchainreporting_oracle_specs_transmitter_address_fkey FOREIGN KEY (transmitter_address) REFERENCES keys(address);

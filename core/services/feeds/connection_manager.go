@@ -6,10 +6,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/connectivity"
 )
 
 //go:generate mockery --name ConnectionsManager --output ./mocks/ --case=underscore
@@ -28,6 +30,7 @@ type connectionsManager struct {
 	wgClosed sync.WaitGroup
 
 	connections map[int64]*connection
+	lggr        logger.Logger
 }
 
 type connection struct {
@@ -40,10 +43,11 @@ type connection struct {
 	client    pb.FeedsManagerClient
 }
 
-func newConnectionsManager() *connectionsManager {
+func newConnectionsManager(lggr logger.Logger) *connectionsManager {
 	return &connectionsManager{
 		mu:          sync.Mutex{},
 		connections: map[int64]*connection{},
+		lggr:        lggr,
 	}
 }
 
@@ -90,10 +94,10 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	mgr.connections[opts.FeedsManagerID] = conn
 	mgr.mu.Unlock()
 
-	go gracefulpanic.WrapRecover(func() {
+	go recovery.WrapRecover(mgr.lggr, func() {
 		defer mgr.wgClosed.Done()
 
-		logger.Infow("[Feeds] Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)
+		mgr.lggr.Infow("Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)
 
 		clientConn, err := wsrpc.DialWithContext(conn.ctx, opts.URI,
 			wsrpc.WithTransportCreds(opts.Privkey, ed25519.PublicKey(opts.Pubkey)),
@@ -103,16 +107,16 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 			// We only want to log if there was an error that did not occur
 			// from a context cancel.
 			if conn.ctx.Err() == nil {
-				logger.Infof("Error connecting to Feeds Manager server: %v", err)
+				mgr.lggr.Infof("Error connecting to Feeds Manager server: %v", err)
 			} else {
-				logger.Infof("Closing wsrpc websocket connection: %v", err)
+				mgr.lggr.Infof("Closing wsrpc websocket connection: %v", err)
 			}
 
 			return
 		}
 		defer clientConn.Close()
 
-		logger.Infow("[Feeds] Connected to Feeds Manager", "feedsManagerID", opts.FeedsManagerID)
+		mgr.lggr.Infow("Connected to Feeds Manager", "feedsManagerID", opts.FeedsManagerID)
 
 		// Initialize a new wsrpc client to make RPC calls
 		mgr.mu.Lock()
@@ -127,6 +131,26 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		if opts.OnConnect != nil {
 			opts.OnConnect(conn.client)
 		}
+
+		// Detect changes in connection status
+		go func() {
+			for {
+				s := clientConn.GetState()
+
+				clientConn.WaitForStateChange(conn.ctx, s)
+
+				s = clientConn.GetState()
+
+				// Exit the goroutine if we shutdown the connection
+				if s == connectivity.Shutdown {
+					break
+				}
+
+				mgr.mu.Lock()
+				conn.connected = s == connectivity.Ready
+				mgr.mu.Unlock()
+			}
+		}()
 
 		// Wait for close
 		<-conn.ctx.Done()
@@ -146,7 +170,7 @@ func (mgr *connectionsManager) Disconnect(id int64) error {
 	conn.cancel()
 	delete(mgr.connections, id)
 
-	logger.Infow("[Feeds] Disconnected Feeds Manager", "feedsManagerID", id)
+	mgr.lggr.Infow("Disconnected Feeds Manager", "feedsManagerID", id)
 
 	return nil
 }

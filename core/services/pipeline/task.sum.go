@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //
@@ -24,7 +26,7 @@ func (t *SumTask) Type() TaskType {
 	return TaskTypeSum
 }
 
-func (t *SumTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *SumTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam
@@ -37,7 +39,7 @@ func (t *SumTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
@@ -48,19 +50,19 @@ func (t *SumTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to sum task > number allowed faults %v", faults, allowedFaults)}
+		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to sum task > number allowed faults %v", faults, allowedFaults)}, runInfo
 	} else if len(values) == 0 {
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}
+		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}, runInfo
 	}
 
 	err = decimalValues.UnmarshalPipelineParam(values)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "values: %v", err)}
+		return Result{Error: errors.Wrapf(ErrBadInput, "values: %v", err)}, runInfo
 	}
 
 	sum := decimal.NewFromInt(0)
 	for _, val := range decimalValues {
 		sum = sum.Add(val)
 	}
-	return Result{Value: sum}
+	return Result{Value: sum}, runInfo
 }

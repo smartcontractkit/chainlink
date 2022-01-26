@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -20,6 +21,7 @@ type (
 		LatestBlockNumber() uint64
 		LatestBlockHash() common.Hash
 		JobID() int32
+		EVMChainID() big.Int
 	}
 
 	broadcast struct {
@@ -28,6 +30,7 @@ type (
 		decodedLog        interface{}
 		rawLog            types.Log
 		jobID             int32
+		evmChainID        big.Int
 	}
 )
 
@@ -59,12 +62,17 @@ func (b *broadcast) String() string {
 	return fmt.Sprintf("Broadcast(JobID:%v,LogAddress:%v,Topics(%d):%v)", b.jobID, b.rawLog.Address, len(b.rawLog.Topics), b.rawLog.Topics)
 }
 
-func NewLogBroadcast(rawLog types.Log, decodedLog interface{}) Broadcast {
+func (b *broadcast) EVMChainID() big.Int {
+	return b.evmChainID
+}
+
+func NewLogBroadcast(rawLog types.Log, evmChainID big.Int, decodedLog interface{}) Broadcast {
 	return &broadcast{
 		latestBlockNumber: 0,
 		latestBlockHash:   common.Hash{},
 		decodedLog:        decodedLog,
 		rawLog:            rawLog,
 		jobID:             0,
+		evmChainID:        evmChainID,
 	}
 }

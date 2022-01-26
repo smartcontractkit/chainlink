@@ -10,24 +10,20 @@ jobs:
         cmd: ['go_core_tests']
     name: Core Tests
     runs-on: ubuntu-latest
-    container:
-      image: smartcontract/builder:1.0.40
-      credentials:
-        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     env:
-      DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
     services:
       postgres:
-        image: postgres:13
-        credentials:
-          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+        image: postgres:14
         env:
           POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chainlink_test
           POSTGRES_HOST_AUTH_METHOD: trust
         # Set health checks to wait until postgres has started
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -36,24 +32,10 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Set up Postgres user
-        uses: docker://postgres
+      - name: Set up Go
+        uses: actions/setup-go@v2
         with:
-          args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink NOSUPERUSER CREATEDB;"
-      - name: Install Postgres for CLI tools
-        run: wget --quiet -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" | tee  /etc/apt/sources.list.d/pgdg.list && apt update && apt install -y postgresql-client-13
-      - name: Get Yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"      
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v2
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+          go-version: ^1.17
       - name: Cache Go vendor packages
         uses: actions/cache@v2
         with:
@@ -63,10 +45,6 @@ jobs:
             go-mod-${{ env.CACHE_VERSION }}
       - name: Download Go vendor packages
         run: go mod download
-      - name: Compile all contracts
-        run: ./contracts/scripts/native_solc_compile_all
-      - name: Verify local solc binaries
-        run: ./tools/ci/check_solc_hashes
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
@@ -86,14 +64,13 @@ jobs:
   prepublish_npm:
     name: Prepublish NPM
     runs-on: ubuntu-latest
-    container:
-      image: smartcontract/builder:1.0.40
-      credentials:
-        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: "12"
       - name: Yarn cache
         uses: actions/cache@v2
         env:
@@ -109,6 +86,5 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
-      - run: ./tools/bin/restore-solc-cache
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test

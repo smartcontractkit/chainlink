@@ -36,10 +36,8 @@ func Test_FeaturesController_List(t *testing.T) {
 func setupFeaturesControllerTest(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
 	os.Setenv("FEATURE_UI_CSA_KEYS", "true")
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
-	app.Start()
-
+	app := cltest.NewApplication(t)
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	return app, client

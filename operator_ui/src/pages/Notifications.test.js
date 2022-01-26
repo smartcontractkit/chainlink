@@ -2,15 +2,17 @@
 import React from 'react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { mount } from 'enzyme'
 import configureStore from 'redux-mock-store'
 import Notifications from 'pages/Notifications'
+import { render, screen } from '@testing-library/react'
+
+const { queryByText } = screen
 
 const classes = {}
 const mockStore = configureStore()
 
 const mountNotifications = (store) =>
-  mount(
+  render(
     <Provider store={store}>
       <MemoryRouter>
         <Notifications classes={classes} />
@@ -37,10 +39,10 @@ describe('pages/Notifications', () => {
       },
     }
     const store = mockStore(state)
-    const wrapper = mountNotifications(store)
+    mountNotifications(store)
 
-    expect(wrapper.text()).toContain('Success 1')
-    expect(wrapper.text()).toContain('Error 2')
+    expect(queryByText('Success 1')).toBeInTheDocument()
+    expect(queryByText('Error 2')).toBeInTheDocument()
   })
 
   it('renders success and error text notifications', () => {
@@ -54,25 +56,9 @@ describe('pages/Notifications', () => {
       },
     }
     const store = mockStore(state)
-    const wrapper = mountNotifications(store)
+    mountNotifications(store)
 
-    expect(wrapper.text()).toContain('Success Message')
-    expect(wrapper.text()).toContain('Error Message')
-  })
-
-  it('renders an unhandled error when there is no component', () => {
-    const state = {
-      notifications: {
-        successes: [],
-        errors: [{}],
-        currentUrl: null,
-      },
-    }
-    const store = mockStore(state)
-    const wrapper = mountNotifications(store)
-
-    expect(wrapper.text()).toContain(
-      'Unhandled error. Please help us by opening a bug report',
-    )
+    expect(queryByText('Success Message')).toBeInTheDocument()
+    expect(queryByText('Error Message')).toBeInTheDocument()
   })
 })

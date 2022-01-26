@@ -1,15 +1,15 @@
-import { Contract, ContractTransaction } from "ethers";
-import type { providers } from "ethers";
-import { assert } from "chai";
-import { ethers } from "hardhat";
-import cbor from "cbor";
+import { Contract, ContractTransaction, BigNumberish } from 'ethers'
+import { providers } from 'ethers'
+import { assert, expect } from 'chai'
+import { ethers, network } from 'hardhat'
+import cbor from 'cbor'
 
 /**
  * Convert string to hex bytes
  * @param data string to onvert to hex bytes
  */
 export function stringToBytes(data: string): string {
-  return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data));
+  return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data))
 }
 
 /**
@@ -18,7 +18,7 @@ export function stringToBytes(data: string): string {
  * @param hex The hex string to prepend the hex prefix to
  */
 export function addHexPrefix(hex: string): string {
-  return hex.startsWith("0x") ? hex : `0x${hex}`;
+  return hex.startsWith('0x') ? hex : `0x${hex}`
 }
 
 /**
@@ -26,13 +26,17 @@ export function addHexPrefix(hex: string): string {
  *
  * @param num The number value to convert to bytes32 format
  */
-export function numToBytes32(num: Parameters<typeof ethers.utils.hexlify>[0]): string {
-  const hexNum = ethers.utils.hexlify(num);
-  const strippedNum = stripHexPrefix(hexNum);
+export function numToBytes32(
+  num: Parameters<typeof ethers.utils.hexlify>[0],
+): string {
+  const hexNum = ethers.utils.hexlify(num)
+  const strippedNum = stripHexPrefix(hexNum)
   if (strippedNum.length > 32 * 2) {
-    throw Error("Cannot convert number to bytes32 format, value is greater than maximum bytes32 value");
+    throw Error(
+      'Cannot convert number to bytes32 format, value is greater than maximum bytes32 value',
+    )
   }
-  return addHexPrefix(strippedNum.padStart(32 * 2, "0"));
+  return addHexPrefix(strippedNum.padStart(32 * 2, '0'))
 }
 
 /**
@@ -41,12 +45,15 @@ export function numToBytes32(num: Parameters<typeof ethers.utils.hexlify>[0]): s
  * @param tx The transaction to wait for, then extract logs from
  * @param index The index of the log to retrieve
  */
-export async function getLog(tx: ContractTransaction, index: number): Promise<providers.Log> {
-  const logs = await getLogs(tx);
+export async function getLog(
+  tx: ContractTransaction,
+  index: number,
+): Promise<providers.Log> {
+  const logs = await getLogs(tx)
   if (!logs[index]) {
-    throw Error("unable to extract log from transaction receipt");
+    throw Error('unable to extract log from transaction receipt')
   }
-  return logs[index];
+  return logs[index]
 }
 
 /**
@@ -54,12 +61,14 @@ export async function getLog(tx: ContractTransaction, index: number): Promise<pr
  *
  * @param tx The transaction to wait for, then extract logs from
  */
-export async function getLogs(tx: ContractTransaction): Promise<providers.Log[]> {
-  const receipt = await tx.wait();
+export async function getLogs(
+  tx: ContractTransaction,
+): Promise<providers.Log[]> {
+  const receipt = await tx.wait()
   if (!receipt.logs) {
-    throw Error("unable to extract logs from transaction receipt");
+    throw Error('unable to extract logs from transaction receipt')
   }
-  return receipt.logs;
+  return receipt.logs
 }
 
 /**
@@ -72,7 +81,7 @@ export async function getLogs(tx: ContractTransaction): Promise<providers.Log[]>
 export function toBytes32String(
   ...args: Parameters<typeof ethers.utils.formatBytes32String>
 ): ReturnType<typeof ethers.utils.formatBytes32String> {
-  return ethers.utils.formatBytes32String(...args);
+  return ethers.utils.formatBytes32String(...args)
 }
 
 /**
@@ -82,10 +91,10 @@ export function toBytes32String(
  */
 export function stripHexPrefix(hex: string): string {
   if (!ethers.utils.isHexString(hex)) {
-    throw Error(`Expected valid hex string, got: "${hex}"`);
+    throw Error(`Expected valid hex string, got: "${hex}"`)
   }
 
-  return hex.replace("0x", "");
+  return hex.replace('0x', '')
 }
 
 /**
@@ -94,7 +103,7 @@ export function stripHexPrefix(hex: string): string {
  * @param hexstr The hex string to convert to a buffer
  */
 export function hexToBuf(hexstr: string): Buffer {
-  return Buffer.from(stripHexPrefix(hexstr), "hex");
+  return Buffer.from(stripHexPrefix(hexstr), 'hex')
 }
 
 /**
@@ -103,9 +112,9 @@ export function hexToBuf(hexstr: string): Buffer {
  * @param hexstr The hex string to decode
  */
 export function decodeDietCBOR(hexstr: string) {
-  const buf = hexToBuf(hexstr);
+  const buf = hexToBuf(hexstr)
 
-  return cbor.decodeFirstSync(addCBORMapDelimiters(buf));
+  return cbor.decodeFirstSync(addCBORMapDelimiters(buf))
 }
 
 /**
@@ -113,20 +122,23 @@ export function decodeDietCBOR(hexstr: string) {
  */
 export function addCBORMapDelimiters(buffer: Buffer): Buffer {
   if (buffer[0] >> 5 === 5) {
-    return buffer;
+    return buffer
   }
 
   /**
    * This is the opening character of a CBOR map.
    * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
    */
-  const startIndefiniteLengthMap = Buffer.from([0xbf]);
+  const startIndefiniteLengthMap = Buffer.from([0xbf])
   /**
    * This is the closing character in a CBOR map.
    * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
    */
-  const endIndefiniteLengthMap = Buffer.from([0xff]);
-  return Buffer.concat([startIndefiniteLengthMap, buffer, endIndefiniteLengthMap], buffer.length + 2);
+  const endIndefiniteLengthMap = Buffer.from([0xff])
+  return Buffer.concat(
+    [startIndefiniteLengthMap, buffer, endIndefiniteLengthMap],
+    buffer.length + 2,
+  )
 }
 
 /**
@@ -134,8 +146,10 @@ export function addCBORMapDelimiters(buffer: Buffer): Buffer {
  *
  * @param args Ether value to convert to an Ether amount
  */
-export function toWei(...args: Parameters<typeof ethers.utils.parseEther>): ReturnType<typeof ethers.utils.parseEther> {
-  return ethers.utils.parseEther(...args);
+export function toWei(
+  ...args: Parameters<typeof ethers.utils.parseEther>
+): ReturnType<typeof ethers.utils.parseEther> {
+  return ethers.utils.parseEther(...args)
 }
 
 /**
@@ -143,8 +157,10 @@ export function toWei(...args: Parameters<typeof ethers.utils.parseEther>): Retu
  *
  * @param args Value to convert to a hex string
  */
-export function toHex(...args: Parameters<typeof ethers.utils.hexlify>): ReturnType<typeof ethers.utils.hexlify> {
-  return ethers.utils.hexlify(...args);
+export function toHex(
+  ...args: Parameters<typeof ethers.utils.hexlify>
+): ReturnType<typeof ethers.utils.hexlify> {
+  return ethers.utils.hexlify(...args)
 }
 
 /**
@@ -152,8 +168,10 @@ export function toHex(...args: Parameters<typeof ethers.utils.hexlify>): ReturnT
  *
  * @param provider The ethers provider to send the time increase request to
  */
-export async function increaseTime5Minutes(provider: providers.JsonRpcProvider): Promise<void> {
-  await increaseTimeBy(5 * 600, provider);
+export async function increaseTime5Minutes(
+  provider: providers.JsonRpcProvider,
+): Promise<void> {
+  await increaseTimeBy(5 * 60, provider)
 }
 
 /**
@@ -162,8 +180,11 @@ export async function increaseTime5Minutes(provider: providers.JsonRpcProvider):
  * @param seconds The number of seconds to increase to the current time by
  * @param provider The ethers provider to send the time increase request to
  */
-export async function increaseTimeBy(seconds: number, provider: providers.JsonRpcProvider) {
-  await provider.send("evm_increaseTime", [seconds]);
+export async function increaseTimeBy(
+  seconds: number,
+  provider: providers.JsonRpcProvider,
+) {
+  await provider.send('evm_increaseTime', [seconds])
 }
 
 /**
@@ -172,7 +193,7 @@ export async function increaseTimeBy(seconds: number, provider: providers.JsonRp
  * @param provider The ethers provider to instruct to mine an additional block
  */
 export async function mineBlock(provider: providers.JsonRpcProvider) {
-  await provider.send("evm_mine", []);
+  await provider.send('evm_mine', [])
 }
 
 /**
@@ -183,11 +204,11 @@ export async function mineBlock(provider: providers.JsonRpcProvider) {
  */
 export function evmWordToAddress(hex?: string): string {
   if (!hex) {
-    throw Error("Input not defined");
+    throw Error('Input not defined')
   }
 
-  assert.equal(hex.slice(0, 26), "0x000000000000000000000000");
-  return ethers.utils.getAddress(hex.slice(26));
+  assert.equal(hex.slice(0, 26), '0x000000000000000000000000')
+  return ethers.utils.getAddress(hex.slice(26))
 }
 
 /**
@@ -197,20 +218,57 @@ export function evmWordToAddress(hex?: string): string {
  * @param expectedPublic The expected public exposed methods and getters to match against the actual abi.
  */
 export function publicAbi(contract: Contract, expectedPublic: string[]) {
-  const actualPublic = [];
+  const actualPublic = []
   for (const m in contract.functions) {
-    if (!m.includes("(")) {
-      actualPublic.push(m);
+    if (!m.includes('(')) {
+      actualPublic.push(m)
     }
   }
 
   for (const method of actualPublic) {
-    const index = expectedPublic.indexOf(method);
-    assert.isAtLeast(index, 0, `#${method} is NOT expected to be public`);
+    const index = expectedPublic.indexOf(method)
+    assert.isAtLeast(index, 0, `#${method} is NOT expected to be public`)
   }
 
   for (const method of expectedPublic) {
-    const index = actualPublic.indexOf(method);
-    assert.isAtLeast(index, 0, `#${method} is expected to be public`);
+    const index = actualPublic.indexOf(method)
+    assert.isAtLeast(index, 0, `#${method} is expected to be public`)
   }
+}
+
+export async function assertBalance(
+  address: string,
+  balance: BigNumberish,
+  msg?: string,
+) {
+  expect(await ethers.provider.getBalance(address)).equal(balance, msg)
+}
+
+export async function setTimestamp(timestamp: number) {
+  await network.provider.request({
+    method: 'evm_setNextBlockTimestamp',
+    params: [timestamp],
+  })
+  await network.provider.request({
+    method: 'evm_mine',
+    params: [],
+  })
+}
+
+export async function fastForward(duration: number) {
+  await network.provider.request({
+    method: 'evm_increaseTime',
+    params: [duration],
+  })
+  await network.provider.request({
+    method: 'evm_mine',
+    params: [],
+  })
+}
+
+export async function reset() {
+  await network.provider.request({
+    method: 'hardhat_reset',
+    params: [],
+  })
 }

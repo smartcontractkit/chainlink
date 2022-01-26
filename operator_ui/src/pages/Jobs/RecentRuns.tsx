@@ -9,7 +9,6 @@ import {
 } from '@material-ui/core'
 import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
-import Content from 'components/Content'
 import JobRunsList from './JobRunsList'
 import TaskListDag from './TaskListDag'
 import React from 'react'
@@ -72,7 +71,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
     }, [getJobRuns])
 
     return (
-      <Content>
+      <>
         <ErrorComponent />
         <LoadingPlaceholder />
 
@@ -105,16 +104,27 @@ export const RecentRuns = withStyles(chartCardStyles)(
                 <Grid item xs>
                   <Card style={{ overflow: 'visible' }}>
                     <CardTitle divider>Task list</CardTitle>
-                    <TaskListDag
-                      stratify={parseDot(`digraph {${job.dotDagSource}}`)}
-                    />
+                    <TaskList job={job} />
                   </Card>
                 </Grid>
               )}
             </Grid>
           </Grid>
         )}
-      </Content>
+      </>
     )
   },
 )
+
+const TaskList: React.FC<{ job?: JobData['job'] }> = ({ job }) => {
+  if (job) {
+    try {
+      return (
+        <TaskListDag stratify={parseDot(`digraph {${job.dotDagSource}}`)} />
+      )
+    } catch (error) {
+      return <p>Failed to parse task graph.</p>
+    }
+  }
+  return <p>No task grapth found.</p>
+}

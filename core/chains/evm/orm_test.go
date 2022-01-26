@@ -3,9 +3,11 @@ package evm_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -13,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func setupORM(t *testing.T) (*sqlx.DB, evm.ORM) {
+func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
@@ -22,7 +24,9 @@ func setupORM(t *testing.T) (*sqlx.DB, evm.ORM) {
 	return db, orm
 }
 
-func mustInsertChain(t *testing.T, orm evm.ORM) types.Chain {
+func mustInsertChain(t *testing.T, orm types.ORM) types.Chain {
+	t.Helper()
+
 	id := utils.NewBigI(99)
 	config := types.ChainCfg{}
 	chain, err := orm.CreateChain(*id, config)
@@ -30,8 +34,27 @@ func mustInsertChain(t *testing.T, orm evm.ORM) types.Chain {
 	return chain
 }
 
+func mustInsertNode(t *testing.T, orm types.ORM, chainID utils.Big) types.Node {
+	t.Helper()
+
+	params := types.NewNode{
+		Name:       "Test node",
+		EVMChainID: chainID,
+		WSURL:      null.StringFrom("ws://localhost:8546"),
+		HTTPURL:    null.StringFrom("http://localhost:8546"),
+		SendOnly:   false,
+	}
+	node, err := orm.CreateNode(params)
+	require.NoError(t, err)
+
+	return node
+}
+
 func Test_EVMORM_CreateChain(t *testing.T) {
 	_, orm := setupORM(t)
+
+	_, initialCount, err := orm.Chains(0, 25)
+	require.NoError(t, err)
 
 	id := utils.NewBigI(99)
 	config := types.ChainCfg{}
@@ -41,19 +64,36 @@ func Test_EVMORM_CreateChain(t *testing.T) {
 
 	chains, count, err := orm.Chains(0, 25)
 	require.NoError(t, err)
-	require.Equal(t, 2, count) // it includes the default Ethereum chain already
-	require.Equal(t, chains[1], chain)
+	require.Equal(t, initialCount+1, count)
+	require.Equal(t, chains[initialCount], chain)
+}
+
+func Test_EVMORM_GetChainsByIDs(t *testing.T) {
+	_, orm := setupORM(t)
+	chain := mustInsertChain(t, orm)
+
+	chains, err := orm.GetChainsByIDs([]utils.Big{chain.ID})
+	require.NoError(t, err)
+	require.Len(t, chains, 1)
+
+	actual := chains[0]
+	require.Equal(t, chain.ID, actual.ID)
+	require.Equal(t, chain.Enabled, actual.Enabled)
+	require.Equal(t, chain.Cfg, actual.Cfg)
 }
 
 func Test_EVMORM_CreateNode(t *testing.T) {
 	_, orm := setupORM(t)
 	chain := mustInsertChain(t, orm)
 
-	params := evm.NewNode{
+	_, initialCount, err := orm.Nodes(0, 25)
+	require.NoError(t, err)
+
+	params := types.NewNode{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),
-		HTTPURL:    "http://localhost:8546",
+		HTTPURL:    null.StringFrom("http://localhost:8546"),
 		SendOnly:   false,
 	}
 	node, err := orm.CreateNode(params)
@@ -65,6 +105,31 @@ func Test_EVMORM_CreateNode(t *testing.T) {
 
 	nodes, count, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	require.Equal(t, nodes[0], node)
+	require.Equal(t, initialCount+1, count)
+	require.Equal(t, nodes[initialCount], node)
+}
+
+func Test_EVMORM_GetNodesByChainIDs(t *testing.T) {
+	_, orm := setupORM(t)
+	chain := mustInsertChain(t, orm)
+	node := mustInsertNode(t, orm, chain.ID)
+
+	nodes, err := orm.GetNodesByChainIDs([]utils.Big{chain.ID})
+	require.NoError(t, err)
+	require.Len(t, nodes, 1)
+
+	actual := nodes[0]
+
+	require.Equal(t, node, actual)
+}
+
+func Test_EVMORM_Node(t *testing.T) {
+	_, orm := setupORM(t)
+	chain := mustInsertChain(t, orm)
+	node := mustInsertNode(t, orm, chain.ID)
+
+	actual, err := orm.Node(node.ID)
+	assert.NoError(t, err)
+
+	require.Equal(t, node, actual)
 }

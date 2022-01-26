@@ -10,7 +10,6 @@ vendor/
 tmp/
 
 contracts/node_modules
-evm-test-helpers/node_modules
 examples/
 integration/node_modules
 
@@ -23,7 +22,6 @@ core/sgx/target/
 
 operator_ui/dist/
 operator_ui/artifacts/
-*-packr.go
 
 core/*.Dockerfile
 chainlink

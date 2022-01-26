@@ -2,22 +2,26 @@ package keystore
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 	"sync"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/sqlx"
 )
 
 var ErrLocked = errors.New("Keystore is locked")
+
+//go:generate mockery --name Master --output ./mocks/ --case=underscore
 
 type Master interface {
 	CSA() CSA
@@ -26,7 +30,7 @@ type Master interface {
 	P2P() P2P
 	VRF() VRF
 	Unlock(password string) error
-	Migrate(vrfPassword string) error
+	Migrate(vrfPassword string, chainID *big.Int) error
 	IsEmpty() (bool, error)
 }
 
@@ -39,15 +43,16 @@ type master struct {
 	vrf *vrf
 }
 
-func New(db *gorm.DB, scryptParams utils.ScryptParams) Master {
-	return newMaster(db, scryptParams)
+func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
+	return newMaster(db, scryptParams, lggr, cfg)
 }
 
-func newMaster(db *gorm.DB, scryptParams utils.ScryptParams) *master {
+func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) *master {
 	km := &keyManager{
-		orm:          NewORM(db),
+		orm:          NewORM(db, lggr, cfg),
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
+		logger:       lggr.Named("KeyStore"),
 	}
 
 	return &master{
@@ -82,14 +87,14 @@ func (ks *master) VRF() VRF {
 
 func (ks *master) IsEmpty() (bool, error) {
 	var count int64
-	err := ks.orm.db.Model(encryptedKeyRing{}).Count(&count).Error
+	err := ks.orm.q.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
 	if err != nil {
 		return false, err
 	}
 	return count == 0, nil
 }
 
-func (ks *master) Migrate(vrfPssword string) error {
+func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -103,7 +108,7 @@ func (ks *master) Migrate(vrfPssword string) error {
 		if _, exists := ks.keyRing.CSA[csaKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating CSA key %s", csaKey.ID())
+		ks.logger.Debugf("Migrating CSA key %s", csaKey.ID())
 		ks.keyRing.CSA[csaKey.ID()] = csaKey
 	}
 	ocrKeys, err := ks.ocr.GetV1KeysAsV2()
@@ -114,7 +119,7 @@ func (ks *master) Migrate(vrfPssword string) error {
 		if _, exists := ks.keyRing.OCR[ocrKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating OCR key %s", ocrKey.ID())
+		ks.logger.Debugf("Migrating OCR key %s", ocrKey.ID())
 		ks.keyRing.OCR[ocrKey.ID()] = ocrKey
 	}
 	p2pKeys, err := ks.p2p.GetV1KeysAsV2()
@@ -125,7 +130,7 @@ func (ks *master) Migrate(vrfPssword string) error {
 		if _, exists := ks.keyRing.P2P[p2pKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating P2P key %s", p2pKey.ID())
+		ks.logger.Debugf("Migrating P2P key %s", p2pKey.ID())
 		ks.keyRing.P2P[p2pKey.ID()] = p2pKey
 	}
 	vrfKeys, err := ks.vrf.GetV1KeysAsV2(vrfPssword)
@@ -136,13 +141,13 @@ func (ks *master) Migrate(vrfPssword string) error {
 		if _, exists := ks.keyRing.VRF[vrfKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating VRF key %s", vrfKey.ID())
+		ks.logger.Debugf("Migrating VRF key %s", vrfKey.ID())
 		ks.keyRing.VRF[vrfKey.ID()] = vrfKey
 	}
 	if err = ks.keyManager.save(); err != nil {
 		return err
 	}
-	ethKeys, states, err := ks.eth.GetV1KeysAsV2()
+	ethKeys, states, err := ks.eth.GetV1KeysAsV2(chainID)
 	if err != nil {
 		return err
 	}
@@ -150,7 +155,7 @@ func (ks *master) Migrate(vrfPssword string) error {
 		if _, exists := ks.keyRing.Eth[ethKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating Eth key %s", ethKey.ID())
+		ks.logger.Debugf("Migrating Eth key %s (and pegging to default chain ID %s)", ethKey.ID(), chainID.String())
 		if err = ks.eth.addEthKeyWithState(ethKey, states[idx]); err != nil {
 			return err
 		}
@@ -168,6 +173,7 @@ type keyManager struct {
 	keyStates    keyStates
 	lock         *sync.RWMutex
 	password     string
+	logger       logger.Logger
 }
 
 func (km *keyManager) Unlock(password string) error {
@@ -188,6 +194,7 @@ func (km *keyManager) Unlock(password string) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt encrypted key ring")
 	}
+	kr.logPubKeys(km.logger)
 	km.keyRing = kr
 
 	ks, err := km.orm.loadKeyStates()
@@ -205,28 +212,16 @@ func (km *keyManager) Unlock(password string) error {
 }
 
 // caller must hold lock!
-func (km *keyManager) save(callbacks ...func(*gorm.DB) error) error {
+func (km *keyManager) save(callbacks ...func(pg.Queryer) error) error {
 	ekb, err := km.keyRing.Encrypt(km.password, km.scryptParams)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt keyRing")
 	}
-	return postgres.GormTransactionWithDefaultContext(km.orm.db, func(tx *gorm.DB) error {
-		err := NewORM(tx).saveEncryptedKeyRing(&ekb)
-		if err != nil {
-			return err
-		}
-		for _, callback := range callbacks {
-			err = callback(tx)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	return km.orm.saveEncryptedKeyRing(&ekb, callbacks...)
 }
 
 // caller must hold lock!
-func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(*gorm.DB) error) error {
+func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) error) error {
 	fieldName, err := getFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
@@ -248,7 +243,7 @@ func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(*gorm.DB) err
 }
 
 // caller must hold lock!
-func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(*gorm.DB) error) (err error) {
+func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(pg.Queryer) error) (err error) {
 	fieldName, err := getFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
@@ -286,7 +281,7 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	}
-	return "", fmt.Errorf("Unknown key type: %T", unknownKey)
+	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }
 
 type Key interface {

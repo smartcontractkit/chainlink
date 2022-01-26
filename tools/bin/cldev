@@ -5,13 +5,9 @@ LDFLAGS="`tools/bin/ldflags`"
 export DATABASE_URL="${DATABASE_URL:=postgresql://localhost:5432/chainlink_dev?sslmode=disable}"
 export CHAINLINK_TLS_PORT=${CHAINLINK_TLS_PORT:0}
 
-createdb chainlink_dev >/dev/null || true
-
 case "$1" in
     node | core | n)
       key='0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
-      echo "** Importing default key $key"
-      go run -ldflags "$LDFLAGS" ./core/main.go --  node import tools/secrets/$key.json >/dev/null
       echo "** Running node"
       go run -ldflags "$LDFLAGS" ./core/main.go --  node start -d -p tools/secrets/password.txt -a tools/secrets/apicredentials
       ;;

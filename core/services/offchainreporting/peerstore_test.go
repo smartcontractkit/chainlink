@@ -7,42 +7,52 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_Peerstore_Start(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewSqlxDB(t)
 
-	err := store.DB.Exec(`INSERT INTO p2p_peers (id, addr, created_at, updated_at, peer_id) VALUES
+	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	require.NoError(t, err)
+
+	nonExistentP2PPeerID, err := p2ppeer.Decode("12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9")
+	require.NoError(t, err)
+
+	err = utils.JustError(db.Exec(`INSERT INTO p2p_peers (id, addr, created_at, updated_at, peer_id) VALUES
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.1/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		?
+		$1
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-	 	?
+		$2
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		?
+		$3
 	)
-	`, cltest.DefaultP2PPeerID, cltest.DefaultP2PPeerID, cltest.NonExistentP2PPeerID).Error
+	`, p2pkey.PeerID(peerID), p2pkey.PeerID(peerID), p2pkey.PeerID(nonExistentP2PPeerID)))
 	require.NoError(t, err)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID))
+	cfg := cltest.NewTestGeneralConfig(t)
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg)
 	require.NoError(t, err)
 
 	err = wrapper.Start()
@@ -50,7 +60,7 @@ func Test_Peerstore_Start(t *testing.T) {
 
 	require.Equal(t, 1, wrapper.Peerstore.PeersWithAddrs().Len())
 
-	peerID, err := p2ppeer.Decode("12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
+	peerID, err = p2ppeer.Decode("12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
 	require.NoError(t, err)
 
 	maddrs := wrapper.Peerstore.Addrs(peerID)
@@ -59,28 +69,32 @@ func Test_Peerstore_Start(t *testing.T) {
 }
 
 func Test_Peerstore_WriteToDB(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewSqlxDB(t)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID))
+	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	require.NoError(t, err)
+
+	cfg := cltest.NewTestGeneralConfig(t)
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t), cfg)
 	require.NoError(t, err)
 
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
 	require.NoError(t, err)
-	peerID, err := p2ppeer.Decode("12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
+	newPeerID, err := p2ppeer.Decode("12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
 	require.NoError(t, err)
 
-	wrapper.Peerstore.AddAddr(peerID, maddr, p2ppeerstore.PermanentAddrTTL)
+	wrapper.Peerstore.AddAddr(newPeerID, maddr, p2ppeerstore.PermanentAddrTTL)
 
 	err = wrapper.WriteToDB()
 	require.NoError(t, err)
 
 	peers := make([]offchainreporting.P2PPeer, 0)
-	result := store.DB.Find(&peers)
-	require.Equal(t, int64(1), result.RowsAffected)
+	err = db.Select(&peers, `SELECT * FROM p2p_peers`)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(peers))
 
 	peer := peers[0]
 	require.Equal(t, "12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph", peer.ID)
 	require.Equal(t, "/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph", peer.Addr)
-	require.Equal(t, cltest.DefaultP2PPeerID.Raw(), peer.PeerID)
+	require.Equal(t, p2pkey.PeerID(peerID).Raw(), peer.PeerID)
 }
