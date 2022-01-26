@@ -30,23 +30,6 @@ dev="$base -f docker-compose.dev.yaml"                                  # config
 clean_docker() {
   $base down -v --remove-orphans
   $dev down -v --remove-orphans
-  $test down -v --remove-orphans
-  $deps down -v --remove-orphans
-  $ts_test down -v --remove-orphans
-}
-
-function save_test_logs() {
-  mkdir -p logs
-  $ts_test logs --no-color node &>./logs/node.log
-  $ts_test logs --no-color node-2 &>./logs/node-2.log
-  $ts_test logs --no-color devnet &>./logs/devnet.log
-  $ts_test logs --no-color node-db &>./logs/node-db.log
-  $ts_test logs --no-color node-db-2 &>./logs/node-db-2.log
-  $ts_test logs --no-color explorer &>./logs/explorer.log
-  $ts_test logs --no-color explorer-db &>./logs/explorer-db.log
-  $ts_test logs --no-color external-adapter &>./logs/external-adapter.log
-  $test logs --no-color cypress-job-server &>./logs/cypress-job-server.log
-  $test logs --no-color echo-server &>./logs/echo-server.log
 }
 
 function usage() {
@@ -79,9 +62,6 @@ clean)
   ;;
 logs)
   $base logs -f ${@:2}
-  ;;
-logs:test:save)
-  save_test_logs
   ;;
 cld)
   $dev build
@@ -118,7 +98,6 @@ cl:restart)
   $base rm --force --stop node-db
   docker volume rm --force docker_node-db-data
   ./compose eth:restart
-  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
   $base start node
   ;;
 *)

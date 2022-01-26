@@ -141,57 +141,6 @@ func TestJSON_ParseJSON(t *testing.T) {
 	}
 }
 
-func TestJSON_Add(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		key     string
-		value   interface{}
-		errored bool
-		want    string
-	}{
-		{"adding string", "b", "2", false, `{"a":"1","b":"2"}`},
-		{"adding int", "b", 2, false, `{"a":"1","b":2}`},
-		{"overriding", "a", "2", false, `{"a":"2"}`},
-		{"escaped quote", "a", `"2"`, false, `{"a":"\"2\""}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(t, `{"a":"1"}`)
-
-			json, err := json.Add(test.key, test.value)
-			assert.Equal(t, test.errored, (err != nil))
-			assert.Equal(t, test.want, json.String())
-		})
-	}
-}
-
-func TestJSON_Delete(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		key  string
-		want string
-	}{
-		{"remove existing key", "b", `{"a":"1"}`},
-		{"remove non-existing key", "c", `{"a":"1","b":2}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(t, `{"a":"1","b":2}`)
-
-			json, err := json.Delete(test.key)
-
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, json.String())
-		})
-	}
-}
-
 func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"NotAUrl"`)
@@ -235,68 +184,6 @@ func TestWebURL_String_HasNilURL(t *testing.T) {
 	w := models.WebURL{}
 
 	assert.Equal(t, "", w.String())
-}
-
-func TestAnyTime_UnmarshalJSON_Valid(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  time.Time
-	}{
-		{"unix string", `"1529445491"`, time.Unix(1529445491, 0).UTC()},
-		{"unix int", `1529445491`, time.Unix(1529445491, 0).UTC()},
-		{"iso8601 time", `"2018-06-19T22:17:19Z"`, time.Unix(1529446639, 0).UTC()},
-		{"iso8601 date", `"2018-06-19"`, time.Unix(1529366400, 0).UTC()},
-		{"iso8601 year", `"2018"`, time.Unix(1514764800, 0).UTC()},
-		{"null", `null`, time.Time{}},
-		{"empty", `""`, time.Time{}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var actual models.AnyTime
-			err := json.Unmarshal([]byte(test.input), &actual)
-			require.NoError(t, err)
-			assert.Equal(t, test.want, actual.Time)
-		})
-	}
-}
-
-func TestAnyTime_UnmarshalJSON_Error(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{"invalid string", `"1000h"`},
-		{"float", `"1000.123"`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var actual models.AnyTime
-			err := json.Unmarshal([]byte(test.input), &actual)
-			assert.Error(t, err)
-		})
-	}
-}
-
-func TestAnyTime_MarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		input models.AnyTime
-		want  string
-	}{
-		{"valid", models.NewAnyTime(time.Unix(1529446639, 0).UTC()), `"2018-06-19T22:17:19Z"`},
-		{"invalid", models.AnyTime{}, `null`},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			b, err := json.Marshal(&test.input)
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, string(b))
-		})
-	}
 }
 
 func TestDuration_MarshalJSON(t *testing.T) {

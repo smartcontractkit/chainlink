@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -13,9 +14,9 @@ import (
 )
 
 func Test_Transmitter_CreateEthTransaction(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
@@ -25,16 +26,16 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	txm := new(bptxmmocks.TxManager)
 	strategy := new(bptxmmocks.TxStrategy)
 
-	transmitter := offchainreporting.NewTransmitter(txm, store.DB, fromAddress, gasLimit, strategy)
+	transmitter := offchainreporting.NewTransmitter(txm, fromAddress, gasLimit, strategy)
 
-	txm.On("CreateEthTransaction", mock.Anything, bulletprooftxmanager.NewTx{
+	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
-	}).Return(bulletprooftxmanager.EthTx{}, nil).Once()
+	}, mock.Anything).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(context.Background(), toAddress, payload))
 
 	txm.AssertExpectations(t)

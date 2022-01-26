@@ -18,6 +18,7 @@ type (
 	Delegate struct {
 		webhookJobRunner         *webhookJobRunner
 		externalInitiatorManager ExternalInitiatorManager
+		lggr                     logger.Logger
 	}
 
 	JobRunner interface {
@@ -27,13 +28,12 @@ type (
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(runner pipeline.Runner, externalInitiatorManager ExternalInitiatorManager) *Delegate {
+func NewDelegate(runner pipeline.Runner, externalInitiatorManager ExternalInitiatorManager, lggr logger.Logger) *Delegate {
+	lggr = lggr.Named("Webhook")
 	return &Delegate{
 		externalInitiatorManager: externalInitiatorManager,
-		webhookJobRunner: &webhookJobRunner{
-			specsByUUID: make(map[uuid.UUID]registeredJob),
-			runner:      runner,
-		},
+		webhookJobRunner:         newWebhookJobRunner(runner, lggr),
+		lggr:                     lggr,
 	}
 }
 
@@ -48,7 +48,7 @@ func (d *Delegate) JobType() job.Type {
 func (d *Delegate) AfterJobCreated(jb job.Job) {
 	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
 	if err != nil {
-		logger.Errorw("Webhook delegate AfterJobCreated errored",
+		d.lggr.Errorw("Webhook delegate AfterJobCreated errored",
 			"error", err,
 			"jobID", jb.ID,
 		)
@@ -58,7 +58,7 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 	err := d.externalInitiatorManager.DeleteJob(*jb.WebhookSpecID)
 	if err != nil {
-		logger.Errorw("Webhook delegate BeforeJobDeleted errored",
+		d.lggr.Errorw("Webhook delegate BeforeJobDeleted errored",
 			"error", err,
 			"jobID", jb.ID,
 		)
@@ -67,6 +67,9 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
 	// TODO: we need to fill these out manually, find a better fix
+	if spec.PipelineSpec == nil {
+		spec.PipelineSpec = &pipeline.Spec{}
+	}
 	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
 	spec.PipelineSpec.JobID = spec.ID
 
@@ -97,6 +100,15 @@ type webhookJobRunner struct {
 	specsByUUID   map[uuid.UUID]registeredJob
 	muSpecsByUUID sync.RWMutex
 	runner        pipeline.Runner
+	lggr          logger.Logger
+}
+
+func newWebhookJobRunner(runner pipeline.Runner, lggr logger.Logger) *webhookJobRunner {
+	return &webhookJobRunner{
+		specsByUUID: make(map[uuid.UUID]registeredJob),
+		runner:      runner,
+		lggr:        lggr.Named("JobRunner"),
+	}
 }
 
 type registeredJob struct {
@@ -140,7 +152,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		return 0, ErrJobNotExists
 	}
 
-	logger := logger.Default.With(
+	jobLggr := r.lggr.With(
 		"jobID", spec.ID,
 		"uuid", spec.ExternalJobID,
 	)
@@ -162,10 +174,13 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 
 	run := pipeline.NewRun(*spec.PipelineSpec, vars)
 
-	_, err := r.runner.Run(ctx, &run, *logger, true, nil)
+	_, err := r.runner.Run(ctx, &run, jobLggr, true, nil)
 	if err != nil {
-		logger.Errorw("Error running pipeline for webhook job", "error", err)
+		jobLggr.Errorw("Error running pipeline for webhook job", "error", err)
 		return 0, err
+	}
+	if run.ID == 0 {
+		panic("expected run to have non-zero id")
 	}
 	return run.ID, nil
 }

@@ -1,14 +1,22 @@
 name: Solidity
-on: [push]
+
+on:
+  push:
+    branches:
+      - auto
+      - try
+      - rollup
+  pull_request:
+
 jobs:
-  solidity-lint:
-    name: Solidity Linting
+  solidity-coverage:
+    name: Solidity Coverage
     runs-on: ubuntu-latest
     steps:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: '12'
+          node-version: "12"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
@@ -26,8 +34,10 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
-      - name: Run solhint
-        run: ./tools/ci/solhint
+      - name: Run coverage
+        env:
+          NODE_OPTIONS: "--max-old-space-size=5120"
+        run: ./tools/ci/solidity_coverage
 
   solidity:
     name: Solidity
@@ -36,7 +46,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: '12'
+          node-version: "12"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
@@ -54,5 +64,9 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
+      - name: Compile all contracts
+        run: ./contracts/scripts/native_solc_compile_all
+      - name: Verify local solc binaries
+        run: ./tools/ci/check_solc_hashes
       - name: Run tests
         run: ./tools/ci/solidity_test_hardhat

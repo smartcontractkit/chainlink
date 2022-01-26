@@ -32,7 +32,7 @@ func main() {
 	tmpDir, cleanup := gethwrappers.TempDir(className)
 	defer cleanup()
 	linkDetails, err := ioutil.ReadFile(filepath.Join(
-		gethwrappers.GetProjectRoot(), "evm-test-helpers/src/LinkToken.json"))
+		gethwrappers.GetProjectRoot(), "contracts/LinkToken.json"))
 	if err != nil {
 		gethwrappers.Exit("could not read LINK contract details", err)
 	}

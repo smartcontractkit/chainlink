@@ -11,26 +11,26 @@ gethload.js
 craco.config.js
 .yarn
 
+contracts/coverage
+contracts/abi
+contracts/artifacts
+contracts/cache
+contracts/node_modules
+contracts/solc
+contracts/LinkToken.json
+contracts/typechain
+contracts/src/v0.4
+contracts/src/v0.5
+contracts/src/v0.6
+contracts/**/vendor
+
 # Ignore TS definition and map files
 **/**.d.ts
 **/**.d.ts.map
-
-# belt
-belt/*-debug.log
-belt/*-error.log
-belt/.nyc_output
-belt/dist
-belt/lib
-belt/package-lock.json
-belt/tmp
-belt/node_modules
-belt/testfs
-
-# solc_bin
-solc_bin
 
 docs/
 venv/
 
 *.md
 .github/workflows/*.yml
+.golangci.yml

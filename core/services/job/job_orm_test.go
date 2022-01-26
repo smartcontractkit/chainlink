@@ -5,198 +5,128 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
+
+	"github.com/pelletier/go-toml"
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-
-	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 func TestORM(t *testing.T) {
 	t.Parallel()
-	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_orm", true, true)
-	defer cleanupDB()
-	db := oldORM.DB
-	keyStore := cltest.NewKeyStore(t, db)
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
-	defer orm.Close()
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	borm := bridges.NewORM(db, logger.TestLogger(t), config)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, db.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-	dbSpec := makeOCRJobSpec(t, address)
+	jb := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 	t.Run("it creates job specs", func(t *testing.T) {
-		jb, err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		err := orm.CreateJob(jb)
 		require.NoError(t, err)
 
 		var returnedSpec job.Job
-		err = db.
-			Preload("OffchainreportingOracleSpec").
-			Where("id = ?", dbSpec.ID).First(&returnedSpec).Error
+		var OCROracleSpec job.OffchainReportingOracleSpec
+
+		err = db.Get(&returnedSpec, "SELECT * FROM jobs WHERE jobs.id = $1", jb.ID)
 		require.NoError(t, err)
-		compareOCRJobSpecs(t, jb, returnedSpec)
+		err = db.Get(&OCROracleSpec, "SELECT * FROM offchainreporting_oracle_specs WHERE offchainreporting_oracle_specs.id = $1", jb.OffchainreportingOracleSpecID)
+		require.NoError(t, err)
+		returnedSpec.OffchainreportingOracleSpec = &OCROracleSpec
+		compareOCRJobSpecs(t, *jb, returnedSpec)
 	})
 
 	t.Run("autogenerates external job ID if missing", func(t *testing.T) {
-		job2 := makeOCRJobSpec(t, address)
-		job2.ExternalJobID = uuid.UUID{}
-		_, err := orm.CreateJob(context.Background(), job2, job2.Pipeline)
+		jb2 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
+		jb2.ExternalJobID = uuid.UUID{}
+		err := orm.CreateJob(jb2)
 		require.NoError(t, err)
 
 		var returnedSpec job.Job
-		err = db.Where("id = ?", job2.ID).First(&returnedSpec).Error
+		err = db.Get(&returnedSpec, "SELECT * FROM jobs WHERE jobs.id = $1", jb.ID)
 		require.NoError(t, err)
 
 		assert.NotEqual(t, uuid.UUID{}, returnedSpec.ExternalJobID)
 	})
 
-	dbURL := config.DatabaseURL()
-	db2, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: dbURL.String(),
-	}), &gorm.Config{})
-	require.NoError(t, err)
-	d, err := db2.DB()
-	require.NoError(t, err)
-	defer d.Close()
-
-	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
-	defer orm2.Close()
-
-	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		unclaimed, err := orm.ClaimUnclaimedJobs(ctx)
-		require.NoError(t, err)
-		require.Len(t, unclaimed, 2)
-		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
-		require.Equal(t, int32(1), unclaimed[0].ID)
-		require.Equal(t, int32(1), *unclaimed[0].OffchainreportingOracleSpecID)
-		require.Equal(t, int32(1), unclaimed[0].PipelineSpecID)
-		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpec.ID)
-
-		dbSpec2 := makeOCRJobSpec(t, address)
-		_, err = orm.CreateJob(context.Background(), dbSpec2, dbSpec2.Pipeline)
-		require.NoError(t, err)
-
-		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel2()
-
-		unclaimed, err = orm2.ClaimUnclaimedJobs(ctx2)
-		require.NoError(t, err)
-		require.Len(t, unclaimed, 1)
-		compareOCRJobSpecs(t, *dbSpec2, unclaimed[0])
-		require.Equal(t, int32(3), unclaimed[0].ID)
-		require.Equal(t, int32(3), *unclaimed[0].OffchainreportingOracleSpecID)
-		require.Equal(t, int32(3), unclaimed[0].PipelineSpecID)
-		require.Equal(t, int32(3), unclaimed[0].OffchainreportingOracleSpec.ID)
-	})
-
-	t.Run("it can delete jobs claimed by other nodes", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err := orm2.DeleteJob(ctx, dbSpec.ID)
-		require.NoError(t, err)
-
+	t.Run("it deletes jobs from the DB", func(t *testing.T) {
 		var dbSpecs []job.Job
-		err = db.Find(&dbSpecs).Error
-		require.NoError(t, err)
-		require.Len(t, dbSpecs, 2)
-	})
 
-	t.Run("it deletes its own claimed jobs from the DB", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		// Check that it is claimed
-		claimedJobIDs := job.GetORMClaimedJobIDs(orm)
-		require.Contains(t, claimedJobIDs, dbSpec.ID)
-
-		err := orm.DeleteJob(ctx, dbSpec.ID)
-		require.NoError(t, err)
-
-		// Check that it is no longer claimed
-		claimedJobIDs = job.GetORMClaimedJobIDs(orm)
-		assert.NotContains(t, claimedJobIDs, dbSpec.ID)
-
-		var dbSpecs []job.Job
-		err = db.Find(&dbSpecs).Error
+		err := db.Select(&dbSpecs, "SELECT * FROM jobs")
 		require.NoError(t, err)
 		require.Len(t, dbSpecs, 2)
 
-		var oracleSpecs []job.OffchainReportingOracleSpec
-		err = db.Find(&oracleSpecs).Error
+		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		require.Len(t, oracleSpecs, 2)
 
-		var pipelineSpecs []pipeline.Spec
-		err = db.Find(&pipelineSpecs).Error
+		dbSpecs = []job.Job{}
+		err = db.Select(&dbSpecs, "SELECT * FROM jobs")
 		require.NoError(t, err)
-		require.Len(t, pipelineSpecs, 2)
+		require.Len(t, dbSpecs, 1)
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
-		dbSpec3 := makeOCRJobSpec(t, address)
-		_, err := orm.CreateJob(context.Background(), dbSpec3, dbSpec3.Pipeline)
+		jb3 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
+		err := orm.CreateJob(jb3)
 		require.NoError(t, err)
 		var jobSpec job.Job
-		err = db.
-			First(&jobSpec).
-			Error
+		err = db.Get(&jobSpec, "SELECT * FROM jobs")
 		require.NoError(t, err)
 
 		ocrSpecError1 := "ocr spec 1 errored"
 		ocrSpecError2 := "ocr spec 2 errored"
-		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError1)
-		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError1)
-		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError2)
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError2))
 
 		var specErrors []job.SpecError
-		err = db.Find(&specErrors).Error
+		err = db.Select(&specErrors, "SELECT * FROM job_spec_errors")
 		require.NoError(t, err)
 		require.Len(t, specErrors, 2)
 
 		assert.Equal(t, specErrors[0].Occurrences, uint(2))
 		assert.Equal(t, specErrors[1].Occurrences, uint(1))
-		assert.True(t, specErrors[0].CreatedAt.Before(specErrors[0].UpdatedAt))
+		assert.True(t, specErrors[0].CreatedAt.Before(specErrors[0].UpdatedAt), "expected created_at (%s) to be before updated_at (%s)", specErrors[0].CreatedAt, specErrors[0].UpdatedAt)
 		assert.Equal(t, specErrors[0].Description, ocrSpecError1)
 		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
 		assert.True(t, specErrors[1].CreatedAt.After(specErrors[0].UpdatedAt))
 		var j2 job.Job
-		err = db.
-			Preload("OffchainreportingOracleSpec").
-			Preload("JobSpecErrors").
-			First(&j2, "jobs.id = ?", jobSpec.ID).
-			Error
+		var OCROracleSpec job.OffchainReportingOracleSpec
+		var jobSpecErrors []job.SpecError
+
+		err = db.Get(&j2, "SELECT * FROM jobs WHERE jobs.id = $1", jobSpec.ID)
 		require.NoError(t, err)
+		err = db.Get(&OCROracleSpec, "SELECT * FROM offchainreporting_oracle_specs WHERE offchainreporting_oracle_specs.id = $1", j2.OffchainreportingOracleSpecID)
+		require.NoError(t, err)
+		err = db.Select(&jobSpecErrors, "SELECT * FROM job_spec_errors WHERE job_spec_errors.job_id = $1", j2.ID)
+		require.NoError(t, err)
+		require.Len(t, jobSpecErrors, 2)
 	})
 
 	t.Run("creates a job with a direct request spec", func(t *testing.T) {
@@ -204,215 +134,405 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		jb, err := directrequest.ValidatedDirectRequestSpec(tree.String())
 		require.NoError(t, err)
-		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		err = orm.CreateJob(&jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
-		eiFoo := cltest.MustInsertExternalInitiator(t, db)
-		eiBar := cltest.MustInsertExternalInitiator(t, db)
+		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
+		eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
 		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
 			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
 		}
-		eim := webhook.NewExternalInitiatorManager(db, nil)
+		eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t), config)
 		jb, err := webhook.ValidatedWebhookSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
 		require.NoError(t, err)
 
-		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		err = orm.CreateJob(&jb)
 		require.NoError(t, err)
 
-		cltest.AssertCount(t, db, job.ExternalInitiatorWebhookSpec{}, 2)
+		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 2)
 	})
-}
-
-func TestORM_CheckForDeletedJobs(t *testing.T) {
-	t.Parallel()
-
-	config := cltest.NewTestEVMConfig(t)
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	defer cleanup()
-	db := store.DB
-	keyStore := cltest.NewKeyStore(t, db)
-	ethKeyStore := keyStore.Eth()
-
-	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
-
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, db.Create(bridge2).Error)
-
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
-
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
-	defer orm.Close()
-
-	claimedJobs := make([]job.Job, 3)
-	for i := range claimedJobs {
-		dbSpec := makeOCRJobSpec(t, address)
-		_, err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
-		require.NoError(t, err)
-		claimedJobs[i] = *dbSpec
-	}
-	job.SetORMClaimedJobs(orm, claimedJobs)
-
-	deletedID := claimedJobs[0].ID
-	require.NoError(t, db.Exec(`DELETE FROM jobs WHERE id = ?`, deletedID).Error)
-
-	deletedJobIDs, err := orm.CheckForDeletedJobs(context.Background())
-	require.NoError(t, err)
-
-	require.Len(t, deletedJobIDs, 1)
-	require.Equal(t, deletedID, deletedJobIDs[0])
-
-}
-
-func TestORM_UnclaimJob(t *testing.T) {
-	t.Parallel()
-
-	config := cltest.NewTestEVMConfig(t)
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	defer cleanup()
-	db := store.DB
-	keyStore := cltest.NewKeyStore(t, db)
-	ethKeyStore := keyStore.Eth()
-
-	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
-
-	advisoryLocker := new(mocks.AdvisoryLocker)
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, advisoryLocker, keyStore)
-	defer orm.Close()
-
-	require.NoError(t, orm.UnclaimJob(context.Background(), 42))
-
-	claimedJobs := make([]job.Job, 3)
-	for i := range claimedJobs {
-		dbSpec := makeOCRJobSpec(t, address)
-		dbSpec.ID = int32(i)
-		claimedJobs[i] = *dbSpec
-	}
-
-	job.SetORMClaimedJobs(orm, claimedJobs)
-
-	jobID := claimedJobs[0].ID
-	advisoryLocker.On("Unlock", mock.Anything, job.GetORMAdvisoryLockClassID(orm), jobID).Once().Return(nil)
-
-	require.NoError(t, orm.UnclaimJob(context.Background(), jobID))
-
-	claimedJobs = job.GetORMClaimedJobs(orm)
-	require.Len(t, claimedJobs, 2)
-	require.NotContains(t, claimedJobs, jobID)
-
-	advisoryLocker.AssertExpectations(t)
 }
 
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
-	config := cltest.NewTestEVMConfig(t)
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	defer cleanup()
-	db := store.DB
-	keyStore := cltest.NewKeyStore(t, store.DB)
+	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
-	defer orm.Close()
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
-		_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-		require.NoError(t, db.Create(bridge).Error)
-		_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-		require.NoError(t, db.Create(bridge2).Error)
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		jb, err := offchainreporting.ValidatedOracleSpecToml(config, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
+		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml())
 		require.NoError(t, err)
 
-		ocrJob, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 
-		cltest.AssertCount(t, db, job.OffchainReportingOracleSpec{}, 1)
-		cltest.AssertCount(t, db, pipeline.Spec{}, 1)
+		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 1)
+		cltest.AssertCount(t, db, "pipeline_specs", 1)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		err = orm.DeleteJob(ctx, ocrJob.ID)
+		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, job.OffchainReportingOracleSpec{}, 0)
-		cltest.AssertCount(t, db, pipeline.Spec{}, 0)
-		cltest.AssertCount(t, db, job.Job{}, 0)
+		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 0)
+		cltest.AssertCount(t, db, "pipeline_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store, keyStore.Eth())
-		cltest.MustInsertUpkeepForRegistry(t, store, registry)
+		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, db, korm, keyStore.Eth())
+		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 
-		cltest.AssertCount(t, db, job.KeeperSpec{}, 1)
-		cltest.AssertCount(t, db, keeper.Registry{}, 1)
-		cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 1)
+		cltest.AssertCount(t, db, "keeper_specs", 1)
+		cltest.AssertCount(t, db, "keeper_registries", 1)
+		cltest.AssertCount(t, db, "upkeep_registrations", 1)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		err := orm.DeleteJob(ctx, keeperJob.ID)
+		err := jobORM.DeleteJob(keeperJob.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, job.KeeperSpec{}, 0)
-		cltest.AssertCount(t, db, keeper.Registry{}, 0)
-		cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 0)
-		cltest.AssertCount(t, db, job.Job{}, 0)
+		cltest.AssertCount(t, db, "keeper_specs", 0)
+		cltest.AssertCount(t, db, "keeper_registries", 0)
+		cltest.AssertCount(t, db, "upkeep_registrations", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
-	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for vrf jobs", func(t *testing.T) {
 		key, err := keyStore.VRF().Create()
 		require.NoError(t, err)
 		pk := key.PublicKey
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
 		require.NoError(t, err)
 
-		_, err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		err = orm.DeleteJob(ctx, jb.ID)
+		cltest.AssertCount(t, db, "vrf_specs", 1)
+		cltest.AssertCount(t, db, "jobs", 1)
+		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, job.VRFSpec{}, 0)
-		cltest.AssertCount(t, db, job.Job{}, 0)
+		cltest.AssertCount(t, db, "vrf_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
-		ei := cltest.MustInsertExternalInitiator(t, db)
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t), config))
 		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
-		err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
+		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
 
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		err = orm.DeleteJob(ctx, jb.ID)
+		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, job.WebhookSpec{}, 0)
-		cltest.AssertCount(t, db, job.ExternalInitiatorWebhookSpec{}, 0)
-		cltest.AssertCount(t, db, job.Job{}, 0)
+		cltest.AssertCount(t, db, "webhook_specs", 0)
+		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
 		// create new db because this will rollback transaction and poison it
-		db2 := pgtest.NewGormDB(t)
-		ei := cltest.MustInsertExternalInitiator(t, db2)
-		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db2)
-		err := db2.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
+		db := pgtest.NewSqlxDB(t)
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t), config))
+		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
+		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
 
-		err = db2.Exec(`DELETE FROM external_initiators`).Error
+		_, err = db.Exec(`DELETE FROM external_initiators`)
 		require.EqualError(t, err, "ERROR: update or delete on table \"external_initiators\" violates foreign key constraint \"external_initiator_webhook_specs_external_initiator_id_fkey\" on table \"external_initiator_webhook_specs\" (SQLSTATE 23503)")
 	})
+}
+
+func TestORM_CreateJob_VRFV2(t *testing.T) {
+	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestedConfsDelay: 10}).Toml())
+	require.NoError(t, err)
+
+	err = jobORM.CreateJob(&jb)
+	require.NoError(t, err)
+	cltest.AssertCount(t, db, "vrf_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+	var requestedConfsDelay int64
+	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, int64(10), requestedConfsDelay)
+	jobORM.DeleteJob(jb.ID)
+	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
+
+	jb, err = vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{}).Toml())
+	require.NoError(t, err)
+	err = jobORM.CreateJob(&jb)
+	require.NoError(t, err)
+	cltest.AssertCount(t, db, "vrf_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, int64(0), requestedConfsDelay)
+	jobORM.DeleteJob(jb.ID)
+	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
+}
+
+func Test_FindJob(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+
+	t.Run("by id", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		jb, err = orm.FindJob(ctx, jb.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, jb.ID, jb.ID)
+		assert.Equal(t, jb.Name, jb.Name)
+
+		require.Greater(t, jb.PipelineSpecID, int32(0))
+		require.NotNil(t, jb.PipelineSpec)
+		require.NotNil(t, jb.OffchainreportingOracleSpecID)
+		require.NotNil(t, jb.OffchainreportingOracleSpec)
+	})
+
+	t.Run("by external job id", func(t *testing.T) {
+		jb, err := orm.FindJobByExternalJobID(externalJobID)
+		require.NoError(t, err)
+
+		assert.Equal(t, jb.ID, jb.ID)
+		assert.Equal(t, jb.Name, jb.Name)
+
+		require.Greater(t, jb.PipelineSpecID, int32(0))
+		require.NotNil(t, jb.PipelineSpec)
+		require.NotNil(t, jb.OffchainreportingOracleSpecID)
+		require.NotNil(t, jb.OffchainreportingOracleSpec)
+	})
+}
+
+func Test_FindPipelineRuns(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+
+	t.Run("with no pipeline runs", func(t *testing.T) {
+		runs, count, err := orm.PipelineRuns(nil, 0, 10)
+		require.NoError(t, err)
+		assert.Equal(t, count, 0)
+		assert.Empty(t, runs)
+	})
+
+	t.Run("with a pipeline run", func(t *testing.T) {
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
+
+		runs, count, err := orm.PipelineRuns(nil, 0, 10)
+		require.NoError(t, err)
+
+		assert.Equal(t, count, 1)
+		actual := runs[0]
+
+		// Test pipeline run fields
+		assert.Equal(t, run.State, actual.State)
+		assert.Equal(t, run.PipelineSpecID, actual.PipelineSpecID)
+
+		// Test preloaded pipeline spec
+		require.NotNil(t, jb.PipelineSpec)
+		assert.Equal(t, jb.PipelineSpec.ID, actual.PipelineSpec.ID)
+		assert.Equal(t, jb.ID, actual.PipelineSpec.JobID)
+	})
+}
+
+func Test_PipelineRunsByJobID(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+
+	t.Run("with no pipeline runs", func(t *testing.T) {
+		runs, count, err := orm.PipelineRuns(&jb.ID, 0, 10)
+		require.NoError(t, err)
+		assert.Equal(t, count, 0)
+		assert.Empty(t, runs)
+	})
+
+	t.Run("with a pipeline run", func(t *testing.T) {
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
+
+		runs, count, err := orm.PipelineRuns(&jb.ID, 0, 10)
+		require.NoError(t, err)
+
+		assert.Equal(t, count, 1)
+		actual := runs[0]
+
+		// Test pipeline run fields
+		assert.Equal(t, run.State, actual.State)
+		assert.Equal(t, run.PipelineSpecID, actual.PipelineSpecID)
+
+		// Test preloaded pipeline spec
+		assert.Equal(t, jb.PipelineSpec.ID, actual.PipelineSpec.ID)
+		assert.Equal(t, jb.ID, actual.PipelineSpec.JobID)
+	})
+}
+
+func Test_PipelineRunsByJobsIDs(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db, config)
+	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, err)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+
+	t.Run("with no pipeline runs", func(t *testing.T) {
+		runs, err := orm.PipelineRunsByJobsIDs([]int32{jb.ID})
+		require.NoError(t, err)
+		assert.Equal(t, len(runs), 0)
+		assert.Empty(t, runs)
+	})
+
+	t.Run("with a pipeline run", func(t *testing.T) {
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
+
+		runs, err := orm.PipelineRunsByJobsIDs([]int32{jb.ID})
+		require.NoError(t, err)
+
+		assert.Equal(t, len(runs), 1)
+		actual := runs[0]
+
+		// Test pipeline run fields
+		assert.Equal(t, run.State, actual.State)
+		assert.Equal(t, run.PipelineSpecID, actual.PipelineSpecID)
+
+		// Test preloaded pipeline spec
+		assert.Equal(t, jb.PipelineSpec.ID, actual.PipelineSpec.ID)
+		assert.Equal(t, jb.ID, actual.PipelineSpec.JobID)
+	})
+}
+
+func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.Run {
+	t.Helper()
+
+	run := pipeline.Run{
+		PipelineSpecID: j.PipelineSpecID,
+		State:          pipeline.RunStatusRunning,
+		Outputs:        pipeline.JSONSerializable{Valid: false},
+		AllErrors:      pipeline.RunErrors{},
+		CreatedAt:      time.Now(),
+		FinishedAt:     null.Time{},
+	}
+	err := orm.CreateRun(&run)
+	require.NoError(t, err)
+	return run
 }

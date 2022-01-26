@@ -4,41 +4,47 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/recovery"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 func main() {
-	Run(NewProductionClient(), os.Args...)
+	recovery.ReportPanics(func() {
+		Run(NewProductionClient(), os.Args...)
+	})
 }
 
 // Run runs the CLI, providing further command instructions by default.
 func Run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
-	logger.WarnIf(app.Run(args))
+	client.Logger.ErrorIf(app.Run(args), "Error running app")
 }
 
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
 	cfg := config.NewGeneralConfig()
+	lggr := logger.NewLogger(cfg)
 
 	prompter := cmd.NewTerminalPrompter()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
-	sr := models.SessionRequest{}
-	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder()
+	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg}, lggr)
+	sr := sessions.SessionRequest{}
+	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder(lggr)
 	if credentialsFile := cfg.AdminCredentialsFile(); credentialsFile != "" {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)
 		if err != nil && errors.Cause(err) != cmd.ErrNoCredentialFile && !os.IsNotExist(err) {
-			logger.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
+			lggr.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
 		}
 	}
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		Config:                         cfg,
+		Logger:                         lggr,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),

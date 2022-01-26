@@ -2,7 +2,6 @@ package utils_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
@@ -17,28 +16,24 @@ func TestMailbox(t *testing.T) {
 		recvd     []int
 	)
 
-	for _, i := range toDeliver {
-		m.Deliver(i)
-	}
-
 	chDone := make(chan struct{})
 	go func() {
 		defer close(chDone)
-		for {
-			select {
-			case <-time.After(3 * time.Second):
-				return
-			case <-m.Notify():
-				for {
-					x, exists := m.Retrieve()
-					if !exists {
-						break
-					}
-					recvd = append(recvd, x.(int))
+		for _ = range m.Notify() {
+			for {
+				x, exists := m.Retrieve()
+				if !exists {
+					break
 				}
+				recvd = append(recvd, x.(int))
 			}
 		}
 	}()
+
+	for _, i := range toDeliver {
+		m.Deliver(i)
+	}
+	close(m.Notify())
 
 	<-chDone
 
@@ -48,40 +43,6 @@ func TestMailbox(t *testing.T) {
 		t.Fatal("received too few")
 	}
 	require.Equal(t, expected, recvd)
-}
-
-func TestMailbox_EmptyReceivesWhenCapacityIsOne(t *testing.T) {
-	m := utils.NewMailbox(1)
-
-	var (
-		recvd         []int
-		emptyReceives []int
-	)
-
-	chDone := make(chan struct{})
-	go func() {
-		defer close(chDone)
-		for {
-			select {
-			case <-time.After(3 * time.Second):
-				return
-			case <-m.Notify():
-				x, exists := m.Retrieve()
-				if !exists {
-					emptyReceives = append(emptyReceives, recvd[len(recvd)-1])
-				} else {
-					recvd = append(recvd, x.(int))
-				}
-			}
-		}
-	}()
-
-	for i := 0; i < 100000; i++ {
-		m.Deliver(i)
-	}
-
-	<-chDone
-	require.Greater(t, len(emptyReceives), 0)
 }
 
 func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
@@ -95,17 +56,12 @@ func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
 	chDone := make(chan struct{})
 	go func() {
 		defer close(chDone)
-		for {
-			select {
-			case <-time.After(3 * time.Second):
-				return
-			case <-m.Notify():
-				x, exists := m.Retrieve()
-				if !exists {
-					emptyReceives = append(emptyReceives, recvd[len(recvd)-1])
-				} else {
-					recvd = append(recvd, x.(int))
-				}
+		for _ = range m.Notify() {
+			x, exists := m.Retrieve()
+			if !exists {
+				emptyReceives = append(emptyReceives, recvd[len(recvd)-1])
+			} else {
+				recvd = append(recvd, x.(int))
 			}
 		}
 	}()
@@ -113,6 +69,7 @@ func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
 	for i := 0; i < 100000; i++ {
 		m.Deliver(i)
 	}
+	close(m.Notify())
 
 	<-chDone
 	require.Len(t, emptyReceives, 0)

@@ -42,10 +42,10 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Install
 
-1. [Install Go 1.15](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.17](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS 12.18](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
-   - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects: `nvm install 12.18 && nvm use 12.18`
+2. Install [NodeJS 12.22](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
+   - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects: `nvm install 12.22 && nvm use 12.22`
 3. Install [Postgres (>= 11.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
    - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
@@ -78,19 +78,18 @@ By default this will start on port 6688, where it exposes a [REST API](https://g
 Once your node has started, you can view your current jobs with:
 
 ```bash
-chainlink job_specs list # v1 jobs
-chainlink jobs list # v2 jobs
+chainlink jobs list
 ```
 
 View details of a specific job with:
 
 ```bash
-chainlink job_specs show "$JOB_ID # v1 jobs"
+chainlink job show [$JOB_ID]
 ```
 
 To find out more about the Chainlink CLI, you can always run `chainlink help`.
 
-Check out the [docs'](https://docs.chain.link/) pages on [Adapters](https://docs.chain.link/docs/adapters) and [Initiators](https://docs.chain.link/docs/initiators) to learn more about how to create Jobs and Runs.
+Check out the [doc](https://docs.chain.link/) pages on [Jobs](https://docs.chain.link/docs/jobs/) to learn more about how to create Jobs.
 
 ## Configure
 
@@ -102,9 +101,7 @@ Chainlink is a monorepo containing several logically separatable and relatable
 projects.
 
 - [core](./core) - the core Chainlink node
-- [@chainlink/belt](./belt) - tools for performing commands on Chainlink smart contracts
 - [@chainlink/contracts](./contracts) - smart contracts
-- [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
 - [tools](./tools) - Chainlink tools
 
@@ -154,7 +151,6 @@ yarn setup:contracts
 
 ```bash
 go generate ./...
-go run ./packr/main.go ./core/services/eth/
 ```
 
 5. Prepare your development environment:

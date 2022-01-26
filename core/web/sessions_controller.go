@@ -5,36 +5,60 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/web/auth"
 )
 
 // SessionsController manages session requests.
 type SessionsController struct {
-	App chainlink.Application
+	App      chainlink.Application
+	sessions *clsessions.WebAuthnSessionStore
+}
+
+func NewSessionsController(app chainlink.Application) *SessionsController {
+	return &SessionsController{app, clsessions.NewWebAuthnSessionStore()}
 }
 
 // Create creates a session ID for the given user credentials, and returns it
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
+	sc.App.GetLogger().Debugf("TRACE: Starting Session Creation")
 
 	session := sessions.Default(c)
-	var sr models.SessionRequest
+	var sr clsessions.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %v", err))
 		return
 	}
 
-	sid, err := sc.App.GetStore().CreateSession(sr)
+	// Does this user have 2FA enabled?
+	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
+	if err != nil {
+		sc.App.GetLogger().Errorf("Error loading user WebAuthn data: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
+		return
+	}
+
+	// If the user has registered MFA tokens, then populate our session store and context
+	// required for successful WebAuthn authentication
+	if len(userWebAuthnTokens) > 0 {
+		sr.SessionStore = sc.sessions
+		sr.RequestContext = c
+		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
+	}
+
+	sid, err := sc.App.SessionORM().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
 	}
+
 	if err := saveSessionID(session, sid); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, multierr.Append(errors.New("unable to save session id"), err))
 		return
@@ -49,12 +73,12 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 
 	session := sessions.Default(c)
 	defer session.Clear()
-	sessionID, ok := session.Get(SessionIDKey).(string)
+	sessionID, ok := session.Get(auth.SessionIDKey).(string)
 	if !ok {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
 	}
-	if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
+	if err := sc.App.SessionORM().DeleteUserSession(sessionID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -63,7 +87,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 }
 
 func saveSessionID(session sessions.Session, sessionID string) error {
-	session.Set(SessionIDKey, sessionID)
+	session.Set(auth.SessionIDKey, sessionID)
 	return session.Save()
 }
 

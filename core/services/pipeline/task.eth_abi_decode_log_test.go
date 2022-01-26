@@ -8,8 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -236,7 +238,9 @@ func TestETHABIDecodeLogTask(t *testing.T) {
 				Topics:   test.topics,
 			}
 
-			result := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))

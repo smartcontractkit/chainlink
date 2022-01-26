@@ -1,42 +1,58 @@
 package keystore
 
 import (
-	"github.com/pkg/errors"
+	"database/sql"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 )
 
-func NewORM(db *gorm.DB) ksORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ksORM {
+	namedLogger := lggr.Named("KeystoreORM")
 	return ksORM{
-		db: db,
+		q:    pg.NewQ(db, namedLogger, cfg),
+		lggr: namedLogger,
 	}
 }
 
 type ksORM struct {
-	db *gorm.DB
+	q    pg.Q
+	lggr logger.Logger
 }
 
-func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing) error {
-	err := orm.db.Exec(`
+func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) error {
+	return orm.q.Transaction(func(tx pg.Queryer) error {
+		_, err := tx.Exec(`
 		UPDATE encrypted_key_rings
-		SET encrypted_keys = ?
-	`, kr.EncryptedKeys).Error
-	if err != nil {
-		return errors.Wrap(err, "while saving keyring")
-	}
-	return nil
+		SET encrypted_keys = $1
+	`, kr.EncryptedKeys)
+		if err != nil {
+			return errors.Wrap(err, "while saving keyring")
+		}
+		for _, callback := range callbacks {
+			err = callback(tx)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
-func (orm ksORM) getEncryptedKeyRing() (encryptedKeyRing, error) {
-	kr := encryptedKeyRing{}
-	err := orm.db.First(&kr).Error
-	if err == gorm.ErrRecordNotFound {
-		kr = encryptedKeyRing{}
-		err2 := orm.db.Create(&kr).Error
+func (orm ksORM) getEncryptedKeyRing() (kr encryptedKeyRing, err error) {
+	err = orm.q.Get(&kr, `SELECT * FROM encrypted_key_rings LIMIT 1`)
+	if errors.Is(err, sql.ErrNoRows) {
+		sql := `INSERT INTO encrypted_key_rings (encrypted_keys, updated_at) VALUES (NULL, NOW()) RETURNING *;`
+		err2 := orm.q.Get(&kr, sql)
+
 		if err2 != nil {
 			return kr, err2
 		}
@@ -49,7 +65,7 @@ func (orm ksORM) getEncryptedKeyRing() (encryptedKeyRing, error) {
 func (orm ksORM) loadKeyStates() (keyStates, error) {
 	ks := newKeyStates()
 	var ethkeystates []ethkey.State
-	if err := orm.db.Find(&ethkeystates).Error; err != nil {
+	if err := orm.q.Select(&ethkeystates, `SELECT * FROM eth_key_states`); err != nil {
 		return ks, errors.Wrap(err, "error loading eth_key_states from DB")
 	}
 	for i := 0; i < len(ethkeystates); i++ {
@@ -61,21 +77,21 @@ func (orm ksORM) loadKeyStates() (keyStates, error) {
 // ~~~~~~~~~~~~~~~~~~~~ LEGACY FUNCTIONS FOR V1 MIGRATION ~~~~~~~~~~~~~~~~~~~~
 
 func (orm ksORM) GetEncryptedV1CSAKeys() (retrieved []csakey.Key, err error) {
-	return retrieved, orm.db.Find(&retrieved).Error
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM csa_keys`)
 }
 
 func (orm ksORM) GetEncryptedV1EthKeys() (retrieved []ethkey.Key, err error) {
-	return retrieved, orm.db.Find(&retrieved).Error
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM keys WHERE deleted_at IS NULL`)
 }
 
 func (orm ksORM) GetEncryptedV1OCRKeys() (retrieved []ocrkey.EncryptedKeyBundle, err error) {
-	return retrieved, orm.db.Find(&retrieved).Error
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_ocr_key_bundles WHERE deleted_at IS NULL`)
 }
 
 func (orm ksORM) GetEncryptedV1P2PKeys() (retrieved []p2pkey.EncryptedP2PKey, err error) {
-	return retrieved, orm.db.Find(&retrieved).Error
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_p2p_keys WHERE deleted_at IS NULL`)
 }
 
 func (orm ksORM) GetEncryptedV1VRFKeys() (retrieved []vrfkey.EncryptedVRFKey, err error) {
-	return retrieved, orm.db.Find(&retrieved).Error
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_vrf_keys WHERE deleted_at IS NULL`)
 }

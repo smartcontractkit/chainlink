@@ -1,0 +1,6 @@
+type JobError {
+    id: ID!
+	description: String!
+	occurrences: Int!
+	createdAt: Time!
+}

@@ -5,10 +5,11 @@ import Card from '@material-ui/core/Card'
 import TablePagination from '@material-ui/core/TablePagination'
 import List from '../Jobs/JobRunsList'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import Title from 'components/Title'
 import Content from 'components/Content'
 import { v2 } from 'src/api'
 import { transformPipelineJobRun } from '../Jobs/transformJobRuns'
+import { Heading1 } from 'src/components/Heading/Heading1'
+import Grid from '@material-ui/core/Grid'
 
 const styles = (theme) => ({
   breadcrumb: {
@@ -97,9 +98,19 @@ export const Index = (props) => {
 
   return (
     <Content>
-      <Title>Runs</Title>
+      <Grid container spacing={32}>
+        <Grid item xs={12}>
+          <Heading1>Runs</Heading1>
+        </Grid>
 
-      {renderDetails({ ...props, latestJobRuns }, { page }, handleChangePage)}
+        <Grid item xs={12}>
+          {renderDetails(
+            { ...props, latestJobRuns },
+            { page },
+            handleChangePage,
+          )}
+        </Grid>
+      </Grid>
     </Content>
   )
 }

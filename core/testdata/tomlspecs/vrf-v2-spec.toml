@@ -5,9 +5,10 @@ name = "vrf-v2-primary"
 coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
 confirmations = 6
 publicKey = "0x49cf5e2bf04a57620ac3833c998b37e78c0c7ad89b6a9cbc4ce6dba31729930000"
+pollPeriod = "5s"
 observationSource="""
 decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 preSeedAndRequestId,uint64 subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
 vrf          [type=vrfv2
@@ -16,12 +17,15 @@ vrf          [type=vrfv2
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
 estimate_gas [type=estimategaslimit
-			  to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+              to="%s"
               multiplier="1.1"
               data="$(vrf.output)"]
-submit_tx  [type=ethtx to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
-            data="$(vrf.output)"
-            gasLimit="$(estimate_gas)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->estimate_gas->submit_tx
+simulate [type=ethcall
+          to="%s"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="%s"
+		  data="$(vrf.output)"]
+decode_log->vrf->estimate_gas->simulate
 """

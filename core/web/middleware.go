@@ -1,7 +1,10 @@
 package web
 
 import (
+	"embed"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -9,9 +12,25 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+// Go's new embed feature doesn't allow us to embed things outside of the current module.
+// To get around this, we need to make sure that the assets we want to embed are available
+// inside this module. To achieve this, we direct webpack to output all of the compiled assets
+// in this module's folder under the "assets" directory.
+
+// HINT: if you are coming here because of this error:
+// `web/middleware.go:28:12: pattern assets: no matching files found`
+// then you must first run `make operator-ui` in the root dir to compile the frontend
+//nolint
+//go:embed "assets"
+var uiEmbedFs embed.FS
+
+// assetFs is the singleton file system instance that is used to serve the static
+// assets for the operator UI.
+var assetFs = NewEmbedFileSystem(uiEmbedFs, "assets")
 
 const (
 	acceptEncodingHeader  = "Accept-Encoding"
@@ -27,18 +46,46 @@ type ServeFileSystem interface {
 	Exists(prefix string, path string) bool
 }
 
-// BoxFileSystem implements ServeFileSystem with a packr box
-type BoxFileSystem struct {
-	packr.Box
+// EmbedFileSystem implements the ServeFileSystem interface using an embed.FS
+// object.
+type EmbedFileSystem struct {
+	embed.FS
+	http.FileSystem
+	pathPrefix string
 }
 
-// Exists implements the ServeFileSystem interface
-func (b *BoxFileSystem) Exists(prefix string, filepath string) bool {
-	if p := strings.TrimPrefix(filepath, prefix); len(p) < len(filepath) {
-		return b.Has(p)
+func NewEmbedFileSystem(efs embed.FS, pathPrefix string) ServeFileSystem {
+	return &EmbedFileSystem{
+		FS:         efs,
+		FileSystem: http.FS(efs),
+		pathPrefix: pathPrefix,
+	}
+}
+
+// Exists implements the ServeFileSystem interface.
+func (e *EmbedFileSystem) Exists(prefix string, filepath string) bool {
+	found := false
+	if p := path.Base(strings.TrimPrefix(filepath, prefix)); len(p) < len(filepath) {
+		//nolint:errcheck
+		fs.WalkDir(e.FS, ".", func(fpath string, d fs.DirEntry, err error) error {
+			fileName := path.Base(fpath)
+			if fileName == p {
+				found = true
+				// Return an error so that we terminate the search early.
+				// Otherwise, the search will continue for the rest of the file tree.
+				return errors.New("file found")
+			}
+			return nil
+		})
 	}
 
-	return false
+	return found
+}
+
+// Open implements the http.FileSystem interface.
+func (e *EmbedFileSystem) Open(name string) (http.File, error) {
+	name = path.Join(e.pathPrefix, name)
+	return e.FileSystem.Open(name)
 }
 
 // gzipFileHandler implements a http.Handler which can serve either the base
@@ -46,13 +93,14 @@ func (b *BoxFileSystem) Exists(prefix string, filepath string) bool {
 // existence of the file
 type gzipFileHandler struct {
 	root ServeFileSystem
+	lggr logger.Logger
 }
 
 // GzipFileServer is a drop-in replacement for Go's standard http.FileServer
 // which adds support for static resources precompressed with gzip, at
 // the cost of removing the support for directory browsing.
-func GzipFileServer(root ServeFileSystem) http.Handler {
-	return &gzipFileHandler{root}
+func GzipFileServer(root ServeFileSystem, lggr logger.Logger) http.Handler {
+	return &gzipFileHandler{root, lggr.Named("GzipFilehandler")}
 }
 
 func (f *gzipFileHandler) openAndStat(path string) (http.File, os.FileInfo, error) {
@@ -170,16 +218,17 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Find the best acceptable file, including trying uncompressed
 	if file, info, err := f.findBestFile(w, r, fpath); err == nil {
 		http.ServeContent(w, r, fpath, info.ModTime(), file)
-		logger.ErrorIfCalling(file.Close)
+		f.lggr.ErrorIfClosing(file, "file")
 		return
 	}
 
+	f.lggr.Infof("could not find file: %s", fpath)
 	http.NotFound(w, r)
 }
 
-// Static returns a middleware handler that serves static files in the given directory.
-func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem) gin.HandlerFunc {
-	fileserver := GzipFileServer(fs)
+// ServeGzippedAssets returns a middleware handler that serves static files in the given directory.
+func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem, lggr logger.Logger) gin.HandlerFunc {
+	fileserver := GzipFileServer(fs, lggr)
 	if urlPrefix != "" {
 		fileserver = http.StripPrefix(urlPrefix, fileserver)
 	}

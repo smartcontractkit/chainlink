@@ -1,0 +1,56 @@
+scalar Time
+
+schema {
+    query: Query
+    mutation: Mutation
+}
+
+type Query {
+    bridge(id: ID!): BridgePayload!
+    bridges(offset: Int, limit: Int): BridgesPayload!
+    chain(id: ID!): ChainPayload!
+    chains(offset: Int, limit: Int): ChainsPayload!
+    csaKeys: CSAKeysPayload!
+    features: FeaturesPayload!
+    feedsManager(id: ID!): FeedsManagerPayload!
+    feedsManagers: FeedsManagersPayload!
+    job(id: ID!): JobPayload!
+    jobs(offset: Int, limit: Int): JobsPayload!
+    jobProposal(id: ID!): JobProposalPayload!
+    node(id: ID!): NodePayload!
+    nodes(offset: Int, limit: Int): NodesPayload!
+    ocrKeyBundles: OCRKeyBundlesPayload!
+    p2pKeys: P2PKeysPayload!
+    vrfKey(id: ID!): VRFKeyPayload!
+    vrfKeys: VRFKeysPayload!
+}
+
+type Mutation {
+    approveJobProposal(id: ID!): ApproveJobProposalPayload!
+    cancelJobProposal(id: ID!): CancelJobProposalPayload!
+    createAPIToken(input: CreateAPITokenInput!): CreateAPITokenPayload!
+    createBridge(input: CreateBridgeInput!): CreateBridgePayload!
+    createChain(input: CreateChainInput!): CreateChainPayload!
+    createCSAKey: CreateCSAKeyPayload!
+    createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createNode(input: CreateNodeInput!): CreateNodePayload!
+    createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createP2PKey: CreateP2PKeyPayload!
+    deleteAPIToken(input: DeleteAPITokenInput!): DeleteAPITokenPayload!
+    deleteBridge(id: ID!): DeleteBridgePayload!
+    deleteChain(id: ID!): DeleteChainPayload!
+    deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteNode(id: ID!): DeleteNodePayload!
+    deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
+    createVRFKey: CreateVRFKeyPayload!
+    deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
+    rejectJobProposal(id: ID!): RejectJobProposalPayload!
+    setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
+    setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
+    updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
+    updateChain(id: ID!, input: UpdateChainInput!): UpdateChainPayload!
+    updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
+    updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
+    updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
+}

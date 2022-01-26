@@ -1,20 +1,22 @@
 import React from 'react'
-import { shallow } from 'enzyme'
+import { render, screen } from '@testing-library/react'
 import { useLoadingPlaceholder } from './useLoadingPlaceholder'
+
+const { queryByText } = screen
 
 describe('useLoadingPlaceholder', () => {
   it('renders "Loading..." text while loading', () => {
     const { LoadingPlaceholder } = useLoadingPlaceholder(true)
-    const wrapper = shallow(<LoadingPlaceholder />)
+    render(<LoadingPlaceholder />)
 
-    expect(wrapper.text()).toContain('<WithStyles(Typography) />')
+    expect(queryByText('Loading...')).toBeInTheDocument()
   })
 
   it('defaults to false and renders an empty component', () => {
     const { LoadingPlaceholder } = useLoadingPlaceholder()
-    const wrapper = shallow(<LoadingPlaceholder />)
+    render(<LoadingPlaceholder />)
 
-    expect(wrapper.text()).toBe('')
+    expect(document.documentElement).toHaveTextContent('')
   })
 
   it('exposes "isLoading" variable', () => {

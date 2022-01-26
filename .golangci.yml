@@ -7,11 +7,9 @@ linters:
     - gosec
     - rowserrcheck
   disable:
-    # Disable these default linters so we match our current lint set up
+    # These are all considered deprecated: https://github.com/golangci/golangci-lint/issues/1841
     - deadcode
-    - ineffassign
     - structcheck
-    - typecheck
     - unused
     - varcheck
 linters-settings:
@@ -23,9 +21,9 @@ linters-settings:
     excludes:
       - G101
       - G104
-      - G204
-      - G304
-      - G404
+      # - G204
+      # - G304
+      # - G404
   govet:
     # report about shadowed variables
     check-shadowing: true
@@ -75,3 +73,9 @@ linters-settings:
       # - name: confusing-results
       - name: bool-literal-in-expr
       - name: atomic
+issues:
+  exclude-rules:
+    - path: test
+      text: "^G404:"
+      linters:
+        - gosec

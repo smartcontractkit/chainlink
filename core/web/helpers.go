@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -8,18 +9,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
-
-// StatusCodeForError returns an http status code for an error type.
-func StatusCodeForError(err interface{}) int {
-	switch err.(type) {
-	case *models.ValidationError:
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
-	}
-}
 
 // jsonAPIError adds an error to the gin context and sets
 // the JSON value of errors.
@@ -33,29 +23,6 @@ func jsonAPIError(c *gin.Context, statusCode int, err error) {
 	}
 }
 
-func paginatedResponseWithMeta(
-	c *gin.Context,
-	name string,
-	size int,
-	page int,
-	resource interface{},
-	count int,
-	err error,
-	meta map[string]interface{},
-) {
-	if errors.Cause(err) == orm.ErrorNotFound {
-		err = nil
-	}
-
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error getting paged %s: %+v", name, err))
-	} else if buffer, err := NewPaginatedResponseWithMeta(*c.Request.URL, size, page, count, resource, meta); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to marshal document: %+v", err))
-	} else {
-		c.Data(http.StatusOK, MediaType, buffer)
-	}
-}
-
 func paginatedResponse(
 	c *gin.Context,
 	name string,
@@ -65,7 +32,7 @@ func paginatedResponse(
 	count int,
 	err error,
 ) {
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
 

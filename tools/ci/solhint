@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-
-yarn workspace @chainlink/contracts lint:sol

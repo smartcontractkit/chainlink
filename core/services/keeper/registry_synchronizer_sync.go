@@ -8,12 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-// syncUpkeepQueueSize represents the max number of upkeeps that can be synced in parallel
-const syncUpkeepQueueSize = 10
 
 func (rs *RegistrySynchronizer) fullSync() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
@@ -21,15 +17,15 @@ func (rs *RegistrySynchronizer) fullSync() {
 
 	registry, err := rs.syncRegistry()
 	if err != nil {
-		rs.logger.WithError(err).Error("failed to sync registry during fullSyncing registry")
+		rs.logger.With("error", err).Error("failed to sync registry during fullSyncing registry")
 		return
 	}
 	if err := rs.addNewUpkeeps(registry); err != nil {
-		rs.logger.WithError(err).Error("failed to add new upkeeps during fullSyncing registry")
+		rs.logger.With("error", err).Error("failed to add new upkeeps during fullSyncing registry")
 		return
 	}
 	if err := rs.deleteCanceledUpkeeps(); err != nil {
-		rs.logger.WithError(err).Error("failed to delete canceled upkeeps during fullSyncing registry")
+		rs.logger.With("error", err).Error("failed to delete canceled upkeeps during fullSyncing registry")
 		return
 	}
 }
@@ -40,9 +36,7 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 		return Registry{}, errors.Wrap(err, "failed to get new registry from chain")
 	}
 
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	if err := rs.orm.UpsertRegistry(ctx, &registry); err != nil {
+	if err := rs.orm.UpsertRegistry(&registry); err != nil {
 		return Registry{}, errors.Wrap(err, "failed to upsert registry")
 	}
 
@@ -50,9 +44,7 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 }
 
 func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	nextUpkeepID, err := rs.orm.LowestUnsyncedID(ctx, reg.ID)
+	nextUpkeepID, err := rs.orm.LowestUnsyncedID(reg.ID)
 	if err != nil {
 		return errors.Wrap(err, "unable to find next ID for registry")
 	}
@@ -76,7 +68,7 @@ func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, end int64) {
 	wg := sync.WaitGroup{}
 	wg.Add(int(end - start))
-	chSyncUpkeepQueue := make(chan struct{}, syncUpkeepQueueSize)
+	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
 
 	done := func() { <-chSyncUpkeepQueue; wg.Done() }
 	for upkeepID := start; upkeepID < end; upkeepID++ {
@@ -95,7 +87,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(registry, upkeepID); err != nil {
-		rs.logger.WithError(err).With(
+		rs.logger.With("error", err).With(
 			"upkeepID", upkeepID,
 			"registryContract", registry.ContractAddress.Hex(),
 		).Error("unable to sync upkeep on registry")
@@ -118,9 +110,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) er
 		PositioningConstant: positioningConstant,
 		UpkeepID:            upkeepID,
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	if err := rs.orm.UpsertUpkeep(ctx, &newUpkeep); err != nil {
+	if err := rs.orm.UpsertUpkeep(&newUpkeep); err != nil {
 		return errors.Wrap(err, "failed to upsert upkeep")
 	}
 
@@ -136,9 +126,7 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps() error {
 	for idx, upkeepID := range canceledBigs {
 		canceled[idx] = upkeepID.Int64()
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	if _, err := rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled); err != nil {
+	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
 		return errors.Wrap(err, "failed to batch delete upkeeps from job")
 	}
 
@@ -151,9 +139,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	config, err := rs.contract.GetConfig(nil)
 	if err != nil {
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		rs.jrm.RecordError(ctx, rs.job.ID, err.Error())
+		rs.jrm.TryRecordError(rs.job.ID, err.Error())
 		return Registry{}, errors.Wrap(err, "failed to get contract config")
 	}
 	keeperAddresses, err := rs.contract.GetKeeperList(nil)

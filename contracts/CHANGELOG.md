@@ -1,21 +1,38 @@
 # @chainlink/contracts CHANGELOG.md
 
-## 0.2.2 - Unreleased
+## 0.2.3 - Unreleased
+
+### Added
+
+- Prettier Solidity formatting applied to v0.7 and above.
+- ERC677ReceiverInterface added in v0.8.
+
+### Changed:
+
+- Operator Contract and Chainlink Client are officially supported. This enables
+  multiword requests/response are available through the ChainlinkClient by using
+  the newly enabled `buildOperatorRequest` along with `sendOperatorRequest` or
+  `sendOperatorRequestTo`.
+- Updated function comments in `v0.6/interfaces/KeeperCompatibleInterface.sol` and `v0.8/interfaces/KeeperCompatibleInterface.sol` to match the latest in v0.7.
+
+## 0.2.2 - 2021-09-21
 
 ### Added:
 
 - v0.8 Access Controlled contracts (`SimpleWriteAccessController` and `SimpleReadAccessController`).
 - v0.8 Flags contracts (`Flags`).
 - v0.8 Contracts for the V2 VRF. `VRFCoordinatorV2.sol`, `VRF.sol`,
-`VRFConsumerBaseV2.sol`, `VRFCoordinatorV2Interface.sol`. Along
-with related test contract `VRFConsumerV2.sol` and example contracts 
-`VRFSingleConsumerExample.sol` and `VRFConsumerExternalSubOwnerExampl.sol`.
+  `VRFConsumerBaseV2.sol`, `VRFCoordinatorV2Interface.sol`. Along
+  with related test contract `VRFConsumerV2.sol` and example contracts
+  `VRFSingleConsumerExample.sol` and `VRFConsumerExternalSubOwnerExampl.sol`.
 - v0.6 `MockV3Aggregator` in src/v0.6/tests/.
+- v0.7 Added keeper-related smart contracts from the keeper repo. Added tests for `KeeperRegistry` and `UpkeepRegistrationRequests` in `test/v0.7/`.
 
 ### Changed:
 
 - Move `Operator` and associated contracts (`AuthorizedForwarder`, `AuthorizedReceiver`, `LinkTokenReceiver`, `OperatorFactory`) from `./src/v0.7/dev/` to `./src/v0.7/`.
 - Updated `Denominations` in `./src/<version>` to include additional fiat currencies.
+- Updated `./src/v0.8/vender/BufferChainlink.sol` with latest unchecked math version.
 
 ## 0.2.1 - 2021-07-13
 

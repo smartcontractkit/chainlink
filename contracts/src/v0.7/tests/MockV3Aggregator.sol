@@ -12,7 +12,7 @@ import "../interfaces/AggregatorV2V3Interface.sol";
  * its answer is unimportant
  */
 contract MockV3Aggregator is AggregatorV2V3Interface {
-  uint256 constant public override version = 0;
+  uint256 public constant override version = 0;
 
   uint8 public override decimals;
   int256 public override latestAnswer;
@@ -23,19 +23,12 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
   mapping(uint256 => uint256) public override getTimestamp;
   mapping(uint256 => uint256) private getStartedAt;
 
-  constructor(
-    uint8 _decimals,
-    int256 _initialAnswer
-  ) {
+  constructor(uint8 _decimals, int256 _initialAnswer) {
     decimals = _decimals;
     updateAnswer(_initialAnswer);
   }
 
-  function updateAnswer(
-    int256 _answer
-  ) 
-    public
-  {
+  function updateAnswer(int256 _answer) public {
     latestAnswer = _answer;
     latestTimestamp = block.timestamp;
     latestRound++;
@@ -49,9 +42,7 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
     int256 _answer,
     uint256 _timestamp,
     uint256 _startedAt
-  )
-    public
-  {
+  ) public {
     latestRound = _roundId;
     latestAnswer = _answer;
     latestTimestamp = _timestamp;
@@ -60,9 +51,7 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
     getStartedAt[latestRound] = _startedAt;
   }
 
-  function getRoundData(
-    uint80 _roundId
-  )
+  function getRoundData(uint80 _roundId)
     external
     view
     override
@@ -74,13 +63,7 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
       uint80 answeredInRound
     )
   {
-    return (
-      _roundId,
-      getAnswer[_roundId],
-      getStartedAt[_roundId],
-      getTimestamp[_roundId],
-      _roundId
-    );
+    return (_roundId, getAnswer[_roundId], getStartedAt[_roundId], getTimestamp[_roundId], _roundId);
   }
 
   function latestRoundData()
@@ -104,14 +87,7 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
     );
   }
 
-  function description()
-    external
-    pure
-    override
-    returns (
-      string memory
-    )
-  {
+  function description() external pure override returns (string memory) {
     return "v0.6/tests/MockV3Aggregator.sol";
   }
 }

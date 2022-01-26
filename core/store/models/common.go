@@ -9,18 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm/schema"
-
-	"gorm.io/gorm"
-
-	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // CronParser is the global parser for crontabs.
@@ -37,19 +32,6 @@ func init() {
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
-}
-
-func (JSON) GormDataType() string {
-	return "json"
-}
-
-// GormDBDataType gorm db data type
-func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "postgres":
-		return "JSONB"
-	}
-	return ""
 }
 
 // Value returns this instance serialized for database storage.
@@ -72,18 +54,6 @@ func (j *JSON) Scan(value interface{}) error {
 		return fmt.Errorf("unable to convert %v of %T to JSON", value, value)
 	}
 	return nil
-}
-
-func MustParseJSON(b []byte) JSON {
-	var j JSON
-	str := string(b)
-	if len(str) == 0 {
-		panic("empty byte array")
-	}
-	if err := json.Unmarshal([]byte(str), &j); err != nil {
-		panic(err)
-	}
-	return j
 }
 
 // ParseJSON attempts to coerce the input byte array into valid JSON
@@ -135,96 +105,6 @@ func (j JSON) Bytes() []byte {
 		return nil
 	}
 	return []byte(j.String())
-}
-
-// AsMap returns j as a map
-func (j JSON) AsMap() (map[string]interface{}, error) {
-	output := make(map[string]interface{})
-	switch v := j.Result.Value().(type) {
-	case map[string]interface{}:
-		for key, value := range v {
-			output[key] = value
-		}
-	case nil:
-	default:
-		return nil, errors.New("can only add to JSON objects or null")
-	}
-	return output, nil
-}
-
-// mapToJSON returns m as a JSON object, or errors
-func mapToJSON(m map[string]interface{}) (JSON, error) {
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		return JSON{}, err
-	}
-	return JSON{Result: gjson.ParseBytes(bytes)}, nil
-}
-
-// Add returns a new instance of JSON with the new value added.
-func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
-	return j.MultiAdd(KV{insertKey: insertValue})
-}
-
-func (j JSON) PrependAtArrayKey(insertKey string, insertValue interface{}) (JSON, error) {
-	curr := j.Get(insertKey).Array()
-	updated := make([]interface{}, 0)
-	updated = append(updated, insertValue)
-	for _, c := range curr {
-		updated = append(updated, c.Value())
-	}
-	return j.Add(insertKey, updated)
-}
-
-// KV represents a key/value pair to be added to a JSON object
-type KV map[string]interface{}
-
-// MultiAdd returns a new instance of j with the new values added.
-func (j JSON) MultiAdd(keyValues KV) (JSON, error) {
-	output, err := j.AsMap()
-	if err != nil {
-		return JSON{}, err
-	}
-	for key, value := range keyValues {
-		output[key] = value
-	}
-	return mapToJSON(output)
-}
-
-// Delete returns a new instance of JSON with the specified key removed.
-func (j JSON) Delete(key string) (JSON, error) {
-	js, err := sjson.Delete(j.String(), key)
-	if err != nil {
-		return j, err
-	}
-	return ParseJSON([]byte(js))
-}
-
-// CBOR returns a bytes array of the JSON map or array encoded to CBOR.
-func (j JSON) CBOR() ([]byte, error) {
-	switch v := j.Result.Value().(type) {
-	case map[string]interface{}, []interface{}, nil:
-		return cbor.Marshal(v)
-	default:
-		var b []byte
-		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
-	}
-}
-
-// MarshalToMap converts a struct (typically) to a map[string] so it can be
-// manipulated without repeatedly serializing/deserializing
-func MarshalToMap(input interface{}) (map[string]interface{}, error) {
-	bytes, err := json.Marshal(input)
-	if err != nil {
-		return nil, err
-	}
-	var output map[string]interface{}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		// Technically this should be impossible
-		return nil, err
-	}
-	return output, nil
 }
 
 // WebURL contains the URL of the endpoint.
@@ -282,95 +162,6 @@ func (w *WebURL) Scan(value interface{}) error {
 	return nil
 }
 
-// AnyTime holds a common field for time, and serializes it as
-// a json number.
-type AnyTime struct {
-	time.Time
-	Valid bool
-}
-
-// NewAnyTime creates a new Time.
-func NewAnyTime(t time.Time) AnyTime {
-	return AnyTime{Time: t, Valid: true}
-}
-
-// MarshalJSON implements json.Marshaler.
-// It will encode null if this time is null.
-func (t AnyTime) MarshalJSON() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.UTC().MarshalJSON()
-}
-
-// UnmarshalJSON parses the raw time stored in JSON-encoded
-// data and stores it to the Time field.
-func (t *AnyTime) UnmarshalJSON(b []byte) error {
-	var str string
-
-	var n json.Number
-	if err := json.Unmarshal(b, &n); err == nil {
-		str = n.String()
-	} else if err := json.Unmarshal(b, &str); err != nil {
-		return err
-	}
-
-	if len(str) == 0 {
-		t.Valid = false
-		return nil
-	}
-
-	newTime, err := dateparse.ParseAny(str)
-	t.Time = newTime.UTC()
-	t.Valid = true
-	return err
-}
-
-// MarshalText returns null if not set, or the time.
-func (t AnyTime) MarshalText() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.MarshalText()
-}
-
-// UnmarshalText parses null or a valid time.
-func (t *AnyTime) UnmarshalText(text []byte) error {
-	str := string(text)
-	if str == "" || str == "null" {
-		t.Valid = false
-		return nil
-	}
-	if err := t.Time.UnmarshalText(text); err != nil {
-		return err
-	}
-	t.Valid = true
-	return nil
-}
-
-// Value returns this instance serialized for database storage.
-func (t AnyTime) Value() (driver.Value, error) {
-	if !t.Valid {
-		return nil, nil
-	}
-	return t.Time, nil
-}
-
-// Scan reads the database value and returns an instance.
-func (t *AnyTime) Scan(value interface{}) error {
-	switch temp := value.(type) {
-	case time.Time:
-		t.Time = temp.UTC()
-		t.Valid = true
-		return nil
-	case nil:
-		t.Valid = false
-		return nil
-	default:
-		return fmt.Errorf("unable to convert %v of %T to Time", value, value)
-	}
-}
-
 // Cron holds the string that will represent the spec of the cron-job.
 type Cron string
 
@@ -411,6 +202,15 @@ func MakeDuration(d time.Duration) (Duration, error) {
 		return Duration{}, fmt.Errorf("cannot make negative time duration: %s", d)
 	}
 	return Duration{d: d}, nil
+}
+
+func MakeDurationFromString(s string) (Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return Duration{}, err
+	}
+
+	return MakeDuration(d)
 }
 
 func MustMakeDuration(d time.Duration) Duration {
@@ -526,18 +326,12 @@ func (i Interval) IsZero() bool {
 	return time.Duration(i) == time.Duration(0)
 }
 
-// WithdrawalRequest request to withdraw LINK.
-type WithdrawalRequest struct {
-	DestinationAddress common.Address `json:"address"`
-	ContractAddress    common.Address `json:"contractAddress"`
-	Amount             *assets.Link   `json:"amount"`
-}
-
 // SendEtherRequest represents a request to transfer ETH.
 type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
+	EVMChainID         *utils.Big     `json:"evmChainID"`
 }
 
 // AddressCollection is an array of common.Address
@@ -580,16 +374,6 @@ func (r *AddressCollection) Scan(value interface{}) error {
 	return nil
 }
 
-// Configuration stores key value pairs for overriding global configuration
-type Configuration struct {
-	ID        int64  `gorm:"primary_key"`
-	Name      string `gorm:"not null;unique;index"`
-	Value     string `gorm:"not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *gorm.DeletedAt
-}
-
 // Merge returns a new map with all keys merged from left to right
 // On conflicting keys, rightmost inputs will clobber leftmost inputs
 func Merge(inputs ...JSON) (JSON, error) {
@@ -599,38 +383,6 @@ func Merge(inputs ...JSON) (JSON, error) {
 		switch v := input.Result.Value().(type) {
 		case map[string]interface{}:
 			for key, value := range v {
-				output[key] = value
-			}
-		case nil:
-		default:
-			return JSON{}, errors.New("can only merge JSON objects")
-		}
-	}
-
-	bytes, err := json.Marshal(output)
-	if err != nil {
-		return JSON{}, err
-	}
-
-	return JSON{Result: gjson.ParseBytes(bytes)}, nil
-}
-
-// MergeExceptResult does a merge, but will never clobber the field called "result"
-// On conflicting keys, rightmost inputs will clobber leftmost inputs EXCEPT if the field is named "result", in which case the leftmost result wins
-// This is needed to work around idiosyncrasies in the V1 job pipeline where "result" has special meaning
-func MergeExceptResult(inputs ...JSON) (JSON, error) {
-	output := make(map[string]interface{})
-
-	for _, input := range inputs {
-		switch v := input.Result.Value().(type) {
-		case map[string]interface{}:
-			for key, value := range v {
-				if key == "result" {
-					if _, exists := output["result"]; exists {
-						// Do not overwrite result field
-						continue
-					}
-				}
 				output[key] = value
 			}
 		case nil:

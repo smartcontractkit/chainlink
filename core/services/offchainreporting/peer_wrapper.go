@@ -6,15 +6,16 @@ import (
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"go.uber.org/multierr"
-	"gorm.io/gorm"
 )
 
 type NetworkingConfig interface {
@@ -38,6 +39,7 @@ type NetworkingConfig interface {
 	P2PV2DeltaDial() models.Duration
 	P2PV2DeltaReconcile() models.Duration
 	P2PV2ListenAddresses() []string
+	LogSQL() bool
 }
 
 type (
@@ -51,7 +53,8 @@ type (
 	SingletonPeerWrapper struct {
 		keyStore keystore.Master
 		config   NetworkingConfig
-		db       *gorm.DB
+		db       *sqlx.DB
+		lggr     logger.Logger
 
 		pstoreWrapper *Pstorewrapper
 		PeerID        p2pkey.PeerID
@@ -64,11 +67,12 @@ type (
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, config NetworkingConfig, db *gorm.DB) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore keystore.Master, config NetworkingConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
 		keyStore: keyStore,
 		config:   config,
 		db:       db,
+		lggr:     lggr.Named("SingletonPeerWrapper"),
 	}
 }
 
@@ -88,28 +92,24 @@ func (p *SingletonPeerWrapper) Start() error {
 		}
 
 		if len(p2pkeys) == 0 {
+			p.lggr.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 			return nil
 		}
 
-		key, err := p.keyStore.P2P().GetOrFirst(p.config.P2PPeerID().Raw())
+		key, err := p.keyStore.P2P().GetOrFirst(p.config.P2PPeerID())
 		if err != nil {
 			return errors.Wrap(err, "while fetching configured key")
 		}
 
 		p.PeerID = key.PeerID()
-
-		if err != nil {
+		if p.PeerID == "" {
 			return errors.Wrap(err, "could not get peer ID")
 		}
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID)
+		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
 		if err != nil {
 			return errors.Wrap(err, "could not make new pstorewrapper")
 		}
-		sqlDB, err := p.db.DB()
-		if err != nil {
-			return err
-		}
-		discovererDB := NewDiscovererDatabase(sqlDB, p2ppeer.ID(p.PeerID))
+		discovererDB := NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
 
 		// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
 		// Fallback to P2PListenPort if it wasn't made explicit
@@ -120,7 +120,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			announcePort = listenPort
 		}
 
-		peerLogger := NewLogger(logger.Default, p.config.OCRTraceLogging(), func(string) {})
+		peerLogger := logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {})
 
 		p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 			NetworkingStack:      p.config.P2PNetworkingStack(),

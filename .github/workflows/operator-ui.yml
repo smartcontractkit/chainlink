@@ -1,62 +1,14 @@
 name: Operator UI
-on: pull_request
+
+on:
+  push:
+    branches:
+      - auto
+      - try
+      - rollup
+  pull_request:
+
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: '12'
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - name: Run yarn install
-        run: yarn install --frozen-lockfile
-      - name: Run yarn lint
-        run: yarn lint
-  prettier:
-    name: Prettier formatting
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: '12'
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - name: Run yarn install
-        run: yarn install --frozen-lockfile
-      - name: Run prettier check
-        run: yarn prettier:check
   operator-ui:
     name: Operator UI Tests
     runs-on: ubuntu-latest
@@ -64,7 +16,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: '12'
+          node-version: "12"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache dependencies

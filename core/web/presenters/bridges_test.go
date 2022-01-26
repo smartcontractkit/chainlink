@@ -7,6 +7,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,12 +20,12 @@ func TestBridgeResource(t *testing.T) {
 	url, err := url.Parse("https://bridge.example.com/api")
 	require.NoError(t, err)
 
-	bridge := models.BridgeType{
+	bridge := bridges.BridgeType{
 		Name:                   "test",
 		URL:                    models.WebURL(*url),
 		Confirmations:          1,
 		OutgoingToken:          "vjNL7X8Ea6GFJoa6PBsvK2ECzNK3b8IZ",
-		MinimumContractPayment: assets.NewLink(1),
+		MinimumContractPayment: assets.NewLinkFromJuels(1),
 		CreatedAt:              timestamp,
 	}
 

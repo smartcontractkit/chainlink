@@ -46,7 +46,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 		compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(t, contractVersionInfo)
 	}
 	// Just check that LinkToken details haven't changed (they never ought to)
-	linkDetails, err := ioutil.ReadFile(filepath.Join(getProjectRoot(t), "evm-test-helpers/src/LinkToken.json"))
+	linkDetails, err := ioutil.ReadFile(filepath.Join(getProjectRoot(t), "contracts/LinkToken.json"))
 	require.NoError(t, err, "could not read link contract details")
 	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(linkDetails)),
 		"27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922",

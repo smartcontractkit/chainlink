@@ -1,19 +1,15 @@
 import React from 'react'
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { ENDPOINT as TOML_CREATE_ENDPOINT } from 'api/v2/jobs'
 import { Route } from 'react-router-dom'
 import * as storage from 'utils/local-storage'
 import New, { validate, SELECTED_FORMAT, PERSIST_SPEC } from './New'
-import { ReactWrapper } from 'enzyme'
+import { renderWithRouter, screen } from 'support/test-utils'
+import userEvent from '@testing-library/user-event'
 import { act } from 'react-dom/test-utils'
+import Notifications from 'pages/Notifications'
 
-const fillTextarea = (component: ReactWrapper, jobSpec: string) => {
-  return component.find(`textarea[name="jobSpec"]`).simulate('change', {
-    target: { value: jobSpec, name: 'jobSpec' },
-  })
-}
+const { getByPlaceholderText, getByRole, findByText } = screen
 
 describe('pages/Jobs/New', () => {
   beforeEach(() => {
@@ -23,143 +19,130 @@ describe('pages/Jobs/New', () => {
 
   it('submits TOML job spec form', async () => {
     const expectedSubmit = 'foo="bar"'
-    const submit = global.fetch.postOnce(globPath(TOML_CREATE_ENDPOINT), {})
+    const submit = global.fetch.postOnce(globPath(TOML_CREATE_ENDPOINT), {
+      data: { id: 1 },
+    })
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/new" component={New} />,
+    renderWithRouter(
+      <>
+        <Notifications />
+        <Route path="/jobs/new" component={New} />
+      </>,
       {
         initialEntries: [`/jobs/new`],
       },
     )
-    fillTextarea(wrapper, expectedSubmit)
-    wrapper
-      .find('[data-testid="new-job-spec-submit"]')
-      .first()
-      .simulate('submit')
 
-    await syncFetch(wrapper)
+    userEvent.paste(
+      getByRole('textbox', { name: /TOML blob/i }),
+      expectedSubmit,
+    )
+
+    userEvent.click(getByRole('button', { name: /Create/i }))
 
     expect(submit.lastCall()[1].body).toEqual(
       JSON.stringify({ toml: expectedSubmit }),
     )
+    expect(await findByText('Successfully created job')).toBeInTheDocument()
   })
 
   it('loads TOML spec definition from search param', () => {
     const expected = '"foo"="bar"'
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/new" component={New} />,
-      {
-        initialEntries: [`/jobs/new?definition=${expected}`],
-      },
+    renderWithRouter(<Route path="/jobs/new" component={New} />, {
+      initialEntries: [`/jobs/new?definition=${expected}`],
+    })
+
+    expect(getByPlaceholderText('Paste TOML').textContent).toEqual(
+      '"foo"="bar"',
     )
-
-    expect(wrapper.text()).toContain('"foo"="bar"')
-    expect(wrapper.text()).toContain(`TOML blob`)
-  })
-
-  it('saves the spec in a storage', () => {
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/new" component={New} />,
-      {
-        initialEntries: [`/jobs/new`],
-      },
-    )
-
-    expect(wrapper.text()).toContain(`TOML blob`)
   })
 
   describe('validate', () => {
     it('TOML format', () => {
+      expect(validate({ value: '"foo"="bar"' })).toEqual(true)
+      expect(validate({ value: '"foo""bar"' })).toEqual(false)
+    })
+  })
+
+  describe('preview task list', () => {
+    // Using timers because the preview is set with a debounce
+    beforeEach(() => {
+      jest.useFakeTimers()
+    })
+
+    afterEach(() => {
+      jest.runOnlyPendingTimers()
+      jest.useRealTimers()
+    })
+
+    it('updates toml preview task list', async () => {
+      const jobSpec1 =
+        'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """'
+      const jobSpec2 =
+        'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse]; ds_multiply [type=ds_multiply]; """'
+
+      renderWithRouter(<Route path="/jobs/new" component={New} />, {
+        initialEntries: [`/jobs/new`],
+      })
+
+      userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), jobSpec1)
+
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
+
       expect(
-        validate({
-          value: '"foo"="bar"',
-        }),
-      ).toEqual(true)
+        await findByText('ds_parse', {}, { timeout: 1000 }),
+      ).toBeInTheDocument()
+      expect(await findByText('ds', {}, { timeout: 1000 })).toBeInTheDocument()
+
+      const input = getByRole('textbox', { name: /TOML blob/i })
+      userEvent.clear(input)
+      userEvent.paste(input, jobSpec2)
+
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
 
       expect(
-        validate({
-          value: '"foo""bar"',
-        }),
-      ).toEqual(false)
+        await findByText('ds_multiply', {}, { timeout: 1000 }),
+      ).toBeInTheDocument()
+      expect(await findByText('ds_parse')).toBeInTheDocument()
+      expect(await findByText('ds')).toBeInTheDocument()
     })
-  })
 
-  it('updates toml preview task list', () => {
-    const jobSpec1 =
-      'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """'
-    const jobSpec2 =
-      'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse]; ds_multiply [type=ds_multiply]; """'
+    it('shows "Tasks not found" on job spec errors', async () => {
+      const tomlSpec =
+        'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """'
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/new" component={New} />,
-      {
+      renderWithRouter(<Route path="/jobs/new" component={New} />, {
         initialEntries: [`/jobs/new`],
-      },
-    )
-    jest.useFakeTimers()
-    fillTextarea(wrapper, jobSpec1)
-    act(() => {
-      jest.runAllTimers()
+      })
+
+      userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), tomlSpec)
+
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
+
+      expect(await findByText('Tasks not found')).toBeInTheDocument()
     })
-    wrapper.update()
 
-    const taskList = wrapper.find('[data-testid^="task-list-id-"]')
-    expect(
-      taskList.map((task: ReactWrapper) => task.prop('data-testid')),
-    ).toEqual(['task-list-id-ds_parse', 'task-list-id-ds'])
+    it('shows "Tasks not found" on empty job spec', async () => {
+      const tomlSpec = 'observationSource = """  """'
 
-    fillTextarea(wrapper, jobSpec2)
-    act(() => {
-      jest.runAllTimers()
-    })
-    wrapper.update()
-
-    const taskList2 = wrapper.find('[data-testid^="task-list-id-"]')
-    expect(
-      taskList2.map((task: ReactWrapper) => task.prop('data-testid')),
-    ).toEqual([
-      'task-list-id-ds_multiply',
-      'task-list-id-ds_parse',
-      'task-list-id-ds',
-    ])
-  })
-
-  it('shows "Tasks not found" on job spec errors', () => {
-    const tomlSpec =
-      'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """'
-
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/new" component={New} />,
-      {
+      renderWithRouter(<Route path="/jobs/new" component={New} />, {
         initialEntries: [`/jobs/new`],
-      },
-    )
+      })
 
-    fillTextarea(wrapper, tomlSpec)
-    act(() => {
-      jest.runAllTimers()
+      userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), tomlSpec)
+
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
+
+      expect(await findByText('Tasks not found')).toBeInTheDocument()
     })
-    wrapper.update()
-    expect(wrapper.text()).toContain('Tasks not found')
-  })
-
-  it('shows "Tasks not found" on empty job spec', async () => {
-    const tomlSpec = 'observationSource = """  """'
-
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/new" component={New} />,
-      {
-        initialEntries: [`/jobs/new`],
-      },
-    )
-
-    fillTextarea(wrapper, tomlSpec)
-    act(() => {
-      jest.runAllTimers()
-    })
-    wrapper.update()
-
-    expect(wrapper.text()).toContain('Tasks not found')
   })
 })

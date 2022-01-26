@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +46,7 @@ func deployVRFTestHelper(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHel
 	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
-	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()

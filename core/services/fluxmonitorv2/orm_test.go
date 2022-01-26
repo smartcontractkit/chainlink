@@ -1,31 +1,31 @@
 package fluxmonitorv2_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/stretchr/testify/require"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 
-	corestore, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-
-	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := newORM(t, db, cfg, nil)
 
 	address := cltest.NewAddress()
 
@@ -78,64 +78,62 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
-	cfg := cltest.NewTestEVMConfig(t)
-	corestore, cleanup := cltest.NewStoreWithConfig(t, cfg)
-	t.Cleanup(cleanup)
+	cfg := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, corestore.DB)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	lggr := logger.TestLogger(t)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
-	eventBroadcaster := postgres.NewEventBroadcaster(
-		corestore.Config.DatabaseURL(),
-		corestore.Config.DatabaseListenerMinReconnectInterval(),
-		corestore.Config.DatabaseListenerMaxReconnectDuration(),
-	)
-	pipelineORM := pipeline.NewORM(corestore.DB)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg)
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(corestore.ORM.DB, cfg, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
-	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
+	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr, cfg)
+	orm := newORM(t, db, cfg, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
 
-	j := makeJob(t)
-	jb, err := jobORM.CreateJob(context.Background(), j, pipeline.Pipeline{})
+	jb := makeJob(t)
+	err := jobORM.CreateJob(jb)
 	require.NoError(t, err)
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
-		runID, err := pipelineORM.InsertFinishedRun(
-			postgres.UnwrapGormDB(corestore.DB),
-			pipeline.Run{
+		run :=
+			&pipeline.Run{
 				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
 				PipelineSpec:   *jb.PipelineSpec,
 				CreatedAt:      time.Now(),
 				FinishedAt:     null.TimeFrom(f),
-				Errors:         pipeline.RunErrors{null.String{}},
-				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
+				AllErrors:      pipeline.RunErrors{null.String{}},
+				FatalErrors:    pipeline.RunErrors{null.String{}},
+				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
 						ID:         uuid.NewV4(),
 						Type:       pipeline.TaskTypeHTTP,
-						Output:     &pipeline.JSONSerializable{Val: 10, Null: false},
+						Output:     pipeline.JSONSerializable{Val: 10, Valid: true},
 						CreatedAt:  f,
 						FinishedAt: null.TimeFrom(f),
 					},
 				},
-			}, true)
+			}
+		err := pipelineORM.InsertFinishedRun(run, true)
 		require.NoError(t, err)
 
-		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID, 0)
+		err = orm.UpdateFluxMonitorRoundStats(address, roundID, run.ID, 0)
 		require.NoError(t, err)
 
 		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID, 0)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, stats.NumSubmissions)
 		require.True(t, stats.PipelineRunID.Valid)
-		require.Equal(t, runID, stats.PipelineRunID.Int64)
+		require.Equal(t, run.ID, stats.PipelineRunID.Int64)
 	}
 }
 
@@ -164,15 +162,15 @@ func makeJob(t *testing.T) *job.Job {
 func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	corestore, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-	ethKeyStore := cltest.NewKeyStore(t, corestore.DB).Eth()
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	strategy := new(bptxmmocks.TxStrategy)
 
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(corestore.DB, txm, strategy)
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy)
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()
@@ -180,7 +178,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", corestore.DB, bulletprooftxmanager.NewTx{
+	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
@@ -189,7 +187,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		Strategy:       strategy,
 	}).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 
-	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
+	orm.CreateEthTransaction(from, to, payload, gasLimit)
 
 	txm.AssertExpectations(t)
 }

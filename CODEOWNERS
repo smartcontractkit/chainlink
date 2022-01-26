@@ -11,7 +11,7 @@
 /core/services/job @spooktheducks @connorwstein @archseer
 /core/services/keeper @RyanRHall @samsondav
 /core/services/keystore @RyanRHall
-/core/services/log @PiotrTrzpil @spooktheducks
+/core/services/log @PiotrTrzpil @spooktheducks @jmank88
 /core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pipeline @spooktheducks @connorwstein @archseer
@@ -34,4 +34,7 @@
 /contracts/ @alexroan @se3000 @connorwstein
 
 # Misc
-/core/store @archseer @samsondav
+/core/store @archseer @samsondav @jmank88
+/core/chains @samsondav
+/core/logger @jmank88
+/core/internal @samsondav @jmank88 @archseer

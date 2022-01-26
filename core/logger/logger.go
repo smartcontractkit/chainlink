@@ -1,28 +1,89 @@
-// Package logger is used to store details of events in the node.
-// Events can be categorized by Trace, Debug, Info, Error, Fatal, and Panic.
 package logger
 
 import (
+	"io"
 	"log"
-	"reflect"
-	"runtime"
+	"os"
 
-	"gorm.io/gorm"
-
-	"github.com/pkg/errors"
+	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
+var envLvl = zapcore.InfoLevel
+
+func init() {
+	_ = envLvl.Set(os.Getenv("LOG_LEVEL"))
+}
+
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
-type Logger struct {
-	*zap.SugaredLogger
-	Orm         ORM
-	lvl         zapcore.Level
-	dir         string
-	jsonConsole bool
-	toDisk      bool
+//
+// The package-level helper functions are being phased out. Loggers should be injected
+// instead (and usually Named as well): e.g. lggr.Named("<service name>")
+//
+// Tips
+//  - Tests should use a TestLogger, with NewLogger being reserved for actual
+//    runtime and limited direct testing.
+//  - Critical level logs should only be used when user intervention is required.
+//  - Trace level logs are omitted unless compiled with the trace tag. For example: go test -tags trace ...
+
+type Logger interface {
+	// With creates a new Logger with the given arguments
+	With(args ...interface{}) Logger
+	// Named creates a new Logger sub-scoped with name.
+	// Names are inherited and dot-separated.
+	//   a := l.Named("a") // logger=a
+	//   b := a.Named("b") // logger=a.b
+	Named(name string) Logger
+
+	// NewRootLogger creates a new root Logger with an independent log level
+	// unaffected by upstream calls to SetLogLevel.
+	NewRootLogger(lvl zapcore.Level) (Logger, error)
+
+	// SetLogLevel changes the log level for this and all connected Loggers.
+	SetLogLevel(zapcore.Level)
+
+	Trace(args ...interface{})
+	Debug(args ...interface{})
+	Info(args ...interface{})
+	Warn(args ...interface{})
+	Error(args ...interface{})
+	Critical(args ...interface{})
+	Panic(args ...interface{})
+	Fatal(args ...interface{})
+
+	Tracef(format string, values ...interface{})
+	Debugf(format string, values ...interface{})
+	Infof(format string, values ...interface{})
+	Warnf(format string, values ...interface{})
+	Errorf(format string, values ...interface{})
+	Criticalf(format string, values ...interface{})
+	Panicf(format string, values ...interface{})
+	Fatalf(format string, values ...interface{})
+
+	Tracew(msg string, keysAndValues ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
+	CriticalW(msg string, keysAndValues ...interface{})
+	Panicw(msg string, keysAndValues ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
+
+	// ErrorIf logs the error if present.
+	ErrorIf(err error, msg string)
+
+	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
+	ErrorIfClosing(c io.Closer, name string)
+
+	// Sync flushes any buffered log entries.
+	// Some insignificant errors are suppressed.
+	Sync() error
+
+	// Helper creates a new logger with the number of callers skipped by caller annotation increased by skip.
+	// This allows wrappers and helpers to point higher up the stack (like testing.T.Helper()).
+	Helper(skip int) Logger
 }
 
 // Constants for service names for package specific logging configuration
@@ -40,117 +101,12 @@ func GetLogServices() []string {
 	}
 }
 
-// Write logs a message at the Info level and returns the length
-// of the given bytes.
-func (l *Logger) Write(b []byte) (int, error) {
-	l.Info(string(b))
-	return len(b), nil
-}
-
-// With creates a new logger with the given arguments
-func (l *Logger) With(args ...interface{}) *Logger {
-	newLogger := CreateLogger(l.SugaredLogger.With(args...))
-	newLogger.Orm = l.Orm
-	newLogger.lvl = l.lvl
-	newLogger.dir = l.dir
-	newLogger.jsonConsole = l.jsonConsole
-	newLogger.toDisk = l.toDisk
-	return newLogger
-}
-
-// Named creates a new named logger with the given name
-func (l *Logger) Named(name string) *Logger {
-	newLogger := CreateLogger(l.SugaredLogger.Named(name).With("id", name))
-	newLogger.Orm = l.Orm
-	newLogger.lvl = l.lvl
-	newLogger.dir = l.dir
-	newLogger.jsonConsole = l.jsonConsole
-	newLogger.toDisk = l.toDisk
-	return newLogger
-}
-
-// WithError adds the given error to the log
-func (l *Logger) WithError(err error) *Logger {
-	return l.With("error", err)
-}
-
-// WarnIf logs the error if present.
-func (l *Logger) WarnIf(err error) {
-	if err != nil {
-		l.Warn(err)
+// newProductionConfig returns a new production zap.Config.
+func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
+	config := newBaseConfig()
+	if !unixTS {
+		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
-}
-
-// ErrorIf logs the error if present.
-func (l *Logger) ErrorIf(err error, optionalMsg ...string) {
-	if err != nil {
-		if len(optionalMsg) > 0 {
-			l.Error(errors.Wrap(err, optionalMsg[0]))
-		} else {
-			l.Error(err)
-		}
-	}
-}
-
-// ErrorIfCalling calls the given function and logs the error of it if there is.
-func (l *Logger) ErrorIfCalling(f func() error, optionalMsg ...string) {
-	err := f()
-	if err != nil {
-		e := errors.Wrap(err, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
-		if len(optionalMsg) > 0 {
-			Default.Error(errors.Wrap(e, optionalMsg[0]))
-		} else {
-			Default.Error(e)
-		}
-	}
-}
-
-func (l *Logger) PanicIf(err error) {
-	if err != nil {
-		l.Panic(err)
-	}
-}
-
-func (l *Logger) SetDB(db *gorm.DB) {
-	l.Orm = NewORM(db)
-}
-
-// GetServiceLogLevels retrieves all service log levels from the db
-func (l *Logger) GetServiceLogLevels() (map[string]string, error) {
-	serviceLogLevels := make(map[string]string)
-
-	for _, svcName := range GetLogServices() {
-		svc, err := l.ServiceLogLevel(svcName)
-		if err != nil {
-			Fatalf("error getting service log levels: %v", err)
-		}
-		serviceLogLevels[svcName] = svc
-	}
-
-	return serviceLogLevels, nil
-}
-
-// CreateLogger creates a new Logger with the given SugaredLogger
-func CreateLogger(zl *zap.SugaredLogger) *Logger {
-	return &Logger{
-		SugaredLogger: zl,
-	}
-}
-
-// CreateLoggerWithConfig creates a new Logger with the given SugaredLogger and configuration options
-func CreateLoggerWithConfig(zl *zap.SugaredLogger, lvl zapcore.Level, dir string, jsonConsole bool, toDisk bool) *Logger {
-	return &Logger{
-		SugaredLogger: zl,
-		lvl:           lvl,
-		dir:           dir,
-		jsonConsole:   jsonConsole,
-		toDisk:        toDisk,
-	}
-}
-
-// initLogConfig builds a zap.Config for a logger
-func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) zap.Config {
-	config := zap.NewProductionConfig()
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
@@ -159,94 +115,46 @@ func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool)
 		config.OutputPaths = append(config.OutputPaths, destination)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
-	config.Level.SetLevel(lvl)
 	return config
 }
 
-// CreateProductionLogger returns a log config for the passed directory
-// with the given LogLevel and customizes stdout for pretty printing.
-func CreateProductionLogger(
-	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *Logger {
-	config := initLogConfig(dir, jsonConsole, lvl, toDisk)
+type Config interface {
+	RootDir() string
+	JSONConsole() bool
+	LogToDisk() bool
+	LogLevel() zapcore.Level
+	LogUnixTimestamps() bool
+}
 
-	zl, err := config.Build(zap.AddCallerSkip(1))
+// NewLogger returns a new Logger configured by c with pretty printing to stdout.
+// If LogToDisk is false, the Logger will only log to stdout.
+// Tests should use TestLogger instead.
+func NewLogger(c Config) Logger {
+	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
+}
+
+// newLogger returns a new production Logger with sentry forwarding.
+func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool, unixTS bool) Logger {
+	cfg := newProductionConfig(dir, jsonConsole, toDisk, unixTS)
+	cfg.Level.SetLevel(logLevel)
+	l, err := newZapLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return CreateLoggerWithConfig(zl.Sugar(), lvl, dir, jsonConsole, toDisk)
+	s := newSentryLogger(l)
+	return newPrometheusLogger(s)
 }
 
-// InitServiceLevelLogger builds a service level logger with a given logging level & serviceName
-func (l *Logger) InitServiceLevelLogger(serviceName string, logLevel string) (*Logger, error) {
-	var ll zapcore.Level
-	if err := ll.UnmarshalText([]byte(logLevel)); err != nil {
-		return nil, err
-	}
-
-	config := initLogConfig(l.dir, l.jsonConsole, ll, l.toDisk)
-
-	zl, err := config.Build(zap.AddCallerSkip(1))
-	if err != nil {
-		return nil, err
-	}
-
-	return CreateLoggerWithConfig(zl.Named(serviceName).Sugar(), ll, l.dir, l.jsonConsole, l.toDisk), nil
+// InitColor explicitly sets the global color.NoColor option.
+// Not safe for concurrent use. Only to be called from init().
+func InitColor(c bool) {
+	color.NoColor = !c
 }
 
-// ServiceLogLevel is the log level set for a specified package
-func (l *Logger) ServiceLogLevel(serviceName string) (string, error) {
-	if l.Orm != nil {
-		level, err := l.Orm.GetServiceLogLevel(serviceName)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			Warnf("Error while trying to fetch %s service log level: %v", serviceName, err)
-		} else if err == nil {
-			return level, nil
-		}
-	}
-	return l.lvl.String(), nil
-}
-
-// NewProductionConfig returns a production logging config
-func NewProductionConfig(lvl zapcore.Level, dir string, jsonConsole, toDisk bool) (c zap.Config) {
-	var outputPath string
-	if jsonConsole {
-		outputPath = "stderr"
-	} else {
-		outputPath = "pretty://console"
-	}
-	// Mostly copied from zap.NewProductionConfig with sampling disabled
-	c = zap.Config{
-		Level:            zap.NewAtomicLevelAt(lvl),
-		Development:      false,
-		Sampling:         nil,
-		Encoding:         "json",
-		EncoderConfig:    NewProductionEncoderConfig(),
-		OutputPaths:      []string{outputPath},
-		ErrorOutputPaths: []string{"stderr"},
-	}
-	if toDisk {
-		destination := logFileURI(dir)
-		c.OutputPaths = append(c.OutputPaths, destination)
-		c.ErrorOutputPaths = append(c.ErrorOutputPaths, destination)
-	}
-	return
-}
-
-// NewProductionEncoderConfig returns a production encoder config
-func NewProductionEncoderConfig() zapcore.EncoderConfig {
-	// Copied from zap.NewProductionEncoderConfig but with ISO timestamps instead of Unix
-	return zapcore.EncoderConfig{
-		TimeKey:        "ts",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		FunctionKey:    zapcore.OmitKey,
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-	}
+// newBaseConfig returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
+func newBaseConfig() zap.Config {
+	cfg := zap.NewProductionConfig()
+	cfg.Sampling = nil
+	cfg.EncoderConfig.EncodeLevel = encodeLevel
+	return cfg
 }

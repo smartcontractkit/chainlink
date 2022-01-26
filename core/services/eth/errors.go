@@ -84,6 +84,7 @@ var geth = ClientErrors{
 var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address|execution reverted: error code)$`)
 var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
+	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
 	NonceTooLow: regexp.MustCompile(`(: |^)invalid transaction nonce$`),
 	// TODO: Is it terminally or replacement?
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
@@ -96,11 +97,17 @@ var optimism = ClientErrors{
 	FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
 }
 
+// Substrate (Moonriver)
+var substrate = ClientErrors{
+	NonceTooLow:                 regexp.MustCompile(`(: |^)Pool\(Stale\)$`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)Pool\(AlreadyImported\)$`),
+}
+
 var avalanche = ClientErrors{
 	NonceTooLow: regexp.MustCompile(`(: |^)nonce too low: address 0x[0-9a-fA-F]{40} current nonce \([\d]+\) > tx nonce \([\d]+\)$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, avalanche}
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate, avalanche}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
@@ -165,10 +172,6 @@ func (s *SendError) IsFeeTooHigh() bool {
 	return s.is(FeeTooHigh)
 }
 
-func NewFatalSendErrorS(s string) *SendError {
-	return &SendError{err: errors.New(s), fatal: true}
-}
-
 func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil
@@ -216,9 +219,41 @@ type JsonError struct {
 
 func (err *JsonError) Error() string {
 	if err.Message == "" {
-		return fmt.Sprintf("json-rpc error %d", err.Code)
+		return fmt.Sprintf("json-rpc error { Code = %d, Data = '%v' }", err.Code, err.Data)
 	}
 	return err.Message
+}
+
+func (err *JsonError) String() string {
+	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
+}
+
+func ExtractRPCError(err error) *JsonError {
+	jErr, eErr := extractRPCError(err)
+	if eErr != nil {
+		return nil
+	}
+	return jErr
+}
+
+func extractRPCError(baseErr error) (*JsonError, error) {
+	if baseErr == nil {
+		return nil, errors.New("no error present")
+	}
+	cause := errors.Cause(baseErr)
+	jsonBytes, err := json.Marshal(cause)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to marshal err to json")
+	}
+	jErr := JsonError{}
+	err = json.Unmarshal(jsonBytes, &jErr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to unmarshal json into jsonError struct (got: %v)", baseErr)
+	}
+	if jErr.Code == 0 {
+		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
+	}
+	return &jErr, nil
 }
 
 // ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
@@ -229,18 +264,9 @@ func (err *JsonError) Error() string {
 // rinkeby / ropsten (geth)
 // { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
 func ExtractRevertReasonFromRPCError(err error) (string, error) {
-	if err == nil {
-		return "", errors.New("no error present")
-	}
-	cause := errors.Cause(err)
-	jsonBytes, err := json.Marshal(cause)
-	if err != nil {
-		return "", errors.Wrap(err, "unable to marshal err to json")
-	}
-	jErr := JsonError{}
-	err = json.Unmarshal(jsonBytes, &jErr)
-	if err != nil {
-		return "", errors.Wrap(err, "unable to unmarshal json into jsonError struct")
+	jErr, eErr := extractRPCError(err)
+	if eErr != nil {
+		return "", eErr
 	}
 	dataStr, ok := jErr.Data.(string)
 	if !ok {

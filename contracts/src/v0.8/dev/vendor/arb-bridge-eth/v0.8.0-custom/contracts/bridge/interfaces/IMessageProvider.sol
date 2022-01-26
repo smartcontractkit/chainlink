@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
-// NOTICE: pragma different from original (updated from `^0.6.11` -> `^0.8.6`)
-pragma solidity ^0.8.6;
+// NOTICE: pragma change from original (^0.6.11)
+pragma solidity ^0.8.0;
 
 interface IMessageProvider {
-    event InboxMessageDelivered(uint256 indexed messageNum, bytes data);
+  event InboxMessageDelivered(uint256 indexed messageNum, bytes data);
 
-    event InboxMessageDeliveredFromOrigin(uint256 indexed messageNum);
+  event InboxMessageDeliveredFromOrigin(uint256 indexed messageNum);
 }

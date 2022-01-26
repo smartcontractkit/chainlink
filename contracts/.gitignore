@@ -3,3 +3,6 @@ cache
 node_modules
 solc
 abi
+coverage
+coverage.json
+typechain

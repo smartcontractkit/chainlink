@@ -3,7 +3,6 @@ package vrfkey
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
@@ -23,28 +22,6 @@ import (
 type PrivateKey struct {
 	k         kyber.Scalar
 	PublicKey secp256k1.PublicKey
-}
-
-// newPrivateKey(k) is k wrapped in a PrivateKey along with corresponding
-// PublicKey, or an error. Internal use only. Use cltest.StoredVRFKey for stable
-// testing key, or CreateKey if you don't need determinism.
-func newPrivateKey(rawKey *big.Int) (*PrivateKey, error) {
-	if rawKey.Cmp(secp256k1.GroupOrder) >= 0 || rawKey.Cmp(big.NewInt(0)) <= 0 {
-		return nil, fmt.Errorf("secret key must be in {1, ..., #secp256k1 - 1}")
-	}
-	sk := &PrivateKey{}
-	sk.k = secp256k1.IntToScalar(rawKey)
-	pk, err := suite.Point().Mul(sk.k, nil).MarshalBinary()
-	if err != nil {
-		panic(errors.Wrapf(err, "could not marshal public key"))
-	}
-	if len(pk) != secp256k1.CompressedPublicKeyLength {
-		panic(fmt.Errorf("public key %x has wrong length", pk))
-	}
-	if l := copy(sk.PublicKey[:], pk); l != secp256k1.CompressedPublicKeyLength {
-		panic(fmt.Errorf("failed to copy correct length in serialized public key"))
-	}
-	return sk, nil
 }
 
 func (k PrivateKey) ToV2() KeyV2 {
@@ -98,7 +75,7 @@ func Decrypt(e EncryptedVRFKey, auth string) (*PrivateKey, error) {
 	}
 	gethKey, err := keystore.DecryptKey(keyJSON, adulteratedPassword(auth))
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not decrypt key %s",
+		return nil, errors.Wrapf(err, "could not decrypt VRF key %s",
 			e.PublicKey.String())
 	}
 	return fromGethKey(gethKey), nil

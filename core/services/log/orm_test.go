@@ -1,122 +1,195 @@
 package log_test
 
 import (
+	"math/big"
+	"math/rand"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
-func TestORM_MarkBroadcastConsumed(t *testing.T) {
-	t.Parallel()
+func TestORM_broadcasts(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	orm := log.NewORM(store.DB)
+	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
 	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	specV2 := cltest.MustInsertV2JobSpec(t, store, addr)
+	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
 
-	tests := []struct {
-		name     string
-		listener log.Listener
-	}{
-		{"v2", &mockListener{specV2.ID}},
-	}
+	const selectQuery = `SELECT consumed FROM log_broadcasts
+		WHERE block_hash = $1 AND block_number = $2 AND log_index = $3 AND job_id = $4 AND evm_chain_id = $5`
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			listener := test.listener
+	listener := &mockListener{specV2.ID}
 
-			rawLog := cltest.RandomLog(t)
+	rawLog := cltest.RandomLog(t)
+	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), cltest.FixtureChainID.String()}
 
-			var consumed struct{ Consumed bool }
-			var err error
-			err = store.DB.Raw(`
-				SELECT consumed FROM log_broadcasts
-				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
-			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
-			require.NoError(t, err)
-			require.False(t, consumed.Consumed)
+	// No rows
+	res, err := db.Exec(selectQuery, queryArgs...)
+	require.NoError(t, err)
+	rowsAffected, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.Zero(t, rowsAffected)
 
-			err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
-			require.NoError(t, err)
+	t.Run("WasBroadcastConsumed_DNE", func(t *testing.T) {
+		_, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
+		require.NoError(t, err)
+	})
 
-			err = store.DB.Raw(`
-				SELECT consumed FROM log_broadcasts
-				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
-			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
-			require.NoError(t, err)
-			require.True(t, consumed.Consumed)
-		})
-	}
+	require.True(t, t.Run("CreateBroadcast", func(t *testing.T) {
+		err := orm.CreateBroadcast(rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
+		require.NoError(t, err)
+
+		var consumed null.Bool
+		err = db.Get(&consumed, selectQuery, queryArgs...)
+		require.NoError(t, err)
+		require.Equal(t, null.BoolFrom(false), consumed)
+	}))
+
+	t.Run("WasBroadcastConsumed_false", func(t *testing.T) {
+		was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
+		require.NoError(t, err)
+		require.False(t, was)
+	})
+
+	require.True(t, t.Run("MarkBroadcastConsumed", func(t *testing.T) {
+		err := orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
+		require.NoError(t, err)
+
+		var consumed null.Bool
+		err = db.Get(&consumed, selectQuery, queryArgs...)
+		require.NoError(t, err)
+		require.Equal(t, null.BoolFrom(true), consumed)
+	}))
+
+	t.Run("WasBroadcastConsumed_true", func(t *testing.T) {
+		was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
+		require.NoError(t, err)
+		require.True(t, was)
+	})
 }
 
-func TestORM_WasBroadcastConsumed(t *testing.T) {
-	t.Parallel()
+func TestORM_pending(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t)
+	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	num, err := orm.GetPendingMinBlock()
+	require.NoError(t, err)
+	require.Nil(t, num)
 
-	orm := log.NewORM(store.DB)
+	var num10 int64 = 10
+	err = orm.SetPendingMinBlock(&num10)
+	require.NoError(t, err)
 
-	t.Run("returns the correct value", func(t *testing.T) {
-		_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-		specV2 := cltest.MustInsertV2JobSpec(t, store, addr)
+	num, err = orm.GetPendingMinBlock()
+	require.NoError(t, err)
+	require.Equal(t, num10, *num)
 
-		tests := []struct {
-			name     string
-			listener log.Listener
-		}{
-			{"v2", &mockListener{specV2.ID}},
+	err = orm.SetPendingMinBlock(nil)
+	require.NoError(t, err)
+
+	num, err = orm.GetPendingMinBlock()
+	require.NoError(t, err)
+	require.Nil(t, num)
+}
+
+func TestORM_Reinitialize(t *testing.T) {
+	type TestLogBroadcast struct {
+		BlockNumber big.Int
+		log.LogBroadcast
+	}
+	var unconsumed = func(blockNum int64) TestLogBroadcast {
+		hash := common.BigToHash(big.NewInt(rand.Int63()))
+		return TestLogBroadcast{*big.NewInt(blockNum),
+			log.LogBroadcast{hash, false, uint(rand.Uint32()), 0},
 		}
-
-		for _, test := range tests {
-			test := test
-			t.Run(test.name, func(t *testing.T) {
-				listener := test.listener
-
-				rawLog := cltest.RandomLog(t)
-				was, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobID())
-				require.NoError(t, err)
-				require.False(t, was)
-
-				err = orm.MarkBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
-				require.NoError(t, err)
-
-				was, err = orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobID())
-				require.NoError(t, err)
-				require.True(t, was)
-			})
+	}
+	var consumed = func(blockNum int64) TestLogBroadcast {
+		hash := common.BigToHash(big.NewInt(rand.Int63()))
+		return TestLogBroadcast{*big.NewInt(blockNum),
+			log.LogBroadcast{hash, true, uint(rand.Uint32()), 0},
 		}
-	})
+	}
 
-	t.Run("does not error if the record doesn't exist", func(t *testing.T) {
-		_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-		specV2 := cltest.MustInsertV2JobSpec(t, store, addr)
+	tests := []struct {
+		name               string
+		pendingBlockNum    *int64
+		expPendingBlockNum *int64
+		broadcasts         []TestLogBroadcast
+	}{
+		{name: "empty", expPendingBlockNum: nil},
+		{name: "both-delete", expPendingBlockNum: null.IntFrom(10).Ptr(),
+			pendingBlockNum: null.IntFrom(10).Ptr(), broadcasts: []TestLogBroadcast{
+				unconsumed(11), unconsumed(12),
+				consumed(9),
+			}},
+		{name: "both-update", expPendingBlockNum: null.IntFrom(9).Ptr(),
+			pendingBlockNum: null.IntFrom(10).Ptr(), broadcasts: []TestLogBroadcast{
+				unconsumed(9), unconsumed(10),
+				consumed(8),
+			}},
+		{name: "broadcasts-update", expPendingBlockNum: null.IntFrom(9).Ptr(),
+			pendingBlockNum: nil, broadcasts: []TestLogBroadcast{
+				unconsumed(9), unconsumed(10),
+				consumed(8),
+			}},
+		{name: "pending-noop", expPendingBlockNum: null.IntFrom(10).Ptr(),
+			pendingBlockNum: null.IntFrom(10).Ptr(), broadcasts: []TestLogBroadcast{
+				consumed(8), consumed(9),
+			}},
+	}
 
-		tests := []struct {
-			name     string
-			listener log.Listener
-		}{
-			{"v2", &mockListener{specV2.ID}},
-		}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			db := pgtest.NewSqlxDB(t)
+			cfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.TestLogger(t)
+			orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
-		for _, test := range tests {
-			test := test
-			t.Run(test.name, func(t *testing.T) {
-				listener := test.listener
+			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
 
-				rawLog := cltest.RandomLog(t)
-				_, err := orm.WasBroadcastConsumed(store.DB, rawLog.BlockHash, rawLog.Index, listener.JobID())
-				require.NoError(t, err)
-			})
-		}
-	})
+			for _, b := range tt.broadcasts {
+				if b.Consumed {
+					err := orm.MarkBroadcastConsumed(b.BlockHash, b.BlockNumber.Uint64(), b.LogIndex, jobID)
+					require.NoError(t, err)
+				} else {
+					err := orm.CreateBroadcast(b.BlockHash, b.BlockNumber.Uint64(), b.LogIndex, jobID)
+					require.NoError(t, err)
+				}
+			}
+			if tt.pendingBlockNum != nil {
+				require.NoError(t, orm.SetPendingMinBlock(tt.pendingBlockNum))
+			}
+
+			pendingBlockNum, err := orm.Reinitialize()
+			require.NoError(t, err)
+			assert.Equal(t, tt.expPendingBlockNum, pendingBlockNum)
+
+			pendingBlockNum, err = orm.GetPendingMinBlock()
+			if assert.NoError(t, err) {
+				assert.Equal(t, tt.expPendingBlockNum, pendingBlockNum)
+			}
+
+			bs, err := orm.FindBroadcasts(0, 20)
+			if assert.NoError(t, err) {
+				for _, b := range bs {
+					assert.True(t, b.Consumed)
+				}
+			}
+		})
+	}
 }

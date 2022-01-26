@@ -2,6 +2,7 @@ package bulletprooftxmanager
 
 import (
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,12 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 // pollInterval is the maximum amount of time in addition to
@@ -30,34 +32,41 @@ const defaultResenderPollInterval = 5 * time.Second
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type EthResender struct {
-	db        *gorm.DB
+	db        *sqlx.DB
 	ethClient eth.Client
+	chainID   big.Int
 	interval  time.Duration
 	config    Config
+	logger    logger.Logger
 
 	chStop chan struct{}
 	chDone chan struct{}
 }
 
-func NewEthResender(db *gorm.DB, ethClient eth.Client, pollInterval time.Duration, config Config) *EthResender {
+// NewEthResender creates a new concrete EthResender
+func NewEthResender(lggr logger.Logger, db *sqlx.DB, ethClient eth.Client, pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
 	return &EthResender{
 		db,
 		ethClient,
+		*ethClient.ChainID(),
 		pollInterval,
 		config,
+		lggr.Named("EthResender"),
 		make(chan struct{}),
 		make(chan struct{}),
 	}
 }
 
+// Start is a comment which satisfies the linter
 func (er *EthResender) Start() {
-	logger.Infof("EthResender: Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
+	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
 	go er.runLoop()
 }
 
+// Stop is a comment which satisfies the linter
 func (er *EthResender) Stop() {
 	close(er.chStop)
 	<-er.chDone
@@ -67,7 +76,7 @@ func (er *EthResender) runLoop() {
 	defer close(er.chDone)
 
 	if err := er.resendUnconfirmed(); err != nil {
-		logger.Warnw("EthResender: failed to resend unconfirmed transactions", "err", err)
+		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
 	ticker := time.NewTicker(utils.WithJitter(er.interval))
@@ -78,7 +87,7 @@ func (er *EthResender) runLoop() {
 			return
 		case <-ticker.C:
 			if err := er.resendUnconfirmed(); err != nil {
-				logger.Warnw("EthResender: failed to resend unconfirmed transactions", "err", err)
+				er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 		}
 	}
@@ -89,16 +98,16 @@ func (er *EthResender) resendUnconfirmed() error {
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 
 	olderThan := time.Now().Add(-ageThreshold)
-	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions)
+	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions, er.chainID)
 	if err != nil {
-		return errors.Wrap(err, "failed to findEthTxAttemptsRequiringReceiptFetch")
+		return errors.Wrap(err, "failed to FindEthTxesRequiringResend")
 	}
 
 	if len(attempts) == 0 {
 		return nil
 	}
 
-	logger.Infow(fmt.Sprintf("EthResender: re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
+	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
 
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
@@ -123,10 +132,10 @@ func (er *EthResender) resendUnconfirmed() error {
 			j = len(reqs)
 		}
 
-		logger.Debugw(fmt.Sprintf("EthResender: batch resending transactions %v thru %v", i, j))
+		er.logger.Debugw(fmt.Sprintf("Batch resending transactions %v thru %v", i, j))
 
 		ctx, cancel := eth.DefaultQueryCtx()
-		if err := er.ethClient.RoundRobinBatchCallContext(ctx, reqs[i:j]); err != nil {
+		if err := er.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
 			return errors.Wrap(err, "failed to re-send transactions")
 		}
 		cancel()
@@ -136,29 +145,28 @@ func (er *EthResender) resendUnconfirmed() error {
 		}
 	}
 
-	logResendResult(reqs)
+	logResendResult(er.logger, reqs)
 
 	return nil
 }
 
 // FindEthTxesRequiringResend returns the highest priced attempt for each
 // eth_tx that was last sent before or at the given time (up to limit)
-func FindEthTxesRequiringResend(db *gorm.DB, olderThan time.Time, maxInFlightTransactions uint32) (attempts []EthTxAttempt, err error) {
+func FindEthTxesRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int) (attempts []EthTxAttempt, err error) {
 	var limit null.Uint32
 	if maxInFlightTransactions > 0 {
 		limit = null.Uint32From(maxInFlightTransactions)
 	}
-	err = db.Raw(`
+	err = db.Select(&attempts, `
 SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
 FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
-WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= ?
+WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2
 ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC
-LIMIT ?
-`, olderThan, limit).
-		Find(&attempts).Error
+LIMIT $3
+`, olderThan, chainID.String(), limit)
 
-	return
+	return attempts, errors.Wrap(err, "FindEthTxesRequiringResend failed to load eth_tx_attempts")
 }
 
 func (er *EthResender) updateBroadcastAts(now time.Time, etxIDs []int64) error {
@@ -169,10 +177,11 @@ func (er *EthResender) updateBroadcastAts(now time.Time, etxIDs []int64) error {
 	// Since we may have raced with the EthConfirmer (totally OK since highest
 	// priced transaction always wins) we only want to update broadcast_at if
 	// our version is later.
-	return er.db.Exec(`UPDATE eth_txes SET broadcast_at = ? WHERE id = ANY(?) AND broadcast_at < ?`, now, pq.Array(etxIDs), now).Error
+	_, err := er.db.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
+	return errors.Wrap(err, "updateBroadcastAts failed to update eth_txes")
 }
 
-func logResendResult(reqs []rpc.BatchElem) {
+func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 	var nNew int
 	var nFatal int
 	for _, req := range reqs {
@@ -183,5 +192,5 @@ func logResendResult(reqs []rpc.BatchElem) {
 			nFatal++
 		}
 	}
-	logger.Debugw("EthResender: completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
+	lggr.Debugw("Completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
 }

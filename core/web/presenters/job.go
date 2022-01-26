@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // JobSpecType defines the the the spec type of the job
@@ -35,28 +36,32 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress          ethkey.EIP55Address      `json:"contractAddress"`
-	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
-	MinContractPayment       *assets.Link             `json:"minContractPaymentLinkJuels"`
-	Requesters               models.AddressCollection `json:"requesters"`
-	Initiator                string                   `json:"initiator"`
-	CreatedAt                time.Time                `json:"createdAt"`
-	UpdatedAt                time.Time                `json:"updatedAt"`
+	ContractAddress             ethkey.EIP55Address      `json:"contractAddress"`
+	MinIncomingConfirmations    clnull.Uint32            `json:"minIncomingConfirmations"`
+	MinIncomingConfirmationsEnv bool                     `json:"minIncomingConfirmationsEnv,omitempty"`
+	MinContractPayment          *assets.Link             `json:"minContractPaymentLinkJuels"`
+	Requesters                  models.AddressCollection `json:"requesters"`
+	Initiator                   string                   `json:"initiator"`
+	CreatedAt                   time.Time                `json:"createdAt"`
+	UpdatedAt                   time.Time                `json:"updatedAt"`
+	EVMChainID                  *utils.Big               `json:"evmChainID"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
 // job.DirectRequestSpec
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
-		ContractAddress:          spec.ContractAddress,
-		MinIncomingConfirmations: spec.MinIncomingConfirmations,
-		MinContractPayment:       spec.MinContractPayment,
-		Requesters:               spec.Requesters,
+		ContractAddress:             spec.ContractAddress,
+		MinIncomingConfirmations:    spec.MinIncomingConfirmations,
+		MinIncomingConfirmationsEnv: spec.MinIncomingConfirmationsEnv,
+		MinContractPayment:          spec.MinContractPayment,
+		Requesters:                  spec.Requesters,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
-		Initiator: "runlog",
-		CreatedAt: spec.CreatedAt,
-		UpdatedAt: spec.UpdatedAt,
+		Initiator:  "runlog",
+		CreatedAt:  spec.CreatedAt,
+		UpdatedAt:  spec.UpdatedAt,
+		EVMChainID: spec.EVMChainID,
 	}
 }
 
@@ -75,6 +80,7 @@ type FluxMonitorSpec struct {
 	MinPayment          *assets.Link        `json:"minPayment"`
 	CreatedAt           time.Time           `json:"createdAt"`
 	UpdatedAt           time.Time           `json:"updatedAt"`
+	EVMChainID          *utils.Big          `json:"evmChainID"`
 }
 
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
@@ -103,43 +109,58 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 		MinPayment:          spec.MinPayment,
 		CreatedAt:           spec.CreatedAt,
 		UpdatedAt:           spec.UpdatedAt,
+		EVMChainID:          spec.EVMChainID,
 	}
 }
 
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
-	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
-	P2PPeerID                              *p2pkey.PeerID       `json:"p2pPeerID"`
-	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
-	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash   `json:"keyBundleID"`
-	TransmitterAddress                     *ethkey.EIP55Address `json:"transmitterAddress"`
-	ObservationTimeout                     models.Interval      `json:"observationTimeout"`
-	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval      `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
-	CreatedAt                              time.Time            `json:"createdAt"`
-	UpdatedAt                              time.Time            `json:"updatedAt"`
+	ContractAddress                           ethkey.EIP55Address  `json:"contractAddress"`
+	P2PPeerID                                 p2pkey.PeerID        `json:"p2pPeerID"`
+	P2PPeerIDEnv                              bool                 `json:"p2pPeerIDEnv,omitempty"`
+	P2PBootstrapPeers                         pq.StringArray       `json:"p2pBootstrapPeers"`
+	IsBootstrapPeer                           bool                 `json:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                   *models.Sha256Hash   `json:"keyBundleID"`
+	TransmitterAddress                        *ethkey.EIP55Address `json:"transmitterAddress"`
+	ObservationTimeout                        models.Interval      `json:"observationTimeout"`
+	ObservationTimeoutEnv                     bool                 `json:"observationTimeoutEnv,omitempty"`
+	BlockchainTimeout                         models.Interval      `json:"blockchainTimeout"`
+	BlockchainTimeoutEnv                      bool                 `json:"blockchainTimeoutEnv,omitempty"`
+	ContractConfigTrackerSubscribeInterval    models.Interval      `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerSubscribeIntervalEnv bool                 `json:"contractConfigTrackerSubscribeIntervalEnv,omitempty"`
+	ContractConfigTrackerPollInterval         models.Interval      `json:"contractConfigTrackerPollInterval"`
+	ContractConfigTrackerPollIntervalEnv      bool                 `json:"contractConfigTrackerPollIntervalEnv,omitempty"`
+	ContractConfigConfirmations               uint16               `json:"contractConfigConfirmations"`
+	ContractConfigConfirmationsEnv            bool                 `json:"contractConfigConfirmationsEnv,omitempty"`
+	CreatedAt                                 time.Time            `json:"createdAt"`
+	UpdatedAt                                 time.Time            `json:"updatedAt"`
+	EVMChainID                                *utils.Big           `json:"evmChainID"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
 // job.OffchainReportingOracleSpec
 func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainReportingSpec {
 	return &OffChainReportingSpec{
-		ContractAddress:                        spec.ContractAddress,
-		P2PPeerID:                              spec.P2PPeerID,
-		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
-		IsBootstrapPeer:                        spec.IsBootstrapPeer,
-		EncryptedOCRKeyBundleID:                spec.EncryptedOCRKeyBundleID,
-		TransmitterAddress:                     spec.TransmitterAddress,
-		ObservationTimeout:                     spec.ObservationTimeout,
-		BlockchainTimeout:                      spec.BlockchainTimeout,
-		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval,
-		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval,
-		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
-		CreatedAt:                              spec.CreatedAt,
-		UpdatedAt:                              spec.UpdatedAt,
+		ContractAddress:                           spec.ContractAddress,
+		P2PPeerID:                                 spec.P2PPeerID,
+		P2PPeerIDEnv:                              spec.P2PPeerIDEnv,
+		P2PBootstrapPeers:                         spec.P2PBootstrapPeers,
+		IsBootstrapPeer:                           spec.IsBootstrapPeer,
+		EncryptedOCRKeyBundleID:                   spec.EncryptedOCRKeyBundleID,
+		TransmitterAddress:                        spec.TransmitterAddress,
+		ObservationTimeout:                        spec.ObservationTimeout,
+		ObservationTimeoutEnv:                     spec.ObservationTimeoutEnv,
+		BlockchainTimeout:                         spec.BlockchainTimeout,
+		BlockchainTimeoutEnv:                      spec.BlockchainTimeoutEnv,
+		ContractConfigTrackerSubscribeInterval:    spec.ContractConfigTrackerSubscribeInterval,
+		ContractConfigTrackerSubscribeIntervalEnv: spec.ContractConfigTrackerSubscribeIntervalEnv,
+		ContractConfigTrackerPollInterval:         spec.ContractConfigTrackerPollInterval,
+		ContractConfigTrackerPollIntervalEnv:      spec.ContractConfigTrackerPollIntervalEnv,
+		ContractConfigConfirmations:               spec.ContractConfigConfirmations,
+		ContractConfigConfirmationsEnv:            spec.ContractConfigConfirmationsEnv,
+		CreatedAt:                                 spec.CreatedAt,
+		UpdatedAt:                                 spec.UpdatedAt,
+		EVMChainID:                                spec.EVMChainID,
 	}
 }
 
@@ -165,6 +186,7 @@ type KeeperSpec struct {
 	FromAddress     ethkey.EIP55Address `json:"fromAddress"`
 	CreatedAt       time.Time           `json:"createdAt"`
 	UpdatedAt       time.Time           `json:"updatedAt"`
+	EVMChainID      *utils.Big          `json:"evmChainID"`
 }
 
 // NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
@@ -174,6 +196,7 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 		FromAddress:     spec.FromAddress,
 		CreatedAt:       spec.CreatedAt,
 		UpdatedAt:       spec.UpdatedAt,
+		EVMChainID:      spec.EVMChainID,
 	}
 }
 
@@ -208,20 +231,26 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress ethkey.EIP55Address `json:"coordinatorAddress"`
-	PublicKey          secp256k1.PublicKey `json:"publicKey"`
-	Confirmations      uint32              `json:"confirmations"`
-	CreatedAt          time.Time           `json:"createdAt"`
-	UpdatedAt          time.Time           `json:"updatedAt"`
+	CoordinatorAddress       ethkey.EIP55Address  `json:"coordinatorAddress"`
+	PublicKey                secp256k1.PublicKey  `json:"publicKey"`
+	FromAddress              *ethkey.EIP55Address `json:"fromAddress"`
+	PollPeriod               models.Duration      `json:"pollPeriod"`
+	MinIncomingConfirmations uint32               `json:"confirmations"`
+	CreatedAt                time.Time            `json:"createdAt"`
+	UpdatedAt                time.Time            `json:"updatedAt"`
+	EVMChainID               *utils.Big           `json:"evmChainID"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	return &VRFSpec{
-		CoordinatorAddress: spec.CoordinatorAddress,
-		PublicKey:          spec.PublicKey,
-		Confirmations:      spec.Confirmations,
-		CreatedAt:          spec.CreatedAt,
-		UpdatedAt:          spec.UpdatedAt,
+		CoordinatorAddress:       spec.CoordinatorAddress,
+		PublicKey:                spec.PublicKey,
+		FromAddress:              spec.FromAddress,
+		PollPeriod:               models.MustMakeDuration(spec.PollPeriod),
+		MinIncomingConfirmations: spec.MinIncomingConfirmations,
+		CreatedAt:                spec.CreatedAt,
+		UpdatedAt:                spec.UpdatedAt,
+		EVMChainID:               spec.EVMChainID,
 	}
 }
 
@@ -299,17 +328,6 @@ func NewJobResource(j job.Job) *JobResource {
 	resource.Errors = jes
 
 	return resource
-}
-
-// NewJobResources initializes a slice of JSONAPI job resources
-func NewJobResources(js []job.Job) []JobResource {
-	rs := []JobResource{}
-
-	for _, j := range js {
-		rs = append(rs, *NewJobResource(j))
-	}
-
-	return rs
 }
 
 // GetName implements the api2go EntityNamer interface

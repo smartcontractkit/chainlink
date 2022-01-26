@@ -1,14 +1,20 @@
 import React from 'react'
 import { jsonApiCSAKeys, CSAKey } from 'factories/jsonApiCSAKeys'
 
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
 
 import { ENDPOINT as CSA_INDEX_ENDPOINT } from 'api/v2/csaKeys'
 
 import { CSAKeys } from './CSAKeys'
+import {
+  renderWithRouter,
+  screen,
+  waitForElementToBeRemoved,
+} from 'support/test-utils'
+import userEvent from '@testing-library/user-event'
+
+const { findAllByRole, getByRole, getByText, queryByText } = screen
 
 describe('pages/Keys/CSAKeys', () => {
   describe('CSA keys', () => {
@@ -22,11 +28,14 @@ describe('pages/Keys/CSAKeys', () => {
         jsonApiCSAKeys([expectedKey]),
       )
 
-      const wrapper = mountWithProviders(<CSAKeys />)
-      await syncFetch(wrapper)
+      renderWithRouter(<CSAKeys />)
 
-      expect(wrapper.find('tbody').children().length).toEqual(1)
-      expect(wrapper.text()).toContain(expectedKey.publicKey)
+      await waitForElementToBeRemoved(getByText('Loading...'))
+
+      const rows = await findAllByRole('row')
+      expect(rows).toHaveLength(2)
+
+      expect(rows[1]).toHaveTextContent(expectedKey.publicKey)
     })
 
     it('allows to create a new CSA key', async () => {
@@ -34,12 +43,11 @@ describe('pages/Keys/CSAKeys', () => {
         publicKey: 'publicKey1',
       })
       global.fetch.getOnce(globPath(CSA_INDEX_ENDPOINT), jsonApiCSAKeys([]))
-      const wrapper = mountWithProviders(<CSAKeys />)
-      await syncFetch(wrapper)
+      renderWithRouter(<CSAKeys />)
 
-      expect(wrapper.find('tbody').children().length).toEqual(1)
-      expect(wrapper.text()).not.toContain(expectedKey.publicKey)
-      expect(wrapper.text()).toContain('No entries to show.')
+      await waitForElementToBeRemoved(getByText('Loading...'))
+
+      expect(queryByText('No entries to show.')).toBeInTheDocument()
 
       // The button will only appear when there is no existing CSA Key
       global.fetch.postOnce(globPath(CSA_INDEX_ENDPOINT), {})
@@ -49,11 +57,14 @@ describe('pages/Keys/CSAKeys', () => {
         jsonApiCSAKeys([expectedKey]),
       )
 
-      wrapper.find('[data-testid="keys-create"]').first().simulate('click')
-      await syncFetch(wrapper)
+      userEvent.click(getByRole('button', { name: 'New CSA Key' }))
 
-      expect(wrapper.find('tbody').children().length).toEqual(1)
-      expect(wrapper.text()).toContain(expectedKey.publicKey)
+      await waitForElementToBeRemoved(getByText('No entries to show.'))
+
+      const rows = await findAllByRole('row')
+      expect(rows).toHaveLength(2)
+
+      expect(rows[1]).toHaveTextContent(expectedKey.publicKey)
     })
   })
 })

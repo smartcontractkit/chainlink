@@ -2,106 +2,90 @@ package headtracker
 
 import (
 	"context"
+	"database/sql"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type ORM struct {
-	db *gorm.DB
+	q       pg.Q
+	chainID utils.Big
 }
 
-func NewORM(db *gorm.DB) *ORM {
-	return &ORM{db}
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, chainID big.Int) *ORM {
+	if db == nil {
+		panic("db may not be nil")
+	}
+	return &ORM{pg.NewQ(db, lggr, cfg), utils.Big(chainID)}
 }
 
 // IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 // No advisory lock required because this is thread safe.
-func (orm *ORM) IdempotentInsertHead(ctx context.Context, h models.Head) error {
-	err := orm.db.
-		WithContext(ctx).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "hash"}},
-			DoNothing: true,
-		}).Create(&h).Error
-
-	if err != nil && err.Error() == "sql: no rows in result set" {
-		return nil
+func (orm *ORM) IdempotentInsertHead(ctx context.Context, h *eth.Head) error {
+	if h.EVMChainID == nil {
+		h.EVMChainID = &orm.chainID
+	} else if ((*big.Int)(h.EVMChainID)).Cmp((*big.Int)(&orm.chainID)) != 0 {
+		return errors.Errorf("head chain ID %s does not match orm chain ID %s", h.EVMChainID.String(), orm.chainID.String())
 	}
-	return err
+	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
+	query := `
+INSERT INTO heads (hash, number, parent_hash, created_at, timestamp, l1_block_number, evm_chain_id, base_fee_per_gas) VALUES (
+:hash, :number, :parent_hash, :created_at, :timestamp, :l1_block_number, :evm_chain_id, :base_fee_per_gas)
+ON CONFLICT (evm_chain_id, hash) DO NOTHING
+`
+	err := q.ExecQNamed(query, h)
+	return errors.Wrap(err, "IdempotentInsertHead failed to insert head")
 }
 
 // TrimOldHeads deletes heads such that only the top N block numbers remain
 func (orm *ORM) TrimOldHeads(ctx context.Context, n uint) (err error) {
-	return orm.db.WithContext(ctx).Exec(`
+	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
+	return q.ExecQ(`
 	DELETE FROM heads
-	WHERE number < (
+	WHERE evm_chain_id = $1 AND number < (
 		SELECT min(number) FROM (
 			SELECT number
 			FROM heads
+			WHERE evm_chain_id = $2
 			ORDER BY number DESC
-			LIMIT ?
+			LIMIT $3
 		) numbers
-	)`, n).Error
+	)`, orm.chainID, orm.chainID, n)
 }
 
-// Chain return the chain of heads starting at hash and up to lookback parents
-// Returns RecordNotFound if no head with the given hash exists
-func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (models.Head, error) {
-	rows, err := orm.db.WithContext(ctx).Raw(`
-	WITH RECURSIVE chain AS (
-		SELECT * FROM heads WHERE hash = ?
-	UNION
-		SELECT h.* FROM heads h
-		JOIN chain ON chain.parent_hash = h.hash
-	) SELECT id, hash, number, parent_hash, timestamp, created_at FROM chain LIMIT ?
-	`, hash, lookback).Rows()
-	if err != nil {
-		return models.Head{}, err
-	}
-	defer logger.ErrorIfCalling(rows.Close)
-	var firstHead *models.Head
-	var prevHead *models.Head
-	for rows.Next() {
-		h := models.Head{}
-		if err = rows.Scan(&h.ID, &h.Hash, &h.Number, &h.ParentHash, &h.Timestamp, &h.CreatedAt); err != nil {
-			return models.Head{}, err
-		}
-		if firstHead == nil {
-			firstHead = &h
-		} else {
-			prevHead.Parent = &h
-		}
-		prevHead = &h
-	}
-	if err = rows.Err(); err != nil {
-		return models.Head{}, err
-	}
-	if firstHead == nil {
-		return models.Head{}, gorm.ErrRecordNotFound
-	}
-	return *firstHead, nil
-}
-
-// LastHead returns the head with the highest number. In the case of ties (e.g.
-// due to re-org) it returns the most recently seen head entry.
-func (orm *ORM) LastHead(ctx context.Context) (*models.Head, error) {
-	number := &models.Head{}
-	err := orm.db.WithContext(ctx).Order("number DESC, created_at DESC, id DESC").First(number).Error
-	if err == gorm.ErrRecordNotFound {
+// LatestHead returns the highest seen head
+func (orm *ORM) LatestHead(ctx context.Context) (head *eth.Head, err error) {
+	head = new(eth.Head)
+	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Get(head, `SELECT * FROM heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT 1`, orm.chainID)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
-	return number, err
+	err = errors.Wrap(err, "LatestHead failed")
+	return
+}
+
+// LatestHeads returns the latest heads up to given limit
+func (orm *ORM) LatestHeads(ctx context.Context, limit int) (heads []*eth.Head, err error) {
+	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Select(&heads, `SELECT * FROM heads WHERE evm_chain_id = $1 ORDER BY number DESC, created_at DESC, id DESC LIMIT $2`, orm.chainID, limit)
+	err = errors.Wrap(err, "LatestHeads failed")
+	return
 }
 
 // HeadByHash fetches the head with the given hash from the db, returns nil if none exists
-func (orm *ORM) HeadByHash(ctx context.Context, hash common.Hash) (*models.Head, error) {
-	head := &models.Head{}
-	err := orm.db.WithContext(ctx).Where("hash = ?", hash).First(head).Error
-	if err == gorm.ErrRecordNotFound {
+func (orm *ORM) HeadByHash(ctx context.Context, hash common.Hash) (head *eth.Head, err error) {
+	q := orm.q.WithOpts(pg.WithParentCtx(ctx))
+	head = new(eth.Head)
+	err = q.Get(head, `SELECT * FROM heads WHERE evm_chain_id = $1 AND hash = $2`, orm.chainID, hash)
+	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	return head, err

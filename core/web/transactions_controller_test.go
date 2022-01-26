@@ -20,29 +20,28 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	store := app.GetStore()
-	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db := app.GetSqlxDB()
+	borm := app.BPTXMORM()
+	ethKeyStore := cltest.NewKeyStore(t, db, app.Config).Eth()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 3, 2, from) // tx2
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 4, 4, from)        // tx3
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 3, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 4, 4, from)        // tx3
 
 	// add second tx attempt for tx2
 	blockNum := int64(3)
-	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
+	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, store.DB.Create(&attempt).Error)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 
-	_, count, err := store.EthTransactionsWithAttempts(0, 100)
+	_, count, err := borm.EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 
@@ -66,8 +65,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -79,15 +77,14 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
-	db := app.GetStore().DB
+
+	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 	attempt.EthTx = tx
@@ -113,14 +110,13 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
-	db := app.GetStore().DB
+
+	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 

@@ -1,8 +1,6 @@
 import React from 'react'
 import { JobsShow } from 'pages/Jobs/Show'
 import { Route } from 'react-router-dom'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
 import {
@@ -10,11 +8,18 @@ import {
   fluxMonitorJobResource,
 } from 'support/factories/jsonApiJobs'
 
+import {
+  renderWithRouter,
+  screen,
+  waitForElementToBeRemoved,
+} from 'support/test-utils'
+
 const JOB_ID = '200'
+
+const { getByTestId, getByText } = screen
 
 describe('pages/Jobs/Definition', () => {
   it('renders the job definition component', async () => {
-    // Mock the job fetch
     const jobResponse = jsonApiJob(
       fluxMonitorJobResource({
         id: JOB_ID,
@@ -22,15 +27,12 @@ describe('pages/Jobs/Definition', () => {
     )
     global.fetch.getOnce(globPath(`/v2/jobs/${JOB_ID}`), jobResponse)
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobId" component={JobsShow} />,
-      {
-        initialEntries: [`/jobs/${JOB_ID}/definition`],
-      },
-    )
+    renderWithRouter(<Route path="/jobs/:jobId" component={JobsShow} />, {
+      initialEntries: [`/jobs/${JOB_ID}/definition`],
+    })
 
-    await syncFetch(wrapper)
+    await waitForElementToBeRemoved(() => getByText('Loading...'))
 
-    expect(wrapper.find('code').text()).toMatchSnapshot()
+    expect(getByTestId('definition').textContent).toMatchSnapshot()
   })
 })

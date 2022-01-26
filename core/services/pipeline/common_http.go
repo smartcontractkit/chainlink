@@ -10,23 +10,25 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func makeHTTPRequest(
 	ctx context.Context,
+	lggr logger.Logger,
 	method StringParam,
 	url URLParam,
 	requestData MapParam,
 	allowUnrestrictedNetworkAccess BoolParam,
 	cfg Config,
-) ([]byte, http.Header, time.Duration, error) {
+) ([]byte, int, http.Header, time.Duration, error) {
 
 	var bodyReader io.Reader
 	if requestData != nil {
 		bodyBytes, err := json.Marshal(requestData)
 		if err != nil {
-			return nil, nil, 0, errors.Wrap(err, "failed to encode request body as JSON")
+			return nil, 0, nil, 0, errors.Wrap(err, "failed to encode request body as JSON")
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
@@ -36,7 +38,7 @@ func makeHTTPRequest(
 
 	request, err := http.NewRequestWithContext(timeoutCtx, string(method), url.String(), bodyReader)
 	if err != nil {
-		return nil, nil, 0, errors.Wrap(err, "failed to create http.Request")
+		return nil, 0, nil, 0, errors.Wrap(err, "failed to create http.Request")
 	}
 	request.Header.Set("Content-Type", "application/json")
 
@@ -46,23 +48,24 @@ func makeHTTPRequest(
 			SizeLimit:                      cfg.DefaultHTTPLimit(),
 			AllowUnrestrictedNetworkAccess: bool(allowUnrestrictedNetworkAccess),
 		},
+		Logger: lggr.Named("HTTPRequest"),
 	}
 
 	start := time.Now()
 	responseBytes, statusCode, headers, err := httpRequest.SendRequest()
 	if ctx.Err() != nil {
-		return nil, nil, 0, errors.New("http request timed out or interrupted")
+		return nil, 0, nil, 0, errors.New("http request timed out or interrupted")
 	}
 	if err != nil {
-		return nil, nil, 0, errors.Wrapf(err, "error making http request")
+		return nil, 0, nil, 0, errors.Wrapf(err, "error making http request")
 	}
 	elapsed := time.Since(start) // TODO: return elapsed from utils/http
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
-		return nil, headers, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
+		return nil, statusCode, headers, 0, errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, maybeErr)
 	}
-	return responseBytes, headers, elapsed, nil
+	return responseBytes, statusCode, headers, elapsed, nil
 }
 
 type PossibleErrorResponses struct {

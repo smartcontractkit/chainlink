@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestJobPresenter_RenderTable(t *testing.T) {
@@ -268,36 +269,72 @@ func TestJob_ToRows(t *testing.T) {
 	}, job.ToRows())
 }
 
-func TestClient_ListJobsV2(t *testing.T) {
+func TestClient_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+	}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
-	createOutput := *r.Renders[0].(*cmd.JobPresenter)
+	require.Len(t, r.Renders, 1)
+	createOutput, ok := r.Renders[0].(*cmd.JobPresenter)
+	require.True(t, ok, "Expected Renders[0] to be *cmd.JobPresenter, got %T", r.Renders[0])
 
-	require.Nil(t, client.ListJobsV2(cltest.EmptyCLIContext()))
+	require.Nil(t, client.ListJobs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[1].(*cmd.JobPresenters)
 	require.Equal(t, 1, len(jobs))
 	assert.Equal(t, createOutput.ID, jobs[0].ID)
 }
 
+func TestClient_ShowJob(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+	}))
+	client, r := app.NewClientAndRenderer()
+
+	// Create the job
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+	require.Len(t, r.Renders, 1)
+	createOutput, ok := r.Renders[0].(*cmd.JobPresenter)
+	require.True(t, ok, "Expected Renders[0] to be *cmd.JobPresenter, got %T", r.Renders[0])
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{createOutput.ID})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.ShowJob(c))
+	job := *r.Renders[0].(*cmd.JobPresenter)
+	assert.Equal(t, createOutput.ID, job.ID)
+}
+
 func TestClient_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
+	}))
 	client, r := app.NewClientAndRenderer()
 
 	requireJobsCount(t, app.JobORM(), 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
 	requireJobsCount(t, app.JobORM(), 1)
@@ -311,15 +348,19 @@ func TestClient_CreateJobV2(t *testing.T) {
 func TestClient_DeleteJob(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t, withConfigSet(func(c *configtest.TestEVMConfig) {
-		c.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
 	}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 	require.NotEmpty(t, r.Renders)
 
@@ -327,7 +368,7 @@ func TestClient_DeleteJob(t *testing.T) {
 
 	requireJobsCount(t, app.JobORM(), 1)
 
-	jobs, _, err := app.JobORM().JobsV2(0, 1000)
+	jobs, _, err := app.JobORM().FindJobs(0, 1000)
 	require.NoError(t, err)
 	jobID := jobs[0].ID
 	cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
@@ -346,7 +387,7 @@ func TestClient_DeleteJob(t *testing.T) {
 }
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
-	jobs, _, err := orm.JobsV2(0, 1000)
+	jobs, _, err := orm.FindJobs(0, 1000)
 	require.NoError(t, err)
 	require.Len(t, jobs, expected)
 }

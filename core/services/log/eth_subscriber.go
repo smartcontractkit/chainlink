@@ -19,16 +19,16 @@ type (
 	ethSubscriber struct {
 		ethClient eth.Client
 		config    Config
-		logger    *logger.Logger
+		logger    logger.Logger
 		chStop    chan struct{}
 	}
 )
 
-func newEthSubscriber(ethClient eth.Client, config Config, logger *logger.Logger, chStop chan struct{}) *ethSubscriber {
+func newEthSubscriber(ethClient eth.Client, config Config, logger logger.Logger, chStop chan struct{}) *ethSubscriber {
 	return &ethSubscriber{
 		ethClient: ethClient,
 		config:    config,
-		logger:    logger,
+		logger:    logger.Named("EthSubscriber"),
 		chStop:    chStop,
 	}
 }
@@ -37,6 +37,7 @@ func newEthSubscriber(ethClient eth.Client, config Config, logger *logger.Logger
 // note that the whole operation has no timeout - it relies on BlockBackfillSkip (set outside) to optionally prevent very deep, long backfills
 // Max runtime is: (10 sec + 1 min * numBlocks/batchSize) * 3 retries
 func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+	sub.logger.Infow("backfilling logs", "from", fromBlockOverride, "addresses", addresses)
 	if len(addresses) == 0 {
 		sub.logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
 		ch := make(chan types.Log)
@@ -121,8 +122,6 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 			if elapsed > time.Minute {
 				elapsedMessage = " (backfill is taking a long time, delaying processing of newest logs - if it's an issue, consider setting the BLOCK_BACKFILL_SKIP configuration variable to \"true\")"
 			}
-			sub.logger.Infow(fmt.Sprintf("LogBroadcaster: Fetched a batch of logs%s", elapsedMessage), "len", len(batchLogs), "fromBlock", from, "toBlock", to, "remaining", int64(latestHeight)-to)
-			sub.logger.Infof("LogBroadcaster: Fetched a batch of %v logs from %v to %v", len(batchLogs), from, to)
 			if err != nil {
 				if ctx.Err() != nil {
 					sub.logger.Errorw("LogBroadcaster: Deadline exceeded, unable to backfill a batch of logs. Consider setting EvmLogBackfillBatchSize to a lower value", "err", err, "elapsed", elapsed, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
@@ -130,6 +129,9 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 					sub.logger.Errorw("LogBroadcaster: Unable to backfill a batch of logs after retries", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 				}
 				return true
+			}
+			if len(batchLogs) > 0 {
+				sub.logger.Infow(fmt.Sprintf("LogBroadcaster: Fetched a batch of %v logs from %v to %v%s", len(batchLogs), from, to, elapsedMessage), "len", len(batchLogs), "fromBlock", from, "toBlock", to, "remaining", int64(latestHeight)-to)
 			}
 
 			select {

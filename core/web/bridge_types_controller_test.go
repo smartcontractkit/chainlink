@@ -7,8 +7,10 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -16,9 +18,123 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateBridgeType(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+
+	tests := []struct {
+		description string
+		request     bridges.BridgeTypeRequest
+		want        error
+	}{
+		{
+			"no adapter name",
+			bridges.BridgeTypeRequest{
+				URL: cltest.WebURL(t, "https://denergy.eth"),
+			},
+			models.NewJSONAPIErrorsWith("No name specified"),
+		},
+		{
+			"invalid adapter name",
+			bridges.BridgeTypeRequest{
+				Name: "invalid/adapter",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			models.NewJSONAPIErrorsWith("task type validation: name invalid/adapter contains invalid characters"),
+		},
+		{
+			"invalid with blank url",
+			bridges.BridgeTypeRequest{
+				Name: "validadaptername",
+				URL:  cltest.WebURL(t, ""),
+			},
+			models.NewJSONAPIErrorsWith("URL must be present"),
+		},
+		{
+			"valid url",
+			bridges.BridgeTypeRequest{
+				Name: "adapterwithvalidurl",
+				URL:  cltest.WebURL(t, "//denergy"),
+			},
+			nil,
+		},
+		{
+			"valid docker url",
+			bridges.BridgeTypeRequest{
+				Name: "adapterwithdockerurl",
+				URL:  cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+			},
+			nil,
+		},
+		{
+			"valid MinimumContractPayment positive",
+			bridges.BridgeTypeRequest{
+				Name:                   "adapterwithdockerurl",
+				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+				MinimumContractPayment: assets.NewLinkFromJuels(1),
+			},
+			nil,
+		},
+		{
+			"invalid MinimumContractPayment negative",
+			bridges.BridgeTypeRequest{
+				Name:                   "adapterwithdockerurl",
+				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
+				MinimumContractPayment: assets.NewLinkFromJuels(-1),
+			},
+			models.NewJSONAPIErrorsWith("MinimumContractPayment must be positive"),
+		},
+		{
+			"existing core adapter (no longer fails since core adapters no longer exist)",
+			bridges.BridgeTypeRequest{
+				Name: "ethtx",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			nil,
+		},
+		{
+			"new external adapter",
+			bridges.BridgeTypeRequest{
+				Name: "gdaxprice",
+				URL:  cltest.WebURL(t, "https://denergy.eth"),
+			},
+			nil,
+		}}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			result := web.ValidateBridgeType(&test.request, orm)
+			assert.Equal(t, test.want, result)
+		})
+	}
+}
+
+func TestValidateBridgeNotExist(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
+
+	// Create a duplicate
+	bt := bridges.BridgeType{}
+	bt.Name = bridges.MustNewTaskType("solargridreporting")
+	bt.URL = cltest.WebURL(t, "https://denergy.eth")
+	assert.NoError(t, orm.CreateBridgeType(&bt))
+
+	newBridge := bridges.BridgeTypeRequest{
+		Name: "solargridreporting",
+	}
+	expected := models.NewJSONAPIErrorsWith("Bridge Type solargridreporting already exists")
+	result := web.ValidateBridgeTypeNotExist(&newBridge, orm)
+	assert.Equal(t, expected, result)
+}
+
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
-	app, cleanup := cltest.NewApplication(b)
-	b.Cleanup(cleanup)
+	app := cltest.NewApplication(b)
 	client := app.NewHTTPClient()
 
 	b.ResetTimer()
@@ -32,12 +148,11 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 func TestBridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
-	bt, err := setupBridgeControllerIndex(t, app.Store)
+	bt, err := setupBridgeControllerIndex(t, app.BridgeORM())
 	assert.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/bridge_types?size=x")
@@ -76,31 +191,30 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[1].Confirmations, resources[0].Confirmations, "should have the same Confirmations")
 }
 
-func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.BridgeType, error) {
-	bt1 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
+func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.BridgeType, error) {
+	bt1 := &bridges.BridgeType{
+		Name:          bridges.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := store.CreateBridgeType(bt1)
+	err := orm.CreateBridgeType(bt1)
 	if err != nil {
 		return nil, err
 	}
 
-	bt2 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges2"),
+	bt2 := &bridges.BridgeType{
+		Name:          bridges.MustNewTaskType("testingbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
-	err = store.CreateBridgeType(bt2)
-	return []*models.BridgeType{bt1, bt2}, err
+	err = orm.CreateBridgeType(bt2)
+	return []*bridges.BridgeType{bt1, bt2}, err
 }
 
 func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -116,35 +230,34 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
 	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
-	bt, err := app.Store.FindBridge(models.MustNewTaskType(btName))
+	bt, err := app.BridgeORM().FindBridge(bridges.MustNewTaskType(btName))
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint32(10), bt.Confirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
-	assert.Equal(t, assets.NewLink(100), bt.MinimumContractPayment)
+	assert.Equal(t, assets.NewLinkFromJuels(100), bt.MinimumContractPayment)
 	assert.NotEmpty(t, bt.OutgoingToken)
 }
 
 func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
-	bt := &models.BridgeType{
-		Name: models.MustNewTaskType("BRidgea"),
+	bt := &bridges.BridgeType{
+		Name: bridges.MustNewTaskType("BRidgea"),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
-	require.NoError(t, app.GetStore().CreateBridgeType(bt))
+	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
 	ud := bytes.NewBuffer([]byte(`{"name": "BRidgea","url":"http://yourbridge"}`))
 	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	ubt, err := app.Store.FindBridge(bt.Name)
+	ubt, err := app.BridgeORM().FindBridge(bt.Name)
 	assert.NoError(t, err)
 	assert.Equal(t, cltest.WebURL(t, "http://yourbridge"), ubt.URL)
 }
@@ -152,17 +265,17 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
-	bt := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
+	bt := &bridges.BridgeType{
+		Name:          bridges.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	require.NoError(t, app.GetStore().CreateBridgeType(bt))
+	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
 	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
 	t.Cleanup(cleanup)
@@ -182,8 +295,7 @@ func TestBridgeController_Show(t *testing.T) {
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -199,8 +311,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -216,8 +327,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()

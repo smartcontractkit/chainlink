@@ -3,16 +3,20 @@ package keystore_test
 import (
 	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 )
@@ -20,22 +24,24 @@ import (
 func Test_EthKeyStore(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(db)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ethKeyStore := keyStore.Eth()
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
-		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
-		require.NoError(t, db.Exec("DELETE FROM eth_key_states").Error)
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM eth_key_states")))
 		keyStore.Unlock(cltest.Password)
 	}
+	const statesTableName = "eth_key_states"
 
 	t.Run("Create / GetAll / Get", func(t *testing.T) {
 		defer reset()
-		key, err := ethKeyStore.Create()
+		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		retrievedKeys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
@@ -45,9 +51,10 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, key, foundKey)
 		// adds ethkey.State
-		cltest.AssertCount(t, db, ethkey.State{}, 1)
+		cltest.AssertCount(t, db, statesTableName, 1)
 		var state ethkey.State
-		require.NoError(t, db.First(&state).Error)
+		sql := fmt.Sprintf(`SELECT * from %s LIMIT 1`, statesTableName)
+		require.NoError(t, db.Get(&state, sql))
 		require.Equal(t, state.Address, retrievedKeys[0].Address)
 		// adds key to db
 		keyStore.ResetXXXTestOnly()
@@ -57,28 +64,45 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, 1, len(retrievedKeys))
 		require.Equal(t, key.Address, retrievedKeys[0].Address)
 		// adds 2nd key
-		_, err = ethKeyStore.Create()
+		_, err = ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		retrievedKeys, err = ethKeyStore.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 2, len(retrievedKeys))
 	})
 
+	t.Run("GetAll ordering", func(t *testing.T) {
+		defer reset()
+		var keys []ethkey.KeyV2
+		for i := 0; i < 5; i++ {
+			key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+			require.NoError(t, err)
+			keys = append(keys, key)
+		}
+		retrievedKeys, err := ethKeyStore.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 5, len(retrievedKeys))
+
+		sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
+
+		assert.Equal(t, keys, retrievedKeys)
+	})
+
 	t.Run("RemoveKey", func(t *testing.T) {
 		defer reset()
-		key, err := ethKeyStore.Create()
+		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		_, err = ethKeyStore.Delete(key.ID())
 		require.NoError(t, err)
 		retrievedKeys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 0, len(retrievedKeys))
-		cltest.AssertCount(t, db, ethkey.State{}, 0)
+		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
 	t.Run("EnsureKeys / SendingKeys", func(t *testing.T) {
 		defer reset()
-		sKey, sDidExist, fKey, fDidExist, err := ethKeyStore.EnsureKeys()
+		sKey, sDidExist, fKey, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.False(t, sDidExist)
 		require.False(t, fDidExist)
@@ -87,9 +111,9 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, 1, len(sendingKeys))
 		require.Equal(t, sKey.Address, sendingKeys[0].Address)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, ethkey.State{}, 2)
+		cltest.AssertCount(t, db, statesTableName, 2)
 		require.NotEqual(t, sKey.Address, fKey.Address)
-		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys()
+		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.True(t, sDidExist)
 		require.True(t, fDidExist)
@@ -101,9 +125,10 @@ func Test_EthKeyStore(t *testing.T) {
 func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethKeyStore := keyStore.Eth()
 
 	t.Run("should error when no addresses", func(t *testing.T) {
@@ -112,7 +137,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	// create 4 keys - 1 funding and 3 sending
-	k1, _, kf, _, err := ethKeyStore.EnsureKeys()
+	k1, _, kf, _, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -171,8 +196,9 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 }
 
 func Test_EthKeyStore_SignTx(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	db := pgtest.NewSqlxDB(t)
+	config := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	k, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -191,15 +217,17 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 }
 
 func Test_EthKeyStore_E2E(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(db)
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ks := keyStore.Eth()
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
-		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
-		require.NoError(t, db.Exec("DELETE FROM eth_key_states").Error)
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM eth_key_states")))
 		keyStore.Unlock(cltest.Password)
 	}
 
@@ -218,7 +246,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		defer reset()
-		key, err := ks.Create()
+		key, err := ks.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
@@ -227,7 +255,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		key, err := ks.Create()
+		key, err := ks.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
 		require.NoError(t, err)
@@ -235,7 +263,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		_, err = ks.Get(key.ID())
 		require.Error(t, err)
-		importedKey, err := ks.Import(exportJSON, cltest.Password)
+		importedKey, err := ks.Import(exportJSON, cltest.Password, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
@@ -247,7 +275,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		defer reset()
 		newKey, err := ethkey.NewV2()
 		require.NoError(t, err)
-		err = ks.Add(newKey)
+		err = ks.Add(newKey, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
@@ -263,7 +291,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
 		exportedKey := `{"address":"0dd359b4f22a30e44b2fd744b679971941865820","crypto":{"cipher":"aes-128-ctr","ciphertext":"b30af964a3b3f37894e599446b4cf2314bbfcd1062e6b35b620d3d20bd9965cc","cipherparams":{"iv":"58a8d75629cc1945da7cf8c24520d1dc"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"c352887e9d427d8a6a1869082619b73fac4566082a99f6e367d126f11b434f28"},"mac":"fd76a588210e0bf73d01332091e0e83a4584ee2df31eaec0e27f9a1b94f024b4"},"id":"a5ee0802-1d7b-45b6-aeb8-ea8a3351e715","version":3}`
-		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password)
+		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.Equal(t, "0x0dd359b4f22a30E44b2fD744B679971941865820", importedKey.ID())
 	})
@@ -272,18 +300,32 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 	chDone := make(chan struct{})
 	defer func() { close(chDone) }()
-	db := pgtest.NewGormDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ks := keyStore.Eth()
 	chSub, unsubscribe := ks.SubscribeToKeyChanges()
 	defer unsubscribe()
 
 	count := atomic.NewInt32(0)
 
+	assertCount := func(expected int32) {
+		require.Eventually(
+			t,
+			func() bool { return count.Load() == expected },
+			10*time.Second,
+			100*time.Millisecond,
+			fmt.Sprintf("insufficient number of callbacks triggered. Expected %d, got %d", expected, count.Load()),
+		)
+	}
+
 	go func() {
 		for {
 			select {
-			case <-chSub:
+			case _, ok := <-chSub:
+				if !ok {
+					return
+				}
 				count.Add(1)
 			case <-chDone:
 				return
@@ -291,25 +333,18 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 		}
 	}()
 
-	go func() {
-		_, _, _, _, err := ks.EnsureKeys()
-		require.NoError(t, err)
-		_, err = ks.Create()
-		require.NoError(t, err)
-		newKey, err := ethkey.NewV2()
-		require.NoError(t, err)
-		err = ks.Add(newKey)
-		require.NoError(t, err)
-		_, err = ks.Delete(newKey.ID())
-		require.NoError(t, err)
-		count.Add(1)
-	}()
-
-	require.Eventually(
-		t,
-		func() bool { return count.Load() == 5 },
-		10*time.Second,
-		10*time.Millisecond,
-		"insufficient number of callbacks triggered",
-	)
+	_, _, _, _, err := ks.EnsureKeys(&cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(1)
+	_, err = ks.Create(&cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(2)
+	newKey, err := ethkey.NewV2()
+	require.NoError(t, err)
+	err = ks.Add(newKey, &cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(3)
+	_, err = ks.Delete(newKey.ID())
+	require.NoError(t, err)
+	assertCount(4)
 }

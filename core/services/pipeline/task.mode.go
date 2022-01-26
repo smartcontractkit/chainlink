@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //
@@ -30,7 +32,7 @@ func (t *ModeTask) Type() TaskType {
 	return TaskTypeMode
 }
 
-func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam
@@ -42,7 +44,7 @@ func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Re
 		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
@@ -53,9 +55,9 @@ func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Re
 
 	values, faults := valuesAndErrs.FilterErrors()
 	if faults > allowedFaults {
-		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to mode task > number allowed faults %v", faults, allowedFaults)}
+		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to mode task > number allowed faults %v", faults, allowedFaults)}, runInfo
 	} else if len(values) == 0 {
-		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}
+		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "values")}, runInfo
 	}
 
 	type entry struct {
@@ -87,7 +89,7 @@ func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Re
 		default:
 			bs, err := json.Marshal(v)
 			if err != nil {
-				return Result{Error: errors.Wrapf(ErrBadInput, "could not json stringify value: %v", err)}
+				return Result{Error: errors.Wrapf(ErrBadInput, "could not json stringify value: %v", err)}, runInfo
 			}
 			comparable = string(bs)
 		}
@@ -107,5 +109,5 @@ func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Re
 	return Result{Value: map[string]interface{}{
 		"results":     modes,
 		"occurrences": max,
-	}}
+	}}, runInfo
 }

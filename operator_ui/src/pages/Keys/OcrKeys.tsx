@@ -20,7 +20,7 @@ import { Delete } from './Delete'
 import { KeyBundle } from './KeyBundle'
 import { useDispatch } from 'react-redux'
 import { deleteNotification, createNotification } from './Notifications'
-import { Copy } from './Copy'
+import { CopyIconButton } from 'components/Copy/CopyIconButton'
 
 const styles = () =>
   createStyles({
@@ -36,9 +36,8 @@ const KEY_TYPE = 'Off-Chain Reporting'
 
 export const OcrKeys = withStyles(styles)(
   ({ classes }: WithStyles<typeof styles>) => {
-    const [ocrKeys, setOcrKeys] = React.useState<
-      jsonapi.ApiResponse<models.OcrKey[]>['data']
-    >()
+    const [ocrKeys, setOcrKeys] =
+      React.useState<jsonapi.ApiResponse<models.OcrKey[]>['data']>()
     const { error, ErrorComponent, setError } = useErrorHandler()
     const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !ocrKeys)
     const dispatch = useDispatch()
@@ -130,7 +129,7 @@ export const OcrKeys = withStyles(styles)(
                       <KeyBundle
                         primary={
                           <b>
-                            Key ID: {key.id} <Copy data={key.id} />
+                            Key ID: {key.id} <CopyIconButton data={key.id} />
                           </b>
                         }
                         secondary={[

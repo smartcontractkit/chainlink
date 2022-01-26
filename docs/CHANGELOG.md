@@ -7,6 +7,426 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2022-01-25
+
+### Added
+
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
+- The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
+- The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.
+- CLI command `keys eth list` is updated to display key specific max gas prices.
+- CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
+- CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
+- Add partial support for Moonriver chain
+
+Two new log levels have been added.
+
+- `[crit]`: *Critical* level logs are more severe than `[error]` and require quick action from the node operator.
+- `[debug] [trace]`: *Trace* level logs contain extra `[debug]` information for development, and must be compiled in via `-tags trace`.
+
+#### [Beta] Multichain support added
+
+As a beta feature, Chainlink now supports connecting to multiple different EVM chains simultaneously.
+
+This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example). Note that you can still have as many eth keys as you like, but each eth key is pegged to one chain only.
+
+Extensive efforts have been made to make migration for existing nops as seamless as possible. Generally speaking, you should not have to make any changes when upgrading your existing node to this version. All your jobs will continue to run as before.
+
+The overall summary of changes is such:
+
+##### Chains/Ethereum Nodes
+
+EVM chains are now represented as a first class object within the chainlink node. You can create/delete/list them using the CLI or API.
+
+At least one primary node is required in order for a chain to connect. You may additionally specify zero or more send-only nodes for a chain. It is recommended to use the CLI/API or GUI to add nodes to chain.
+
+###### Creation
+
+```bash
+chainlink chains evm create -id 42 # creates an evm chain with chain ID 42 (see: https://chainlist.org/)
+chainlink nodes create -chain-id 42 -name 'my-primary-kovan-full-node' -type primary -ws-url ws://node.example/ws -http-url http://node.example/rpc # http-url is optional but recommended for primaries
+chainlink nodes create -chain-id 42 -name 'my-send-only-backup-kovan-node' -type sendonly -http-url http://some-public-node.example/rpc
+```
+
+###### Listing
+
+```bash
+chainlink chains evm list
+chainlink nodes list
+```
+
+###### Deletion
+
+```bash
+chainlink nodes delete 'my-send-only-backup-kovan-node'
+chainlink chains evm delete 42
+```
+
+###### Legacy eth ENV vars
+
+The old way of specifying chains using environment variables is still supported but discouraged. It works as follows:
+
+If you specify `ETH_URL` then the values of `ETH_URL`, `ETH_CHAIN_ID`, `ETH_HTTP_URL` and `ETH_SECONDARY_URLS` will be used to create/update chains and nodes representing these values in the database. If an existing chain/node is found it will be overwritten. This behavior is used mainly to ease the process of upgrading, and on subsequent runs (once your old settings have been written to the database) it is recommended to unset these ENV vars and use the API commands exclusively to administer chains and nodes.
+
+##### Jobs/tasks
+
+By default, all jobs/tasks will continue to use the default chain (specified by `ETH_CHAIN_ID`). However, the following jobs now allow an additional `evmChainID` key in their TOML:
+
+- VRF
+- DirectRequest
+- Keeper
+- OCR
+- Fluxmonitor
+
+You can pin individual jobs to a particular chain by specifying the `evmChainID` explicitly. Here is an example job to demonstrate:
+
+```toml
+type            = "keeper"
+evmChainID      = 3
+schemaVersion   = 1
+name            = "example keeper spec"
+contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F49"
+fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+```
+
+The above keeper job will _always_ run on chain ID 3 (Ropsten) regardless of the `ETH_CHAIN_ID` setting. If no chain matching this ID has been added to the chainlink node, the job cannot be created (you must create the chain first).
+
+In addition, you can also specify `evmChainID` on certain pipeline tasks. This allows for cross-chain requests, for example:
+
+```toml
+type                = "directrequest"
+schemaVersion       = 1
+evmChainID          = 42
+name                = "example cross chain spec"
+contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F90"
+observationSource   = """
+    decode_log   [type=ethabidecodelog ... ]
+    ...
+    submit [type=ethtx to="0x613a38AC1659769640aaE063C651F48E0250454C" data="$(encode_tx)" minConfirmations="2" evmChainID="3"]
+    decode_log-> ... ->submit;
+"""
+```
+
+In the example above (which excludes irrelevant pipeline steps for brevity) a log can be read from the chain with ID 42 (Kovan) and a transaction emitted on chain with ID 3 (Ropsten).
+
+Tasks that support the `evmChainID` parameter are as follows:
+
+- `ethcall`
+- `estimategaslimit`
+- `ethtx`
+
+###### Defaults
+
+If the job- or task-specific `evmChainID` is _not_ given, the job/task will simply use the default as specified by the `ETH_CHAIN_ID` env variable.
+
+Generally speaking, the default config values for each chain are good enough. But in some cases it is necessary to be able to override the defaults on a per-chain basis.
+
+This used to be done via environment variables e.g. `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS`.
+
+These still work, but if set they will override that value for _all_ chains. This may not always be what you want. Consider a node that runs both Matic and Mainnet. You may want to set a higher value for `MINIMUM_CONTRACT_PAYMENT` on Mainnet, due to the more expensive gas costs. However, setting `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS` using env variables will set that value for _all_ chains including matic.
+
+To help you work around this, Chainlink now supports setting per-chain configuration options.
+
+**Examples**
+
+To set initial configuration when creating a chain, pass in the full json string as an optional parameter at the end:
+
+`chainlink evm chains create -id 42 '{"BlockHistoryEstimatorBlockDelay": "100"}'`
+
+To set configuration on an existing chain, specify key values pairs as such:
+
+`chainlink evm chains configure -id 42 BlockHistoryEstimatorBlockDelay=100 GasEstimatorMode=FixedPrice`
+
+The full list of chain-specific configuration options can be found by looking at the `ChainCfg` struct in `core/chains/evm/types/types.go`.
+
+#### Async support in external adapters
+
+External Adapters making async callbacks can now error job runs. This required a slight change to format, the correct way to callback from an asynchronous EA is using the following JSON:
+
+SUCCESS CASE:
+
+```json
+{
+    "value": < any valid json object >
+}
+```
+
+ERROR CASE:
+
+
+```json
+{
+    "error": "some error string"
+}
+```
+
+This only applies to EAs using the `X-Chainlink-Pending` header to signal that the result will be POSTed back to the Chainlink node sometime 'later'. Regular synchronous calls to EAs work just as they always have done.
+
+(NOTE: Official documentation for EAs needs to be updated)
+
+#### New optional VRF v2 field: `requestedConfsDelay`
+
+Added a new optional field for VRF v2 jobs called `requestedConfsDelay`, which configures a
+number of blocks to wait in addition to the request specified `requestConfirmations` before servicing
+the randomness request, i.e the Chainlink node will wait `max(nodeMinConfs, requestConfirmations + requestedConfsDelay)`
+blocks before servicing the request.
+
+It can be used in the following way:
+
+```toml
+type = "vrf"
+externalJobID = "123e4567-e89b-12d3-a456-426655440001"
+schemaVersion = 1
+name = "vrf-v2-secondary"
+coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+requestedConfsDelay = 10
+# ... rest of job spec ...
+```
+
+Use of this field requires a database migration.
+
+#### New locking mode: 'lease'
+
+Chainlink now supports a new environment variable `DATABASE_LOCKING_MODE`. It can be set to one of the following values:
+
+- `dual` (the default - uses both locking types for backwards and forwards compatibility)
+- `advisorylock` (advisory lock only)
+- `lease` (lease lock only)
+- `none` (no locking at all - useful for advanced deployment environments when you can be sure that only one instance of chainlink will ever be running)
+
+The database lock ensures that only one instance of Chainlink can be run on the database at a time. Running multiple instances of Chainlink on a single database at the same time would likely to lead to strange errors and possibly even data integrity failures and should not be allowed.
+
+Ideally, node operators would be using a container orchestration system (e.g. Kubernetes) that ensures that only one instance of Chainlink ever runs on a particular postgres database.
+
+However, we are aware that many node operators do not have the technical capacity to do this. So a common use case is to run multiple Chainlink instances in failover mode (as recommended by our official documentation, although this will be changing in future). The first instance will take some kind of lock on the database and subsequent instances will wait trying to take this lock in case the first instance disappears or dies.
+
+Traditionally Chainlink has used an advisory lock to manage this. However, advisory locks come with several problems, notably:
+- Postgres does not really like it when you hold locks open for a very long time (hours/days). It hampers certain internal cleanup tasks and is explicitly discouraged by the postgres maintainers.
+- The advisory lock can silently disappear on postgres upgrade, meaning that a new instance can take over even while the old one is still running.
+- Advisory locks do not play nicely with pooling tools such as pgbouncer.
+- If the application crashes, the advisory lock can be left hanging around for a while (sometimes hours) and can require manual intervention to remove it before another instance of Chainlink will allow itself to boot.
+
+For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in future. `lease`-mode works as follows:
+- Have one row in a database which is updated periodically with the client ID.
+- CL node A will run a background process on start that updates this e.g. once per second.
+- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than a set period without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second.
+- If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will exit the entire application immediately.
+
+The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
+
+Lease locking can be configured using the following ENV vars:
+
+`LEASE_LOCK_REFRESH_INTERVAL` (default 1s)
+`LEASE_LOCK_DURATION` (default 30s)
+
+It is recommended to leave these set to the default values.
+
+#### Duplicate Job Configuration
+
+When duplicating a job, the new job's configuration settings that have not been overridden by the user can still reflect the chainlink node configuration.
+
+#### Nurse (automatic pprof profiler)
+
+Added new automatic pprof profiling service. Profiling is triggered when the node exceeds certain resource thresholds (currently, memory and goroutine count). The following environment variables have been added to allow configuring this service:
+
+- `AUTO_PPROF_ENABLED`: Set to `true` to enable the automatic profiling service. Defaults to `false`.
+- `AUTO_PPROF_PROFILE_ROOT`: The location on disk where pprof profiles will be stored. Defaults to `$CHAINLINK_ROOT`.
+- `AUTO_PPROF_POLL_INTERVAL`: The interval at which the node's resources are checked. Defaults to `10s`.
+- `AUTO_PPROF_GATHER_DURATION`: The duration for which profiles are gathered when profiling is kicked off. Defaults to `10s`.
+- `AUTO_PPROF_GATHER_TRACE_DURATION`: The duration for which traces are gathered when profiling is kicked off. This is separately configurable because traces are significantly larger than other types of profiles. Defaults to `5s`.
+- `AUTO_PPROF_MAX_PROFILE_SIZE`: The maximum amount of disk space that profiles may consume before profiling is disabled. Defaults to `100mb`.
+- `AUTO_PPROF_CPU_PROFILE_RATE`: See https://pkg.go.dev/runtime#SetCPUProfileRate. Defaults to `1`.
+- `AUTO_PPROF_MEM_PROFILE_RATE`: See https://pkg.go.dev/runtime#pkg-variables. Defaults to `1`.
+- `AUTO_PPROF_BLOCK_PROFILE_RATE`: See https://pkg.go.dev/runtime#SetBlockProfileRate. Defaults to `1`.
+- `AUTO_PPROF_MUTEX_PROFILE_FRACTION`: See https://pkg.go.dev/runtime#SetMutexProfileFraction. Defaults to `1`.
+- `AUTO_PPROF_MEM_THRESHOLD`: The maximum amount of memory the node can actively consume before profiling begins. Defaults to `4gb`.
+- `AUTO_PPROF_GOROUTINE_THRESHOLD`: The maximum number of actively-running goroutines the node can spawn before profiling begins. Defaults to `5000`.
+
+**Adventurous node operators are encouraged to read [this guide on how to analyze pprof profiles](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/).**
+
+#### `merge` task type
+
+A new task type has been added, called `merge`. It can be used to merge two maps/JSON values together. Merge direction is from right to left such that `right` will clobber values of `left`. If no `left` is provided, it uses the input of the previous task. Example usage as such:
+
+
+```
+decode_log   [type=ethabidecodelog ...]
+merge        [type=merge right=<{"foo": 42}>];
+
+decode_log -> merge;
+```
+
+Or, to reverse merge direction:
+
+```
+decode_log   [type=ethabidecodelog ...]
+merge        [type=merge left=<{"foo": 42}> right="$(decode_log)"];
+
+decode_log -> merge;
+```
+
+#### Enhanced ABI encoding support
+
+The `ethabiencode2` task supports ABI encoding using the abi specification generated by `solc`. e.g:
+
+    {
+        "name": "call",
+        "inputs": [
+          {
+            "name": "value",
+            "type": "tuple",
+            "components": [
+              {
+                "name": "first",
+                "type": "bytes32"
+              },
+              {
+                "name": "last",
+                "type": "bool"
+              }
+            ]
+          }
+        ]
+    }
+
+This would allow for calling of a function `call` with a tuple containing two values, the first a `bytes32` and the second a `bool`. You can supply a named map or an array.
+
+#### Transaction Simulation (Gas Savings)
+
+Chainlink now supports transaction simulation for certain types of job. When this is enabled, transactions will be simulated using `eth_call` before initial send. If the transaction would revert, the tx is marked as errored without being broadcast, potentially avoiding an expensive on-chain revert.
+
+This can add a tiny bit of latency (upper bound 2s, generally much shorter under good conditions) and will add marginally more load to the eth client, since it adds an extra call for every transaction sent. However, it may help to save gas in some cases especially during periods of high demand by avoiding unnecessary reverts (due to outdated round etc).
+
+This option is EXPERIMENTAL and disabled by default.
+
+To enable for FM or OCR:
+
+`FM_SIMULATE_TRANSACTIONs=true`
+`OCR_SIMULATE_TRANSACTIONS=true`
+
+To enable in the pipeline, use the `simulate=true` option like so:
+
+```
+submit [type=ethtx to="0xDeadDeadDeadDeadDeadDeadDeadDead" data="0xDead" simulate=true]
+```
+
+Use at your own risk.
+
+#### Misc
+
+Chainlink now supports more than one primary eth node per chain. Requests are round-robined between available primaries.
+
+Add CRUD functionality for EVM Chains and Nodes through Operator UI.
+
+Non fatal errors to a pipeline run are preserved including any run that succeeds but has more than one fatal error.
+
+Chainlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
+
+The Operator UI now supports login MFA with hardware security keys. `MFA_RPID` and `MFA_RPORIGIN` environment variables have been added to the config and are required if using the new MFA feature.
+
+Keys and Configuration navigation links have been moved into a settings dropdown to make space for multichain navigation links.
+
+#### Full EIP1559 Support (Gas Savings)
+
+Chainlink now includes experimental support for submitting transactions using type 0x2 (EIP-1559) envelope.
+
+EIP-1559 mode is off by default but can be enabled on a per-chain basis or globally.
+
+This may help to save gas on spikes: Chainlink ought to react faster on the upleg and avoid overpaying on the downleg. It may also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value e.g. 12 or even 6 because tip cap ought to be a more consistent indicator of inclusion time than total gas price. This would make Chainlink more responsive and ought to reduce response time variance. Some experimentation will be needed here to find optimum settings.
+
+To enable globally, set `EVM_EIP1559_DYNAMIC_FEES=true`. Set with caution, if you set this on a chain that does not actually support EIP-1559 your node will be broken.
+
+In EIP-1559 mode, the total price for the transaction is the minimum of base fee + tip cap and fee cap. More information can be found on the [official EIP](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md).
+
+Chainlink's implementation of this is to set a large fee cap and modify the tip cap to control confirmation speed of transactions. So, when in EIP1559 mode, the tip cap takes the place of gas price roughly speaking, with the varying base price remaining a constant (we always pay it).
+
+A quick note on terminology - Chainlink uses the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
+
+Base Fee Per Gas = BaseFeePerGas
+Max Fee Per Gas = FeeCap
+Max Priority Fee Per Gas = TipCap
+
+In EIP-1559 mode, the following changes occur to how configuration works:
+
+- All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap (NOTE: existing pending legacy transactions will continue to be gas bumped in legacy mode)
+- BlockHistoryEstimator will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
+- FixedPriceEstimator will use `EVM_GAS_TIP_CAP_DEFAULT` instead of `ETH_GAS_PRICE_DEFAULT`
+- `ETH_GAS_PRICE_DEFAULT` is ignored for new transactions and `EVM_GAS_TIP_CAP_DEFAULT` is used instead (default 20GWei)
+- `ETH_MIN_GAS_PRICE_WEI` is ignored for new transactions and `EVM_GAS_TIP_CAP_MINIMUM` is used instead (default 0)
+- `ETH_MAX_GAS_PRICE_WEI` controls the FeeCap
+- `KEEPER_GAS_PRICE_BUFFER_PERCENT` is ignored in EIP-1559 mode and `KEEPER_TIP_CAP_BUFFER_PERCENT` is used instead
+
+The default tip cap is configurable per-chain but can be specified for all chains using `EVM_GAS_TIP_CAP_DEFAULT`. The fee cap is derived from `ETH_MAX_GAS_PRICE_WEI`.
+
+When using the FixedPriceEstimator, the default gas tip will be used for all transactions.
+
+When using the BlockHistoryEstimator, Chainlink will calculate the tip cap based on transactions already included (in the same way it calculates gas price in legacy mode).
+
+Enabling EIP1559 mode might lead to marginally faster transaction inclusion and make the node more responsive to sharp rises/falls in gas price, keeping response times more consistent.
+
+In addition, `ethcall` tasks now accept `gasTipCap` and `gasFeeCap` parameters in addition to `gasPrice`. This is required for Keeper jobs, i.e.:
+
+```
+check_upkeep_tx          [type=ethcall
+                          failEarly=true
+                          extractRevertReason=true
+                          contract="$(jobSpec.contractAddress)"
+                          gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
+                          gasTipCap="$(jobSpec.gasTipCap)"
+                          gasFeeCap="$(jobSpec.gasFeeCap)"
+                          data="$(encode_check_upkeep_tx)"]
+```
+
+
+NOTE: AccessLists are part of the 0x2 transaction type spec and Chainlink also implements support for these internally. This is not currently exposed in any way, if there is demand for this it ought to be straightforward enough to do so.
+
+Avalanche AP4 defaults have been added (you can remove manually set ENV vars controlling gas pricing).
+
+#### New env vars
+
+`CHAIN_TYPE` - Configure the type of chain (if not standard). `Arbitrum`, `ExChain`, `Optimism`, or `XDai`. Replaces `LAYER_2_TYPE`. NOTE: This is a global override, to set on a per-chain basis you must use the CLI/API or GUI to change the chain-specific config for that chain (`ChainType`).
+
+`BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - Controls global override for the time after which node will start logging warnings if no heads are received.
+
+`ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
+
+NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used to default to 1. These defaults have now been removed. The env vars are no longer required, since node configuration is now done via CLI/API/GUI and stored in the database.
+
+### Removed
+
+- `belt/` and `evm-test-helpers/` removed from the codebase.
+
+#### Deprecated env vars
+
+`LAYER_2_TYPE` - Use `CHAIN_TYPE` instead.
+
+#### Removed env vars
+
+`FEATURE_CRON_V2`, `FEATURE_FLUX_MONITOR_V2`, `FEATURE_WEBHOOK_V2` - all V2 job types are now enabled by default.
+
+### Fixed
+
+- Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+- Fixed a bug where creating lots of jobs very quickly in parallel would cause the node to hang
+- Propagating `evmChainID` parameter in job specs supporting this parameter.
+
+Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator can override `LOG_LEVEL` until the node is restarted.
+
+### Changed
+
+- The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
+- Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
+- Logging timestamp output has been changed from unix to ISO8601 to aid in readability. To keep the old unix format, you may set `LOG_UNIX_TS=true`
+- Added WebAuthn support for the Operator UI and corresponding support in the Go backend
+
+#### Log to Disk
+
+This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
+
 ## [1.0.1] - 2021-11-23
 
 ### Added
@@ -179,6 +599,12 @@ Why are we doing this?
 To give some background, the legacy job pipeline has been around since before Chainlink went to mainnet and is getting quite long in the tooth. The code is brittle and difficult to understand and maintain. For a while now we have been developing a v2 job pipeline in parallel which uses the TOML format. The new job pipeline is simpler, more performant and more powerful. Every job that can be represented in the legacy pipeline should be able to be represented in the v2 pipeline - if it can't be, that's a bug, so please let us know ASAP.
 
 The v2 pipeline has now been extensively tested in production and proved itself reliable. So, we made the decision to drop V1 support entirely in favour of focusing developer effort on new features like native multichain support, EIP1559-compatible fees, further gas saving measures and support for more blockchains. By dropping support for the old pipeline, we can deliver these features faster and better support our community.
+
+#### KeyStore changes
+
+* Key export files are changing format and will not be compatible between versions. Ex, a key exported in 0.10.12, will not be importable by a node running 1.0.0, and vice-versa.
+* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
 
 ## [0.10.10] - 2021-07-19
 

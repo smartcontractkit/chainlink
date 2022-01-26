@@ -16,45 +16,45 @@
  * limitations under the License.
  */
 
-// NOTICE: pragma different from original (updated from `^0.6.11` -> `^0.8.6`)
-pragma solidity ^0.8.6;
+// NOTICE: pragma change from original (^0.6.11)
+pragma solidity ^0.8.0;
 
 interface IBridge {
-    event MessageDelivered(
-        uint256 indexed messageIndex,
-        bytes32 indexed beforeInboxAcc,
-        address inbox,
-        uint8 kind,
-        address sender,
-        bytes32 messageDataHash
-    );
+  event MessageDelivered(
+    uint256 indexed messageIndex,
+    bytes32 indexed beforeInboxAcc,
+    address inbox,
+    uint8 kind,
+    address sender,
+    bytes32 messageDataHash
+  );
 
-    function deliverMessageToInbox(
-        uint8 kind,
-        address sender,
-        bytes32 messageDataHash
-    ) external payable returns (uint256);
+  function deliverMessageToInbox(
+    uint8 kind,
+    address sender,
+    bytes32 messageDataHash
+  ) external payable returns (uint256);
 
-    function executeCall(
-        address destAddr,
-        uint256 amount,
-        bytes calldata data
-    ) external returns (bool success, bytes memory returnData);
+  function executeCall(
+    address destAddr,
+    uint256 amount,
+    bytes calldata data
+  ) external returns (bool success, bytes memory returnData);
 
-    // These are only callable by the admin
-    function setInbox(address inbox, bool enabled) external;
+  // These are only callable by the admin
+  function setInbox(address inbox, bool enabled) external;
 
-    function setOutbox(address inbox, bool enabled) external;
+  function setOutbox(address inbox, bool enabled) external;
 
-    // View functions
+  // View functions
 
-    function activeOutbox() external view returns (address);
+  function activeOutbox() external view returns (address);
 
-    function allowedInboxes(address inbox) external view returns (bool);
+  function allowedInboxes(address inbox) external view returns (bool);
 
-    function allowedOutboxes(address outbox) external view returns (bool);
+  function allowedOutboxes(address outbox) external view returns (bool);
 
-    function inboxAccs(uint256 index) external view returns (bytes32);
+  function inboxAccs(uint256 index) external view returns (bytes32);
 
-    function messageCount() external view returns (uint256);
+  function messageCount() external view returns (uint256);
 }

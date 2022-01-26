@@ -232,7 +232,3 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 	var presenters VRFKeyPresenters
 	return cli.renderAPIResponse(resp, &presenters, "🔑 VRF Keys")
 }
-
-func noFileToOverwrite(path string) bool {
-	return os.IsNotExist(utils.JustError(os.Stat(path)))
-}

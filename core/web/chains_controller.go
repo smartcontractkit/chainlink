@@ -1,8 +1,10 @@
 package web
 
 import (
+	"database/sql"
 	"net/http"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -36,6 +38,23 @@ type CreateChainRequest struct {
 	Config types.ChainCfg `json:"config"`
 }
 
+func (cc *ChainsController) Show(c *gin.Context) {
+	id := utils.Big{}
+	err := id.UnmarshalText([]byte(c.Param("ID")))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	chain, err := cc.App.EVMORM().Chain(id)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+}
+
 func (cc *ChainsController) Create(c *gin.Context) {
 	request := &CreateChainRequest{}
 
@@ -44,9 +63,41 @@ func (cc *ChainsController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := cc.App.EVMORM().CreateChain(request.ID, request.Config)
+	chain, err := cc.App.GetChainSet().Add(request.ID.ToInt(), request.Config)
 
 	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, presenters.NewChainResource(chain), "chain", http.StatusCreated)
+}
+
+type UpdateChainRequest struct {
+	Enabled bool           `json:"enabled"`
+	Config  types.ChainCfg `json:"config"`
+}
+
+func (cc *ChainsController) Update(c *gin.Context) {
+	id := utils.Big{}
+	err := id.UnmarshalText([]byte(c.Param("ID")))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var request UpdateChainRequest
+	if err = c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	chain, err := cc.App.GetChainSet().Configure(id.ToInt(), request.Enabled, request.Config)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		jsonAPIError(c, http.StatusNotFound, err)
+		return
+	} else if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
@@ -62,7 +113,7 @@ func (cc *ChainsController) Delete(c *gin.Context) {
 		return
 	}
 
-	err = cc.App.EVMORM().DeleteChain(id)
+	err = cc.App.GetChainSet().Remove(id.ToInt())
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)

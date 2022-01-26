@@ -2,7 +2,6 @@ import React from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-import Content from 'components/Content'
 import { JobData } from './sharedTypes'
 
 import Card from '@material-ui/core/Card'
@@ -28,10 +27,17 @@ interface Props extends WithStyles<typeof definitionStyles> {
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   job?: JobData['job']
+  envAttributesDefinition?: string
 }
 
 export const JobDefinition = withStyles(definitionStyles)(
-  ({ error, ErrorComponent, LoadingPlaceholder, job }: Props) => {
+  ({
+    error,
+    ErrorComponent,
+    LoadingPlaceholder,
+    job,
+    envAttributesDefinition,
+  }: Props) => {
     React.useEffect(() => {
       document.title = job?.name
         ? `${job.name} | Job definition`
@@ -39,7 +45,7 @@ export const JobDefinition = withStyles(definitionStyles)(
     }, [job])
 
     return (
-      <Content>
+      <>
         <ErrorComponent />
         <LoadingPlaceholder />
 
@@ -48,14 +54,36 @@ export const JobDefinition = withStyles(definitionStyles)(
             <CardHeader title="Definition" />
             <CardContent>
               <Typography style={{ margin: 0 }} variant="body1" component="pre">
-                <SyntaxHighlighter language="toml" style={prism}>
+                <SyntaxHighlighter
+                  language="toml"
+                  style={prism}
+                  data-testid="definition"
+                >
                   {job.definition}
                 </SyntaxHighlighter>
               </Typography>
+
+              {envAttributesDefinition?.trim() && (
+                <>
+                  <Typography variant="h5" color="secondary">
+                    Job attributes set by environment variables
+                  </Typography>
+
+                  <Typography
+                    style={{ margin: 0 }}
+                    variant="body1"
+                    component="pre"
+                  >
+                    <SyntaxHighlighter language="toml" style={prism}>
+                      {envAttributesDefinition}
+                    </SyntaxHighlighter>
+                  </Typography>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
-      </Content>
+      </>
     )
   },
 )
