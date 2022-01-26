@@ -182,7 +182,7 @@ type Config struct {
 	UnixTS      bool
 }
 
-// New returns a new Logger with pretty printing to stdout, prometeus counters, and sentry forwarding.
+// New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() Logger {
 	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)

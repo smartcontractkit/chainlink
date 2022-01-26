@@ -6,7 +6,8 @@ union JobSpec =
     OCRSpec |
     OCR2Spec |
     VRFSpec |
-    WebhookSpec
+    WebhookSpec |
+    BlockhashStoreSpec
 
 type CronSpec {
     schedule: String!
@@ -103,5 +104,18 @@ type VRFSpec {
 }
 
 type WebhookSpec {
+    createdAt: Time!
+}
+
+type BlockhashStoreSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    fromAddress: String
     createdAt: Time!
 }

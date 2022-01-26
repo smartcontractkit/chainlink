@@ -104,6 +104,14 @@ func newEthMock(t *testing.T) (*evmmocks.Client, func()) {
 	return ethClient, assertMocksCalled
 }
 
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) (*evmmocks.Client, func()) {
+	t.Helper()
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
+
+	return ethClient, assertMocksCalled
+}
+
 func keyNameForTest(t *testing.T) string {
 	return fmt.Sprintf("%s_test_key.json", t.Name())
 }
@@ -335,7 +343,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		c := cli.NewContext(nil, set, nil)
 
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 		assert.Equal(t, big.NewInt(8616460799), cfg.EvmGasPriceDefault())
@@ -362,7 +370,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "evmChainID does not match any local chains")
 
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
@@ -376,7 +384,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		c := cli.NewContext(nil, set, nil)
 
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 

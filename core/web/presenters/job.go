@@ -35,6 +35,7 @@ const (
 	CronJobSpec              JobSpecType = "cron"
 	VRFJobSpec               JobSpecType = "vrf"
 	WebhookJobSpec           JobSpecType = "webhook"
+	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -59,7 +60,7 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 		MinIncomingConfirmationsEnv: spec.MinIncomingConfirmationsEnv,
 		MinContractPayment:          spec.MinContractPayment,
 		Requesters:                  spec.Requesters,
-		// This is hardcoded to runlog. When we support other intiators, we need
+		// This is hardcoded to runlog. When we support other initiators, we need
 		// to change this
 		Initiator:  "runlog",
 		CreatedAt:  spec.CreatedAt,
@@ -303,6 +304,36 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	}
 }
 
+// BlockhashStoreSpec defines the job parameters for a blockhash store feeder job.
+type BlockhashStoreSpec struct {
+	CoordinatorV1Address  *ethkey.EIP55Address `json:"coordinatorV1Address"`
+	CoordinatorV2Address  *ethkey.EIP55Address `json:"coordinatorV2Address"`
+	WaitBlocks            int32                `json:"waitBlocks"`
+	LookbackBlocks        int32                `json:"lookbackBlocks"`
+	BlockhashStoreAddress ethkey.EIP55Address  `json:"blockhashStoreAddress"`
+	PollPeriod            time.Duration        `json:"pollPeriod"`
+	RunTimeout            time.Duration        `json:"runTimeout"`
+	EVMChainID            *utils.Big           `json:"evmChainID"`
+	FromAddress           *ethkey.EIP55Address `json:"fromAddress"`
+	CreatedAt             time.Time            `json:"createdAt"`
+	UpdatedAt             time.Time            `json:"updatedAt"`
+}
+
+// NewBlockhashStoreSpec creates a new BlockhashStoreSpec for the given parameters.
+func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
+	return &BlockhashStoreSpec{
+		CoordinatorV1Address:  spec.CoordinatorV1Address,
+		CoordinatorV2Address:  spec.CoordinatorV2Address,
+		WaitBlocks:            spec.WaitBlocks,
+		LookbackBlocks:        spec.LookbackBlocks,
+		BlockhashStoreAddress: spec.BlockhashStoreAddress,
+		PollPeriod:            spec.PollPeriod,
+		RunTimeout:            spec.RunTimeout,
+		EVMChainID:            spec.EVMChainID,
+		FromAddress:           spec.FromAddress,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -338,6 +369,7 @@ type JobResource struct {
 	KeeperSpec             *KeeperSpec             `json:"keeperSpec"`
 	VRFSpec                *VRFSpec                `json:"vrfSpec"`
 	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
+	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
 }
@@ -371,6 +403,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.VRFSpec = NewVRFSpec(j.VRFSpec)
 	case job.Webhook:
 		resource.WebhookSpec = NewWebhookSpec(j.WebhookSpec)
+	case job.BlockhashStore:
+		resource.BlockhashStoreSpec = NewBlockhashStoreSpec(j.BlockhashStoreSpec)
 	}
 
 	jes := []JobError{}

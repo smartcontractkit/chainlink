@@ -42,10 +42,6 @@ type (
 	}
 )
 
-func (P2PPeer) TableName() string {
-	return "p2p_peers"
-}
-
 // NewPeerstoreWrapper creates a new database-backed peerstore wrapper scoped to the given jobID
 // Multiple peerstore wrappers should not be instantiated with the same jobID
 func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger, cfg pg.LogConfig) (*Pstorewrapper, error) {

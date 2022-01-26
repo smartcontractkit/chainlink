@@ -14,11 +14,13 @@ import (
 	null "gopkg.in/guregu/null.v4"
 )
 
-type NodePresenter struct {
-	presenters.NodeResource
+// EVMNodePresenter implements TableRenderer for an EVMNodeResource.
+type EVMNodePresenter struct {
+	presenters.EVMNodeResource
 }
 
-func (p *NodePresenter) ToRow() []string {
+// ToRow presents the EVMNodeResource as a slice of strings.
+func (p *EVMNodePresenter) ToRow() []string {
 	row := []string{
 		p.GetID(),
 		p.Name,
@@ -31,39 +33,40 @@ func (p *NodePresenter) ToRow() []string {
 	return row
 }
 
+var evmNodeHeaders = []string{"ID", "Name", "Chain ID", "Websocket URL", "HTTP URL", "Created", "Updated"}
+
 // RenderTable implements TableRenderer
-func (p NodePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "Created", "Updated"}
-	rows := [][]string{}
+func (p EVMNodePresenter) RenderTable(rt RendererTable) error {
+	var rows [][]string
 	rows = append(rows, p.ToRow())
-	renderList(headers, rows, rt.Writer)
+	renderList(evmNodeHeaders, rows, rt.Writer)
 
 	return nil
 }
 
-type NodePresenters []NodePresenter
+// EVMNodePresenters implements TableRenderer for a slice of EVMNodePresenter.
+type EVMNodePresenters []EVMNodePresenter
 
 // RenderTable implements TableRenderer
-func (ps NodePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "Created", "Updated"}
-	rows := [][]string{}
+func (ps EVMNodePresenters) RenderTable(rt RendererTable) error {
+	var rows [][]string
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(evmNodeHeaders, rows, rt.Writer)
 
 	return nil
 }
 
-// IndexNodes returns all nodes.
-func (cli *Client) IndexNodes(c *cli.Context) (err error) {
-	return cli.getPage("/v2/nodes", c.Int("page"), &NodePresenters{})
+// IndexEVMNodes returns all EVM nodes.
+func (cli *Client) IndexEVMNodes(c *cli.Context) (err error) {
+	return cli.getPage("/v2/nodes/evm", c.Int("page"), &EVMNodePresenters{})
 }
 
-// CreateNode adds a new node to the nodelink node
-func (cli *Client) CreateNode(c *cli.Context) (err error) {
+// CreateEVMNode adds a new node to the nodelink node
+func (cli *Client) CreateEVMNode(c *cli.Context) (err error) {
 	name := c.String("name")
 	t := c.String("type")
 	ws := c.String("ws-url")
@@ -105,7 +108,7 @@ func (cli *Client) CreateNode(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/nodes", bytes.NewBuffer(body))
+	resp, err := cli.HTTP.Post("/v2/nodes/evm", bytes.NewBuffer(body))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -115,16 +118,16 @@ func (cli *Client) CreateNode(c *cli.Context) (err error) {
 		}
 	}()
 
-	return cli.renderAPIResponse(resp, &NodePresenter{})
+	return cli.renderAPIResponse(resp, &EVMNodePresenter{})
 }
 
-// RemoveNode removes a specific Node by name.
-func (cli *Client) RemoveNode(c *cli.Context) (err error) {
+// RemoveEVMNode removes a specific EVM Node by name.
+func (cli *Client) RemoveEVMNode(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("must pass the id of the node to be removed"))
 	}
 	nodeID := c.Args().First()
-	resp, err := cli.HTTP.Delete("/v2/nodes/" + nodeID)
+	resp, err := cli.HTTP.Delete("/v2/nodes/evm/" + nodeID)
 	if err != nil {
 		return cli.errorOut(err)
 	}

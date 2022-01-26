@@ -7,12 +7,10 @@ import (
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	evmCh "github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -24,9 +22,11 @@ var (
 	SupportedRelayers = map[types.Network]struct{}{
 		types.EVM:    {},
 		types.Solana: {},
+		types.Terra:  {},
 	}
 	_ types.Relayer = &evm.Relayer{}
 	_ types.Relayer = &solana.Relayer{}
+	_ types.Relayer = &terra.Relayer{}
 )
 
 type delegate struct {
@@ -34,14 +34,25 @@ type delegate struct {
 	ks       keystore.Master
 }
 
-func NewDelegate(db *sqlx.DB, ks keystore.Master, chainSet evmCh.ChainSet, lggr logger.Logger) *delegate {
-	return &delegate{
-		ks: ks,
-		relayers: map[types.Network]types.Relayer{
-			types.EVM:    evm.NewRelayer(db, chainSet, lggr),
-			types.Solana: solana.NewRelayer(lggr),
-		},
+// NewDelegate creates a master relay delegate which manages "relays" which are OCR2 median reporting plugins
+// for various chains (evm and non-evm). nil Relayers will be disabled.
+func NewDelegate(ks keystore.Master, evmRelayer, solanaRelayer, terraRelayer types.Relayer) *delegate {
+	d := &delegate{
+		ks:       ks,
+		relayers: map[types.Network]types.Relayer{},
 	}
+	d.addRelayer(types.EVM, evmRelayer)
+	d.addRelayer(types.Solana, solanaRelayer)
+	d.addRelayer(types.Terra, terraRelayer)
+	return d
+}
+
+// addRelayer registers the relayer r, or a disabled placeholder if nil.
+func (d delegate) addRelayer(n types.Network, r types.Relayer) {
+	if r == nil {
+		r = types.DisabledRelayer(n)
+	}
+	d.relayers[n] = r
 }
 
 // A delegate relayer on start will start all relayers it manages.
@@ -147,6 +158,31 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			StoreProgramID:     storeProgramID,
 			TransmissionsID:    transmissionsID,
 			TransmissionSigner: transmissionSigner,
+			UsePreflight:       config.UsePreflight,
+			Commitment:         config.Commitment,
+			PollingInterval:    config.PollingInterval,
+			PollingCtxTimeout:  config.PollingCtxTimeout,
+			StaleTimeout:       config.StaleTimeout,
+		})
+	case types.Terra:
+		var config terra.RelayConfig
+		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
+		if err != nil {
+			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
+		}
+
+		if !spec.IsBootstrapPeer {
+			if !spec.TransmitterID.Valid {
+				return nil, errors.New("transmitterID is required for non-bootstrap jobs")
+			}
+		}
+
+		return d.relayers[types.Terra].NewOCR2Provider(externalJobID, terra.OCR2Spec{
+			ChainID:       config.ChainID,
+			ID:            spec.ID,
+			IsBootstrap:   spec.IsBootstrapPeer,
+			ContractID:    spec.ContractID,
+			TransmitterID: spec.TransmitterID.String,
 		})
 	default:
 		return nil, errors.Errorf("unknown relayer network type: %s", spec.Relay)

@@ -79,6 +79,16 @@ func (r *SpecResolver) ToWebhookSpec() (*WebhookSpecResolver, bool) {
 	return &WebhookSpecResolver{spec: *r.j.WebhookSpec}, true
 }
 
+// ToBlockhashStoreSpec returns the BlockhashStoreSpec from the SpecResolver if the job is a
+// BlockhashStore job.
+func (r *SpecResolver) ToBlockhashStoreSpec() (*BlockhashStoreSpecResolver, bool) {
+	if r.j.Type != job.BlockhashStore {
+		return nil, false
+	}
+
+	return &BlockhashStoreSpecResolver{spec: *r.j.BlockhashStoreSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -375,7 +385,7 @@ func (r *OCRSpecResolver) DatabaseTimeout() string {
 	return r.spec.DatabaseTimeout.Duration().String()
 }
 
-// DatabaseTimeoutEnv resolves resolves the whether spec's database timeout
+// DatabaseTimeoutEnv resolves the whether spec's database timeout
 // config comes from an env var.
 func (r *OCRSpecResolver) DatabaseTimeoutEnv() bool {
 	return r.spec.DatabaseTimeoutEnv
@@ -386,7 +396,7 @@ func (r *OCRSpecResolver) ObservationGracePeriod() string {
 	return r.spec.ObservationGracePeriod.Duration().String()
 }
 
-// ObservationGracePeriodEnv resolves resolves the whether spec's observation grace period
+// ObservationGracePeriodEnv resolves the whether spec's observation grace period
 // config comes from an env var.
 func (r *OCRSpecResolver) ObservationGracePeriodEnv() bool {
 	return r.spec.ObservationGracePeriodEnv
@@ -397,7 +407,7 @@ func (r *OCRSpecResolver) ContractTransmitterTransmitTimeout() string {
 	return r.spec.ContractTransmitterTransmitTimeout.Duration().String()
 }
 
-// ContractTransmitterTransmitTimeoutEnv resolves resolves the whether spec's
+// ContractTransmitterTransmitTimeoutEnv resolves the whether spec's
 // contract transmitter transmit timeout config comes from an env var.
 func (r *OCRSpecResolver) ContractTransmitterTransmitTimeoutEnv() bool {
 	return r.spec.ContractTransmitterTransmitTimeoutEnv
@@ -522,7 +532,7 @@ func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
 	return r.spec.IsBootstrapPeer
 }
 
-// JuelsPerFeeCoinSource resolves the spec's jeuls per fee coin source
+// JuelsPerFeeCoinSource resolves the spec's juels per fee coin source
 func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() *string {
 	if r.spec.JuelsPerFeeCoinPipeline == "" {
 		return nil
@@ -653,4 +663,72 @@ type WebhookSpecResolver struct {
 // CreatedAt resolves the spec's created at timestamp.
 func (r *WebhookSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+// BlockhashStoreSpecResolver exposes the job parameters for a BlockhashStoreSpec.
+type BlockhashStoreSpecResolver struct {
+	spec job.BlockhashStoreSpec
+}
+
+// CoordinatorV1Address returns the address of the V1 Coordinator, if any.
+func (b *BlockhashStoreSpecResolver) CoordinatorV1Address() *string {
+	if b.spec.CoordinatorV1Address == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV1Address.String()
+	return &addr
+}
+
+// CoordinatorV2Address returns the address of the V2 Coordinator, if any.
+func (b *BlockhashStoreSpecResolver) CoordinatorV2Address() *string {
+	if b.spec.CoordinatorV2Address == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2Address.String()
+	return &addr
+}
+
+// WaitBlocks returns the job's WaitBlocks param.
+func (b *BlockhashStoreSpecResolver) WaitBlocks() int32 {
+	return b.spec.WaitBlocks
+}
+
+// LookbackBlocks returns the job's LookbackBlocks param.
+func (b *BlockhashStoreSpecResolver) LookbackBlocks() int32 {
+	return b.spec.LookbackBlocks
+}
+
+// BlockhashStoreAddress returns the job's BlockhashStoreAddress param.
+func (b *BlockhashStoreSpecResolver) BlockhashStoreAddress() string {
+	return b.spec.BlockhashStoreAddress.String()
+}
+
+// PollPeriod return's the job's PollPeriod param.
+func (b *BlockhashStoreSpecResolver) PollPeriod() string {
+	return b.spec.PollPeriod.String()
+}
+
+// RunTimeout return's the job's RunTimeout param.
+func (b *BlockhashStoreSpecResolver) RunTimeout() string {
+	return b.spec.RunTimeout.String()
+}
+
+// EVMChainID returns the job's EVMChainID param.
+func (b *BlockhashStoreSpecResolver) EVMChainID() *string {
+	chainID := b.spec.EVMChainID.String()
+	return &chainID
+}
+
+// FromAddress returns the job's FromAddress param, if any.
+func (b *BlockhashStoreSpecResolver) FromAddress() *string {
+	if b.spec.FromAddress == nil {
+		return nil
+	}
+	addr := b.spec.FromAddress.String()
+	return &addr
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (b *BlockhashStoreSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: b.spec.CreatedAt}
 }
