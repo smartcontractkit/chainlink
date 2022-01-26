@@ -172,6 +172,10 @@ func TestCheckInputs(t *testing.T) {
 			inputs: []pipeline.Result{},
 		},
 		{
+			name:   "empty-val",
+			inputs: []pipeline.Result{{}},
+		},
+		{
 			name:   "single",
 			inputs: []pipeline.Result{{Value: "testval"}},
 		},
@@ -197,6 +201,84 @@ func TestCheckInputs(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			err := pipeline.CheckInputs(tt.inputs)
+			if err != nil && !tt.expErr {
+				t.Errorf("unexpected error: %v", err)
+			} else if err == nil && tt.expErr {
+				t.Error("error expected, but got none")
+			}
+		})
+	}
+}
+
+func TestCheckInputsLen(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		inputs   []pipeline.Result
+		min, max int
+		expErr   bool
+	}{
+		{
+			name:   "nil-optional",
+			inputs: nil,
+			min:    0, max: 1,
+		},
+		{
+			name:   "nil-required",
+			inputs: nil,
+			min:    1, max: 1,
+			expErr: true,
+		},
+		{
+			name:   "empty-optional",
+			inputs: []pipeline.Result{},
+			min:    0, max: 1,
+		},
+		{
+			name:   "empty-required",
+			inputs: []pipeline.Result{},
+			min:    1, max: 1,
+			expErr: true,
+		},
+		{
+			name:   "single-optional",
+			inputs: []pipeline.Result{{Value: "testval"}},
+			min:    0, max: 1,
+		},
+		{
+			name:   "single-required",
+			inputs: []pipeline.Result{{Value: "testval"}},
+			min:    1, max: 1,
+		},
+		{
+			name:   "multi-optional",
+			inputs: []pipeline.Result{{Value: "testval"}, {Value: float64(1.1)}},
+			min:    0, max: 2,
+		},
+		{
+			name:   "multi-required",
+			inputs: []pipeline.Result{{Value: "testval"}, {Value: float64(1.1)}},
+			min:    2, max: 2,
+		},
+		{
+			name:   "multi-optional-short",
+			inputs: []pipeline.Result{{Value: "testval"}},
+			min:    0, max: 2,
+		},
+		{
+			name:   "multi-required-short",
+			inputs: []pipeline.Result{{Value: "testval"}},
+			min:    2, max: 2,
+			expErr: true,
+		},
+		{
+			name:   "single-long",
+			inputs: []pipeline.Result{{Value: "testval"}, {Value: float64(1.1)}},
+			min:    1, max: 1,
+			expErr: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := pipeline.CheckInputsLen(tt.inputs, tt.min, tt.max)
 			if err != nil && !tt.expErr {
 				t.Errorf("unexpected error: %v", err)
 			} else if err == nil && tt.expErr {
