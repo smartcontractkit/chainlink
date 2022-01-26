@@ -19,5 +19,6 @@ type Config interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
+	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	LogSQL() bool
 }
