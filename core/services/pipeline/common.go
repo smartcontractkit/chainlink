@@ -447,16 +447,13 @@ func CheckInputs(inputs []Result) error {
 	return nil
 }
 
-// GetInputs returns the Values from inputs and checks that it is error free.
-func GetInputs(inputs []Result) ([]interface{}, error) {
+// GetInputs returns the Values from inputs.
+func GetInputs(inputs []Result) []interface{} {
 	vals := make([]interface{}, len(inputs))
 	for i, input := range inputs {
-		if input.Error != nil {
-			return nil, ErrTooManyErrors
-		}
 		vals[i] = input.Value
 	}
-	return vals, nil
+	return vals
 }
 
 func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {

@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -152,6 +153,55 @@ func TestUnmarshalJSONSerializable_Invalid(t *testing.T) {
 			err := json.Unmarshal([]byte(test.input), &i)
 			require.NoError(t, err)
 			assert.False(t, i.Valid)
+		})
+	}
+}
+
+func TestCheckInputs(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		inputs []pipeline.Result
+		expErr bool
+	}{
+		{
+			name:   "nil",
+			inputs: nil,
+		},
+		{
+			name:   "empty",
+			inputs: []pipeline.Result{},
+		},
+		{
+			name:   "single",
+			inputs: []pipeline.Result{{Value: "testval"}},
+		},
+		{
+			name:   "multi",
+			inputs: []pipeline.Result{{Value: "testval"}, {Value: float64(1.1)}},
+		},
+		{
+			name:   "single-err",
+			inputs: []pipeline.Result{{Error: errors.New("test error")}},
+			expErr: true,
+		},
+		{
+			name:   "multi-errs",
+			inputs: []pipeline.Result{{Error: errors.New("test error")}, {Error: errors.New("test error")}},
+			expErr: true,
+		},
+		{
+			name:   "multi-val-and-errs",
+			inputs: []pipeline.Result{{Value: "testval"}, {Error: errors.New("test error")}},
+			expErr: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := pipeline.CheckInputs(tt.inputs)
+			if err != nil && !tt.expErr {
+				t.Errorf("unexpected error: %v", err)
+			} else if err == nil && tt.expErr {
+				t.Error("error expected, but got none")
+			}
 		})
 	}
 }
