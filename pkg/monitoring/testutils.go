@@ -5,6 +5,7 @@ package monitoring
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -111,6 +112,7 @@ func generate32ByteArr() [32]byte {
 }
 
 type fakeFeedConfig struct {
+	ID             string `json:"id,omitempty"`
 	Name           string `json:"name,omitempty"`
 	Path           string `json:"path,omitempty"`
 	Symbol         string `json:"symbol,omitempty"`
@@ -121,6 +123,7 @@ type fakeFeedConfig struct {
 	ContractAddress []byte `json:"contract_address,omitempty"`
 }
 
+func (f fakeFeedConfig) GetID() string             { return f.ID }
 func (f fakeFeedConfig) GetName() string           { return f.Name }
 func (f fakeFeedConfig) GetPath() string           { return f.Path }
 func (f fakeFeedConfig) GetSymbol() string         { return f.Symbol }
@@ -155,6 +158,7 @@ func generateFeedConfig() FeedConfig {
 	coin := coins[rand.Intn(len(coins))]
 	contractAddress := generate32ByteArr()
 	return fakeFeedConfig{
+		ID:              hex.EncodeToString(contractAddress[:]),
 		Name:            fmt.Sprintf("%s / usd", coin),
 		Path:            fmt.Sprintf("%s-usd", coin),
 		Symbol:          "$",
@@ -295,6 +299,8 @@ func generateEnvelope() (Envelope, error) {
 		Transmitter: types.Account(hexutil.Encode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(rand.Intn(32)),
 		})),
+
+		LinkBalance: rand.Uint64(),
 	}, nil
 }
 
@@ -343,6 +349,9 @@ func (d *devnullMetrics) SetHeadTrackerCurrentHead(blockNumber uint64, networkNa
 }
 
 func (d *devnullMetrics) SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string) {
+}
+
+func (d *devnullMetrics) SetFeedContractLinkBalance(balance uint64, chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
 func (d *devnullMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {

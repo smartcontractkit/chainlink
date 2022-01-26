@@ -72,12 +72,11 @@ type kafkaExporter struct {
 }
 
 func (k *kafkaExporter) Export(ctx context.Context, data interface{}) {
-	key := k.feedConfig.GetContractAddressBytes()
-	envelope, ok := data.(Envelope)
-	if !ok {
-		k.log.Errorw("expected payload of type Envelope but got %#v", data)
+	envelope, isEnvelope := data.(Envelope)
+	if !isEnvelope {
 		return
 	}
+	key := k.feedConfig.GetContractAddressBytes()
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 	wg.Add(2)

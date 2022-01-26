@@ -2,7 +2,6 @@ package monitoring
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -28,8 +27,8 @@ func (f *prometheusExporterFactory) NewExporter(
 ) (Exporter, error) {
 	f.metrics.SetFeedContractMetadata(
 		chainConfig.GetChainID(),
-		feedConfig.GetContractAddress(),
-		feedConfig.GetContractAddress(),
+		feedConfig.GetID(),
+		feedConfig.GetID(),
 		feedConfig.GetContractStatus(),
 		feedConfig.GetContractType(),
 		feedConfig.GetName(),
@@ -55,8 +54,8 @@ func (f *prometheusExporterFactory) NewExporter(
 		symbol:          feedConfig.GetSymbol(),
 		contractType:    feedConfig.GetContractType(),
 		contractStatus:  feedConfig.GetContractStatus(),
-		contractAddress: feedConfig.GetContractAddress(),
-		feedID:          feedConfig.GetContractAddress(),
+		contractAddress: feedConfig.GetID(),
+		feedID:          feedConfig.GetID(),
 	})
 	return p, nil
 }
@@ -73,14 +72,25 @@ type prometheusExporter struct {
 }
 
 func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
-	envelope, ok := data.(Envelope)
-	if !ok {
-		p.log.Errorw("unexpected type for export", "type", fmt.Sprintf("%T", data))
+	envelope, isEnvelope := data.(Envelope)
+	if !isEnvelope {
 		return
 	}
 	p.updateLabels(prometheusLabels{
 		sender: string(envelope.Transmitter),
 	})
+	p.metrics.SetFeedContractLinkBalance(
+		envelope.LinkBalance,
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
 	p.metrics.SetNodeMetadata(
 		p.chainConfig.GetChainID(),
 		p.chainConfig.GetNetworkID(),
@@ -96,8 +106,8 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	)
 	p.metrics.SetOffchainAggregatorAnswers(
 		envelope.LatestAnswer,
-		p.feedConfig.GetContractAddress(),
-		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
 		p.feedConfig.GetContractStatus(),
 		p.feedConfig.GetContractType(),
@@ -107,8 +117,8 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.IncOffchainAggregatorAnswersTotal(
-		p.feedConfig.GetContractAddress(),
-		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
 		p.feedConfig.GetContractStatus(),
 		p.feedConfig.GetContractType(),
@@ -120,8 +130,8 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	isLateAnswer := time.Since(envelope.LatestTimestamp).Seconds() > float64(p.feedConfig.GetHeartbeatSec())
 	p.metrics.SetOffchainAggregatorAnswerStalled(
 		isLateAnswer,
-		p.feedConfig.GetContractAddress(),
-		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
 		p.feedConfig.GetContractStatus(),
 		p.feedConfig.GetContractType(),
@@ -132,8 +142,8 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	)
 	p.metrics.SetOffchainAggregatorSubmissionReceivedValues(
 		envelope.LatestAnswer,
-		p.feedConfig.GetContractAddress(),
-		p.feedConfig.GetContractAddress(),
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
 		string(envelope.Transmitter),
 		p.chainConfig.GetChainID(),
 		p.feedConfig.GetContractStatus(),

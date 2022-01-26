@@ -30,4 +30,5 @@ type Envelope struct {
 	// extra
 	BlockNumber uint64
 	Transmitter types.Account
+	LinkBalance uint64
 }

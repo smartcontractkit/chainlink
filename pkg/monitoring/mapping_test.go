@@ -61,6 +61,12 @@ func TestMapping(t *testing.T) {
 		decodedFeedConfig, ok := transmission["feed_config"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, decodedFeedConfig, feedConfig.ToMapping())
+
+		linkBalanceUnion, ok := transmission["link_balance"].(map[string]interface{})
+		require.True(t, ok)
+		linkBalance, ok := linkBalanceUnion["bytes"].([]byte)
+		require.True(t, ok)
+		require.Equal(t, linkBalance, uint64ToBeBytes(envelope.LinkBalance))
 	})
 
 	t.Run("MakeSimplifiedConfigSetMapping", func(t *testing.T) {
