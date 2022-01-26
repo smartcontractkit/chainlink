@@ -8,6 +8,9 @@ on: pull_request
 
 jobs:
   changelog:
+    # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
+    # This check skips the job if it is detected we are running on a fork.
+    if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
     name: Changelog checker
     runs-on: ubuntu-latest
     steps:
