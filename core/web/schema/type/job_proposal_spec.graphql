@@ -1,4 +1,5 @@
 enum SpecStatus {
+    UNKNOWN
     PENDING
     APPROVED
     REJECTED

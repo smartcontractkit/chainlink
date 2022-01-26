@@ -2,6 +2,7 @@ package loader
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
@@ -126,7 +127,7 @@ func GetLatestSpecByJobProposalID(ctx context.Context, jpID string) (*feeds.JobP
 
 	specs, ok := result.([]feeds.JobProposalSpec)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, fmt.Errorf("invalid type: %T", result)
 	}
 
 	max := specs[0]

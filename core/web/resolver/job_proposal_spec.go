@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
 
@@ -11,6 +10,7 @@ type SpecStatus string
 
 const (
 	// revive:disable
+	SpecStatusUnknown   SpecStatus = "UNKNOWN"
 	SpecStatusPending   SpecStatus = "PENDING"
 	SpecStatusApproved  SpecStatus = "APPROVED"
 	SpecStatusRejected  SpecStatus = "REJECTED"
@@ -19,18 +19,18 @@ const (
 )
 
 // ToSpecStatus converts the feeds status into the enum value.
-func ToSpecStatus(s feeds.SpecStatus) (SpecStatus, error) {
+func ToSpecStatus(s feeds.SpecStatus) SpecStatus {
 	switch s {
 	case feeds.SpecStatusApproved:
-		return SpecStatusApproved, nil
+		return SpecStatusApproved
 	case feeds.SpecStatusPending:
-		return SpecStatusPending, nil
+		return SpecStatusPending
 	case feeds.SpecStatusRejected:
-		return SpecStatusRejected, nil
+		return SpecStatusRejected
 	case feeds.SpecStatusCancelled:
-		return SpecStatusCancelled, nil
+		return SpecStatusCancelled
 	default:
-		return "", errors.New("invalid spec status")
+		return SpecStatusUnknown
 	}
 }
 
@@ -72,11 +72,7 @@ func (r *JobProposalSpecResolver) Version() int32 {
 
 // Status resolves to the job proposal spec's status
 func (r *JobProposalSpecResolver) Status() SpecStatus {
-	if status, err := ToSpecStatus(r.spec.Status); err == nil {
-		return status
-	}
-
-	return ""
+	return ToSpecStatus(r.spec.Status)
 }
 
 // StatusUpdatedAt resolves to the the last timestamp that the spec status was

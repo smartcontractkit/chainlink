@@ -324,7 +324,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		var exists bool
 		exists, err = s.orm.ExistsSpecByJobProposalIDAndVersion(existing.ID, args.Version)
 		if err != nil {
-			return 0, errors.Wrap(err, "validation failed")
+			return 0, errors.Wrap(err, "failed to check existence of spec")
 		}
 
 		if exists {
@@ -345,7 +345,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 			Multiaddrs:     args.Multiaddrs,
 		}, pg.WithQueryer(tx))
 		if txerr != nil {
-			return errors.Wrap(err, "failed to upsert job proposal")
+			return errors.Wrap(txerr, "failed to upsert job proposal")
 		}
 
 		// Create the spec version
@@ -356,7 +356,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 			JobProposalID: id,
 		}, pg.WithQueryer(tx))
 		if txerr != nil {
-			return errors.Wrap(err, "failed to create spec")
+			return errors.Wrap(txerr, "failed to create spec")
 		}
 
 		return nil
