@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -87,6 +88,32 @@ func TestPoller(t *testing.T) {
 			require.LessOrEqual(t, readCount, testCase.countUpper)
 		})
 	}
+	t.Run("resumes after a source error", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		source := &fakeSourceWithError{make(chan interface{}), make(chan error)}
+		poller := NewSourcePoller(
+			source,
+			newNullLogger(),
+			10*time.Millisecond, // poll interval
+			10*time.Millisecond, // read timeout
+			0,                   // buffer capacity
+		)
+		go poller.Run(ctx)
+
+		source.updates <- "update1"
+		require.Equal(t, "update1", <-poller.Updates())
+		source.errors <- fmt.Errorf("error1")
+		source.updates <- "update2"
+		require.Equal(t, "update2", <-poller.Updates())
+		source.errors <- fmt.Errorf("error2")
+		source.updates <- "update3"
+		require.Equal(t, "update3", <-poller.Updates())
+		source.errors <- fmt.Errorf("error3")
+		source.updates <- "update4"
+		require.Equal(t, "update4", <-poller.Updates())
+	})
 }
 
 type fakeSourceWithWait struct {
@@ -99,5 +126,21 @@ func (f *fakeSourceWithWait) Fetch(ctx context.Context) (interface{}, error) {
 		return 1, nil
 	case <-ctx.Done():
 		return 0, nil
+	}
+}
+
+type fakeSourceWithError struct {
+	updates chan interface{}
+	errors  chan error
+}
+
+func (f *fakeSourceWithError) Fetch(ctx context.Context) (interface{}, error) {
+	select {
+	case update := <-f.updates:
+		return update, nil
+	case err := <-f.errors:
+		return nil, err
+	case <-ctx.Done():
+		return nil, nil
 	}
 }

@@ -41,6 +41,7 @@ type sourcePoller struct {
 // Run should be executed as a goroutine
 func (s *sourcePoller) Run(ctx context.Context) {
 	s.log.Debugw("poller started")
+	defer s.log.Debugw("poller closed")
 	// Initial fetch.
 	data, err := s.source.Fetch(ctx)
 	if err != nil {
@@ -66,6 +67,7 @@ func (s *sourcePoller) Run(ctx context.Context) {
 			}()
 			if err != nil {
 				s.log.Errorw("failed to fetch from source", "error", err)
+				reusedTimer.Reset(s.pollInterval)
 				continue
 			}
 			select {
@@ -78,7 +80,6 @@ func (s *sourcePoller) Run(ctx context.Context) {
 			if !reusedTimer.Stop() {
 				<-reusedTimer.C
 			}
-			s.log.Debugw("poller closed")
 			return
 		}
 	}
