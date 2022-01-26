@@ -51,10 +51,11 @@ type ConfigSchema struct {
 	LeaseLockDuration         time.Duration `env:"LEASE_LOCK_DURATION" default:"10s"`
 	LeaseLockRefreshInterval  time.Duration `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
 	// Database Autobackups
-	DatabaseBackupDir       string        `env:"DATABASE_BACKUP_DIR"`
-	DatabaseBackupFrequency time.Duration `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
-	DatabaseBackupMode      string        `env:"DATABASE_BACKUP_MODE" default:"none"`
-	DatabaseBackupURL       *url.URL      `env:"DATABASE_BACKUP_URL"`
+	DatabaseBackupDir              string        `env:"DATABASE_BACKUP_DIR"`
+	DatabaseBackupFrequency        time.Duration `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
+	DatabaseBackupMode             string        `env:"DATABASE_BACKUP_MODE" default:"none"`
+	DatabaseBackupOnVersionUpgrade bool          `env:"DATABASE_BACKUP_ON_VERSION_UPGRADE" default:"true"`
+	DatabaseBackupURL              *url.URL      `env:"DATABASE_BACKUP_URL"`
 
 	// Logging
 	JSONConsole bool          `env:"JSON_CONSOLE" default:"false"`
@@ -98,7 +99,6 @@ type ConfigSchema struct {
 	EthereumSecondaryURL  string `env:"ETH_SECONDARY_URL"` //nodoc
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
-	UseLegacyEthEnvVars   bool   `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 	// Global
 	DefaultChainID   *big.Int `env:"ETH_CHAIN_ID"`
 	EVMDisabled      bool     `env:"EVM_DISABLED" default:"false"`
@@ -222,14 +222,15 @@ type ConfigSchema struct {
 	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`          //nodoc
 
 	// Keeper
-	KeeperDefaultTransactionQueueDepth uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"` //nodoc
-	KeeperGasPriceBufferPercent        uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
-	KeeperGasTipCapBufferPercent       uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
-	KeeperMaximumGracePeriod           int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
-	KeeperRegistryCheckGasOverhead     uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
-	KeeperRegistryPerformGasOverhead   uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
-	KeeperRegistrySyncInterval         time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
-	KeeperRegistrySyncUpkeepQueueSize  uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
+	KeeperCheckUpkeepGasPriceFeatureEnabled bool          `env:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED" default:"false"` //nodoc
+	KeeperDefaultTransactionQueueDepth      uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`            //nodoc
+	KeeperGasPriceBufferPercent             uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
+	KeeperGasTipCapBufferPercent            uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
+	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
+	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
+	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
+	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
+	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 
 	// CLI client
 	AdminCredentialsFile string `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
