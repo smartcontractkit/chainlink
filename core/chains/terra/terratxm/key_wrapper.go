@@ -4,6 +4,7 @@ import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/terra.go/key"
+	"github.com/tendermint/tendermint/crypto"
 )
 
 // Note we use this strictly for https://github.com/smartcontractkit/terra.go/blob/master/tx/txbuilder.go#L37
@@ -39,12 +40,12 @@ func (k KeyWrapper) Bytes() []byte {
 
 // Sign sign a message with key
 func (k KeyWrapper) Sign(msg []byte) ([]byte, error) {
-	return k.key.ToPrivKey().Sign(msg)
+	return k.key.ToPrivKey().Sign(msg) // TODO - RYAN
 }
 
 // PubKey get the pubkey
 func (k KeyWrapper) PubKey() cryptotypes.PubKey {
-	return k.key.PublicKey()
+	return PubKeyWrapper{k.key.PublicKey()}
 }
 
 // Equals compare against another key
@@ -54,5 +55,24 @@ func (k KeyWrapper) Equals(a cryptotypes.LedgerPrivKey) bool {
 
 // Type nop
 func (k KeyWrapper) Type() string {
+	return ""
+}
+
+type PubKeyWrapper struct {
+	crypto.PubKey
+}
+
+func (pubKey PubKeyWrapper) Equals(other cryptotypes.PubKey) bool {
+	return pubKey.Address().String() == other.Address().String()
+}
+
+// ProtoMessage nop
+func (pubKey PubKeyWrapper) ProtoMessage() {}
+
+// Reset nop
+func (pubKey PubKeyWrapper) Reset() {}
+
+// String nop
+func (pubKey PubKeyWrapper) String() string {
 	return ""
 }

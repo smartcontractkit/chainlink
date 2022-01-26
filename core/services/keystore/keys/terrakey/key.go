@@ -1,33 +1,20 @@
 package terrakey
 
 import (
-	"crypto/ecdsa"
-	cryptorand "crypto/rand"
 	"fmt"
 	"io"
-	"math/big"
 
-	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/ethereum/go-ethereum/crypto"
-
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/smartcontractkit/terra.go/msg"
-)
-
-var (
-	curve              = crypto.S256()
-	secpSigningAlgo, _ = keyring.NewSigningAlgoFromString(string(hd.Secp256k1Type), []keyring.SignatureAlgo{hd.Secp256k1})
+	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/secp256k1"
 )
 
 type Raw []byte
 
 func (raw Raw) Key() Key {
-	d := big.NewInt(0).SetBytes(raw)
-	privKey := secpSigningAlgo.Generate()(d.Bytes())
+	privKey2 := secp256k1.PrivKey(raw)
 	return Key{
-		d: d,
-		k: privKey,
+		k2: privKey2,
 	}
 }
 
@@ -42,31 +29,25 @@ func (raw Raw) GoString() string {
 var _ fmt.GoStringer = &Key{}
 
 type Key struct {
-	d *big.Int
-	k cryptotypes.PrivKey
+	k2 secp256k1.PrivKey
 }
 
 func New() Key {
-	return newFrom(cryptorand.Reader)
+	privKey2 := secp256k1.GenPrivKey()
+	return Key{
+		k2: privKey2,
+	}
 }
 
 func MustNewInsecure(reader io.Reader) Key {
-	return newFrom(reader)
-}
-
-func newFrom(reader io.Reader) Key {
-	rawKey, err := ecdsa.GenerateKey(crypto.S256(), reader)
+	seed := make([]byte, 32)
+	_, err := reader.Read(seed)
 	if err != nil {
 		panic(err)
 	}
-	privKey := secpSigningAlgo.Generate()(rawKey.D.Bytes())
-	if err != nil {
-		panic(err)
-	}
-
+	privKey := secp256k1.GenPrivKeySecp256k1(seed)
 	return Key{
-		d: rawKey.D,
-		k: privKey,
+		k2: privKey,
 	}
 }
 
@@ -74,23 +55,23 @@ func (key Key) ID() string {
 	return key.PublicKeyStr()
 }
 
-func (key Key) PublicKey() (pubKey cryptotypes.PubKey) {
-	return key.k.PubKey()
+func (key Key) PublicKey() (pubKey crypto.PubKey) {
+	return key.k2.PubKey()
 }
 
 // PublicKeyStr returns the terra address of the public key
 func (key Key) PublicKeyStr() string {
-	addr := msg.AccAddress(key.k.PubKey().Address())
+	addr := msg.AccAddress(key.k2.PubKey().Address())
 	return addr.String()
 }
 
 func (key Key) Raw() Raw {
-	return key.d.Bytes()
+	return key.k2.Bytes()
 }
 
 // ToPrivKey returns the key usable for signing.
-func (key Key) ToPrivKey() cryptotypes.PrivKey {
-	return key.k
+func (key Key) ToPrivKey() secp256k1.PrivKey {
+	return key.k2
 }
 
 func (key Key) String() string {
