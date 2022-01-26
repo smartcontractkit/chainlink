@@ -33,6 +33,8 @@ func (r *TerraChainResolver) Enabled() bool {
 	return r.chain.Enabled
 }
 
+// TODO: implement ConfigResolver .. do we really need to remap every config variable?
+
 // Config resolves the chain's configuration field
 /* func (r *TerraChainResolver) Config() *TerraChainConfigResolver {
 	return NewTerraChainConfig(r.chain.Cfg)
@@ -49,6 +51,8 @@ func (r *TerraChainResolver) UpdatedAt() graphql.Time {
 	return graphql.Time{Time: r.chain.UpdatedAt}
 }
 
+// TODO: implement Nodes resolver.. how to make GetNodesByChainID load from terra orm?
+
 /* func (r *TerraChainResolver) Nodes(ctx context.Context) ([]*NodeResolver, error) {
 	nodes, err := loader.GetNodesByChainID(ctx, r.chain.ID.String())
 	if err != nil {
@@ -56,8 +60,7 @@ func (r *TerraChainResolver) UpdatedAt() graphql.Time {
 	}
 
 	return NewNodes(nodes), nil
-}
-*/
+} */
 
 type TerraChainPayloadResolver struct {
 	chain db.Chain
@@ -70,7 +73,7 @@ func NewTerraChainPayload(chain db.Chain, err error) *TerraChainPayloadResolver 
 	return &TerraChainPayloadResolver{chain: chain, NotFoundErrorUnionType: e}
 }
 
-func (r *TerraChainPayloadResolver) ToChain() (*TerraChainResolver, bool) {
+func (r *TerraChainPayloadResolver) ToTerraChain() (*TerraChainResolver, bool) {
 	if r.err != nil {
 		return nil, false
 	}

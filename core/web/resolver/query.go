@@ -106,6 +106,25 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	return NewChainsPayload(page, int32(count)), nil
 }
 
+// Chain retrieves a chain by id.
+func (r *Resolver) TerraChain(ctx context.Context, args struct{ ID graphql.ID }) (*TerraChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id := string(args.ID)
+	chain, err := r.App.TerraORM().Chain(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewTerraChainPayload(chain, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewTerraChainPayload(chain, nil), nil
+}
+
 // Chains retrieves a paginated list of chains.
 func (r *Resolver) TerraChains(ctx context.Context, args struct {
 	Offset *int32

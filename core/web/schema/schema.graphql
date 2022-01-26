@@ -12,6 +12,7 @@ type Query {
     bridges(offset: Int, limit: Int): BridgesPayload!
     chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
+    terraChain(id: ID!): TerraChainPayload!
     terraChains(offset: Int, limit: Int): TerraChainsPayload!
     config: ConfigPayload!
     csaKeys: CSAKeysPayload!
