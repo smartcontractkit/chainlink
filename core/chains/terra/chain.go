@@ -1,6 +1,7 @@
 package terra
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -110,6 +111,9 @@ func (c *chain) getClient(name string) (*terraclient.Client, error) {
 		node, err = c.orm.NodeNamed(name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get node named %s", name)
+		}
+		if node.TerraChainID != c.id {
+			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.TerraChainID)
 		}
 	}
 	client, err := terraclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, c.lggr.Named("Client-"+name))
