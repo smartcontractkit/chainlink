@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -24,12 +25,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// DefaultRequestTimeout is the default Terra client timeout.
-// Note that while the terra node is processing a heavy block,
-// requests can be delayed significantly (https://github.com/tendermint/tendermint/issues/6899),
-// however there's nothing we can do but wait until the block is processed.
-// So we set a fairly high timeout here.
-const DefaultRequestTimeout = 30 * time.Second
+const (
+	// DefaultRequestTimeout is the default Terra client timeout.
+	// Note that while the terra node is processing a heavy block,
+	// requests can be delayed significantly (https://github.com/tendermint/tendermint/issues/6899),
+	// however there's nothing we can do but wait until the block is processed.
+	// So we set a fairly high timeout here.
+	DefaultRequestTimeout = 30 * time.Second
+	// ClientCacheTimeout is the TTL for cached terraclient.Client.
+	ClientCacheTimeout = time.Minute
+)
 
 //go:generate mockery --name MsgEnqueuer --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 //go:generate mockery --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
@@ -43,6 +48,15 @@ type chain struct {
 	txm  *terratxm.Txm
 	orm  types.ORM
 	lggr logger.Logger
+
+	mu      sync.RWMutex
+	clients map[string]cachedClient
+}
+
+type cachedClient struct {
+	ts time.Time
+	*terraclient.Client
+	err error
 }
 
 // NewChain returns a new chain backed by node.
@@ -50,10 +64,11 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	cfg := terra.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("terraChainID", dbchain.ID)
 	var ch = chain{
-		id:   dbchain.ID,
-		cfg:  cfg,
-		orm:  orm,
-		lggr: lggr.Named("Chain"),
+		id:      dbchain.ID,
+		cfg:     cfg,
+		orm:     orm,
+		lggr:    lggr.Named("Chain"),
+		clients: make(map[string]cachedClient),
 	}
 	tc := func() (terraclient.ReaderWriter, error) {
 		return ch.getClient("")
@@ -94,7 +109,29 @@ func (c *chain) Reader(name string) (terraclient.Reader, error) {
 
 // getClient returns a client, optionally requiring a specific node by name.
 func (c *chain) getClient(name string) (*terraclient.Client, error) {
-	//TODO cache clients?
+	c.mu.RLock()
+	cc, ok := c.clients[name]
+	c.mu.RUnlock()
+	if ok && time.Since(cc.ts) < ClientCacheTimeout {
+		return cc.Client, cc.err
+	}
+
+	// Maybe refresh
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cc, ok = c.clients[name]
+	if ok && time.Since(cc.ts) < ClientCacheTimeout {
+		// Another goroutine beat us to it.
+		return cc.Client, cc.err
+	}
+	// Refresh
+	cc = cachedClient{ts: time.Now()}
+	cc.Client, cc.err = c.newClient(name)
+	c.clients[name] = cc
+	return cc.Client, cc.err
+}
+
+func (c *chain) newClient(name string) (*terraclient.Client, error) {
 	var node db.Node
 	if name == "" { // Any node
 		nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
