@@ -783,38 +783,6 @@ func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err err
 	return err
 }
 
-// DeleteUser is run locally to remove the User row from the node's database.
-func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
-	lggr := cli.Logger.Named("DeleteUser")
-
-	db, err := openDB(cli.Config, lggr)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "opening db"))
-	}
-	defer lggr.ErrorIfClosing(db, "db")
-
-	app, err := cli.AppFactory.NewApplication(cli.Config, db)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
-	}
-	defer func() {
-		if serr := app.Stop(); serr != nil {
-			err = multierr.Append(err, serr)
-		}
-	}()
-	orm := app.SessionORM()
-	user, err := orm.FindUser()
-	if err == nil {
-		app.GetLogger().Info("No such API user ", user.Email)
-		return err
-	}
-	err = orm.DeleteUser()
-	if err == nil {
-		app.GetLogger().Info("Deleted API user ", user.Email)
-	}
-	return err
-}
-
 // SetNextNonce manually updates the keys.next_nonce field for the given key with the given nonce value
 func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	addressHex := c.String("address")
