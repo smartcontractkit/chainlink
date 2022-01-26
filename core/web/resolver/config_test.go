@@ -256,6 +256,10 @@ func TestResolver_Config(t *testing.T) {
         "value": "0"
       },
       {
+        "key": "KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED",
+        "value": "false"
+      },
+      {
         "key": "LEASE_LOCK_DURATION",
         "value": "10s"
       },
