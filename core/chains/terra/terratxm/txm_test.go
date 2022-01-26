@@ -47,7 +47,7 @@ func TestTxm_Integration(t *testing.T) {
 		GasLimitMultiplier:    null.FloatFrom(1.5),
 	})
 	require.NoError(t, err)
-	chainCfg := pkgterra.NewConfig("Bombay-1", dbChain.Cfg, lggr)
+	chainCfg := pkgterra.NewConfig(dbChain.Cfg, lggr)
 	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start())

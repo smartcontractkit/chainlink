@@ -57,7 +57,7 @@ func TestTxm(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
 	require.NoError(t, err)
-	cfg := terra.NewConfig("txm-test", terradb.ChainCfg{}, lggr)
+	cfg := terra.NewConfig(terradb.ChainCfg{}, lggr)
 	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
 		terraclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
 			"uluna": cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")),
@@ -173,7 +173,7 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		cfg := terra.NewConfig("txm-test", terradb.ChainCfg{}, lggr)
+		cfg := terra.NewConfig(terradb.ChainCfg{}, lggr)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
