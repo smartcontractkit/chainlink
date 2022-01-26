@@ -3,7 +3,6 @@ package pg
 import (
 	"context"
 	"database/sql"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,8 +15,8 @@ import (
 
 // AdvisoryLock is an interface for postgresql advisory locks.
 type AdvisoryLock interface {
-	TakeAndHold() error
-	Release()
+	TakeAndHold(ctx context.Context) error
+	WaitForRelease()
 }
 
 // advisoryLock implements the Locker interface.
@@ -27,31 +26,27 @@ type advisoryLock struct {
 	conn          *sqlx.Conn
 	checkInterval time.Duration
 	logger        logger.Logger
-
-	chStop chan struct{}
-	wg     sync.WaitGroup
+	chReleased    chan struct{}
 }
 
 // NewAdvisoryLock returns an advisoryLocker
 func NewAdvisoryLock(db *sqlx.DB, id int64, lggr logger.Logger, checkInterval time.Duration) AdvisoryLock {
-	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id), make(chan struct{}), sync.WaitGroup{}}
+	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id), make(chan struct{})}
 }
 
-// TakeAndHold will block and wait indefinitely until it can get its first lock
+// TakeAndHold will block and wait indefinitely until it can get its first lock.
+// The lock gets released when the provided context is cancelled.
 // NOT THREAD SAFE
-func (l *advisoryLock) TakeAndHold() (err error) {
+func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 	l.logger.Debug("Taking initial advisory lock...")
 	retryCount := 0
-
-	ctxStop, cancel := utils.ContextFromChan(l.chStop)
-	defer cancel()
 
 	for {
 		var gotLock bool
 		var err error
 
 		err = func() error {
-			ctx, cancel := DefaultQueryCtxWithParent(ctxStop)
+			ctx, cancel := DefaultQueryCtxWithParent(ctx)
 			defer cancel()
 			if l.conn == nil {
 				if err = l.checkoutConn(ctx); err != nil {
@@ -82,7 +77,7 @@ func (l *advisoryLock) TakeAndHold() (err error) {
 		l.logRetry(retryCount)
 		retryCount++
 		select {
-		case <-l.chStop:
+		case <-ctx.Done():
 			err = errors.New("stopped")
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
@@ -93,9 +88,14 @@ func (l *advisoryLock) TakeAndHold() (err error) {
 	}
 
 	l.logger.Debug("Got advisory lock")
-	l.wg.Add(1)
-	go l.loop()
+	go l.loop(ctx)
 	return nil
+}
+
+// WaitForRelease blocks until the lock gets released if it was acquired successfully.
+// Thread safe.
+func (l *advisoryLock) WaitForRelease() {
+	<-l.chReleased
 }
 
 // advisory lock must use one specific connection
@@ -125,18 +125,15 @@ func (l *advisoryLock) logRetry(count int) {
 
 const checkAdvisoryLockStmt = `SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND (classid::bigint << 32) | objid::bigint = $1)`
 
-func (l *advisoryLock) loop() {
-	defer l.wg.Done()
+func (l *advisoryLock) loop(ctx context.Context) {
+	defer close(l.chReleased)
 
 	ticker := time.NewTicker(utils.WithJitter(l.checkInterval))
 	defer ticker.Stop()
 
-	ctxStop, cancel := utils.ContextFromChan(l.chStop)
-	defer cancel()
-
 	for {
 		select {
-		case <-l.chStop:
+		case <-ctx.Done():
 			ctx, cancel := DefaultQueryCtx()
 			err := multierr.Combine(
 				utils.JustError(l.conn.ExecContext(ctx, `SELECT pg_advisory_unlock($1)`, l.id)),
@@ -150,7 +147,7 @@ func (l *advisoryLock) loop() {
 		case <-ticker.C:
 			var gotLock bool
 
-			ctx, cancel := DefaultQueryCtxWithParent(ctxStop)
+			ctx, cancel := DefaultQueryCtxWithParent(ctx)
 			l.logger.Trace("Checking advisory lock")
 			err := l.conn.QueryRowContext(ctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
@@ -170,11 +167,4 @@ func (l *advisoryLock) loop() {
 			ticker.Reset(utils.WithJitter(l.checkInterval))
 		}
 	}
-}
-
-// Unlock releases the lock and DB connection.
-// Should only be called once, and ends the lifecycle of the lock object
-func (l *advisoryLock) Release() {
-	close(l.chStop)
-	l.wg.Wait()
 }
