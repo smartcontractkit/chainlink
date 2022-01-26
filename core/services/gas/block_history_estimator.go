@@ -74,9 +74,10 @@ type (
 		ctx                 context.Context
 		ctxCancel           context.CancelFunc
 
-		gasPrice *big.Int
-		tipCap   *big.Int
-		mu       sync.RWMutex
+		gasPrice      *big.Int
+		tipCap        *big.Int
+		latestBaseFee *big.Int
+		mu            sync.RWMutex
 
 		logger logger.Logger
 	}
@@ -99,6 +100,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config C
 		cancel,
 		nil,
 		nil,
+		nil,
 		sync.RWMutex{},
 		lggr.Named("BlockHistoryEstimator"),
 	}
@@ -109,7 +111,26 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config C
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
 func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+	// set latest base fee here to avoid potential lag introduced by block delay
+	// it is really important that base fee be as up-to-date as possible
+	b.setLatestBaseFee(head.BaseFeePerGas)
 	b.mb.Deliver(head)
+}
+
+func (b *BlockHistoryEstimator) setLatestBaseFee(baseFee *utils.Big) {
+	// Non-eip1559 blocks don't include base fee; just ignore
+	if baseFee == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.latestBaseFee = new(big.Int)
+	b.latestBaseFee.Set(baseFee.ToInt())
+}
+func (b *BlockHistoryEstimator) getCurrentBaseFee() *big.Int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.latestBaseFee
 }
 
 func (b *BlockHistoryEstimator) Start() error {
@@ -125,6 +146,7 @@ func (b *BlockHistoryEstimator) Start() error {
 			b.logger.Warnw("initial check for latest head failed, head was unexpectedly nil")
 		} else {
 			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
+			b.setLatestBaseFee(latestHead.BaseFeePerGas)
 			b.FetchBlocksAndRecalculate(ctx, latestHead)
 		}
 		b.wg.Add(1)
@@ -166,14 +188,6 @@ func (b *BlockHistoryEstimator) getTipCap() *big.Int {
 	defer b.mu.RUnlock()
 	return b.tipCap
 }
-func (b *BlockHistoryEstimator) getCurrentBaseFee() *big.Int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	if len(b.rollingBlockHistory) == 0 {
-		return nil
-	}
-	return b.rollingBlockHistory[len(b.rollingBlockHistory)-1].BaseFeePerGas
-}
 
 func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit)
@@ -198,16 +212,17 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 		if b.config.EvmGasBumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = b.config.EvmMaxGasPriceWei()
-		} else if len(b.rollingBlockHistory) > 0 {
+		} else if b.latestBaseFee != nil {
 			// HACK: due to a flaw of how EIP-1559 is implemented we have to
 			// set a much lower FeeCap than the actual maximum we are willing
 			// to pay in order to give ourselves headroom for bumping
 			// See: https://github.com/ethereum/go-ethereum/issues/24284
-			block := b.rollingBlockHistory[len(b.rollingBlockHistory)-1]
-			feeCap = calcFeeCap(block.BaseFeePerGas, b.config, tipCap)
+			feeCap = calcFeeCap(b.latestBaseFee, b.config, tipCap)
 		} else {
-			// This shouldn't happen
-			err = errors.New("BlockHistoryEstimator: block history was empty; cannot estimate EIP-1559 base fee")
+			// This shouldn't happen since if the tip cap is set, Start must
+			// have succeeded and we would expect an initial base fee to be set
+			// as well
+			err = errors.New("BlockHistoryEstimator: no value for latest block base fee; cannot estimate EIP-1559 base fee")
 			return
 		}
 	})

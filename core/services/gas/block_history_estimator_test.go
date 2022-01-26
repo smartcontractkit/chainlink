@@ -76,7 +76,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: utils.NewBigI(420)}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -101,6 +101,8 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		assert.Equal(t, int(bhe.RollingBlockHistory()[0].Number), 41)
 		assert.Equal(t, int(bhe.RollingBlockHistory()[1].Number), 42)
 
+		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
+
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
 	})
@@ -119,6 +121,9 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		err := bhe.Start()
 		require.NoError(t, err)
 
+		// non-eip1559 block
+		assert.Nil(t, gas.GetLatestBaseFee(bhe))
+
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
 	})
@@ -132,6 +137,8 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		err := bhe.Start()
 		require.NoError(t, err)
+
+		assert.Nil(t, gas.GetLatestBaseFee(bhe))
 
 		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
 		require.Error(t, err)
@@ -150,12 +157,14 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: utils.NewBigI(420)}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
 
 		err := bhe.Start()
 		require.NoError(t, err)
+
+		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
 
 		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
 		require.Error(t, err)
@@ -168,6 +177,24 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
 	})
+}
+
+func TestBlockHistoryEstimator_OnNewLongestChain(t *testing.T) {
+	bhe := newBlockHistoryEstimator(t, nil, nil)
+
+	assert.Nil(t, gas.GetLatestBaseFee(bhe))
+
+	// non EIP-1559 block
+	h := cltest.Head(1)
+	bhe.OnNewLongestChain(context.Background(), h)
+	assert.Nil(t, gas.GetLatestBaseFee(bhe))
+
+	// EIP-1559 block
+	h = cltest.Head(2)
+	h.BaseFeePerGas = utils.NewBigI(500)
+	bhe.OnNewLongestChain(context.Background(), h)
+
+	assert.Equal(t, big.NewInt(500), gas.GetLatestBaseFee(bhe))
 }
 
 func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
@@ -1431,13 +1458,13 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 
 	blocks := []gas.Block{
 		gas.Block{
-			BaseFeePerGas: big.NewInt(100000),
+			BaseFeePerGas: big.NewInt(88889),
 			Number:        0,
 			Hash:          utils.NewHash(),
 			Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(5000, 6000, 6000),
 		},
 		gas.Block{
-			BaseFeePerGas: big.NewInt(112500),
+			BaseFeePerGas: big.NewInt(100000),
 			Number:        1,
 			Hash:          utils.NewHash(),
 			Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(10000),
@@ -1447,6 +1474,27 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 
 	bhe.Recalculate(cltest.Head(1))
 	gas.SimulateStart(bhe)
+
+	t.Run("if estimator is missing base fee and gas bumping is enabled", func(t *testing.T) {
+		cfg.On("EvmGasBumpThreshold").Return(uint64(1)).Once()
+
+		_, _, err := bhe.GetDynamicFee(100000)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "f")
+	})
+
+	t.Run("if estimator is missing base fee and gas bumping is disabled", func(t *testing.T) {
+		cfg.On("EvmGasBumpThreshold").Return(uint64(0)).Once()
+
+		fee, limit, err := bhe.GetDynamicFee(100000)
+		require.NoError(t, err)
+		assert.Equal(t, gas.DynamicFee{FeeCap: maxGasPrice, TipCap: big.NewInt(6000)}, fee)
+		assert.Equal(t, 100000, int(limit))
+	})
+
+	h := cltest.Head(1)
+	h.BaseFeePerGas = utils.NewBigI(112500)
+	bhe.OnNewLongestChain(context.Background(), h)
 
 	t.Run("if gas bumping is enabled", func(t *testing.T) {
 		cfg.On("EvmGasBumpThreshold").Return(uint64(1)).Once()
