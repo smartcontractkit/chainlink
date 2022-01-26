@@ -16,6 +16,10 @@ New ENV vars:
 - `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
 - `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed. 
 
+### Removed
+
+- `deleteuser` CLI command.
+
 ## [1.1.0] - .........
 
 ### Added
