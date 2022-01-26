@@ -20,7 +20,7 @@ New ENV vars:
 
 - `deleteuser` CLI command.
 
-## [1.1.0] - .........
+## [1.1.0] - 2022-01-25
 
 ### Added
 
