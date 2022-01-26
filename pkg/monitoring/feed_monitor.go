@@ -73,7 +73,7 @@ CONSUME_LOOP:
 		}
 	}
 
-	// Cleanup: give exporters the chance to cleanup before they exit!
+	// Cleanup
 	cleanupContext, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	wg.Add(len(f.exporters))

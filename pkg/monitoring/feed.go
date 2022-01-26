@@ -6,13 +6,14 @@ type FeedParser func(buf io.ReadCloser) ([]FeedConfig, error)
 
 // FeedConfig is the interface for feed configurations extracted from the RDD.
 type FeedConfig interface {
+	// This functions as a feed identifier.
+	GetID() string
 	GetName() string
 	GetPath() string
 	GetSymbol() string
 	GetHeartbeatSec() int64
 	GetContractType() string
 	GetContractStatus() string
-	// This functions as a feed identifier.
 	GetContractAddress() string
 	GetContractAddressBytes() []byte
 	// Useful for mapping to kafka messages.

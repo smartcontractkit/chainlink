@@ -39,11 +39,8 @@ func MakeTransmissionMapping(
 			"link.chain.ocr2.chain_config": chainConfig.ToMapping(),
 		},
 		"feed_config": feedConfig.ToMapping(),
-		"balances": map[string]interface{}{
-			"link.chain.ocr2.balances": map[string]interface{}{
-				"native_token_balance": uint64ToBeBytes(envelope.NativeTokenBalance),
-				"link_balance":         uint64ToBeBytes(envelope.LinkBalance),
-			},
+		"link_balance": map[string]interface{}{
+			"bytes": uint64ToBeBytes(envelope.LinkBalance),
 		},
 	}
 	return out, nil

@@ -40,9 +40,19 @@ func (_m *Metrics) IncOffchainAggregatorAnswersTotal(contractAddress string, fee
 	_m.Called(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 
+// SetFeedContractLinkBalance provides a mock function with given fields: balance, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *Metrics) SetFeedContractLinkBalance(balance uint64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(balance, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
 // SetFeedContractMetadata provides a mock function with given fields: chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol
 func (_m *Metrics) SetFeedContractMetadata(chainID string, contractAddress string, feedID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string, symbol string) {
 	_m.Called(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol)
+}
+
+// SetFeedContractNativeTokenBalance provides a mock function with given fields: balance, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *Metrics) SetFeedContractNativeTokenBalance(balance uint64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(balance, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 
 // SetHeadTrackerCurrentHead provides a mock function with given fields: blockNumber, networkName, chainID, networkID
