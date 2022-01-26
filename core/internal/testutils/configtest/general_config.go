@@ -363,6 +363,7 @@ func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
 }
 
+// KeeperCheckUpkeepGasPriceFeatureEnabled overrides
 func (c *TestGeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	if c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Valid {
 		return c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Bool
