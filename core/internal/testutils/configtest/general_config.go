@@ -362,6 +362,13 @@ func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
 }
 
+func (c *TestGeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	if c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Valid {
+		return c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Bool
+	}
+	return c.GeneralConfig.KeeperCheckUpkeepGasPriceFeatureEnabled()
+}
+
 func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
 	if c.Overrides.BlockBackfillDepth.Valid {
 		return uint64(c.Overrides.BlockBackfillDepth.Int64)

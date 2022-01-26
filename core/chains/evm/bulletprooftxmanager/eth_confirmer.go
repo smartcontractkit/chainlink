@@ -1105,22 +1105,22 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// In this case the simplest and most robust way to recover is to ignore
 		// this attempt and wait until the next bump threshold is reached in
 		// order to bump again.
-		ec.lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced at %v wei for eth_tx %v. "+
+		ec.lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %v. "+
 			"Eth node returned error: '%s'. "+
 			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			attempt.GasPrice.ToInt().Int64(), etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError)
+			etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
 		// Assume success and hand off to the next cycle.
 		sendError = nil
 	}
 
 	if sendError.IsInsufficientEth() {
-		ec.lggr.Errorw(fmt.Sprintf("EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
+		ec.lggr.Errorw(fmt.Sprintf("EthTxAttempt %v (hash 0x%x) was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
-			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
-		), "err", sendError)
+			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
+		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		return saveInsufficientEthAttempt(ec.q, ec.lggr, &attempt, now)
 	}
 
@@ -1384,7 +1384,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 				continue
 			}
 			if err := sendTransaction(context.TODO(), ec.ethClient, attempt, *etx, ec.lggr); err != nil {
-				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error()), "err", err)
+				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v and gas limit %v: %s", etx.ID, *etx.Nonce, etx.GasLimit, err.Error()), "err", err, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 				continue
 			}
 			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast eth_tx %v with hash: 0x%x", etx.ID, attempt.Hash)

@@ -115,6 +115,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 			// avoid waiting to re-submit for upkeeps
 			config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+			// test with gas price feature enabled
+			config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 			// helps prevent missed heads
 			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)

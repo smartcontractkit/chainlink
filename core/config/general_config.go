@@ -119,6 +119,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
+	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeyFile() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
@@ -738,6 +739,11 @@ func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
 // KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
 func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", parse.Uint32).(uint32)
+}
+
+// KeeperCheckUpkeepGasPriceFeatureEnabled enables keepers to include a gas price when running checkUpkeep
+func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	return c.getWithFallback("KeeperCheckUpkeepGasPriceFeatureEnabled", ParseBool).(bool)
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format
