@@ -2,6 +2,9 @@ package terra
 
 import (
 	"fmt"
+	"time"
+
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/pkg/errors"
 
@@ -19,8 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// DefaultRequestTimeoutSeconds is the default Terra client timeout.
-const DefaultRequestTimeoutSeconds = 10
+// DefaultRequestTimeout is the default Terra client timeout.
+// Note that while the terra node is processing a heavy block,
+// requests can be delayed significantly (https://github.com/tendermint/tendermint/issues/6899),
+// however there's nothing we can do but wait until the block is processed.
+// So we set a fairly high timeout here.
+const DefaultRequestTimeout = 30 * time.Second
 
 //go:generate mockery --name MsgEnqueuer --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 //go:generate mockery --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
@@ -49,12 +56,24 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 	node := dbchain.Nodes[0] // TODO multi-node client pool https://app.shortcut.com/chainlinklabs/story/26278/terra-multi-node-client-pools
 	lggr.Debugw(fmt.Sprintf("Terra chain %q has %d nodes - using %q", dbchain.ID, len(dbchain.Nodes), node.Name),
 		"tendermint-url", node.TendermintURL)
-	client, err := terraclient.NewClient(dbchain.ID,
-		node.TendermintURL, node.FCDURL, DefaultRequestTimeoutSeconds, lggr.Named("Client"))
+	gpeFCD, err := terraclient.NewFCDGasPriceEstimator(node.FCDURL, DefaultRequestTimeout, lggr)
 	if err != nil {
 		return nil, err
 	}
-	txm, err := terratxm.NewTxm(db, client, dbchain.ID, cfg, ks, lggr, logCfg, eb)
+	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
+		terraclient.NewCachingGasPriceEstimator(gpeFCD, lggr),
+		terraclient.NewClosureGasPriceEstimator(func() (map[string]sdk.DecCoin, error) {
+			return map[string]sdk.DecCoin{
+				"uluna": sdk.NewDecCoinFromDec("uluna", cfg.FallbackGasPriceULuna()),
+			}, nil
+		}),
+	}, lggr)
+	client, err := terraclient.NewClient(dbchain.ID,
+		node.TendermintURL, DefaultRequestTimeout, lggr.Named("Client"))
+	if err != nil {
+		return nil, err
+	}
+	txm, err := terratxm.NewTxm(db, client, *gpe, dbchain.ID, cfg, ks, lggr, logCfg, eb)
 	if err != nil {
 		return nil, err
 	}

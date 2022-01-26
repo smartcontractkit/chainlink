@@ -58,17 +58,21 @@ func TestTxm(t *testing.T) {
 	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
 	require.NoError(t, err)
 	cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
+	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
+		terraclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
+			"uluna": cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")),
+		}),
+	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
+		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
 
 		// Enqueue a single msg, then send it in a batch
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
 		require.NoError(t, err)
 		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil)
-		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")))
 		tc.On("BatchSimulateUnsigned", mock.Anything, mock.Anything).Return(&terraclient.BatchSimResults{
 			Failed: nil,
 			Succeeded: terraclient.SimMsgs{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
@@ -103,7 +107,7 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
@@ -111,7 +115,6 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		ids := []int64{id1, id2}
 		senders := []string{sender1.String(), sender2.String()}
-		tc.On("GasPrice", mock.Anything).Return(cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01"))).Once()
 		for i := 0; i < 2; i++ {
 			tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil).Once()
 			// Note this must be arg dependent, we don't know which order
@@ -171,7 +174,7 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
 		cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
@@ -195,7 +198,7 @@ func TestTxm(t *testing.T) {
 		tc.On("Tx", txHash2).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash2},
 		}, nil).Once()
-		txm, _ := NewTxm(db, tc, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
 		// Insert and broadcast 2 msgs with different txhashes.
 		id1, err := txm.orm.InsertMsg("blah", []byte{0x01})

@@ -30,13 +30,18 @@ import (
 	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 )
 
-func TestTxmStartStop(t *testing.T) {
+func TestTxm_Integration(t *testing.T) {
 	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	logCfg := pgtest.NewPGCfg(true)
-	fallbackGasPrice := sdk.NewDecCoinFromDec("ulunua", sdk.MustNewDecFromStr("0.01"))
+	fallbackGasPrice := sdk.NewDecCoinFromDec("uluna", sdk.MustNewDecFromStr("0.01"))
+	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
+		terraclient.NewFixedGasPriceEstimator(map[string]sdk.DecCoin{
+			"uluna": fallbackGasPrice,
+		}),
+	}, lggr)
 	dbChain, err := terra.NewORM(db, lggr, logCfg).CreateChain(chainID, ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom(fallbackGasPrice.Amount.String()),
 		GasLimitMultiplier:    null.FloatFrom(1.5),
@@ -49,8 +54,7 @@ func TestTxmStartStop(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	accounts, testdir := terraclient.SetupLocalTerraNode(t, "42")
-	time.Sleep(5 * time.Second)
-	tc, err := terraclient.NewClient("42", "http://127.0.0.1:26657", "https://fcd.terra.dev/", 10, lggr)
+	tc, err := terraclient.NewClient("42", "http://127.0.0.1:26657", terra.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
 
 	// First create a transmitter key and fund it with 1k uluna
@@ -62,7 +66,7 @@ func TestTxmStartStop(t *testing.T) {
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
 	_, err = tc.SignAndBroadcast([]msg.Msg{msg.NewMsgSend(accounts[0].Address, transmitterID, msg.NewCoins(msg.NewInt64Coin("uluna", 100000)))},
-		an, sn, tc.GasPrice(fallbackGasPrice), accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
+		an, sn, gpe.GasPrices()["uluna"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	require.NoError(t, err)
 
 	// TODO: find a way to pull this test artifact from
@@ -74,7 +78,7 @@ func TestTxmStartStop(t *testing.T) {
 	}, tc, testdir, "../../../testdata/terra/my_first_contract.wasm")
 
 	// Start txm
-	txm, err := terratxm.NewTxm(db, tc, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
+	txm, err := terratxm.NewTxm(db, tc, *gpe, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
 	require.NoError(t, err)
 	require.NoError(t, txm.Start())
 
