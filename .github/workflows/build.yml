@@ -19,3 +19,4 @@ jobs:
         with:
           publish: false
           image-name: test-chainlink
+          sign-images: false
