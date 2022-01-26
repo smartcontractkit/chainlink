@@ -12,11 +12,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type NodesController struct {
+// EVMNodesController manages EVM nodes.
+type EVMNodesController struct {
 	App chainlink.Application
 }
 
-func (nc *NodesController) Index(c *gin.Context, size, page, offset int) {
+// Index lists EVM nodes, and optionally filters by chain id.
+func (nc *EVMNodesController) Index(c *gin.Context, size, page, offset int) {
 	id := c.Param("ID")
 
 	var nodes []types.Node
@@ -37,15 +39,16 @@ func (nc *NodesController) Index(c *gin.Context, size, page, offset int) {
 		nodes, count, err = nc.App.EVMORM().NodesForChain(chainID, offset, size)
 	}
 
-	var resources []presenters.NodeResource
+	var resources []presenters.EVMNodeResource
 	for _, node := range nodes {
-		resources = append(resources, presenters.NewNodeResource(node))
+		resources = append(resources, presenters.NewEVMNodeResource(node))
 	}
 
 	paginatedResponse(c, "node", size, page, resources, count, err)
 }
 
-func (nc *NodesController) Create(c *gin.Context) {
+// Create adds a new EVM node.
+func (nc *EVMNodesController) Create(c *gin.Context) {
 	var request types.NewNode
 
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -60,10 +63,11 @@ func (nc *NodesController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewNodeResource(node), "node")
+	jsonAPIResponse(c, presenters.NewEVMNodeResource(node), "node")
 }
 
-func (nc *NodesController) Delete(c *gin.Context) {
+// Delete removes an EVM node.
+func (nc *EVMNodesController) Delete(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("ID"), 10, 64)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

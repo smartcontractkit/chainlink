@@ -81,7 +81,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 func (ekc *ETHKeysController) Create(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 
-	chain, err := getChain(ekc.App.GetChainSet(), c.Query("evmChainID"))
+	chain, err := getChain(ekc.App.GetChains().EVM, c.Query("evmChainID"))
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -110,7 +110,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	if maxGasPriceGWei > 0 {
 		maxGasPriceWei := assets.GWei(maxGasPriceGWei)
 		updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address.Address(), maxGasPriceWei)
-		if err = ekc.App.GetChainSet().UpdateConfig(chain.ID(), updateMaxGasPrice); err != nil {
+		if err = ekc.App.GetChains().EVM.UpdateConfig(chain.ID(), updateMaxGasPrice); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
@@ -166,7 +166,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 
 	maxGasPriceWei := assets.GWei(maxGasPriceGWei)
 	updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address.Address(), maxGasPriceWei)
-	if err = ekc.App.GetChainSet().UpdateConfig((*big.Int)(&state.EVMChainID), updateMaxGasPrice); err != nil {
+	if err = ekc.App.GetChains().EVM.UpdateConfig((*big.Int)(&state.EVMChainID), updateMaxGasPrice); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -246,7 +246,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	chain, err := getChain(ekc.App.GetChainSet(), c.Query("evmChainID"))
+	chain, err := getChain(ekc.App.GetChains().EVM, c.Query("evmChainID"))
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -301,7 +301,7 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 // resource.
 func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
 	var bal *big.Int
-	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
+	chain, err := ekc.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 	if err == nil {
 		ethClient := chain.Client()
 		bal, err = ethClient.BalanceAt(ctx, state.Address.Address(), nil)
@@ -326,7 +326,7 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.St
 // resource.
 func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewETHKeyOption {
 	var bal *assets.Link
-	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
+	chain, err := ekc.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 	if err == nil {
 		ethClient := chain.Client()
 		addr := common.HexToAddress(chain.Config().LinkContractAddress())
@@ -352,7 +352,7 @@ func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewE
 // resource.
 func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) presenters.NewETHKeyOption {
 	var price *big.Int
-	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
+	chain, err := ekc.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
 	if err == nil {
 		price = chain.Config().KeySpecificMaxGasPriceWei(keyAddress)
 	}

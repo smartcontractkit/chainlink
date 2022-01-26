@@ -62,6 +62,10 @@ RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
 
 COPY --from=1 /go/bin/chainlink /usr/local/bin/
 
+# dependency of terra-money/core
+COPY --from=1 /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/api/libwasmvm.so /usr/lib/libwasmvm.so
+RUN chmod 755 /usr/lib/libwasmvm.so
+
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
   fi

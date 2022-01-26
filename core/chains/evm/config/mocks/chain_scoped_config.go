@@ -559,6 +559,20 @@ func (_m *ChainScopedConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode 
 	return r0
 }
 
+// DatabaseBackupOnVersionUpgrade provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseBackupOnVersionUpgrade() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // DatabaseBackupURL provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseBackupURL() *url.URL {
 	ret := _m.Called()
@@ -2410,6 +2424,20 @@ func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return r0
 }
 
+// KeeperCheckUpkeepGasPriceFeatureEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // KeeperDefaultTransactionQueueDepth provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	ret := _m.Called()
@@ -3853,20 +3881,6 @@ func (_m *ChainScopedConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
-	}
-
-	return r0
-}
-
-// UseLegacyEthEnvVars provides a mock function with given fields:
-func (_m *ChainScopedConfig) UseLegacyEthEnvVars() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

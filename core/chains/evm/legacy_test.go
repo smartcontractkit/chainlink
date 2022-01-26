@@ -54,10 +54,10 @@ func Test_ClobberDBFromEnv(t *testing.T) {
 	require.NoError(t, err)
 
 	cltest.AssertCount(t, db, "evm_chains", fixtureChains+1)
-	cltest.AssertCount(t, db, "nodes", fixtureNodes+3)
+	cltest.AssertCount(t, db, "evm_nodes", fixtureNodes+3)
 
 	var primaryNode evmtypes.Node
-	err = db.Get(&primaryNode, `SELECT * FROM nodes WHERE evm_chain_id = 42 AND NOT send_only`)
+	err = db.Get(&primaryNode, `SELECT * FROM evm_nodes WHERE evm_chain_id = 42 AND NOT send_only`)
 	require.NoError(t, err)
 
 	assert.Equal(t, "primary-0-42", primaryNode.Name)
@@ -69,7 +69,7 @@ func Test_ClobberDBFromEnv(t *testing.T) {
 	assert.False(t, primaryNode.SendOnly)
 
 	var sendonlyNodes []evmtypes.Node
-	err = db.Select(&sendonlyNodes, `SELECT * FROM nodes WHERE evm_chain_id = 42 AND send_only ORDER BY http_url`)
+	err = db.Select(&sendonlyNodes, `SELECT * FROM evm_nodes WHERE evm_chain_id = 42 AND send_only ORDER BY http_url`)
 	require.NoError(t, err)
 	require.Len(t, sendonlyNodes, 2)
 

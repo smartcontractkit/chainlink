@@ -27,6 +27,6 @@
 //
 // Tx Manager
 //
-// The transaction manager is used to syncronize interactions on the
+// The transaction manager is used to synchronize interactions on the
 // Ethereum blockchain with the application and database.
 package store

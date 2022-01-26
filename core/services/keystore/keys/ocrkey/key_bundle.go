@@ -42,10 +42,6 @@ type (
 	}
 )
 
-func (EncryptedKeyBundle) TableName() string {
-	return "encrypted_ocr_key_bundles"
-}
-
 func (ekb EncryptedKeyBundle) GetID() string {
 	return ekb.ID.String()
 }
@@ -127,7 +123,7 @@ func (pk *KeyBundle) PublicKeyAddressOnChain() ocrtypes.OnChainSigningAddress {
 	return ocrtypes.OnChainSigningAddress(pk.onChainSigning.Address())
 }
 
-// PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
+// PublicKeyOffChain returns the public component of the keypair used in SignOffChain
 func (pk *KeyBundle) PublicKeyOffChain() ocrtypes.OffchainPublicKey {
 	return ocrtypes.OffchainPublicKey(pk.offChainSigning.PublicKey())
 }

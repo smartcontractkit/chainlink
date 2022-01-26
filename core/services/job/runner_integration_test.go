@@ -634,7 +634,7 @@ ds1 -> ds1_parse;
 	})
 }
 
-func TestRunner_AsyncJob(t *testing.T) {
+func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
@@ -741,25 +741,25 @@ func TestRunner_AsyncJob(t *testing.T) {
 	var jobID int32
 	{
 		tomlSpec := fmt.Sprintf(`
-type            = "webhook"
-schemaVersion   = 1
-externalJobID           = "%v"
-externalInitiators = [
-	{
-		name = "%s",
-		spec = """
-	%s
-"""
-	}
-]
-observationSource   = """
-    parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
-	ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"value": $(parse)}>]
-	ds1_parse [type=jsonparse lax=false  path="data,result"]
-	ds1_multiply [type=multiply times=1000000000000000000 index=0]
-
-	parse->ds1->ds1_parse->ds1_multiply;
-"""
+			type            = "webhook"
+			schemaVersion   = 1
+			externalJobID           = "%v"
+			externalInitiators = [
+				{
+					name = "%s",
+					spec = """
+				%s
+			"""
+				}
+			]
+			observationSource   = """
+				parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
+				ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"value": $(parse)}>]
+				ds1_parse [type=jsonparse lax=false  path="data,result"]
+				ds1_multiply [type=multiply times=1000000000000000000 index=0]
+			
+				parse->ds1->ds1_parse->ds1_multiply;
+			"""
     `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec), bridgeName)
 
 		_, err := webhook.ValidatedWebhookSpec(tomlSpec, app.GetExternalInitiatorManager())
@@ -769,7 +769,6 @@ observationSource   = """
 
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}
-
 	t.Run("simulate request from EI -> Core node with successful callback", func(t *testing.T) {
 		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
@@ -806,7 +805,148 @@ observationSource   = """
 		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "", Valid: false}}}, run.FatalErrors)
 	})
+	// Delete the job
+	{
+		cltest.DeleteJobViaWeb(t, app, jobID)
+		require.Eventually(t, func() bool { return eiNotifiedOfDelete }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of deleted job")
+	}
+}
 
+func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMockCalls()
+
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
+	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg})
+	require.NoError(t, app.Start())
+
+	var (
+		eiName    = "substrate-ei"
+		eiSpec    = map[string]interface{}{"foo": "bar"}
+		eiRequest = map[string]interface{}{"result": 42}
+
+		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")
+
+		expectedCreateJobRequest = map[string]interface{}{
+			"jobId":  jobUUID.String(),
+			"type":   eiName,
+			"params": eiSpec,
+		}
+	)
+
+	// Setup EI
+	var eiURL string
+	var eiNotifiedOfCreate bool
+	var eiNotifiedOfDelete bool
+	{
+		mockEI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !eiNotifiedOfCreate {
+				require.Equal(t, http.MethodPost, r.Method)
+
+				eiNotifiedOfCreate = true
+				defer r.Body.Close()
+
+				var gotCreateJobRequest map[string]interface{}
+				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
+				require.NoError(t, err)
+
+				require.Equal(t, expectedCreateJobRequest, gotCreateJobRequest)
+				w.WriteHeader(http.StatusOK)
+			} else {
+				require.Equal(t, http.MethodDelete, r.Method)
+
+				eiNotifiedOfDelete = true
+				defer r.Body.Close()
+
+				require.Equal(t, fmt.Sprintf("/%v", jobUUID.String()), r.URL.Path)
+			}
+		}))
+		defer mockEI.Close()
+		eiURL = mockEI.URL
+	}
+
+	// Create the EI record on the Core node
+	var eia *auth.Token
+	{
+		eiCreate := map[string]string{
+			"name": eiName,
+			"url":  eiURL,
+		}
+		eiCreateJSON, err := json.Marshal(eiCreate)
+		require.NoError(t, err)
+		eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+		eia = &auth.Token{
+			AccessKey: eip.AccessKey,
+			Secret:    eip.Secret,
+		}
+	}
+
+	var responseURL string
+
+	// Create the bridge on the Core node
+	bridgeCalled := make(chan struct{}, 1)
+	var bridgeName string
+	{
+		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer r.Body.Close()
+
+			var bridgeRequest map[string]interface{}
+			err := json.NewDecoder(r.Body).Decode(&bridgeRequest)
+			require.NoError(t, err)
+
+			require.Equal(t, float64(42), bridgeRequest["value"])
+
+			responseURL = bridgeRequest["responseURL"].(string)
+
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, err)
+			io.WriteString(w, `{"pending": true}`)
+			bridgeCalled <- struct{}{}
+		}))
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL}, app.GetConfig())
+		bridgeName = bridge.Name.String()
+		defer bridgeServer.Close()
+	}
+
+	// Create the job spec on the Core node
+	var jobID int32
+	{
+		tomlSpec := fmt.Sprintf(`
+			type            = "webhook"
+			schemaVersion   = 1
+			externalJobID           = "%v"
+			externalInitiators = [
+				{
+					name = "%s",
+					spec = """
+				%s
+			"""
+				}
+			]
+			observationSource   = """
+				parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
+				ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"value": $(parse)}>]
+				ds1_parse [type=jsonparse lax=false  path="data,result"]
+				ds1_multiply [type=multiply times=1000000000000000000 index=0]
+			
+				parse->ds1->ds1_parse->ds1_multiply;
+			"""
+    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec), bridgeName)
+
+		_, err := webhook.ValidatedWebhookSpec(tomlSpec, app.GetExternalInitiatorManager())
+		require.NoError(t, err)
+		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		jobID = job.ID
+
+		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
+	}
 	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
@@ -842,7 +982,6 @@ observationSource   = """
 		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{interface{}(nil)}, Valid: true}, run.Outputs)
 		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "task inputs: too many errors", Valid: true}}}, run.FatalErrors)
 	})
-
 	// Delete the job
 	{
 		cltest.DeleteJobViaWeb(t, app, jobID)

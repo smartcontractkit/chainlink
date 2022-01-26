@@ -423,7 +423,7 @@ func ExampleRun_txs() {
 	//    core.test txs command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Send <amount> Eth from node ETH account <fromAddress> to destination <toAddress>.
+	//    create  Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.
 	//    list    List the Ethereum Transactions in descending order
 	//    show    get information on a specific Ethereum Transaction
 	//
@@ -441,7 +441,8 @@ func ExampleRun_chains() {
 	//    core.test chains command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm  Commands for handling EVM chains
+	//    evm    Commands for handling EVM chains
+	//    terra  Commands for handling Terra chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -459,8 +460,27 @@ func ExampleRun_chains_evm() {
 	// COMMANDS:
 	//    create     Create a new EVM chain
 	//    delete     Delete an EVM chain
-	//    list       List all chains
+	//    list       List all EVM chains
 	//    configure  Configure an EVM chain
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_chains_terra() {
+	run("chains", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains terra - Commands for handling Terra chains
+	//
+	// USAGE:
+	//    core.test chains terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create     Create a new Terra chain
+	//    delete     Delete a Terra chain
+	//    list       List all Terra chains
+	//    configure  Configure a Terra chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -476,9 +496,44 @@ func ExampleRun_nodes() {
 	//    core.test nodes command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create a new node
-	//    delete  Delete a node
-	//    list    List all nodes
+	//    evm    Commands for handling EVM node configuration
+	//    terra  Commands for handling Terra node configuration
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_evm() {
+	run("nodes", "evm", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes evm - Commands for handling EVM node configuration
+	//
+	// USAGE:
+	//    core.test nodes evm command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new EVM node
+	//    delete  Delete an EVM node
+	//    list    List all EVM nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_nodes_terra() {
+	run("nodes", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes terra - Commands for handling Terra node configuration
+	//
+	// USAGE:
+	//    core.test nodes terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new Terra node
+	//    delete  Delete a Terra node
+	//    list    List all Terra nodes
 	//
 	// OPTIONS:
 	//    --help, -h  show help

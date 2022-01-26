@@ -89,17 +89,12 @@ func mustInsertConfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, nonce
 func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
-	config := newTestChainScopedConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, config)
-
-	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
-
+	cfg := newTestChainScopedConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-
-	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
-
+	ec := cltest.NewEthConfirmer(t, db, ethClient, cfg, ethKeyStore, []ethkey.State{state}, nil)
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
 
 	headNum := int64(9000)
@@ -132,6 +127,27 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 		attempt = etx.EthTxAttempts[0]
 
 		assert.Equal(t, int64(42), *attempt.BroadcastBeforeBlockNum)
+	})
+
+	t.Run("only updates eth_tx_attempts for the current chain", func(t *testing.T) {
+		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, cfg.DefaultChainID())
+		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, big.NewInt(1337))
+
+		require.NoError(t, ec.SetBroadcastBeforeBlockNum(headNum))
+
+		etxThisChain, err = borm.FindEthTxWithAttempts(etxThisChain.ID)
+		require.NoError(t, err)
+		require.Len(t, etxThisChain.EthTxAttempts, 1)
+		attempt := etxThisChain.EthTxAttempts[0]
+
+		assert.Equal(t, int64(9000), *attempt.BroadcastBeforeBlockNum)
+
+		etxOtherChain, err = borm.FindEthTxWithAttempts(etxOtherChain.ID)
+		require.NoError(t, err)
+		require.Len(t, etxOtherChain.EthTxAttempts, 1)
+		attempt = etxOtherChain.EthTxAttempts[0]
+
+		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
 }
 
@@ -1833,7 +1849,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		oldEnough, utils.NewBig(assets.GWei(35)), utils.NewBig(assets.GWei(100)), attempt4_1.ID))
 	var attempt4_2 bulletprooftxmanager.EthTxAttempt
 
-	t.Run("bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
+	t.Run("EIP-1559: bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
 		cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1000)
 		ethTx := *types.NewTx(&types.DynamicFeeTx{})
 		kst.On("SignTx",
@@ -1874,7 +1890,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	require.NoError(t, db.Get(&attempt4_2, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
 		oldEnough, utils.NewBig(assets.GWei(999)), utils.NewBig(assets.GWei(1000)), attempt4_2.ID))
 
-	t.Run("resubmits at the old price and does not create a new attempt if one of the bumped EIP-1559 transactions would have its tip cap exceed ETH_MAX_GAS_PRICE_WEI", func(t *testing.T) {
+	t.Run("EIP-1559: resubmits at the old price and does not create a new attempt if one of the bumped EIP-1559 transactions would have its tip cap exceed ETH_MAX_GAS_PRICE_WEI", func(t *testing.T) {
 		cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1000)
 
 		// Third attempt failed to bump, resubmits old one instead
@@ -1897,6 +1913,49 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethClient.AssertExpectations(t)
 		kst.AssertExpectations(t)
+	})
+
+	require.NoError(t, db.Get(&attempt4_2, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
+		oldEnough, utils.NewBig(assets.GWei(45)), utils.NewBig(assets.GWei(100)), attempt4_2.ID))
+
+	t.Run("EIP-1559: saves attempt anyway if replacement transaction is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
+		// NOTE: This test case was empirically impossible when I tried it on eth mainnet (any EIP1559 transaction with a higher tip cap is accepted even if it's only 1 wei more) but appears to be possible on Polygon/Matic, probably due to poor design that applies the 10% minumum to the overall value (base fee + tip cap)
+		expectedBumpedTipCap := assets.GWei(54)
+		require.Greater(t, expectedBumpedTipCap.Int64(), attempt4_2.GasTipCap.ToInt().Int64())
+
+		ethTx := *types.NewTx(&types.LegacyTx{})
+		kst.On("SignTx",
+			fromAddress,
+			mock.MatchedBy(func(tx *types.Transaction) bool {
+				if int64(tx.Nonce()) != *etx4.Nonce || expectedBumpedTipCap.Cmp(tx.GasTipCap()) != 0 {
+					return false
+				}
+				ethTx = *tx
+				return true
+			}),
+			mock.Anything).Return(&ethTx, nil).Once()
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return int64(tx.Nonce()) == *etx4.Nonce && expectedBumpedTipCap.Cmp(tx.GasTipCap()) == 0
+		})).Return(errors.New("replacement transaction underpriced")).Once()
+
+		// Do it
+		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), currentHead))
+
+		etx4, err = borm.FindEthTxWithAttempts(etx4.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx4.State)
+
+		require.Len(t, etx4.EthTxAttempts, 3)
+		require.Equal(t, attempt4_1.ID, etx4.EthTxAttempts[2].ID)
+		require.Equal(t, attempt4_2.ID, etx4.EthTxAttempts[1].ID)
+		attempt4_3 := etx4.EthTxAttempts[0]
+
+		assert.Equal(t, expectedBumpedTipCap.Int64(), attempt4_3.GasTipCap.ToInt().Int64())
+
+		kst.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
+
 	})
 
 	kst.AssertExpectations(t)

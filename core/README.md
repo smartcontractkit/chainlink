@@ -38,16 +38,19 @@ and included in the final binary.
 By default `go install` will install this directory under the name `core`.
 You can instead, build it, and place it in your path as `chainlink`:
 
-```
+```sh
 go build -o $GOPATH/bin/chainlink .
 ```
 
 **Test:**
 
-```
+```sh
 # A higher parallel number can speed up tests at the expense of more RAM.
 go test -p 1 ./...
 ```
+
+This excludes more extensive integration tests which require a bit more setup, head over to [./integration-tests]
+(../integration-tests/README.md) for more details on running those.
 
 The golang testsuite is almost entirely parallelizable, and so running the default
 `go test ./...` will commonly peg your processor. Limit parallelization with the

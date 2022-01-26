@@ -90,6 +90,11 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		GasFeeCap: gasFeeCap.BigInt(),
 	}
 
+	lggr = lggr.With("gas", call.Gas).
+		With("gasPrice", call.GasPrice).
+		With("gasTipCap", call.GasTipCap).
+		With("gasFeeCap", call.GasFeeCap)
+
 	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
 		lggr.Errorf("Invalid chain ID %s", chainID)

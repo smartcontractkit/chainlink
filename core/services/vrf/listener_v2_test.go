@@ -22,9 +22,9 @@ import (
 )
 
 func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state bulletprooftxmanager.EthTxState, maxLink string, subID uint64) {
-	_, err := db.Exec(`INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
+	_, err := db.Exec(`INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 		VALUES (
-		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12
+		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11
 		)
 		RETURNING "eth_txes".*`,
 		from,           // from
@@ -40,15 +40,14 @@ func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state bulletprooft
 		uuid.NullUUID{},
 		1337,
 		0, // confs
-		nil,
-		false)
+		nil)
 	require.NoError(t, err)
 }
 
 func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink string, subID, nonce uint64) {
-	_, err := db.Exec(`INSERT INTO eth_txes (nonce, broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
+	_, err := db.Exec(`INSERT INTO eth_txes (nonce, broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 		VALUES (
-		$1, NOW(), NULL, $2, $3, $4, $5, $6, 'confirmed', NOW(), $7, $8, $9, $10, $11, $12
+		$1, NOW(), NULL, $2, $3, $4, $5, $6, 'confirmed', NOW(), $7, $8, $9, $10, $11
 		)
 		RETURNING "eth_txes".*`,
 		nonce,          // nonce
@@ -64,8 +63,7 @@ func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink s
 		uuid.NullUUID{},
 		1337,
 		0, // confs
-		nil,
-		false)
+		nil)
 	require.NoError(t, err)
 }
 

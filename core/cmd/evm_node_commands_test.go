@@ -16,7 +16,7 @@ import (
 	null "gopkg.in/guregu/null.v4"
 )
 
-func mustInsertChain(t *testing.T, orm types.ORM) types.Chain {
+func mustInsertEVMChain(t *testing.T, orm types.ORM) types.Chain {
 	id := utils.NewBigI(99)
 	config := types.ChainCfg{}
 	chain, err := orm.CreateChain(*id, config)
@@ -33,7 +33,7 @@ func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
 	}
 }
 
-func TestClient_IndexNodes(t *testing.T) {
+func TestClient_IndexEVMNodes(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
@@ -42,7 +42,7 @@ func TestClient_IndexNodes(t *testing.T) {
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
-	chain := mustInsertChain(t, orm)
+	chain := mustInsertEVMChain(t, orm)
 
 	params := types.NewNode{
 		Name:       "Test node",
@@ -54,9 +54,9 @@ func TestClient_IndexNodes(t *testing.T) {
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexNodes(cltest.EmptyCLIContext()))
+	require.Nil(t, client.IndexEVMNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
-	nodes := *r.Renders[0].(*cmd.NodePresenters)
+	nodes := *r.Renders[0].(*cmd.EVMNodePresenters)
 	require.Len(t, nodes, initialCount+1)
 	n := nodes[initialCount]
 	assert.Equal(t, strconv.FormatInt(int64(node.ID), 10), n.ID)
@@ -67,7 +67,7 @@ func TestClient_IndexNodes(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func TestClient_CreateNode(t *testing.T) {
+func TestClient_CreateEVMNode(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
@@ -77,7 +77,7 @@ func TestClient_CreateNode(t *testing.T) {
 	_, initialNodesCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
 
-	chain := mustInsertChain(t, orm)
+	chain := mustInsertEVMChain(t, orm)
 
 	// successful primary
 	set := flag.NewFlagSet("cli", 0)
@@ -87,7 +87,7 @@ func TestClient_CreateNode(t *testing.T) {
 	set.String("http-url", "http://", "")
 	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
 	c := cli.NewContext(nil, set, nil)
-	err = client.CreateNode(c)
+	err = client.CreateEVMNode(c)
 	require.NoError(t, err)
 
 	// successful send-only
@@ -97,7 +97,7 @@ func TestClient_CreateNode(t *testing.T) {
 	set.String("http-url", "http://", "")
 	set.Int64("chain-id", chain.ID.ToInt().Int64(), "")
 	c = cli.NewContext(nil, set, nil)
-	err = client.CreateNode(c)
+	err = client.CreateEVMNode(c)
 	require.NoError(t, err)
 
 	nodes, _, err := orm.Nodes(0, 25)
@@ -119,7 +119,7 @@ func TestClient_CreateNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func TestClient_RemoveNode(t *testing.T) {
+func TestClient_RemoveEVMNode(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
@@ -129,7 +129,7 @@ func TestClient_RemoveNode(t *testing.T) {
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
 
-	chain := mustInsertChain(t, orm)
+	chain := mustInsertEVMChain(t, orm)
 
 	params := types.NewNode{
 		Name:       "Test node",
@@ -148,7 +148,7 @@ func TestClient_RemoveNode(t *testing.T) {
 	set.Parse([]string{strconv.FormatInt(int64(node.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.RemoveNode(c)
+	err = client.RemoveEVMNode(c)
 	require.NoError(t, err)
 
 	chains, _, err = orm.Nodes(0, 25)

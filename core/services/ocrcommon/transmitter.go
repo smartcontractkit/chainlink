@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -23,15 +24,17 @@ type transmitter struct {
 	fromAddress common.Address
 	gasLimit    uint64
 	strategy    bulletprooftxmanager.TxStrategy
+	checker     bulletprooftxmanager.TransmitCheckerSpec
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(txm txManager, fromAddress common.Address, gasLimit uint64, strategy bulletprooftxmanager.TxStrategy) Transmitter {
+func NewTransmitter(txm txManager, fromAddress common.Address, gasLimit uint64, strategy bulletprooftxmanager.TxStrategy, checker bulletprooftxmanager.TransmitCheckerSpec) Transmitter {
 	return &transmitter{
 		txm:         txm,
 		fromAddress: fromAddress,
 		gasLimit:    gasLimit,
 		strategy:    strategy,
+		checker:     checker,
 	}
 }
 
@@ -41,8 +44,8 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
 		GasLimit:       t.gasLimit,
-		Meta:           nil,
 		Strategy:       t.strategy,
+		Checker:        t.checker,
 	}, pg.WithParentCtx(ctx))
 	return errors.Wrap(err, "Skipped OCR transmission")
 }

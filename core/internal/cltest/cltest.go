@@ -30,7 +30,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -48,6 +47,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -78,6 +78,7 @@ import (
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -180,7 +181,8 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
+// NewEthBroadcaster creates a new bulletprooftxmanager.EthBroadcaster for use in testing.
+func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory bulletprooftxmanager.TransmitCheckerFactory) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start()
@@ -188,7 +190,8 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, ke
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
 	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
+		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr,
+		checkerFactory)
 }
 
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
@@ -325,11 +328,11 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T) *TestApplication {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	config := NewTestGeneralConfig(t)
-	return NewApplicationWithConfigAndKey(t, config)
+	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
@@ -414,7 +417,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
-	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
+	var chains chainlink.Chains
+	chains.EVM, err = evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,
@@ -431,6 +435,18 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if err != nil {
 		lggr.Fatal(err)
 	}
+	terraLggr := lggr.Named("Terra")
+	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		Config:           cfg,
+		Logger:           terraLggr,
+		DB:               db,
+		KeyStore:         keyStore.Terra(),
+		EventBroadcaster: eventBroadcaster,
+		ORM:              terra.NewORM(db, terraLggr, cfg),
+	})
+	if err != nil {
+		lggr.Fatal(err)
+	}
 
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -438,7 +454,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ShutdownSignal:           shutdownSignal,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
-		ChainSet:                 chainSet,
+		Chains:                   chains,
 		Logger:                   lggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 	})
@@ -513,6 +529,41 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
+	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("Close").Maybe().Return()
+
+	block := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+
+	s.On("Err").Return(nil).Maybe()
+	s.On("Unsubscribe").Return(nil).Maybe()
+	return c, s, assertMocksCalled
+}
+
+// NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
+	c, s, assertMocksCalled := NewEthMocks(t)
+	c.On("Dial", mock.Anything).Maybe().Return(nil)
+	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
+	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(2), nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(1)).Maybe().Return(Head(1), nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(Head(0), nil)
+	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &gas.Block{
+			Number:       42,
+			Hash:         utils.NewHash(),
+			Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
+		}
+		elems[1].Result = &gas.Block{
+			Number:       41,
+			Hash:         utils.NewHash(),
+			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
+		}
+	})
 	c.On("ChainID").Maybe().Return(&FixtureChainID)
 	c.On("Close").Maybe().Return()
 
@@ -928,7 +979,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 		var matched []pipeline.Run
 		for _, pr := range prs {
-			if pr.State != state {
+			if !pr.State.Finished() || pr.State != state {
 				continue
 			}
 
