@@ -1,0 +1,13 @@
+type TerraChain {
+    id: ID!
+    enabled: Boolean!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+union TerraChainPayload = TerraChain | NotFoundError
+
+type TerraChainsPayload implements PaginatedPayload {
+    results: [TerraChain!]!
+    metadata: PaginationMetadata!
+}

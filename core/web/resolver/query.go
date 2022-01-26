@@ -106,6 +106,26 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	return NewChainsPayload(page, int32(count)), nil
 }
 
+// Chains retrieves a paginated list of chains.
+func (r *Resolver) TerraChains(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*TerraChainsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	page, count, err := r.App.TerraORM().Chains(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewTerraChainsPayload(page, int32(count)), nil
+}
+
 // FeedsManager retrieves a feeds manager by id.
 func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
