@@ -191,8 +191,8 @@ func (l *leaseLock) loop(ctx context.Context) {
 			}
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), l.leaseDuration)
-			gotLease, err := l.getLease(ctx, false)
+			qctx, cancel := context.WithTimeout(ctx, l.leaseDuration)
+			gotLease, err := l.getLease(qctx, false)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				if err = l.checkoutConn(ctx); err != nil {
