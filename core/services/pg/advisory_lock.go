@@ -46,14 +46,14 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 		var err error
 
 		err = func() error {
-			ctx, cancel := DefaultQueryCtxWithParent(ctx)
+			qctx, cancel := DefaultQueryCtxWithParent(ctx)
 			defer cancel()
 			if l.conn == nil {
-				if err = l.checkoutConn(ctx); err != nil {
+				if err = l.checkoutConn(qctx); err != nil {
 					return errors.Wrap(err, "advisory lock failed to checkout initial connection")
 				}
 			}
-			gotLock, err = l.getLock(ctx)
+			gotLock, err = l.getLock(qctx)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				l.conn = nil
@@ -134,9 +134,9 @@ func (l *advisoryLock) loop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			ctx, cancel := DefaultQueryCtx()
+			qctx, cancel := DefaultQueryCtx()
 			err := multierr.Combine(
-				utils.JustError(l.conn.ExecContext(ctx, `SELECT pg_advisory_unlock($1)`, l.id)),
+				utils.JustError(l.conn.ExecContext(qctx, `SELECT pg_advisory_unlock($1)`, l.id)),
 				l.conn.Close(),
 			)
 			cancel()
@@ -147,16 +147,16 @@ func (l *advisoryLock) loop(ctx context.Context) {
 		case <-ticker.C:
 			var gotLock bool
 
-			ctx, cancel := DefaultQueryCtxWithParent(ctx)
+			qctx, cancel := DefaultQueryCtxWithParent(ctx)
 			l.logger.Trace("Checking advisory lock")
-			err := l.conn.QueryRowContext(ctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
+			err := l.conn.QueryRowContext(qctx, checkAdvisoryLockStmt, l.id).Scan(&gotLock)
 			if errors.Is(err, sql.ErrConnDone) {
 				// conn was closed and advisory lock lost, try to check out a new connection and re-lock
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
-				if err = l.checkoutConn(ctx); err != nil {
+				if err = l.checkoutConn(qctx); err != nil {
 					l.logger.Warnw("Error trying to checkout connection", "err", err)
 				}
-				gotLock, err = l.getLock(ctx)
+				gotLock, err = l.getLock(qctx)
 			}
 			cancel()
 			if err != nil {

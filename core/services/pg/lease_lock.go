@@ -86,14 +86,14 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		var err error
 
 		err = func() error {
-			ctx, cancel := DefaultQueryCtxWithParent(ctx)
+			qctx, cancel := DefaultQueryCtxWithParent(ctx)
 			defer cancel()
 			if l.conn == nil {
-				if err = l.checkoutConn(ctx); err != nil {
+				if err = l.checkoutConn(qctx); err != nil {
 					return errors.Wrap(err, "lease lock failed to checkout initial connection")
 				}
 			}
-			gotLease, err = l.getLease(ctx, isInitial)
+			gotLease, err = l.getLease(qctx, isInitial)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				l.conn = nil
