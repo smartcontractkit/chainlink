@@ -23,7 +23,7 @@ import {
   EditJobSpecDialog,
   Props as EditJobSpecDialogProps,
 } from './EditJobSpecDialog'
-import { JobProposalStatus } from 'src/types/generated/graphql'
+import { SpecStatus } from 'src/types/generated/graphql'
 import { TimeAgo } from 'src/components/TimeAgo'
 
 export const JOB_PROPOSAL__SPECS_FIELDS = gql`
@@ -112,7 +112,7 @@ export const SpecsView = withStyles(styles)(
       return sorted.sort((a, b) => b.version - a.version)
     }, [specs])
 
-    const renderActions = (status: JobProposalStatus, specID: string) => {
+    const renderActions = (status: SpecStatus, specID: string) => {
       switch (status) {
         case 'PENDING':
           return (
