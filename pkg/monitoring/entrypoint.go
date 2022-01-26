@@ -10,10 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 )
 
-// Facade is the entrypoint to the monitoring service.
+// Entrypoint is the entrypoint to the monitoring service.
 // All arguments are required!
-// To terminate, cancel the context and wait for Facade to exit.
-func Facade(
+// To terminate, cancel the context and wait for Entrypoint to exit.
+func Entrypoint(
 	ctx context.Context,
 	log Logger,
 	chainConfig ChainConfig,
