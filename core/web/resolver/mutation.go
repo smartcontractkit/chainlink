@@ -16,9 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -390,7 +390,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 
 	err = r.App.EVMORM().DeleteNode(int64(id))
 	if err != nil {
-		if errors.Is(err, evm.ErrNoRowsAffected) {
+		if errors.Is(err, sql.ErrNoRows) {
 			// Sending the SQL error as the expected error to happen
 			// though the prior check should take this into consideration
 			// so this should never happen anyway
@@ -835,7 +835,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChainSet().Add(id.ToInt(), *chainCfg)
+	chain, err := r.App.GetChains().EVM.Add(id.ToInt(), *chainCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -883,7 +883,7 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChainSet().Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
+	chain, err := r.App.GetChains().EVM.Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateChainPayload(nil, nil, err), nil
@@ -917,7 +917,7 @@ func (r *Resolver) DeleteChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	err = r.App.GetChainSet().Remove(id.ToInt())
+	err = r.App.GetChains().EVM.Remove(id.ToInt())
 	if err != nil {
 		return nil, err
 	}
@@ -945,7 +945,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(r.App.GetChainSet(), args.Input.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
@@ -966,6 +966,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = vrf.ValidatedVRFSpec(args.Input.TOML)
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
+	case job.BlockhashStore:
+		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

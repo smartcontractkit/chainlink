@@ -63,7 +63,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(cc.App.GetChainSet(), request.EVMChainID.String())
+	chain, err := getChain(cc.App.GetChains().EVM, request.EVMChainID.String())
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
