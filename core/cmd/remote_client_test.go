@@ -343,7 +343,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		c := cli.NewContext(nil, set, nil)
 
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 		assert.Equal(t, big.NewInt(8616460799), cfg.EvmGasPriceDefault())
@@ -370,7 +370,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "evmChainID does not match any local chains")
 
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
@@ -384,7 +384,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		c := cli.NewContext(nil, set, nil)
 
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 

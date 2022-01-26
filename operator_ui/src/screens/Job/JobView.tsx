@@ -91,6 +91,17 @@ const JOB_PAYLOAD__SPEC = gql`
       publicKey
       requestedConfsDelay
     }
+    ... on BlockhashStoreSpec {
+      coordinatorV1Address
+      coordinatorV2Address
+      waitBlocks
+      lookbackBlocks
+      blockhashStoreAddress
+      pollPeriod
+      runTimeout
+      evmChainID
+      fromAddress
+    }
   }
 `
 

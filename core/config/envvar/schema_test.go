@@ -42,6 +42,7 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseBackupDir":                          "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                    "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                         "DATABASE_BACKUP_MODE",
+		"DatabaseBackupOnVersionUpgrade":             "DATABASE_BACKUP_ON_VERSION_UPGRADE",
 		"DatabaseBackupURL":                          "DATABASE_BACKUP_URL",
 		"DatabaseListenerMaxReconnectDuration":       "DATABASE_LISTENER_MAX_RECONNECT_DURATION",
 		"DatabaseListenerMinReconnectInterval":       "DATABASE_LISTENER_MIN_RECONNECT_INTERVAL",
@@ -118,6 +119,7 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperRegistryPerformGasOverhead":           "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
 		"KeeperRegistrySyncInterval":                 "KEEPER_REGISTRY_SYNC_INTERVAL",
 		"KeeperRegistrySyncUpkeepQueueSize":          "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
+		"KeeperCheckUpkeepGasPriceFeatureEnabled":    "KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED",
 		"LeaseLockDuration":                          "LEASE_LOCK_DURATION",
 		"LeaseLockRefreshInterval":                   "LEASE_LOCK_REFRESH_INTERVAL",
 		"LinkContractAddress":                        "LINK_CONTRACT_ADDRESS",
@@ -154,7 +156,6 @@ func TestConfigSchema(t *testing.T) {
 		"TriggerFallbackDBPollInterval":              "TRIGGER_FALLBACK_DB_POLL_INTERVAL",
 		"UnAuthenticatedRateLimit":                   "UNAUTHENTICATED_RATE_LIMIT",
 		"UnAuthenticatedRateLimitPeriod":             "UNAUTHENTICATED_RATE_LIMIT_PERIOD",
-		"UseLegacyEthEnvVars":                        "USE_LEGACY_ETH_ENV_VARS",
 
 		// OCR v2
 		"OCR2BlockchainTimeout":                  "OCR2_BLOCKCHAIN_TIMEOUT",

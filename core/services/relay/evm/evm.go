@@ -37,7 +37,7 @@ func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger) *Relayer
 	return &Relayer{
 		db:       db,
 		chainSet: chainSet,
-		lggr:     lggr,
+		lggr:     lggr.Named("Relayer"),
 	}
 }
 

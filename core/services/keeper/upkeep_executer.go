@@ -178,16 +178,21 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
 
-	gasPrice, fee, err := ex.estimateGasPrice(upkeep)
-	if err != nil {
-		svcLogger.Error(errors.Wrap(err, "estimating gas price"))
-		return
-	}
-
 	evmChainID := ""
 	if ex.job.KeeperSpec.EVMChainID != nil {
 		evmChainID = ex.job.KeeperSpec.EVMChainID.String()
 	}
+
+	var gasPrice, gasTipCap, gasFeeCap *big.Int
+	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
+		price, fee, err := ex.estimateGasPrice(upkeep)
+		if err != nil {
+			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
+			return
+		}
+		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
+	}
+
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"jobID":                 ex.job.ID,
@@ -198,15 +203,15 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
 			"gasPrice":   gasPrice,
-			"gasTipCap":  fee.TipCap,
-			"gasFeeCap":  fee.FeeCap,
+			"gasTipCap":  gasTipCap,
+			"gasFeeCap":  gasFeeCap,
 			"evmChainID": evmChainID,
 		},
 	})
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
-	if _, err := ex.pr.Run(ctxService, &run, ex.logger, true, nil); err != nil {
-		ex.logger.With("error", err).Errorw("failed executing run")
+	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
+		svcLogger.With("error", err).Errorw("failed executing run")
 		return
 	}
 
@@ -214,7 +219,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, headNumber, pg.WithParentCtx(ctxService))
 		if err != nil {
-			ex.logger.With("error", err).Errorw("failed to set last run height for upkeep")
+			svcLogger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}
 
 		elapsed := time.Since(start)

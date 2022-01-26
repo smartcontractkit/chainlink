@@ -142,7 +142,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
-		return errors.Wrap(err, "error initializing application")
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
 	sessionORM := app.SessionORM()
@@ -163,7 +163,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 
-	chainSet := app.GetChainSet()
+	chainSet := app.GetChains().EVM
 	dflt, err := chainSet.Default()
 	if err != nil {
 		return errors.Wrap(err, "failed to get default chainset")
@@ -358,7 +358,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {
@@ -369,7 +369,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	chain, err := app.GetChainSet().Get(chainID)
+	chain, err := app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -743,7 +743,7 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	sig := shutdown.NewSignal()
 	app, err := cli.AppFactory.NewApplication(cli.Config, db, sig)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "creating application"))
+		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {

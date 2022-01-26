@@ -241,8 +241,12 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 // the attempt is already broadcast it _must_ have been before this head.
 func (ec *EthConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 	_, err := ec.q.Exec(
-		`UPDATE eth_tx_attempts SET broadcast_before_block_num = $1 WHERE broadcast_before_block_num IS NULL AND state = 'broadcast'`,
-		blockNum,
+		`UPDATE eth_tx_attempts
+SET broadcast_before_block_num = $1 
+FROM eth_txes
+WHERE eth_tx_attempts.broadcast_before_block_num IS NULL AND eth_tx_attempts.state = 'broadcast'
+AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
+		blockNum, ec.chainID.String(),
 	)
 	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 }
@@ -627,7 +631,7 @@ RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff, ec.c
 		}
 
 		ec.lggr.CriticalW(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
-			"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
+			"Current block height is %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 			"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 			"an external wallet has been used to send a transaction from account %s with nonce %v."+
 			" Please note that Chainlink requires exclusive ownership of it's private keys and sharing keys across multiple"+
@@ -1018,15 +1022,9 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		ec.lggr.With(
 			"sendError", sendError,
 			"maxGasPriceConfig", ec.config.EvmMaxGasPriceWei(),
-			"previousAttemptGasPrice", attempt.GasPrice,
-			"previousAttemptGasFeeCap", attempt.GasFeeCap,
-			"previousAttemptGasTipCap", attempt.GasTipCap,
-			"replacementAttemptGasPrice", replacementAttempt.GasPrice,
-			"replacementAttemptGasFeeCap", replacementAttempt.GasFeeCap,
-			"replacementAttemptGasTipCap", replacementAttempt.GasTipCap,
-		).
-			Errorf("gas price %s wei was rejected by the eth node for being too low. Eth node returned: '%s'",
-				attempt.GasPrice.String(), sendError.Error())
+			"previousAttempt", attempt,
+			"replacementAttempt", replacementAttempt,
+		).Errorf("gas price was rejected by the eth node for being too low. Eth node returned: '%s'", sendError.Error())
 
 		if err := saveReplacementInProgressAttempt(ec.q, attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
@@ -1101,22 +1099,22 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		// In this case the simplest and most robust way to recover is to ignore
 		// this attempt and wait until the next bump threshold is reached in
 		// order to bump again.
-		ec.lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced at %v wei for eth_tx %v. "+
+		ec.lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %v. "+
 			"Eth node returned error: '%s'. "+
 			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			attempt.GasPrice.ToInt().Int64(), etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError)
+			etx.ID, sendError.Error(), ec.config.EvmGasBumpPercent()), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 
 		// Assume success and hand off to the next cycle.
 		sendError = nil
 	}
 
 	if sendError.IsInsufficientEth() {
-		ec.lggr.Errorw(fmt.Sprintf("EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
+		ec.lggr.Errorw(fmt.Sprintf("EthTxAttempt %v (hash 0x%x) was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
-			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
-		), "err", sendError)
+			attempt.ID, attempt.Hash, sendError.Error(), etx.FromAddress,
+		), "err", sendError, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		return saveInsufficientEthAttempt(ec.q, ec.lggr, &attempt, now)
 	}
 
@@ -1380,7 +1378,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 				continue
 			}
 			if err := sendTransaction(context.TODO(), ec.ethClient, attempt, *etx, ec.lggr); err != nil {
-				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error()), "err", err)
+				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v and gas limit %v: %s", etx.ID, *etx.Nonce, etx.GasLimit, err.Error()), "err", err, "gasPrice", attempt.GasPrice, "gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 				continue
 			}
 			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast eth_tx %v with hash: 0x%x", etx.ID, attempt.Hash)

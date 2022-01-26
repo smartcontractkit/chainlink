@@ -44,7 +44,10 @@ func newTerraKeyBundleFrom(onchainSigningKeyMaterial, onchainEncryptionKeyMateri
 	if err != nil {
 		return nil, err
 	}
-	terraKeyRing := newTerraKeyring()
+	terraKeyRing, err := newTerraKeyring(onchainSigningKeyMaterial)
+	if err != nil {
+		return nil, err
+	}
 	k := terraKeyBundle{
 		keyBundleBase: keyBundleBase{
 			chainType:       chaintype.Terra,

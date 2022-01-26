@@ -36,6 +36,9 @@
 # Contracts
 /contracts/ @alexroan @se3000 @connorwstein
 
+# Tests
+/integration-tests/ @kalverra
+
 # Misc
 /core/store @archseer @samsondav @jmank88
 /core/chains @samsondav
