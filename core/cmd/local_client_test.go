@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -37,7 +38,17 @@ import (
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
+	// We must override the default log level to pass in CI, so check it separately first.
+	llStr, ok := envvar.DefaultValue("LogLevel")
+	require.False(t, ok)
+	require.Empty(t, llStr)
+	ll, invalid := parse.LogLevel(llStr)
+	require.Empty(t, invalid)
+	require.Equal(t, zapcore.InfoLevel, ll)
+
 	cfg := config.NewGeneralConfig(logger.TestLogger(t))
+	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
+
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 	keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -137,7 +148,7 @@ LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
 LINK_CONTRACT_ADDRESS: 
 LOG_FILE_DIR: %[1]s
-LOG_LEVEL: 
+LOG_LEVEL: debug
 LOG_SQL: false
 LOG_TO_DISK: false
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
