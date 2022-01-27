@@ -38,6 +38,12 @@ func MakeTransmissionMapping(
 		"chain_config": map[string]interface{}{
 			"link.chain.ocr2.chain_config": chainConfig.ToMapping(),
 		},
+		// Deprecated in favour of chain_config.
+		"solana_chain_config": map[string]interface{}{
+			"network_name": "",
+			"network_id":   "",
+			"chain_id":     "",
+		},
 		"feed_config": feedConfig.ToMapping(),
 		"link_balance": map[string]interface{}{
 			"bytes": uint64ToBeBytes(envelope.LinkBalance),
