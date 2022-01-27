@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -16,7 +17,7 @@ import (
 // AdvisoryLock is an interface for postgresql advisory locks.
 type AdvisoryLock interface {
 	TakeAndHold(ctx context.Context) error
-	WaitForRelease()
+	Release()
 }
 
 // advisoryLock implements the Locker interface.
@@ -26,27 +27,31 @@ type advisoryLock struct {
 	conn          *sqlx.Conn
 	checkInterval time.Duration
 	logger        logger.Logger
-	chReleased    chan struct{}
+	stop          func()
+	wgReleased    sync.WaitGroup
 }
 
 // NewAdvisoryLock returns an advisoryLocker
 func NewAdvisoryLock(db *sqlx.DB, id int64, lggr logger.Logger, checkInterval time.Duration) AdvisoryLock {
-	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id), make(chan struct{})}
+	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id), func() {}, sync.WaitGroup{}}
 }
 
 // TakeAndHold will block and wait indefinitely until it can get its first lock.
-// The lock gets released when the provided context is cancelled.
+// The lock gets released when either the provided context is cancelled or Release() is called.
 // NOT THREAD SAFE
 func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 	l.logger.Debug("Taking initial advisory lock...")
 	retryCount := 0
+
+	lctx, cancel := context.WithCancel(ctx)
+	l.stop = cancel
 
 	for {
 		var gotLock bool
 		var err error
 
 		err = func() error {
-			qctx, cancel := DefaultQueryCtxWithParent(ctx)
+			qctx, cancel := DefaultQueryCtxWithParent(lctx)
 			defer cancel()
 			if l.conn == nil {
 				if err = l.checkoutConn(qctx); err != nil {
@@ -77,7 +82,7 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 		l.logRetry(retryCount)
 		retryCount++
 		select {
-		case <-ctx.Done():
+		case <-lctx.Done():
 			err = errors.New("stopped")
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
@@ -88,14 +93,16 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 	}
 
 	l.logger.Debug("Got advisory lock")
-	go l.loop(ctx)
+	l.wgReleased.Add(1)
+	go l.loop(lctx)
 	return nil
 }
 
-// WaitForRelease blocks until the lock gets released if it was acquired successfully.
-// Thread safe.
-func (l *advisoryLock) WaitForRelease() {
-	<-l.chReleased
+// Release requests the lock to release and blocks until it gets released.
+// Calling Release for a released lock has no effect.
+func (l *advisoryLock) Release() {
+	l.stop()
+	l.wgReleased.Wait()
 }
 
 // advisory lock must use one specific connection
@@ -126,7 +133,7 @@ func (l *advisoryLock) logRetry(count int) {
 const checkAdvisoryLockStmt = `SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND (classid::bigint << 32) | objid::bigint = $1)`
 
 func (l *advisoryLock) loop(ctx context.Context) {
-	defer close(l.chReleased)
+	defer l.wgReleased.Done()
 
 	ticker := time.NewTicker(utils.WithJitter(l.checkInterval))
 	defer ticker.Stop()

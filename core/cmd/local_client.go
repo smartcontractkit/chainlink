@@ -60,43 +60,44 @@ func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err erro
 	return
 }
 
-func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (waitReleased func(), err error) {
-	lggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
-
+func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (func(), error) {
 	lockingMode := cfg.DatabaseLockingMode()
-	waitReleased = func() {}
 
-	// Lease will be explicitly released on application stop
+	lggr.Debugf("Using database locking mode: %s", lockingMode)
+
+	// Lease will be explicitly released on ctx cancellation
 	// Take the lease before any other DB operations
 	var leaseLock pg.LeaseLock
 	switch lockingMode {
 	case "lease", "dual":
 		leaseLock = pg.NewLeaseLock(db, cfg.AppID(), lggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
-		if err = leaseLock.TakeAndHold(ctx); err != nil {
+		if err := leaseLock.TakeAndHold(ctx); err != nil {
 			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
+	// The lock will be explicitly released on ctx cancellation
 	var advisoryLock pg.AdvisoryLock
 	switch lockingMode {
 	case "advisorylock", "dual":
 		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
-		if err = advisoryLock.TakeAndHold(ctx); err != nil {
-			return waitReleased, errors.Wrap(err, "error acquiring lock")
+		if err := advisoryLock.TakeAndHold(ctx); err != nil {
+			if leaseLock != nil {
+				leaseLock.Release()
+			}
+			return nil, errors.Wrap(err, "error acquiring lock")
 		}
 	}
 
-	waitReleased = func() {
+	return func() {
 		if leaseLock != nil {
-			leaseLock.WaitForRelease()
+			leaseLock.Release()
 		}
 		if advisoryLock != nil {
-			advisoryLock.WaitForRelease()
+			advisoryLock.Release()
 		}
-	}
-
-	return waitReleased, nil
+	}, nil
 }
 
 // RunNode starts the Chainlink core.
@@ -169,13 +170,14 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		os.Exit(-1)
 	})
 
-	waitLocksReleased, err := applicationLockDB(rootCtx, cli.Config, db, lggr)
+	releaseDbLocks, err := applicationLockDB(rootCtx, cli.Config, db, lggr)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "obtaining application db lock"))
 	}
 
 	app, err := cli.AppFactory.NewApplication(cli.Config, db)
 	if err != nil {
+		releaseDbLocks()
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
@@ -283,7 +285,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		<-grpCtx.Done()
-		defer waitLocksReleased()
+		defer releaseDbLocks()
 		if err = app.Stop(); err != nil {
 			return errors.Wrap(err, "error stopping app")
 		}

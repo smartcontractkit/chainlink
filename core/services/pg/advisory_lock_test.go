@@ -50,7 +50,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		time.Sleep(cfg.AdvisoryLockCheckInterval() * 5)
 
 		cancel1()
-		advLock1.WaitForRelease()
+		advLock1.Release()
 
 		select {
 		case <-started2:
@@ -120,7 +120,33 @@ func Test_AdvisoryLock(t *testing.T) {
 		assert.True(t, exists)
 
 		rcancel()
-		advLock.WaitForRelease()
+		advLock.Release()
+	})
+
+	t.Run("release lock with Release() func", func(t *testing.T) {
+		advisoryLock := newAdvisoryLock(t, db, cfg)
+
+		err := advisoryLock.TakeAndHold(context.Background())
+		require.NoError(t, err)
+
+		advisoryLock.Release()
+
+		advisoryLock2 := newAdvisoryLock(t, db, cfg)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err = advisoryLock2.TakeAndHold(ctx)
+		require.NoError(t, err)
+	})
+
+	t.Run("release lock with Release() when ctx is cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		advisoryLock := newAdvisoryLock(t, db, cfg)
+
+		err := advisoryLock.TakeAndHold(ctx)
+		require.NoError(t, err)
+
+		cancel()
+		advisoryLock.Release()
 	})
 
 	require.NoError(t, db.Close())

@@ -54,7 +54,7 @@ func Test_LeaseLock(t *testing.T) {
 		time.Sleep(cfg.LeaseLockRefreshInterval() * 5)
 
 		cancel1()
-		leaseLock1.WaitForRelease()
+		leaseLock1.Release()
 
 		select {
 		case <-started2:
@@ -116,7 +116,7 @@ func Test_LeaseLock(t *testing.T) {
 		assert.True(t, exists)
 
 		cancel()
-		leaseLock.WaitForRelease()
+		leaseLock.Release()
 	})
 
 	t.Run("recovers and re-opens connection if it's closed externally while holding", func(t *testing.T) {
@@ -146,6 +146,32 @@ func Test_LeaseLock(t *testing.T) {
 
 		// The lease lock must have recovered and re-opened the connection if the second expires_at is later
 		assert.Greater(t, expiresAt.Unix(), prevExpiresAt.Unix())
+	})
+
+	t.Run("release lock with Release() func", func(t *testing.T) {
+		leaseLock := newLeaseLock(t, db, cfg)
+
+		err := leaseLock.TakeAndHold(context.Background())
+		require.NoError(t, err)
+
+		leaseLock.Release()
+
+		leaseLock2 := newLeaseLock(t, db, cfg)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		err = leaseLock2.TakeAndHold(ctx)
+		require.NoError(t, err)
+	})
+
+	t.Run("release lock with Release() when ctx is cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		leaseLock := newLeaseLock(t, db, cfg)
+
+		err := leaseLock.TakeAndHold(ctx)
+		require.NoError(t, err)
+
+		cancel()
+		leaseLock.Release()
 	})
 
 	require.NoError(t, db.Close())
