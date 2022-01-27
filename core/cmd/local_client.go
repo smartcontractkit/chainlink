@@ -124,9 +124,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	if cli.Config.Dev() {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
-	if cli.Config.EthereumDisabled() {
-		lggr.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
-	}
 
 	db, err := openDB(cli.Config, lggr)
 	if err != nil {
@@ -163,65 +160,84 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 
-	chainSet := app.GetChains().EVM
-	dflt, err := chainSet.Default()
-	if err != nil {
-		return errors.Wrap(err, "failed to get default chainset")
-	}
-	err = keyStore.Migrate(vrfpwd, dflt.ID())
-	if err != nil {
-		return errors.Wrap(err, "error migrating keystore")
-	}
-
-	for _, ch := range chainSet.Chains() {
-		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+	evmChainSet := app.GetChains().EVM
+	// By passing in a function we can be lazy trying to look up a default
+	// chain - if there are no existing keys, there is no need to check for
+	// a chain ID
+	defaultEVMChainIDFunc := func() (*big.Int, error) {
+		def, err2 := evmChainSet.Default()
 		if err2 != nil {
-			return errors.Wrap(err2, "failed to ensure keystore keys")
+			return nil, errors.Wrap(err2, "cannot get default EVM chain ID; no default EVM chain available")
 		}
-		if !fexisted {
-			lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
+		return def.ID(), nil
+	}
+	err = keyStore.Migrate(vrfpwd, defaultEVMChainIDFunc)
+
+	if cli.Config.EVMEnabled() {
+		if err != nil {
+			return errors.Wrap(err, "error migrating keystore")
 		}
-		if !sexisted {
-			lggr.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
+
+		for _, ch := range evmChainSet.Chains() {
+			skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+			if err2 != nil {
+				return errors.Wrap(err2, "failed to ensure keystore keys")
+			}
+			if !fexisted {
+				lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
+			}
+			if !sexisted {
+				lggr.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
+			}
 		}
 	}
 
-	ocrKey, didExist, err := app.GetKeyStore().OCR().EnsureKey()
-	if err != nil {
-		return errors.Wrap(err, "failed to ensure ocr key")
-	}
-	if !didExist {
-		lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
-	}
-	ocr2Keys, keysDidExist, err := app.GetKeyStore().OCR2().EnsureKeys()
-	if err != nil {
-		return errors.Wrap(err, "failed to ensure ocr key")
-	}
-	for chainType, didExist := range keysDidExist {
+	if cli.Config.FeatureOffchainReporting() {
+		ocrKey, didExist, err2 := app.GetKeyStore().OCR().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure ocr key")
+		}
 		if !didExist {
-			lggr.Infof("Created OCR2 key with ID %s", ocr2Keys[chainType].ID())
+			lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 		}
 	}
-	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
-	if err != nil {
-		return errors.Wrap(err, "failed to ensure p2p key")
+	if cli.Config.FeatureOffchainReporting2() {
+		ocr2Keys, keysDidExist, err2 := app.GetKeyStore().OCR2().EnsureKeys()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure ocr key")
+		}
+		for chainType, didExist := range keysDidExist {
+			if !didExist {
+				lggr.Infof("Created OCR2 key with ID %s", ocr2Keys[chainType].ID())
+			}
+		}
 	}
-	if !didExist {
-		lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
+	if cli.Config.P2PEnabled() {
+		p2pKey, didExist, err2 := app.GetKeyStore().P2P().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure p2p key")
+		}
+		if !didExist {
+			lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
+		}
 	}
-	solanaKey, didExist, err := app.GetKeyStore().Solana().EnsureKey()
-	if err != nil {
-		return errors.Wrap(err, "failed to ensure solana key")
+	if cli.Config.SolanaEnabled() {
+		solanaKey, didExist, err2 := app.GetKeyStore().Solana().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure solana key")
+		}
+		if !didExist {
+			lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
+		}
 	}
-	if !didExist {
-		lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
-	}
-	terraKey, didExist, err := app.GetKeyStore().Terra().EnsureKey()
-	if err != nil {
-		return errors.Wrap(err, "failed to ensure terra key")
-	}
-	if !didExist {
-		lggr.Infof("Created Terra key with ID %s", terraKey.ID())
+	if cli.Config.TerraEnabled() {
+		terraKey, didExist, err2 := app.GetKeyStore().Terra().EnsureKey()
+		if err2 != nil {
+			return errors.Wrap(err2, "failed to ensure terra key")
+		}
+		if !didExist {
+			lggr.Infof("Created Terra key with ID %s", terraKey.ID())
+		}
 	}
 
 	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {

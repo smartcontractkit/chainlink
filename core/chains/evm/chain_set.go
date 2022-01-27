@@ -24,7 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true?")
+// ErrNoChains indicates that no chains have been started
+var ErrNoChains = errors.New("no chains loaded")
 
 var _ ChainSet = &chainSet{}
 
@@ -55,9 +56,12 @@ type chainSet struct {
 }
 
 func (cll *chainSet) Start() error {
-	if cll.opts.Config.EVMDisabled() {
+	if !cll.opts.Config.EVMEnabled() {
 		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
 		return nil
+	}
+	if !cll.opts.Config.EVMRPCEnabled() {
+		cll.logger.Warn("EVM RPC connections are disabled. Chainlink will not connect to any EVM RPC node.")
 	}
 	for _, c := range cll.Chains() {
 		if err := c.Start(); err != nil {
@@ -112,9 +116,11 @@ func (cll *chainSet) Default() (Chain, error) {
 	len := len(cll.chains)
 	cll.chainsMu.RUnlock()
 	if len == 0 {
-		return nil, errors.Wrap(ErrNoChains, "cannot get default chain")
+		return nil, errors.Wrap(ErrNoChains, "cannot get default EVM chain; no EVM chains are available")
 	}
 	if cll.defaultID == nil {
+		// This is an invariant violation; if any chains are available then a
+		// default should _always_ have been set in the constructor
 		return nil, errors.New("no default chain ID specified")
 	}
 

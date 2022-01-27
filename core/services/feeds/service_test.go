@@ -101,7 +101,7 @@ func setupTestService(t *testing.T) *TestService {
 
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
-	gcfg.Overrides.EthereumDisabled = null.BoolFrom(true)
+	gcfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
 	keyStore := new(ksmocks.Master)
 	keyStore.On("CSA").Return(csaKeystore)

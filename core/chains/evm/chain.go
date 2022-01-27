@@ -74,7 +74,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		}
 	}
 	var client evmclient.Client
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
@@ -89,7 +89,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
 		var ll zapcore.Level
@@ -108,7 +108,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	}
 
 	var txm bulletprooftxmanager.TxManager
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		txm = &bulletprooftxmanager.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
 		checker := &bulletprooftxmanager.CheckerFactory{Client: client}
@@ -126,13 +126,13 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	}
 
 	var balanceMonitor balancemonitor.BalanceMonitor
-	if !cfg.EthereumDisabled() && cfg.BalanceMonitorEnabled() {
+	if cfg.EVMRPCEnabled() && cfg.BalanceMonitorEnabled() {
 		balanceMonitor = balancemonitor.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
 	var logBroadcaster log.Broadcaster
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(db, l, cfg, *chainID)

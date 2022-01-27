@@ -46,7 +46,7 @@ type EnvPrinter struct {
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
-	EthereumDisabled                           bool            `json:"ETH_DISABLED"`
+	EVMRPCEnabled                              bool            `json:"EVM_RPC_ENABLED"`
 	EthereumHTTPURL                            string          `json:"ETH_HTTP_URL"`
 	EthereumSecondaryURLs                      []string        `json:"ETH_SECONDARY_URLS"`
 	EthereumURL                                string          `json:"ETH_URL"`
@@ -151,7 +151,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			DefaultHTTPLimit:                   cfg.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                 cfg.DefaultHTTPTimeout(),
 			Dev:                                cfg.Dev(),
-			EthereumDisabled:                   cfg.EthereumDisabled(),
+			EVMRPCEnabled:                      cfg.EVMRPCEnabled(),
 			EthereumHTTPURL:                    ethereumHTTPURL,
 			EthereumSecondaryURLs:              mapToStringA(cfg.EthereumSecondaryURLs()),
 			EthereumURL:                        cfg.EthereumURL(),
