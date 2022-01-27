@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/config"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -35,9 +37,7 @@ import (
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
-	cfg := cltest.NewTestGeneralConfig(t)
-	debug := zapcore.DebugLevel
-	cfg.Overrides.LogLevel = &debug
+	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 	keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -99,17 +99,17 @@ BLOCK_BACKFILL_DEPTH: 10
 BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY: 0
 BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE: 0
 BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE: 0
-BRIDGE_RESPONSE_URL: http://localhost:6688
+BRIDGE_RESPONSE_URL: 
 CHAIN_TYPE: 
 CLIENT_NODE_URL: http://localhost:6688
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
 DATABASE_BACKUP_ON_VERSION_UPGRADE: true
-DATABASE_LOCKING_MODE: none
-ETH_CHAIN_ID: 0
+DATABASE_LOCKING_MODE: advisorylock
+ETH_CHAIN_ID: <nil>
 DEFAULT_HTTP_LIMIT: 32768
 DEFAULT_HTTP_TIMEOUT: 15s
-CHAINLINK_DEV: true
+CHAINLINK_DEV: false
 ETH_DISABLED: false
 ETH_HTTP_URL: 
 ETH_SECONDARY_URLS: []
@@ -119,7 +119,7 @@ FM_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
 FEATURE_EXTERNAL_INITIATORS: false
 FEATURE_OFFCHAIN_REPORTING: false
 GAS_ESTIMATOR_MODE: 
-INSECURE_FAST_SCRYPT: true
+INSECURE_FAST_SCRYPT: false
 JSON_CONSOLE: false
 JOB_PIPELINE_REAPER_INTERVAL: 1h0m0s
 JOB_PIPELINE_REAPER_THRESHOLD: 24h0m0s
@@ -137,7 +137,7 @@ LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
 LINK_CONTRACT_ADDRESS: 
 LOG_FILE_DIR: %[1]s
-LOG_LEVEL: debug
+LOG_LEVEL: 
 LOG_SQL: false
 LOG_TO_DISK: false
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
@@ -164,7 +164,7 @@ CHAINLINK_PORT: 6688
 REAPER_EXPIRATION: 240h0m0s
 ROOT: %[1]s
 SECURE_COOKIES: true
-SESSION_TIMEOUT: 2m0s
+SESSION_TIMEOUT: 15m0s
 TELEMETRY_INGRESS_LOGGING: false
 TELEMETRY_INGRESS_SERVER_PUB_KEY: 
 TELEMETRY_INGRESS_URL: 
