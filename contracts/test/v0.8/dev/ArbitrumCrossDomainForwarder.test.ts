@@ -57,7 +57,6 @@ describe('ArbitrumCrossDomainForwarder', () => {
 
     forwarder = await forwarderFactory.deploy(l1OwnerAddress)
     greeter = await greeterFactory.deploy(forwarder.address)
-  
   })
 
   it('has a limited public interface [ @skip-coverage ]', async () => {
@@ -193,4 +192,3 @@ describe('ArbitrumCrossDomainForwarder', () => {
     })
   })
 })
-

@@ -27,7 +27,6 @@ describe('CrossDomainOwnable', () => {
     ownable = await ownableFactory.deploy(l1OwnerAddress)
   })
 
-
   describe('#constructor', () => {
     it('should set the l1Owner correctly', async () => {
       const response = await ownable.l1Owner()
@@ -44,20 +43,14 @@ describe('CrossDomainOwnable', () => {
 
     it('should be callable by current L1 owner', async () => {
       const currentL1Owner = await ownable.l1Owner()
-      await expect(
-        ownable
-          .transferL1Ownership(stranger.address),
-      )
+      await expect(ownable.transferL1Ownership(stranger.address))
         .to.emit(ownable, 'L1OwnershipTransferRequested')
         .withArgs(currentL1Owner, stranger.address)
     })
 
     it('should be callable by current L1 owner to zero address', async () => {
       const currentL1Owner = await ownable.l1Owner()
-      await expect(
-        ownable
-          .transferL1Ownership(ethers.constants.AddressZero),
-      )
+      await expect(ownable.transferL1Ownership(ethers.constants.AddressZero))
         .to.emit(ownable, 'L1OwnershipTransferRequested')
         .withArgs(currentL1Owner, ethers.constants.AddressZero)
     })
@@ -72,11 +65,8 @@ describe('CrossDomainOwnable', () => {
 
     it('should be callable by pending L1 owner', async () => {
       const currentL1Owner = await ownable.l1Owner()
-      await ownable
-        .transferL1Ownership(stranger.address)
-      await expect(
-        ownable.connect(stranger).acceptL1Ownership(),
-      )
+      await ownable.transferL1Ownership(stranger.address)
+      await expect(ownable.connect(stranger).acceptL1Ownership())
         .to.emit(ownable, 'L1OwnershipTransferred')
         .withArgs(currentL1Owner, stranger.address)
 
@@ -85,4 +75,3 @@ describe('CrossDomainOwnable', () => {
     })
   })
 })
-
