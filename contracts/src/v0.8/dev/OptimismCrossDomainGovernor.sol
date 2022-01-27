@@ -38,7 +38,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
    * @inheritdoc ForwarderInterface
    */
-  function forward(address target, bytes memory data) external override onlyCrossDomainOwners {
+  function forward(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionCall(target, data, "Governor call reverted");
   }
 
@@ -46,14 +46,14 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
    * @inheritdoc DelegateForwarderInterface
    */
-  function forwardDelegate(address target, bytes memory data) external override onlyCrossDomainOwners {
+  function forwardDelegate(address target, bytes memory data) external override onlyLocalOrCrossDomainOwner {
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");
   }
 
   /**
    * @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
    */
-  modifier onlyCrossDomainOwners() {
+  modifier onlyLocalOrCrossDomainOwner() {
     address messenger = crossDomainMessenger();
     // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
     require(msg.sender == messenger || msg.sender == owner(), "Sender is not the L2 messenger or owner");
