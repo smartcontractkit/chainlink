@@ -11,7 +11,7 @@ on:
       - 'release/*'
 
 jobs:
-  build-publish-chainlink:
+  build-sign-publish-chainlink:
     runs-on: ubuntu-20.04
     environment: build-publish
     steps:

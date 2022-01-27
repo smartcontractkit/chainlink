@@ -7,40 +7,14 @@ enum JobProposalStatus {
 
 type JobProposal {
     id: ID!
-    spec: String!
     status: JobProposalStatus!
+    remoteUUID: String!
     externalJobID: String
     feedsManager: FeedsManager!
     multiAddrs: [String!]!
-    proposedAt: Time!
+    pendingUpdate: Boolean!
+    specs: [JobProposalSpec!]!
+    latestSpec: JobProposalSpec!
 }
 
 union JobProposalPayload = JobProposal | NotFoundError
-
-type ApproveJobProposalSuccess {
-    jobProposal: JobProposal!
-}
-
-union ApproveJobProposalPayload = ApproveJobProposalSuccess | NotFoundError
-
-type CancelJobProposalSuccess {
-    jobProposal: JobProposal!
-}
-
-union CancelJobProposalPayload = CancelJobProposalSuccess | NotFoundError
-
-type RejectJobProposalSuccess {
-    jobProposal: JobProposal!
-}
-
-union RejectJobProposalPayload = RejectJobProposalSuccess | NotFoundError
-
-input UpdateJobProposalSpecInput {
-    spec: String!
-}
-
-type UpdateJobProposalSpecSuccess {
-    jobProposal: JobProposal!
-}
-
-union UpdateJobProposalSpecPayload = UpdateJobProposalSpecSuccess | NotFoundError
