@@ -32,7 +32,7 @@ func NewSchemaRegistry(cfg config.SchemaRegistry, log Logger) SchemaRegistry {
 }
 
 func (s *schemaRegistry) EnsureSchema(subject, spec string) (Schema, error) {
-	registeredSchema, err := s.backend.GetLatestSchema(subject)
+	existingSchema, err := s.backend.GetLatestSchema(subject)
 	if err != nil && !isNotFoundErr(err) {
 		return nil, fmt.Errorf("failed to read schema for subject '%s': %w", subject, err)
 	}
@@ -44,27 +44,32 @@ func (s *schemaRegistry) EnsureSchema(subject, spec string) (Schema, error) {
 		}
 		return wrapSchema{subject, newSchema}, nil
 	}
-	isEqualSchemas, errInIsEqualJSON := isEqualJSON(registeredSchema.Schema(), spec)
+	isEqualSchemas, errInIsEqualJSON := isEqualJSON(existingSchema.Schema(), spec)
 	if errInIsEqualJSON != nil {
 		return nil, fmt.Errorf("failed to compare schama in registry with local schema: %w", errInIsEqualJSON)
 	}
 	if isEqualSchemas {
 		s.log.Infow("using existing schema", "subject", subject)
-		return wrapSchema{subject, registeredSchema}, nil
+		return wrapSchema{subject, existingSchema}, nil
 	}
 	s.log.Infow("updating schema", "subject", subject)
-	newSchema, err := s.backend.CreateSchema(subject, spec, srclient.Avro)
+	updatedSchema, err := s.backend.CreateSchema(subject, spec, srclient.Avro)
 	if err != nil {
 		return nil, fmt.Errorf("unable to update schema with subject '%s': %w", subject, err)
 	}
-	return wrapSchema{subject, newSchema}, nil
+	return wrapSchema{subject, updatedSchema}, nil
 }
 
 // Helpers
 
 func isNotFoundErr(err error) bool {
-	return strings.HasPrefix(err.Error(), "404 Not Found") ||
-		strings.HasPrefix(err.Error(), "Subject not found")
+	if strings.HasPrefix(err.Error(), "Subject not found") { // for mock schema registry
+		return true
+	}
+	if srErr, ok := err.(srclient.Error); ok && srErr.Code == 40401 { // for the actual schema registry api.
+		return true
+	}
+	return false
 }
 
 func isEqualJSON(a, b string) (bool, error) {

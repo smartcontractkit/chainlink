@@ -41,15 +41,17 @@ func (f *feedMonitor) Run(ctx context.Context) {
 	for _, poller := range f.pollers {
 		go func(poller Poller) {
 			defer wg.Done()
-			select {
-			case update := <-poller.Updates():
+			for {
 				select {
-				case updates <- update:
+				case update := <-poller.Updates():
+					select {
+					case updates <- update:
+					case <-ctx.Done():
+						return
+					}
 				case <-ctx.Done():
 					return
 				}
-			case <-ctx.Done():
-				return
 			}
 		}(poller)
 	}

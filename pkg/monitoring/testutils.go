@@ -144,12 +144,8 @@ func (f fakeFeedConfig) ToMapping() map[string]interface{} {
 		"contract_status":  f.ContractStatus,
 		"contract_address": f.ContractAddress,
 		// These are solana specific but are kept here for backwards compatibility in Avro.
-		"transmissions_account": map[string]interface{}{
-			"bytes": []byte{},
-		},
-		"state_account": map[string]interface{}{
-			"bytes": []byte{},
-		},
+		"transmissions_account": []byte{},
+		"state_account":         []byte{},
 	}
 }
 

@@ -15,12 +15,13 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 	avro.Field("answer", avro.Opts{}, avro.Record("answer", avro.Opts{}, avro.Fields{
 		avro.Field("data", avro.Opts{Doc: "*big.avro.Int"}, avro.Bytes),
 		avro.Field("timestamp", avro.Opts{Doc: "uint32"}, avro.Long),
-		// These fields are made "optional" for backwards compatibility, but they should be set in all cases.
+		// These fields are made "optional" for FULL_TRANSITIVE compatibility, but they should be set in all cases.
 		avro.Field("config_digest", avro.Opts{Doc: "[32]byte encoded as base64", Default: avro.Null}, avro.Union{avro.Null, avro.String}),
 		avro.Field("epoch", avro.Opts{Doc: "uint32", Default: avro.Null}, avro.Union{avro.Null, avro.Long}),
 		avro.Field("round", avro.Opts{Doc: "uint8", Default: avro.Null}, avro.Union{avro.Null, avro.Int}),
 	})),
-	avro.Field("chain_config", avro.Opts{Default: avro.Null}, avro.Union{
+	// These field is "optional" for FULL_TRANSITIVE compatibility, but it should be set in all cases.
+	avro.Field("chain_config", avro.Opts{Default: avro.Null, Doc: "required!"}, avro.Union{
 		avro.Null,
 		avro.Record("chain_config", avro.Opts{}, avro.Fields{
 			avro.Field("network_name", avro.Opts{}, avro.String),
@@ -28,6 +29,11 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 			avro.Field("chain_id", avro.Opts{}, avro.String),
 		}),
 	}),
+	avro.Field("solana_chain_config", avro.Opts{Doc: "deprecated! in favour of chain_config"}, avro.Record("solana_chain_config", avro.Opts{}, avro.Fields{
+		avro.Field("network_name", avro.Opts{}, avro.String),
+		avro.Field("network_id", avro.Opts{}, avro.String),
+		avro.Field("chain_id", avro.Opts{}, avro.String),
+	})),
 	avro.Field("feed_config", avro.Opts{}, avro.Record("feed_config", avro.Opts{}, avro.Fields{
 		avro.Field("feed_name", avro.Opts{}, avro.String),
 		avro.Field("feed_path", avro.Opts{}, avro.String),
@@ -36,10 +42,12 @@ var transmissionAvroSchema = avro.Record("transmission", avro.Opts{Namespace: "l
 		avro.Field("contract_type", avro.Opts{}, avro.String),
 		avro.Field("contract_status", avro.Opts{}, avro.String),
 		avro.Field("contract_address", avro.Opts{Doc: "[32]byte"}, avro.Bytes),
-		avro.Field("transmissions_account", avro.Opts{Doc: "[32]byte", Default: avro.Null}, avro.Union{avro.Null, avro.Bytes}),
-		avro.Field("state_account", avro.Opts{Doc: "[32]byte", Default: avro.Null}, avro.Union{avro.Null, avro.Bytes}),
+		// These field is "required" for FULL_TRANSITIVE compatibility, but they are deprecated and they should be set to a zero value.
+		avro.Field("transmissions_account", avro.Opts{Doc: "[32]byte deprecated!"}, avro.Bytes),
+		avro.Field("state_account", avro.Opts{Doc: "[32]byte deprecated!"}, avro.Bytes),
 	})),
-	avro.Field("link_balance", avro.Opts{Default: avro.Null}, avro.Union{
+	// These field is "optional" for FULL_TRANSITIVE compatibility, but it should be set in all cases.
+	avro.Field("link_balance", avro.Opts{Default: avro.Null, Doc: "required!"}, avro.Union{
 		avro.Null,
 		avro.Bytes,
 	}),
