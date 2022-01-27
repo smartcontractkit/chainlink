@@ -212,7 +212,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
-	chainSet := appBootstrap.GetChainSet()
+	chainSet := appBootstrap.GetChains().EVM
 	require.NotNil(t, chainSet)
 	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -335,7 +335,7 @@ chainID = 1337
 			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
+			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 			require.NoError(t, err)
 		}()
 	}

@@ -10,13 +10,16 @@ import {
 import userEvent from '@testing-library/user-event'
 import { Route } from 'react-router-dom'
 
-import { buildJobProposal } from 'support/factories/gql/fetchJobProposal'
 import {
-  APPROVE_JOB_PROPOSAL_MUTATION,
-  CANCEL_JOB_PROPOSAL_MUTATION,
+  buildJobProposal,
+  buildJobProposalSpec,
+} from 'support/factories/gql/fetchJobProposal'
+import {
+  APPROVE_JOB_PROPOSAL_SPEC_MUTATION,
+  CANCEL_JOB_PROPOSAL_SPEC_MUTATION,
   JOB_PROPOSAL_QUERY,
-  REJECT_JOB_PROPOSAL_MUTATION,
-  UPDATE_JOB_PROPOSAL_SPEC_MUTATION,
+  REJECT_JOB_PROPOSAL_SPEC_MUTATION,
+  UPDATE_JOB_PROPOSAL_SPEC_DEFINITION_MUTATION,
   JobProposalScreen,
 } from './JobProposalScreen'
 import Notifications from 'pages/Notifications'
@@ -57,7 +60,7 @@ describe('JobProposalScreen', () => {
 
     await waitForElementToBeRemoved(() => queryByRole('progressbar'))
 
-    expect(await findByText('Job proposal #1')).toBeInTheDocument()
+    expect(await findByText('Job Proposal #1')).toBeInTheDocument()
   })
 
   it('updates the spec', async () => {
@@ -77,20 +80,20 @@ describe('JobProposalScreen', () => {
       },
       {
         request: {
-          query: UPDATE_JOB_PROPOSAL_SPEC_MUTATION,
+          query: UPDATE_JOB_PROPOSAL_SPEC_DEFINITION_MUTATION,
           variables: {
             id: proposal.id,
             input: {
-              spec: 'name="updated spec"',
+              definition: 'name="updated spec"',
             },
           },
         },
         result: {
           data: {
-            updateJobProposalSpec: {
-              __typename: 'UpdateJobProposalSpecSuccess',
-              jobProposal: {
-                __typename: 'JobProposal',
+            updateJobProposalSpecDefinition: {
+              __typename: 'UpdateJobProposalSpecDefinitionSuccess',
+              jobProposalSpec: {
+                __typename: 'JobProposalSpec',
                 id: proposal.id,
               },
             },
@@ -104,7 +107,7 @@ describe('JobProposalScreen', () => {
         },
         result: {
           data: {
-            jobProposal: buildJobProposal({ spec: 'name="updated spec"' }),
+            jobProposal: buildJobProposal(),
           },
         },
       },
@@ -114,7 +117,7 @@ describe('JobProposalScreen', () => {
 
     await waitForElementToBeRemoved(() => queryByRole('progressbar'))
 
-    userEvent.click(getByRole('button', { name: /edit job spec/i }))
+    userEvent.click(getByRole('button', { name: /edit/i }))
 
     const specInput = screen.getByRole('textbox', {
       name: /job spec \*/i,
@@ -144,19 +147,19 @@ describe('JobProposalScreen', () => {
       },
       {
         request: {
-          query: UPDATE_JOB_PROPOSAL_SPEC_MUTATION,
+          query: UPDATE_JOB_PROPOSAL_SPEC_DEFINITION_MUTATION,
           variables: {
             id: proposal.id,
             input: {
-              spec: 'name="updated spec"',
+              definition: 'name="updated spec"',
             },
           },
         },
         result: {
           data: {
-            updateJobProposalSpec: {
+            updateJobProposalSpecDefinition: {
               __typename: 'NotFoundError',
-              message: 'job proposal not found',
+              message: 'job proposal spec not found',
             },
           },
         },
@@ -178,7 +181,7 @@ describe('JobProposalScreen', () => {
 
     await waitForElementToBeRemoved(() => queryByRole('progressbar'))
 
-    userEvent.click(getByRole('button', { name: /edit job spec/i }))
+    userEvent.click(getByRole('button', { name: /edit/i }))
 
     const specInput = screen.getByRole('textbox', {
       name: /job spec \*/i,
@@ -188,7 +191,7 @@ describe('JobProposalScreen', () => {
 
     userEvent.click(getByRole('button', { name: /submit/i }))
 
-    expect(await findByText('job proposal not found')).toBeInTheDocument()
+    expect(await findByText('job proposal spec not found')).toBeInTheDocument()
   })
 
   it('approves a pending proposal', async () => {
@@ -208,15 +211,15 @@ describe('JobProposalScreen', () => {
       },
       {
         request: {
-          query: APPROVE_JOB_PROPOSAL_MUTATION,
-          variables: { id: proposal.id },
+          query: APPROVE_JOB_PROPOSAL_SPEC_MUTATION,
+          variables: { id: proposal.specs[0].id },
         },
         result: {
           data: {
-            approveJobProposal: {
-              __typename: 'ApproveJobProposalSuccess',
-              jobProposal: {
-                id: proposal.id,
+            approveJobProposalSpec: {
+              __typename: 'ApproveJobProposalSpecSuccess',
+              spec: {
+                id: proposal.specs[0].id,
               },
             },
           },
@@ -245,8 +248,8 @@ describe('JobProposalScreen', () => {
     userEvent.click(getByRole('button', { name: /approve/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
-    expect(await findByText('Job Proposal approved')).toBeInTheDocument()
-    expect(await findByText('Status: Approved')).toBeInTheDocument()
+    expect(await findByText('Spec approved')).toBeInTheDocument()
+    expect(await findByText('Approved')).toBeInTheDocument()
   })
 
   it('rejects a pending proposal', async () => {
@@ -266,15 +269,15 @@ describe('JobProposalScreen', () => {
       },
       {
         request: {
-          query: REJECT_JOB_PROPOSAL_MUTATION,
-          variables: { id: proposal.id },
+          query: REJECT_JOB_PROPOSAL_SPEC_MUTATION,
+          variables: { id: proposal.specs[0].id },
         },
         result: {
           data: {
-            rejectJobProposal: {
-              __typename: 'RejectJobProposalSuccess',
-              jobProposal: {
-                id: proposal.id,
+            rejectJobProposalSpec: {
+              __typename: 'RejectJobProposalSpecSuccess',
+              spec: {
+                id: proposal.specs[0].id,
               },
             },
           },
@@ -302,12 +305,19 @@ describe('JobProposalScreen', () => {
     userEvent.click(getByRole('button', { name: /reject/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
-    expect(await findByText('Job Proposal rejected')).toBeInTheDocument()
-    expect(await findByText('Status: Rejected')).toBeInTheDocument()
+    expect(await findByText('Spec rejected')).toBeInTheDocument()
+    expect(await findByText('Rejected')).toBeInTheDocument()
   })
 
   it('cancels an approved proposal', async () => {
-    const proposal = buildJobProposal({ status: 'APPROVED' })
+    const proposal = buildJobProposal({
+      status: 'APPROVED',
+      specs: [
+        buildJobProposalSpec({
+          status: 'APPROVED',
+        }),
+      ],
+    })
 
     const mocks: MockedResponse[] = [
       {
@@ -323,15 +333,15 @@ describe('JobProposalScreen', () => {
       },
       {
         request: {
-          query: CANCEL_JOB_PROPOSAL_MUTATION,
-          variables: { id: proposal.id },
+          query: CANCEL_JOB_PROPOSAL_SPEC_MUTATION,
+          variables: { id: proposal.specs[0].id },
         },
         result: {
           data: {
-            cancelJobProposal: {
-              __typename: 'CancelJobProposalSuccess',
-              jobProposal: {
-                id: proposal.id,
+            cancelJobProposalSpec: {
+              __typename: 'CancelJobProposalSpecSuccess',
+              spec: {
+                id: proposal.specs[0].id,
               },
             },
           },
@@ -359,12 +369,19 @@ describe('JobProposalScreen', () => {
     userEvent.click(getByRole('button', { name: /cancel/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
-    expect(await findByText('Job Proposal cancelled')).toBeInTheDocument()
-    expect(await findByText('Status: Cancelled')).toBeInTheDocument()
+    expect(await findByText('Spec cancelled')).toBeInTheDocument()
+    expect(await findByText('Cancelled')).toBeInTheDocument()
   })
 
   it('approves a cancelled proposal', async () => {
-    const proposal = buildJobProposal({ status: 'CANCELLED' })
+    const proposal = buildJobProposal({
+      status: 'CANCELLED',
+      specs: [
+        buildJobProposalSpec({
+          status: 'CANCELLED',
+        }),
+      ],
+    })
 
     const mocks: MockedResponse[] = [
       {
@@ -380,15 +397,15 @@ describe('JobProposalScreen', () => {
       },
       {
         request: {
-          query: APPROVE_JOB_PROPOSAL_MUTATION,
-          variables: { id: proposal.id },
+          query: APPROVE_JOB_PROPOSAL_SPEC_MUTATION,
+          variables: { id: proposal.specs[0].id },
         },
         result: {
           data: {
-            approveJobProposal: {
-              __typename: 'ApproveJobProposalSuccess',
-              jobProposal: {
-                id: proposal.id,
+            approveJobProposalSpec: {
+              __typename: 'ApproveJobProposalSpecSuccess',
+              spec: {
+                id: proposal.specs[0].id,
               },
             },
           },
@@ -416,8 +433,8 @@ describe('JobProposalScreen', () => {
     userEvent.click(getByRole('button', { name: /approve/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
-    expect(await findByText('Job Proposal approved')).toBeInTheDocument()
-    expect(await findByText('Status: Approved')).toBeInTheDocument()
+    expect(await findByText('Spec approved')).toBeInTheDocument()
+    expect(await findByText('Approved')).toBeInTheDocument()
   })
 
   it('renders a not found page', async () => {

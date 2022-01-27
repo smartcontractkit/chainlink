@@ -28,10 +28,6 @@ type Spec struct {
 	JobName string `json:"-"`
 }
 
-func (Spec) TableName() string {
-	return "pipeline_specs"
-}
-
 func (s Spec) Pipeline() (*Pipeline, error) {
 	return Parse(s.DotDagSource)
 }
@@ -56,10 +52,6 @@ type Run struct {
 
 	Pending   bool
 	FailEarly bool
-}
-
-func (Run) TableName() string {
-	return "pipeline_runs"
 }
 
 func (r Run) GetID() string {
@@ -261,10 +253,6 @@ type TaskRun struct {
 
 	// Used internally for sorting completed results
 	task Task
-}
-
-func (TaskRun) TableName() string {
-	return "pipeline_task_runs"
 }
 
 func (tr TaskRun) GetID() string {

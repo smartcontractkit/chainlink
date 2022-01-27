@@ -32,7 +32,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(tc.App.GetChainSet(), tr.EVMChainID.String())
+	chain, err := getChain(tc.App.GetChains().EVM, tr.EVMChainID.String())
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

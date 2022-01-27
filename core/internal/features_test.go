@@ -224,7 +224,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChainSet(), pipelineORM, app.KeyStore, logger.TestLogger(t), cfg)
+		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, app.KeyStore, logger.TestLogger(t), cfg)
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -641,7 +641,7 @@ func TestIntegration_OCR(t *testing.T) {
 			err = appBootstrap.Start()
 			require.NoError(t, err)
 
-			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChainSet(), fmt.Sprintf(`
+			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -707,7 +707,7 @@ isBootstrapPeer    = true
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				jb, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
+				jb, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -752,7 +752,7 @@ observationSource = """
 					2, 7, apps[i].JobORM(), time.Minute, time.Second)
 				jb, err := pr[0].Outputs.MarshalJSON()
 				require.NoError(t, err)
-				assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*i)), jb)
+				assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*i)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 				require.NoError(t, err)
 			}
 
@@ -897,7 +897,7 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 	keys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
 	// FIXME: This is a hack. Remove after https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
-	for _, chain := range app.GetChainSet().Chains() {
+	for _, chain := range app.GetChains().EVM.Chains() {
 		for _, k := range keys {
 			chain.TxManager().Trigger(k.Address.Address())
 		}

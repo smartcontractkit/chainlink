@@ -953,7 +953,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "create",
 							Usage:  "Create a new EVM chain",
-							Action: client.CreateChain,
+							Action: client.CreateEVMChain,
 							Flags: []cli.Flag{
 								cli.Int64Flag{
 									Name:  "id",
@@ -964,19 +964,57 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "delete",
 							Usage:  "Delete an EVM chain",
-							Action: client.RemoveChain,
+							Action: client.RemoveEVMChain,
 						},
 						{
 							Name:   "list",
-							Usage:  "List all chains",
-							Action: client.IndexChains,
+							Usage:  "List all EVM chains",
+							Action: client.IndexEVMChains,
 						},
 						{
 							Name:   "configure",
 							Usage:  "Configure an EVM chain",
-							Action: client.ConfigureChain,
+							Action: client.ConfigureEVMChain,
 							Flags: []cli.Flag{
 								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+					},
+				},
+				{
+					Name:  "terra",
+					Usage: "Commands for handling Terra chains",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new Terra chain",
+							Action: client.CreateTerraChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete a Terra chain",
+							Action: client.RemoveTerraChain,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all Terra chains",
+							Action: client.IndexTerraChains,
+						},
+						{
+							Name:   "configure",
+							Usage:  "Configure a Terra chain",
+							Action: client.ConfigureTerraChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
 									Name:  "id",
 									Usage: "chain ID",
 								},
@@ -991,41 +1029,82 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for handling node configuration",
 			Subcommands: cli.Commands{
 				{
-					Name:   "create",
-					Usage:  "Create a new node",
-					Action: client.CreateNode,
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "name",
-							Usage: "node name",
+					Name:  "evm",
+					Usage: "Commands for handling EVM node configuration",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new EVM node",
+							Action: client.CreateEVMNode,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "name",
+									Usage: "node name",
+								},
+								cli.StringFlag{
+									Name:  "ws-url",
+									Usage: "Websocket URL",
+								},
+								cli.StringFlag{
+									Name:  "http-url",
+									Usage: "HTTP URL, optional",
+								},
+								cli.Int64Flag{
+									Name:  "chain-id",
+									Usage: "chain ID",
+								},
+								cli.StringFlag{
+									Name:  "type",
+									Usage: "primary|secondary",
+								},
+							},
 						},
-						cli.StringFlag{
-							Name:  "ws-url",
-							Usage: "Websocket URL",
+						{
+							Name:   "delete",
+							Usage:  "Delete an EVM node",
+							Action: client.RemoveEVMNode,
 						},
-						cli.StringFlag{
-							Name:  "http-url",
-							Usage: "HTTP URL, optional",
-						},
-						cli.Int64Flag{
-							Name:  "chain-id",
-							Usage: "chain ID",
-						},
-						cli.StringFlag{
-							Name:  "type",
-							Usage: "primary|secondary",
+						{
+							Name:   "list",
+							Usage:  "List all EVM nodes",
+							Action: client.IndexEVMNodes,
 						},
 					},
 				},
 				{
-					Name:   "delete",
-					Usage:  "Delete a node",
-					Action: client.RemoveNode,
-				},
-				{
-					Name:   "list",
-					Usage:  "List all nodes",
-					Action: client.IndexNodes,
+					Name:  "terra",
+					Usage: "Commands for handling Terra node configuration",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new Terra node",
+							Action: client.CreateTerraNode,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "name",
+									Usage: "node name",
+								},
+								cli.StringFlag{
+									Name:  "chain-id",
+									Usage: "chain ID",
+								},
+								cli.StringFlag{
+									Name:  "tendermint-url",
+									Usage: "Tendermint URL",
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete a Terra node",
+							Action: client.RemoveTerraNode,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all Terra nodes",
+							Action: client.IndexTerraNodes,
+						},
+					},
 				},
 			},
 		},

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -50,7 +51,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 	app.On("Start").Return(nil)
 	app.On("Stop").Return(nil)
 	app.On("ID").Return(uuid.NewV4())
@@ -103,6 +104,7 @@ CHAIN_TYPE:
 CLIENT_NODE_URL: http://localhost:6688
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
+DATABASE_BACKUP_ON_VERSION_UPGRADE: true
 DATABASE_LOCKING_MODE: none
 ETH_CHAIN_ID: 0
 DEFAULT_HTTP_LIMIT: 32768
@@ -129,6 +131,7 @@ KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 0
 KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 0
 KEEPER_REGISTRY_SYNC_INTERVAL: 
 KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 0
+KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED: false
 LEASE_LOCK_DURATION: 10s
 LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
@@ -202,7 +205,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
@@ -250,7 +253,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
@@ -316,7 +319,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
@@ -412,7 +415,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("Stop").Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	client := cmd.Client{
@@ -485,7 +488,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.NewV4())
 			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 
 			client := cmd.Client{
 				Config:                 config,

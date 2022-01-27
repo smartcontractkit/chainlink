@@ -99,7 +99,6 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	schemaOpts := []graphql.SchemaOpt{}
 	if !app.GetConfig().Dev() {
 		schemaOpts = append(schemaOpts,
-			graphql.DisableIntrospection(),
 			graphql.MaxDepth(10),
 		)
 	}
@@ -333,14 +332,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/jobs", jc.Create)
 		authv2.DELETE("/jobs/:ID", jc.Delete)
 
-		jpc := JobProposalsController{app}
-		authv2.GET("/job_proposals", jpc.Index)
-		authv2.GET("/job_proposals/:id", jpc.Show)
-		authv2.POST("/job_proposals/:id/approve", jpc.Approve)
-		authv2.POST("/job_proposals/:id/cancel", jpc.Cancel)
-		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
-		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
-
 		// PipelineRunsController
 		authv2.GET("/pipeline/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
@@ -357,18 +348,36 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 
-		chc := ChainsController{app}
-		authv2.GET("/chains/evm", paginatedRequest(chc.Index))
-		authv2.POST("/chains/evm", chc.Create)
-		authv2.GET("/chains/evm/:ID", chc.Show)
-		authv2.PATCH("/chains/evm/:ID", chc.Update)
-		authv2.DELETE("/chains/evm/:ID", chc.Delete)
+		echc := EVMChainsController{app}
+		authv2.GET("/chains/evm", paginatedRequest(echc.Index))
+		authv2.POST("/chains/evm", echc.Create)
+		authv2.GET("/chains/evm/:ID", echc.Show)
+		authv2.PATCH("/chains/evm/:ID", echc.Update)
+		authv2.DELETE("/chains/evm/:ID", echc.Delete)
 
-		nc := NodesController{app}
-		authv2.GET("/nodes", paginatedRequest(nc.Index))
-		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(nc.Index))
-		authv2.POST("/nodes", nc.Create)
-		authv2.DELETE("/nodes/:ID", nc.Delete)
+		tchc := TerraChainsController{app}
+		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
+		authv2.POST("/chains/terra", tchc.Create)
+		authv2.GET("/chains/terra/:ID", tchc.Show)
+		authv2.PATCH("/chains/terra/:ID", tchc.Update)
+		authv2.DELETE("/chains/terra/:ID", tchc.Delete)
+
+		enc := EVMNodesController{app}
+		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
+		authv2.GET("/nodes", paginatedRequest(enc.Index))
+		authv2.POST("/nodes", enc.Create)
+		authv2.DELETE("/nodes/:ID", enc.Delete)
+
+		authv2.GET("/nodes/evm", paginatedRequest(enc.Index))
+		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(enc.Index))
+		authv2.POST("/nodes/evm", enc.Create)
+		authv2.DELETE("/nodes/evm/:ID", enc.Delete)
+
+		tnc := TerraNodesController{app}
+		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))
+		authv2.GET("/chains/terra/:ID/nodes", paginatedRequest(tnc.Index))
+		authv2.POST("/nodes/terra", tnc.Create)
+		authv2.DELETE("/nodes/terra/:ID", tnc.Delete)
 	}
 
 	ping := PingController{app}

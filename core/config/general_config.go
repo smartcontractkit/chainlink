@@ -74,6 +74,7 @@ type GeneralOnlyConfig interface {
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
 	DatabaseBackupURL() *url.URL
+	DatabaseBackupOnVersionUpgrade() bool
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
@@ -117,6 +118,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
+	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeyFile() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
@@ -149,7 +151,6 @@ type GeneralOnlyConfig interface {
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
-	UseLegacyEthEnvVars() bool
 }
 
 // GlobalConfig holds global ENV overrides for EVM chains
@@ -312,15 +313,12 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}
 
-	if !c.UseLegacyEthEnvVars() {
-		if c.EthereumURL() != "" {
-			c.lggr.Warn("ETH_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
-		}
+	if c.EthereumURL() == "" {
 		if c.EthereumHTTPURL() != nil {
-			c.lggr.Warn("ETH_HTTP_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
+			c.lggr.Warn("ETH_HTTP_URL has no effect when ETH_URL is not set")
 		}
 		if len(c.EthereumSecondaryURLs()) > 0 {
-			c.lggr.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
+			c.lggr.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when ETH_URL is not set")
 		}
 	}
 	// Warn on legacy OCR env vars
@@ -508,6 +506,12 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 		return nil
 	}
 	return uri
+}
+
+// DatabaseBackupOnVersionUpgrade controls whether an automatic backup will be
+// taken before migrations are run, if the node version has been bumped
+func (c *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
+	return c.getWithFallback("DatabaseBackupOnVersionUpgrade", parse.Bool).(bool)
 }
 
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
@@ -730,6 +734,11 @@ func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
 // KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
 func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", parse.Uint32).(uint32)
+}
+
+// KeeperCheckUpkeepGasPriceFeatureEnabled enables keepers to include a gas price when running checkUpkeep
+func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	return c.getWithFallback("KeeperCheckUpkeepGasPriceFeatureEnabled", parse.Bool).(bool)
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format
@@ -1296,12 +1305,6 @@ func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
-}
-
-// UseLegacyEthEnvVars will upsert a new chain using the DefaultChainID and
-// upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
-func (c *generalConfig) UseLegacyEthEnvVars() bool {
-	return c.viper.GetBool(envvar.Name("UseLegacyEthEnvVars"))
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

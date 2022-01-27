@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -87,7 +88,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query: query,
 			result: `
@@ -147,7 +148,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query: query,
 			result: `
@@ -199,7 +200,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query: query,
 			result: `
@@ -341,7 +342,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, gError)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:  query,
 			result: `null`,
@@ -383,7 +384,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.balM.On("GetEthBalance", address.Address()).Return(assets.NewEth(1))
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
@@ -450,7 +451,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query: query,
 			result: `

@@ -54,7 +54,6 @@ func Test_FeedsManagers(t *testing.T) {
 						createdAt
 						jobProposals {
 							id
-							spec
 							status
 						}
 					}
@@ -72,11 +71,10 @@ func Test_FeedsManagers(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("GetJobProposalsByManagersIDs", []int64{1}).Return([]feeds.JobProposal{
+				f.Mocks.feedsSvc.On("ListJobProposalsByManagersIDs", []int64{1}).Return([]feeds.JobProposal{
 					{
 						ID:             int64(100),
 						FeedsManagerID: int64(1),
-						Spec:           `[type=median retries=3 minBackoff="10ms" maxBackoff="10ms" index=0]`,
 						Status:         feeds.JobProposalStatusApproved,
 					},
 				}, nil)
@@ -110,7 +108,6 @@ func Test_FeedsManagers(t *testing.T) {
 							"createdAt": "2021-01-01T00:00:00Z",
 							"jobProposals": [{
 								"id": "100",
-								"spec": "[type=median retries=3 minBackoff=\"10ms\" maxBackoff=\"10ms\" index=0]",
 								"status": "APPROVED"
 							}]
 						}]
@@ -427,7 +424,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateFeedsManager", mock.Anything, feeds.FeedsManager{
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, feeds.FeedsManager{
 					ID:                        mgrID,
 					Name:                      name,
 					URI:                       uri,
@@ -472,7 +469,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateFeedsManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(nil)
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(nil)
 				f.Mocks.feedsSvc.On("GetManager", mgrID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,

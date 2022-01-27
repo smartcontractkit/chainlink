@@ -47,6 +47,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -416,7 +417,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
-	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
+	var chains chainlink.Chains
+	chains.EVM, err = evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,
@@ -433,6 +435,18 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if err != nil {
 		lggr.Fatal(err)
 	}
+	terraLggr := lggr.Named("Terra")
+	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		Config:           cfg,
+		Logger:           terraLggr,
+		DB:               db,
+		KeyStore:         keyStore.Terra(),
+		EventBroadcaster: eventBroadcaster,
+		ORM:              terra.NewORM(db, terraLggr, cfg),
+	})
+	if err != nil {
+		lggr.Fatal(err)
+	}
 
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -440,7 +454,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ShutdownSignal:           shutdownSignal,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
-		ChainSet:                 chainSet,
+		Chains:                   chains,
 		Logger:                   lggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 	})
@@ -965,7 +979,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 		var matched []pipeline.Run
 		for _, pr := range prs {
-			if pr.State != state {
+			if !pr.State.Finished() || pr.State != state {
 				continue
 			}
 
