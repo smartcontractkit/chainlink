@@ -2,6 +2,7 @@ package loader
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
@@ -94,6 +95,49 @@ func GetJobRunsByIDs(ctx context.Context, ids []int64) ([]pipeline.Run, error) {
 	}
 
 	return runs, nil
+}
+
+// GetSpecsByJobProposalID fetches the spec for a job proposal id.
+func GetSpecsByJobProposalID(ctx context.Context, jpID string) ([]feeds.JobProposalSpec, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.JobProposalSpecsByJobProposalID.Load(ctx, dataloader.StringKey(jpID))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	specs, ok := result.([]feeds.JobProposalSpec)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	return specs, nil
+}
+
+// GetLatestSpecByJobProposalID fetches the latest spec for a job proposal id.
+func GetLatestSpecByJobProposalID(ctx context.Context, jpID string) (*feeds.JobProposalSpec, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.JobProposalSpecsByJobProposalID.Load(ctx, dataloader.StringKey(jpID))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	specs, ok := result.([]feeds.JobProposalSpec)
+	if !ok {
+		return nil, fmt.Errorf("invalid type: %T", result)
+	}
+
+	max := specs[0]
+	for _, spec := range specs {
+		if spec.Version > max.Version {
+			max = spec
+		}
+	}
+
+	return &max, nil
 }
 
 // GetJobProposalsByFeedsManagerID fetches the job proposals by feeds manager ID.
