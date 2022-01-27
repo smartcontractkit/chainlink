@@ -18,6 +18,10 @@ var (
 
 func newDefaultTransport() *http.Transport {
 	t := http.DefaultTransport.(*http.Transport).Clone()
+	// There are certain classes of vulnerabilities that open up when
+	// compression is enabled. For simplicity, we disable compression
+	// to cut off this class of attacks.
+	// https://www.cyberis.co.uk/2013/08/vulnerabilities-that-just-wont-die.html
 	t.DisableCompression = true
 	return t
 }
