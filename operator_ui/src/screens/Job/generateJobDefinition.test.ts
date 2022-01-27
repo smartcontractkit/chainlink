@@ -483,4 +483,52 @@ observationSource = """
     expect(output.definition).toEqual(expectedOutput)
     expect(output.envDefinition).toEqual('')
   })
+
+  it('generates a valid Bootstrap definition', () => {
+    const job: JobPayload_Fields = {
+      id: '1',
+      type: 'bootstrap',
+      schemaVersion: 1,
+      name: 'bootstrap',
+      externalJobID: '00000000-0000-0000-0000-0000000000001',
+      maxTaskDuration: '10s',
+      spec: {
+        __typename: 'BootstrapSpec',
+        id: '',
+        contractID: '0x0000000000000000000000000000000000000000',
+        relay: 'evm',
+        relayConfig: {
+          chainID: 1337,
+        },
+        monitoringEndpoint: 'https://monitoring.endpoint',
+        blockchainTimeout: '',
+        contractConfigTrackerSubscribeInterval: '',
+        contractConfigTrackerPollInterval: '60s',
+        contractConfigConfirmations: 1,
+        createdAt: '',
+      },
+      observationSource: '',
+      ...otherJobFields,
+    }
+
+    const expectedOutput = `type = "bootstrap"
+schemaVersion = 1
+name = "bootstrap"
+externalJobID = "00000000-0000-0000-0000-0000000000001"
+id = ""
+contractID = "0x0000000000000000000000000000000000000000"
+relay = "evm"
+monitoringEndpoint = "https://monitoring.endpoint"
+blockchainTimeout = ""
+contractConfigTrackerSubscribeInterval = ""
+contractConfigTrackerPollInterval = "60s"
+contractConfigConfirmations = 1
+
+[relayConfig]
+chainID = 1_337
+`
+    const output = generateJobDefinition(job)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envDefinition).toEqual('')
+  })
 })

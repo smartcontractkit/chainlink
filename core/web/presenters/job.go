@@ -36,6 +36,7 @@ const (
 	VRFJobSpec               JobSpecType = "vrf"
 	WebhookJobSpec           JobSpecType = "webhook"
 	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
+	BootstrapJobSpec         JobSpecType = "bootstrap"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -334,6 +335,34 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 	}
 }
 
+// BootstrapSpec defines the spec details of a BootstrapSpec Job
+type BootstrapSpec struct {
+	ContractID                             string                 `json:"contractID"`
+	Relay                                  types.Network          `json:"relay"`
+	RelayConfig                            map[string]interface{} `json:"relayConfig"`
+	BlockchainTimeout                      models.Interval        `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval        `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval        `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16                 `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time              `json:"createdAt"`
+	UpdatedAt                              time.Time              `json:"updatedAt"`
+}
+
+// NewBootstrapSpec initializes a new BootstrapSpec from a job.BootstrapSpec
+func NewBootstrapSpec(spec *job.BootstrapSpec) *BootstrapSpec {
+	return &BootstrapSpec{
+		ContractID:                             spec.ContractID,
+		Relay:                                  spec.Relay,
+		RelayConfig:                            spec.RelayConfig,
+		BlockchainTimeout:                      spec.BlockchainTimeout,
+		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval,
+		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval,
+		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
+		CreatedAt:                              spec.CreatedAt,
+		UpdatedAt:                              spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -370,6 +399,7 @@ type JobResource struct {
 	VRFSpec                *VRFSpec                `json:"vrfSpec"`
 	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
 	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
+	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
 }
@@ -405,6 +435,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.WebhookSpec = NewWebhookSpec(j.WebhookSpec)
 	case job.BlockhashStore:
 		resource.BlockhashStoreSpec = NewBlockhashStoreSpec(j.BlockhashStoreSpec)
+	case job.Bootstrap:
+		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	}
 
 	jes := []JobError{}

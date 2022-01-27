@@ -3,32 +3,20 @@ package offchainreporting2
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-
-	"github.com/smartcontractkit/chainlink/core/config"
-
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/sqlx"
 )
-
-type Config interface {
-	config.OCR2Config
-	Dev() bool
-	JobPipelineResultWriteQueueDepth() uint64
-}
 
 type Delegate struct {
 	db                    *sqlx.DB
@@ -111,7 +99,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 
-	lc := toLocalConfig(d.cfg, *spec)
+	lc := ToLocalConfig(d.cfg, *spec)
 	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -212,34 +200,4 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 
 	return services, nil
-}
-
-func toLocalConfig(config Config, spec job.OffchainReporting2OracleSpec) ocrtypes.LocalConfig {
-	var (
-		blockchainTimeout     = time.Duration(spec.BlockchainTimeout)
-		ccConfirmations       = spec.ContractConfigConfirmations
-		ccTrackerPollInterval = time.Duration(spec.ContractConfigTrackerPollInterval)
-	)
-	if blockchainTimeout == 0 {
-		blockchainTimeout = config.OCR2BlockchainTimeout()
-	}
-	if ccConfirmations == 0 {
-		ccConfirmations = config.OCR2ContractConfirmations()
-	}
-	if ccTrackerPollInterval == 0 {
-		ccTrackerPollInterval = config.OCR2ContractPollInterval()
-	}
-	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                  blockchainTimeout,
-		ContractConfigConfirmations:        ccConfirmations,
-		ContractConfigTrackerPollInterval:  ccTrackerPollInterval,
-		ContractTransmitterTransmitTimeout: config.OCR2ContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                    config.OCR2DatabaseTimeout(),
-	}
-	if config.Dev() {
-		// Skips config validation so we can use any config parameters we want.
-		// For example to lower contractConfigTrackerPollInterval to speed up tests.
-		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode
-	}
-	return lc
 }

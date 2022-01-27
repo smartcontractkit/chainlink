@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/services/bootstrap"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -321,6 +322,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
+			relay,
+		)
+		delegates[job.Bootstrap] = bootstrap.NewDelegateBootstrap(
+			db,
+			jobORM,
+			peerWrapper,
+			globalLogger,
+			cfg,
 			relay,
 		)
 	} else {

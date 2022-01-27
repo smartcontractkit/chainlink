@@ -102,6 +102,18 @@ const JOB_PAYLOAD__SPEC = gql`
       evmChainID
       fromAddress
     }
+    ... on BootstrapSpec {
+      id
+      contractID
+      relay
+      monitoringEndpoint
+      relayConfig
+      blockchainTimeout
+      contractConfigTrackerSubscribeInterval
+      contractConfigTrackerPollInterval
+      contractConfigConfirmations
+      createdAt
+    }
   }
 `
 

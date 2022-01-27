@@ -230,6 +230,24 @@ export const generateJobDefinition = (
       }
 
       break
+    case 'BootstrapSpec':
+      values = {
+        ...extractJobFields(job),
+        ...extractSpecFields(
+          job.spec,
+          'id',
+          'contractID',
+          'relay',
+          'relayConfig',
+          'monitoringEndpoint',
+          'blockchainTimeout',
+          'contractConfigTrackerSubscribeInterval',
+          'contractConfigTrackerPollInterval',
+          'contractConfigConfirmations',
+        ),
+      }
+
+      break
     default:
       return { definition: '', envDefinition: '' }
     case 'WebhookSpec':

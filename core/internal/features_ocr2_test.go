@@ -24,8 +24,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/smartcontractkit/chainlink/core/services/bootstrap"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2aggregator "github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -214,15 +215,14 @@ func TestIntegration_OCR2(t *testing.T) {
 
 	chainSet := appBootstrap.GetChains().EVM
 	require.NotNil(t, chainSet)
-	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
-type               = "offchainreporting2"
-relay = "evm"
-schemaVersion      = 1
-name               = "boot"
-contractID = "%s"
-isBootstrapPeer    = true
+	ocrJob, err := bootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(`
+type				= "bootstrap"
+name				= "bootstrap"
+relay				= "evm"
+schemaVersion		= 1
+contractID			= "%s"
 [relayConfig]
-chainID = 1337
+chainID 			= 1337
 `, ocrContractAddress))
 	require.NoError(t, err)
 	err = appBootstrap.AddJobV2(context.Background(), &ocrJob)
@@ -364,5 +364,4 @@ chainID = 1337
 		}
 	}
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
-
 }

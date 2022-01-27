@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Generic OCR2 bootstrap job that replaces `isBootstrapPeer=true` jobs with a custom `boostrap` job type. Both bootstrap methods are enables at this time.
 
 New ENV vars:
 
