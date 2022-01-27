@@ -22,7 +22,7 @@ const (
 func (fc *FeaturesController) Index(c *gin.Context) {
 	resources := []presenters.FeatureResource{
 		*presenters.NewFeatureResource(FeatureKeyCSA, fc.App.GetConfig().FeatureUICSAKeys()),
-		*presenters.NewFeatureResource(FeatureKeyFeedsManager, fc.App.GetConfig().FeatureUIFeedsManager()),
+		*presenters.NewFeatureResource(FeatureKeyFeedsManager, fc.App.GetConfig().FeatureFeedsManager()),
 	}
 
 	jsonAPIResponse(c, resources, "features")
