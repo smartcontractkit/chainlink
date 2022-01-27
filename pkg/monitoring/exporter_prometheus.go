@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 )
@@ -44,6 +45,9 @@ func (f *prometheusExporterFactory) NewExporter(
 		f.metrics,
 		prometheusLabels{},
 		sync.Mutex{},
+		new(big.Int),
+		time.Time{},
+		sync.Mutex{},
 	}
 	p.updateLabels(prometheusLabels{
 		networkName:     chainConfig.GetNetworkName(),
@@ -69,6 +73,13 @@ type prometheusExporter struct {
 
 	labels   prometheusLabels
 	labelsMu sync.Mutex
+
+	prevValue     *big.Int
+	prevTimestamp time.Time
+	prevMu        sync.Mutex
+}
+
+type previousTransmissionDetails struct {
 }
 
 func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
@@ -104,6 +115,26 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 		p.chainConfig.GetChainID(),
 		p.chainConfig.GetNetworkID(),
 	)
+
+	isLateAnswer := time.Since(envelope.LatestTimestamp).Seconds() > float64(p.feedConfig.GetHeartbeatSec())
+	p.metrics.SetOffchainAggregatorAnswerStalled(
+		isLateAnswer,
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
+
+	if !p.isNewTransmission(envelope.LatestAnswer, envelope.LatestTimestamp) {
+		return
+	}
+	// All the metrics below are only updates if there was a fresh
+	// transmission since the last chain read.
 	p.metrics.SetOffchainAggregatorAnswers(
 		envelope.LatestAnswer,
 		p.feedConfig.GetID(),
@@ -117,19 +148,6 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.IncOffchainAggregatorAnswersTotal(
-		p.feedConfig.GetID(),
-		p.feedConfig.GetID(),
-		p.chainConfig.GetChainID(),
-		p.feedConfig.GetContractStatus(),
-		p.feedConfig.GetContractType(),
-		p.feedConfig.GetName(),
-		p.feedConfig.GetPath(),
-		p.chainConfig.GetNetworkID(),
-		p.chainConfig.GetNetworkName(),
-	)
-	isLateAnswer := time.Since(envelope.LatestTimestamp).Seconds() > float64(p.feedConfig.GetHeartbeatSec())
-	p.metrics.SetOffchainAggregatorAnswerStalled(
-		isLateAnswer,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -174,6 +192,24 @@ func (p *prometheusExporter) Cleanup(_ context.Context) {
 			p.labels.feedID,
 		)
 	}
+}
+
+// isNewTransmission considers four cases:
+// - old value == new value && old timestamp == new timestap => return false
+// - old value != new value && old timestamp == new timestap => This is probably and error since
+//   any new transmission updates the timestamp as well, but, to record the observation, we return true.
+// - old value != new value && old timestamp != new timestap => return true
+// - old value == new value && old timestamp != new timestap => An unlikely case given the
+//   high precision of observations but still a valid update. Return true
+func (p prometheusExporter) isNewTransmission(value *big.Int, timestamp time.Time) bool {
+	p.prevMu.Lock()
+	defer p.prevMu.Unlock()
+	if value.Cmp(p.prevValue) == 0 && timestamp.Equal(p.prevTimestamp) {
+		return false
+	}
+	p.prevValue = value
+	p.prevTimestamp = timestamp
+	return true
 }
 
 // Labels
