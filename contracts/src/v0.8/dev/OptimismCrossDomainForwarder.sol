@@ -41,7 +41,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
   }
 
   /**
-   * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address
+   * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
    * @inheritdoc ForwarderInterface
    */
   function forward(address target, bytes memory data) external virtual override onlyL1Owner {
