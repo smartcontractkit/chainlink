@@ -148,7 +148,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 		Name: "manager 3",
 	}
 
-	fsvc.On("GetManagers", []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
+	fsvc.On("ListManagersByIDs", []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
 		mgr1, mgr2, mgr3,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)
@@ -194,7 +194,7 @@ func TestLoader_JobProposals(t *testing.T) {
 		Status:         feeds.JobProposalStatusRejected,
 	}
 
-	fsvc.On("GetJobProposalsByManagersIDs", []int64{3, 1, 2}).Return([]feeds.JobProposal{
+	fsvc.On("ListJobProposalsByManagersIDs", []int64{3, 1, 2}).Return([]feeds.JobProposal{
 		jp1, jp3, jp2,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)
