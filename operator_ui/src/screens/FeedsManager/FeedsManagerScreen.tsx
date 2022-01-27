@@ -27,7 +27,9 @@ export const FeedsManagerScreen: React.FC = () => {
   const { data, loading, error } = useQuery<
     FetchFeedManagersWithProposals,
     FetchFeedManagersWithProposalsVariables
-  >(FEEDS_MANAGERS_WITH_PROPOSALS_QUERY)
+  >(FEEDS_MANAGERS_WITH_PROPOSALS_QUERY, {
+    fetchPolicy: 'cache-and-network',
+  })
 
   if (loading) {
     return <Loading />
