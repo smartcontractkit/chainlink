@@ -23,20 +23,42 @@ func TestFeedMonitor(t *testing.T) {
 	chainConfig := generateChainConfig()
 	feedConfig := generateFeedConfig()
 
-	factory := NewRandomDataSourceFactory(ctx, wg, newNullLogger())
-	source, err := factory.NewSource(chainConfig, feedConfig)
+	sourceFactory1 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+	source1, err := sourceFactory1.NewSource(chainConfig, feedConfig)
 	require.NoError(t, err)
 
-	pollInterval := 1 * time.Second
-	readTimeout := 1 * time.Second
+	sourceFactory2 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+	source2, err := sourceFactory2.NewSource(chainConfig, feedConfig)
+	require.NoError(t, err)
+
 	var bufferCapacity uint32 = 0 // no buffering
 
-	poller := NewSourcePoller(
-		source,
+	pollInterval := 100 * time.Millisecond
+	readTimeout := 100 * time.Millisecond
+
+	poller1 := NewSourcePoller(
+		source1,
 		newNullLogger(),
 		pollInterval, readTimeout,
 		bufferCapacity,
 	)
+	poller2 := NewSourcePoller(
+		source2,
+		newNullLogger(),
+		pollInterval, readTimeout,
+		bufferCapacity,
+	)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		poller1.Run(ctx)
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		poller2.Run(ctx)
+	}()
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
 
@@ -74,7 +96,7 @@ func TestFeedMonitor(t *testing.T) {
 
 	monitor := NewFeedMonitor(
 		newNullLogger(),
-		[]Poller{poller},
+		[]Poller{poller1, poller2},
 		exporters,
 	)
 	wg.Add(1)
@@ -83,26 +105,27 @@ func TestFeedMonitor(t *testing.T) {
 		monitor.Run(ctx)
 	}()
 
-	count := 0
-	var messages []producerMessage
 	envelope, err := generateEnvelope()
 	require.NoError(t, err)
+
+	var countEnvelopes int64 = 0
+	var countMessages int64 = 0
 
 LOOP:
 	for {
 		select {
-		case factory.updates <- envelope:
-			count += 1
-			envelope, err = generateEnvelope()
-			require.NoError(t, err)
-		case message := <-producer.sendCh:
-			messages = append(messages, message)
+		case sourceFactory1.updates <- envelope:
+			countEnvelopes += 1
+		case sourceFactory2.updates <- envelope:
+			countEnvelopes += 1
+		case _ = <-producer.sendCh:
+			countMessages += 1
 		case <-ctx.Done():
 			break LOOP
 		}
 	}
 
-	// The last update from each poller can potentially be missed by the context being cancelled.
-	require.GreaterOrEqual(t, len(messages), 2*count-2)
-	require.LessOrEqual(t, len(messages), 2*count)
+	// There should be two prometheus metrics for each envelope + a little bit of wiggle room.
+	require.GreaterOrEqual(t, countMessages, 2*countEnvelopes-1)
+	require.LessOrEqual(t, countMessages, 2*countEnvelopes+1)
 }
