@@ -28,7 +28,7 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) ht
 		expectedBody := &bytes.Buffer{}
 		err = json.NewEncoder(expectedBody).Encode(expectedRequest)
 		require.NoError(t, err)
-		require.Equal(t, bytes.TrimSpace(expectedBody.Bytes()), body)
+		require.Equal(t, string(bytes.TrimSpace(expectedBody.Bytes())), string(body))
 
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)

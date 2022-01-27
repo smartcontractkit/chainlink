@@ -39,10 +39,6 @@ type FeedsManager struct {
 	UpdatedAt time.Time
 }
 
-func (FeedsManager) TableName() string {
-	return "feeds_managers"
-}
-
 // JobProposalStatus are the status codes that define the stage of a proposal
 type JobProposalStatus string
 

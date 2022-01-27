@@ -13,13 +13,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -32,14 +32,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
-	debug := config.LogLevel{Level: zapcore.DebugLevel}
+	debug := zapcore.DebugLevel
 	cfg.Overrides.LogLevel = &debug
-	cfg.Overrides.LogToDisk = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 	keyStore := cltest.NewKeyStore(t, db, cfg)
@@ -53,15 +51,21 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 	app.On("Start").Return(nil)
 	app.On("Stop").Return(nil)
 	app.On("ID").Return(uuid.NewV4())
 
+	lcfg := logger.Config{
+		LogLevel: zapcore.DebugLevel,
+		ToDisk:   true,
+		Dir:      t.TempDir(),
+	}
+
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 logger.NewLogger(cfg),
+		Logger:                 lcfg.New(),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -80,7 +84,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 		t.Fatal("Timed out waiting for runner")
 	}
 
-	logs, err := cltest.ReadLogs(cfg)
+	logs, err := cltest.ReadLogs(lcfg.Dir)
 	require.NoError(t, err)
 	msg := cltest.FindLogMessage(logs, func(msg string) bool {
 		return strings.HasPrefix(msg, "Environment variables")
@@ -88,6 +92,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NotEmpty(t, msg, "No env var message found")
 
 	expected := fmt.Sprintf(`Environment variables
+ADVISORY_LOCK_CHECK_INTERVAL: 1s
+ADVISORY_LOCK_ID: 1027321974924625846
 ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688
 BLOCK_BACKFILL_DEPTH: 10
 BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY: 0
@@ -98,8 +104,7 @@ CHAIN_TYPE:
 CLIENT_NODE_URL: http://localhost:6688
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
-DATABASE_MAXIMUM_TX_DURATION: 30m0s
-DATABASE_TIMEOUT: 5s
+DATABASE_BACKUP_ON_VERSION_UPGRADE: true
 DATABASE_LOCKING_MODE: none
 ETH_CHAIN_ID: 0
 DEFAULT_HTTP_LIMIT: 32768
@@ -126,36 +131,38 @@ KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 0
 KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 0
 KEEPER_REGISTRY_SYNC_INTERVAL: 
 KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE: 0
-LINK_CONTRACT_ADDRESS: 
+KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED: false
+LEASE_LOCK_DURATION: 10s
+LEASE_LOCK_REFRESH_INTERVAL: 1s
 FLAGS_CONTRACT_ADDRESS: 
+LINK_CONTRACT_ADDRESS: 
+LOG_FILE_DIR: %[1]s
 LOG_LEVEL: debug
-LOG_SQL_MIGRATIONS: false
 LOG_SQL: false
-LOG_TO_DISK: true
-OCR_BOOTSTRAP_CHECK_INTERVAL: 20s
+LOG_TO_DISK: false
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
-OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 10s
-OCR_DATABASE_TIMEOUT: 10s
+OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
+OCR_DATABASE_TIMEOUT: 
 OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
-OCR_INCOMING_MESSAGE_BUFFER_SIZE: 10
+OCR_TRACE_LOGGING: false
+P2P_NETWORKING_STACK: V1
+P2P_PEER_ID: 
+P2P_INCOMING_MESSAGE_BUFFER_SIZE: 10
+P2P_OUTGOING_MESSAGE_BUFFER_SIZE: 10
 P2P_BOOTSTRAP_PEERS: []
 P2P_LISTEN_IP: 0.0.0.0
 P2P_LISTEN_PORT: 
-P2P_NETWORKING_STACK: V1
-P2P_PEER_ID: 
+P2P_NEW_STREAM_TIMEOUT: 10s
+P2P_DHT_LOOKUP_INTERVAL: 10
+P2P_BOOTSTRAP_CHECK_INTERVAL: 20s
 P2PV2_ANNOUNCE_ADDRESSES: []
 P2PV2_BOOTSTRAPPERS: []
 P2PV2_DELTA_DIAL: 15s
 P2PV2_DELTA_RECONCILE: 1m0s
 P2PV2_LISTEN_ADDRESSES: []
-OCR_OUTGOING_MESSAGE_BUFFER_SIZE: 10
-OCR_NEW_STREAM_TIMEOUT: 10s
-OCR_DHT_LOOKUP_INTERVAL: 10
-OCR_TRACE_LOGGING: false
 CHAINLINK_PORT: 6688
 REAPER_EXPIRATION: 240h0m0s
-REPLAY_FROM_BLOCK: -1
-ROOT: %s
+ROOT: %[1]s
 SECURE_COOKIES: true
 SESSION_TIMEOUT: 2m0s
 TELEMETRY_INGRESS_LOGGING: false
@@ -198,7 +205,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
@@ -246,7 +253,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app := new(mocks.Application)
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
@@ -312,7 +319,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
@@ -336,7 +343,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
-				assert.EqualError(t, client.RunNode(c), "error creating api initializer: open doesntexist.txt: no such file or directory")
+				err = client.RunNode(c)
+				assert.Error(t, err)
+				if err != nil {
+					assert.Contains(t, err.Error(), "error creating api initializer: open doesntexist.txt: no such file or directory")
+				}
 			} else {
 				assert.NoError(t, client.RunNode(c))
 			}
@@ -358,14 +369,14 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := cltest.NewTestGeneralConfig(t)
-			config.Overrides.Dev = null.BoolFrom(true)
-			config.Overrides.LogToDisk = null.BoolFrom(tt.logToDiskValue)
-			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
-			defer os.RemoveAll(config.RootDir())
+			cfg := logger.Config{
+				ToDisk: tt.logToDiskValue,
+				Dir:    t.TempDir(),
+			}
+			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
-			logger.NewLogger(config).Sync()
-			filepath := filepath.Join(config.RootDir(), "log.jsonl")
+			cfg.New().Sync()
+			filepath := filepath.Join(cfg.Dir, "log.jsonl")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
@@ -404,7 +415,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("Stop").Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	client := cmd.Client{
@@ -415,7 +426,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 		Runner:                 cltest.EmptyRunner{},
 	}
 
-	config.SetDialect(dialects.TransactionWrappedPostgres)
+	config.Overrides.Dialect = dialects.TransactionWrappedPostgres
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
@@ -450,7 +461,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
 			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
-			config.SetDialect(dialects.Postgres)
+			config.Overrides.Dialect = dialects.Postgres
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 
@@ -477,7 +488,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.NewV4())
 			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 
 			client := cmd.Client{
 				Config:                 config,
@@ -487,7 +498,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 			}
 
-			config.SetDialect(dialects.TransactionWrappedPostgres)
+			config.Overrides.Dialect = dialects.TransactionWrappedPostgres
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i

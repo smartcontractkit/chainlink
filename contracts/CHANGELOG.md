@@ -1,11 +1,29 @@
 # @chainlink/contracts CHANGELOG.md
 
-## 0.2.3 - Unreleased
+## Unreleased
+
+### Added
+
+- `ArbitrumSequencerUptimeFeedInterface` and `ArbitrumSequencerUptimeFeed` added in v0.8.
+
+### Changed
+
+- Changed `ArbitrumValidator#validate` target to `ArbitrumSequencerUptimeFeed` instead of
+  Flags contract.
+
+## 0.3.1 - 2022-01-05
+
+### Changed:
+
+- Fixed install issue with npm.
+
+## 0.3.0 - 2021-12-09
 
 ### Added
 
 - Prettier Solidity formatting applied to v0.7 and above.
 - ERC677ReceiverInterface added in v0.8.
+- `KeeperBase.sol` and `KeeperCompatible.sol` in Solidity v0.6 and v0.8
 
 ### Changed:
 
@@ -13,6 +31,8 @@
   multiword requests/response are available through the ChainlinkClient by using
   the newly enabled `buildOperatorRequest` along with `sendOperatorRequest` or
   `sendOperatorRequestTo`.
+- `ChainlinkClient` functions `requestOracleData` and `requestOracleDataFrom` have been changed to `sendChainlinkRequest` and
+  `sendChainlinkRequestTo` respectively.
 - Updated function comments in `v0.6/interfaces/KeeperCompatibleInterface.sol` and `v0.8/interfaces/KeeperCompatibleInterface.sol` to match the latest in v0.7.
 - Add `DelegateForwarderInterface` interface and `CrossDomainDelegateForwarder` base contract which implements a new `forwardDelegate()` function to forward delegatecalls from L1 to L2.
 

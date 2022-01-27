@@ -38,7 +38,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
 
 	gethKey, err := keystore.DecryptKey(keyJSON, adulteratedPassword(password))
 	if err != nil {
-		return KeyV2{}, errors.Wrapf(err, "could not decrypt key %s", export.PublicKey.String())
+		return KeyV2{}, errors.Wrapf(err, "could not decrypt VRF key %s", export.PublicKey.String())
 	}
 
 	key := Raw(gethKey.PrivateKey.D.Bytes()).Key()

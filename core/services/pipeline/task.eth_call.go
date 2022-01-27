@@ -12,8 +12,8 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 //
@@ -63,6 +63,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		gasPrice     MaybeBigIntParam
 		gasTipCap    MaybeBigIntParam
 		gasFeeCap    MaybeBigIntParam
+		chainID      StringParam
 	)
 
 	err = multierr.Combine(
@@ -72,6 +73,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
 		errors.Wrap(ResolveParam(&gasTipCap, From(VarExpr(t.GasTipCap, vars), t.GasTipCap)), "gasTipCap"),
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
+		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -88,9 +90,15 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		GasFeeCap: gasFeeCap.BigInt(),
 	}
 
-	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	lggr = lggr.With("gas", call.Gas).
+		With("gasPrice", call.GasPrice).
+		With("gasTipCap", call.GasTipCap).
+		With("gasFeeCap", call.GasFeeCap)
+
+	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
-		return Result{Error: err}, retryableRunInfo()
+		lggr.Errorf("Invalid chain ID %s", chainID)
+		return Result{Error: err}, runInfo
 	}
 
 	start := time.Now()
@@ -110,7 +118,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 }
 
 func (t *ETHCallTask) retrieveRevertReason(baseErr error, lggr logger.Logger) error {
-	reason, err := eth.ExtractRevertReasonFromRPCError(baseErr)
+	reason, err := evmclient.ExtractRevertReasonFromRPCError(baseErr)
 	if err != nil {
 		lggr.Errorw("failed to extract revert reason", "baseErr", baseErr, "error", err)
 		return baseErr

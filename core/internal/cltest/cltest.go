@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
@@ -31,27 +30,40 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+	null "gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -67,14 +79,6 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -95,16 +99,22 @@ const (
 	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
+	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
+	DefaultOCR2KeyBundleID = "92be59c45d0d7b192ef88d391f444ea7c78644f8607f567aab11d53668c27a4d"
 )
 
 var (
-	FixtureChainID = *big.NewInt(0)
-	source         rand.Source
+	DefaultP2PPeerID p2pkey.PeerID
+	FixtureChainID   = *big.NewInt(0)
+	source           rand.Source
 
-	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultOCRKey = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultP2PKey = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	DefaultVRFKey = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCRKey    = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCR2Key   = ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "evm")
+	DefaultP2PKey    = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultSolanaKey = solkey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultTerraKey  = terrakey.MustNewInsecure(keystest.NewRandReaderFromSeed(1))
+	DefaultVRFKey    = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 
 func init() {
@@ -117,7 +127,6 @@ func init() {
 
 	logger.InitColor(true)
 	lggr := logger.TestLogger(nil)
-	logger.InitLogger(lggr)
 	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 		lggr.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
@@ -130,6 +139,11 @@ func init() {
 
 	// Also seed the local source
 	source = rand.NewSource(seed)
+	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
+	if err != nil {
+		panic(err)
+	}
+	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
 }
 
 func NewRandomInt64() int64 {
@@ -167,7 +181,8 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
+// NewEthBroadcaster creates a new bulletprooftxmanager.EthBroadcaster for use in testing.
+func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory bulletprooftxmanager.TransmitCheckerFactory) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start()
@@ -175,7 +190,8 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
 	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
+		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr,
+		checkerFactory)
 }
 
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
@@ -183,7 +199,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates,
@@ -312,11 +328,11 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T) *TestApplication {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	config := NewTestGeneralConfig(t)
-	return NewApplicationWithConfigAndKey(t, config)
+	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
@@ -367,14 +383,14 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
-	var ethClient eth.Client
+	var ethClient evmclient.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
 	var chainORM evmtypes.ORM
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
-		case eth.Client:
+		case evmclient.Client:
 			ethClient = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
@@ -388,32 +404,45 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, lggr, cfg)
 			}
 
 		}
 	}
 	if ethClient == nil {
-		ethClient = eth.NewNullClient(nil, lggr)
+		ethClient = evmclient.NewNullClient(nil, lggr)
 	}
 	if chainORM == nil {
 		chainORM = evm.NewORM(db)
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
-	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
+	var chains chainlink.Chains
+	chains.EVM, err = evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,
 		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(c evmtypes.Chain) eth.Client {
+		GenEthClient: func(c evmtypes.Chain) evmclient.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
 				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
 			}
 			return ethClient
 		},
+	})
+	if err != nil {
+		lggr.Fatal(err)
+	}
+	terraLggr := lggr.Named("Terra")
+	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		Config:           cfg,
+		Logger:           terraLggr,
+		DB:               db,
+		KeyStore:         keyStore.Terra(),
+		EventBroadcaster: eventBroadcaster,
+		ORM:              terra.NewORM(db, terraLggr, cfg),
 	})
 	if err != nil {
 		lggr.Fatal(err)
@@ -425,7 +454,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ShutdownSignal:           shutdownSignal,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
-		ChainSet:                 chainSet,
+		Chains:                   chains,
 		Logger:                   lggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 	})
@@ -447,13 +476,13 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription, f func()) {
 	c, s, f = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+func NewEthMocks(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
 	c, s := NewEthClientAndSubMock(t)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
@@ -468,33 +497,33 @@ func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	return c, s, assertMocksCalled
 }
 
-func NewEthClientAndSubMock(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
-	mockSub := new(mocks.Subscription)
+func NewEthClientAndSubMock(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
+	mockSub := new(evmMocks.Subscription)
 	mockSub.Test(t)
-	mockEth := new(mocks.Client)
+	mockEth := new(evmMocks.Client)
 	mockEth.Test(t)
 	return mockEth, mockSub
 }
 
-func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
+func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
 	mockEth, mockSub := NewEthClientAndSubMock(t)
 	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
 	return mockEth, mockSub
 }
 
-func NewEthClientMock(t mock.TestingT) *mocks.Client {
-	mockEth := new(mocks.Client)
+func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
+	mockEth := new(evmMocks.Client)
 	mockEth.Test(t)
 	return mockEth
 }
 
-func NewEthClientMockWithDefaultChain(t testing.TB) *mocks.Client {
+func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return c
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
@@ -513,15 +542,44 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 	return c, s, assertMocksCalled
 }
 
+// NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
+	c, s, assertMocksCalled := NewEthMocks(t)
+	c.On("Dial", mock.Anything).Maybe().Return(nil)
+	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
+	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
+	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(2), nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(1)).Maybe().Return(Head(1), nil)
+	c.On("HeadByNumber", mock.Anything, big.NewInt(0)).Maybe().Return(Head(0), nil)
+	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &gas.Block{
+			Number:       42,
+			Hash:         utils.NewHash(),
+			Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
+		}
+		elems[1].Result = &gas.Block{
+			Number:       41,
+			Hash:         utils.NewHash(),
+			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
+		}
+	})
+	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("Close").Maybe().Return()
+
+	block := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	c.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
+
+	s.On("Err").Return(nil).Maybe()
+	s.On("Unsubscribe").Return(nil).Maybe()
+	return c, s, assertMocksCalled
+}
+
 func newServer(app chainlink.Application) *httptest.Server {
 	engine := web.Router(app, nil)
 	return httptest.NewServer(engine)
-}
-
-func (ta *TestApplication) NewBox() packr.Box {
-	ta.t.Helper()
-
-	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.
@@ -746,8 +804,8 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(cfg config.GeneralConfig) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", cfg.RootDir())
+func ReadLogs(dir string) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", dir)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }
@@ -921,7 +979,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 		var matched []pipeline.Run
 		for _, pr := range prs {
-			if pr.State != state {
+			if !pr.State.Finished() || pr.State != state {
 				continue
 			}
 
@@ -931,7 +989,6 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 				matched = append(matched, pr)
 			}
 		}
-
 		if len(matched) >= expectedPipelineRuns {
 			pr = matched
 			return true
@@ -939,11 +996,12 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 		return false
 	}, timeout, poll).Should(
 		gomega.BeTrue(),
-		fmt.Sprintf(`expected at least %d runs with status "%s" on node %d for job %d`,
+		fmt.Sprintf(`expected at least %d runs with status "%s" on node %d for job %d, total runs %d`,
 			expectedPipelineRuns,
 			state,
 			nodeID,
 			jobID,
+			len(pr),
 		),
 	)
 	return pr
@@ -979,18 +1037,18 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []bulletp
 }
 
 // Head given the value convert it into an Head
-func Head(val interface{}) *eth.Head {
-	var h eth.Head
+func Head(val interface{}) *evmtypes.Head {
+	var h evmtypes.Head
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case uint64:
-		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case int64:
-		h = eth.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case *big.Int:
-		h = eth.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = evmtypes.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	default:
 		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
@@ -1046,13 +1104,13 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 			assert.FailNowf(t, "Unable to read body", err.Error())
 		}
 
-		var result map[string][]string
+		var result *models.JSONAPIErrors
 		err = json.Unmarshal(b, &result)
 		if err != nil {
 			assert.FailNowf(t, fmt.Sprintf("Unable to unmarshal json from body '%s'", string(b)), err.Error())
 		}
 
-		assert.FailNowf(t, "Request failed", "Expected %d response, got %d with errors: %s", expectedStatusCode, resp.StatusCode, result["errors"])
+		assert.FailNowf(t, "Request failed", "Expected %d response, got %d with errors: %s", expectedStatusCode, resp.StatusCode, result.Errors)
 	} else {
 		assert.FailNowf(t, "Unexpected response", "Expected %d response, got %d", expectedStatusCode, resp.StatusCode)
 	}
@@ -1262,14 +1320,14 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mocks.Client) (verify func()) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmMocks.Client) (verify func()) {
 	t.Helper()
 
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	sub := new(mocks.Subscription)
+	sub := new(evmMocks.Subscription)
 	sub.On("Err").Return(nil)
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
@@ -1353,7 +1411,7 @@ type Blocks struct {
 	t       *testing.T
 	Hashes  []common.Hash
 	mHashes map[int64]common.Hash
-	Heads   map[int64]*eth.Head
+	Heads   map[int64]*evmtypes.Head
 }
 
 func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
@@ -1380,7 +1438,7 @@ func (b *Blocks) HashesMap() map[int64]common.Hash {
 	return b.mHashes
 }
 
-func (b *Blocks) Head(number uint64) *eth.Head {
+func (b *Blocks) Head(number uint64) *evmtypes.Head {
 	return b.Heads[int64(number)]
 }
 
@@ -1399,13 +1457,13 @@ func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
 	return forked
 }
 
-func (b *Blocks) NewHead(number uint64) *eth.Head {
+func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
 	parentNumber := number - 1
 	parent, ok := b.Heads[int64(parentNumber)]
 	if !ok {
 		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
 	}
-	head := &eth.Head{
+	head := &evmtypes.Head{
 		Number:     parent.Number + 1,
 		Hash:       utils.NewHash(),
 		ParentHash: parent.Hash,
@@ -1418,12 +1476,12 @@ func (b *Blocks) NewHead(number uint64) *eth.Head {
 
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
-	heads := make(map[int64]*eth.Head)
+	heads := make(map[int64]*evmtypes.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
 		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &eth.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: utils.NewBig(&FixtureChainID)}
+		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: utils.NewBig(&FixtureChainID)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -1447,18 +1505,18 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 // HeadBuffer - stores heads in sequence, with increasing timestamps
 type HeadBuffer struct {
 	t     *testing.T
-	Heads []*eth.Head
+	Heads []*evmtypes.Head
 }
 
 func NewHeadBuffer(t *testing.T) *HeadBuffer {
 	return &HeadBuffer{
 		t:     t,
-		Heads: make([]*eth.Head, 0),
+		Heads: make([]*evmtypes.Head, 0),
 	}
 }
 
-func (hb *HeadBuffer) Append(head *eth.Head) {
-	cloned := &eth.Head{
+func (hb *HeadBuffer) Append(head *evmtypes.Head) {
+	cloned := &evmtypes.Head{
 		Number:     head.Number,
 		Hash:       head.Hash,
 		ParentHash: head.ParentHash,
@@ -1469,9 +1527,9 @@ func (hb *HeadBuffer) Append(head *eth.Head) {
 	hb.Heads = append(hb.Heads, cloned)
 }
 
-type HeadTrackableFunc func(context.Context, *eth.Head)
+type HeadTrackableFunc func(context.Context, *evmtypes.Head)
 
-func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	fn(ctx, head)
 }
 

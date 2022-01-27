@@ -57,10 +57,15 @@ type (
 		minRequiredOutgoingConfirmations           uint64
 		minimumContractPayment                     *assets.Link
 		nonceAutoSync                              bool
-		ocrContractConfirmations                   uint16
 		rpcDefaultBatchSize                        uint32
 		// set true if fully configured
 		complete bool
+
+		// Chain specific OCR1 config
+		ocrContractConfirmations              uint16
+		ocrContractTransmitterTransmitTimeout time.Duration
+		ocrDatabaseTimeout                    time.Duration
+		ocrObservationGracePeriod             time.Duration
 	}
 )
 
@@ -92,39 +97,42 @@ func setChainSpecificConfigDefaultSets() {
 		blockHistoryEstimatorBlockDelay:            1,
 		blockHistoryEstimatorBlockHistorySize:      16,
 		blockHistoryEstimatorTransactionPercentile: 60,
-		chainType:                        "",
-		eip1559DynamicFees:               false,
-		ethTxReaperInterval:              1 * time.Hour,
-		ethTxReaperThreshold:             168 * time.Hour,
-		ethTxResendAfterThreshold:        1 * time.Minute,
-		finalityDepth:                    50,
-		gasBumpPercent:                   20,
-		gasBumpThreshold:                 3,
-		gasBumpTxDepth:                   10,
-		gasBumpWei:                       *assets.GWei(5),
-		gasEstimatorMode:                 "BlockHistory",
-		gasLimitDefault:                  DefaultGasLimit,
-		gasLimitMultiplier:               1.0,
-		gasLimitTransfer:                 21000,
-		gasPriceDefault:                  *DefaultGasPrice,
-		gasTipCapDefault:                 *DefaultGasTip,
-		gasTipCapMinimum:                 *big.NewInt(0),
-		headTrackerHistoryDepth:          100,
-		headTrackerMaxBufferSize:         3,
-		headTrackerSamplingInterval:      1 * time.Second,
-		linkContractAddress:              "",
-		logBackfillBatchSize:             100,
-		maxGasPriceWei:                   *assets.GWei(5000),
-		maxInFlightTransactions:          16,
-		maxQueuedTransactions:            250,
-		minGasPriceWei:                   *assets.GWei(1),
-		minIncomingConfirmations:         3,
-		minRequiredOutgoingConfirmations: 12,
-		minimumContractPayment:           DefaultMinimumContractPayment,
-		nonceAutoSync:                    true,
-		ocrContractConfirmations:         4,
-		rpcDefaultBatchSize:              100,
-		complete:                         true,
+		chainType:                             "",
+		eip1559DynamicFees:                    false,
+		ethTxReaperInterval:                   1 * time.Hour,
+		ethTxReaperThreshold:                  168 * time.Hour,
+		ethTxResendAfterThreshold:             1 * time.Minute,
+		finalityDepth:                         50,
+		gasBumpPercent:                        20,
+		gasBumpThreshold:                      3,
+		gasBumpTxDepth:                        10,
+		gasBumpWei:                            *assets.GWei(5),
+		gasEstimatorMode:                      "BlockHistory",
+		gasLimitDefault:                       DefaultGasLimit,
+		gasLimitMultiplier:                    1.0,
+		gasLimitTransfer:                      21000,
+		gasPriceDefault:                       *DefaultGasPrice,
+		gasTipCapDefault:                      *DefaultGasTip,
+		gasTipCapMinimum:                      *big.NewInt(0),
+		headTrackerHistoryDepth:               100,
+		headTrackerMaxBufferSize:              3,
+		headTrackerSamplingInterval:           1 * time.Second,
+		linkContractAddress:                   "",
+		logBackfillBatchSize:                  100,
+		maxGasPriceWei:                        *assets.GWei(5000),
+		maxInFlightTransactions:               16,
+		maxQueuedTransactions:                 250,
+		minGasPriceWei:                        *assets.GWei(1),
+		minIncomingConfirmations:              3,
+		minRequiredOutgoingConfirmations:      12,
+		minimumContractPayment:                DefaultMinimumContractPayment,
+		nonceAutoSync:                         true,
+		ocrContractConfirmations:              4,
+		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
+		ocrDatabaseTimeout:                    10 * time.Second,
+		ocrObservationGracePeriod:             1 * time.Second,
+		rpcDefaultBatchSize:                   100,
+		complete:                              true,
 	}
 
 	mainnet := fallbackDefaultSet
@@ -177,6 +185,9 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.minGasPriceWei = *assets.GWei(1)
 	bscMainnet.minIncomingConfirmations = 3
 	bscMainnet.minRequiredOutgoingConfirmations = 12
+	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
+	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
+	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
 
 	hecoMainnet := bscMainnet
 
@@ -192,6 +203,7 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
 	polygonMainnet.maxQueuedTransactions = 2000 // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+	polygonMainnet.maxGasPriceWei = *assets.UEther(50)
 	polygonMainnet.minGasPriceWei = *assets.GWei(1)
 	polygonMainnet.ethTxResendAfterThreshold = 5 * time.Minute // 5 minutes is roughly 300 blocks on Polygon. Since re-orgs occur often and can be deep we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
 	polygonMainnet.blockHistoryEstimatorBlockDelay = 10        // Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
@@ -231,6 +243,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
+	optimismMainnet.minGasPriceWei = *big.NewInt(0) // Optimism uses the Optimism2 estimator; we don't want to place any limits on the minimum gas price
 	optimismMainnet.minRequiredOutgoingConfirmations = 0
 	optimismMainnet.ocrContractConfirmations = 1
 	optimismKovan := optimismMainnet

@@ -7,9 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/recovery"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -18,7 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/recovery"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -26,7 +25,7 @@ import (
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
-	service.Service
+	services.Service
 
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
@@ -140,6 +139,9 @@ func (r *runner) destroy() {
 func (r *runner) runReaperLoop() {
 	defer r.wgDone.Done()
 	defer r.destroy()
+	if r.config.JobPipelineReaperInterval() == 0 {
+		return
+	}
 
 	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
 	defer runReaperTicker.Stop()
@@ -387,7 +389,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	// an extremely good reason to change it.
 	ctx, cancel := utils.CombinedContext(ctx, r.chStop)
 	defer cancel()
-	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet {
+	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet && taskTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
 		defer cancel()
 	}
@@ -445,7 +447,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
-	finalResult = trrs.FinalResult()
+	finalResult = trrs.FinalResult(l)
 
 	// don't insert if we exited early
 	if run.FailEarly {

@@ -7,10 +7,13 @@ import ListItemIcon from '@material-ui/core/ListItemIcon'
 import ListItemText from '@material-ui/core/ListItemText'
 import Menu from '@material-ui/core/Menu'
 import MenuItem from '@material-ui/core/MenuItem'
-import Typography from '@material-ui/core/Typography'
 import MoreVertIcon from '@material-ui/icons/MoreVert'
 
-import { DetailsCard } from 'src/components/Cards/DetailsCard'
+import {
+  DetailsCard,
+  DetailsCardItemTitle,
+  DetailsCardItemValue,
+} from 'src/components/Cards/DetailsCard'
 import { TimeAgo } from 'src/components/TimeAgo'
 
 interface Props {
@@ -58,46 +61,34 @@ export const NodeCard: React.FC<Props> = ({ node, onDelete }) => {
     >
       <Grid container>
         <Grid item xs={12} sm={4} md={3}>
-          <Typography variant="subtitle2" gutterBottom>
-            ID
-          </Typography>
-          <Typography variant="body1">{node.id}</Typography>
+          <DetailsCardItemTitle title="ID" />
+          <DetailsCardItemValue value={node.id} />
         </Grid>
 
         <Grid item xs={12} sm={4} md={3}>
-          <Typography variant="subtitle2" gutterBottom>
-            EVM Chain ID
-          </Typography>
-          <Typography variant="body1">{node.chain.id}</Typography>
+          <DetailsCardItemTitle title="EVM Chain ID" />
+          <DetailsCardItemValue value={node.chain.id} />
         </Grid>
 
         <Grid item xs={12} sm={4} md={2}>
-          <Typography variant="subtitle2" gutterBottom>
-            Created
-          </Typography>
-          <Typography variant="body1">
+          <DetailsCardItemTitle title="Created" />
+          <DetailsCardItemValue>
             <TimeAgo tooltip>{node.createdAt}</TimeAgo>
-          </Typography>
+          </DetailsCardItemValue>
         </Grid>
 
         <Grid item xs={false} sm={false} md={4}></Grid>
 
         <Grid item xs={12} md={6}>
-          <Typography variant="subtitle2" gutterBottom>
-            HTTP URL
-          </Typography>
-          <Typography variant="body1" noWrap>
-            {node.httpURL !== '' ? node.httpURL : '--'}
-          </Typography>
+          <DetailsCardItemTitle title="HTTP URL" />
+          <DetailsCardItemValue
+            value={node.httpURL !== '' ? node.httpURL : '--'}
+          />
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Typography variant="subtitle2" gutterBottom>
-            WS URL
-          </Typography>
-          <Typography variant="body1" noWrap>
-            {node.wsURL !== '' ? node.wsURL : '--'}
-          </Typography>
+          <DetailsCardItemTitle title="WS URL" />
+          <DetailsCardItemValue value={node.wsURL !== '' ? node.wsURL : '--'} />
         </Grid>
       </Grid>
     </DetailsCard>

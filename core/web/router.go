@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -23,7 +23,6 @@ import (
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/ulule/limiter"
@@ -81,7 +80,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(app.NewBox(), engine, config, app.GetLogger())
+	guiAssetRoutes(engine, config, app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM()),
@@ -96,10 +95,19 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	rootSchema := schema.MustGetRootSchema()
 
+	// Disable introspection and set a max query depth in production.
+	schemaOpts := []graphql.SchemaOpt{}
+	if !app.GetConfig().Dev() {
+		schemaOpts = append(schemaOpts,
+			graphql.MaxDepth(10),
+		)
+	}
+
 	schema := graphql.MustParseSchema(rootSchema,
 		&resolver.Resolver{
 			App: app,
 		},
+		schemaOpts...,
 	)
 
 	h := relay.Handler{Schema: schema}
@@ -262,6 +270,12 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		rc := ReplayController{app}
 		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
 
+		csakc := CSAKeysController{app}
+		authv2.GET("/keys/csa", csakc.Index)
+		authv2.POST("/keys/csa", csakc.Create)
+		authv2.POST("/keys/csa/import", csakc.Import)
+		authv2.POST("/keys/csa/export/:ID", csakc.Export)
+
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
@@ -277,6 +291,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/ocr/import", ocrkc.Import)
 		authv2.POST("/keys/ocr/export/:ID", ocrkc.Export)
 
+		ocr2kc := OCR2KeysController{app}
+		authv2.GET("/keys/ocr2", ocr2kc.Index)
+		authv2.POST("/keys/ocr2/:chainType", ocr2kc.Create)
+		authv2.DELETE("/keys/ocr2/:keyID", ocr2kc.Delete)
+		authv2.POST("/keys/ocr2/import", ocr2kc.Import)
+		authv2.POST("/keys/ocr2/export/:ID", ocr2kc.Export)
+
 		p2pkc := P2PKeysController{app}
 		authv2.GET("/keys/p2p", p2pkc.Index)
 		authv2.POST("/keys/p2p", p2pkc.Create)
@@ -284,11 +305,19 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/keys/p2p/import", p2pkc.Import)
 		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
 
-		csakc := CSAKeysController{app}
-		authv2.GET("/keys/csa", csakc.Index)
-		authv2.POST("/keys/csa", csakc.Create)
-		authv2.POST("/keys/csa/import", csakc.Import)
-		authv2.POST("/keys/csa/export/:ID", csakc.Export)
+		solkc := SolanaKeysController{app}
+		authv2.GET("/keys/solana", solkc.Index)
+		authv2.POST("/keys/solana", solkc.Create)
+		authv2.DELETE("/keys/solana/:keyID", solkc.Delete)
+		authv2.POST("/keys/solana/import", solkc.Import)
+		authv2.POST("/keys/solana/export/:ID", solkc.Export)
+
+		terkc := TerraKeysController{app}
+		authv2.GET("/keys/terra", terkc.Index)
+		authv2.POST("/keys/terra", terkc.Create)
+		authv2.DELETE("/keys/terra/:keyID", terkc.Delete)
+		authv2.POST("/keys/terra/import", terkc.Import)
+		authv2.POST("/keys/terra/export/:ID", terkc.Export)
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
@@ -327,18 +356,36 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 
-		chc := ChainsController{app}
-		authv2.GET("/chains/evm", paginatedRequest(chc.Index))
-		authv2.POST("/chains/evm", chc.Create)
-		authv2.GET("/chains/evm/:ID", chc.Show)
-		authv2.PATCH("/chains/evm/:ID", chc.Update)
-		authv2.DELETE("/chains/evm/:ID", chc.Delete)
+		echc := EVMChainsController{app}
+		authv2.GET("/chains/evm", paginatedRequest(echc.Index))
+		authv2.POST("/chains/evm", echc.Create)
+		authv2.GET("/chains/evm/:ID", echc.Show)
+		authv2.PATCH("/chains/evm/:ID", echc.Update)
+		authv2.DELETE("/chains/evm/:ID", echc.Delete)
 
-		nc := NodesController{app}
-		authv2.GET("/nodes", paginatedRequest(nc.Index))
-		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(nc.Index))
-		authv2.POST("/nodes", nc.Create)
-		authv2.DELETE("/nodes/:ID", nc.Delete)
+		tchc := TerraChainsController{app}
+		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
+		authv2.POST("/chains/terra", tchc.Create)
+		authv2.GET("/chains/terra/:ID", tchc.Show)
+		authv2.PATCH("/chains/terra/:ID", tchc.Update)
+		authv2.DELETE("/chains/terra/:ID", tchc.Delete)
+
+		enc := EVMNodesController{app}
+		// TODO still EVM only https://app.shortcut.com/chainlinklabs/story/26276/multi-chain-type-ui-node-chain-configuration
+		authv2.GET("/nodes", paginatedRequest(enc.Index))
+		authv2.POST("/nodes", enc.Create)
+		authv2.DELETE("/nodes/:ID", enc.Delete)
+
+		authv2.GET("/nodes/evm", paginatedRequest(enc.Index))
+		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(enc.Index))
+		authv2.POST("/nodes/evm", enc.Create)
+		authv2.DELETE("/nodes/evm/:ID", enc.Delete)
+
+		tnc := TerraNodesController{app}
+		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))
+		authv2.GET("/chains/terra/:ID/nodes", paginatedRequest(tnc.Index))
+		authv2.POST("/nodes/terra", tnc.Create)
+		authv2.DELETE("/nodes/terra/:ID", tnc.Delete)
 	}
 
 	ping := PingController{app}
@@ -360,7 +407,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
 	// Serve static files
 	assetsRouterHandlers := []gin.HandlerFunc{}
 	if !config.Dev() {
@@ -372,7 +419,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 
 	assetsRouterHandlers = append(
 		assetsRouterHandlers,
-		ServeGzippedAssets("/assets", &BoxFileSystem{Box: box}, lggr),
+		ServeGzippedAssets("/assets", assetFs, lggr),
 	)
 
 	// Get Operator UI Assets
@@ -407,15 +454,15 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 		}
 
 		// Render the React index page for any other unknown requests
-		file, err := box.Open("index.html")
+		file, err := assetFs.Open("index.html")
 		if err != nil {
-			if err == os.ErrNotExist {
+			if err == fs.ErrNotExist {
 				c.AbortWithStatus(http.StatusNotFound)
 			} else {
 				lggr.Errorf("failed to open static file '%s': %+v", path, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 			}
-
+			return
 		}
 		defer lggr.ErrorIfClosing(file, "file")
 
@@ -453,7 +500,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,
 			"query", redact(c.Request.URL.Query()),
-			"body", readBody(rdr),
+			"body", readBody(rdr, lggr),
 			"clientIP", c.ClientIP(),
 			"errors", c.Errors.String(),
 			"servedAt", end.Format("2006-01-02 15:04:05"),
@@ -479,11 +526,11 @@ func uiCorsHandler(config WebSecurityConfig) gin.HandlerFunc {
 	return cors.New(c)
 }
 
-func readBody(reader io.Reader) string {
+func readBody(reader io.Reader, lggr logger.Logger) string {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(reader)
 	if err != nil {
-		logger.Warn("unable to read from body for sanitization: ", err)
+		lggr.Warn("unable to read from body for sanitization: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 
@@ -493,7 +540,7 @@ func readBody(reader io.Reader) string {
 
 	s, err := readSanitizedJSON(buf)
 	if err != nil {
-		logger.Warn("unable to sanitize json for logging: ", err)
+		lggr.Warn("unable to sanitize json for logging: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 	return s

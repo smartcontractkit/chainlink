@@ -27,11 +27,11 @@ import (
 	null "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -105,7 +105,7 @@ func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) 
 	return transactor
 }
 
-// SimulatedBackendClient is an eth.Client implementation using a simulated
+// SimulatedBackendClient is an evmclient.Client implementation using a simulated
 // blockchain backend. Note that not all RPC methods are implemented here.
 type SimulatedBackendClient struct {
 	b       *backends.SimulatedBackend
@@ -113,7 +113,7 @@ type SimulatedBackendClient struct {
 	chainId *big.Int
 }
 
-var _ eth.Client = (*SimulatedBackendClient)(nil)
+var _ evmclient.Client = (*SimulatedBackendClient)(nil)
 
 func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
@@ -125,12 +125,12 @@ func (c *SimulatedBackendClient) Close() {}
 
 // checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
 func (c *SimulatedBackendClient) checkEthCallArgs(
-	args []interface{}) (*eth.CallArgs, *big.Int, error) {
+	args []interface{}) (*evmclient.CallArgs, *big.Int, error) {
 	if len(args) != 2 {
 		return nil, nil, fmt.Errorf(
 			"should have two arguments after \"eth_call\", got %d", len(args))
 	}
-	callArgs, ok := args[0].(eth.CallArgs)
+	callArgs, ok := args[0].(evmclient.CallArgs)
 	if !ok {
 		return nil, nil, fmt.Errorf("third arg to SimulatedBackendClient.Call "+
 			"must be an eth.CallArgs, got %+#v", args[0])
@@ -289,7 +289,7 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 	panic("can never reach here")
 }
 
-func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*eth.Head, error) {
+func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	if n == nil {
 		n = c.currentBlockNumber()
 	}
@@ -299,7 +299,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
-	return &eth.Head{
+	return &evmtypes.Head{
 		EVMChainID: utils.NewBigI(SimulatedBackendEVMChainID),
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
@@ -345,10 +345,10 @@ func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 
 // SubscribeNewHead registers a subscription for push notifications of new blocks.
 // Note the sim's API only accepts types.Head so we have this goroutine
-// to convert those into eth.Head.
+// to convert those into evmtypes.Head.
 func (c *SimulatedBackendClient) SubscribeNewHead(
 	ctx context.Context,
-	channel chan<- *eth.Head,
+	channel chan<- *evmtypes.Head,
 ) (ethereum.Subscription, error) {
 	subscription := &headSubscription{unSub: make(chan chan struct{})}
 	ch := make(chan *types.Header)
@@ -360,13 +360,13 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			"simulated backend")
 	}
 	go func() {
-		var lastHead *eth.Head
+		var lastHead *evmtypes.Head
 		for {
 			select {
 			case h := <-ch:
-				var head *eth.Head
+				var head *evmtypes.Head
 				if h != nil {
-					head = &eth.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
+					head = &evmtypes.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
 					lastHead = head
 				}
 				select {

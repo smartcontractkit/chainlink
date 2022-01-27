@@ -3,7 +3,6 @@
   "version": "0.6.5",
   "license": "MIT",
   "scripts": {
-    "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') === -1) throw new Error('Please use yarn to install dependencies\\n\\n')\"",
     "depcheck": "echo '@chainlink/tools' && depcheck || true"
   },
   "engines": {

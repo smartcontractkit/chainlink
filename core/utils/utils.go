@@ -23,14 +23,13 @@ import (
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
-	"github.com/tevino/abool"
 	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 )
 
 const (
-	// DefaultSecretSize is the entroy in bytes to generate a base64 string of 64 characters.
+	// DefaultSecretSize is the entropy in bytes to generate a base64 string of 64 characters.
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
@@ -121,7 +120,7 @@ func StringToHex(in string) string {
 	return AddHexPrefix(hex.EncodeToString([]byte(in)))
 }
 
-// AddHexPrefix adds the previx (0x) to a given hex string.
+// AddHexPrefix adds the prefix (0x) to a given hex string.
 func AddHexPrefix(str string) string {
 	if len(str) < 2 || len(str) > 1 && strings.ToLower(str[0:2]) != "0x" {
 		str = "0x" + str
@@ -150,7 +149,7 @@ type Sleeper interface {
 // BackoffSleeper is a sleeper that backs off on subsequent attempts.
 type BackoffSleeper struct {
 	backoff.Backoff
-	beenRun *abool.AtomicBool
+	beenRun *atomic.Bool
 }
 
 // NewBackoffSleeper returns a BackoffSleeper that is configured to
@@ -162,13 +161,13 @@ func NewBackoffSleeper() *BackoffSleeper {
 			Min: 1 * time.Second,
 			Max: 10 * time.Second,
 		},
-		beenRun: abool.New(),
+		beenRun: atomic.NewBool(false),
 	}
 }
 
 // Sleep waits for the given duration, incrementing the back off.
 func (bs *BackoffSleeper) Sleep() {
-	if bs.beenRun.SetToIf(false, true) {
+	if bs.beenRun.CAS(false, true) {
 		return
 	}
 	time.Sleep(bs.Backoff.Duration())
@@ -176,7 +175,7 @@ func (bs *BackoffSleeper) Sleep() {
 
 // After returns the duration for the next stop, and increments the backoff.
 func (bs *BackoffSleeper) After() time.Duration {
-	if bs.beenRun.SetToIf(false, true) {
+	if bs.beenRun.CAS(false, true) {
 		return 0
 	}
 	return bs.Backoff.Duration()
@@ -184,7 +183,7 @@ func (bs *BackoffSleeper) After() time.Duration {
 
 // Duration returns the current duration value.
 func (bs *BackoffSleeper) Duration() time.Duration {
-	if !bs.beenRun.IsSet() {
+	if !bs.beenRun.Load() {
 		return 0
 	}
 	return bs.ForAttempt(bs.Attempt())
@@ -192,7 +191,7 @@ func (bs *BackoffSleeper) Duration() time.Duration {
 
 // Reset resets the backoff intervals.
 func (bs *BackoffSleeper) Reset() {
-	bs.beenRun.UnSet()
+	bs.beenRun.Store(false)
 	bs.Backoff.Reset()
 }
 
@@ -744,7 +743,7 @@ func (t *PausableTicker) Destroy() {
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
-	beenRun *abool.AtomicBool
+	beenRun *atomic.Bool
 }
 
 func NewCronTicker(schedule string) (CronTicker, error) {
@@ -757,15 +756,15 @@ func NewCronTicker(schedule string) (CronTicker, error) {
 		}
 	})
 	if err != nil {
-		return CronTicker{beenRun: abool.New()}, err
+		return CronTicker{beenRun: atomic.NewBool(false)}, err
 	}
-	return CronTicker{Cron: cron, ch: ch, beenRun: abool.New()}, nil
+	return CronTicker{Cron: cron, ch: ch, beenRun: atomic.NewBool(false)}, nil
 }
 
 // Start - returns true if the CronTicker was actually started, false otherwise
 func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		if t.beenRun.SetToIf(false, true) {
+		if t.beenRun.CAS(false, true) {
 			t.Cron.Start()
 			return true
 		}
@@ -776,7 +775,7 @@ func (t *CronTicker) Start() bool {
 // Stop - returns true if the CronTicker was actually stopped, false otherwise
 func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		if t.beenRun.SetToIf(true, false) {
+		if t.beenRun.CAS(true, false) {
 			t.Cron.Stop()
 			return true
 		}
@@ -858,7 +857,7 @@ var (
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
 	state        atomic.Int32
-	sync.RWMutex // lock is held during statup/shutdown, RLock is held while executing functions dependent on a particular state
+	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
 }
 
 // StartStopOnceState holds the state for StartStopOnce

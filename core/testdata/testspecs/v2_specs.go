@@ -3,6 +3,7 @@ package testspecs
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 
@@ -92,6 +93,44 @@ ds2 -> ds2_parse -> answer1;
 answer1 [type=median index=0];
 """
 `
+	OCR2SolanaSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
+isBootstrapPeer = false
+p2pBootstrapPeers = []
+relay = "solana"
+transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
+observationSource = """
+"""
+juelsPerFeeCoinSource = """
+"""
+
+[relayConfig]
+nodeEndpointHTTP = "http://127.0.0.1:8899"
+ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
+storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
+transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
+usePreflight       = true
+commitment         = "processed"
+pollingInterval    = "2s"
+pollingCtxTimeout  = "4s"
+staleTimeout       = "30s"`
+	OCR2TerraSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+contractID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+isBootstrapPeer = false
+p2pBootstrapPeers = []
+relay = "terra"
+transmitterID = "terra1zs0kk4jkgsax5t96qxl3afkg6x39g3j67qna7d"
+observationSource = """
+"""
+juelsPerFeeCoinSource = """
+"""
+
+[relayConfig]
+chainID = "Chainlink-99"`
 
 	WebhookSpecNoBody = `
 type            = "webhook"
@@ -140,7 +179,7 @@ func (os KeeperSpec) Toml() string {
 func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
-schemaVersion   		 	= 2
+schemaVersion   		 	= 3
 name            		 	= "example keeper spec"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
@@ -156,6 +195,7 @@ encode_check_upkeep_tx   [type=ethabiencode
 check_upkeep_tx          [type=ethcall
                           failEarly=true
                           extractRevertReason=true
+                          evmChainID="$(jobSpec.evmChainID)"
                           contract="$(jobSpec.contractAddress)"
                           gas="$(jobSpec.checkUpkeepGasLimit)"
                           gasPrice="$(jobSpec.gasPrice)"
@@ -170,6 +210,8 @@ encode_perform_upkeep_tx [type=ethabiencode
 perform_upkeep_tx        [type=ethtx
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
+                          from="[$(jobSpec.fromAddress)]"
+                          evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
@@ -191,6 +233,7 @@ type VRFSpecParams struct {
 	PublicKey                string
 	ObservationSource        string
 	RequestedConfsDelay      int
+	RequestTimeout           time.Duration
 	V2                       bool
 }
 
@@ -219,6 +262,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	confirmations := 6
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
+	}
+	requestTimeout := 24 * time.Hour
+	if params.RequestTimeout != 0 {
+		requestTimeout = params.RequestTimeout
 	}
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
@@ -279,12 +326,14 @@ name = "%s"
 coordinatorAddress = "%s"
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
+requestTimeout = "%s"
 publicKey = "%s"
 observationSource = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay, publicKey, observationSource)
+	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay,
+		requestTimeout.String(), publicKey, observationSource)
 	if params.FromAddress != "" {
 		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
 	}
@@ -297,6 +346,7 @@ observationSource = """
 		PublicKey:                publicKey,
 		ObservationSource:        observationSource,
 		RequestedConfsDelay:      params.RequestedConfsDelay,
+		RequestTimeout:           requestTimeout,
 	}, toml: toml}
 }
 
@@ -343,6 +393,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 externalJobID      =  "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
@@ -420,4 +471,94 @@ ds -> ds_parse -> ds_multiply;
 	ws.WebhookSpecParams = params
 
 	return ws
+}
+
+// BlockhashStoreSpecParams defines params for building a blockhash store job spec.
+type BlockhashStoreSpecParams struct {
+	JobID                 string
+	Name                  string
+	CoordinatorV1Address  string
+	CoordinatorV2Address  string
+	WaitBlocks            int
+	LookbackBlocks        int
+	BlockhashStoreAddress string
+	PollPeriod            time.Duration
+	RunTimeout            time.Duration
+	EVMChainID            int64
+	FromAdress            string
+}
+
+// BlockhashStoreSpec defines a blockhash store job spec.
+type BlockhashStoreSpec struct {
+	BlockhashStoreSpecParams
+	toml string
+}
+
+// Toml returns the BlockhashStoreSpec in TOML string form.
+func (bhs BlockhashStoreSpec) Toml() string {
+	return bhs.toml
+}
+
+// GenerateBlockhashStoreSpec creates a BlockhashStoreSpec from the given params.
+func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreSpec {
+	if params.JobID == "" {
+		params.JobID = "123e4567-e89b-12d3-a456-426655442222"
+	}
+
+	if params.Name == "" {
+		params.Name = "blockhash-store"
+	}
+
+	if params.CoordinatorV1Address == "" {
+		params.CoordinatorV1Address = "0x19D20b4Ec0424A530C3C1cDe874445E37747eb18"
+	}
+
+	if params.CoordinatorV2Address == "" {
+		params.CoordinatorV2Address = "0x2498e651Ae17C2d98417C4826F0816Ac6366A95E"
+	}
+
+	if params.WaitBlocks == 0 {
+		params.WaitBlocks = 100
+	}
+
+	if params.LookbackBlocks == 0 {
+		params.LookbackBlocks = 200
+	}
+
+	if params.BlockhashStoreAddress == "" {
+		params.BlockhashStoreAddress = "0x31Ca8bf590360B3198749f852D5c516c642846F6"
+	}
+
+	if params.PollPeriod == 0 {
+		params.PollPeriod = 30 * time.Second
+	}
+
+	if params.RunTimeout == 0 {
+		params.RunTimeout = 15 * time.Second
+	}
+
+	if params.FromAdress == "" {
+		params.FromAdress = "0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B"
+	}
+
+	template := `
+type = "blockhashstore"
+schemaVersion = 1
+name = "%s"
+coordinatorV1Address = "%s"
+coordinatorV2Address = "%s"
+waitBlocks = %d
+lookbackBlocks = %d
+blockhashStoreAddress = "%s"
+pollPeriod = "%s"
+runTimeout = "%s"
+evmChainID = "%d"
+fromAddress = "%s"
+`
+	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
+		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
+		params.BlockhashStoreAddress, params.PollPeriod.String(), params.RunTimeout.String(),
+		params.EVMChainID, params.FromAdress)
+
+	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}
 }
