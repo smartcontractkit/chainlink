@@ -9,3 +9,4 @@ coverage:
 ignore:
   - 'contracts/src/v0.4'
   - 'contracts/src/v0.5'
+  - 'contracts/src/v0.8' # Disabled due to solidity-coverage not reporting coverage
