@@ -1,4 +1,13 @@
-union JobSpec = CronSpec | DirectRequestSpec | KeeperSpec | FluxMonitorSpec | OCRSpec | VRFSpec | WebhookSpec
+union JobSpec =
+    CronSpec |
+    DirectRequestSpec |
+    KeeperSpec |
+    FluxMonitorSpec |
+    OCRSpec |
+    OCR2Spec |
+    VRFSpec |
+    WebhookSpec |
+    BlockhashStoreSpec
 
 type CronSpec {
     schedule: String!
@@ -9,10 +18,10 @@ type DirectRequestSpec {
     contractAddress: String!
     createdAt: Time!
     evmChainID: String
-    minIncomingConfirmations: Int
+    minIncomingConfirmations: Int!
     minIncomingConfirmationsEnv: Boolean!
     minContractPayment: String!
-    requesters: [String!]!
+    requesters: [String!]
 }
 
 type FluxMonitorSpec {
@@ -39,25 +48,46 @@ type KeeperSpec {
 }
 
 type OCRSpec {
-    blockchainTimeout: String!
+    blockchainTimeout: String
     blockchainTimeoutEnv: Boolean!
     contractAddress: String!
-    contractConfigConfirmations: Int!
+    contractConfigConfirmations: Int
     contractConfigConfirmationsEnv: Boolean!
-    contractConfigTrackerPollInterval: String!
+    contractConfigTrackerPollInterval: String
     contractConfigTrackerPollIntervalEnv: Boolean!
-    contractConfigTrackerSubscribeInterval: String!
+    contractConfigTrackerSubscribeInterval: String
     contractConfigTrackerSubscribeIntervalEnv: Boolean!
     createdAt: Time!
     evmChainID: String
     isBootstrapPeer: Boolean!
     keyBundleID: String
-    observationTimeout: String!
+    observationTimeout: String
     observationTimeoutEnv: Boolean!
-    p2pPeerID: String!
-    p2pPeerIDEnv: Boolean!
-    p2pBootstrapPeers: [String!]!
+    p2pBootstrapPeers: [String!]
     transmitterAddress: String
+    databaseTimeout: String!
+    databaseTimeoutEnv: Boolean!
+    observationGracePeriod: String!
+    observationGracePeriodEnv: Boolean!
+    contractTransmitterTransmitTimeout: String!
+    contractTransmitterTransmitTimeoutEnv: Boolean!
+}
+
+type OCR2Spec {
+    blockchainTimeout: String
+    contractID: String!
+    contractConfigConfirmations: Int
+    contractConfigTrackerPollInterval: String
+    contractConfigTrackerSubscribeInterval: String
+    createdAt: Time!
+    isBootstrapPeer: Boolean!
+    juelsPerFeeCoinSource: String
+    ocrKeyBundleID: String
+    monitoringEndpoint: String
+    p2pBootstrapPeers: [String!]
+    relay: String!
+    relayConfig: Map!
+    transmitterID: String
 }
 
 type VRFSpec {
@@ -66,11 +96,26 @@ type VRFSpec {
     evmChainID: String
     fromAddress: String
     minIncomingConfirmations: Int!
+    minIncomingConfirmationsEnv: Boolean!
     pollPeriod: String!
     publicKey: String!
     requestedConfsDelay: Int!
+    requestTimeout: String!
 }
 
 type WebhookSpec {
+    createdAt: Time!
+}
+
+type BlockhashStoreSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    fromAddress: String
     createdAt: Time!
 }

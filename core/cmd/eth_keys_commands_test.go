@@ -139,7 +139,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	id := big.NewInt(0)
 	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
 	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
-	// _, err = app.GetChainSet().Add(id, evmtypes.ChainCfg{})
+	// _, err = app.GetChains().EVM.Add(id, evmtypes.ChainCfg{})
 	// require.NoError(t, err)
 
 	set = flag.NewFlagSet("test", 0)
@@ -193,7 +193,7 @@ func TestClient_UpdateETHKey(t *testing.T) {
 	require.NoError(t, client.UpdateETHKey(c))
 
 	// Checking updated config
-	chain, err := app.ChainSet.Get(&cltest.FixtureChainID)
+	chain, err := app.Chains.EVM.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	price := chain.Config().KeySpecificMaxGasPriceWei(key.Address.Address())
 	require.Equal(t, assets.GWei(12345), price)

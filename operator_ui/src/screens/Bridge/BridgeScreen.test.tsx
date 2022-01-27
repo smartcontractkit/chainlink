@@ -15,7 +15,7 @@ import { buildBridgePayloadFields } from 'support/factories/gql/fetchBridge'
 import Notifications from 'pages/Notifications'
 import { waitForLoading } from 'support/test-helpers/wait'
 
-const { findByTestId, findByText, getByRole } = screen
+const { findAllByText, findByTestId, findByText, getByRole } = screen
 
 function renderComponent(mocks: MockedResponse[]) {
   renderWithRouter(
@@ -58,7 +58,7 @@ describe('BridgeScreen', () => {
 
     await waitForLoading()
 
-    expect(await findByText('Bridge Info')).toBeInTheDocument()
+    expect(await findAllByText('bridge-api')).toHaveLength(2)
   })
 
   it('renders the not found page', async () => {
@@ -129,9 +129,8 @@ describe('BridgeScreen', () => {
 
     await waitForLoading()
 
-    expect(await findByText('Bridge Info')).toBeInTheDocument()
-
-    userEvent.click(getByRole('button', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /delete/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(await findByText('Redirect Success')).toBeInTheDocument()
@@ -161,9 +160,8 @@ describe('BridgeScreen', () => {
 
     await waitForLoading()
 
-    expect(await findByText('Bridge Info')).toBeInTheDocument()
-
-    userEvent.click(getByRole('button', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /delete/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(await findByText('bridge not found')).toBeInTheDocument()
@@ -194,9 +192,8 @@ describe('BridgeScreen', () => {
 
     await waitForLoading()
 
-    expect(await findByText('Bridge Info')).toBeInTheDocument()
-
-    userEvent.click(getByRole('button', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /delete/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(await findByText('invalid bridge name')).toBeInTheDocument()
@@ -227,9 +224,8 @@ describe('BridgeScreen', () => {
 
     await waitForLoading()
 
-    expect(await findByText('Bridge Info')).toBeInTheDocument()
-
-    userEvent.click(getByRole('button', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /delete/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(await findByText('conflict error')).toBeInTheDocument()

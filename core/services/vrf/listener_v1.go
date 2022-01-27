@@ -6,20 +6,18 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/recovery"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -41,16 +39,13 @@ type listenerV1 struct {
 
 	cfg             Config
 	l               logger.Logger
-	abi             abi.ABI
 	logBroadcaster  log.Broadcaster
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner
-	pipelineORM     pipeline.ORM
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
-	vrfks           keystore.VRF
 	gethks          GethKeyStore
 	reqLogs         *utils.Mailbox
 	chStop          chan struct{}
@@ -76,7 +71,7 @@ type listenerV1 struct {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *eth.Head) {
+func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
@@ -84,7 +79,7 @@ func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	}
 }
 
-func (lsn *listenerV1) setLatestHead(h *eth.Head) {
+func (lsn *listenerV1) setLatestHead(h *evmtypes.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(h.Number)
@@ -274,6 +269,13 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
+	lsn.l.Debugw("Enqueued randomness request",
+		"requestID", hex.EncodeToString(req.RequestID[:]),
+		"requestJobID", hex.EncodeToString(req.JobID[:]),
+		"keyHash", hex.EncodeToString(req.KeyHash[:]),
+		"fee", req.Fee,
+		"sender", req.Sender.Hex(),
+		"txHash", lb.RawLog().TxHash)
 }
 
 func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
@@ -375,7 +377,15 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 		}
 		return nil
 	}); err != nil {
-		lsn.l.Errorw("Failed executing run", "err", err)
+		lsn.l.Errorw("Failed executing run",
+			"err", err,
+			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"reqTxHash", req.Raw.TxHash)
+	} else {
+		lsn.l.Debugw("Executed fulfillment run",
+			"reqID", hex.EncodeToString(req.RequestID[:]),
+			"keyHash", hex.EncodeToString(req.KeyHash[:]),
+			"reqTxHash", req.Raw.TxHash)
 	}
 }
 

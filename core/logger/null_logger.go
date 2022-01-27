@@ -6,17 +6,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var NullLogger Logger
-
-func init() {
-	NullLogger = NewNullLogger()
-}
+var NullLogger Logger = &nullLogger{}
 
 type nullLogger struct{}
-
-func NewNullLogger() Logger {
-	return &nullLogger{}
-}
 
 func (l *nullLogger) With(args ...interface{}) Logger                 { return l }
 func (l *nullLogger) Named(name string) Logger                        { return l }
@@ -56,3 +48,5 @@ func (l *nullLogger) PanicIf(err error, msg string)    {}
 func (l *nullLogger) ErrorIfClosing(io.Closer, string) {}
 func (l *nullLogger) Sync() error                      { return nil }
 func (l *nullLogger) Helper(skip int) Logger           { return l }
+
+func (l *nullLogger) Recover(panicErr interface{}) {}

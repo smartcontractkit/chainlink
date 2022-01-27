@@ -57,7 +57,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
    * current answer to determine if the deviation threshold has been exceeded.
    * @param _roundId is ignored.
    * @param _answer is the latest answer which is compared for a ratio of change
-   * to make sure it has not execeeded the flagging threshold.
+   * to make sure it has not exceeded the flagging threshold.
    */
   function validate(
     uint256 _previousRoundId,
@@ -84,7 +84,7 @@ contract DeviationFlaggingValidator is Owned, AggregatorValidatorInterface {
    * @param _previousAnswer is used as the median of the difference with the
    * current answer to determine if the deviation threshold has been exceeded.
    * @param _answer is the current answer which is compared for a ratio of
-   * change * to make sure it has not execeeded the flagging threshold.
+   * change * to make sure it has not exceeded the flagging threshold.
    */
   function isValid(
     uint256 ,

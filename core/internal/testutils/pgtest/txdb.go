@@ -18,7 +18,7 @@ import (
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
 //
 // The original lib has various problems and is hard to understand because it
-// tries to be more general. The version in thie file is more tightly focused
+// tries to be more general. The version in this file is more tightly focused
 // to our needs and should be easier to reason about and less likely to have
 // subtle bugs/races.
 //
@@ -62,9 +62,8 @@ var _ driver.Conn = &conn{}
 // when the Close is called, transaction is rolled back
 type txDriver struct {
 	sync.Mutex
-	db      *sql.DB
-	conns   map[string]*conn
-	options []func(*conn) error
+	db    *sql.DB
+	conns map[string]*conn
 
 	dbURL string
 }
@@ -118,8 +117,6 @@ type conn struct {
 	sync.Mutex
 	dsn        string
 	tx         *sql.Tx // tx may be shared by many conns, definitive one lives in the map keyed by DSN on the txDriver. Do not modify from conn
-	ctx        context.Context
-	cancel     context.CancelFunc
 	closed     bool
 	opened     int
 	removeSelf func() error

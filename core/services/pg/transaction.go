@@ -26,12 +26,6 @@ type TxOptions struct {
 // They cannot easily be set at a session level due to how Go's connection
 // pooling works.
 const (
-	// DefaultLockTimeout controls the max time we will wait for any kind of database lock.
-	// It's good to set this to _something_ because waiting for locks forever is really bad.
-	DefaultLockTimeout = 15 * time.Second
-	// DefaultIdleInTxSessionTimeout controls the max time we leave a transaction open and idle.
-	// It's good to set this to _something_ because leaving transactions open forever is really bad.
-	DefaultIdleInTxSessionTimeout = 1 * time.Hour
 	// NOTE: This is the default level in Postgres anyway, we just make it
 	// explicit here
 	DefaultIsolation = sql.LevelReadCommitted
@@ -82,10 +76,16 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn fu
 	return sqlxTransactionQ(ctx, db, lggr, wrapFn, optss...)
 }
 
-func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn func(q Queryer) error, optss ...TxOptions) (err error) {
+// TxBeginner can be a db or a conn, anything that implements BeginTxx
+type TxBeginner interface {
+	BeginTxx(context.Context, *sql.TxOptions) (*sqlx.Tx, error)
+}
+
+func sqlxTransactionQ(ctx context.Context, db TxBeginner, lggr logger.Logger, fn func(q Queryer) error, optss ...TxOptions) (err error) {
 	lockTimeout, idleInTxSessionTimeout, txOpts := applyDefaults(optss)
 
-	tx, err := db.BeginTxx(ctx, &txOpts)
+	var tx *sqlx.Tx
+	tx, err = db.BeginTxx(ctx, &txOpts)
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction")
 	}

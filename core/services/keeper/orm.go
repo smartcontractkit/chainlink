@@ -4,8 +4,8 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
@@ -14,18 +14,16 @@ import (
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
 	q        pg.Q
-	txm      transmitter
 	config   Config
 	strategy bulletprooftxmanager.TxStrategy
 	logger   logger.Logger
 }
 
 // NewORM is the constructor of postgresORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, txm transmitter, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
 		q:        pg.NewQ(db, lggr, config),
-		txm:      txm,
 		config:   config,
 		strategy: strategy,
 		logger:   lggr,

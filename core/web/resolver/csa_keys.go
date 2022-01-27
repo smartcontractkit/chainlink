@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -16,14 +17,19 @@ func NewCSAKey(key csakey.KeyV2) *CSAKeyResolver {
 	return &CSAKeyResolver{key: key}
 }
 
-// Version resolves the CSA Key version number.
-func (r *CSAKeyResolver) Version() int32 {
-	return int32(r.key.Version)
+// ID resolves the CSA Key public key as the id.
+func (r *CSAKeyResolver) ID() graphql.ID {
+	return graphql.ID(r.key.ID())
 }
 
 // PubKey resolves the CSA Key public key string.
-func (r *CSAKeyResolver) PubKey() string {
+func (r *CSAKeyResolver) PublicKey() string {
 	return r.key.PublicKeyString()
+}
+
+// Version resolves the CSA Key version number.
+func (r *CSAKeyResolver) Version() int32 {
+	return int32(r.key.Version)
 }
 
 // -- CSAKeys Query --
@@ -105,4 +111,40 @@ func (r *CSAKeyExistsErrorResolver) Message() string {
 
 func (r *CSAKeyExistsErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
+}
+
+type DeleteCSAKeySuccessResolver struct {
+	key csakey.KeyV2
+}
+
+func NewDeleteCSAKeySuccess(key csakey.KeyV2) *DeleteCSAKeySuccessResolver {
+	return &DeleteCSAKeySuccessResolver{key: key}
+}
+
+func (r *DeleteCSAKeySuccessResolver) CSAKey() *CSAKeyResolver {
+	return NewCSAKey(r.key)
+}
+
+type DeleteCSAKeyPayloadResolver struct {
+	key csakey.KeyV2
+	NotFoundErrorUnionType
+}
+
+func NewDeleteCSAKeyPayload(key csakey.KeyV2, err error) *DeleteCSAKeyPayloadResolver {
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
+			return errors.As(err, &keystore.KeyNotFoundError{})
+		}}
+	}
+
+	return &DeleteCSAKeyPayloadResolver{key: key, NotFoundErrorUnionType: e}
+}
+
+func (r *DeleteCSAKeyPayloadResolver) ToDeleteCSAKeySuccess() (*DeleteCSAKeySuccessResolver, bool) {
+	if r.err == nil {
+		return NewDeleteCSAKeySuccess(r.key), true
+	}
+	return nil, false
 }

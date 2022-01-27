@@ -133,7 +133,7 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps() error {
 	return nil
 }
 
-// newRegistryFromChain returns a Registry stuct with fields synched from those on chain
+// newRegistryFromChain returns a Registry struct with fields synched from those on chain
 func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	fromAddress := rs.job.KeeperSpec.FromAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress

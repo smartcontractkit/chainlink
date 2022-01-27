@@ -52,7 +52,7 @@ func TestValidatedKeeperSpec(t *testing.T) {
 			args: args{
 				tomlString: `
 type            			= "keeper"
-schemaVersion   			= 2
+schemaVersion   			= 3
 name            			= "example keeper spec"
 contractAddress 			= "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress     			= "0xa8037A20989AFcBC51798de9762b351D63ff462e"
@@ -71,6 +71,7 @@ check_upkeep_tx          [type=ethcall
                           gasTipCap="$(jobSpec.gasTipCap)"
                           gasFeeCap="$(jobSpec.gasFeeCap)"
                           extractRevertReason=true
+													evmChainID="$(jobSpec.evmChainID)"
                           contract="$(jobSpec.contractAddress)"
                           data="$(encode_check_upkeep_tx)"]
 decode_check_upkeep_tx   [type=ethabidecode
@@ -82,6 +83,8 @@ perform_upkeep_tx        [type=ethtx
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
+                          from="[$(jobSpec.fromAddress)]"
+                          evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
                           txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
@@ -103,7 +106,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 			args: args{
 				tomlString: `
 type            = "keeper"
-schemaVersion   = 2
+schemaVersion   = 3
 name            = "example keeper spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"

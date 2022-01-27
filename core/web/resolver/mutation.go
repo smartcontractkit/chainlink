@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
@@ -15,15 +16,26 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/cron"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -86,15 +98,6 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	return NewCreateBridgePayload(*bt, bta.IncomingToken), nil
 }
 
-type createFeedsManagerInput struct {
-	Name                   string
-	URI                    string
-	PublicKey              string
-	JobTypes               []JobType
-	IsBootstrapPeer        bool
-	BootstrapPeerMultiaddr *string
-}
-
 func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -110,6 +113,34 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 	}
 
 	return NewCreateCSAKeyPayload(&key, nil), nil
+}
+
+func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteCSAKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().CSA().Delete(string(args.ID))
+	if err != nil {
+		if errors.As(err, &keystore.KeyNotFoundError{}) {
+			return NewDeleteCSAKeyPayload(csakey.KeyV2{}, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteCSAKeyPayload(key, nil), nil
+}
+
+type createFeedsManagerInput struct {
+	Name                   string
+	URI                    string
+	PublicKey              string
+	JobTypes               []JobType
+	IsBootstrapPeer        bool
+	BootstrapPeerMultiaddr *string
 }
 
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
@@ -300,7 +331,7 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 		return nil, err
 	}
 
-	return NewCreateOCRKeyBundlePayloadResolver(key), nil
+	return NewCreateOCRKeyBundlePayload(&key), nil
 }
 
 func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
@@ -359,7 +390,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 
 	err = r.App.EVMORM().DeleteNode(int64(id))
 	if err != nil {
-		if errors.Is(err, evm.ErrNoRowsAffected) {
+		if errors.Is(err, sql.ErrNoRows) {
 			// Sending the SQL error as the expected error to happen
 			// though the prior check should take this into consideration
 			// so this should never happen anyway
@@ -419,7 +450,7 @@ func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolv
 		return nil, err
 	}
 
-	return NewCreateP2PKeyPayloadResolver(key), nil
+	return NewCreateP2PKeyPayload(key), nil
 }
 
 func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
@@ -437,12 +468,12 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 	key, err := r.App.GetKeyStore().P2P().Delete(keyID)
 	if err != nil {
 		if errors.As(err, &keystore.KeyNotFoundError{}) {
-			return NewDeleteP2PKeyPayloadResolver(p2pkey.KeyV2{}, err), nil
+			return NewDeleteP2PKeyPayload(p2pkey.KeyV2{}, err), nil
 		}
 		return nil, err
 	}
 
-	return NewDeleteP2PKeyPayloadResolver(key, nil), nil
+	return NewDeleteP2PKeyPayload(key, nil), nil
 }
 
 func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolver, error) {
@@ -763,4 +794,355 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	return NewDeleteAPITokenPayload(&auth.Token{
 		AccessKey: dbUser.TokenKey.String,
 	}, nil), nil
+}
+
+func (r *Resolver) CreateChain(ctx context.Context, args struct {
+	Input struct {
+		ID                 graphql.ID
+		Config             ChainConfigInput
+		KeySpecificConfigs []*KeySpecificChainConfigInput
+	}
+}) (*CreateChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.Input.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
+	if len(inputErrs) > 0 {
+		return NewCreateChainPayload(nil, inputErrs), nil
+	}
+
+	if args.Input.KeySpecificConfigs != nil {
+		sCfgs := make(map[string]types.ChainCfg)
+
+		for _, cfg := range args.Input.KeySpecificConfigs {
+			if cfg != nil {
+				sCfg, inputErrs := ToChainConfig(cfg.Config)
+				if len(inputErrs) > 0 {
+					return NewCreateChainPayload(nil, inputErrs), nil
+				}
+
+				sCfgs[cfg.Address] = *sCfg
+			}
+		}
+
+		chainCfg.KeySpecific = sCfgs
+	}
+
+	chain, err := r.App.GetChains().EVM.Add(id.ToInt(), *chainCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateChainPayload(&chain, nil), nil
+}
+
+func (r *Resolver) UpdateChain(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input struct {
+		Enabled            bool
+		Config             ChainConfigInput
+		KeySpecificConfigs []*KeySpecificChainConfigInput
+	}
+}) (*UpdateChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
+	if len(inputErrs) > 0 {
+		return NewUpdateChainPayload(nil, inputErrs, nil), nil
+	}
+
+	if args.Input.KeySpecificConfigs != nil {
+		sCfgs := make(map[string]types.ChainCfg)
+
+		for _, cfg := range args.Input.KeySpecificConfigs {
+			if cfg != nil {
+				sCfg, inputErrs := ToChainConfig(cfg.Config)
+				if len(inputErrs) > 0 {
+					return NewUpdateChainPayload(nil, inputErrs, nil), nil
+				}
+
+				sCfgs[cfg.Address] = *sCfg
+			}
+		}
+
+		chainCfg.KeySpecific = sCfgs
+	}
+
+	chain, err := r.App.GetChains().EVM.Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateChainPayload(nil, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewUpdateChainPayload(&chain, nil, nil), nil
+}
+
+func (r *Resolver) DeleteChain(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chain, err := r.App.EVMORM().Chain(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteChainPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.GetChains().EVM.Remove(id.ToInt())
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteChainPayload(&chain, nil), nil
+}
+
+func (r *Resolver) CreateJob(ctx context.Context, args struct {
+	Input struct {
+		TOML string
+	}
+}) (*CreateJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	jbt, err := job.ValidateSpec(args.Input.TOML)
+	if err != nil {
+		return NewCreateJobPayload(r.App, nil, map[string]string{
+			"TOML spec": errors.Wrap(err, "failed to parse TOML").Error(),
+		}), nil
+	}
+
+	var jb job.Job
+	config := r.App.GetConfig()
+	switch jbt {
+	case job.OffchainReporting:
+		jb, err = offchainreporting.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
+		if !config.Dev() && !config.FeatureOffchainReporting() {
+			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
+		}
+	case job.OffchainReporting2:
+		jb, err = offchainreporting2.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
+		if !config.Dev() && !config.FeatureOffchainReporting2() {
+			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
+		}
+	case job.DirectRequest:
+		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
+	case job.FluxMonitor:
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, args.Input.TOML)
+	case job.Keeper:
+		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
+	case job.Cron:
+		jb, err = cron.ValidatedCronSpec(args.Input.TOML)
+	case job.VRF:
+		jb, err = vrf.ValidatedVRFSpec(args.Input.TOML)
+	case job.Webhook:
+		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
+	case job.BlockhashStore:
+		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
+	default:
+		return NewCreateJobPayload(r.App, nil, map[string]string{
+			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),
+		}), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = r.App.AddJobV2(ctx, &jb)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateJobPayload(r.App, &jb, nil), nil
+}
+
+func (r *Resolver) DeleteJob(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt32(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	j, err := r.App.JobORM().FindJobTx(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteJobPayload(r.App, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.DeleteJob(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteJobPayload(r.App, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteJobPayload(r.App, &j, nil), nil
+}
+
+func (r *Resolver) DismissJobError(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DismissJobErrorPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt64(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	specErr, err := r.App.JobORM().FindSpecError(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDismissJobErrorPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.JobORM().DismissError(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDismissJobErrorPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDismissJobErrorPayload(&specErr, nil), nil
+}
+
+func (r *Resolver) RunJob(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*RunJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	jobID, err := stringutils.ToInt32(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	jobRunID, err := r.App.RunJobV2(ctx, jobID, nil)
+	if err != nil {
+		if errors.Is(err, webhook.ErrJobNotExists) {
+			return NewRunJobPayload(nil, r.App, err), nil
+		}
+
+		return nil, err
+	}
+
+	plnRun, err := r.App.PipelineORM().FindRun(jobRunID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewRunJobPayload(&plnRun, r.App, nil), nil
+}
+
+func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
+	Level LogLevel
+}) (*SetGlobalLogLevelPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var lvl zapcore.Level
+	logLvl := FromLogLevel(args.Level)
+
+	err := lvl.UnmarshalText([]byte(logLvl))
+	if err != nil {
+		return NewSetGlobalLogLevelPayload("", map[string]string{
+			"level": "invalid log level",
+		}), nil
+	}
+
+	if err := r.App.SetLogLevel(lvl); err != nil {
+		return nil, err
+	}
+
+	return NewSetGlobalLogLevelPayload(args.Level, nil), nil
+}
+
+// CreateOCR2KeyBundle resolves a create OCR2 Key bundle mutation
+func (r *Resolver) CreateOCR2KeyBundle(ctx context.Context, args struct {
+	ChainType OCR2ChainType
+}) (*CreateOCR2KeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	ct := FromOCR2ChainType(args.ChainType)
+	key, err := r.App.GetKeyStore().OCR2().Create(chaintype.ChainType(ct))
+	if err != nil {
+		// Not covering the	`chaintype.ErrInvalidChainType` since the GQL model would prevent a non-accepted chain-type from being received
+		return nil, err
+	}
+
+	return NewCreateOCR2KeyBundlePayload(&key), nil
+}
+
+// DeleteOCR2KeyBundle resolves a create OCR2 Key bundle mutation
+func (r *Resolver) DeleteOCR2KeyBundle(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteOCR2KeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id := string(args.ID)
+	key, err := r.App.GetKeyStore().OCR2().Get(id)
+	if err != nil {
+		return NewDeleteOCR2KeyBundlePayloadResolver(nil, err), nil
+	}
+
+	err = r.App.GetKeyStore().OCR2().Delete(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteOCR2KeyBundlePayloadResolver(&key, nil), nil
 }
