@@ -79,9 +79,6 @@ type prometheusExporter struct {
 	prevMu        sync.Mutex
 }
 
-type previousTransmissionDetails struct {
-}
-
 func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	envelope, isEnvelope := data.(Envelope)
 	if !isEnvelope {
@@ -133,7 +130,7 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	if !p.isNewTransmission(envelope.LatestAnswer, envelope.LatestTimestamp) {
 		return
 	}
-	// All the metrics below are only updates if there was a fresh
+	// All the metrics below are only updated if there was a fresh
 	// transmission since the last chain read.
 	p.metrics.SetOffchainAggregatorAnswers(
 		envelope.LatestAnswer,
@@ -201,7 +198,7 @@ func (p *prometheusExporter) Cleanup(_ context.Context) {
 // - old value != new value && old timestamp != new timestap => return true
 // - old value == new value && old timestamp != new timestap => An unlikely case given the
 //   high precision of observations but still a valid update. Return true
-func (p prometheusExporter) isNewTransmission(value *big.Int, timestamp time.Time) bool {
+func (p *prometheusExporter) isNewTransmission(value *big.Int, timestamp time.Time) bool {
 	p.prevMu.Lock()
 	defer p.prevMu.Unlock()
 	if value.Cmp(p.prevValue) == 0 && timestamp.Equal(p.prevTimestamp) {
