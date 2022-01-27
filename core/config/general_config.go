@@ -101,7 +101,6 @@ type GeneralOnlyConfig interface {
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
-	FeatureUIFeedsManager() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
@@ -475,10 +474,6 @@ func (c *generalConfig) ClientNodeURL() string {
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUICSAKeys() bool {
 	return c.getWithFallback("FeatureUICSAKeys", parse.Bool).(bool)
-}
-
-func (c *generalConfig) FeatureUIFeedsManager() bool {
-	return c.getWithFallback("FeatureUIFeedsManager", parse.Bool).(bool)
 }
 
 func (c *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
