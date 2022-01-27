@@ -12,120 +12,125 @@ import (
 )
 
 func TestFeedMonitor(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	t.Run("processes updates from multiple pollers", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
 
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+		wg := &sync.WaitGroup{}
+		defer wg.Wait()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
 
-	chainConfig := generateChainConfig()
-	feedConfig := generateFeedConfig()
+		chainConfig := generateChainConfig()
+		feedConfig := generateFeedConfig()
 
-	sourceFactory1 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
-	source1, err := sourceFactory1.NewSource(chainConfig, feedConfig)
-	require.NoError(t, err)
+		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		source1, err := sourceFactory1.NewSource(chainConfig, feedConfig)
+		require.NoError(t, err)
 
-	sourceFactory2 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
-	source2, err := sourceFactory2.NewSource(chainConfig, feedConfig)
-	require.NoError(t, err)
+		sourceFactory2 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		source2, err := sourceFactory2.NewSource(chainConfig, feedConfig)
+		require.NoError(t, err)
 
-	var bufferCapacity uint32 = 0 // no buffering
+		var bufferCapacity uint32 = 0 // no buffering
 
-	pollInterval := 100 * time.Millisecond
-	readTimeout := 100 * time.Millisecond
+		pollInterval := 100 * time.Millisecond
+		readTimeout := 100 * time.Millisecond
 
-	poller1 := NewSourcePoller(
-		source1,
-		newNullLogger(),
-		pollInterval, readTimeout,
-		bufferCapacity,
-	)
-	poller2 := NewSourcePoller(
-		source2,
-		newNullLogger(),
-		pollInterval, readTimeout,
-		bufferCapacity,
-	)
+		poller1 := NewSourcePoller(
+			source1,
+			newNullLogger(),
+			pollInterval, readTimeout,
+			bufferCapacity,
+		)
+		poller2 := NewSourcePoller(
+			source2,
+			newNullLogger(),
+			pollInterval, readTimeout,
+			bufferCapacity,
+		)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		poller1.Run(ctx)
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		poller2.Run(ctx)
-	}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			poller1.Run(ctx)
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			poller2.Run(ctx)
+		}()
 
-	producer := fakeProducer{make(chan producerMessage), ctx}
+		producer := fakeProducer{make(chan producerMessage), ctx}
 
-	transmissionSchema := fakeSchema{transmissionCodec}
-	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
+		transmissionSchema := fakeSchema{transmissionCodec}
+		configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
 
-	cfg := config.Config{}
+		cfg := config.Config{}
 
-	prometheusExporterFactory := NewPrometheusExporterFactory(
-		newNullLogger(),
-		&devnullMetrics{},
-	)
-	kafkaExporterFactory := NewKafkaExporterFactory(
-		newNullLogger(),
-		producer,
+		prometheusExporterFactory := NewPrometheusExporterFactory(
+			newNullLogger(),
+			&devnullMetrics{},
+		)
+		kafkaExporterFactory := NewKafkaExporterFactory(
+			newNullLogger(),
+			producer,
 
-		transmissionSchema,
-		configSetSimplifiedSchema,
+			transmissionSchema,
+			configSetSimplifiedSchema,
 
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
-	)
-	prometheusExporter, err := prometheusExporterFactory.NewExporter(
-		chainConfig,
-		feedConfig,
-	)
-	require.NoError(t, err)
-	kafkaExporter, err := kafkaExporterFactory.NewExporter(
-		chainConfig,
-		feedConfig,
-	)
-	require.NoError(t, err)
+			cfg.Kafka.TransmissionTopic,
+			cfg.Kafka.ConfigSetSimplifiedTopic,
+		)
+		prometheusExporter, err := prometheusExporterFactory.NewExporter(
+			chainConfig,
+			feedConfig,
+		)
+		require.NoError(t, err)
+		kafkaExporter, err := kafkaExporterFactory.NewExporter(
+			chainConfig,
+			feedConfig,
+		)
+		require.NoError(t, err)
 
-	exporters := []Exporter{prometheusExporter, kafkaExporter}
+		exporters := []Exporter{prometheusExporter, kafkaExporter}
 
-	monitor := NewFeedMonitor(
-		newNullLogger(),
-		[]Poller{poller1, poller2},
-		exporters,
-	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		monitor.Run(ctx)
-	}()
+		monitor := NewFeedMonitor(
+			newNullLogger(),
+			[]Poller{poller1, poller2},
+			exporters,
+		)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			monitor.Run(ctx)
+		}()
 
-	envelope, err := generateEnvelope()
-	require.NoError(t, err)
+		envelope, err := generateEnvelope()
+		require.NoError(t, err)
 
-	var countEnvelopes int64 = 0
-	var countMessages int64 = 0
+		var countEnvelopes int64 = 0
+		var countMessages int64 = 0
 
-LOOP:
-	for {
-		select {
-		case sourceFactory1.updates <- envelope:
-			countEnvelopes += 1
-		case sourceFactory2.updates <- envelope:
-			countEnvelopes += 1
-		case _ = <-producer.sendCh:
-			countMessages += 1
-		case <-ctx.Done():
-			break LOOP
+	LOOP:
+		for {
+			select {
+			case sourceFactory1.updates <- envelope:
+				countEnvelopes += 1
+			case sourceFactory2.updates <- envelope:
+				countEnvelopes += 1
+			case _ = <-producer.sendCh:
+				countMessages += 1
+			case <-ctx.Done():
+				break LOOP
+			}
 		}
-	}
 
-	// There should be two prometheus metrics for each envelope + a little bit of wiggle room.
-	require.GreaterOrEqual(t, countMessages, 2*countEnvelopes-1)
-	require.LessOrEqual(t, countMessages, 2*countEnvelopes+1)
+		// There should be two prometheus metrics for each envelope + a little bit of wiggle room.
+		require.GreaterOrEqual(t, countMessages, 2*countEnvelopes-1)
+		require.LessOrEqual(t, countMessages, 2*countEnvelopes+1)
+	})
+	t.Run("cleanup", func(t *testing.T) {
+
+	})
 }
