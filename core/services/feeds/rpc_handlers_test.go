@@ -40,22 +40,26 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 
 func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	var (
-		jobID = uuid.NewV4()
-		spec  = TestSpec
+		ctx     = context.Background()
+		jobID   = uuid.NewV4()
+		spec    = TestSpec
+		version = int64(1)
 	)
 	h := setupTestHandlers(t)
 
 	h.svc.
-		On("ProposeJob", &feeds.JobProposal{
-			Spec:           spec,
+		On("ProposeJob", ctx, &feeds.ProposeJobArgs{
 			FeedsManagerID: h.feedsManagerID,
 			RemoteUUID:     jobID,
+			Spec:           spec,
+			Version:        int32(version),
 		}).
 		Return(int64(1), nil)
 
-	_, err := h.ProposeJob(context.Background(), &pb.ProposeJobRequest{
-		Id:   jobID.String(),
-		Spec: spec,
+	_, err := h.ProposeJob(ctx, &pb.ProposeJobRequest{
+		Id:      jobID.String(),
+		Spec:    spec,
+		Version: version,
 	})
 	require.NoError(t, err)
 }

@@ -41,8 +41,8 @@ type Query {
 }
 
 type Mutation {
-    approveJobProposal(id: ID!): ApproveJobProposalPayload!
-    cancelJobProposal(id: ID!): CancelJobProposalPayload!
+    approveJobProposalSpec(id: ID!): ApproveJobProposalSpecPayload!
+    cancelJobProposalSpec(id: ID!): CancelJobProposalSpecPayload!
     createAPIToken(input: CreateAPITokenInput!): CreateAPITokenPayload!
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createChain(input: CreateChainInput!): CreateChainPayload!
@@ -65,7 +65,7 @@ type Mutation {
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
     dismissJobError(id: ID!): DismissJobErrorPayload!
-    rejectJobProposal(id: ID!): RejectJobProposalPayload!
+    rejectJobProposalSpec(id: ID!): RejectJobProposalSpecPayload!
     runJob(id: ID!): RunJobPayload!
     setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
@@ -73,6 +73,6 @@ type Mutation {
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateChain(id: ID!, input: UpdateChainInput!): UpdateChainPayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
-    updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
+    updateJobProposalSpecDefinition(id: ID!, input: UpdateJobProposalSpecDefinitionInput!): UpdateJobProposalSpecDefinitionPayload!
     updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
 }

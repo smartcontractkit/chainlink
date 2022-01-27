@@ -6,30 +6,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_JobProposal_CanEdit(t *testing.T) {
+func Test_JobProposal_CanEditDefinition(t *testing.T) {
 	testCases := []struct {
 		name   string
-		status JobProposalStatus
+		status SpecStatus
 		want   bool
 	}{
 		{
 			name:   "pending",
-			status: JobProposalStatusPending,
+			status: SpecStatusPending,
 			want:   true,
 		},
 		{
 			name:   "cancelled",
-			status: JobProposalStatusCancelled,
+			status: SpecStatusCancelled,
 			want:   true,
 		},
 		{
 			name:   "approved",
-			status: JobProposalStatusApproved,
+			status: SpecStatusApproved,
 			want:   false,
 		},
 		{
 			name:   "rejected",
-			status: JobProposalStatusRejected,
+			status: SpecStatusRejected,
 			want:   false,
 		},
 	}
@@ -39,8 +39,8 @@ func Test_JobProposal_CanEdit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			jp := &JobProposal{Status: tc.status}
-			assert.Equal(t, tc.want, jp.CanEditSpec())
+			jp := &JobProposalSpec{Status: tc.status}
+			assert.Equal(t, tc.want, jp.CanEditDefinition())
 		})
 	}
 }
