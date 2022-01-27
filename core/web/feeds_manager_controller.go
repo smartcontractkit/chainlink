@@ -146,7 +146,7 @@ func (fmc *FeedsManagerController) Update(c *gin.Context) {
 
 	feedsService := fmc.App.GetFeedsService()
 
-	err = feedsService.UpdateFeedsManager(c.Request.Context(), *mgr)
+	err = feedsService.UpdateManager(c.Request.Context(), *mgr)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

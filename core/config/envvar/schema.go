@@ -89,9 +89,8 @@ type ConfigSchema struct {
 	TLSRedirect bool   `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 
 	// Feeds manager
-	FeatureFeedsManager   bool `env:"FEATURE_FEEDS_MANAGER" default:"false"`    //nodoc
-	FeatureUICSAKeys      bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`      //nodoc
-	FeatureUIFeedsManager bool `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
@@ -222,14 +221,15 @@ type ConfigSchema struct {
 	OCRNewStreamTimeout          time.Duration `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`          //nodoc
 
 	// Keeper
-	KeeperDefaultTransactionQueueDepth uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"` //nodoc
-	KeeperGasPriceBufferPercent        uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
-	KeeperGasTipCapBufferPercent       uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
-	KeeperMaximumGracePeriod           int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
-	KeeperRegistryCheckGasOverhead     uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
-	KeeperRegistryPerformGasOverhead   uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
-	KeeperRegistrySyncInterval         time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
-	KeeperRegistrySyncUpkeepQueueSize  uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
+	KeeperCheckUpkeepGasPriceFeatureEnabled bool          `env:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED" default:"false"` //nodoc
+	KeeperDefaultTransactionQueueDepth      uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`            //nodoc
+	KeeperGasPriceBufferPercent             uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
+	KeeperGasTipCapBufferPercent            uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
+	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
+	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
+	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
+	KeeperRegistrySyncInterval              time.Duration `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
+	KeeperRegistrySyncUpkeepQueueSize       uint32        `env:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE" default:"10"`
 
 	// CLI client
 	AdminCredentialsFile string `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`

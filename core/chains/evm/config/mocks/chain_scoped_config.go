@@ -1325,20 +1325,6 @@ func (_m *ChainScopedConfig) FeatureUICSAKeys() bool {
 	return r0
 }
 
-// FeatureUIFeedsManager provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureUIFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FlagsContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) FlagsContractAddress() string {
 	ret := _m.Called()
@@ -2419,6 +2405,20 @@ func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
+// KeeperCheckUpkeepGasPriceFeatureEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

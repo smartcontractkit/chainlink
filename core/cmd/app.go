@@ -1092,10 +1092,6 @@ func NewApp(client *Client) *cli.App {
 									Name:  "tendermint-url",
 									Usage: "Tendermint URL",
 								},
-								cli.StringFlag{
-									Name:  "fcd-url",
-									Usage: "FCD URL",
-								},
 							},
 						},
 						{

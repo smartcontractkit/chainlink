@@ -33,7 +33,7 @@ type Txm struct {
 	sub        pg.Subscription
 	orm        *ORM
 	lggr       logger.Logger
-	tc         terraclient.ReaderWriter
+	tc         func() (terraclient.ReaderWriter, error)
 	ks         keystore.Terra
 	stop, done chan struct{}
 	cfg        terra.Config
@@ -41,7 +41,7 @@ type Txm struct {
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, gpe terraclient.ComposedGasPriceEstimator, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) (*Txm, error) {
+func NewTxm(db *sqlx.DB, tc func() (terraclient.ReaderWriter, error), gpe terraclient.ComposedGasPriceEstimator, chainID string, cfg terra.Config, ks keystore.Terra, lggr logger.Logger, logCfg pg.LogConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},
@@ -54,7 +54,7 @@ func NewTxm(db *sqlx.DB, tc terraclient.ReaderWriter, gpe terraclient.ComposedGa
 		done:    make(chan struct{}),
 		cfg:     cfg,
 		gpe:     gpe,
-	}, nil
+	}
 }
 
 // Start subscribes to pg notifications about terra msg inserts and processes them.
@@ -82,13 +82,18 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	if len(broadcasted) == 0 {
 		return
 	}
+	tc, err := txm.tc()
+	if err != nil {
+		txm.lggr.CriticalW("unable to get client for handling broadcasted but unconfirmed txes", "count", len(broadcasted), "err", err)
+		return
+	}
 	msgsByTxHash := make(map[string]terra.Msgs)
 	for _, msg := range broadcasted {
 		msgsByTxHash[*msg.TxHash] = append(msgsByTxHash[*msg.TxHash], msg)
 	}
 	for txHash, msgs := range msgsByTxHash {
 		maxPolls, pollPeriod := txm.confirmPollConfig()
-		err := txm.confirmTx(txHash, msgs.GetIDs(), maxPolls, pollPeriod)
+		err := txm.confirmTx(tc, txHash, msgs.GetIDs(), maxPolls, pollPeriod)
 		if err != nil {
 			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err, "txhash", txHash)
 		}
@@ -167,7 +172,12 @@ func (txm *Txm) sendMsgBatch() {
 }
 
 func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs terra.Msgs) {
-	an, sn, err := txm.tc.Account(sender)
+	tc, err := txm.tc()
+	if err != nil {
+		txm.lggr.CriticalW("unable to get client", "err", err)
+		return
+	}
+	an, sn, err := tc.Account(sender)
 	if err != nil {
 		txm.lggr.Errorw("unable to read account", "err", err, "from", sender.String())
 		// If we can't read the account, assume transient api issues and leave msgs unstarted
@@ -176,7 +186,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 
 	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
-	simResults, err := txm.tc.BatchSimulateUnsigned(msgs.GetSimMsgs(), sn)
+	simResults, err := tc.BatchSimulateUnsigned(msgs.GetSimMsgs(), sn)
 	if err != nil {
 		txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
 		// If we can't simulate assume transient api issue and retry on next poll.
@@ -196,7 +206,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		return
 	}
 	// Get the gas limit for the successful batch
-	s, err := txm.tc.SimulateUnsigned(simResults.Succeeded.GetMsgs(), sn)
+	s, err := tc.SimulateUnsigned(simResults.Succeeded.GetMsgs(), sn)
 	if err != nil {
 		// Should never happen
 		txm.lggr.Errorw("unexpected failure after successful simulation", "err", err)
@@ -204,12 +214,12 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 	gasLimit := s.GasInfo.GasUsed
 
-	lb, err := txm.tc.LatestBlock()
+	lb, err := tc.LatestBlock()
 	if err != nil {
 		txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
 		return
 	}
-	signedTx, err := txm.tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
+	signedTx, err := tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
 		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(txm.cfg.BlocksUntilTxTimeout()))
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
@@ -228,7 +238,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		}
 
 		txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.Succeeded)
-		resp, err = txm.tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
+		resp, err = tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 		if err != nil {
 			// Rollback marking as broadcasted
 			return err
@@ -250,7 +260,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 
 	maxPolls, pollPeriod := txm.confirmPollConfig()
-	if err := txm.confirmTx(resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs(), maxPolls, pollPeriod); err != nil {
+	if err := txm.confirmTx(tc, resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs(), maxPolls, pollPeriod); err != nil {
 		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 		return
 	}
@@ -269,7 +279,7 @@ func (txm *Txm) confirmPollConfig() (maxPolls int, pollPeriod time.Duration) {
 	return
 }
 
-func (txm *Txm) confirmTx(txHash string, broadcasted []int64, maxPolls int, pollPeriod time.Duration) error {
+func (txm *Txm) confirmTx(tc terraclient.Reader, txHash string, broadcasted []int64, maxPolls int, pollPeriod time.Duration) error {
 	// We either mark these broadcasted txes as confirmed or errored.
 	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
 	// Errored: we do not see the txhash onchain after waiting for N blocks worth
@@ -281,7 +291,7 @@ func (txm *Txm) confirmTx(txHash string, broadcasted []int64, maxPolls int, poll
 		time.Sleep(utils.WithJitter(pollPeriod))
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
-		tx, err := txm.tc.Tx(txHash)
+		tx, err := tc.Tx(txHash)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				txm.lggr.Infow("txhash not found yet, still confirming", "hash", txHash)
