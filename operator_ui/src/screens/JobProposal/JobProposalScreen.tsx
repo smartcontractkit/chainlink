@@ -27,13 +27,13 @@ export const JOB_PROPOSAL_QUERY = gql`
   }
 `
 
-export const UPDATE_JOB_PROPOSAL_SPEC_MUTATION = gql`
-  mutation UpdateJobProposalSpec(
+export const UPDATE_JOB_PROPOSAL_SPEC_DEFINITION_MUTATION = gql`
+  mutation UpdateJobProposalSpecDefinition(
     $id: ID!
-    $input: UpdateJobProposalSpecInput!
+    $input: UpdateJobProposalSpecDefinitionInput!
   ) {
-    updateJobProposalSpec(id: $id, input: $input) {
-      ... on UpdateJobProposalSpecSuccess {
+    updateJobProposalSpecDefinition(id: $id, input: $input) {
+      ... on UpdateJobProposalSpecDefinitionSuccess {
         __typename
       }
       ... on NotFoundError {
@@ -43,11 +43,11 @@ export const UPDATE_JOB_PROPOSAL_SPEC_MUTATION = gql`
   }
 `
 
-export const REJECT_JOB_PROPOSAL_MUTATION = gql`
-  mutation RejectJobProposal($id: ID!) {
-    rejectJobProposal(id: $id) {
-      ... on RejectJobProposalSuccess {
-        jobProposal {
+export const REJECT_JOB_PROPOSAL_SPEC_MUTATION = gql`
+  mutation RejectJobProposalSpec($id: ID!) {
+    rejectJobProposalSpec(id: $id) {
+      ... on RejectJobProposalSpecSuccess {
+        spec {
           id
         }
       }
@@ -58,11 +58,11 @@ export const REJECT_JOB_PROPOSAL_MUTATION = gql`
   }
 `
 
-export const APPROVE_JOB_PROPOSAL_MUTATION = gql`
-  mutation ApproveJobProposal($id: ID!) {
-    approveJobProposal(id: $id) {
-      ... on ApproveJobProposalSuccess {
-        jobProposal {
+export const APPROVE_JOB_PROPOSAL_SPEC_MUTATION = gql`
+  mutation ApproveJobProposalSpec($id: ID!) {
+    approveJobProposalSpec(id: $id) {
+      ... on ApproveJobProposalSpecSuccess {
+        spec {
           id
         }
       }
@@ -73,11 +73,11 @@ export const APPROVE_JOB_PROPOSAL_MUTATION = gql`
   }
 `
 
-export const CANCEL_JOB_PROPOSAL_MUTATION = gql`
-  mutation CancelJobProposal($id: ID!) {
-    cancelJobProposal(id: $id) {
-      ... on CancelJobProposalSuccess {
-        jobProposal {
+export const CANCEL_JOB_PROPOSAL_SPEC_MUTATION = gql`
+  mutation CancelJobProposalSpec($id: ID!) {
+    cancelJobProposalSpec(id: $id) {
+      ... on CancelJobProposalSpecSuccess {
+        spec {
           id
         }
       }
@@ -101,31 +101,31 @@ export const JobProposalScreen: React.FC = () => {
     FetchJobProposalVariables
   >(JOB_PROPOSAL_QUERY, { variables: { id } })
 
-  const [updateJobProposalSpec] = useMutation<
-    UpdateJobProposalSpec,
-    UpdateJobProposalSpecVariables
-  >(UPDATE_JOB_PROPOSAL_SPEC_MUTATION, {
+  const [updateJobProposalSpecDefinition] = useMutation<
+    UpdateJobProposalSpecDefinition,
+    UpdateJobProposalSpecDefinitionVariables
+  >(UPDATE_JOB_PROPOSAL_SPEC_DEFINITION_MUTATION, {
     refetchQueries: [JOB_PROPOSAL_QUERY],
   })
 
-  const [rejectJobProposal] = useMutation<
-    RejectJobProposal,
-    RejectJobProposalVariables
-  >(REJECT_JOB_PROPOSAL_MUTATION, {
+  const [rejectJobProposalSpec] = useMutation<
+    RejectJobProposalSpec,
+    RejectJobProposalSpecVariables
+  >(REJECT_JOB_PROPOSAL_SPEC_MUTATION, {
     refetchQueries: [JOB_PROPOSAL_QUERY],
   })
 
-  const [approveJobProposal] = useMutation<
-    ApproveJobProposal,
-    ApproveJobProposalVariables
-  >(APPROVE_JOB_PROPOSAL_MUTATION, {
+  const [approveJobProposalSpec] = useMutation<
+    ApproveJobProposalSpec,
+    ApproveJobProposalSpecVariables
+  >(APPROVE_JOB_PROPOSAL_SPEC_MUTATION, {
     refetchQueries: [JOB_PROPOSAL_QUERY],
   })
 
-  const [cancelJobProposal] = useMutation<
-    CancelJobProposal,
-    CancelJobProposalVariables
-  >(CANCEL_JOB_PROPOSAL_MUTATION, {
+  const [cancelJobProposalSpec] = useMutation<
+    CancelJobProposalSpec,
+    CancelJobProposalSpecVariables
+  >(CANCEL_JOB_PROPOSAL_SPEC_MUTATION, {
     refetchQueries: [JOB_PROPOSAL_QUERY],
   })
 
@@ -139,13 +139,15 @@ export const JobProposalScreen: React.FC = () => {
 
   const handleUpdateSpec = async (values: FormValues) => {
     try {
-      const result = await updateJobProposalSpec({
-        variables: { id, input: { ...values } },
+      const result = await updateJobProposalSpecDefinition({
+        variables: { id: values.id, input: { definition: values.definition } },
       })
 
-      const payload = result.data?.updateJobProposalSpec
+      console.log(result)
+
+      const payload = result.data?.updateJobProposalSpecDefinition
       switch (payload?.__typename) {
-        case 'UpdateJobProposalSpecSuccess':
+        case 'UpdateJobProposalSpecDefinitionSuccess':
           dispatch(notifySuccessMsg('Spec updated'))
 
           break
@@ -159,15 +161,15 @@ export const JobProposalScreen: React.FC = () => {
     }
   }
 
-  const handleRejectJobProposal = async () => {
+  const handleRejectJobProposal = async (specID: string) => {
     try {
-      const result = await rejectJobProposal({
-        variables: { id },
+      const result = await rejectJobProposalSpec({
+        variables: { id: specID },
       })
-      const payload = result.data?.rejectJobProposal
+      const payload = result.data?.rejectJobProposalSpec
       switch (payload?.__typename) {
-        case 'RejectJobProposalSuccess':
-          dispatch(notifySuccessMsg('Job Proposal rejected'))
+        case 'RejectJobProposalSpecSuccess':
+          dispatch(notifySuccessMsg('Spec rejected'))
 
           break
         case 'NotFoundError':
@@ -180,15 +182,15 @@ export const JobProposalScreen: React.FC = () => {
     }
   }
 
-  const handleCancelJobProposal = async () => {
+  const handleCancelJobProposal = async (specID: string) => {
     try {
-      const result = await cancelJobProposal({
-        variables: { id },
+      const result = await cancelJobProposalSpec({
+        variables: { id: specID },
       })
-      const payload = result.data?.cancelJobProposal
+      const payload = result.data?.cancelJobProposalSpec
       switch (payload?.__typename) {
-        case 'CancelJobProposalSuccess':
-          dispatch(notifySuccessMsg('Job Proposal cancelled'))
+        case 'CancelJobProposalSpecSuccess':
+          dispatch(notifySuccessMsg('Spec cancelled'))
 
           break
         case 'NotFoundError':
@@ -201,15 +203,15 @@ export const JobProposalScreen: React.FC = () => {
     }
   }
 
-  const handleApproveJobProposal = async () => {
+  const handleApproveJobProposal = async (specID: string) => {
     try {
-      const result = await approveJobProposal({
-        variables: { id },
+      const result = await approveJobProposalSpec({
+        variables: { id: specID },
       })
-      const payload = result.data?.approveJobProposal
+      const payload = result.data?.approveJobProposalSpec
       switch (payload?.__typename) {
-        case 'ApproveJobProposalSuccess':
-          dispatch(notifySuccessMsg('Job Proposal approved'))
+        case 'ApproveJobProposalSpecSuccess':
+          dispatch(notifySuccessMsg('Spec approved'))
 
           break
         case 'NotFoundError':
