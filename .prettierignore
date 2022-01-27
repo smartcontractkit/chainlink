@@ -32,5 +32,6 @@ docs/
 venv/
 
 *.md
-.github/workflows/*.yml
+.github/**/*.yml
 .golangci.yml
+contracts/.solhint.json

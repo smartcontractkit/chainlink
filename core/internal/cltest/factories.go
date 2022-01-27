@@ -19,14 +19,18 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -36,9 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 )
 
 // NewAddress return a random new address
@@ -158,10 +159,13 @@ func NewEthTx(t *testing.T, fromAddress common.Address) bulletprooftxmanager.Eth
 
 func MustInsertUnconfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
 	broadcastAt := time.Now()
+	chainID := &FixtureChainID
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case time.Time:
 			broadcastAt = v
+		case *big.Int:
+			chainID = v
 		}
 	}
 	etx := NewEthTx(t, fromAddress)
@@ -170,6 +174,7 @@ func MustInsertUnconfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, non
 	n := nonce
 	etx.Nonce = &n
 	etx.State = bulletprooftxmanager.EthTxUnconfirmed
+	etx.EVMChainID = *utils.NewBig(chainID)
 	require.NoError(t, borm.InsertEthTx(&etx))
 	return etx
 }
@@ -184,6 +189,22 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm bul
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx, err := borm.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertUnconfrimedEthTxWithAttemptState(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, txAttemptState bulletprooftxmanager.EthTxAttemptState, opts ...interface{}) bulletprooftxmanager.EthTx {
+	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
+	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = txAttemptState
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
@@ -381,7 +402,6 @@ func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethK
 
 // MustInsertRandomKey inserts a randomly generated (not cryptographically
 // secure) key for testing
-// If using this with the keystore, it should be called before the keystore loads keys from the database
 func MustInsertRandomKey(
 	t testing.TB,
 	keystore keystore.Eth,
@@ -441,8 +461,8 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) eth.Head {
-	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) evmtypes.Head {
+	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
 	err := horm.IdempotentInsertHead(context.Background(), &h)
@@ -482,8 +502,8 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitte
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OffchainReportingOracleSpec{}
-	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations) VALUES (
-NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout) VALUES (
+NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
 ) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec
 }
@@ -510,29 +530,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
-	dds := `
-encode_check_upkeep_tx   [type=ethabiencode
-                          abi="checkUpkeep(uint256 id, address from)"
-                          data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
-check_upkeep_tx          [type=ethcall
-                          failEarly=true
-                          extractRevertReason=true
-                          contract="$(jobSpec.contractAddress)"
-                          gas="$(jobSpec.checkUpkeepGasLimit)"
-                          gasPrice="$(jobSpec.gasPrice)"
-                          data="$(encode_check_upkeep_tx)"]
-decode_check_upkeep_tx   [type=ethabidecode
-                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
-encode_perform_upkeep_tx [type=ethabiencode
-                          abi="performUpkeep(uint256 id, bytes calldata performData)"
-                          data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
-perform_upkeep_tx        [type=ethtx
-                          minConfirmations=0
-                          to="$(jobSpec.contractAddress)"
-                          data="$(encode_perform_upkeep_tx)"
-                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\"jobID\":$(jobSpec.jobID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`
+	dds := keeper.ExpectedObservationSource
 	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
 	require.NoError(t, err)
 
@@ -575,7 +573,7 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
-	korm := keeper.NewORM(db, logger.TestLogger(t), nil, cfg, bulletprooftxmanager.SendEveryStrategy{})
+	korm := keeper.NewORM(db, logger.TestLogger(t), cfg, bulletprooftxmanager.SendEveryStrategy{})
 	upkeepID, err := korm.LowestUnsyncedID(registry.ID)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{

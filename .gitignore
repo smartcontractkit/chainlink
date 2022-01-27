@@ -11,8 +11,6 @@ core/chainlink
 # GUI
 operator_ui/dist
 operator_ui/artifacts
-*-packr.go
-
 
 # SQLite
 tools/clroot/db.sqlite3-shm
@@ -30,7 +28,8 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .direnv
-.idea 
+.idea
+.vscode/
 
 # codeship
 *.aes
@@ -52,3 +51,11 @@ db/
 
 # can be left behind by tests
 core/cmd/vrfkey1
+
+# left behind by webpack - compiled frontend assets
+core/web/assets
+
+# Integration Tests
+integration-tests/logs/
+tests-*.xml
+*.test

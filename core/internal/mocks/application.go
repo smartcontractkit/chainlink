@@ -6,17 +6,15 @@ import (
 	big "math/big"
 
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+
+	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
 
 	config "github.com/smartcontractkit/chainlink/core/config"
 
 	context "context"
 
-	evm "github.com/smartcontractkit/chainlink/core/chains/evm"
-
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
-
-	health "github.com/smartcontractkit/chainlink/core/services/health"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 
@@ -26,15 +24,17 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	packr "github.com/gobuffalo/packr"
-
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
+	services "github.com/smartcontractkit/chainlink/core/services"
+
 	sessions "github.com/smartcontractkit/chainlink/core/sessions"
 
 	sqlx "github.com/smartcontractkit/sqlx"
+
+	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
@@ -126,17 +126,15 @@ func (_m *Application) EVMORM() types.ORM {
 	return r0
 }
 
-// GetChainSet provides a mock function with given fields:
-func (_m *Application) GetChainSet() evm.ChainSet {
+// GetChains provides a mock function with given fields:
+func (_m *Application) GetChains() chainlink.Chains {
 	ret := _m.Called()
 
-	var r0 evm.ChainSet
-	if rf, ok := ret.Get(0).(func() evm.ChainSet); ok {
+	var r0 chainlink.Chains
+	if rf, ok := ret.Get(0).(func() chainlink.Chains); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(evm.ChainSet)
-		}
+		r0 = ret.Get(0).(chainlink.Chains)
 	}
 
 	return r0
@@ -207,15 +205,15 @@ func (_m *Application) GetFeedsService() feeds.Service {
 }
 
 // GetHealthChecker provides a mock function with given fields:
-func (_m *Application) GetHealthChecker() health.Checker {
+func (_m *Application) GetHealthChecker() services.Checker {
 	ret := _m.Called()
 
-	var r0 health.Checker
-	if rf, ok := ret.Get(0).(func() health.Checker); ok {
+	var r0 services.Checker
+	if rf, ok := ret.Get(0).(func() services.Checker); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(health.Checker)
+			r0 = ret.Get(0).(services.Checker)
 		}
 	}
 
@@ -327,20 +325,6 @@ func (_m *Application) JobSpawner() job.Spawner {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(job.Spawner)
 		}
-	}
-
-	return r0
-}
-
-// NewBox provides a mock function with given fields:
-func (_m *Application) NewBox() packr.Box {
-	ret := _m.Called()
-
-	var r0 packr.Box
-	if rf, ok := ret.Get(0).(func() packr.Box); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(packr.Box)
 	}
 
 	return r0
@@ -499,6 +483,22 @@ func (_m *Application) Stop() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TerraORM provides a mock function with given fields:
+func (_m *Application) TerraORM() terratypes.ORM {
+	ret := _m.Called()
+
+	var r0 terratypes.ORM
+	if rf, ok := ret.Get(0).(func() terratypes.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(terratypes.ORM)
+		}
 	}
 
 	return r0

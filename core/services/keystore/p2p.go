@@ -5,7 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -175,7 +174,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if id != "" {
 		return ks.getByID(id)
 	} else if len(ks.keyRing.P2P) == 1 {
-		logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
+		ks.logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
 		for _, key := range ks.keyRing.P2P {
 			return key, nil
 		}
@@ -184,7 +183,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	}
 	return p2pkey.KeyV2{}, errors.New(
 		"multiple p2p keys found but peer ID was not set - you must specify a P2P_PEER_ID " +
-			"env var or set the peer id in the job spec if you have more than one key",
+			"env var if you have more than one key, or delete the keys you aren't using",
 	)
 }
 

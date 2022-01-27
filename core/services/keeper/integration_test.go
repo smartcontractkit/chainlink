@@ -104,7 +104,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 			// setup app
 			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559), true, true)
-			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
+			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			d := 24 * time.Hour
 			// disable full sync ticker for test
@@ -115,6 +115,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 			// avoid waiting to re-submit for upkeeps
 			config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+			// test with gas price feature enabled
+			config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 			// helps prevent missed heads
 			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)

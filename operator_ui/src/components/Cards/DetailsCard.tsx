@@ -6,6 +6,7 @@ import {
   withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
 
 import Paper from '@material-ui/core/Paper'
 
@@ -28,6 +29,15 @@ const styles = (theme: Theme) =>
         marginRight: -theme.spacing.unit * 1.5,
       },
     },
+    itemBlock: {
+      border: '1px solid rgba(224, 224, 224, 1)',
+      borderRadius: theme.shape.borderRadius,
+      padding: theme.spacing.unit * 2,
+      marginTop: theme.spacing.unit,
+    },
+    itemBlockText: {
+      overflowWrap: 'anywhere',
+    },
   })
 
 interface Props extends WithStyles<typeof styles> {
@@ -48,6 +58,48 @@ export const DetailsCard = withStyles(styles)(
 
         {actions && <div className={classes.actions}>{actions}</div>}
       </Paper>
+    )
+  },
+)
+
+// DetailsCardItemTitle provides default styles for an item title in the details
+// card
+export const DetailsCardItemTitle = ({ title }: { title: string }) => (
+  <Typography variant="subtitle2" gutterBottom>
+    {title}
+  </Typography>
+)
+
+// DetailsCardItemValue provides default styles for an item value in the details
+// card.
+export const DetailsCardItemValue: React.FC<{
+  value?: string | number | null
+}> = ({ children, value }) => (
+  <Typography variant="body1" noWrap>
+    {children ? children : value}
+  </Typography>
+)
+
+// DetailsCardItemValue provides default styles for an item value in the details
+// card.
+interface DetailsCardItemBlockValueProps extends WithStyles<typeof styles> {
+  value?: string | number | null
+}
+
+// DetailsCardItemValue provides default styles for an item value as a block
+// item. Useful to highlight blocks of text values
+export const DetailsCardItemBlockValue = withStyles(styles)(
+  ({
+    children,
+    classes,
+    value,
+  }: React.PropsWithChildren<DetailsCardItemBlockValueProps>) => {
+    return (
+      <div className={classes.itemBlock}>
+        <Typography variant="body1" className={classes.itemBlockText}>
+          {children ? children : value}
+        </Typography>
+      </div>
     )
   },
 )

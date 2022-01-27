@@ -13,9 +13,22 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
-const SentryFlushDeadline = 5 * time.Second
+const (
+	// SentryFlushDeadline indicates the maximum amount of time we allow sentry to
+	// flush events on manual flush
+	SentryFlushDeadline = 5 * time.Second
+
+	loggerContextName = "Logger"
+)
 
 func init() {
+	// If SENTRY_DSN is set at runtime, sentry will be enabled and send metrics to this URL
+	sentrydsn := os.Getenv("SENTRY_DSN")
+	if sentrydsn == "" {
+		// Do not initialize sentry at all if the DSN is missing
+		return
+	}
+
 	// If SENTRY_ENVIRONMENT is set, it will override everything. Otherwise infers from CHAINLINK_DEV.
 	var sentryenv string
 	if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
@@ -25,14 +38,7 @@ func init() {
 	} else {
 		sentryenv = "prod"
 	}
-	// If SENTRY_DSN is set, it will override everything. Otherwise static.SentryDSN will be used.
-	// If neither are set, sentry is disabled.
-	var sentrydsn string
-	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
-		sentrydsn = dsn
-	} else {
-		sentrydsn = static.SentryDSN
-	}
+
 	// If SENTRY_RELEASE is set, it will override everything. Otherwise, static.Version will be used.
 	var sentryrelease string
 	if release := os.Getenv("SENTRY_RELEASE"); release != "" {
@@ -40,22 +46,23 @@ func init() {
 	} else {
 		sentryrelease = static.Version
 	}
+
+	// Set SENTRY_DEBUG=true to enable printing of SDK debug messages
+	sentrydebug := os.Getenv("SENTRY_DEBUG") == "true"
+
 	err := sentry.Init(sentry.ClientOptions{
 		// AttachStacktrace is needed to send stacktrace alongside panics
 		AttachStacktrace: true,
 		Dsn:              sentrydsn,
 		Environment:      sentryenv,
 		Release:          sentryrelease,
-		// Enable printing of SDK debug messages.
-		// Uncomment line below to debug sentry
-		// Debug: true,
+		Debug:            sentrydebug,
 	})
 	if err != nil {
 		log.Fatalf("sentry.Init: %s", err)
 	}
 }
 
-//TODO could include sentry event IDs with log lines: .With("sentryEvent",*EventID)
 type sentryLogger struct {
 	h Logger
 }
@@ -109,52 +116,52 @@ func (s *sentryLogger) Warn(args ...interface{}) {
 func (s *sentryLogger) Error(args ...interface{}) {
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelError)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Error(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Error(args...)
 }
 
 func (s *sentryLogger) Critical(args ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Critical(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Critical(args...)
 }
 
 func (s *sentryLogger) Panic(args ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Panic(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Panic(args...)
 }
 
 func (s *sentryLogger) Fatal(args ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"args": args,
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf("%v", args))
-	s.h.Fatal(args...)
+	eid := hub.CaptureMessage(fmt.Sprintf("%v", args))
+	s.h.With("sentryEventID", eid).Fatal(args...)
 }
 
 func (s *sentryLogger) Tracef(format string, values ...interface{}) {
@@ -176,52 +183,52 @@ func (s *sentryLogger) Warnf(format string, values ...interface{}) {
 func (s *sentryLogger) Errorf(format string, values ...interface{}) {
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelError)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Errorf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Errorf(format, values...)
 }
 
 func (s *sentryLogger) Criticalf(format string, values ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Criticalf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Criticalf(format, values...)
 }
 
 func (s *sentryLogger) Panicf(format string, values ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Panicf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Panicf(format, values...)
 }
 
 func (s *sentryLogger) Fatalf(format string, values ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", map[string]interface{}{
+		scope.SetContext(loggerContextName, map[string]interface{}{
 			"values": values,
 		})
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(fmt.Sprintf(format, values...))
-	s.h.Fatalf(format, values...)
+	eid := hub.CaptureMessage(fmt.Sprintf(format, values...))
+	s.h.With("sentryEventID", eid).Fatalf(format, values...)
 }
 
 func (s *sentryLogger) Tracew(msg string, keysAndValues ...interface{}) {
@@ -243,57 +250,57 @@ func (s *sentryLogger) Warnw(msg string, keysAndValues ...interface{}) {
 func (s *sentryLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelError)
 	})
-	hub.CaptureMessage(msg)
-	s.h.Errorw(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.Errorw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) CriticalW(msg string, keysAndValues ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(msg)
-	s.h.CriticalW(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.CriticalW(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) Panicw(msg string, keysAndValues ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(msg)
-	s.h.Panicw(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.Panicw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
-		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetContext(loggerContextName, toMap(keysAndValues))
 		scope.SetLevel(sentry.LevelFatal)
 	})
-	hub.CaptureMessage(msg)
-	s.h.Fatalw(msg, keysAndValues...)
+	eid := hub.CaptureMessage(msg)
+	s.h.Fatalw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) ErrorIf(err error, msg string) {
 	if err != nil {
-		sentry.CaptureException(err)
-		s.h.Errorw(msg, "err", err)
+		eid := sentry.CaptureException(err)
+		s.h.Errorw(msg, "err", err, "sentryEventID", eid)
 	}
 }
 
 func (s *sentryLogger) ErrorIfClosing(c io.Closer, name string) {
 	if err := c.Close(); err != nil {
-		sentry.CaptureException(err)
-		s.h.Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
+		eid := sentry.CaptureException(err)
+		s.h.Errorw(fmt.Sprintf("Error closing %s", name), "err", err, "sentryEventID", eid)
 	}
 }
 
@@ -302,10 +309,10 @@ func (s *sentryLogger) Sync() error {
 }
 
 func (s *sentryLogger) Helper(add int) Logger {
-	return s.h.Helper(add)
+	return &sentryLogger{s.h.Helper(add)}
 }
 
-func toMap(args ...interface{}) (m map[string]interface{}) {
+func toMap(args []interface{}) (m map[string]interface{}) {
 	m = make(map[string]interface{}, len(args)/2)
 	for i := 0; i < len(args); {
 		// Make sure this element isn't a dangling key
@@ -322,4 +329,11 @@ func toMap(args ...interface{}) (m map[string]interface{}) {
 		i += 2
 	}
 	return m
+}
+
+func (s *sentryLogger) Recover(panicErr interface{}) {
+	eid := sentry.CurrentHub().Recover(panicErr)
+	sentry.Flush(SentryFlushDeadline)
+
+	s.h.With("sentryEventID", eid).Recover(panicErr)
 }

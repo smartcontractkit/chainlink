@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
@@ -18,21 +17,23 @@ import (
 	"time"
 
 	"github.com/Depado/ginprom"
+	"github.com/Masterminds/semver/v3"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -41,12 +42,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/sqlx"
 )
 
 var prometheus *ginprom.Prometheus
 
 func init() {
-	// ensure metrics are regsitered once per instance to avoid registering
+	// ensure metrics are registered once per instance to avoid registering
 	// metrics multiple times (panic)
 	prometheus = ginprom.New(ginprom.Namespace("service"))
 }
@@ -83,142 +85,41 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(config.GeneralConfig) (chainlink.Application, error)
+	NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
-func retryLogMsg(count int) string {
-	if count == 1 {
-		return "Could not get lock, retrying..."
-	} else if count%1000 == 0 || count&(count-1) == 0 {
-		return "Still waiting for lock..."
-	}
-	return ""
-}
-
-// Try to immediately acquire an advisory lock. The lock will be released on application stop.
-func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (pg.Locker, error) {
-	lockID := int64(1027321974924625846)
-	lockRetryInterval := time.Second
-
-	lggr = lggr.Named("AdvisoryLock")
-	lggr.Debug("Taking advisory lock...")
-
-	initCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	lock, err := pg.NewLock(initCtx, lockID, db)
-	if err != nil {
-		return nil, err
-	}
-
-	ticker := time.NewTicker(lockRetryInterval)
-	defer ticker.Stop()
-	retryCount := 0
-	for {
-		lockCtx, cancel := context.WithTimeout(ctx, timeout)
-		gotLock, err := lock.Lock(lockCtx)
-		cancel()
-		if err != nil {
-			return nil, err
-		}
-		if gotLock {
-			break
-		}
-
-		select {
-		case <-ticker.C:
-			retryCount++
-			if msg := retryLogMsg(retryCount); msg != "" {
-				lggr.Infow(msg, "failCount", retryCount)
-			}
-			continue
-		case <-ctx.Done():
-			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
-		}
-	}
-
-	lggr.Debug("Got advisory lock")
-
-	return &lock, nil
-}
-
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	appLggr := logger.NewLogger(cfg)
-	appID := uuid.NewV4()
-
-	shutdownSignal := shutdown.NewSignal()
-	uri := cfg.DatabaseURL()
-	static.SetConsumerName(&uri, "App", &appID)
-	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, err := pg.NewConnection(uri.String(), string(dialect), pg.Config{
-		Logger:       appLggr,
-		MaxOpenConns: cfg.ORMMaxOpenConns(),
-		MaxIdleConns: cfg.ORMMaxIdleConns(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	appLggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
-
-	// Lease will be explicitly released on application stop
-	// Take the lease before any other DB operations
-	var leaseLock pg.LeaseLock
-	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
-		leaseLock = pg.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
-		if err = leaseLock.TakeAndHold(); err != nil {
-			return nil, errors.Wrap(err, "failed to take initial lease on database")
-		}
-	}
-
-	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	var advisoryLock pg.Locker
-	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		advisoryLock, err = AdvisoryLock(ctx, appLggr, db.DB, time.Second)
-		if err != nil {
-			return nil, errors.Wrap(err, "error acquiring lock")
-		}
-	}
+func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (app chainlink.Application, err error) {
+	appLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)
 
-	// Set up periodic backup
-	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
-		var version *versioning.NodeVersion
-		var versionString string
-
-		version, err = verORM.FindLatestNodeVersion()
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				appLggr.Debugf("Failed to find any node version in the DB: %w", err)
-			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-				appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
-			} else {
-				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
-			}
-		}
-
-		if version != nil {
-			versionString = version.Version
-		}
-
-		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, appLggr)
-		databaseBackup.RunBackupGracefully(versionString)
-	}
-
-	// Check before migration so we don't do anything destructive to the
-	// database if this app version is too old
 	if static.Version != "unset" {
-		if err = versioning.CheckVersion(db, appLggr, static.Version); err != nil {
+		var appv, dbv *semver.Version
+		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
+		if err != nil {
+			// Exit immediately and don't touch the database if the app version is too old
 			return nil, errors.Wrap(err, "CheckVersion")
+		}
+
+		// Take backup if app version is newer than DB version
+		// Need to do this BEFORE migration
+		if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupOnVersionUpgrade() {
+			if err = takeBackupIfVersionUpgrade(cfg, appLggr, appv, dbv); err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
+				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				} else {
+					return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
+				}
+			}
 		}
 	}
 
@@ -237,13 +138,13 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	if cfg.UseLegacyEthEnvVars() {
+	if !cfg.EthereumDisabled() && !cfg.EVMDisabled() {
 		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}
 	}
 
-	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, cfg.AppID())
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
@@ -252,25 +153,54 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
-	chainSet, err := evm.LoadChainSet(ccOpts)
+	var chains chainlink.Chains
+	chains.EVM, err = evm.LoadChainSet(ccOpts)
 	if err != nil {
 		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr, cfg)
+	terraLggr := appLggr.Named("Terra")
+	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+		Config:           cfg,
+		Logger:           terraLggr,
+		DB:               db,
+		KeyStore:         keyStore.Terra(),
+		EventBroadcaster: eventBroadcaster,
+		ORM:              terra.NewORM(db, terraLggr, cfg),
+	})
+	if err != nil {
+		appLggr.Fatal(err)
+	}
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
-		ShutdownSignal:           shutdownSignal,
+		ShutdownSignal:           sig,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
-		ChainSet:                 chainSet,
+		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
-		AdvisoryLock:             advisoryLock,
-		LeaseLock:                leaseLock,
-		ID:                       appID,
 	})
+}
+
+func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
+	if appv == nil {
+		lggr.Debug("Application version is missing, skipping automatic DB backup.")
+		return nil
+	}
+	if dbv == nil {
+		lggr.Debug("Database version is missing, skipping automatic DB backup.")
+		return nil
+	}
+	if !appv.GreaterThan(dbv) {
+		lggr.Debugf("Application version %s is older or equal to database version %s, skipping automatic DB backup.", appv.String(), dbv.String())
+		return nil
+	}
+	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic databsae backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
+
+	databaseBackup := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	return databaseBackup.RunBackup(appv.String())
 }
 
 // Runner implements the Run method.
@@ -284,6 +214,11 @@ type ChainlinkRunner struct{}
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
+	defer func() {
+		if err := app.GetLogger().Sync(); err != nil {
+			log.Println(err)
+		}
+	}()
 	config := app.GetConfig()
 	mode := gin.ReleaseMode
 	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
