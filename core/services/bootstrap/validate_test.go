@@ -19,14 +19,14 @@ func TestValidateBootstrapSpec(t *testing.T) {
 		{
 			name: "decodes valid bootstrap spec toml",
 			toml: `
-type                = "bootstrap"
-name 				= "bootstrap"
-schemaVersion       = 1
-contractID   		= "0x613a38AC1659769640aaE063C651F48E0250454C"
-monitoringEndpoint  = "chain.link:4321"
-relay 				= "evm"
+type				= "bootstrap"
+name				= "bootstrap"
+schemaVersion		= 1
+contractID			= "0x613a38AC1659769640aaE063C651F48E0250454C"
+monitoringEndpoint	= "chain.link:4321"
+relay				= "evm"
 [relayConfig]
-chainID = 1337
+chainID 			= 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
@@ -36,12 +36,12 @@ chainID = 1337
 		{
 			name: "raises error on missing key",
 			toml: `
-type                = "bootstrap"
-schemaVersion       = 1
-monitoringEndpoint  = "chain.link:4321"
-relay 				= "evm"
+type				= "bootstrap"
+schemaVersion		= 1
+monitoringEndpoint	= "chain.link:4321"
+relay				= "evm"
 [relayConfig]
-chainID = 1337
+chainID 			= 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
@@ -51,14 +51,14 @@ chainID = 1337
 		{
 			name: "raises error on unexpected key",
 			toml: `
-type                = "bootstrap"
-schemaVersion       = 1
-contractID   		= "0x613a38AC1659769640aaE063C651F48E0250454C"
-monitoringEndpoint  = "chain.link:4321"
-isBootstrapPeer 	= true
-relay 				= "evm"
+type				= "bootstrap"
+schemaVersion		= 1
+contractID			= "0x613a38AC1659769640aaE063C651F48E0250454C"
+monitoringEndpoint	= "chain.link:4321"
+isBootstrapPeer		= true
+relay				= "evm"
 [relayConfig]
-chainID = 1337
+chainID			= 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
