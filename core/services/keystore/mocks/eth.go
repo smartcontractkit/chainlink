@@ -8,6 +8,8 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
+	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/ethereum/go-ethereum/core/types"
@@ -303,11 +305,11 @@ func (_m *Eth) GetStatesForKeys(_a0 []ethkey.KeyV2) ([]ethkey.State, error) {
 }
 
 // GetV1KeysAsV2 provides a mock function with given fields: f
-func (_m *Eth) GetV1KeysAsV2(f func() (*big.Int, error)) ([]ethkey.KeyV2, []ethkey.State, error) {
+func (_m *Eth) GetV1KeysAsV2(f keystore.DefaultEVMChainIDFunc) ([]ethkey.KeyV2, []ethkey.State, error) {
 	ret := _m.Called(f)
 
 	var r0 []ethkey.KeyV2
-	if rf, ok := ret.Get(0).(func(func() (*big.Int, error)) []ethkey.KeyV2); ok {
+	if rf, ok := ret.Get(0).(func(keystore.DefaultEVMChainIDFunc) []ethkey.KeyV2); ok {
 		r0 = rf(f)
 	} else {
 		if ret.Get(0) != nil {
@@ -316,7 +318,7 @@ func (_m *Eth) GetV1KeysAsV2(f func() (*big.Int, error)) ([]ethkey.KeyV2, []ethk
 	}
 
 	var r1 []ethkey.State
-	if rf, ok := ret.Get(1).(func(func() (*big.Int, error)) []ethkey.State); ok {
+	if rf, ok := ret.Get(1).(func(keystore.DefaultEVMChainIDFunc) []ethkey.State); ok {
 		r1 = rf(f)
 	} else {
 		if ret.Get(1) != nil {
@@ -325,7 +327,7 @@ func (_m *Eth) GetV1KeysAsV2(f func() (*big.Int, error)) ([]ethkey.KeyV2, []ethk
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(func() (*big.Int, error)) error); ok {
+	if rf, ok := ret.Get(2).(func(keystore.DefaultEVMChainIDFunc) error); ok {
 		r2 = rf(f)
 	} else {
 		r2 = ret.Error(2)

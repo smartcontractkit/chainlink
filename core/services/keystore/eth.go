@@ -41,7 +41,7 @@ type Eth interface {
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 
-	GetV1KeysAsV2(f defaultEVMChainIDFunc) ([]ethkey.KeyV2, []ethkey.State, error)
+	GetV1KeysAsV2(f DefaultEVMChainIDFunc) ([]ethkey.KeyV2, []ethkey.State, error)
 }
 
 type eth struct {
@@ -359,7 +359,7 @@ func (ks *eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err e
 	return
 }
 
-func (ks *eth) GetV1KeysAsV2(f defaultEVMChainIDFunc) (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
+func (ks *eth) GetV1KeysAsV2(f DefaultEVMChainIDFunc) (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1EthKeys()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get encrypted v1 eth keys")

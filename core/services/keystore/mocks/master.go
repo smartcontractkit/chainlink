@@ -3,8 +3,6 @@
 package mocks
 
 import (
-	big "math/big"
-
 	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -68,11 +66,11 @@ func (_m *Master) IsEmpty() (bool, error) {
 }
 
 // Migrate provides a mock function with given fields: vrfPassword, f
-func (_m *Master) Migrate(vrfPassword string, f func() (*big.Int, error)) error {
+func (_m *Master) Migrate(vrfPassword string, f keystore.DefaultEVMChainIDFunc) error {
 	ret := _m.Called(vrfPassword, f)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, func() (*big.Int, error)) error); ok {
+	if rf, ok := ret.Get(0).(func(string, keystore.DefaultEVMChainIDFunc) error); ok {
 		r0 = rf(vrfPassword, f)
 	} else {
 		r0 = ret.Error(0)

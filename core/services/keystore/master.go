@@ -25,7 +25,9 @@ import (
 
 var ErrLocked = errors.New("Keystore is locked")
 
-type defaultEVMChainIDFunc = func() (defaultEVMChainID *big.Int, err error)
+// DefaultEVMChainIDFunc is a func for getting a default evm chain ID -
+// necessary because it is lazily evaluated
+type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 
 //go:generate mockery --name Master --output ./mocks/ --case=underscore
 
@@ -39,7 +41,7 @@ type Master interface {
 	Terra() Terra
 	VRF() VRF
 	Unlock(password string) error
-	Migrate(vrfPassword string, f defaultEVMChainIDFunc) error
+	Migrate(vrfPassword string, f DefaultEVMChainIDFunc) error
 	IsEmpty() (bool, error)
 }
 
@@ -121,7 +123,7 @@ func (ks *master) IsEmpty() (bool, error) {
 	return count == 0, nil
 }
 
-func (ks *master) Migrate(vrfPssword string, f defaultEVMChainIDFunc) error {
+func (ks *master) Migrate(vrfPssword string, f DefaultEVMChainIDFunc) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {

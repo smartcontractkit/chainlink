@@ -164,14 +164,14 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	// By passing in a function we can be lazy trying to look up a default
 	// chain - if there are no existing keys, there is no need to check for
 	// a chain ID
-	defaultEVMChainIDFunc := func() (*big.Int, error) {
+	DefaultEVMChainIDFunc := func() (*big.Int, error) {
 		def, err2 := evmChainSet.Default()
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "cannot get default EVM chain ID; no default EVM chain available")
 		}
 		return def.ID(), nil
 	}
-	err = keyStore.Migrate(vrfpwd, defaultEVMChainIDFunc)
+	err = keyStore.Migrate(vrfpwd, DefaultEVMChainIDFunc)
 
 	if cli.Config.EVMEnabled() {
 		if err != nil {

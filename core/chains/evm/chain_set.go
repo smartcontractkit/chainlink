@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// ErrNoChains indicates that no chains have been started
-var ErrNoChains = errors.New("no chains loaded")
+// ErrNoChains indicates that no EVM chains have been started
+var ErrNoChains = errors.New("no EVM chains loaded")
 
 var _ ChainSet = &chainSet{}
 
