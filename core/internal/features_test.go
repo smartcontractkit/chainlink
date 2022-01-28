@@ -494,6 +494,9 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
 	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1), true, true)
+	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
+	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -504,7 +507,6 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	peerID := p2pIDs[0].PeerID()
 
 	config.Overrides.P2PPeerID = peerID
-	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.P2PNetworkingStack = ns
 	// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
 	// we'll flood it with messages and slow things down. 5s is about how long it takes the

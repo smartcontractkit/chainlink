@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
@@ -482,7 +483,9 @@ func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) (b1, b2 string) {
 }
 
 func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
-	app := cltest.NewApplicationWithKey(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -493,7 +496,9 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
-	app := cltest.NewApplicationWithKey(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start())

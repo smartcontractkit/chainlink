@@ -305,13 +305,13 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
 
-// NewApplicationEVMDisabled creates a new application with default config but ethereum disabled
+// NewApplicationEVMDisabled creates a new application with default config but EVM disabled
 // Useful for testing controllers
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
-	c.Overrides.EVMDisabled = null.BoolFrom(true)
+	c.Overrides.EVMEnabled = null.BoolFrom(false)
 
 	return NewApplicationWithConfig(t, c)
 }
