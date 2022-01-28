@@ -13,9 +13,10 @@ type Metrics interface {
 	SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string)
 	SetFeedContractLinkBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string)
-	SetOffchainAggregatorAnswers(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetOffchainAggregatorAnswers(answer *big.Float, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
-	SetOffchainAggregatorSubmissionReceivedValues(value *big.Int, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	// Cleanup deletes all the metrics
 	Cleanup(networkName, networkID, chainID, oracleName, sender, feedName, feedPath, symbol, contractType, contractStatus, contractAddress, feedID string)
@@ -51,10 +52,17 @@ var (
 		},
 		[]string{"chain_id", "network_id", "network_name", "oracle_name", "sender"},
 	)
+	offchainAggregatorAnswersRaw = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "offchain_aggregator_answers_raw",
+			Help: "Reports the latest answer for a contract.",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
 	offchainAggregatorAnswers = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "offchain_aggregator_answers",
-			Help: "Reports the latest answer for a contract.",
+			Help: "Reports the latest answer for a contract divided by the feed's Multiply parameter.",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
@@ -68,7 +76,7 @@ var (
 	offchainAggregatorSubmissionReceivedValues = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "offchain_aggregator_submission_received_values",
-			Help: "Report individual node observations for the latest transmission on chain. (Should be 1 time series per node per contract)",
+			Help: "Report individual node observations for the latest transmission on chain. (Should be 1 time series per node per contract). The values are divided by the feed's multiplier config.",
 		},
 		[]string{"contract_address", "feed_id", "sender", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
@@ -88,6 +96,7 @@ func init() {
 	prometheus.MustRegister(feedContractMetadata)
 	prometheus.MustRegister(feedContractLinkBalance)
 	prometheus.MustRegister(nodeMetadata)
+	prometheus.MustRegister(offchainAggregatorAnswersRaw)
 	prometheus.MustRegister(offchainAggregatorAnswers)
 	prometheus.MustRegister(offchainAggregatorAnswersTotal)
 	prometheus.MustRegister(offchainAggregatorSubmissionReceivedValues)
@@ -114,16 +123,22 @@ func (d *defaultMetrics) SetNodeMetadata(chainID, networkID, networkName, oracle
 	nodeMetadata.WithLabelValues(chainID, networkID, networkName, oracleName, sender).Set(1)
 }
 
-func (d *defaultMetrics) SetOffchainAggregatorAnswers(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	offchainAggregatorAnswers.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(answer.Int64()))
+func (d *defaultMetrics) SetOffchainAggregatorAnswers(answer *big.Float, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	value, _ := answer.Float64()
+	offchainAggregatorAnswers.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(value)
+}
+
+func (d *defaultMetrics) SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	offchainAggregatorAnswersRaw.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(answer.Int64()))
 }
 
 func (d *defaultMetrics) IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 	offchainAggregatorAnswersTotal.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Inc()
 }
 
-func (d *defaultMetrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Int, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	offchainAggregatorSubmissionReceivedValues.WithLabelValues(contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(value.Int64()))
+func (d *defaultMetrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	answer, _ := value.Float64()
+	offchainAggregatorSubmissionReceivedValues.WithLabelValues(contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(answer)
 }
 
 func (d *defaultMetrics) SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {

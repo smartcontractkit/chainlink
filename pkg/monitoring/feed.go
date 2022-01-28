@@ -16,6 +16,7 @@ type FeedConfig interface {
 	GetContractStatus() string
 	GetContractAddress() string
 	GetContractAddressBytes() []byte
+	GetMultiply() uint64
 	// Useful for mapping to kafka messages.
 	ToMapping() map[string]interface{}
 }

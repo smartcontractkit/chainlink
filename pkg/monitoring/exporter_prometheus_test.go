@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -49,6 +50,9 @@ func TestPrometheusExporter(t *testing.T) {
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(2),
 		}))
 
+		humanizedAnswer1 := new(big.Float).Quo(new(big.Float).SetInt(envelope1.LatestAnswer), big.NewFloat(float64(feedConfig.GetMultiply())))
+		humanizedAnswer2 := new(big.Float).Quo(new(big.Float).SetInt(envelope2.LatestAnswer), big.NewFloat(float64(feedConfig.GetMultiply())))
+
 		metrics.On("SetFeedContractLinkBalance",
 			envelope1.LinkBalance,          // balance
 			feedConfig.GetID(),             // contractAddress
@@ -75,6 +79,18 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkID(),   // networkID
 		).Once()
 		metrics.On("SetOffchainAggregatorAnswers",
+			humanizedAnswer1,               // answer
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
+		metrics.On("SetOffchainAggregatorAnswersRaw",
 			envelope1.LatestAnswer,         // answer
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
@@ -110,7 +126,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorSubmissionReceivedValues",
-			envelope1.LatestAnswer,         // value
+			humanizedAnswer1,               // answer
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
 			string(envelope1.Transmitter),  // sender
@@ -150,6 +166,18 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkID(),   // networkID
 		).Once()
 		metrics.On("SetOffchainAggregatorAnswers",
+			humanizedAnswer2,
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
+		metrics.On("SetOffchainAggregatorAnswersRaw",
 			envelope2.LatestAnswer,         // answer
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
@@ -185,7 +213,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorSubmissionReceivedValues",
-			envelope2.LatestAnswer,         // value
+			humanizedAnswer2,
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
 			string(envelope2.Transmitter),  // sender
@@ -264,6 +292,8 @@ func TestPrometheusExporter(t *testing.T) {
 		envelope2.LatestTimestamp = envelope1.LatestTimestamp
 		envelope2.Transmitter = envelope1.Transmitter
 
+		humanizedAnswer := new(big.Float).Quo(new(big.Float).SetInt(envelope1.LatestAnswer), big.NewFloat(float64(feedConfig.GetMultiply())))
+
 		metrics.On("SetFeedContractLinkBalance",
 			envelope1.LinkBalance,          // balance
 			feedConfig.GetID(),             // contractAddress
@@ -290,6 +320,18 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkID(),   // networkID
 		).Once()
 		metrics.On("SetOffchainAggregatorAnswers",
+			humanizedAnswer,                // answer
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
+		metrics.On("SetOffchainAggregatorAnswersRaw",
 			envelope1.LatestAnswer,         // answer
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
@@ -325,7 +367,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorSubmissionReceivedValues",
-			envelope1.LatestAnswer,         // value
+			humanizedAnswer,                // answer
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
 			string(envelope1.Transmitter),  // sender
@@ -391,10 +433,11 @@ func TestPrometheusExporter(t *testing.T) {
 			feedConfig.GetContractStatus(), // contractStatus
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
-		)
+		).Once()
 		exporter.Cleanup(ctx)
 
 		metrics.AssertNumberOfCalls(t, "SetOffchainAggregatorAnswers", 1)
+		metrics.AssertNumberOfCalls(t, "SetOffchainAggregatorAnswersRaw", 1)
 		metrics.AssertNumberOfCalls(t, "IncOffchainAggregatorAnswersTotal", 1)
 		metrics.AssertNumberOfCalls(t, "SetOffchainAggregatorSubmissionReceivedValues", 1)
 		mock.AssertExpectationsForObjects(t, metrics)
