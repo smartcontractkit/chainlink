@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added support for the Nethermind Ethereum client.
+- Added support for batch sending telemetry to the ingress server to improve performance.
 
 New ENV vars:
 
@@ -21,6 +22,10 @@ New ENV vars:
 - `TERRA_ENABLED` (default: false) - set to true to enable Terra support
 - `BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS` - if EIP1559 mode is enabled, this optional env var controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used. It is not recommended to change this unless you know what you are doing.
 - `EVM_GAS_FEE_CAP_DEFAULT` - if EIP1559 mode is enabled, and FixedPrice gas estimator is used, this env var controls the fixed initial fee cap.
+- `TELEMETRY_INGRESS_BUFFER_SIZE` (default: 100) - the number of telemetry messages to buffer before dropping new ones
+- `TELEMETRY_INGRESS_MAX_BATCH_SIZE` (default: 50) - the maximum number of messages to batch into one telemetry request
+- `TELEMETRY_INGRESS_SEND_INTERVAL` (default: 500ms) - the cadence on which batched telemetry is sent to the ingress server
+- `TELEMETRY_INGRESS_USE_BATCH_SEND` (default: true) - toggles sending telemetry using the batch client to the ingress server
 
 ### Removed
 
