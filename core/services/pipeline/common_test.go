@@ -207,7 +207,7 @@ func TestCheckInputs(t *testing.T) {
 				if err == nil {
 					t.Error("error expected, but got none")
 				} else if !errors.Is(err, pipeline.ErrTooManyErrors) {
-					t.Errorf("%T error expected, but got none", pipeline.ErrTooManyErrors)
+					t.Errorf("error is not %q: %v", pipeline.ErrTooManyErrors, err)
 				}
 			}
 		})
@@ -295,7 +295,7 @@ func TestCheckInputsLen(t *testing.T) {
 				if err == nil {
 					t.Error("error expected, but got none")
 				} else if !errors.Is(err, tt.expErr) {
-					t.Errorf("%T error expected, but got none", tt.expErr)
+					t.Errorf("error is not %q: %v", tt.expErr, err)
 				}
 			}
 		})
