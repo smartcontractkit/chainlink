@@ -232,7 +232,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"call failed: Invalid", true, "Nethermind"},
 		{"call failed: Int256Overflow", true, "Nethermind"},
 		{"call failed: FailedToResolveSender", true, "Nethermind"},
-		{"call failed: NonceGap", true, "Nethermind"},
 		{"call failed: GasLimitExceeded", true, "Nethermind"},
 	}
 

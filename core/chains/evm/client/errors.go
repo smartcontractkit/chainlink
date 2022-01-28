@@ -111,7 +111,7 @@ var avalanche = ClientErrors{
 // Nethermind
 // All errors: https://github.com/NethermindEth/nethermind/blob/master/src/Nethermind/Nethermind.TxPool/AcceptTxResult.cs
 // All filters: https://github.com/NethermindEth/nethermind/tree/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters
-var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid|Int256Overflow|FailedToResolveSender|NonceGap|GasLimitExceeded)$`)
+var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid|Int256Overflow|FailedToResolveSender|GasLimitExceeded)$`)
 var nethermind = ClientErrors{
 	// OldNonce: The EOA (externally owned account) that signed this transaction (sender) has already signed and executed a transaction with the same nonce.
 	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce$`),
