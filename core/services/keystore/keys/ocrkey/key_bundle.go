@@ -42,10 +42,6 @@ type (
 	}
 )
 
-func (EncryptedKeyBundle) TableName() string {
-	return "encrypted_ocr_key_bundles"
-}
-
 func (ekb EncryptedKeyBundle) GetID() string {
 	return ekb.ID.String()
 }

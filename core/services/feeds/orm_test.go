@@ -48,6 +48,8 @@ func setupORM(t *testing.T) *TestORM {
 	return &TestORM{ORM: orm, db: db}
 }
 
+// Managers
+
 func Test_ORM_CreateManager(t *testing.T) {
 	t.Parallel()
 
@@ -73,36 +75,6 @@ func Test_ORM_CreateManager(t *testing.T) {
 	require.Equal(t, int64(1), count)
 
 	assert.NotZero(t, id)
-}
-
-func Test_ORM_ListManagers(t *testing.T) {
-	t.Parallel()
-
-	orm := setupORM(t)
-	mgr := &feeds.FeedsManager{
-		URI:                       uri,
-		Name:                      name,
-		PublicKey:                 publicKey,
-		JobTypes:                  jobTypes,
-		IsOCRBootstrapPeer:        true,
-		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
-	}
-
-	id, err := orm.CreateManager(mgr)
-	require.NoError(t, err)
-
-	mgrs, err := orm.ListManagers()
-	require.NoError(t, err)
-	require.Len(t, mgrs, 1)
-
-	actual := mgrs[0]
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, uri, actual.URI)
-	assert.Equal(t, name, actual.Name)
-	assert.Equal(t, publicKey, actual.PublicKey)
-	assert.Equal(t, jobTypes, actual.JobTypes)
-	assert.True(t, actual.IsOCRBootstrapPeer)
-	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
 }
 
 func Test_ORM_GetManager(t *testing.T) {
@@ -136,7 +108,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	require.Error(t, err)
 }
 
-func Test_ORM_GetManagers(t *testing.T) {
+func Test_ORM_ListManagers(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
@@ -152,7 +124,37 @@ func Test_ORM_GetManagers(t *testing.T) {
 	id, err := orm.CreateManager(mgr)
 	require.NoError(t, err)
 
-	mgrs, err := orm.GetManagers([]int64{id})
+	mgrs, err := orm.ListManagers()
+	require.NoError(t, err)
+	require.Len(t, mgrs, 1)
+
+	actual := mgrs[0]
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, uri, actual.URI)
+	assert.Equal(t, name, actual.Name)
+	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Equal(t, jobTypes, actual.JobTypes)
+	assert.True(t, actual.IsOCRBootstrapPeer)
+	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
+}
+
+func Test_ORM_ListManagersByIDs(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	mgr := &feeds.FeedsManager{
+		URI:                       uri,
+		Name:                      name,
+		PublicKey:                 publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        true,
+		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
+	}
+
+	id, err := orm.CreateManager(mgr)
+	require.NoError(t, err)
+
+	mgrs, err := orm.ListManagersByIDs([]int64{id})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mgrs))
 
@@ -206,6 +208,8 @@ func Test_ORM_UpdateManager(t *testing.T) {
 	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
 }
 
+// Job Proposals
+
 func Test_ORM_CreateJobProposal(t *testing.T) {
 	t.Parallel()
 
@@ -214,7 +218,6 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 
 	jp := &feeds.JobProposal{
 		RemoteUUID:     uuid.NewV4(),
-		Spec:           "",
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
 	}
@@ -231,155 +234,11 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 	require.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
 	require.Equal(t, jp.Status, actual.Status)
 	require.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+	require.False(t, actual.PendingUpdate)
 	require.NotEmpty(t, actual.CreatedAt)
 	require.Equal(t, actual.CreatedAt.String(), actual.UpdatedAt.String())
-	require.Equal(t, actual.CreatedAt.String(), actual.ProposedAt.String())
 
 	assert.NotZero(t, id)
-}
-
-func Test_ORM_UpsertJobProposal(t *testing.T) {
-	t.Parallel()
-
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid.NewV4(),
-		Spec:           "",
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	// Create
-	count, err := orm.CountJobProposals()
-	require.NoError(t, err)
-	require.Equal(t, int64(0), count)
-
-	id, err := orm.UpsertJobProposal(jp)
-	require.NoError(t, err)
-
-	createdActual, err := orm.GetJobProposal(id)
-	require.NoError(t, err)
-
-	count, err = orm.CountJobProposals()
-	require.NoError(t, err)
-	require.Equal(t, int64(1), count)
-
-	assert.NotZero(t, id)
-
-	// Update
-	jp.Spec = "updated"
-	jp.Status = feeds.JobProposalStatusRejected
-	jp.Multiaddrs = pq.StringArray{"dns/example.com"}
-
-	id, err = orm.UpsertJobProposal(jp)
-	require.NoError(t, err)
-
-	actual, err := orm.GetJobProposal(id)
-	require.NoError(t, err)
-	assert.Equal(t, jp.Spec, actual.Spec)
-	assert.Equal(t, jp.Status, actual.Status)
-	assert.Equal(t, jp.Multiaddrs, actual.Multiaddrs)
-
-	// Ensure there is a difference in the created proposal and the upserted
-	// proposal
-	assert.NotEqual(t, createdActual.Spec, actual.Spec)
-	assert.NotEqual(t, createdActual.Status, actual.Status)
-	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
-	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
-}
-
-func Test_ORM_ListJobProposals(t *testing.T) {
-	t.Parallel()
-
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-	uuid := uuid.NewV4()
-
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid,
-		Spec:           "",
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	id, err := orm.CreateJobProposal(jp)
-	require.NoError(t, err)
-
-	jps, err := orm.ListJobProposals()
-	require.NoError(t, err)
-	require.Len(t, jps, 1)
-
-	actual := jps[0]
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, uuid, actual.RemoteUUID)
-	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.ExternalJobID.Valid)
-	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
-}
-
-func Test_ORM_GetJobProposalByManagersIDs(t *testing.T) {
-	t.Parallel()
-
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-	uuid := uuid.NewV4()
-
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid,
-		Spec:           "",
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	id, err := orm.CreateJobProposal(jp)
-	require.NoError(t, err)
-
-	jps, err := orm.GetJobProposalsByManagersIDs([]int64{fmID})
-	require.NoError(t, err)
-	require.Len(t, jps, 1)
-
-	actual := jps[0]
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, uuid, actual.RemoteUUID)
-	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.ExternalJobID.Valid)
-	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
-}
-
-func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
-	t.Parallel()
-
-	orm := setupORM(t)
-	fmID := createFeedsManager(t, orm)
-
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid.NewV4(),
-		Spec:           "",
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	id, err := orm.CreateJobProposal(jp)
-	require.NoError(t, err)
-
-	actualCreated, err := orm.GetJobProposal(id)
-	require.NoError(t, err)
-
-	err = orm.UpdateJobProposalSpec(id, "updated spec")
-	require.NoError(t, err)
-
-	actual, err := orm.GetJobProposal(id)
-	require.NoError(t, err)
-
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, "updated spec", actual.Spec)
-	assert.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
-	assert.Equal(t, jp.Status, actual.Status)
-	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
-	require.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
-	require.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
 }
 
 func Test_ORM_GetJobProposal(t *testing.T) {
@@ -391,7 +250,6 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 	jp := &feeds.JobProposal{
 		RemoteUUID:     remoteUUID,
-		Spec:           "",
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
 	}
@@ -404,6 +262,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 		assert.Equal(t, remoteUUID, actual.RemoteUUID)
 		assert.Equal(t, jp.Status, actual.Status)
 		assert.False(t, actual.ExternalJobID.Valid)
+		assert.False(t, actual.PendingUpdate)
 		assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 	}
 
@@ -429,88 +288,182 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	})
 }
 
+func Test_ORM_ListJobProposals(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	uuid := uuid.NewV4()
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid,
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	id, err := orm.CreateJobProposal(jp)
+	require.NoError(t, err)
+
+	jps, err := orm.ListJobProposals()
+	require.NoError(t, err)
+	require.Len(t, jps, 1)
+
+	actual := jps[0]
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, uuid, actual.RemoteUUID)
+	assert.Equal(t, jp.Status, actual.Status)
+	assert.False(t, actual.ExternalJobID.Valid)
+	assert.False(t, actual.PendingUpdate)
+	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+}
+
+func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	uuid := uuid.NewV4()
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid,
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	id, err := orm.CreateJobProposal(jp)
+	require.NoError(t, err)
+
+	jps, err := orm.ListJobProposalsByManagersIDs([]int64{fmID})
+	require.NoError(t, err)
+	require.Len(t, jps, 1)
+
+	actual := jps[0]
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, uuid, actual.RemoteUUID)
+	assert.Equal(t, jp.Status, actual.Status)
+	assert.False(t, actual.ExternalJobID.Valid)
+	assert.False(t, actual.PendingUpdate)
+	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+}
+
 func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
+	jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
 
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid.NewV4(),
-		Spec:           "",
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	id, err := orm.CreateJobProposal(jp)
+	actualCreated, err := orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	actualCreated, err := orm.GetJobProposal(id)
+	err = orm.UpdateJobProposalStatus(jpID, feeds.JobProposalStatusRejected)
 	require.NoError(t, err)
 
-	err = orm.UpdateJobProposalStatus(id, feeds.JobProposalStatusRejected)
+	actual, err := orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	actual, err := orm.GetJobProposal(id)
-	require.NoError(t, err)
-
-	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, jpID, actual.ID)
 	assert.Equal(t, feeds.JobProposalStatusRejected, actual.Status)
 	assert.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
-	assert.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
 }
 
-func Test_ORM_ApproveJobProposal(t *testing.T) {
+func Test_ORM_UpsertJobProposal(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
-	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
 
 	jp := &feeds.JobProposal{
 		RemoteUUID:     uuid.NewV4(),
-		Spec:           "",
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
 	}
 
-	// Defer the FK requirement of a job proposal.
+	// Create
+	count, err := orm.CountJobProposals()
+	require.NoError(t, err)
+	require.Equal(t, int64(0), count)
+
+	id, err := orm.UpsertJobProposal(jp)
+	require.NoError(t, err)
+
+	createdActual, err := orm.GetJobProposal(id)
+	require.NoError(t, err)
+
+	assert.False(t, createdActual.PendingUpdate)
+
+	count, err = orm.CountJobProposals()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+
+	assert.NotZero(t, id)
+
+	// Update
+	jp.Multiaddrs = pq.StringArray{"dns/example.com"}
+
+	id, err = orm.UpsertJobProposal(jp)
+	require.NoError(t, err)
+
+	actual, err := orm.GetJobProposal(id)
+	require.NoError(t, err)
+	assert.Equal(t, jp.Status, actual.Status)
+	assert.Equal(t, jp.Multiaddrs, actual.Multiaddrs)
+
+	// Ensure there is a difference in the created proposal and the upserted
+	// proposal
+	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
+	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
+	assert.True(t, actual.PendingUpdate)
+}
+
+// Job Proposal Specs
+
+func Test_ORM_ApproveSpec(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	// Manually create the job proposal to set pending update
+	jpID, err := orm.CreateJobProposal(&feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+		PendingUpdate:  true,
+	})
+	require.NoError(t, err)
+	specID := createJobSpec(t, orm, int64(jpID))
+	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+
+	// Defer the FK requirement of an existing job for a job proposal.
 	require.NoError(t, utils.JustError(orm.db.Exec(
 		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
 	)))
 
-	id, err := orm.CreateJobProposal(jp)
+	err = orm.ApproveSpec(specID, externalJobID.UUID)
 	require.NoError(t, err)
 
-	actualCreated, err := orm.GetJobProposal(id)
+	actual, err := orm.GetSpec(specID)
 	require.NoError(t, err)
 
-	err = orm.ApproveJobProposal(id, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	assert.Equal(t, specID, actual.ID)
+	assert.Equal(t, feeds.SpecStatusApproved, actual.Status)
+
+	actualJP, err := orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	actual, err := orm.GetJobProposal(id)
-	require.NoError(t, err)
-
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, externalJobID, actual.ExternalJobID)
-	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
-	assert.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
-	assert.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
+	assert.Equal(t, externalJobID, actualJP.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusApproved, actualJP.Status)
+	assert.False(t, actualJP.PendingUpdate)
 }
 
-func Test_ORM_CancelJobProposal(t *testing.T) {
+func Test_ORM_CancelSpec(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
+	jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+	specID := createJobSpec(t, orm, int64(jpID))
 	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
-
-	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid.NewV4(),
-		Spec:           "",
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
 
 	// Defer the FK requirement of a job proposal so we don't have to setup a
 	// real job.
@@ -518,29 +471,224 @@ func Test_ORM_CancelJobProposal(t *testing.T) {
 		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
 	)))
 
-	id, err := orm.CreateJobProposal(jp)
+	err := orm.ApproveSpec(specID, externalJobID.UUID)
 	require.NoError(t, err)
 
-	// Approve the job proposal
-	err = orm.ApproveJobProposal(id, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	err = orm.CancelSpec(specID)
 	require.NoError(t, err)
 
-	err = orm.CancelJobProposal(id)
+	actual, err := orm.GetSpec(specID)
 	require.NoError(t, err)
 
-	actual, err := orm.GetJobProposal(id)
+	assert.Equal(t, specID, actual.ID)
+	assert.Equal(t, feeds.SpecStatusCancelled, actual.Status)
+
+	actualJP, err := orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, uuid.NullUUID{Valid: false}, actual.ExternalJobID)
-	assert.Equal(t, feeds.JobProposalStatusCancelled, actual.Status)
+	assert.Equal(t, jpID, actual.JobProposalID)
+	assert.Equal(t, uuid.NullUUID{Valid: false}, actualJP.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusCancelled, actualJP.Status)
+	assert.False(t, actualJP.PendingUpdate)
 }
+
+func Test_ORM_ExistsSpecByJobProposalIDAndVersion(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+	createJobSpec(t, orm, int64(jpID))
+
+	exists, err := orm.ExistsSpecByJobProposalIDAndVersion(jpID, 1)
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	exists, err = orm.ExistsSpecByJobProposalIDAndVersion(jpID, 2)
+	require.NoError(t, err)
+	require.False(t, exists)
+}
+
+func Test_ORM_GetSpec(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+	specID := createJobSpec(t, orm, int64(jpID))
+
+	actual, err := orm.GetSpec(specID)
+	require.NoError(t, err)
+
+	assert.Equal(t, "spec data", actual.Definition)
+	assert.Equal(t, int32(1), actual.Version)
+	assert.Equal(t, feeds.SpecStatusPending, actual.Status)
+	assert.Equal(t, jpID, actual.JobProposalID)
+}
+
+func Test_ORM_ListSpecsByJobProposalIDs(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+
+	jp1ID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+	jp2ID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+
+	// Create the specs for the proposals
+	createJobSpec(t, orm, int64(jp1ID))
+	createJobSpec(t, orm, int64(jp2ID))
+
+	specs, err := orm.ListSpecsByJobProposalIDs([]int64{jp1ID, jp2ID})
+	require.NoError(t, err)
+	require.Len(t, specs, 2)
+
+	actual := specs[0]
+
+	assert.Equal(t, "spec data", actual.Definition)
+	assert.Equal(t, int32(1), actual.Version)
+	assert.Equal(t, feeds.SpecStatusPending, actual.Status)
+	assert.Equal(t, jp1ID, actual.JobProposalID)
+
+	actual = specs[1]
+
+	assert.Equal(t, "spec data", actual.Definition)
+	assert.Equal(t, int32(1), actual.Version)
+	assert.Equal(t, feeds.SpecStatusPending, actual.Status)
+	assert.Equal(t, jp2ID, actual.JobProposalID)
+}
+
+func Test_ORM_RejectSpec(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name               string
+		before             func(orm *TestORM) (int64, int64)
+		wantSpecStatus     feeds.SpecStatus
+		wantProposalStatus feeds.JobProposalStatus
+		wantErr            string
+	}{
+		{
+			name: "pending proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusRejected,
+			wantProposalStatus: feeds.JobProposalStatusRejected,
+		},
+		{
+			name: "approved proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+
+				// Defer the FK requirement of an existing job for a job proposal.
+				require.NoError(t, utils.JustError(orm.db.Exec(
+					`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+				)))
+
+				err := orm.ApproveSpec(specID, externalJobID.UUID)
+				require.NoError(t, err)
+
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusRejected,
+			wantProposalStatus: feeds.JobProposalStatusApproved,
+		},
+		{
+			name: "cancelled proposal",
+			before: func(orm *TestORM) (int64, int64) {
+				fmID := createFeedsManager(t, orm)
+				jpID := createJobProposal(t, orm, feeds.JobProposalStatusCancelled, fmID)
+				specID := createJobSpec(t, orm, int64(jpID))
+
+				return jpID, specID
+			},
+			wantSpecStatus:     feeds.SpecStatusRejected,
+			wantProposalStatus: feeds.JobProposalStatusRejected,
+		},
+		{
+			name: "not found",
+			before: func(orm *TestORM) (int64, int64) {
+				return 0, 0
+			},
+			wantErr: "sql: no rows in result set",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			orm := setupORM(t)
+
+			jpID, specID := tc.before(orm)
+
+			err := orm.RejectSpec(specID)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+
+				actual, err := orm.GetSpec(specID)
+				require.NoError(t, err)
+
+				assert.Equal(t, specID, actual.ID)
+				assert.Equal(t, tc.wantSpecStatus, actual.Status)
+
+				actualJP, err := orm.GetJobProposal(jpID)
+				require.NoError(t, err)
+
+				assert.Equal(t, tc.wantProposalStatus, actualJP.Status)
+				assert.False(t, actualJP.PendingUpdate)
+			}
+		})
+	}
+}
+
+func Test_ORM_UpdateSpecDefinition(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+	specID := createJobSpec(t, orm, int64(jpID))
+
+	prev, err := orm.GetSpec(specID)
+	require.NoError(t, err)
+
+	err = orm.UpdateSpecDefinition(specID, "updated spec")
+	require.NoError(t, err)
+
+	actual, err := orm.GetSpec(specID)
+	require.NoError(t, err)
+
+	assert.Equal(t, specID, actual.ID)
+	require.NotEqual(t, prev.Definition, actual.Definition)
+	require.Equal(t, "updated spec", actual.Definition)
+
+	// Not found
+	err = orm.UpdateSpecDefinition(-1, "updated spec")
+	require.Error(t, err)
+}
+
+// Other
 
 func Test_ORM_IsJobManaged(t *testing.T) {
 	t.Parallel()
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
+	jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+	specID := createJobSpec(t, orm, int64(jpID))
 	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
 	j := createJob(t, orm.db, externalJobID.UUID)
 
@@ -548,17 +696,7 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, isManaged)
 
-	jp := &feeds.JobProposal{
-		RemoteUUID:     externalJobID.UUID,
-		Spec:           "",
-		Status:         feeds.JobProposalStatusPending,
-		FeedsManagerID: fmID,
-	}
-
-	jpID, err := orm.CreateJobProposal(jp)
-	require.NoError(t, err)
-
-	err = orm.ApproveJobProposal(jpID, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	err = orm.ApproveSpec(specID, externalJobID.UUID)
 	require.NoError(t, err)
 
 	isManaged, err = orm.IsJobManaged(int64(j.ID))
@@ -566,8 +704,12 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 	assert.True(t, isManaged)
 }
 
+// Helpers
+
 // createFeedsManager is a test helper to create a feeds manager
 func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
+	t.Helper()
+
 	mgr := &feeds.FeedsManager{
 		URI:                uri,
 		Name:               name,
@@ -583,6 +725,8 @@ func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 }
 
 func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
+	t.Helper()
+
 	config := cltest.NewTestGeneralConfig(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
@@ -612,4 +756,32 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	require.NoError(t, err)
 
 	return &jb
+}
+
+func createJobProposal(t *testing.T, orm feeds.ORM, status feeds.JobProposalStatus, fmID int64) int64 {
+	id, err := orm.CreateJobProposal(&feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
+		Status:         status,
+		FeedsManagerID: fmID,
+		PendingUpdate:  true,
+	})
+	require.NoError(t, err)
+
+	return id
+}
+
+func createJobSpec(t *testing.T, orm feeds.ORM, jpID int64) int64 {
+	t.Helper()
+
+	spec := feeds.JobProposalSpec{
+		Definition:    "spec data",
+		Version:       1,
+		Status:        feeds.SpecStatusPending,
+		JobProposalID: jpID,
+	}
+
+	id, err := orm.CreateSpec(spec)
+	require.NoError(t, err)
+
+	return id
 }

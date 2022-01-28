@@ -96,7 +96,6 @@ func TestConfigSchema(t *testing.T) {
 		"FeatureOffchainReporting":                   "FEATURE_OFFCHAIN_REPORTING",
 		"FeatureOffchainReporting2":                  "FEATURE_OFFCHAIN_REPORTING2",
 		"FeatureUICSAKeys":                           "FEATURE_UI_CSA_KEYS",
-		"FeatureUIFeedsManager":                      "FEATURE_UI_FEEDS_MANAGER",
 		"FlagsContractAddress":                       "FLAGS_CONTRACT_ADDRESS",
 		"GasEstimatorMode":                           "GAS_ESTIMATOR_MODE",
 		"GasUpdaterBatchSize":                        "GAS_UPDATER_BATCH_SIZE",
