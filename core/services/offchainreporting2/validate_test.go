@@ -373,7 +373,7 @@ chainID = 1337
 		t.Run(tc.name, func(t *testing.T) {
 			c := configtest.NewTestGeneralConfig(t)
 			c.Overrides.Dev = null.BoolFrom(false)
-			c.Overrides.EthereumDisabled = null.BoolFrom(true)
+			c.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 			if tc.setGlobals != nil {
 				tc.setGlobals(t, c)
 			}
