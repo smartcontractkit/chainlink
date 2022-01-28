@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -263,7 +264,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
 	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
@@ -277,17 +278,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	}
 
-	// We need p2p networking if either ocr1 or ocr2 is enabled
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if ((cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting()) || cfg.FeatureOffchainReporting2() {
+	if cfg.P2PEnabled() {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
 			return nil, err
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
 		subservices = append(subservices, peerWrapper)
+	} else {
+		globalLogger.Debug("P2P stack disabled")
 	}
 
-	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
+	if cfg.FeatureOffchainReporting() {
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
@@ -304,12 +306,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		// master/delegate relay is started once, on app start, as root subservice
-		relay := relay.NewDelegate(
-			keyStore,
-			evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM")),
-			solana.NewRelayer(globalLogger.Named("Solana.Relayer")),
-			pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra),
-		)
+		relay := relay.NewDelegate(keyStore)
+		if cfg.EVMEnabled() {
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
+			relay.AddRelayer(relaytypes.EVM, evmRelayer)
+		}
+		if cfg.SolanaEnabled() {
+			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
+			relay.AddRelayer(relaytypes.Solana, solanaRelayer)
+		}
+		if cfg.TerraEnabled() {
+			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
+			relay.AddRelayer(relaytypes.Terra, terraRelayer)
+		}
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
 			db,

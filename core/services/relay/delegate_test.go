@@ -1,10 +1,13 @@
 package relay_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -21,6 +24,7 @@ import (
 	keystoreMock "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 )
 
@@ -54,20 +58,31 @@ func TestNewOCR2Provider(t *testing.T) {
 	terraChains := new(terraMock.ChainSet)
 	terraChains.On("Chain", "Chainlink-99").Return(terraChain, nil)
 
-	d := relay.NewDelegate(keystore,
-		evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr),
-		solana.NewRelayer(lggr),
-		terra.NewRelayer(lggr, terraChains),
-	)
+	d := relay.NewDelegate(keystore)
 
 	// struct for testing multiple specs
 	specs := []struct {
 		name string
 		spec string
 	}{
+		// TODO: Where is EVM?
 		{"solana", testspecs.OCR2SolanaSpecMinimal},
 		{"terra", testspecs.OCR2TerraSpecMinimal},
 	}
+
+	for _, s := range specs {
+		t.Run(s.name, func(t *testing.T) {
+			spec := makeOCR2JobSpecFromToml(t, s.spec)
+
+			_, err := d.NewOCR2Provider(uuid.UUID{}, &spec)
+			require.Error(t, err)
+			assert.Contains(t, strings.ToLower(err.Error()), fmt.Sprintf("no %s relay found", s.name))
+		})
+	}
+
+	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
+	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr))
+	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {

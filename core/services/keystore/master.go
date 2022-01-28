@@ -25,6 +25,10 @@ import (
 
 var ErrLocked = errors.New("Keystore is locked")
 
+// DefaultEVMChainIDFunc is a func for getting a default evm chain ID -
+// necessary because it is lazily evaluated
+type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
+
 //go:generate mockery --name Master --output ./mocks/ --case=underscore
 
 type Master interface {
@@ -37,7 +41,7 @@ type Master interface {
 	Terra() Terra
 	VRF() VRF
 	Unlock(password string) error
-	Migrate(vrfPassword string, chainID *big.Int) error
+	Migrate(vrfPassword string, f DefaultEVMChainIDFunc) error
 	IsEmpty() (bool, error)
 }
 
@@ -119,7 +123,7 @@ func (ks *master) IsEmpty() (bool, error) {
 	return count == 0, nil
 }
 
-func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
+func (ks *master) Migrate(vrfPssword string, f DefaultEVMChainIDFunc) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -172,16 +176,16 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 	if err = ks.keyManager.save(); err != nil {
 		return err
 	}
-	ethKeys, states, err := ks.eth.GetV1KeysAsV2(chainID)
+	ethKeys, states, err := ks.eth.GetV1KeysAsV2(f)
 	if err != nil {
 		return err
 	}
-	for idx, ethKey := range ethKeys {
+	for i, ethKey := range ethKeys {
 		if _, exists := ks.keyRing.Eth[ethKey.ID()]; exists {
 			continue
 		}
-		ks.logger.Debugf("Migrating Eth key %s (and pegging to default chain ID %s)", ethKey.ID(), chainID.String())
-		if err = ks.eth.addEthKeyWithState(ethKey, states[idx]); err != nil {
+		ks.logger.Debugf("Migrating Eth key %s (and pegging to chain ID %s)", ethKey.ID(), states[i].EVMChainID.String())
+		if err = ks.eth.addEthKeyWithState(ethKey, states[i]); err != nil {
 			return err
 		}
 		if err = ks.keyManager.save(); err != nil {

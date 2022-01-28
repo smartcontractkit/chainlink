@@ -369,7 +369,7 @@ answer1      [type=median index=0];
 		t.Run(tc.name, func(t *testing.T) {
 			c := configtest.NewTestGeneralConfig(t)
 			c.Overrides.Dev = null.BoolFrom(false)
-			c.Overrides.EthereumDisabled = null.BoolFrom(true)
+			c.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: c})
 			if tc.setGlobalCfg != nil {
 				tc.setGlobalCfg(t, c)
