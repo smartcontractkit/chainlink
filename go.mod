@@ -414,3 +414,7 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 // needed to address mismatch between cosmosSDK and hdevalence/ed25519consensus
 replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
+
+// fixes deprecation warnings and keychain undefined bugs on macOS
+// See https://github.com/99designs/keyring/issues/94
+replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
