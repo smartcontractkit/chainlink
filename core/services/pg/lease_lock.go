@@ -122,14 +122,16 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		isInitial = false
 		l.logRetry(retryCount)
 		retryCount++
-		err = nil
-		select {
-		case <-ctx.Done():
-			err = errors.New("stopped by parent context")
-		case <-lctx.Done():
-			err = errors.New("stopped by Release()")
-		case <-time.After(utils.WithJitter(l.refreshInterval)):
-		}
+		err = func() error {
+			select {
+			case <-ctx.Done():
+				return errors.New("stopped by parent context")
+			case <-lctx.Done():
+				return errors.New("stopped by Release()")
+			case <-time.After(utils.WithJitter(l.refreshInterval)):
+				return nil
+			}
+		}()
 		if err != nil {
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
