@@ -111,22 +111,22 @@ var avalanche = ClientErrors{
 // Nethermind
 // All errors: https://github.com/NethermindEth/nethermind/blob/master/src/Nethermind/Nethermind.TxPool/AcceptTxResult.cs
 // All filters: https://github.com/NethermindEth/nethermind/tree/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters
-var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid|Int256Overflow|FailedToResolveSender|NonceGap|GasLimitExceeded)`)
+var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid|Int256Overflow|FailedToResolveSender|NonceGap|GasLimitExceeded)$`)
 var nethermind = ClientErrors{
 	// OldNonce: The EOA (externally owned account) that signed this transaction (sender) has already signed and executed a transaction with the same nonce.
-	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce`),
+	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce$`),
 
 	// FeeTooLow/FeeTooLowToCompete: Fee paid by this transaction is not enough to be accepted in the mempool.
-	FeeTooLow: regexp.MustCompile(`(: |^)(FeeTooLow|FeeTooLowToCompete)`),
+	FeeTooLow: regexp.MustCompile(`(: |^)(FeeTooLow|FeeTooLowToCompete)$`),
 
 	// AlreadyKnown: A transaction with the same hash has already been added to the pool in the past.
 	// OwnNonceAlreadyUsed: A transaction with same nonce has been signed locally already and is awaiting in the pool.
-	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)$`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
 	// The TooExpensive filter uses InsufficientFunds: https://github.com/NethermindEth/nethermind/blob/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters/TooExpensiveTxFilter.cs
-	TooExpensive:    regexp.MustCompile(`(: |^)InsufficientFunds`),
-	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds`),
+	TooExpensive:    regexp.MustCompile(`(: |^)InsufficientFunds$`),
+	InsufficientEth: regexp.MustCompile(`(: |^)InsufficientFunds$`),
 	Fatal:           nethermindFatal,
 }
 
