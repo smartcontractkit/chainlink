@@ -17,6 +17,12 @@ func newSendErrorWrapped(s string) *evmclient.SendError {
 	return evmclient.NewSendError(errors.Wrap(errors.New(s), "wrapped with some old bollocks"))
 }
 
+type errorCase struct {
+	message string
+	expect  bool
+	network string
+}
+
 func Test_Eth_Errors(t *testing.T) {
 	t.Parallel()
 	var err *evmclient.SendError
@@ -25,44 +31,33 @@ func Test_Eth_Errors(t *testing.T) {
 	t.Run("IsNonceTooLowError", func(t *testing.T) {
 		assert.False(t, randomError.IsNonceTooLowError())
 
-		tests := []struct {
-			message string
-			expect  bool
-		}{
-			// Geth
-			{"nonce too low", true},
-			// Parity
-			{"Transaction nonce is too low. Try incrementing the nonce.", true},
-			// Arbitrum
-			{"transaction rejected: nonce too low", true},
-			{"invalid transaction nonce", true},
-			// Optimism
-			{"invalid transaction: nonce too low", true},
-			// Avalanche
-			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true},
+		tests := []errorCase{
+			{"nonce too low", true, "Geth"},
+			{"Transaction nonce is too low. Try incrementing the nonce.", true, "Parity"},
+			{"transaction rejected: nonce too low", true, "Arbitrum"},
+			{"invalid transaction nonce", true, "Arbitrum"},
+			{"invalid transaction: nonce too low", true, "Optimism"},
+			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true, "Avalanche"},
+			{"call failed: OldNonce", true, "Nethermind"},
 		}
 
 		for _, test := range tests {
-			err = evmclient.NewSendErrorS(test.message)
-			assert.Equal(t, err.IsNonceTooLowError(), test.expect)
-			err = newSendErrorWrapped(test.message)
-			assert.Equal(t, err.IsNonceTooLowError(), test.expect)
+			t.Run(test.network, func(t *testing.T) {
+				err = evmclient.NewSendErrorS(test.message)
+				assert.Equal(t, err.IsNonceTooLowError(), test.expect)
+				err = newSendErrorWrapped(test.message)
+				assert.Equal(t, err.IsNonceTooLowError(), test.expect)
+			})
 		}
 	})
 
 	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
 
-		tests := []struct {
-			message string
-			expect  bool
-		}{
-			// Geth
-			{"replacement transaction underpriced", true},
-			// Parity
-			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true},
-			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false},
-			// Arbitrum
-			{"gas price too low", false},
+		tests := []errorCase{
+			{"replacement transaction underpriced", true, "geth"},
+			{"Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce.", true, "Parity"},
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
+			{"gas price too low", false, "Arbitrum"},
 		}
 
 		for _, test := range tests {
@@ -76,19 +71,16 @@ func Test_Eth_Errors(t *testing.T) {
 	t.Run("IsTransactionAlreadyInMempool", func(t *testing.T) {
 		assert.False(t, randomError.IsTransactionAlreadyInMempool())
 
-		tests := []struct {
-			message string
-			expect  bool
-		}{
-			// Geth
+		tests := []errorCase{
 			// I have seen this in log output
-			{"known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960", true},
+			{"known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960", true, "Geth"},
 			// This comes from the geth source - https://github.com/ethereum/go-ethereum/blob/eb9d7d15ecf08cd5104e01a8af64489f01f700b0/core/tx_pool.go#L57
-			{"already known", true},
+			{"already known", true, "Geth"},
 			// This one is present in the light client (?!)
-			{"Known transaction (7f65)", true},
-			// Parity
-			{"Transaction with the same hash was already imported.", true},
+			{"Known transaction (7f65)", true, "Geth"},
+			{"Transaction with the same hash was already imported.", true, "Parity"},
+			{"call failed: AlreadyKnown", true, "Nethermind"},
+			{"call failed: OwnNonceAlreadyUsed", true, "Nethermind"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -101,18 +93,12 @@ func Test_Eth_Errors(t *testing.T) {
 	t.Run("IsTerminallyUnderpriced", func(t *testing.T) {
 		assert.False(t, randomError.IsTerminallyUnderpriced())
 
-		tests := []struct {
-			message string
-			expect  bool
-		}{
-			// Geth
-			{"transaction underpriced", true},
-			{"replacement transaction underpriced", false},
-			// Parity
-			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false},
-			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", true},
-			// Arbitrum
-			{"gas price too low", true},
+		tests := []errorCase{
+			{"transaction underpriced", true, "geth"},
+			{"replacement transaction underpriced", false, "geth"},
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", false, "Parity"},
+			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", true, "Parity"},
+			{"gas price too low", true, "Arbitrum"},
 		}
 
 		for _, test := range tests {
@@ -124,14 +110,10 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("IsTemporarilyUnderpriced", func(t *testing.T) {
-		tests := []struct {
-			message string
-			expect  bool
-		}{
-			// Parity
-			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", true},
-			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", true},
-			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", false},
+		tests := []errorCase{
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", true, "Parity"},
+			{"There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.", true, "Parity"},
+			{"Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.", false, "Parity"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -142,22 +124,16 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("IsInsufficientEth", func(t *testing.T) {
-		tests := []struct {
-			message string
-			expect  bool
-		}{
-			// Geth
-			{"insufficient funds for transfer", true},
-			{"insufficient funds for gas * price + value", true},
-			{"insufficient balance for transfer", true},
-			// Parity
-			{"Insufficient balance for transaction. Balance=100.25, Cost=200.50", true},
-			{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.", true},
-			// Arbitrum
-			{"transaction rejected: insufficient funds for gas * price + value", true},
-			{"not enough funds for gas", true},
-			// Optimism
-			{"invalid transaction: insufficient funds for gas * price + value", true},
+		tests := []errorCase{
+			{"insufficient funds for transfer", true, "Geth"},
+			{"insufficient funds for gas * price + value", true, "Geth"},
+			{"insufficient balance for transfer", true, "Geth"},
+			{"Insufficient balance for transaction. Balance=100.25, Cost=200.50", true, "Parity"},
+			{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.", true, "Parity"},
+			{"transaction rejected: insufficient funds for gas * price + value", true, "Arbitrum"},
+			{"not enough funds for gas", true, "Arbitrum"},
+			{"invalid transaction: insufficient funds for gas * price + value", true, "Optimism"},
+			{"call failed: InsufficientFunds", true, "Nethermind"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -168,12 +144,9 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("IsTooExpensive", func(t *testing.T) {
-		tests := []struct {
-			message string
-			expect  bool
-		}{
-			// Geth
-			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true},
+		tests := []errorCase{
+			{"tx fee (1.10 ether) exceeds the configured cap (1.00 ether)", true, "geth"},
+			{"call failed: InsufficientFunds", true, "Nethermind"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
@@ -226,48 +199,46 @@ func Test_Eth_Errors(t *testing.T) {
 func Test_Eth_Errors_Fatal(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		errStr      string
-		expectFatal bool
-	}{
-		{"some old bollocks", false},
+	tests := []errorCase{
+		{"some old bollocks", false, "none"},
 
-		// Geth
-		{"insufficient funds for transfer", false},
+		{"insufficient funds for transfer", false, "Geth"},
+		{"exceeds block gas limit", true, "Geth"},
+		{"invalid sender", true, "Geth"},
+		{"negative value", true, "Geth"},
+		{"oversized data", true, "Geth"},
+		{"gas uint64 overflow", true, "Geth"},
+		{"intrinsic gas too low", true, "Geth"},
+		{"nonce too high", true, "Geth"},
 
-		{"exceeds block gas limit", true},
-		{"invalid sender", true},
-		{"negative value", true},
-		{"oversized data", true},
-		{"gas uint64 overflow", true},
-		{"intrinsic gas too low", true},
-		{"nonce too high", true},
+		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", false, "Parity"},
+		{"Supplied gas is beyond limit.", true, "Parity"},
+		{"Sender is banned in local queue.", true, "Parity"},
+		{"Recipient is banned in local queue.", true, "Parity"},
+		{"Code is banned in local queue.", true, "Parity"},
+		{"Transaction is not permitted.", true, "Parity"},
+		{"Transaction is too big, see chain specification for the limit.", true, "Parity"},
+		{"Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction (minimal: 100 got: 50) Try increasing supplied gas.", true, "Parity"},
+		{"Transaction cost exceeds current gas limit. Limit: 50, got: 100. Try decreasing supplied gas.", true, "Parity"},
+		{"Invalid signature: some old bollocks", true, "Parity"},
+		{"Invalid RLP data: some old bollocks", true, "Parity"},
 
-		// Parity
-		{"Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 100 and got: 50.", false},
+		{"invalid message format", true, "Arbitrum"},
+		{"forbidden sender address", true, "Arbitrum"},
+		{"tx dropped due to L2 congestion", false, "Arbitrum"},
+		{"execution reverted: error code", true, "Arbitrum"},
 
-		{"Supplied gas is beyond limit.", true},
-		{"Sender is banned in local queue.", true},
-		{"Recipient is banned in local queue.", true},
-		{"Code is banned in local queue.", true},
-		{"Transaction is not permitted.", true},
-		{"Transaction is too big, see chain specification for the limit.", true},
-		{"Transaction gas is too low. There is not enough gas to cover minimal cost of the transaction (minimal: 100 got: 50) Try increasing supplied gas.", true},
-		{"Transaction cost exceeds current gas limit. Limit: 50, got: 100. Try decreasing supplied gas.", true},
-		{"Invalid signature: some old bollocks", true},
-		{"Invalid RLP data: some old bollocks", true},
-
-		// Arbitrum
-		{"invalid message format", true},
-		{"forbidden sender address", true},
-		{"tx dropped due to L2 congestion", false},
-		{"execution reverted: error code", true},
+		{"call failed: SenderIsContract", true, "Nethermind"},
+		{"call failed: Invalid", true, "Nethermind"},
+		{"call failed: Int256Overflow", true, "Nethermind"},
+		{"call failed: FailedToResolveSender", true, "Nethermind"},
+		{"call failed: GasLimitExceeded", true, "Nethermind"},
 	}
 
 	for _, test := range tests {
-		t.Run(test.errStr, func(t *testing.T) {
-			err := evmclient.NewSendError(errors.New(test.errStr))
-			assert.Equal(t, test.expectFatal, err.Fatal())
+		t.Run(test.message, func(t *testing.T) {
+			err := evmclient.NewSendError(errors.New(test.message))
+			assert.Equal(t, test.expect, err.Fatal())
 		})
 	}
 }
