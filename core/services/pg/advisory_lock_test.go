@@ -26,10 +26,9 @@ func Test_AdvisoryLock(t *testing.T) {
 	cfg.Overrides.AdvisoryLockCheckInterval = &check
 
 	t.Run("takes lock", func(t *testing.T) {
-		ctx1, cancel1 := context.WithCancel(context.Background())
 		advLock1 := newAdvisoryLock(t, db, cfg)
 
-		err := advLock1.TakeAndHold(ctx1)
+		err := advLock1.TakeAndHold(context.Background())
 		require.NoError(t, err)
 
 		var lockTaken bool
@@ -39,9 +38,8 @@ func Test_AdvisoryLock(t *testing.T) {
 
 		started2 := make(chan struct{})
 		advLock2 := newAdvisoryLock(t, db, cfg)
-		ctx2, cancel2 := context.WithCancel(context.Background())
 		go func() {
-			err := advLock2.TakeAndHold(ctx2)
+			err := advLock2.TakeAndHold(context.Background())
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -49,7 +47,6 @@ func Test_AdvisoryLock(t *testing.T) {
 		// Give it plenty of time for advLock2 to have a few tries at getting the lease
 		time.Sleep(cfg.AdvisoryLockCheckInterval() * 5)
 
-		cancel1()
 		advLock1.Release()
 
 		select {
@@ -62,7 +59,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, lockTaken)
 
-		cancel2()
+		advLock2.Release()
 
 		// pg_locks is not atomic
 		time.Sleep(100 * time.Millisecond)
@@ -132,9 +129,8 @@ func Test_AdvisoryLock(t *testing.T) {
 		advisoryLock.Release()
 
 		advisoryLock2 := newAdvisoryLock(t, db, cfg)
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		err = advisoryLock2.TakeAndHold(ctx)
+		defer advisoryLock2.Release()
+		err = advisoryLock2.TakeAndHold(context.Background())
 		require.NoError(t, err)
 	})
 

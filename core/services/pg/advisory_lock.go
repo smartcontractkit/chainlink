@@ -36,14 +36,14 @@ func NewAdvisoryLock(db *sqlx.DB, id int64, lggr logger.Logger, checkInterval ti
 	return &advisoryLock{id, db, nil, checkInterval, lggr.Named("AdvisoryLock").With("advisoryLockID", id), func() {}, sync.WaitGroup{}}
 }
 
-// TakeAndHold will block and wait indefinitely until it can get its first lock.
-// The lock gets released when either the provided context is cancelled or Release() is called.
+// TakeAndHold will block and wait indefinitely until it can get its first lock or ctx is cancelled.
+// Use Release() function to release the acquired lock.
 // NOT THREAD SAFE
 func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 	l.logger.Debug("Taking initial advisory lock...")
 	retryCount := 0
 
-	lctx, cancel := context.WithCancel(ctx)
+	lctx, cancel := context.WithCancel(context.Background())
 	l.stop = cancel
 
 	for {
@@ -81,14 +81,19 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 		}
 		l.logRetry(retryCount)
 		retryCount++
+		err = nil
 		select {
+		case <-ctx.Done():
+			err = errors.New("stopped by parent context")
 		case <-lctx.Done():
-			err = errors.New("stopped")
+			err = errors.New("stopped by Release()")
+		case <-time.After(utils.WithJitter(l.checkInterval)):
+		}
+		if err != nil {
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
 			}
 			return err
-		case <-time.After(utils.WithJitter(l.checkInterval)):
 		}
 	}
 

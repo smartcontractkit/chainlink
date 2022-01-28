@@ -75,15 +75,15 @@ func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, refreshInter
 	return &leaseLock{appID, db, nil, refreshInterval, leaseDuration, lggr.Named("LeaseLock").With("appID", appID), func() {}, sync.WaitGroup{}}
 }
 
-// TakeAndHold will block and wait indefinitely until it can get its first lock.
-// The lock gets released when either the provided context is cancelled or Release() is called.
+// TakeAndHold will block and wait indefinitely until it can get its first lock or ctx is cancelled.
+// Use Release() function to release the acquired lock.
 // NOT THREAD SAFE
 func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 	l.logger.Debug("Taking initial lease...")
 	retryCount := 0
 	isInitial := true
 
-	lctx, cancel := context.WithCancel(ctx)
+	lctx, cancel := context.WithCancel(context.Background())
 	l.stop = cancel
 
 	for {
@@ -122,14 +122,19 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		isInitial = false
 		l.logRetry(retryCount)
 		retryCount++
+		err = nil
 		select {
+		case <-ctx.Done():
+			err = errors.New("stopped by parent context")
 		case <-lctx.Done():
-			err = errors.New("stopped")
+			err = errors.New("stopped by Release()")
+		case <-time.After(utils.WithJitter(l.refreshInterval)):
+		}
+		if err != nil {
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
 			}
 			return err
-		case <-time.After(utils.WithJitter(l.refreshInterval)):
 		}
 	}
 	l.logger.Debug("Got exclusive lease on database")
