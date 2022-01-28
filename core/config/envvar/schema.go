@@ -47,7 +47,7 @@ type ConfigSchema struct {
 	// Database Global Lock
 	AdvisoryLockCheckInterval time.Duration `env:"ADVISORY_LOCK_CHECK_INTERVAL" default:"1s"`
 	AdvisoryLockID            int64         `env:"ADVISORY_LOCK_ID" default:"1027321974924625846"`
-	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"dual"`
+	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"advisorylock"`
 	LeaseLockDuration         time.Duration `env:"LEASE_LOCK_DURATION" default:"10s"`
 	LeaseLockRefreshInterval  time.Duration `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
 	// Database Autobackups
@@ -89,9 +89,8 @@ type ConfigSchema struct {
 	TLSRedirect bool   `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 
 	// Feeds manager
-	FeatureFeedsManager   bool `env:"FEATURE_FEEDS_MANAGER" default:"false"`    //nodoc
-	FeatureUICSAKeys      bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`      //nodoc
-	FeatureUIFeedsManager bool `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars

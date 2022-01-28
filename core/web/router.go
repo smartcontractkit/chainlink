@@ -332,14 +332,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/jobs", jc.Create)
 		authv2.DELETE("/jobs/:ID", jc.Delete)
 
-		jpc := JobProposalsController{app}
-		authv2.GET("/job_proposals", jpc.Index)
-		authv2.GET("/job_proposals/:id", jpc.Show)
-		authv2.POST("/job_proposals/:id/approve", jpc.Approve)
-		authv2.POST("/job_proposals/:id/cancel", jpc.Cancel)
-		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
-		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
-
 		// PipelineRunsController
 		authv2.GET("/pipeline/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
