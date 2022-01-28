@@ -92,6 +92,12 @@ type ConfigSchema struct {
 	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
 	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
+	// General chains/RPC
+	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
+	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
+
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
 	EthereumHTTPURL       string `env:"ETH_HTTP_URL"`
@@ -99,9 +105,7 @@ type ConfigSchema struct {
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
 	// Global
-	DefaultChainID   *big.Int `env:"ETH_CHAIN_ID"`
-	EVMDisabled      bool     `env:"EVM_DISABLED" default:"false"`
-	EthereumDisabled bool     `env:"ETH_DISABLED" default:"false"`
+	DefaultChainID *big.Int `env:"ETH_CHAIN_ID"`
 	// Per-chain overrides
 	BalanceMonitorEnabled             bool          `env:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                uint64        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`

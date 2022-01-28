@@ -122,7 +122,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 		withKey(),
 		withMocks(ethMock, key),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(true)
 		}),
@@ -170,7 +170,7 @@ func TestClient_SendEther_From_BPTXM_WEI(t *testing.T) {
 		withKey(),
 		withMocks(ethMock, key),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(true)
 		}),

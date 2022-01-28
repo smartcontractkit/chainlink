@@ -13,7 +13,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.AllowOrigins = null.StringFrom("http://localhost:3000,http://localhost:6689")
-	config.Overrides.EthereumDisabled = null.BoolFrom(true)
+	config.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 
 	tests := []struct {
 		origin     string
@@ -56,7 +56,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 		t.Run(test.origin, func(t *testing.T) {
 			config := cltest.NewTestGeneralConfig(t)
 			config.Overrides.AllowOrigins = null.StringFrom(test.allow)
-			config.Overrides.EthereumDisabled = null.BoolFrom(true)
+			config.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 			app := cltest.NewApplicationWithConfig(t, config)
 
 			client := app.NewHTTPClient()
