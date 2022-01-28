@@ -203,8 +203,12 @@ func TestCheckInputs(t *testing.T) {
 			err := pipeline.CheckInputs(tt.inputs)
 			if err != nil && !tt.expErr {
 				t.Errorf("unexpected error: %v", err)
-			} else if err == nil && tt.expErr {
-				t.Error("error expected, but got none")
+			} else if tt.expErr {
+				if err == nil {
+					t.Error("error expected, but got none")
+				} else if !errors.Is(err, pipeline.ErrTooManyErrors) {
+					t.Errorf("%T error expected, but got none", pipeline.ErrTooManyErrors)
+				}
 			}
 		})
 	}
@@ -215,7 +219,7 @@ func TestCheckInputsLen(t *testing.T) {
 		name     string
 		inputs   []pipeline.Result
 		min, max int
-		expErr   bool
+		expErr   error
 	}{
 		{
 			name:   "nil-optional",
@@ -226,7 +230,7 @@ func TestCheckInputsLen(t *testing.T) {
 			name:   "nil-required",
 			inputs: nil,
 			min:    1, max: 1,
-			expErr: true,
+			expErr: pipeline.ErrWrongInputCardinality,
 		},
 		{
 			name:   "empty-optional",
@@ -237,7 +241,7 @@ func TestCheckInputsLen(t *testing.T) {
 			name:   "empty-required",
 			inputs: []pipeline.Result{},
 			min:    1, max: 1,
-			expErr: true,
+			expErr: pipeline.ErrWrongInputCardinality,
 		},
 		{
 			name:   "single-optional",
@@ -268,21 +272,31 @@ func TestCheckInputsLen(t *testing.T) {
 			name:   "multi-required-short",
 			inputs: []pipeline.Result{{Value: "testval"}},
 			min:    2, max: 2,
-			expErr: true,
+			expErr: pipeline.ErrWrongInputCardinality,
 		},
 		{
 			name:   "single-long",
 			inputs: []pipeline.Result{{Value: "testval"}, {Value: float64(1.1)}},
 			min:    1, max: 1,
-			expErr: true,
+			expErr: pipeline.ErrWrongInputCardinality,
+		},
+		{
+			name:   "single-error",
+			inputs: []pipeline.Result{{Error: errors.New("test error")}},
+			min:    1, max: 1,
+			expErr: pipeline.ErrTooManyErrors,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			err := pipeline.CheckInputsLen(tt.inputs, tt.min, tt.max)
-			if err != nil && !tt.expErr {
+			if err != nil && tt.expErr == nil {
 				t.Errorf("unexpected error: %v", err)
-			} else if err == nil && tt.expErr {
-				t.Error("error expected, but got none")
+			} else if tt.expErr != nil {
+				if err == nil {
+					t.Error("error expected, but got none")
+				} else if !errors.Is(err, tt.expErr) {
+					t.Errorf("%T error expected, but got none", tt.expErr)
+				}
 			}
 		})
 	}

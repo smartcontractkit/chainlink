@@ -439,9 +439,9 @@ func CheckInputsLen(inputs []Result, minLen, maxLen int) error {
 
 // CheckInputs returns ErrTooManyErrors if inputs contains an Error.
 func CheckInputs(inputs []Result) error {
-	for _, input := range inputs {
-		if input.Error != nil {
-			return ErrTooManyErrors
+	for i, input := range inputs {
+		if err := input.Error; err != nil {
+			return errors.Wrapf(ErrTooManyErrors, "inputs contain error(s): first at index %d: %v", i, err)
 		}
 	}
 	return nil
