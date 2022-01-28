@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+// Delegate creates Bootstrap jobs
 type Delegate struct {
 	bootstrappers []commontypes.BootstrapperLocator
 	db            *sqlx.DB
@@ -22,6 +23,7 @@ type Delegate struct {
 	relayer       types.Relayer
 }
 
+// NewDelegateBootstrap creates a new Delegate
 func NewDelegateBootstrap(
 	db *sqlx.DB,
 	jobORM job.ORM,
@@ -40,10 +42,12 @@ func NewDelegateBootstrap(
 	}
 }
 
+// JobType satisfies the job.Delegate interface.
 func (d Delegate) JobType() job.Type {
 	return job.Bootstrap
 }
 
+// ServicesForSpec satisfies the job.Delegate interface.
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
 	spec := jobSpec.BootstrapSpec
 	if spec == nil {
@@ -108,8 +112,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	return services, nil
 }
 
+// AfterJobCreated satisfies the job.Delegate interface.
 func (d Delegate) AfterJobCreated(spec job.Job) {
 }
 
+// BeforeJobDeleted satisfies the job.Delegate interface.
 func (d Delegate) BeforeJobDeleted(spec job.Job) {
 }
