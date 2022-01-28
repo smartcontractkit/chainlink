@@ -111,23 +111,16 @@ var avalanche = ClientErrors{
 // Nethermind
 // All errors: https://github.com/NethermindEth/nethermind/blob/master/src/Nethermind/Nethermind.TxPool/AcceptTxResult.cs
 // All filters: https://github.com/NethermindEth/nethermind/tree/9b68ec048c65f4b44fb863164c0dec3f7780d820/src/Nethermind/Nethermind.TxPool/Filters
-var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid|Int256Overflow|FailedToResolveSender)`)
-
-// Int256Overflow: Calculation of gas price * gas limit + value overflowed int256.
-// though it feels like Int256Overflow could be use for high fees as well?
+var nethermindFatal = regexp.MustCompile(`(: |^)(SenderIsContract|Invalid|Int256Overflow|FailedToResolveSender|NonceGap|GasLimitExceeded)`)
 var nethermind = ClientErrors{
-	// Assuming all nonce errors are due to the nonce being too low
-	// NonceGap: The nonce is not the next nonce after the last nonce of this sender present in TxPool.
 	// OldNonce: The EOA (externally owned account) that signed this transaction (sender) has already signed and executed a transaction with the same nonce.
-	NonceTooLow: regexp.MustCompile(`(: |^)(OldNonce|NonceGap)`),
-	FeeTooLow:   regexp.MustCompile(`(: |^)(FeeTooLow|FeeTooLowToCompete)`),
+	NonceTooLow: regexp.MustCompile(`(: |^)OldNonce`),
 
-	// GasLimitExceeded: Transaction gas limit exceeds the block gas limit.
-	FeeTooHigh: regexp.MustCompile(`(: |^)GasLimitExceeded`),
+	// FeeTooLow/FeeTooLowToCompete: Fee paid by this transaction is not enough to be accepted in the mempool.
+	FeeTooLow: regexp.MustCompile(`(: |^)(FeeTooLow|FeeTooLowToCompete)`),
 
 	// AlreadyKnown: A transaction with the same hash has already been added to the pool in the past.
 	// OwnNonceAlreadyUsed: A transaction with same nonce has been signed locally already and is awaiting in the pool.
-	// Is this the correct matching? It would normally be the hash alone(AlreadyKnown)...
 	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)(AlreadyKnown|OwnNonceAlreadyUsed)`),
 
 	// InsufficientFunds: Sender account has not enough balance to execute this transaction.
@@ -137,7 +130,7 @@ var nethermind = ClientErrors{
 	Fatal:           nethermindFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate, nethermind}
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate, avalanche, nethermind}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
