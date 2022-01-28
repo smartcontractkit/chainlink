@@ -50,11 +50,6 @@ func (_m *Metrics) SetFeedContractMetadata(chainID string, contractAddress strin
 	_m.Called(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol)
 }
 
-// SetFeedContractNativeTokenBalance provides a mock function with given fields: balance, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
-func (_m *Metrics) SetFeedContractNativeTokenBalance(balance uint64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
-	_m.Called(balance, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
-}
-
 // SetHeadTrackerCurrentHead provides a mock function with given fields: blockNumber, networkName, chainID, networkID
 func (_m *Metrics) SetHeadTrackerCurrentHead(blockNumber uint64, networkName string, chainID string, networkID string) {
 	_m.Called(blockNumber, networkName, chainID, networkID)
@@ -71,11 +66,16 @@ func (_m *Metrics) SetOffchainAggregatorAnswerStalled(isSet bool, contractAddres
 }
 
 // SetOffchainAggregatorAnswers provides a mock function with given fields: answer, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
-func (_m *Metrics) SetOffchainAggregatorAnswers(answer *big.Int, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+func (_m *Metrics) SetOffchainAggregatorAnswers(answer *big.Float, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(answer, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
+// SetOffchainAggregatorAnswersRaw provides a mock function with given fields: answer, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *Metrics) SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
 	_m.Called(answer, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 
 // SetOffchainAggregatorSubmissionReceivedValues provides a mock function with given fields: value, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
-func (_m *Metrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Int, contractAddress string, feedID string, sender string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+func (_m *Metrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress string, feedID string, sender string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
 	_m.Called(value, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }

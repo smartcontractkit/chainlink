@@ -132,7 +132,25 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	}
 	// All the metrics below are only updated if there was a fresh
 	// transmission since the last chain read.
+
+	humanizedValue := new(big.Float).SetInt(envelope.LatestAnswer)
+	if p.feedConfig.GetMultiply() != 0 {
+		humanizedValue = new(big.Float).Quo(humanizedValue, big.NewFloat(float64(p.feedConfig.GetMultiply())))
+	}
+
 	p.metrics.SetOffchainAggregatorAnswers(
+		humanizedValue,
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
+	p.metrics.SetOffchainAggregatorAnswersRaw(
 		envelope.LatestAnswer,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
@@ -156,7 +174,7 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorSubmissionReceivedValues(
-		envelope.LatestAnswer,
+		humanizedValue,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		string(envelope.Transmitter),
