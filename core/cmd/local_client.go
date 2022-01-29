@@ -77,7 +77,6 @@ func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.D
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	// The lock will be explicitly released on ctx cancellation
 	var advisoryLock pg.AdvisoryLock
 	switch lockingMode {
 	case "advisorylock", "dual":
