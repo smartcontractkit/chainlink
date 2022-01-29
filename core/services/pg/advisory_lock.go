@@ -37,21 +37,18 @@ func NewAdvisoryLock(db *sqlx.DB, id int64, lggr logger.Logger, checkInterval ti
 }
 
 // TakeAndHold will block and wait indefinitely until it can get its first lock or ctx is cancelled.
-// Use Release() function to release the acquired lock.
+// Release() function must be used to release the acquired lock.
 // NOT THREAD SAFE
 func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 	l.logger.Debug("Taking initial advisory lock...")
 	retryCount := 0
-
-	lctx, cancel := context.WithCancel(context.Background())
-	l.stop = cancel
 
 	for {
 		var gotLock bool
 		var err error
 
 		err = func() error {
-			qctx, cancel := DefaultQueryCtxWithParent(lctx)
+			qctx, cancel := DefaultQueryCtxWithParent(ctx)
 			defer cancel()
 			if l.conn == nil {
 				if err = l.checkoutConn(qctx); err != nil {
@@ -81,27 +78,25 @@ func (l *advisoryLock) TakeAndHold(ctx context.Context) (err error) {
 		}
 		l.logRetry(retryCount)
 		retryCount++
-		err = func() error {
-			select {
-			case <-ctx.Done():
-				return errors.New("stopped by parent context")
-			case <-lctx.Done():
-				return errors.New("stopped by Release()")
-			case <-time.After(utils.WithJitter(l.checkInterval)):
-				return nil
-			}
-		}()
-		if err != nil {
+		select {
+		case <-ctx.Done():
+			err = errors.New("stopped")
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
 			}
 			return err
+		case <-time.After(utils.WithJitter(l.checkInterval)):
 		}
 	}
 
 	l.logger.Debug("Got advisory lock")
+
+	lctx, cancel := context.WithCancel(context.Background())
+	l.stop = cancel
+
 	l.wgReleased.Add(1)
 	go l.loop(lctx)
+
 	return nil
 }
 

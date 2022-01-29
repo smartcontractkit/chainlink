@@ -156,15 +156,27 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("release lock with parent Release() when ctx is cancelled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		leaseLock := newLeaseLock(t, db, cfg)
+	t.Run("cancel TakeAndHold with ctx", func(t *testing.T) {
+		leaseLock1 := newLeaseLock(t, db, cfg)
+		leaseLock2 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock.TakeAndHold(ctx)
+		err := leaseLock1.TakeAndHold(context.Background())
 		require.NoError(t, err)
 
-		cancel()
-		leaseLock.Release()
+		awaiter := cltest.NewAwaiter()
+		go func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				<-time.After(3 * time.Second)
+				cancel()
+			}()
+			err := leaseLock2.TakeAndHold(ctx)
+			require.Error(t, err)
+			awaiter.ItHappened()
+		}()
+
+		awaiter.AwaitOrFail(t)
+		leaseLock1.Release()
 	})
 
 	require.NoError(t, db.Close())
