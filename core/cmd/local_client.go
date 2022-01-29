@@ -84,6 +84,7 @@ func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.D
 		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
 		if err := advisoryLock.TakeAndHold(ctx); err != nil {
 			if leaseLock != nil {
+				// For dual, we need to release the first lock now that we've failed to take the second.
 				leaseLock.Release()
 			}
 			return nil, errors.Wrap(err, "error acquiring lock")
