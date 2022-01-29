@@ -153,6 +153,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			DefaultHTTPTimeout:                 cfg.DefaultHTTPTimeout(),
 			Dev:                                cfg.Dev(),
 			ShutdownGracePeriod:                cfg.ShutdownGracePeriod(),
+			EVMRPCEnabled:                      cfg.EVMRPCEnabled(),
 			EthereumHTTPURL:                    ethereumHTTPURL,
 			EthereumSecondaryURLs:              mapToStringA(cfg.EthereumSecondaryURLs()),
 			EthereumURL:                        cfg.EthereumURL(),
