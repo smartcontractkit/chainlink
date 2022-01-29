@@ -597,8 +597,8 @@ func (_m *GeneralConfig) Dev() bool {
 	return r0
 }
 
-// EVMDisabled provides a mock function with given fields:
-func (_m *GeneralConfig) EVMDisabled() bool {
+// EVMEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) EVMEnabled() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -611,8 +611,8 @@ func (_m *GeneralConfig) EVMDisabled() bool {
 	return r0
 }
 
-// EthereumDisabled provides a mock function with given fields:
-func (_m *GeneralConfig) EthereumDisabled() bool {
+// EVMRPCEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) EVMRPCEnabled() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2602,6 +2602,20 @@ func (_m *GeneralConfig) P2PDHTLookupInterval() int {
 	return r0
 }
 
+// P2PEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) P2PEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // P2PIncomingMessageBufferSize provides a mock function with given fields:
 func (_m *GeneralConfig) P2PIncomingMessageBufferSize() int {
 	ret := _m.Called()
@@ -3141,6 +3155,20 @@ func (_m *GeneralConfig) TelemetryIngressURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// TerraEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) TerraEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

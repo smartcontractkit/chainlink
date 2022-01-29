@@ -36,7 +36,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 	logLevel := zapcore.WarnLevel
 	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true

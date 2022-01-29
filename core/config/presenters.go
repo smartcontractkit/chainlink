@@ -48,6 +48,7 @@ type EnvPrinter struct {
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
 	ShutdownGracePeriod                        time.Duration   `json:"SHUTDOWN_GRACE_PERIOD"`
 	EthereumDisabled                           bool            `json:"ETH_DISABLED"`
+	EVMRPCEnabled                              bool            `json:"EVM_RPC_ENABLED"`
 	EthereumHTTPURL                            string          `json:"ETH_HTTP_URL"`
 	EthereumSecondaryURLs                      []string        `json:"ETH_SECONDARY_URLS"`
 	EthereumURL                                string          `json:"ETH_URL"`
@@ -152,7 +153,6 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			DefaultHTTPLimit:                   cfg.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                 cfg.DefaultHTTPTimeout(),
 			Dev:                                cfg.Dev(),
-			ShutdownGracePeriod:                cfg.ShutdownGracePeriod(),
 			EthereumDisabled:                   cfg.EthereumDisabled(),
 			EthereumHTTPURL:                    ethereumHTTPURL,
 			EthereumSecondaryURLs:              mapToStringA(cfg.EthereumSecondaryURLs()),

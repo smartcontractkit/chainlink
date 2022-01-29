@@ -41,10 +41,30 @@ var (
 	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 )
 
+// FeatureFlags contains bools that toggle various features or chains
+// TODO: document the new ones
+type FeatureFlags interface {
+	FeatureExternalInitiators() bool
+	FeatureFeedsManager() bool
+	FeatureOffchainReporting() bool
+	FeatureOffchainReporting2() bool
+	FeatureUICSAKeys() bool
+
+	AutoPprofEnabled() bool
+	EVMEnabled() bool
+	EVMRPCEnabled() bool
+	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
+	P2PEnabled() bool
+	SolanaEnabled() bool
+	TerraEnabled() bool
+}
+
 type GeneralOnlyConfig interface {
 	Validate() error
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
+
+	FeatureFlags
 
 	AdminCredentialsFile() string
 	AdvisoryLockCheckInterval() time.Duration
@@ -53,18 +73,17 @@ type GeneralOnlyConfig interface {
 	AppID() uuid.UUID
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
-	AutoPprofEnabled() bool
-	AutoPprofProfileRoot() string
-	AutoPprofPollInterval() models.Duration
+	AutoPprofBlockProfileRate() int
+	AutoPprofCPUProfileRate() int
 	AutoPprofGatherDuration() models.Duration
 	AutoPprofGatherTraceDuration() models.Duration
-	AutoPprofMaxProfileSize() utils.FileSize
-	AutoPprofCPUProfileRate() int
-	AutoPprofMemProfileRate() int
-	AutoPprofBlockProfileRate() int
-	AutoPprofMutexProfileFraction() int
-	AutoPprofMemThreshold() utils.FileSize
 	AutoPprofGoroutineThreshold() int
+	AutoPprofMaxProfileSize() utils.FileSize
+	AutoPprofMemProfileRate() int
+	AutoPprofMemThreshold() utils.FileSize
+	AutoPprofMutexProfileFraction() int
+	AutoPprofPollInterval() models.Duration
+	AutoPprofProfileRoot() string
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
@@ -73,8 +92,8 @@ type GeneralOnlyConfig interface {
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
-	DatabaseBackupURL() *url.URL
 	DatabaseBackupOnVersionUpgrade() bool
+	DatabaseBackupURL() *url.URL
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
@@ -86,8 +105,6 @@ type GeneralOnlyConfig interface {
 	DefaultLogLevel() zapcore.Level
 	Dev() bool
 	ShutdownGracePeriod() time.Duration
-	EVMDisabled() bool
-	EthereumDisabled() bool
 	EthereumHTTPURL() *url.URL
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string
@@ -96,11 +113,6 @@ type GeneralOnlyConfig interface {
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
-	FeatureExternalInitiators() bool
-	FeatureFeedsManager() bool
-	FeatureOffchainReporting() bool
-	FeatureOffchainReporting2() bool
-	FeatureUICSAKeys() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
@@ -119,7 +131,6 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
-	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeyFile() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
@@ -290,6 +301,24 @@ func (c *generalConfig) Validate() error {
 
 	if _, exists := os.LookupEnv("MINIMUM_CONTRACT_PAYMENT"); exists {
 		return errors.Errorf("MINIMUM_CONTRACT_PAYMENT is deprecated, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
+	}
+
+	if _, exists := os.LookupEnv("ETH_DISABLED"); exists {
+		c.lggr.Warn(`DEPRECATION WARNING: ETH_DISABLED has been deprecated.
+
+This warning will become a fatal error in a future release. Please switch to using one of the two options below instead:
+
+- EVM_ENABLED=false - set this if you wish to completely disable all EVM chains and jobs and prevent them from ever loading (this is probably the one you want).
+- EVM_RPC_ENABLED=false - set this if you wish to load all EVM chains and jobs, but prevent any RPC calls to the eth node (the old behaviour).
+`)
+	}
+	if _, exists := os.LookupEnv("EVM_DISABLED"); exists {
+		c.lggr.Warn(`DEPRECATION WARNING: EVM_DISABLED has been deprecated and superceded by EVM_ENABLED.
+
+This warning will become a fatal error in a future release. Please use the following instead to disable EVM chains:
+
+EVM_ENABLED=false
+`)
 	}
 
 	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
@@ -563,12 +592,6 @@ func (c *generalConfig) Dev() bool {
 	return c.viper.GetBool(envvar.Name("Dev"))
 }
 
-// ShutdownGracePeriod is the maximum duration of graceful application shutdown.
-// If exceeded, it will try closing DB lock and connection and exit immediately to avoid SIGKILL.
-func (c *generalConfig) ShutdownGracePeriod() time.Duration {
-	return c.getWithFallback("ShutdownGracePeriod", parse.Duration).(time.Duration)
-}
-
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(envvar.Name("FeatureExternalInitiators"))
@@ -650,14 +673,45 @@ func (c *generalConfig) EthereumSecondaryURLs() []url.URL {
 	return urls
 }
 
-// EthereumDisabled will substitute null Eth clients if set
-func (c *generalConfig) EthereumDisabled() bool {
-	return c.viper.GetBool(envvar.Name("EthereumDisabled"))
+// EVMRPCEnabled if false prevents any calls to any EVM-based chain RPC node
+func (c *generalConfig) EVMRPCEnabled() bool {
+	if ethDisabled, exists := os.LookupEnv("ETH_DISABLED"); exists {
+		res, err := parse.Bool(ethDisabled)
+		if err == nil {
+			return !res.(bool)
+		}
+		c.lggr.Warnw("Failed to parse value for ETH_DISABLED", "err", err)
+	}
+	rpcEnabled := c.viper.GetBool(envvar.Name("EVMRPCEnabled"))
+	return rpcEnabled
 }
 
-// EVMDisabled prevents any evm_chains from being loaded at all if set
-func (c *generalConfig) EVMDisabled() bool {
-	return c.viper.GetBool(envvar.Name("EVMDisabled"))
+// EVMEnabled allows EVM chains to be used
+func (c *generalConfig) EVMEnabled() bool {
+	if evmDisabled, exists := os.LookupEnv("EVM_DISABLED"); exists {
+		res, err := parse.Bool(evmDisabled)
+		if err == nil {
+			return res.(bool)
+		}
+		c.lggr.Warnw("Failed to parse value for EVM_DISABLED", "err", err)
+	}
+	return c.viper.GetBool(envvar.Name("EVMEnabled"))
+}
+
+// SolanaEnabled allows Solana to be used
+func (c *generalConfig) SolanaEnabled() bool {
+	return c.viper.GetBool(envvar.Name("SolanaEnabled"))
+}
+
+// TerraEnabled allows Terra to be used
+func (c *generalConfig) TerraEnabled() bool {
+	return c.viper.GetBool(envvar.Name("TerraEnabled"))
+}
+
+// P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol
+func (c *generalConfig) P2PEnabled() bool {
+	// We need p2p networking if either ocr1 or ocr2 is enabled
+	return c.P2PListenPort() > 0 || c.FeatureOffchainReporting() || c.FeatureOffchainReporting2()
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead

@@ -15,16 +15,24 @@ New ENV vars:
 - `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
 - `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
 - `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed. 
+- `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
+- `TERRA_ENABLED` (default: false) - set to true to enable Terra support
 
 ### Removed
 
 - `deleteuser` CLI command.
 
+### Changed
+
+`EVM_DISABLED` has been deprecated and replaced by `EVM_ENABLED` for consistency with other feature flags.
+`ETH_DISABLED` has been deprecated and replaced by `EVM_RPC_ENABLED` for consistency, and because this was confusingly named. In most cases you want to set `EVM_ENABLED=false` and not `EVM_RPC_ENABLED=false`.
+
+
 ## [1.1.0] - 2022-01-25
 
 ### Added
 
-- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at run-time to enable reporting.
 - Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
 - The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
 - The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.

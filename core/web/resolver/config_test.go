@@ -46,8 +46,8 @@ func TestResolver_Config(t *testing.T) {
 					Dev:                                       null.BoolFrom(true),
 					ShutdownGracePeriod:                       nil,
 					Dialect:                                   "",
-					EVMDisabled:                               null.BoolFrom(true),
-					EthereumDisabled:                          null.BoolFrom(true),
+					EVMEnabled:                                null.BoolFrom(false),
+					EVMRPCEnabled:                             null.BoolFrom(false),
 					EthereumURL:                               null.StringFrom(""),
 					FeatureExternalInitiators:                 null.BoolFrom(true),
 					GlobalBalanceMonitorEnabled:               null.BoolFrom(true),
@@ -181,8 +181,8 @@ func TestResolver_Config(t *testing.T) {
 		"value":"5s"
 	  },
       {
-        "key": "ETH_DISABLED",
-        "value": "true"
+        "key": "EVM_RPC_ENABLED",
+        "value": "false"
       },
       {
         "key": "ETH_HTTP_URL",

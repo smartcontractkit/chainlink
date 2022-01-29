@@ -731,8 +731,22 @@ func (_m *ChainScopedConfig) Dev() bool {
 	return r0
 }
 
-// EVMDisabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) EVMDisabled() bool {
+// EVMEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) EVMEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// EVMRPCEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) EVMRPCEnabled() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -782,20 +796,6 @@ func (_m *ChainScopedConfig) EthTxResendAfterThreshold() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthereumDisabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumDisabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -3272,6 +3272,20 @@ func (_m *ChainScopedConfig) P2PDHTLookupInterval() int {
 	return r0
 }
 
+// P2PEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2PEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // P2PIncomingMessageBufferSize provides a mock function with given fields:
 func (_m *ChainScopedConfig) P2PIncomingMessageBufferSize() int {
 	ret := _m.Called()
@@ -3702,15 +3716,15 @@ func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
 }
 
-// ShutdownGracePeriod provides a mock function with given fields:
-func (_m *ChainScopedConfig) ShutdownGracePeriod() time.Duration {
+// SolanaEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) SolanaEnabled() bool {
 	ret := _m.Called()
 
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(time.Duration)
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -3839,6 +3853,20 @@ func (_m *ChainScopedConfig) TelemetryIngressURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// TerraEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) TerraEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

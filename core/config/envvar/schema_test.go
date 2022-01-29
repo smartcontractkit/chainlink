@@ -55,10 +55,14 @@ func TestConfigSchema(t *testing.T) {
 		"Dev":                                        "CHAINLINK_DEV",
 		"ShutdownGracePeriod":                        "SHUTDOWN_GRACE_PERIOD",
 		"EVMDisabled":                                "EVM_DISABLED",
+		"RPCEnabled":                                 "RPC_ENABLED",
+		"TerraEnabled":                               "TERRA_ENABLED",
+		"SolanaEnabled":                              "SOLANA_ENABLED",
+		"EVMEnabled":                                 "EVM_ENABLED",
 		"EthTxReaperInterval":                        "ETH_TX_REAPER_INTERVAL",
 		"EthTxReaperThreshold":                       "ETH_TX_REAPER_THRESHOLD",
 		"EthTxResendAfterThreshold":                  "ETH_TX_RESEND_AFTER_THRESHOLD",
-		"EthereumDisabled":                           "ETH_DISABLED",
+		"EVMRPCEnabled":                              "EVM_RPC_ENABLED",
 		"EthereumHTTPURL":                            "ETH_HTTP_URL",
 		"EthereumSecondaryURL":                       "ETH_SECONDARY_URL",
 		"EthereumSecondaryURLs":                      "ETH_SECONDARY_URLS",
@@ -241,8 +245,9 @@ func TestConfigSchema(t *testing.T) {
 2. Update the Changelog
 3. Update the ConfigPrinter found in core/config/presenters.go if you
    think this variable needs to be shown in the UI
-4. Make a PR into the documentation page if node operators might need to use
+4. Make a PR into the documentation page if this is not a "nodoc" env var
    this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%%20Operators/configuration-variables.md).
+   You may be able to add to an existing PR for the next version.
    Don't forget to update TOC.
 5. Add your new config variable to this test`, field.Name)
 		assert.True(t, found, msg)

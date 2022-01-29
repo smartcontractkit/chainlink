@@ -138,7 +138,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		}
 	}
 
-	if !cfg.EthereumDisabled() && !cfg.EVMDisabled() {
+	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
+	if cfg.EVMEnabled() {
 		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}
