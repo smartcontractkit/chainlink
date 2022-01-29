@@ -65,7 +65,6 @@ func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.D
 
 	lggr.Debugf("Using database locking mode: %s", lockingMode)
 
-	// Lease will be explicitly released on ctx cancellation
 	// Take the lease before any other DB operations
 	var leaseLock pg.LeaseLock
 	switch lockingMode {
