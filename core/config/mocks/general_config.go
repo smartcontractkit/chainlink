@@ -3032,6 +3032,20 @@ func (_m *GeneralConfig) ShutdownGracePeriod() time.Duration {
 	return r0
 }
 
+// SolanaEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) SolanaEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // TLSCertPath provides a mock function with given fields:
 func (_m *GeneralConfig) TLSCertPath() string {
 	ret := _m.Called()

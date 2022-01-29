@@ -592,6 +592,12 @@ func (c *generalConfig) Dev() bool {
 	return c.viper.GetBool(envvar.Name("Dev"))
 }
 
+// ShutdownGracePeriod is the maximum duration of graceful application shutdown.
+// If exceeded, it will try closing DB lock and connection and exit immediately to avoid SIGKILL.
+func (c *generalConfig) ShutdownGracePeriod() time.Duration {
+	return c.getWithFallback("ShutdownGracePeriod", parse.Duration).(time.Duration)
+}
+
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(envvar.Name("FeatureExternalInitiators"))
