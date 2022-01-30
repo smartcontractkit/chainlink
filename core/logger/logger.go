@@ -174,6 +174,35 @@ func NewLogger() Logger {
 	return l
 }
 
+// NewPluginLogger returns a new Logger for a plugin configured from environment variables, and logs any parsing errors.
+// This is like NewLogger with disk options disabled.
+func NewPluginLogger() Logger {
+	var c Config
+	var parseErrs []string
+
+	var invalid string
+	c.LogLevel, invalid = envvar.LogLevel.ParseLogLevel()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	c.JsonConsole, invalid = envvar.JSONConsole.ParseBool()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	l := c.New()
+	for _, msg := range parseErrs {
+		l.Error(msg)
+	}
+	return l
+}
+
 type Config struct {
 	LogLevel    zapcore.Level
 	Dir         string

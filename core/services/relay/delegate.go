@@ -3,19 +3,20 @@ package relay
 import (
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
 	solanaGo "github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/plugin"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+
+	"github.com/smartcontractkit/chainlink/core/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/core/services/relay/solana"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 var (
@@ -25,21 +26,22 @@ var (
 		types.Terra:  {},
 	}
 	_ types.Relayer = &evm.Relayer{}
-	_ types.Relayer = &solana.Relayer{}
 	_ types.Relayer = &terra.Relayer{}
 )
 
 type delegate struct {
-	relayers map[types.Network]types.Relayer
 	ks       keystore.Master
+	relayers map[types.Network]types.Relayer
+	solana   plugins.SolanaRelayer
 }
 
 // NewDelegate creates a master relay delegate which manages "relays" which are OCR2 median reporting plugins
 // for various chains (evm and non-evm). nil Relayers will be disabled.
-func NewDelegate(ks keystore.Master) *delegate {
+func NewDelegate(ks keystore.Master, solana plugins.SolanaRelayer) *delegate {
 	d := &delegate{
 		ks:       ks,
 		relayers: map[types.Network]types.Relayer{},
+		solana:   solana,
 	}
 	return d
 }
@@ -56,6 +58,9 @@ func (d delegate) Start() error {
 	for _, r := range d.relayers {
 		err = multierr.Combine(err, r.Start())
 	}
+	if d.solana != nil {
+		err = multierr.Append(err, d.solana.Start())
+	}
 	return err
 }
 
@@ -64,6 +69,9 @@ func (d delegate) Close() error {
 	var err error
 	for _, r := range d.relayers {
 		err = multierr.Combine(err, r.Close())
+	}
+	if d.solana != nil {
+		err = multierr.Append(err, d.solana.Close())
 	}
 	return err
 }
@@ -74,6 +82,9 @@ func (d delegate) Ready() error {
 	for _, r := range d.relayers {
 		err = multierr.Combine(err, r.Ready())
 	}
+	if d.solana != nil {
+		err = multierr.Append(err, d.solana.Ready())
+	}
 	return err
 }
 
@@ -82,6 +93,9 @@ func (d delegate) Healthy() error {
 	var err error
 	for _, r := range d.relayers {
 		err = multierr.Combine(err, r.Healthy())
+	}
+	if d.solana != nil {
+		err = multierr.Append(err, d.solana.Healthy())
 	}
 	return err
 }
@@ -111,9 +125,9 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			ChainID:       config.ChainID.ToInt(),
 		})
 	case types.Solana:
-		r, exists := d.relayers[types.Solana]
-		if !exists {
-			return nil, errors.New("no Solana relay found; is Solana enabled?")
+		r := d.solana
+		if r == nil {
+			return nil, errors.New("no Solana relay plugin found; is Solana enabled?")
 		}
 
 		var config solana.RelayConfig
@@ -143,7 +157,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			return nil, errors.Wrap(err, "error on 'solana.PublicKeyFromBase58' for 'spec.RelayConfig.TransmissionsID")
 		}
 
-		var transmissionSigner solana.TransmissionSigner
+		var transmissionSigner plugin.TransmissionSigner
 		if !spec.IsBootstrapPeer {
 			if !spec.TransmitterID.Valid {
 				return nil, errors.New("transmitterID is required for non-bootstrap jobs")
@@ -153,8 +167,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 				return nil, err
 			}
 		}
-
-		return r.NewOCR2Provider(externalJobID, solana.OCR2Spec{
+		return r.NewOCR2Provider(externalJobID, plugin.SolanaSpec{
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
 			NodeEndpointHTTP:   config.NodeEndpointHTTP,

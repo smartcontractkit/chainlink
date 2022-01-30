@@ -95,6 +95,7 @@ type ConfigSchema struct {
 	// General chains/RPC
 	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
 	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
+	//TODO SolanaPlugin string `env:"PLUGIN_SOLANA"`
 	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
 	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
 

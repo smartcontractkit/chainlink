@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
@@ -58,7 +57,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	terraChains := new(terraMock.ChainSet)
 	terraChains.On("Chain", "Chainlink-99").Return(terraChain, nil).Times(2)
 
-	d := relay.NewDelegate(keystore)
+	d := relay.NewDelegate(keystore, nil)
 
 	// struct for testing multiple specs
 	specs := []struct {
@@ -82,7 +81,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	}
 
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
-	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr))
+	//TODO remove d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr))
 	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
 
 	for _, s := range specs {

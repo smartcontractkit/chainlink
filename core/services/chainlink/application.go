@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/plugins"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -17,7 +19,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -208,8 +209,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
-
-	subservices = append(subservices, eventBroadcaster, chains.EVM)
+	if cfg.EVMEnabled() {
+		subservices = append(subservices, chains.EVM)
+	}
+	if cfg.TerraEnabled() {
+		subservices = append(subservices, chains.Terra)
+	}
+	subservices = append(subservices, eventBroadcaster)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
@@ -305,15 +311,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
+		var solana plugins.SolanaRelayer
+		if cfg.SolanaEnabled() {
+			solana = plugins.Solana
+		}
 		// master/delegate relay is started once, on app start, as root subservice
-		relay := relay.NewDelegate(keyStore)
+		relay := relay.NewDelegate(keyStore, solana)
 		if cfg.EVMEnabled() {
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
 			relay.AddRelayer(relaytypes.EVM, evmRelayer)
-		}
-		if cfg.SolanaEnabled() {
-			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
-			relay.AddRelayer(relaytypes.Solana, solanaRelayer)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)

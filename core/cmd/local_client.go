@@ -17,16 +17,20 @@ import (
 	"strings"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+	relay "github.com/smartcontractkit/chainlink-relay/pkg/plugin"
+
+	"github.com/smartcontractkit/chainlink/core/plugins"
+
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -124,6 +128,32 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	if cli.Config.Dev() {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
+	//TODO remove: solana plugin dev test
+	err = plugins.Solana.Start()
+	lggr.Info("Started Solana:", err)
+	if err == nil {
+		defer func() {
+			lggr.Info("Stopped Solana:", plugins.Solana.Close())
+		}()
+		var p relay.OCR2Provider
+		p, err = plugins.Solana.NewOCR2Provider(uuid.NewV4(), relay.SolanaSpec{
+			PollingCtxTimeout: "1s",
+		})
+		if err == nil {
+			err = p.Start()
+			lggr.Info("Started Provider:", err)
+			if err == nil {
+				// let it poll
+				time.Sleep(10 * time.Second)
+				var bh uint64
+				bh, err = p.ContractConfigTracker().LatestBlockHeight(context.Background())
+				if err == nil {
+					lggr.Info("Block height:", bh)
+				}
+			}
+		}
+	}
+	return err
 
 	db, err := openDB(cli.Config, lggr)
 	if err != nil {

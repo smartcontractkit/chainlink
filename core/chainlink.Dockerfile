@@ -25,14 +25,13 @@ RUN mkdir -p core/web
 RUN make contracts-operator-ui-build
 
 # Build the golang binary
-
 FROM golang:1.17-buster
 WORKDIR /chainlink
 
 COPY GNUmakefile VERSION ./
 COPY tools/bin/ldflags ./tools/bin/
 
-# Env vars needed for chainlink build
+# Cache go mod download
 ADD go.mod go.sum ./
 RUN go mod download
 
