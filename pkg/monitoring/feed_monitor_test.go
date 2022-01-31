@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
+	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/mocks"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -130,7 +132,40 @@ func TestFeedMonitor(t *testing.T) {
 		require.GreaterOrEqual(t, countMessages, 2*countEnvelopes-1)
 		require.LessOrEqual(t, countMessages, 2*countEnvelopes+1)
 	})
-	t.Run("cleanup", func(t *testing.T) {
+	t.Run("cleanup is called once for each exporter", func(t *testing.T) {
+		// put timers on exports of 100ms + keep a counter of all the running exporters.
+		// check how many running exporters still execute when Cleanup happens.
+		poller := &fakePoller{0, make(chan interface{})}
+		exporter1 := new(mocks.Exporter)
+		exporter2 := new(mocks.Exporter)
 
+		monitor := NewFeedMonitor(
+			newNullLogger(),
+			[]Poller{poller},
+			[]Exporter{exporter1, exporter2},
+		)
+
+		wg := &sync.WaitGroup{}
+		ctx, cancel := context.WithCancel(context.Background())
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			monitor.Run(ctx)
+		}()
+
+		exporter1.On("Export", mock.Anything, mock.Anything).Once()
+		exporter1.On("Cleanup", mock.Anything).Once()
+
+		exporter2.On("Export", mock.Anything, mock.Anything).Once()
+		exporter2.On("Cleanup", mock.Anything).Once()
+
+		poller.ch <- "update"
+		<-time.After(100 * time.Millisecond)
+		cancel()
+		wg.Wait()
+
+		mock.AssertExpectationsForObjects(t, exporter1)
+		mock.AssertExpectationsForObjects(t, exporter2)
 	})
 }
