@@ -17,6 +17,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -44,6 +45,11 @@ type ChainSet interface {
 	Chains() []Chain
 	ChainCount() int
 	ORM() types.ORM
+	// GetNode et al retrieves Nodes from the ORM and adds additional state info
+	GetNode(ctx context.Context, id int32) (node evmtypes.Node, err error)
+	GetNodes(ctx context.Context, offset, limit int) (nodes []evmtypes.Node, count int, err error)
+	GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []evmtypes.Node, count int, err error)
+	GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error)
 }
 
 type chainSet struct {
@@ -268,6 +274,75 @@ func (cll *chainSet) ORM() types.ORM {
 	return cll.orm
 }
 
+func (cll *chainSet) GetNode(ctx context.Context, id int32) (n evmtypes.Node, err error) {
+	n, err = cll.orm.Node(id, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNode failed to load node from DB")
+		return
+	}
+	cll.addStateToNode(&n)
+	return
+}
+
+func (cll *chainSet) GetNodes(ctx context.Context, offset, limit int) (nodes []evmtypes.Node, count int, err error) {
+	nodes, count, err = cll.orm.Nodes(offset, limit, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNodes failed to load nodes from DB")
+		return
+	}
+	for i := range nodes {
+		cll.addStateToNode(&nodes[i])
+	}
+	return
+}
+
+func (cll *chainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []evmtypes.Node, count int, err error) {
+	nodes, count, err = cll.orm.NodesForChain(chainID, offset, limit, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
+		return
+	}
+	for i := range nodes {
+		cll.addStateToNode(&nodes[i])
+	}
+	return
+}
+
+func (cll *chainSet) GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []evmtypes.Node, err error) {
+	nodes, err = cll.orm.GetNodesByChainIDs(chainIDs, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
+		return
+	}
+	for i := range nodes {
+		cll.addStateToNode(&nodes[i])
+	}
+	return
+}
+
+func (cll *chainSet) addStateToNode(n *evmtypes.Node) {
+	cll.chainsMu.RLock()
+	chain, exists := cll.chains[n.EVMChainID.String()]
+	cll.chainsMu.RUnlock()
+	if !exists {
+		// The EVM chain is disabled
+		n.State = "Disabled"
+		return
+	}
+	states := chain.Client().NodeStates()
+	if states == nil {
+		n.State = "Unknown"
+		return
+	}
+	state, exists := states[n.ID]
+	if exists {
+		n.State = state
+		return
+	}
+	// The node is in the DB and the chain is enabled but it's not running
+	n.State = "NotLoaded"
+}
+
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
 	Logger           logger.Logger
@@ -332,7 +407,7 @@ func checkOpts(opts *ChainSetOpts) error {
 		return errors.New("config must be non-nil")
 	}
 	if opts.ORM == nil {
-		opts.ORM = NewORM(opts.DB)
+		opts.ORM = NewORM(opts.DB, opts.Logger, opts.Config)
 	}
 	return nil
 }

@@ -47,6 +47,11 @@ func (r *NodeResolver) HTTPURL() string {
 	return r.node.HTTPURL.String
 }
 
+// State resolves the node state
+func (r *NodeResolver) State() string {
+	return r.node.State
+}
+
 // Chain resolves the node's chain object field.
 func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
 	chain, err := loader.GetChainByID(ctx, r.node.EVMChainID.String())

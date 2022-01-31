@@ -6,6 +6,7 @@ type Node {
     chain: Chain!
     createdAt: Time!
     updatedAt: Time!
+    state: String!
 }
 
 union NodePayload = Node | NotFoundError
