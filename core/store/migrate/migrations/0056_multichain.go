@@ -54,7 +54,9 @@ func Up56(tx *sql.Tx) error {
 	evmDisabled := os.Getenv("EVM_ENABLED") == "false"
 	if evmDisabled {
 		dbURL := os.Getenv("DATABASE_URL")
-		if !strings.Contains(dbURL, "_test") {
+		if strings.Contains(dbURL, "_test") {
+			log.Println("Running on a database ending in _test; assume we are running in a test suite and skip creation of the default chain")
+		} else {
 			chainIDStr := os.Getenv("ETH_CHAIN_ID")
 			if chainIDStr == "" {
 				log.Println("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
