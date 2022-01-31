@@ -34,7 +34,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
-	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start())
@@ -93,7 +93,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
-	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start())
@@ -249,7 +249,8 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)

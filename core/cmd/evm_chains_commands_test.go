@@ -20,7 +20,7 @@ func TestClient_IndexEVMChains(t *testing.T) {
 
 	app := startNewApplication(t,
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
@@ -48,7 +48,7 @@ func TestClient_CreateEVMChain(t *testing.T) {
 
 	app := startNewApplication(t,
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
@@ -80,7 +80,7 @@ func TestClient_RemoveEVMChain(t *testing.T) {
 
 	app := startNewApplication(t,
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
@@ -116,7 +116,7 @@ func TestClient_ConfigureEVMChain(t *testing.T) {
 
 	app := startNewApplication(t,
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),

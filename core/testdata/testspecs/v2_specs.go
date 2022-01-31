@@ -131,6 +131,8 @@ juelsPerFeeCoinSource = """
 
 [relayConfig]
 chainID = "Chainlink-99"`
+	OCR2TerraNodeSpecMinimal = OCR2TerraSpecMinimal + `
+nodeName = "some-test-node"`
 
 	WebhookSpecNoBody = `
 type            = "webhook"

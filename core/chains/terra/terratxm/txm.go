@@ -179,17 +179,20 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 	an, sn, err := tc.Account(sender)
 	if err != nil {
-		txm.lggr.Errorw("unable to read account", "err", err, "from", sender.String())
+		txm.lggr.Warnw("unable to read account", "err", err, "from", sender.String())
 		// If we can't read the account, assume transient api issues and leave msgs unstarted
 		// to retry on next poll.
 		return
 	}
 
-	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs)
+	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs, "seqnum", sn)
 	simResults, err := tc.BatchSimulateUnsigned(msgs.GetSimMsgs(), sn)
 	if err != nil {
-		txm.lggr.Errorw("unable to simulate", "err", err, "from", sender.String())
+		txm.lggr.Warnw("unable to simulate", "err", err, "from", sender.String())
 		// If we can't simulate assume transient api issue and retry on next poll.
+		// Note one rare scenario in which this can happen: the terra node misbehaves
+		// in that it confirms a txhash is present but still gives an old seq num.
+		// This is benign as the next retry will succeeds.
 		return
 	}
 	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.Succeeded, "failed", simResults.Failed)
@@ -208,15 +211,16 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	// Get the gas limit for the successful batch
 	s, err := tc.SimulateUnsigned(simResults.Succeeded.GetMsgs(), sn)
 	if err != nil {
-		// Should never happen
-		txm.lggr.Errorw("unexpected failure after successful simulation", "err", err)
+		// In the OCR context this should only happen upon stale report
+		txm.lggr.Warnw("unexpected failure after successful simulation", "err", err)
 		return
 	}
 	gasLimit := s.GasInfo.GasUsed
 
 	lb, err := tc.LatestBlock()
 	if err != nil {
-		txm.lggr.Errorw("unable to get latest block", "err", err, "from", sender.String())
+		txm.lggr.Warnw("unable to get latest block", "err", err, "from", sender.String())
+		// Assume transient api issue and retry.
 		return
 	}
 	signedTx, err := tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
@@ -241,6 +245,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		resp, err = tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 		if err != nil {
 			// Rollback marking as broadcasted
+			// Note can happen if the node's mempool is full, where we expect errCode 20.
 			return err
 		}
 		if resp.TxResponse == nil {
@@ -249,7 +254,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		}
 		if resp.TxResponse.TxHash != txHash {
 			// Should never happen
-			txm.lggr.Errorw("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
+			txm.lggr.CriticalW("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
 		}
 		return nil
 	})
@@ -305,6 +310,7 @@ func (txm *Txm) confirmTx(tc terraclient.Reader, txHash string, broadcasted []in
 			txm.lggr.Errorw("error looking for hash of tx, unexpected response", "tx", tx, "hash", txHash)
 			continue
 		}
+
 		txm.lggr.Infow("successfully sent batch", "hash", txHash, "msgs", broadcasted)
 		// If confirmed mark these as completed.
 		err = txm.orm.UpdateMsgsWithState(broadcasted, db.Confirmed, nil)
