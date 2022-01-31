@@ -79,7 +79,7 @@ type (
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
-		logPool       *logPool
+		logPool       iLogPool
 
 		addSubscriber *utils.Mailbox
 		rmSubscriber  *utils.Mailbox
@@ -404,12 +404,13 @@ func (b *broadcaster) onNewLog(log types.Log) {
 	b.maybeWarnOnLargeBlockNumberDifference(int64(log.BlockNumber))
 
 	if log.Removed {
-		b.logPool.removeLog(log)
+		// Remove the whole block that contained this log.
+		b.logPool.RemoveBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
 		return
 	}
-	if b.logPool.addLog(log) {
+	if b.logPool.AddLog(log) {
 		// First or new lowest block number
 		ctx, cancel := utils.ContextFromChan(b.chStop)
 		defer cancel()
@@ -458,7 +459,7 @@ func (b *broadcaster) onNewHeads() {
 		// if all subscribers requested 0 confirmations, we always get and delete all logs from the pool,
 		// without comparing their block numbers to the current head's block number.
 		if b.registrations.highestNumConfirmations == 0 {
-			logs, lowest, highest := b.logPool.getAndDeleteAll()
+			logs, lowest, highest := b.logPool.GetAndDeleteAll()
 			if len(logs) > 0 {
 				broadcasts, err := b.orm.FindBroadcasts(lowest, highest)
 				if err != nil {
@@ -471,7 +472,7 @@ func (b *broadcaster) onNewHeads() {
 				}
 			}
 		} else {
-			logs, minBlockNum := b.logPool.getLogsToSend(latestBlockNum)
+			logs, minBlockNum := b.logPool.GetLogsToSend(latestBlockNum)
 
 			if len(logs) > 0 {
 				broadcasts, err := b.orm.FindBroadcasts(minBlockNum, latestBlockNum)
@@ -482,7 +483,7 @@ func (b *broadcaster) onNewHeads() {
 
 				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
 			}
-			newMin := b.logPool.deleteOlderLogs(keptDepth)
+			newMin := b.logPool.DeleteOlderLogs(keptDepth)
 			if err := b.orm.SetPendingMinBlock(newMin); err != nil {
 				b.logger.Errorw("Failed to set pending broadcasts number", "blockNumber", keptDepth, "err", err)
 			}
@@ -614,7 +615,7 @@ func (b *broadcaster) Resume() {
 
 // test only
 func (b *broadcaster) LogsFromBlock(bh common.Hash) int {
-	return len(b.logPool.logsByBlockHash[bh])
+	return b.logPool.TestOnly_getNumLogsForBlock(bh)
 }
 
 var _ BroadcasterInTest = &NullBroadcaster{}

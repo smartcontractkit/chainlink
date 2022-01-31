@@ -9,12 +9,44 @@ import (
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
 )
 
+//go:generate mockery --name iLogPool --output ./ --inpackage --testonly
+
+// The Log Pool interface.
+type iLogPool interface {
+
+	// AddLog adds log to the pool and returns true if its block number is a new minimum.
+	AddLog(log types.Log) bool
+
+	// GetAndDeleteAll purges the pool completely, returns all logs, and also the minimum and
+	// maximum block numbers retrieved.
+	GetAndDeleteAll() ([]logsOnBlock, int64, int64)
+
+	// GetLogsToSend returns all logs upto the block number specified in latestBlockNum.
+	// Also returns the minimum block number in the result.
+	// In case the pool is empty, returns empty results, and min block number=0
+	GetLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64)
+
+	// DeleteOlderLogs deletes all logs in blocks that are less than specific block number keptDepth.
+	// Also returns the remaining minimum block number in pool after these deletions.
+	// Returns nil if this ends up emptying the pool.
+	DeleteOlderLogs(keptDepth int64) *int64
+
+	// RemoveBlock removes all logs for the block identified by provided Block Hash and Block Number.
+	RemoveBlock(blockHash common.Hash, blockNumber uint64)
+
+	// TestOnly_getNumLogsForBlock FOR TESTING USE ONLY.
+	// Returns all logs for the provided block hash.
+	TestOnly_getNumLogsForBlock(bh common.Hash) int
+}
+
 type logPool struct {
 	// A mapping of block numbers to a set of block hashes for all
 	// the logs in the pool.
 	hashesByBlockNumbers map[uint64]map[common.Hash]struct{}
-	// A mapping of blockhashes to logs
+
+	// A mapping of block hashes, to log index within block, to logs
 	logsByBlockHash map[common.Hash]map[uint]types.Log
+
 	// This min-heap maintains block numbers of logs in the pool.
 	// it helps us easily determine the minimum log block number
 	// in the pool (while the set of log block numbers is dynamically changing).
@@ -29,8 +61,7 @@ func newLogPool() *logPool {
 	}
 }
 
-// addLog adds log to the pool and returns true if its block number is a new minimum.
-func (pool *logPool) addLog(log types.Log) bool {
+func (pool *logPool) AddLog(log types.Log) bool {
 	_, exists := pool.hashesByBlockNumbers[log.BlockNumber]
 	if !exists {
 		pool.hashesByBlockNumbers[log.BlockNumber] = make(map[common.Hash]struct{})
@@ -46,7 +77,7 @@ func (pool *logPool) addLog(log types.Log) bool {
 	return min == nil || log.BlockNumber < uint64(min.(Uint64))
 }
 
-func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
+func (pool *logPool) GetAndDeleteAll() ([]logsOnBlock, int64, int64) {
 	logsToReturn := make([]logsOnBlock, 0)
 	lowest := int64(math.MaxInt64)
 	highest := int64(0)
@@ -78,7 +109,7 @@ func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
 	return logsToReturn, lowest, highest
 }
 
-func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) {
+func (pool *logPool) GetLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) {
 	logsToReturn := make([]logsOnBlock, 0)
 
 	// gathering logs to return - from min block number kept, to latestBlockNum
@@ -96,8 +127,7 @@ func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) 
 	return logsToReturn, minBlockNumToSend
 }
 
-// deleteOlderLogs - deleting all logs for block numbers under 'keptDepth'
-func (pool *logPool) deleteOlderLogs(keptDepth int64) *int64 {
+func (pool *logPool) DeleteOlderLogs(keptDepth int64) *int64 {
 	min := pool.heap.FindMin
 	for item := min(); item != nil; item = min() {
 		blockNum := uint64(item.(Uint64))
@@ -114,13 +144,17 @@ func (pool *logPool) deleteOlderLogs(keptDepth int64) *int64 {
 	return nil
 }
 
-func (pool *logPool) removeLog(log types.Log) {
+func (pool *logPool) RemoveBlock(blockHash common.Hash, blockNumber uint64) {
 	// deleting all logs for this log's block hash
-	delete(pool.logsByBlockHash, log.BlockHash)
-	delete(pool.hashesByBlockNumbers[log.BlockNumber], log.BlockHash)
-	if len(pool.hashesByBlockNumbers[log.BlockNumber]) == 0 {
-		delete(pool.hashesByBlockNumbers, log.BlockNumber)
+	delete(pool.logsByBlockHash, blockHash)
+	delete(pool.hashesByBlockNumbers[blockNumber], blockHash)
+	if len(pool.hashesByBlockNumbers[blockNumber]) == 0 {
+		delete(pool.hashesByBlockNumbers, blockNumber)
 	}
+}
+
+func (pool *logPool) TestOnly_getNumLogsForBlock(bh common.Hash) int {
+	return len(pool.logsByBlockHash[bh])
 }
 
 type Uint64 uint64
