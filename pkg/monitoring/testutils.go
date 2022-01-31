@@ -98,6 +98,81 @@ func (f *fakeSource) Fetch(ctx context.Context) (interface{}, error) {
 	}
 }
 
+type fakeSourceWithWait struct {
+	waitOnRead time.Duration
+}
+
+func (f *fakeSourceWithWait) Fetch(ctx context.Context) (interface{}, error) {
+	select {
+	case <-time.After(f.waitOnRead):
+		return 1, nil
+	case <-ctx.Done():
+		return 0, nil
+	}
+}
+
+type fakeSourceFactoryWithError struct {
+	updates     chan interface{}
+	errors      chan error
+	returnError bool
+}
+
+func (f *fakeSourceFactoryWithError) NewSource(_ ChainConfig, _ FeedConfig) (Source, error) {
+	if f.returnError {
+		return nil, fmt.Errorf("fake source factory error")
+	}
+	return &fakeSourceWithError{
+		f.updates,
+		f.errors,
+	}, nil
+}
+
+type fakeSourceWithError struct {
+	updates chan interface{}
+	errors  chan error
+}
+
+func (f *fakeSourceWithError) Fetch(ctx context.Context) (interface{}, error) {
+	select {
+	case update := <-f.updates:
+		return update, nil
+	case err := <-f.errors:
+		return nil, err
+	case <-ctx.Done():
+		return nil, nil
+	}
+}
+
+// Exporters
+
+type fakeExporterFactory struct {
+	data        chan interface{}
+	returnError bool
+}
+
+func (f *fakeExporterFactory) NewExporter(chainConfig ChainConfig, feedConfig FeedConfig) (Exporter, error) {
+	if f.returnError {
+		return nil, fmt.Errorf("fake exporter factory error")
+	}
+	return &fakeExporter{
+		f.data,
+	}, nil
+}
+
+type fakeExporter struct {
+	data chan interface{}
+}
+
+func (f *fakeExporter) Export(ctx context.Context, data interface{}) {
+	select {
+	case f.data <- data:
+	case <-ctx.Done():
+	}
+}
+
+func (f *fakeExporter) Cleanup(_ context.Context) {
+}
+
 // Generators
 
 func generate32ByteArr() [32]byte {
@@ -498,4 +573,7 @@ var (
 	_ = keepLatestMetrics{}
 	_ = fakePoller{}
 	_ = newNullLogger()
+	_ = fakeExporterFactory{}
+	_ = fakeSourceWithWait{}
+	_ = fakeSourceFactoryWithError{}
 )

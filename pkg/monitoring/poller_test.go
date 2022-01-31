@@ -115,32 +115,3 @@ func TestPoller(t *testing.T) {
 		require.Equal(t, "update4", <-poller.Updates())
 	})
 }
-
-type fakeSourceWithWait struct {
-	waitOnRead time.Duration
-}
-
-func (f *fakeSourceWithWait) Fetch(ctx context.Context) (interface{}, error) {
-	select {
-	case <-time.After(f.waitOnRead):
-		return 1, nil
-	case <-ctx.Done():
-		return 0, nil
-	}
-}
-
-type fakeSourceWithError struct {
-	updates chan interface{}
-	errors  chan error
-}
-
-func (f *fakeSourceWithError) Fetch(ctx context.Context) (interface{}, error) {
-	select {
-	case update := <-f.updates:
-		return update, nil
-	case err := <-f.errors:
-		return nil, err
-	case <-ctx.Done():
-		return nil, nil
-	}
-}

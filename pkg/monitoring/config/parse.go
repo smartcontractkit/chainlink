@@ -78,7 +78,7 @@ func parseEnvVars(cfg *Config) error {
 	}
 
 	if value, isPresent := os.LookupEnv("HTTP_ADDRESS"); isPresent {
-		cfg.Http.Address = value
+		cfg.HTTP.Address = value
 	}
 
 	if value, isPresent := os.LookupEnv("FEATURE_TEST_ONLY_FAKE_READERS"); isPresent {
@@ -123,7 +123,7 @@ func validateConfig(cfg Config) error {
 
 		"FEEDS_URL": cfg.Feeds.URL,
 
-		"HTTP_ADDRESS": cfg.Http.Address,
+		"HTTP_ADDRESS": cfg.HTTP.Address,
 	} {
 		if currentValue == "" {
 			return fmt.Errorf("'%s' env var is required", envVarName)

@@ -10,7 +10,7 @@ type Config struct {
 	Kafka          Kafka
 	SchemaRegistry SchemaRegistry
 	Feeds          Feeds
-	Http           Http
+	HTTP           HTTP
 	Feature        Feature
 }
 
@@ -39,7 +39,7 @@ type Feeds struct {
 	RDDPollInterval time.Duration
 }
 
-type Http struct {
+type HTTP struct {
 	Address string
 }
 

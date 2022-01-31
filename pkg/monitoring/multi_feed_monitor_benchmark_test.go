@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 )
@@ -23,8 +24,10 @@ import (
 //    9332	    166275 ns/op	  157078 B/op	    1590 allocs/op
 // (17 Jan 2022)
 //    7374	    202079 ns/op	  164301 B/op	    1712 allocs/op
+// (30 Jan 2022)
+//    19083	     61491 ns/op	   75157 B/op	     723 allocs/op
 
-func BenchmarkMultichainMonitor(b *testing.B) {
+func BenchmarkMultiFeedMonitor(b *testing.B) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
@@ -32,7 +35,9 @@ func BenchmarkMultichainMonitor(b *testing.B) {
 	defer cancel()
 
 	cfg := config.Config{}
-	chainCfg := generateChainConfig()
+	chainCfg := generateChainConfig().(fakeChainConfig)
+	chainCfg.ReadTimeout = 0 * time.Second
+	chainCfg.PollInterval = 0 * time.Second
 	feeds := []FeedConfig{generateFeedConfig()}
 
 	transmissionSchema := fakeSchema{transmissionCodec}
@@ -76,23 +81,25 @@ func BenchmarkMultichainMonitor(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
+
+BENCH_LOOP:
 	for i := 0; i < b.N; i++ {
+		//for {
 		select {
 		case factory.updates <- envelope:
 		case <-ctx.Done():
-			continue
+			continue BENCH_LOOP
 		}
 		// for each update from the chain, the system produces two kafka updates:
 		// transmissions and config_set_simplified.
-		select {
-		case <-producer.sendCh:
-		case <-ctx.Done():
-			continue
-		}
-		select {
-		case <-producer.sendCh:
-		case <-ctx.Done():
-			continue
+		for {
+			select {
+			case <-producer.sendCh:
+			case <-ctx.Done():
+				continue BENCH_LOOP
+			default:
+				continue BENCH_LOOP
+			}
 		}
 	}
 }

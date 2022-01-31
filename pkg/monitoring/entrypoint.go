@@ -107,13 +107,13 @@ func Entrypoint(
 	}()
 
 	// Configure HTTP server
-	http := NewHttpServer(bgCtx, cfg.Http.Address, log.With("component", "http-server"))
-	http.Handle("/metrics", metrics.HTTPHandler())
-	http.Handle("/debug", manager.HTTPHandler())
+	httpServer := NewHTTPServer(bgCtx, cfg.HTTP.Address, log.With("component", "http-server"))
+	httpServer.Handle("/metrics", metrics.HTTPHandler())
+	httpServer.Handle("/debug", manager.HTTPHandler())
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		http.Run(bgCtx)
+		httpServer.Run(bgCtx)
 	}()
 
 	// Handle signals from the OS

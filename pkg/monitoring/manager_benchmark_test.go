@@ -30,26 +30,25 @@ func BenchmarkManager(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	log := newNullLogger()
-
 	cfg := config.Config{}
-	chainCfg := generateChainConfig()
 	cfg.Feeds.URL = "http://some-fake-url-just-to-trigger-rdd-polling.com"
-	cfg.Feeds.RDDPollInterval = 1 * time.Second
-	cfg.Feeds.RDDReadTimeout = 1 * time.Second
+
+	chainCfg := generateChainConfig().(fakeChainConfig)
+	chainCfg.ReadTimeout = 0 * time.Second
+	chainCfg.PollInterval = 0 * time.Second
 
 	transmissionSchema := fakeSchema{transmissionCodec}
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
-	factory := NewRandomDataSourceFactory(ctx, wg, log)
+	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
-		log,
+		newNullLogger(),
 		&devnullMetrics{},
 	)
 	kafkaExporterFactory := NewKafkaExporterFactory(
-		log,
+		newNullLogger(),
 		producer,
 		transmissionSchema,
 		configSetSimplifiedSchema,
@@ -59,7 +58,7 @@ func BenchmarkManager(b *testing.B) {
 
 	monitor := NewMultiFeedMonitor(
 		chainCfg,
-		log,
+		newNullLogger(),
 		[]SourceFactory{factory},
 		[]ExporterFactory{
 			prometheusExporterFactory,
@@ -67,19 +66,24 @@ func BenchmarkManager(b *testing.B) {
 		},
 	)
 
-	source := NewFakeRDDSource(5, 6) // Always produce 5 random feeds.
 	rddPoller := NewSourcePoller(
-		source,
-		log,
-		cfg.Feeds.RDDPollInterval,
-		cfg.Feeds.RDDReadTimeout,
-		0, // no buffering!
+		NewFakeRDDSource(5, 6), // Always produce 5 random feeds.,
+		newNullLogger(),
+		1*time.Second, // cfg.Feeds.RDDPollInterval,
+		1*time.Second, // cfg.Feeds.RDDReadTimeout,
+		0,             // no buffering!
 	)
 
 	manager := NewManager(
-		log,
+		newNullLogger(),
 		rddPoller,
 	)
+
+	envelope, err := generateEnvelope()
+	if err != nil {
+		b.Fatalf("failed to generate config: %v", err)
+	}
+	_ = envelope
 
 	wg.Add(1)
 	go func() {
@@ -96,12 +100,23 @@ func BenchmarkManager(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
+BENCH_LOOP:
 	for i := 0; i < b.N; i++ {
+		//for {
 		select {
-		case <-producer.sendCh:
-			// Drain the producer channel.
+		case factory.updates <- envelope:
 		case <-ctx.Done():
-			continue
+			continue BENCH_LOOP
+		}
+		for {
+			select {
+			case <-producer.sendCh:
+				continue BENCH_LOOP
+			case <-ctx.Done():
+				continue BENCH_LOOP
+			default:
+				continue BENCH_LOOP
+			}
 		}
 	}
 }

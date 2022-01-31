@@ -48,12 +48,12 @@ FEED_LOOP:
 			"network", m.chainConfig.GetNetworkName(),
 		)
 		// Create data sources
-		pollers := make([]Poller, len(m.sourceFactories))
-		for i, sourceFactory := range m.sourceFactories {
+		pollers := []Poller{}
+		for _, sourceFactory := range m.sourceFactories {
 			source, err := sourceFactory.NewSource(m.chainConfig, feedConfig)
 			if err != nil {
-				feedLogger.Errorw("failed to create new source", "error", err, "source-type", fmt.Sprintf("%T", sourceFactory))
-				continue FEED_LOOP
+				feedLogger.Errorw("failed to create source", "error", err, "source-type", fmt.Sprintf("%T", sourceFactory))
+				continue
 			}
 			poller := NewSourcePoller(
 				source,
@@ -62,17 +62,25 @@ FEED_LOOP:
 				m.chainConfig.GetReadTimeout(),
 				bufferCapacity,
 			)
-			pollers[i] = poller
+			pollers = append(pollers, poller)
+		}
+		if len(pollers) == 0 {
+			feedLogger.Errorw("not tracking feed because all sources failed to initialize")
+			continue FEED_LOOP
 		}
 		// Create exporters
-		exporters := make([]Exporter, len(m.exporterFactories))
-		for i, exporterFactory := range m.exporterFactories {
+		exporters := []Exporter{}
+		for _, exporterFactory := range m.exporterFactories {
 			exporter, err := exporterFactory.NewExporter(m.chainConfig, feedConfig)
 			if err != nil {
 				feedLogger.Errorw("failed to create new exporter", "error", err, "exporter-type", fmt.Sprintf("%T", exporterFactory))
-				continue FEED_LOOP
+				continue
 			}
-			exporters[i] = exporter
+			exporters = append(exporters, exporter)
+		}
+		if len(exporters) == 0 {
+			feedLogger.Errorw("not tracking feed because all exporters failed to initialize")
+			continue FEED_LOOP
 		}
 		// Run poller goroutines.
 		wg.Add(len(pollers))

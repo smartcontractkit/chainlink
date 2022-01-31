@@ -33,7 +33,6 @@ type feedMonitor struct {
 func (f *feedMonitor) Run(ctx context.Context) {
 	f.log.Infow("starting feed monitor")
 	wg := &sync.WaitGroup{}
-	defer wg.Wait()
 
 	// Listen for updates
 	updates := make(chan interface{})
@@ -75,7 +74,10 @@ CONSUME_LOOP:
 		}
 	}
 
-	// Cleanup
+	// Cleanup happens after all the exporters have finished.
+	wg.Wait()
+	wg = &sync.WaitGroup{}
+	defer wg.Wait()
 	cleanupContext, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	wg.Add(len(f.exporters))
