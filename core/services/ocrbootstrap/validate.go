@@ -1,15 +1,14 @@
-package bootstrap
+package ocrbootstrap
 
 import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"go.uber.org/multierr"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
 
 // ValidatedBootstrapSpecToml validates a bootstrap spec that came from TOML
-func ValidatedBootstrapSpecToml(tomlString string) (job.Job, error) {
-	var jb = job.Job{}
+func ValidatedBootstrapSpecToml(tomlString string) (jb job.Job, err error) {
 	var spec job.BootstrapSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -29,8 +28,8 @@ func ValidatedBootstrapSpecToml(tomlString string) (job.Job, error) {
 	if jb.Type != job.Bootstrap {
 		return jb, errors.Errorf("the only supported type is currently 'bootstrap', got %s", jb.Type)
 	}
-
-	if err := validateExplicitlySetKeys(tree, cloneSet(params), cloneSet(nonBootstrapParams)); err != nil {
+	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(nonBootstrapParams)
+	if err := ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "bootstrap"); err != nil {
 		return jb, err
 	}
 
@@ -50,28 +49,6 @@ var (
 	nonBootstrapParams = map[string]struct{}{
 		"isBootstrapPeer":       {},
 		"juelsPerFeeCoinSource": {},
+		"observationSource":     {},
 	}
 )
-
-func cloneSet(in map[string]struct{}) map[string]struct{} {
-	out := make(map[string]struct{})
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
-}
-
-func validateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, notExpected map[string]struct{}) error {
-	var err error
-	// top level keys only
-	for _, k := range tree.Keys() {
-		if _, ok := notExpected[k]; ok {
-			err = multierr.Append(err, errors.Errorf("unrecognised key %s", k))
-		}
-		delete(expected, k)
-	}
-	for missing := range expected {
-		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
-	}
-	return err
-}

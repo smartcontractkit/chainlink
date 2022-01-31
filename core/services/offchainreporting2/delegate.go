@@ -115,6 +115,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
 
 	if spec.IsBootstrapPeer {
+		loggerWith.Warnf("[DEPRECATED] using 'IsBootstrapPeer' in OCR2 jobs is deprecated. Please use the 'bootstrap' job type instead.")
+
 		bootstrapNodeArgs := libocr2.BootstrapperArgs{
 			BootstrapperFactory:    peerWrapper.Peer2,
 			ContractConfigTracker:  tracker,

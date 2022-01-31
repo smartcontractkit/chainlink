@@ -788,18 +788,6 @@ func (r *BootstrapSpecResolver) BlockchainTimeout() *string {
 	return &interval
 }
 
-// ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
-// interval config.
-func (r *BootstrapSpecResolver) ContractConfigTrackerSubscribeInterval() *string {
-	if r.spec.ContractConfigTrackerSubscribeInterval.Duration() == 0 {
-		return nil
-	}
-
-	interval := r.spec.ContractConfigTrackerSubscribeInterval.Duration().String()
-
-	return &interval
-}
-
 // ContractConfigTrackerPollInterval resolves the spec's contract tracker poll
 // interval config.
 func (r *BootstrapSpecResolver) ContractConfigTrackerPollInterval() *string {

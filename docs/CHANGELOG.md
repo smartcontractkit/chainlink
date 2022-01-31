@@ -8,13 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Generic OCR2 bootstrap job that replaces `isBootstrapPeer=true` jobs with a custom `boostrap` job type. Both bootstrap methods are enabled at this time.
+
 
 New ENV vars:
 
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
 - `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
 - `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
+
+
+#### Boostrap job
+
+Added a new `bootstrap` job type. This job removes the need for every job to implement their own bootstrapping logic.
+It makes OCR2 jobs that currently use `isBootstrapPeer=true` deprecated but still supported.
+The spec parameters are similar to a basic OCR2 job, an example would be:
+
+```
+type            = "bootstrap"
+name            = "bootstrap"
+relay           = "evm"
+schemaVersion	= 1
+contractID      = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+[relayConfig]
+chainID	        = 4
+```
 
 ## [1.1.0] - 2022-01-25
 

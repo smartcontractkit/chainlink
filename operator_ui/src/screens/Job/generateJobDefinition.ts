@@ -241,7 +241,6 @@ export const generateJobDefinition = (
           'relayConfig',
           'monitoringEndpoint',
           'blockchainTimeout',
-          'contractConfigTrackerSubscribeInterval',
           'contractConfigTrackerPollInterval',
           'contractConfigConfirmations',
         ),

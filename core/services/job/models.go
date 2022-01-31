@@ -467,33 +467,31 @@ type BlockhashStoreSpec struct {
 
 // BootstrapSpec defines the spec to handles the node communication setup process.
 type BootstrapSpec struct {
-	ID                                     int32              `toml:"-"`
-	ContractID                             string             `toml:"contractID"`
-	Relay                                  relaytypes.Network `toml:"relay"`
-	RelayConfig                            RelayConfig
-	MonitoringEndpoint                     null.String     `toml:"monitoringEndpoint"`
-	BlockchainTimeout                      models.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16          `toml:"contractConfigConfirmations"`
-	CreatedAt                              time.Time       `toml:"-"`
-	UpdatedAt                              time.Time       `toml:"-"`
+	ID                                int32              `toml:"-"`
+	ContractID                        string             `toml:"contractID"`
+	Relay                             relaytypes.Network `toml:"relay"`
+	RelayConfig                       RelayConfig
+	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
+	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
+	CreatedAt                         time.Time       `toml:"-"`
+	UpdatedAt                         time.Time       `toml:"-"`
 }
 
 // AsOCR2Spec transforms the bootstrap spec into a generic OCR2 format to enable code sharing between specs.
 func (s BootstrapSpec) AsOCR2Spec() OffchainReporting2OracleSpec {
 	return OffchainReporting2OracleSpec{
-		ID:                                     s.ID,
-		ContractID:                             s.ContractID,
-		Relay:                                  s.Relay,
-		RelayConfig:                            s.RelayConfig,
-		MonitoringEndpoint:                     s.MonitoringEndpoint,
-		BlockchainTimeout:                      s.BlockchainTimeout,
-		ContractConfigTrackerSubscribeInterval: s.ContractConfigTrackerSubscribeInterval,
-		ContractConfigTrackerPollInterval:      s.ContractConfigTrackerPollInterval,
-		ContractConfigConfirmations:            s.ContractConfigConfirmations,
-		CreatedAt:                              s.CreatedAt,
-		UpdatedAt:                              s.UpdatedAt,
+		ID:                                s.ID,
+		ContractID:                        s.ContractID,
+		Relay:                             s.Relay,
+		RelayConfig:                       s.RelayConfig,
+		MonitoringEndpoint:                s.MonitoringEndpoint,
+		BlockchainTimeout:                 s.BlockchainTimeout,
+		ContractConfigTrackerPollInterval: s.ContractConfigTrackerPollInterval,
+		ContractConfigConfirmations:       s.ContractConfigConfirmations,
+		CreatedAt:                         s.CreatedAt,
+		UpdatedAt:                         s.UpdatedAt,
 
 		IsBootstrapPeer: true,
 	}

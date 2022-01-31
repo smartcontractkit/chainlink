@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/core/services/bootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 
 	"github.com/gin-gonic/gin"
@@ -135,7 +135,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(request.TOML)
 	case job.Bootstrap:
-		jb, err = bootstrap.ValidatedBootstrapSpecToml(request.TOML)
+		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
 		return

@@ -109,7 +109,6 @@ const JOB_PAYLOAD__SPEC = gql`
       monitoringEndpoint
       relayConfig
       blockchainTimeout
-      contractConfigTrackerSubscribeInterval
       contractConfigTrackerPollInterval
       contractConfigConfirmations
       createdAt

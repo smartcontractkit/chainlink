@@ -10,7 +10,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/bootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
@@ -971,7 +971,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	case job.Bootstrap:
-		jb, err = bootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
+		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

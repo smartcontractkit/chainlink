@@ -1,4 +1,4 @@
-package bootstrap
+package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"

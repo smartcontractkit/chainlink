@@ -1,4 +1,4 @@
-package bootstrap
+package ocrbootstrap
 
 import (
 	"testing"
@@ -62,7 +62,7 @@ chainID			= 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "unrecognised key isBootstrapPeer")
+				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: isBootstrapPeer")
 			},
 		},
 	}

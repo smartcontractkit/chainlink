@@ -802,16 +802,15 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.Bootstrap,
 					BootstrapSpec: &job.BootstrapSpec{
-						ID:                                     id,
-						ContractID:                             "0x613a38AC1659769640aaE063C651F48E0250454C",
-						Relay:                                  "evm",
-						RelayConfig:                            map[string]interface{}{},
-						MonitoringEndpoint:                     null.String{},
-						BlockchainTimeout:                      models.Interval(2 * time.Minute),
-						ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-						ContractConfigTrackerPollInterval:      models.Interval(2 * time.Minute),
-						ContractConfigConfirmations:            100,
-						CreatedAt:                              f.Timestamp(),
+						ID:                                id,
+						ContractID:                        "0x613a38AC1659769640aaE063C651F48E0250454C",
+						Relay:                             "evm",
+						RelayConfig:                       map[string]interface{}{},
+						MonitoringEndpoint:                null.String{},
+						BlockchainTimeout:                 models.Interval(2 * time.Minute),
+						ContractConfigTrackerPollInterval: models.Interval(2 * time.Minute),
+						ContractConfigConfirmations:       100,
+						CreatedAt:                         f.Timestamp(),
 					},
 				}, nil)
 			},
@@ -828,7 +827,6 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 									relayConfig
 									monitoringEndpoint
 									blockchainTimeout
-									contractConfigTrackerSubscribeInterval
 									contractConfigTrackerPollInterval
 									contractConfigConfirmations
 									createdAt
@@ -849,7 +847,6 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 							"relayConfig": {},
 							"monitoringEndpoint": null,
 							"blockchainTimeout": "2m0s",
-							"contractConfigTrackerSubscribeInterval": "2m0s",
 							"contractConfigTrackerPollInterval": "2m0s",
 							"contractConfigConfirmations": 100,
 							"createdAt": "2021-01-01T00:00:00Z"

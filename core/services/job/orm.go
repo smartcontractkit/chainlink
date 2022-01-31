@@ -278,10 +278,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		case Bootstrap:
 			var specID int32
 			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
-					blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, 
+					blockchain_timeout, contract_config_tracker_poll_interval, 
 					contract_config_confirmations, created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint, :blockchain_timeout, 
-					:contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, 
+			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint, 
+					:blockchain_timeout, :contract_config_tracker_poll_interval, 
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BootstrapSpec); err != nil {
@@ -343,7 +343,8 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 				vrf_spec_id,
 				webhook_spec_id,
 				direct_request_spec_id,
-				blockhash_store_spec_id
+				blockhash_store_spec_id,
+				bootstrap_spec_id
 		),
 		deleted_oracle_specs AS (
 			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
@@ -371,6 +372,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_blockhash_store_specs AS (
 			DELETE FROM blockhash_store_specs WHERE id IN (SELECT blockhash_store_spec_id FROM deleted_jobs)
+		),
+		deleted_bootstrap_specs AS (
+			DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
 	res, cancel, err := q.ExecQIter(query, id)

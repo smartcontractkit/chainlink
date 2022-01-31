@@ -502,7 +502,6 @@ observationSource = """
         },
         monitoringEndpoint: 'https://monitoring.endpoint',
         blockchainTimeout: '',
-        contractConfigTrackerSubscribeInterval: '',
         contractConfigTrackerPollInterval: '60s',
         contractConfigConfirmations: 1,
         createdAt: '',
@@ -520,7 +519,6 @@ contractID = "0x0000000000000000000000000000000000000000"
 relay = "evm"
 monitoringEndpoint = "https://monitoring.endpoint"
 blockchainTimeout = ""
-contractConfigTrackerSubscribeInterval = ""
 contractConfigTrackerPollInterval = "60s"
 contractConfigConfirmations = 1
 

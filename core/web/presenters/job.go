@@ -351,15 +351,14 @@ type BootstrapSpec struct {
 // NewBootstrapSpec initializes a new BootstrapSpec from a job.BootstrapSpec
 func NewBootstrapSpec(spec *job.BootstrapSpec) *BootstrapSpec {
 	return &BootstrapSpec{
-		ContractID:                             spec.ContractID,
-		Relay:                                  spec.Relay,
-		RelayConfig:                            spec.RelayConfig,
-		BlockchainTimeout:                      spec.BlockchainTimeout,
-		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval,
-		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval,
-		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
-		CreatedAt:                              spec.CreatedAt,
-		UpdatedAt:                              spec.UpdatedAt,
+		ContractID:                        spec.ContractID,
+		Relay:                             spec.Relay,
+		RelayConfig:                       spec.RelayConfig,
+		BlockchainTimeout:                 spec.BlockchainTimeout,
+		ContractConfigTrackerPollInterval: spec.ContractConfigTrackerPollInterval,
+		ContractConfigConfirmations:       spec.ContractConfigConfirmations,
+		CreatedAt:                         spec.CreatedAt,
+		UpdatedAt:                         spec.UpdatedAt,
 	}
 }
 

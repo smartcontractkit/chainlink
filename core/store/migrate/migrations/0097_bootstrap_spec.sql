@@ -3,17 +3,16 @@
 
 CREATE TABLE bootstrap_specs
 (
-    id                                         SERIAL PRIMARY KEY,
-    contract_id                                text                     NOT NULL,
-    relay                                      text,
-    relay_config                               JSONB,
-    monitoring_endpoint                        text,
-    blockchain_timeout                         bigint,
-    contract_config_tracker_subscribe_interval bigint,
-    contract_config_tracker_poll_interval      bigint,
-    contract_config_confirmations              integer                  NOT NULL,
-    created_at                                 timestamp with time zone NOT NULL,
-    updated_at                                 timestamp with time zone NOT NULL
+    id                                    SERIAL PRIMARY KEY,
+    contract_id                           text                     NOT NULL,
+    relay                                 text,
+    relay_config                          JSONB,
+    monitoring_endpoint                   text,
+    blockchain_timeout                    bigint,
+    contract_config_tracker_poll_interval bigint,
+    contract_config_confirmations         integer                  NOT NULL,
+    created_at                            timestamp with time zone NOT NULL,
+    updated_at                            timestamp with time zone NOT NULL
 );
 
 ALTER TABLE jobs

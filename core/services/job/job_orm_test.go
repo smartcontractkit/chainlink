@@ -8,6 +8,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -354,6 +355,32 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	require.Equal(t, 1*time.Hour, requestTimeout)
 	jobORM.DeleteJob(jb.ID)
 	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
+}
+
+func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
+	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(testspecs.OCRBootstrapSpec)
+	require.NoError(t, err)
+
+	err = jobORM.CreateJob(&jb)
+	require.NoError(t, err)
+	cltest.AssertCount(t, db, "bootstrap_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+	var relay string
+	require.NoError(t, db.Get(&relay, `SELECT relay FROM bootstrap_specs LIMIT 1`))
+	require.Equal(t, "evm", relay)
+
+	jobORM.DeleteJob(jb.ID)
+	cltest.AssertCount(t, db, "bootstrap_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
