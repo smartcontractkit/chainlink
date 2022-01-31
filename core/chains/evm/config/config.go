@@ -30,6 +30,7 @@ type ChainScopedOnlyConfig interface {
 	BlockHistoryEstimatorBatchSize() (size uint32)
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
+	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
 	EvmEIP1559DynamicFees() bool
@@ -41,7 +42,7 @@ type ChainScopedOnlyConfig interface {
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
 	EvmGasBumpWei() *big.Int
-	EvmGasFeeCap() *big.Int
+	EvmGasFeeCapDefault() *big.Int
 	EvmGasLimitDefault() uint64
 	EvmGasLimitMultiplier() float32
 	EvmGasLimitTransfer() uint64
@@ -158,6 +159,12 @@ func (c *chainScopedConfig) validate() (err error) {
 
 	if uint32(c.EvmGasBumpTxDepth()) > c.EvmMaxInFlightTransactions() {
 		err = multierr.Combine(err, errors.New("ETH_GAS_BUMP_TX_DEPTH must be less than or equal to ETH_MAX_IN_FLIGHT_TRANSACTIONS"))
+	}
+	if c.EvmGasFeeCapDefault().Cmp(c.EvmGasTipCapDefault()) < 0 {
+		err = multierr.Combine(err, errors.Errorf("EVM_GAS_FEE_CAP_DEFAULT (%s) must be greater than or equal to EVM_GAS_TIP_CAP_DEFAULT (%s)", c.EvmGasFeeCapDefault(), c.EvmGasTipCapDefault()))
+	}
+	if c.EvmGasFeeCapDefault().Cmp(c.EvmMaxGasPriceWei()) > 0 {
+		err = multierr.Combine(err, errors.Errorf("EVM_GAS_FEE_CAP_DEFAULT (%s) must be less than or equal to ETH_MAX_GAS_PRICE_WEI (%s)", c.EvmGasFeeCapDefault(), c.EvmMaxGasPriceWei()))
 	}
 	if c.EvmMinGasPriceWei().Cmp(c.EvmGasPriceDefault()) > 0 {
 		err = multierr.Combine(err, errors.New("ETH_MIN_GAS_PRICE_WEI must be less than or equal to ETH_GAS_PRICE_DEFAULT"))
@@ -623,6 +630,26 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	return c.defaultSet.blockHistoryEstimatorBlockHistorySize
 }
 
+func (c *chainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
+	val, ok := c.GeneralConfig.GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks()
+	if ok {
+		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockHistorySize", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockHistorySize", p.Int64)
+		return uint16(p.Int64)
+	}
+	if c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks != nil {
+		return *c.defaultSet.blockHistoryEstimatorEIP1559FeeCapBufferBlocks
+	}
+	// Default is the gas bump threshold + 1 block
+	return uint16(c.EvmGasBumpThreshold() + 1)
+}
+
 // BlockHistoryEstimatorTransactionPercentile is the percentile gas price to choose. E.g.
 // if the past transaction history contains four transactions with gas prices:
 // [100, 200, 300, 400], picking 25 for this number will give a value of 200
@@ -981,11 +1008,21 @@ func (c *chainScopedConfig) EvmEIP1559DynamicFees() bool {
 	return c.defaultSet.eip1559DynamicFees
 }
 
-// EvmGasFeeCap is the fixed amount to set the fee cap on DynamicFee transactions
-// The recommended way to use it is to set this value to something very large
-// and control prices using the gas tip cap instead
-func (c *chainScopedConfig) EvmGasFeeCap() *big.Int {
-	return c.EvmMaxGasPriceWei()
+// EvmGasFeeCapDefault is the fixed amount to set the fee cap on DynamicFee transactions
+func (c *chainScopedConfig) EvmGasFeeCapDefault() *big.Int {
+	val, ok := c.GeneralConfig.GlobalEvmGasFeeCapDefault()
+	if ok {
+		c.logEnvOverrideOnce("EvmGasFeeCapDefault", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasFeeCapDefault
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmGasFeeCapDefault", p)
+		return p.ToInt()
+	}
+	return &c.defaultSet.gasFeeCapDefault
 }
 
 // EvmGasTipCapDefault is the default value to use for the gas tip on DynamicFee transactions

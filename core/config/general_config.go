@@ -174,7 +174,9 @@ type GlobalConfig interface {
 	GlobalBlockHistoryEstimatorBatchSize() (uint32, bool)
 	GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool)
 	GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool)
+	GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool)
 	GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool)
+	GlobalChainType() (string, bool)
 	GlobalEthTxReaperInterval() (time.Duration, bool)
 	GlobalEthTxReaperThreshold() (time.Duration, bool)
 	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
@@ -185,6 +187,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpThreshold() (uint64, bool)
 	GlobalEvmGasBumpTxDepth() (uint16, bool)
 	GlobalEvmGasBumpWei() (*big.Int, bool)
+	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint64, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
@@ -203,7 +206,6 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
-	GlobalChainType() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -1201,6 +1203,20 @@ func (c *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+func (c *generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasFeeCapDefault"), parse.BigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
+}
+func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks"), parse.Uint16)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint16), ok
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitDefault"), parse.Uint64)

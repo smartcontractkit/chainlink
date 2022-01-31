@@ -60,9 +60,22 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 		config.On("EvmGasTipCapDefault").Return(big.NewInt(52))
-		config.On("EvmGasFeeCap").Return(big.NewInt(100))
+		config.On("EvmGasFeeCapDefault").Return(big.NewInt(100))
+
+		// Gas bumping enabled
+		config.On("EvmGasBumpThreshold").Return(uint64(3))
 
 		fee, gasLimit, err := f.GetDynamicFee(100000)
+		require.NoError(t, err)
+		assert.Equal(t, 110000, int(gasLimit))
+
+		assert.Equal(t, big.NewInt(52), fee.TipCap)
+		assert.Equal(t, big.NewInt(100), fee.FeeCap)
+
+		// Gas bumping disabled
+		config.On("EvmGasBumpThreshold").Return(uint64(0))
+
+		fee, gasLimit, err = f.GetDynamicFee(100000)
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
 
@@ -87,7 +100,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		fee, gasLimit, err := f.BumpDynamicFee(originalFee, 100000)
 		require.NoError(t, err)
 
-		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, lggr, nil, originalFee, 100000)
+		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, lggr, nil, nil, originalFee, 100000)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)
