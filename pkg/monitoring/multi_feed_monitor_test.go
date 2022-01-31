@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -186,4 +187,92 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	wg.Wait()
 	require.Equal(t, int64(10), count, "should only be able to do initial reads of the chain")
 	require.Equal(t, 20, len(messages))
+}
+
+func TestMultiFeedMonitorErroringFactories(t *testing.T) {
+	t.Run("a SourceFactory and an ExporterFactory fail", func(t *testing.T) {
+		feeds := []FeedConfig{generateFeedConfig()}
+
+		wg := &sync.WaitGroup{}
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+
+		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		sourceFactory2 := &fakeSourceFactoryWithError{make(chan interface{}), make(chan error), true}
+		sourceFactory3 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+
+		exporterFactory1 := &fakeExporterFactory{make(chan interface{}), false}
+		exporterFactory2 := &fakeExporterFactory{make(chan interface{}), true} // factory errors out on NewExporter.
+		exporterFactory3 := &fakeExporterFactory{make(chan interface{}), false}
+
+		chainCfg := fakeChainConfig{}
+		monitor := NewMultiFeedMonitor(
+			chainCfg,
+			newNullLogger(),
+			[]SourceFactory{sourceFactory1, sourceFactory2, sourceFactory3},
+			[]ExporterFactory{exporterFactory1, exporterFactory2, exporterFactory3},
+		)
+
+		envelope, err := generateEnvelope()
+		require.NoError(t, err)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			monitor.Run(ctx, feeds)
+		}()
+
+		wg.Add(2)
+		for _, factory := range []*fakeRandomDataSourceFactory{
+			sourceFactory1, sourceFactory3,
+		} {
+			go func(factory *fakeRandomDataSourceFactory) {
+				defer wg.Done()
+				for i := 0; i < 10; i++ {
+					select {
+					case factory.updates <- envelope:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}(factory)
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 10; i++ {
+				select {
+				case sourceFactory2.updates <- envelope:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+
+		var countMessages int64 = 0
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+		LOOP:
+			for {
+				select {
+				case _ = <-exporterFactory1.data:
+					atomic.AddInt64(&countMessages, 1)
+				case _ = <-exporterFactory2.data:
+					atomic.AddInt64(&countMessages, 1)
+				case _ = <-exporterFactory3.data:
+					atomic.AddInt64(&countMessages, 1)
+				case <-ctx.Done():
+					break LOOP
+				}
+			}
+		}()
+
+		<-time.After(100 * time.Millisecond)
+		cancel()
+		wg.Wait()
+
+		// Two sources produce 10 messages each (the third source is broken) and two exporters ingest each message.
+		require.GreaterOrEqual(t, countMessages, int64(10*2*2))
+	})
 }
