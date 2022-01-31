@@ -177,7 +177,6 @@ export const generateJobDefinition = (
           'contractID',
           'contractConfigConfirmations',
           'contractConfigTrackerPollInterval',
-          'contractConfigTrackerSubscribeInterval',
           'isBootstrapPeer',
           'juelsPerFeeCoinSource',
           'ocrKeyBundleID',
@@ -227,6 +226,23 @@ export const generateJobDefinition = (
           'fromAddress',
         ),
         ...extractObservationSourceField(job),
+      }
+
+      break
+    case 'BootstrapSpec':
+      values = {
+        ...extractJobFields(job),
+        ...extractSpecFields(
+          job.spec,
+          'id',
+          'contractID',
+          'relay',
+          'relayConfig',
+          'monitoringEndpoint',
+          'blockchainTimeout',
+          'contractConfigTrackerPollInterval',
+          'contractConfigConfirmations',
+        ),
       }
 
       break
