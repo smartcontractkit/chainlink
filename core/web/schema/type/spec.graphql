@@ -7,7 +7,8 @@ union JobSpec =
     OCR2Spec |
     VRFSpec |
     WebhookSpec |
-    BlockhashStoreSpec
+    BlockhashStoreSpec |
+    BootstrapSpec
 
 type CronSpec {
     schedule: String!
@@ -78,7 +79,6 @@ type OCR2Spec {
     contractID: String!
     contractConfigConfirmations: Int
     contractConfigTrackerPollInterval: String
-    contractConfigTrackerSubscribeInterval: String
     createdAt: Time!
     isBootstrapPeer: Boolean!
     juelsPerFeeCoinSource: String
@@ -117,5 +117,17 @@ type BlockhashStoreSpec {
     runTimeout: String!
     evmChainID: String
     fromAddress: String
+    createdAt: Time!
+}
+
+type BootstrapSpec {
+    id: ID!
+    contractID: String!
+    relay: String!
+    relayConfig: Map!
+    monitoringEndpoint: String
+    blockchainTimeout: String
+    contractConfigTrackerPollInterval: String
+    contractConfigConfirmations: Int
     createdAt: Time!
 }

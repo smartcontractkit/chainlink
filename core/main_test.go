@@ -367,7 +367,6 @@ func ExampleRun_node() {
 	//    core.test node command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    deleteuser                Erase the *local node's* user and corresponding session to force recreation on next node launch.
 	//    setnextnonce              Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.
 	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue

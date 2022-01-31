@@ -212,7 +212,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	s, err := tc.SimulateUnsigned(simResults.Succeeded.GetMsgs(), sn)
 	if err != nil {
 		// In the OCR context this should only happen upon stale report
-		txm.lggr.Warn("unexpected failure after successful simulation", "err", err)
+		txm.lggr.Warnw("unexpected failure after successful simulation", "err", err)
 		return
 	}
 	gasLimit := s.GasInfo.GasUsed
