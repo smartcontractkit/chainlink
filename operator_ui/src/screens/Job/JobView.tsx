@@ -71,7 +71,6 @@ const JOB_PAYLOAD__SPEC = gql`
       contractID
       contractConfigConfirmations
       contractConfigTrackerPollInterval
-      contractConfigTrackerSubscribeInterval
       isBootstrapPeer
       juelsPerFeeCoinSource
       ocrKeyBundleID
@@ -101,6 +100,17 @@ const JOB_PAYLOAD__SPEC = gql`
       runTimeout
       evmChainID
       fromAddress
+    }
+    ... on BootstrapSpec {
+      id
+      contractID
+      relay
+      monitoringEndpoint
+      relayConfig
+      blockchainTimeout
+      contractConfigTrackerPollInterval
+      contractConfigConfirmations
+      createdAt
     }
   }
 `

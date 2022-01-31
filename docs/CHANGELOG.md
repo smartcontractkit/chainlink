@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+
 New ENV vars:
 
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
@@ -47,6 +48,23 @@ Bumping works as follows:
 
 - Increase tipcap by `max(tipcap * (1 + ETH_GAS_BUMP_PERCENT), tipcap + ETH_GAS_BUMP_WEI)`
 - Increase feecap by `max(feecap * (1 + ETH_GAS_BUMP_PERCENT), feecap + ETH_GAS_BUMP_WEI)`
+
+
+#### Boostrap job
+
+Added a new `bootstrap` job type. This job removes the need for every job to implement their own bootstrapping logic.
+It makes OCR2 jobs that currently use `isBootstrapPeer=true` deprecated but still supported.
+The spec parameters are similar to a basic OCR2 job, an example would be:
+
+```
+type            = "bootstrap"
+name            = "bootstrap"
+relay           = "evm"
+schemaVersion	= 1
+contractID      = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+[relayConfig]
+chainID	        = 4
+```
 
 ## [1.1.0] - 2022-01-25
 

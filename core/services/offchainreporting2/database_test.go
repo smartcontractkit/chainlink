@@ -32,8 +32,8 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitte
 	ds1_multiply [type=multiply times=1.23];
 	ds1 -> ds1_parse -> ds1_multiply -> answer1;
 	answer1      [type=median index=0];`
-	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting2_oracle_specs (created_at, updated_at, relay, relay_config, contract_id, p2p_bootstrap_peers, is_bootstrap_peer, ocr_key_bundle_id, monitoring_endpoint, transmitter_id, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline) VALUES (
-NOW(),NOW(), 'ethereum', '{}', $1,'{}',false,$2,$3,$4,0,0,0,0,$5
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting2_oracle_specs (created_at, updated_at, relay, relay_config, contract_id, p2p_bootstrap_peers, is_bootstrap_peer, ocr_key_bundle_id, monitoring_endpoint, transmitter_id, blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline) VALUES (
+NOW(),NOW(), 'ethereum', '{}', $1,'{}',false,$2,$3,$4,0,0,0,$5
 ) RETURNING *`, cltest.NewEIP55Address().String(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", transmitterAddress.String(), mockJuelsPerFeeCoinSource))
 	return spec
 }

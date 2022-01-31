@@ -2,15 +2,14 @@ package offchainreporting2
 
 import (
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/relay"
-
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
-	"go.uber.org/multierr"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
@@ -86,33 +85,25 @@ var (
 	}
 )
 
-func cloneSet(in map[string]struct{}) map[string]struct{} {
-	out := make(map[string]struct{})
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
-}
-
 func validateTimingParameters(config Config, spec job.OffchainReporting2OracleSpec) error {
-	lc := toLocalConfig(config, spec)
+	lc := ToLocalConfig(config, spec)
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 
 func validateBootstrapSpec(tree *toml.Tree) error {
-	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
+	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
 	}
-	return validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
+	return ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
 func validateNonBootstrapSpec(tree *toml.Tree, spec job.Job) error {
-	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
+	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
 	}
-	if err := validateExplicitlySetKeys(tree, expected, notExpected, "non-bootstrap"); err != nil {
+	if err := ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "non-bootstrap"); err != nil {
 		return err
 	}
 	if spec.Pipeline.Source == "" {
@@ -124,20 +115,4 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	}
 
 	return nil
-}
-
-func validateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
-	var err error
-	// top level keys only
-	for _, k := range tree.Keys() {
-		// TODO(#175801577): upstream a way to check for children in go-toml
-		if _, ok := notExpected[k]; ok {
-			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
-		}
-		delete(expected, k)
-	}
-	for missing := range expected {
-		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
-	}
-	return err
 }
