@@ -18,6 +18,8 @@ New ENV vars:
 - `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed. 
 - `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
 - `TERRA_ENABLED` (default: false) - set to true to enable Terra support
+- `BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS` - if EIP1559 mode is enabled, this optional env var controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used. It is not recommended to change this unless you know what you are doing.
+- `EVM_GAS_FEE_CAP_DEFAULT` - if EIP1559 mode is enabled, and FixedPrice gas estimator is used, this env var controls the fixed initial fee cap.
 
 ### Removed
 
@@ -28,6 +30,24 @@ New ENV vars:
 `EVM_DISABLED` has been deprecated and replaced by `EVM_ENABLED` for consistency with other feature flags.
 `ETH_DISABLED` has been deprecated and replaced by `EVM_RPC_ENABLED` for consistency, and because this was confusingly named. In most cases you want to set `EVM_ENABLED=false` and not `EVM_RPC_ENABLED=false`.
 
+### Fixed
+
+Fixed issues with EIP-1559 related to gas bumping. Due to [go-ethereum's implementation](https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298) which introduces additional restrictions on top of the EIP-1559 spec, we must bump the FeeCap at least 10% each time in order for the gas bump to be accepted.
+
+The new EIP-1559 implementation works as follows:
+
+If you are using FixedPriceEstimator:
+- With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`
+- With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.  
+
+If you are using BlockHistoryEstimator (default for most chains):
+- With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+
+Bumping works as follows:
+
+- Increase tipcap by `max(tipcap * (1 + ETH_GAS_BUMP_PERCENT), tipcap + ETH_GAS_BUMP_WEI)`
+- Increase feecap by `max(feecap * (1 + ETH_GAS_BUMP_PERCENT), feecap + ETH_GAS_BUMP_WEI)`
 
 
 #### Boostrap job
