@@ -182,3 +182,6 @@ func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return nil, nil
 }
+
+// NodeStates implements evmclient.Client
+func (nc *NullClient) NodeStates() map[int32]string { return nil }
