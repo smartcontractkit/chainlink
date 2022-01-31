@@ -53,6 +53,7 @@ func TestConfigSchema(t *testing.T) {
 		"DefaultHTTPLimit":                           "DEFAULT_HTTP_LIMIT",
 		"DefaultHTTPTimeout":                         "DEFAULT_HTTP_TIMEOUT",
 		"Dev":                                        "CHAINLINK_DEV",
+		"ShutdownGracePeriod":                        "SHUTDOWN_GRACE_PERIOD",
 		"RPCEnabled":                                 "RPC_ENABLED",
 		"TerraEnabled":                               "TERRA_ENABLED",
 		"SolanaEnabled":                              "SOLANA_ENABLED",

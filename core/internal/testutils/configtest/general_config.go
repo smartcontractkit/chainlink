@@ -49,6 +49,7 @@ type GeneralConfigOverrides struct {
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
 	Dev                                       null.Bool
+	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
 	EVMEnabled                                null.Bool
 	EVMRPCEnabled                             null.Bool
@@ -206,6 +207,14 @@ func (c *TestGeneralConfig) Dev() bool {
 		return c.Overrides.Dev.Bool
 	}
 	return true
+}
+
+// ShutdownGracePeriod returns shutdown grace period duration.
+func (c *TestGeneralConfig) ShutdownGracePeriod() time.Duration {
+	if c.Overrides.ShutdownGracePeriod != nil {
+		return *c.Overrides.ShutdownGracePeriod
+	}
+	return c.GeneralConfig.ShutdownGracePeriod()
 }
 
 func (c *TestGeneralConfig) MigrateDatabase() bool {

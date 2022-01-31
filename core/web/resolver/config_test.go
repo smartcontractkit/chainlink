@@ -44,6 +44,7 @@ func TestResolver_Config(t *testing.T) {
 					DefaultHTTPAllowUnrestrictedNetworkAccess: null.BoolFrom(true),
 					DefaultHTTPTimeout:                        nil,
 					Dev:                                       null.BoolFrom(true),
+					ShutdownGracePeriod:                       nil,
 					Dialect:                                   "",
 					EVMEnabled:                                null.BoolFrom(false),
 					EVMRPCEnabled:                             null.BoolFrom(false),
@@ -175,6 +176,10 @@ func TestResolver_Config(t *testing.T) {
         "key": "CHAINLINK_DEV",
         "value": "true"
       },
+	  {
+		"key":"SHUTDOWN_GRACE_PERIOD",
+		"value":"5s"
+	  },
       {
         "key": "EVM_RPC_ENABLED",
         "value": "false"
