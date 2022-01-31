@@ -344,7 +344,6 @@ observationTimeout = "10s"
         contractID: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
         contractConfigConfirmations: 3,
         contractConfigTrackerPollInterval: '1m0s',
-        contractConfigTrackerSubscribeInterval: '2m0s',
         juelsPerFeeCoinSource: '1000000000',
         ocrKeyBundleID:
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
@@ -378,7 +377,6 @@ blockchainTimeout = "20s"
 contractID = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
 contractConfigConfirmations = 3
 contractConfigTrackerPollInterval = "1m0s"
-contractConfigTrackerSubscribeInterval = "2m0s"
 isBootstrapPeer = false
 juelsPerFeeCoinSource = "1000000000"
 ocrKeyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
@@ -478,6 +476,52 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+`
+    const output = generateJobDefinition(job)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envDefinition).toEqual('')
+  })
+
+  it('generates a valid Bootstrap definition', () => {
+    const job: JobPayload_Fields = {
+      id: '1',
+      type: 'bootstrap',
+      schemaVersion: 1,
+      name: 'bootstrap',
+      externalJobID: '00000000-0000-0000-0000-0000000000001',
+      maxTaskDuration: '10s',
+      spec: {
+        __typename: 'BootstrapSpec',
+        id: '',
+        contractID: '0x0000000000000000000000000000000000000000',
+        relay: 'evm',
+        relayConfig: {
+          chainID: 1337,
+        },
+        monitoringEndpoint: 'https://monitoring.endpoint',
+        blockchainTimeout: '',
+        contractConfigTrackerPollInterval: '60s',
+        contractConfigConfirmations: 1,
+        createdAt: '',
+      },
+      observationSource: '',
+      ...otherJobFields,
+    }
+
+    const expectedOutput = `type = "bootstrap"
+schemaVersion = 1
+name = "bootstrap"
+externalJobID = "00000000-0000-0000-0000-0000000000001"
+id = ""
+contractID = "0x0000000000000000000000000000000000000000"
+relay = "evm"
+monitoringEndpoint = "https://monitoring.endpoint"
+blockchainTimeout = ""
+contractConfigTrackerPollInterval = "60s"
+contractConfigConfirmations = 1
+
+[relayConfig]
+chainID = 1_337
 `
     const output = generateJobDefinition(job)
     expect(output.definition).toEqual(expectedOutput)
