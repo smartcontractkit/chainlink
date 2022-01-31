@@ -86,7 +86,7 @@ func (d delegate) Healthy() error {
 	return err
 }
 
-func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2Provider, error) {
+func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contractReady chan struct{}) (types.OCR2Provider, error) {
 	// We expect trusted input
 	spec := s.(*job.OffchainReporting2OracleSpec)
 	choice := spec.Relay
@@ -109,7 +109,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			ContractID:    spec.ContractID,
 			TransmitterID: spec.TransmitterID,
 			ChainID:       config.ChainID.ToInt(),
-		})
+		}, contractReady)
 	case types.Solana:
 		r, exists := d.relayers[types.Solana]
 		if !exists {
@@ -168,7 +168,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			PollingInterval:    config.PollingInterval,
 			PollingCtxTimeout:  config.PollingCtxTimeout,
 			StaleTimeout:       config.StaleTimeout,
-		})
+		}, contractReady)
 	case types.Terra:
 		r, exists := d.relayers[types.Terra]
 		if !exists {
@@ -193,7 +193,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			IsBootstrap:   spec.IsBootstrapPeer,
 			ContractID:    spec.ContractID,
 			TransmitterID: spec.TransmitterID.String,
-		})
+		}, contractReady)
 	default:
 		return nil, errors.Errorf("unknown relayer network type: %s", spec.Relay)
 	}

@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	types2 "github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -20,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -61,7 +62,7 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
-func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types2.OCR2Provider, error) {
+func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contractReady chan struct{}) (types2.OCR2Provider, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
 	chain, err := r.chainSet.Get(spec.ChainID)
@@ -112,6 +113,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 	if spec.IsBootstrap {
 		// Return early if bootstrap node (doesn't require the full OCR2 provider)
 		return &ocr2Provider{
+			contractReady:          contractReady,
 			tracker:                tracker,
 			offchainConfigDigester: offchainConfigDigester,
 		}, nil
@@ -140,6 +142,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 	)
 
 	return &ocr2Provider{
+		contractReady:          contractReady,
 		tracker:                tracker,
 		offchainConfigDigester: offchainConfigDigester,
 		reportCodec:            reportCodec,
@@ -159,9 +162,10 @@ type OCR2Spec struct {
 	ChainID       *big.Int
 }
 
-var _ services.Service = (*ocr2Provider)(nil)
+var _ job.Service = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
+	contractReady          chan struct{}
 	tracker                *ContractTracker
 	offchainConfigDigester types.OffchainConfigDigester
 	reportCodec            median.ReportCodec
@@ -170,22 +174,17 @@ type ocr2Provider struct {
 
 // On start, an ethereum ocr2 provider will start the contract tracker.
 func (p ocr2Provider) Start() error {
-	return p.tracker.Start()
+	if err := p.tracker.Start(); err != nil {
+		return err
+	}
+	// TODO: Move EVM relay to config/state polling
+	p.contractReady <- struct{}{}
+	return nil
 }
 
 // On close, an ethereum ocr2 provider will close the contract tracker.
 func (p ocr2Provider) Close() error {
 	return p.tracker.Close()
-}
-
-// An ethereum ocr2 provider is ready if the contract tracker is ready.
-func (p ocr2Provider) Ready() error {
-	return p.tracker.Ready()
-}
-
-// An ethereum ocr2 provider is healthy if the contract tracker is healthy.
-func (p ocr2Provider) Healthy() error {
-	return p.tracker.Healthy()
 }
 
 func (p ocr2Provider) ContractTransmitter() types.ContractTransmitter {
