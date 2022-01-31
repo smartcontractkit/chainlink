@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"reflect"
 	"sync"
+
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -51,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -106,7 +105,6 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter                   func(int)
 	Chains                   Chains
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
@@ -123,7 +121,6 @@ type ChainlinkApplication struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
-	shutdownSignal           shutdown.Signal
 	explorerClient           synchronization.ExplorerClient
 	subservices              []services.Service
 	HealthChecker            services.Checker
@@ -138,7 +135,6 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	EventBroadcaster         pg.EventBroadcaster
-	ShutdownSignal           shutdown.Signal
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	Chains                   Chains
@@ -162,7 +158,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var subservices []services.Service
 	db := opts.SqlxDB
 	cfg := opts.Config
-	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
 	chains := opts.Chains
 	globalLogger := opts.Logger
@@ -374,9 +369,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
 		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
-		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
-		shutdownSignal:           shutdownSignal,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
@@ -433,12 +426,6 @@ func (app *ChainlinkApplication) Start() error {
 	if app.started {
 		panic("application is already started")
 	}
-
-	go func() {
-		<-app.shutdownSignal.Wait()
-		app.logger.ErrorIf(app.Stop(), "Error stopping application")
-		app.Exiter(0)
-	}()
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(); err != nil {

@@ -83,9 +83,11 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	}
 
 	// Start RunNode in a goroutine, it will block until we resume the runner
+	awaiter := cltest.NewAwaiter()
 	go func() {
 		assert.NoError(t, cmd.NewApp(&client).
 			Run([]string{"", "node", "start", "-debug", "-password", "../internal/fixtures/correct_password.txt"}))
+		awaiter.ItHappened()
 	}()
 
 	// Unlock the runner to the client can begin shutdown
@@ -94,6 +96,9 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	case <-time.After(30 * time.Second):
 		t.Fatal("Timed out waiting for runner")
 	}
+
+	awaiter.AwaitOrFail(t)
+	require.NoError(t, client.Logger.Sync())
 
 	logs, err := cltest.ReadLogs(lcfg.Dir)
 	require.NoError(t, err)
@@ -121,6 +126,7 @@ ETH_CHAIN_ID: <nil>
 DEFAULT_HTTP_LIMIT: 32768
 DEFAULT_HTTP_TIMEOUT: 15s
 CHAINLINK_DEV: false
+SHUTDOWN_GRACE_PERIOD: 5s
 EVM_RPC_ENABLED: true
 ETH_HTTP_URL: 
 ETH_SECONDARY_URLS: []

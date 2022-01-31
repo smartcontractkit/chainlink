@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
@@ -50,25 +49,22 @@ import (
 // back somehow, it will go to take out a lease and realise that the database
 // has been leased to another process, so it will panic and quit immediately
 type LeaseLock interface {
-	TakeAndHold(sig shutdown.Signal) error
-	Release()
+	TakeAndHold(ctx context.Context) error
 	ClientID() uuid.UUID
+	Release()
 }
 
 var _ LeaseLock = &leaseLock{}
 
 type leaseLock struct {
-	// TODO: Use a "master" application parent ctx that is cancelled on stop?
-	// https://app.shortcut.com/chainlinklabs/story/20770/application-should-have-base-context-that-cancels-on-stop
 	id              uuid.UUID
 	db              *sqlx.DB
 	conn            *sqlx.Conn
 	refreshInterval time.Duration
 	leaseDuration   time.Duration
 	logger          logger.Logger
-
-	chStop chan struct{}
-	wg     sync.WaitGroup
+	stop            func()
+	wgReleased      sync.WaitGroup
 }
 
 // NewLeaseLock creates a "leaseLock" - an entity that tries to take an exclusive lease on the database
@@ -76,32 +72,30 @@ func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, refreshInter
 	if refreshInterval > leaseDuration/2 {
 		panic("refresh interval must be <= half the lease duration")
 	}
-	return &leaseLock{appID, db, nil, refreshInterval, leaseDuration, lggr.Named("LeaseLock").With("appID", appID), make(chan struct{}), sync.WaitGroup{}}
+	return &leaseLock{appID, db, nil, refreshInterval, leaseDuration, lggr.Named("LeaseLock").With("appID", appID), func() {}, sync.WaitGroup{}}
 }
 
-// TakeAndHold will block and wait indefinitely until it can get its first lock
+// TakeAndHold will block and wait indefinitely until it can get its first lock or ctx is cancelled.
+// Release() function must be used to release the acquired lock.
 // NOT THREAD SAFE
-func (l *leaseLock) TakeAndHold(sig shutdown.Signal) (err error) {
+func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 	l.logger.Debug("Taking initial lease...")
 	retryCount := 0
 	isInitial := true
-
-	ctxStop, cancel := utils.ContextFromChan(l.chStop)
-	defer cancel()
 
 	for {
 		var gotLease bool
 		var err error
 
 		err = func() error {
-			ctx, cancel := DefaultQueryCtxWithParent(ctxStop)
+			qctx, cancel := DefaultQueryCtxWithParent(ctx)
 			defer cancel()
 			if l.conn == nil {
-				if err = l.checkoutConn(ctx); err != nil {
+				if err = l.checkoutConn(qctx); err != nil {
 					return errors.Wrap(err, "lease lock failed to checkout initial connection")
 				}
 			}
-			gotLease, err = l.getLease(ctx, isInitial)
+			gotLease, err = l.getLease(qctx, isInitial)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				l.conn = nil
@@ -126,24 +120,33 @@ func (l *leaseLock) TakeAndHold(sig shutdown.Signal) (err error) {
 		l.logRetry(retryCount)
 		retryCount++
 		select {
-		case <-l.chStop:
+		case <-ctx.Done():
 			err = errors.New("stopped")
 			if l.conn != nil {
 				err = multierr.Combine(err, l.conn.Close())
 			}
 			return err
-		case <-sig.Wait():
-			return multierr.Combine(
-				errors.New("application shutdown"),
-				l.conn.Close(),
-			)
 		case <-time.After(utils.WithJitter(l.refreshInterval)):
 		}
 	}
 	l.logger.Debug("Got exclusive lease on database")
-	l.wg.Add(1)
-	go l.loop()
+
+	lctx, cancel := context.WithCancel(context.Background())
+	l.stop = cancel
+
+	l.wgReleased.Add(1)
+	// Once the lock is acquired, Release() method must be used to release the lock (hence different context).
+	// This is done on purpose: Release() method has exclusive control on releasing the lock.
+	go l.loop(lctx)
+
 	return nil
+}
+
+// Release requests the lock to release and blocks until it gets released.
+// Calling Release for a released lock has no effect.
+func (l *leaseLock) Release() {
+	l.stop()
+	l.wgReleased.Wait()
 }
 
 // checkout dedicated connection for lease lock to bypass any DB contention
@@ -179,36 +182,28 @@ func (l *leaseLock) logRetry(count int) {
 	}
 }
 
-func (l *leaseLock) Release() {
-	close(l.chStop)
-	l.wg.Wait()
-}
-
-func (l *leaseLock) loop() {
-	defer l.wg.Done()
+func (l *leaseLock) loop(ctx context.Context) {
+	defer l.wgReleased.Done()
 
 	ticker := time.NewTicker(l.refreshInterval)
 	defer ticker.Stop()
 
-	ctxStop, cancel := utils.ContextFromChan(l.chStop)
-	defer cancel()
-
 	for {
 		select {
-		case <-l.chStop:
-			ctx, cancel := DefaultQueryCtx()
+		case <-ctx.Done():
+			qctx, cancel := DefaultQueryCtx()
 			err := multierr.Combine(
-				utils.JustError(l.conn.ExecContext(ctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
+				utils.JustError(l.conn.ExecContext(qctx, `UPDATE lease_lock SET expires_at=NOW() WHERE client_id = $1 AND expires_at > NOW()`, l.id)),
 				l.conn.Close(),
 			)
 			cancel()
 			if err != nil {
-				l.logger.Warnw("Error trying to release lease on shutdown", "err", err)
+				l.logger.Warnw("Error trying to release lease on cancelled ctx", "err", err)
 			}
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(ctxStop, l.leaseDuration)
-			gotLease, err := l.getLease(ctx, false)
+			qctx, cancel := context.WithTimeout(ctx, l.leaseDuration)
+			gotLease, err := l.getLease(qctx, false)
 			if errors.Is(err, sql.ErrConnDone) {
 				l.logger.Warnw("DB connection was unexpectedly closed; checking out a new one", "err", err)
 				if err = l.checkoutConn(ctx); err != nil {
