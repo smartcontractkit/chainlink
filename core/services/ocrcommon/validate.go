@@ -6,6 +6,7 @@ import (
 	"go.uber.org/multierr"
 )
 
+// CloneSet returns a copy of the input map.
 func CloneSet(in map[string]struct{}) map[string]struct{} {
 	out := make(map[string]struct{}, len(in))
 	for k, v := range in {
@@ -14,6 +15,8 @@ func CloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
+// ValidateExplicitlySetKeys checks if the values in expected are present and the values in notExpected are not present
+// in the toml tree. Works on top level keys only.
 func ValidateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
 	var err error
 	// top level keys only
