@@ -71,7 +71,6 @@ const JOB_PAYLOAD__SPEC = gql`
       contractID
       contractConfigConfirmations
       contractConfigTrackerPollInterval
-      contractConfigTrackerSubscribeInterval
       isBootstrapPeer
       juelsPerFeeCoinSource
       ocrKeyBundleID

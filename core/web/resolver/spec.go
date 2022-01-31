@@ -520,18 +520,6 @@ func (r *OCR2SpecResolver) ContractConfigTrackerPollInterval() *string {
 	return &interval
 }
 
-// ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
-// interval config.
-func (r *OCR2SpecResolver) ContractConfigTrackerSubscribeInterval() *string {
-	if r.spec.ContractConfigTrackerSubscribeInterval.Duration() == 0 {
-		return nil
-	}
-
-	interval := r.spec.ContractConfigTrackerSubscribeInterval.Duration().String()
-
-	return &interval
-}
-
 // CreatedAt resolves the spec's created at timestamp.
 func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}

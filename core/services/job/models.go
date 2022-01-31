@@ -266,22 +266,21 @@ func (r *RelayConfig) Scan(value interface{}) error {
 
 // Relay config is chain specific config for a relay (chain adapter).
 type OffchainReporting2OracleSpec struct {
-	ID                                     int32              `toml:"-"`
-	ContractID                             string             `toml:"contractID"`
-	Relay                                  relaytypes.Network `toml:"relay"`
-	RelayConfig                            RelayConfig        `toml:"relayConfig"`
-	P2PBootstrapPeers                      pq.StringArray     `toml:"p2pBootstrapPeers"`
-	IsBootstrapPeer                        bool               `toml:"isBootstrapPeer"`
-	OCRKeyBundleID                         null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                     null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                          null.String        `toml:"transmitterID"`
-	BlockchainTimeout                      models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval    `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16             `toml:"contractConfigConfirmations"`
-	JuelsPerFeeCoinPipeline                string             `toml:"juelsPerFeeCoinSource"`
-	CreatedAt                              time.Time          `toml:"-"`
-	UpdatedAt                              time.Time          `toml:"-"`
+	ID                                int32              `toml:"-"`
+	ContractID                        string             `toml:"contractID"`
+	Relay                             relaytypes.Network `toml:"relay"`
+	RelayConfig                       RelayConfig        `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
+	IsBootstrapPeer                   bool               `toml:"isBootstrapPeer"`
+	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String        `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline           string             `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                         time.Time          `toml:"-"`
+	UpdatedAt                         time.Time          `toml:"-"`
 }
 
 func (s OffchainReporting2OracleSpec) GetID() string {

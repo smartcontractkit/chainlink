@@ -31,6 +31,9 @@ ALTER TABLE jobs
                     blockhash_store_spec_id,
                     bootstrap_spec_id) = 1
         );
+
+ALTER TABLE offchainreporting2_oracle_specs
+    DROP COLUMN contract_config_tracker_subscribe_interval;
 -- +goose StatementEnd
 
 -- +goose Down
@@ -52,4 +55,7 @@ ALTER TABLE jobs
 ALTER TABLE jobs
     DROP COLUMN bootstrap_spec_id;
 DROP TABLE IF EXISTS bootstrap_specs;
+
+ALTER TABLE offchainreporting2_oracle_specs
+    ADD COLUMN contract_config_tracker_subscribe_interval bigint;
 -- +goose StatementEnd

@@ -499,20 +499,19 @@ func TestResolver_OCR2Spec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.OffchainReporting2,
 					Offchainreporting2OracleSpec: &job.OffchainReporting2OracleSpec{
-						BlockchainTimeout:                      models.Interval(1 * time.Minute),
-						ContractID:                             contractAddress.String(),
-						ContractConfigConfirmations:            1,
-						ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-						ContractConfigTrackerSubscribeInterval: models.Interval(1 * time.Minute),
-						CreatedAt:                              f.Timestamp(),
-						IsBootstrapPeer:                        false,
-						JuelsPerFeeCoinPipeline:                "100000000",
-						OCRKeyBundleID:                         null.StringFrom(keyBundleID.String()),
-						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
-						P2PBootstrapPeers:                      pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                                  types.EVM,
-						RelayConfig:                            relayConfig,
-						TransmitterID:                          null.StringFrom(transmitterAddress.String()),
+						BlockchainTimeout:                 models.Interval(1 * time.Minute),
+						ContractID:                        contractAddress.String(),
+						ContractConfigConfirmations:       1,
+						ContractConfigTrackerPollInterval: models.Interval(1 * time.Minute),
+						CreatedAt:                         f.Timestamp(),
+						IsBootstrapPeer:                   false,
+						JuelsPerFeeCoinPipeline:           "100000000",
+						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
+						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
+						P2PBootstrapPeers:                 pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
+						Relay:                             types.EVM,
+						RelayConfig:                       relayConfig,
+						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
 					},
 				}, nil)
 			},
@@ -527,7 +526,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									contractID
 									contractConfigConfirmations
 									contractConfigTrackerPollInterval
-									contractConfigTrackerSubscribeInterval
 									createdAt
 									isBootstrapPeer
 									juelsPerFeeCoinSource
@@ -552,7 +550,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"contractConfigConfirmations": 1,
 							"contractConfigTrackerPollInterval": "1m0s",
-							"contractConfigTrackerSubscribeInterval": "1m0s",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"isBootstrapPeer": false,
 							"juelsPerFeeCoinSource": "100000000",

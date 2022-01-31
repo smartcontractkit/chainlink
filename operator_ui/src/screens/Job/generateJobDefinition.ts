@@ -177,7 +177,6 @@ export const generateJobDefinition = (
           'contractID',
           'contractConfigConfirmations',
           'contractConfigTrackerPollInterval',
-          'contractConfigTrackerSubscribeInterval',
           'isBootstrapPeer',
           'juelsPerFeeCoinSource',
           'ocrKeyBundleID',
