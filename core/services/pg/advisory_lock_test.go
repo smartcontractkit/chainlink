@@ -28,7 +28,7 @@ func Test_AdvisoryLock(t *testing.T) {
 	t.Run("takes lock", func(t *testing.T) {
 		advLock1 := newAdvisoryLock(t, db, cfg)
 
-		err := advLock1.TakeAndHold()
+		err := advLock1.TakeAndHold(context.Background())
 		require.NoError(t, err)
 
 		var lockTaken bool
@@ -39,7 +39,7 @@ func Test_AdvisoryLock(t *testing.T) {
 		started2 := make(chan struct{})
 		advLock2 := newAdvisoryLock(t, db, cfg)
 		go func() {
-			err := advLock2.TakeAndHold()
+			err := advLock2.TakeAndHold(context.Background())
 			require.NoError(t, err)
 			close(started2)
 		}()
@@ -90,7 +90,7 @@ func Test_AdvisoryLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			err = advLock.TakeAndHold()
+			err = advLock.TakeAndHold(context.Background())
 			require.NoError(t, err)
 			close(gotLease)
 		}()
@@ -116,6 +116,43 @@ func Test_AdvisoryLock(t *testing.T) {
 		assert.True(t, exists)
 
 		advLock.Release()
+	})
+
+	t.Run("release lock with Release() func", func(t *testing.T) {
+		advisoryLock := newAdvisoryLock(t, db, cfg)
+
+		err := advisoryLock.TakeAndHold(context.Background())
+		require.NoError(t, err)
+
+		advisoryLock.Release()
+
+		advisoryLock2 := newAdvisoryLock(t, db, cfg)
+		defer advisoryLock2.Release()
+		err = advisoryLock2.TakeAndHold(context.Background())
+		require.NoError(t, err)
+	})
+
+	t.Run("cancel TakeAndHold with ctx", func(t *testing.T) {
+		advisoryLock1 := newAdvisoryLock(t, db, cfg)
+		advisoryLock2 := newAdvisoryLock(t, db, cfg)
+
+		err := advisoryLock1.TakeAndHold(context.Background())
+		require.NoError(t, err)
+
+		awaiter := cltest.NewAwaiter()
+		go func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				<-time.After(3 * time.Second)
+				cancel()
+			}()
+			err := advisoryLock2.TakeAndHold(ctx)
+			require.Error(t, err)
+			awaiter.ItHappened()
+		}()
+
+		awaiter.AwaitOrFail(t)
+		advisoryLock1.Release()
 	})
 
 	require.NoError(t, db.Close())

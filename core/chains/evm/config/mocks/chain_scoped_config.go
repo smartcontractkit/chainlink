@@ -3716,6 +3716,20 @@ func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
 }
 
+// ShutdownGracePeriod provides a mock function with given fields:
+func (_m *ChainScopedConfig) ShutdownGracePeriod() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // SolanaEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) SolanaEnabled() bool {
 	ret := _m.Called()

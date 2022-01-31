@@ -289,7 +289,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.BootstrapSpecID = &specID
 		default:
-			o.lggr.Fatalf("Unsupported jb.Type: %v", jb.Type)
+			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
 
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(p, jb.MaxTaskDuration, pg.WithQueryer(tx))
