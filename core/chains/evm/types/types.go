@@ -76,6 +76,7 @@ type ChainCfg struct {
 	MinRequiredOutgoingConfirmations               null.Int
 	MinimumContractPayment                         *assets.Link
 	OCRObservationTimeout                          *models.Duration
+	LinkContractAddress                            null.String
 	KeySpecific                                    map[string]ChainCfg
 }
 

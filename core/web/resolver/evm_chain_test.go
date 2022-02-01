@@ -41,11 +41,13 @@ func TestResolver_Chains(t *testing.T) {
 							evmGasLimitMultiplier
 							chainType
 							gasEstimatorMode
+							linkContractAddress
 							keySpecificConfigs {
 								address
 								config {
 									blockHistoryEstimatorBlockDelay
 									evmEIP1559DynamicFees
+									linkContractAddress
 								}
 							}
 						}
@@ -80,10 +82,12 @@ func TestResolver_Chains(t *testing.T) {
 							EvmGasLimitMultiplier:           null.FloatFrom(1.23),
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("optimism"),
+							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 							KeySpecific: map[string]types.ChainCfg{
 								"test-address": {
 									BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 									EvmEIP1559DynamicFees:           null.BoolFrom(false),
+									LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 								},
 							},
 						},
@@ -113,11 +117,13 @@ func TestResolver_Chains(t *testing.T) {
 							"evmGasLimitMultiplier": 1.23,
 							"chainType": "OPTIMISM",
 							"gasEstimatorMode": "BLOCK_HISTORY",
+							"linkContractAddress": "0x0000000000000000000000000000000000000000",
 							"keySpecificConfigs": [{
 								"address": "test-address",
 								"config": {
 									"blockHistoryEstimatorBlockDelay": 0,
-									"evmEIP1559DynamicFees": false
+									"evmEIP1559DynamicFees": false,
+									"linkContractAddress": "0x0000000000000000000000000000000000000000"
 								}
 							}]
 						},
@@ -280,6 +286,7 @@ func TestResolver_CreateChain(t *testing.T) {
 							ethTxReaperThreshold
 							chainType
 							gasEstimatorMode
+							linkContractAddress
 							keySpecificConfigs {
 								address
 								config {
@@ -287,6 +294,7 @@ func TestResolver_CreateChain(t *testing.T) {
 									ethTxReaperThreshold
 									chainType
 									gasEstimatorMode
+									linkContractAddress
 								}
 							}
 						}
@@ -309,6 +317,7 @@ func TestResolver_CreateChain(t *testing.T) {
 			"ethTxReaperThreshold":            "1m0s",
 			"chainType":                       "EXCHAIN",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
+			"linkContractAddress":             utils.ZeroAddress.String(),
 		},
 	})
 	require.NoError(t, err)
@@ -327,6 +336,7 @@ func TestResolver_CreateChain(t *testing.T) {
 				"ethTxReaperThreshold":            "1m0s",
 				"chainType":                       "OPTIMISM",
 				"gasEstimatorMode":                "BLOCK_HISTORY",
+				"linkContractAddress":             utils.ZeroAddress.String(),
 			},
 			"keySpecificConfigs": []interface{}{
 				keySpecificConfig,
@@ -361,12 +371,14 @@ func TestResolver_CreateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
+							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -393,6 +405,7 @@ func TestResolver_CreateChain(t *testing.T) {
 								"ethTxReaperThreshold": "1m0s",
 								"chainType": "OPTIMISM",
 								"gasEstimatorMode": "BLOCK_HISTORY",
+								"linkContractAddress": "0x0000000000000000000000000000000000000000",
 								"keySpecificConfigs": [
 									{
 										"address": "some-address",
@@ -400,7 +413,8 @@ func TestResolver_CreateChain(t *testing.T) {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
 											"chainType": "EXCHAIN",
-											"gasEstimatorMode": "BLOCK_HISTORY"
+											"gasEstimatorMode": "BLOCK_HISTORY",
+											"linkContractAddress": "0x0000000000000000000000000000000000000000"
 										}
 									}
 								]
@@ -434,12 +448,14 @@ func TestResolver_CreateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
+							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -577,6 +593,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 							ethTxReaperThreshold
 							chainType
 							gasEstimatorMode
+							linkContractAddress
 							keySpecificConfigs {
 								address
 								config {
@@ -584,6 +601,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 									ethTxReaperThreshold
 									chainType
 									gasEstimatorMode
+									linkContractAddress
 								}
 							}
 						}
@@ -610,6 +628,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 			"ethTxReaperThreshold":            "1m0s",
 			"chainType":                       "EXCHAIN",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
+			"linkContractAddress":             utils.ZeroAddress.String(),
 		},
 	})
 	require.NoError(t, err)
@@ -627,6 +646,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 				"ethTxReaperThreshold":            "1m0s",
 				"chainType":                       "OPTIMISM",
 				"gasEstimatorMode":                "BLOCK_HISTORY",
+				"linkContractAddress":             utils.ZeroAddress.String(),
 			},
 			"keySpecificConfigs": []interface{}{
 				keySpecificConfig,
@@ -662,12 +682,14 @@ func TestResolver_UpdateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
+							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -694,6 +716,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 								"ethTxReaperThreshold": "1m0s",
 								"chainType": "OPTIMISM",
 								"gasEstimatorMode": "BLOCK_HISTORY",
+								"linkContractAddress": "0x0000000000000000000000000000000000000000",
 								"keySpecificConfigs": [
 									{
 										"address": "some-address",
@@ -701,7 +724,8 @@ func TestResolver_UpdateChain(t *testing.T) {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
 											"chainType": "EXCHAIN",
-											"gasEstimatorMode": "BLOCK_HISTORY"
+											"gasEstimatorMode": "BLOCK_HISTORY",
+											"linkContractAddress": "0x0000000000000000000000000000000000000000"												
 										}
 									}
 								]
@@ -735,12 +759,14 @@ func TestResolver_UpdateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
+							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -767,12 +793,14 @@ func TestResolver_UpdateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
+							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
