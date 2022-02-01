@@ -55,7 +55,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <DashboardPage />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/chains">
+              <PrivateRoute path="/chains">
                 <ChainsPage />
               </PrivateRoute>
 

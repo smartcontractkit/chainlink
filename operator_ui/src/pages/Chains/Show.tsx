@@ -12,11 +12,11 @@ import UpdateChain from './UpdateChain'
 export type ChainResource = Resource<Chain>
 
 interface RouteParams {
-  chainId: string
+  id: string
 }
 
 export const ChainsShow = () => {
-  const { chainId } = useParams<RouteParams>()
+  const { id } = useParams<RouteParams>()
   const { path } = useRouteMatch()
   const [chain, setChain] = React.useState<ChainResource>()
   const [nodes, setNodes] = React.useState<NodeResource[]>([])
@@ -31,20 +31,20 @@ export const ChainsShow = () => {
   }, [])
 
   React.useEffect(() => {
-    document.title = `Chain ${chainId}`
-  }, [chainId])
+    document.title = `Chain ${id}`
+  }, [id])
 
   React.useEffect(() => {
     Promise.all([v2.chains.getChains()])
       .then(([v2Chains]) =>
-        v2Chains.data.find((chain: ChainResource) => chain.id === chainId),
+        v2Chains.data.find((chain: ChainResource) => chain.id === id),
       )
       .then(setChain)
-  }, [chainId])
+  }, [id])
 
   return (
     <>
-      <RegionalNav chainId={chainId} chain={chain} />
+      <RegionalNav chainId={id} chain={chain} />
       <Switch>
         <Route path={`${path}/nodes/new`}>
           {chain && <NewChainNode chain={chain} />}
