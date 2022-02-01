@@ -47,7 +47,6 @@ func TestResolver_Chains(t *testing.T) {
 								config {
 									blockHistoryEstimatorBlockDelay
 									evmEIP1559DynamicFees
-									linkContractAddress
 								}
 							}
 						}
@@ -87,7 +86,6 @@ func TestResolver_Chains(t *testing.T) {
 								"test-address": {
 									BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
 									EvmEIP1559DynamicFees:           null.BoolFrom(false),
-									LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 								},
 							},
 						},
@@ -123,7 +121,6 @@ func TestResolver_Chains(t *testing.T) {
 								"config": {
 									"blockHistoryEstimatorBlockDelay": 0,
 									"evmEIP1559DynamicFees": false,
-									"linkContractAddress": "0x0000000000000000000000000000000000000000"
 								}
 							}]
 						},
@@ -294,7 +291,6 @@ func TestResolver_CreateChain(t *testing.T) {
 									ethTxReaperThreshold
 									chainType
 									gasEstimatorMode
-									linkContractAddress
 								}
 							}
 						}
@@ -317,7 +313,6 @@ func TestResolver_CreateChain(t *testing.T) {
 			"ethTxReaperThreshold":            "1m0s",
 			"chainType":                       "EXCHAIN",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
-			"linkContractAddress":             utils.ZeroAddress.String(),
 		},
 	})
 	require.NoError(t, err)
@@ -378,7 +373,6 @@ func TestResolver_CreateChain(t *testing.T) {
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
-							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -414,7 +408,6 @@ func TestResolver_CreateChain(t *testing.T) {
 											"ethTxReaperThreshold": "1m0s",
 											"chainType": "EXCHAIN",
 											"gasEstimatorMode": "BLOCK_HISTORY",
-											"linkContractAddress": "0x0000000000000000000000000000000000000000"
 										}
 									}
 								]
@@ -455,7 +448,6 @@ func TestResolver_CreateChain(t *testing.T) {
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
-							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -601,7 +593,6 @@ func TestResolver_UpdateChain(t *testing.T) {
 									ethTxReaperThreshold
 									chainType
 									gasEstimatorMode
-									linkContractAddress
 								}
 							}
 						}
@@ -628,7 +619,6 @@ func TestResolver_UpdateChain(t *testing.T) {
 			"ethTxReaperThreshold":            "1m0s",
 			"chainType":                       "EXCHAIN",
 			"gasEstimatorMode":                "BLOCK_HISTORY",
-			"linkContractAddress":             utils.ZeroAddress.String(),
 		},
 	})
 	require.NoError(t, err)
@@ -689,7 +679,6 @@ func TestResolver_UpdateChain(t *testing.T) {
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
-							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -725,7 +714,6 @@ func TestResolver_UpdateChain(t *testing.T) {
 											"ethTxReaperThreshold": "1m0s",
 											"chainType": "EXCHAIN",
 											"gasEstimatorMode": "BLOCK_HISTORY",
-											"linkContractAddress": "0x0000000000000000000000000000000000000000"												
 										}
 									}
 								]
@@ -766,7 +754,6 @@ func TestResolver_UpdateChain(t *testing.T) {
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
-							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
@@ -800,7 +787,6 @@ func TestResolver_UpdateChain(t *testing.T) {
 							EthTxReaperThreshold:            &threshold,
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("exchain"),
-							LinkContractAddress:             null.StringFrom(utils.ZeroAddress.String()),
 						},
 					},
 				}
