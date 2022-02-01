@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"log"
 	"math/big"
 	"time"
@@ -184,43 +185,45 @@ func main() {
 }
 
 func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
+	fmt.Println()
 	for i := int64(0); i < config.UpkeepCount; i++ {
 		// Deploy
 		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(buildTxOpts(), client,
 			big.NewInt(config.UpkeepTestRange), big.NewInt(config.UpkeepAverageEligibilityCadence),
 		)
 		if err != nil {
-			log.Fatal(i, " - DeployAbi failed: ", err)
+			log.Fatal(i, "- DeployAbi failed: ", err)
 		}
 		waitForTx(deployUpkeepTx.Hash())
-		log.Println(i, " - Upkeep deployed:", upkeepAddr.Hex(), "-", deployUpkeepTx.Hash().Hex())
+		log.Println(i, "- Upkeep deployed:", upkeepAddr.Hex(), "-", deployUpkeepTx.Hash().Hex())
 
 		// Approve
 		approveUpkeepTx, err := linkToken.Approve(buildTxOpts(), upkeepAddr, approveAmount)
 		if err != nil {
-			log.Fatal(i, " - Approve failed: ", err)
+			log.Fatal(i, "- Approve failed: ", err)
 		}
 		waitForTx(approveUpkeepTx.Hash())
-		log.Println(i, " - Upkeep approved:", upkeepAddr.Hex(), "-", approveUpkeepTx.Hash().Hex())
+		log.Println(i, "- Upkeep approved:", upkeepAddr.Hex(), "-", approveUpkeepTx.Hash().Hex())
 
 		// Register
 		registerUpkeepTx, err := registryInstance.RegisterUpkeep(buildTxOpts(),
 			upkeepAddr, config.UpkeepGasLimit, fromAddr, []byte(config.UpkeepCheckData),
 		)
 		if err != nil {
-			log.Fatal(i, " - RegisterUpkeep failed: ", err)
+			log.Fatal(i, "- RegisterUpkeep failed: ", err)
 		}
 		waitForTx(registerUpkeepTx.Hash())
-		log.Println(i, " - Upkeep registered:", upkeepAddr.Hex(), "-", registerUpkeepTx.Hash().Hex())
+		log.Println(i, "- Upkeep registered:", upkeepAddr.Hex(), "-", registerUpkeepTx.Hash().Hex())
 
 		// Fund
 		addFundsTx, err := registryInstance.AddFunds(buildTxOpts(), big.NewInt(int64(i)), addFundsAmount)
 		if err != nil {
-			log.Fatal(i, " - AddFunds failed: ", err)
+			log.Fatal(i, "- AddFunds failed: ", err)
 		}
 		waitForTx(addFundsTx.Hash())
-		log.Println(i, " - Upkeep funded:", upkeepAddr.Hex(), "-", addFundsTx.Hash().Hex())
+		log.Println(i, "- Upkeep funded:", upkeepAddr.Hex(), "-", addFundsTx.Hash().Hex())
 	}
+	fmt.Println()
 }
 
 func waitForTx(tx common.Hash) int {

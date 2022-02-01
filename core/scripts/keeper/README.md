@@ -21,4 +21,9 @@ account that does not hold real funds.
 ```shell
 cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/keeper
 ```
-2. Create `.env` file based on the example `.env.example`:
+2. Create `.env` file based on the example `.env.example`
+
+Run the script:
+```bash
+go run main.go
+```
