@@ -8,6 +8,7 @@ Before starting, you will need:
 4. [The LINK address, LINK-ETH feed address, fast gas feed address](https://docs.chain.link/docs/chainlink-keepers/introduction/#onboarding-steps)
    for your chain
 5. [Go](https://go.dev/doc/install)
+6. Running at least 2 nodes with the keeper job. Have some balance on each of them.
 
 The endpoint URL can be a locally running node, or an externally hosted one like
 [alchemy](https://www.alchemy.com/). Your chain ID will be a number
