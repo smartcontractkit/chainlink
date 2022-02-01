@@ -59,6 +59,7 @@ type Config struct {
 	UpkeepAverageEligibilityCadence int64  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
 	UpkeepCheckData                 string `mapstructure:"UPKEEP_CHECK_DATA"`
 	UpkeepGasLimit                  uint32 `mapstructure:"UPKEEP_GAS_LIMIT"`
+	UpkeepCount                     int64  `mapstructure:"UPKEEP_COUNT"`
 }
 
 func (c *Config) keepers() ([]common.Address, []common.Address) {
@@ -87,6 +88,7 @@ func init() {
 	viper.SetDefault("UPKEEP_AVERAGE_ELIGIBILITY_CADENCE", 1)
 	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
 	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
+	viper.SetDefault("UPKEEP_COUNT", 5)
 
 	viper.SetConfigFile(".env")
 	viper.AutomaticEnv()
@@ -169,7 +171,20 @@ func main() {
 	log.Println("KeeperRegistry approved:", registryAddr.Hex(), "-", approveRegistryTx.Hash().Hex())
 
 	// Deploy Upkeeps
-	for i := 0; i < 5; i++ {
+	deployUpkeeps(registryInstance)
+
+	// Set Keepers
+	keepers, owners := config.keepers()
+	setKeepersTx, err := registryInstance.SetKeepers(buildTxOpts(), keepers, owners)
+	if err != nil {
+		log.Fatal("SetKeepers failed: ", err)
+	}
+	waitForTx(setKeepersTx.Hash())
+	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+}
+
+func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
+	for i := int64(0); i < config.UpkeepCount; i++ {
 		// Deploy
 		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(buildTxOpts(), client,
 			big.NewInt(config.UpkeepTestRange), big.NewInt(config.UpkeepAverageEligibilityCadence),
@@ -206,15 +221,6 @@ func main() {
 		waitForTx(addFundsTx.Hash())
 		log.Println(i, " - Upkeep funded:", upkeepAddr.Hex(), "-", addFundsTx.Hash().Hex())
 	}
-
-	// Set Keepers
-	keepers, owners := config.keepers()
-	setKeepersTx, err := registryInstance.SetKeepers(buildTxOpts(), keepers, owners)
-	if err != nil {
-		log.Fatal("SetKeepers failed: ", err)
-	}
-	waitForTx(setKeepersTx.Hash())
-	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
 }
 
 func waitForTx(tx common.Hash) int {
