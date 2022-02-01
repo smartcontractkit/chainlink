@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -103,7 +102,7 @@ func init() {
 		log.Fatal("failed to unmarshal config: ", err)
 	}
 
-	// Deal ETH client by the given addr
+	// Created a client by the given node address
 	client, err = ethclient.Dial(config.NodeURL)
 	if err != nil {
 		log.Fatal("failed to deal with ETH node", err)
@@ -143,6 +142,8 @@ func init() {
 }
 
 func main() {
+	ctx := context.Background()
+
 	// Deploy keeper registry
 	registryAddr, deployKeeperRegistryTx, registryInstance, err := keeper.DeployKeeperRegistry(buildTxOpts(), client,
 		common.HexToAddress(config.LinkTokenAddr),
@@ -160,7 +161,7 @@ func main() {
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
 	}
-	waitForTx(deployKeeperRegistryTx.Hash())
+	waitDeployment(ctx, deployKeeperRegistryTx)
 	log.Println("KeeperRegistry deployed:", registryAddr.Hex(), "-", deployKeeperRegistryTx.Hash().Hex())
 
 	// Approve keeper registry
@@ -168,11 +169,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Approve failed: ", err)
 	}
-	waitForTx(approveRegistryTx.Hash())
+	waitTx(ctx, approveRegistryTx)
 	log.Println("KeeperRegistry approved:", registryAddr.Hex(), "-", approveRegistryTx.Hash().Hex())
 
 	// Deploy Upkeeps
-	deployUpkeeps(registryInstance)
+	deployUpkeeps(ctx, registryInstance)
 
 	// Set Keepers
 	keepers, owners := config.keepers()
@@ -180,11 +181,11 @@ func main() {
 	if err != nil {
 		log.Fatal("SetKeepers failed: ", err)
 	}
-	waitForTx(setKeepersTx.Hash())
+	waitTx(ctx, setKeepersTx)
 	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
 }
 
-func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
+func deployUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistry) {
 	for i := int64(0); i < config.UpkeepCount; i++ {
 		fmt.Println()
 
@@ -195,7 +196,7 @@ func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
 		if err != nil {
 			log.Fatal(i, "- DeployAbi failed: ", err)
 		}
-		waitForTx(deployUpkeepTx.Hash())
+		waitDeployment(ctx, deployUpkeepTx)
 		log.Println(i, "- Upkeep deployed:", upkeepAddr.Hex(), "-", deployUpkeepTx.Hash().Hex())
 
 		// Approve
@@ -203,7 +204,7 @@ func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
 		if err != nil {
 			log.Fatal(i, "- Approve failed: ", err)
 		}
-		waitForTx(approveUpkeepTx.Hash())
+		waitTx(ctx, approveUpkeepTx)
 		log.Println(i, "- Upkeep approved:", upkeepAddr.Hex(), "-", approveUpkeepTx.Hash().Hex())
 
 		// Register
@@ -213,7 +214,7 @@ func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
 		if err != nil {
 			log.Fatal(i, "- RegisterUpkeep failed: ", err)
 		}
-		waitForTx(registerUpkeepTx.Hash())
+		waitTx(ctx, registerUpkeepTx)
 		log.Println(i, "- Upkeep registered:", upkeepAddr.Hex(), "-", registerUpkeepTx.Hash().Hex())
 
 		// Fund
@@ -221,45 +222,22 @@ func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
 		if err != nil {
 			log.Fatal(i, "- AddFunds failed: ", err)
 		}
-		waitForTx(addFundsTx.Hash())
+		waitTx(ctx, addFundsTx)
 		log.Println(i, "- Upkeep funded:", upkeepAddr.Hex(), "-", addFundsTx.Hash().Hex())
 	}
 	fmt.Println()
 }
 
-func waitForTx(tx common.Hash) int {
-	soc := make(chan *types.Header)
-	sub, err := client.SubscribeNewHead(context.Background(), soc)
-	if err != nil {
-		log.Fatal("SubscribeNewHead failed: ", err)
-	}
-
-	timeout := time.NewTimer(time.Minute).C
-	for {
-		select {
-		case err = <-sub.Err():
-			log.Fatal("SubscribeNewHead error: ", err)
-		case <-timeout:
-			log.Fatal("there is no receipt")
-		case <-soc:
-			transactionStatus := checkTransactionReceipt(tx)
-			if transactionStatus == 0 {
-				sub.Unsubscribe()
-				return 0
-			} else if transactionStatus == 1 {
-				sub.Unsubscribe()
-				return 1
-			}
-		}
+func waitDeployment(ctx context.Context, tx *types.Transaction) {
+	if _, err := bind.WaitDeployed(ctx, client, tx); err != nil {
+		log.Fatal("WaitDeployed failed: ", err)
 	}
 }
 
-func checkTransactionReceipt(txHash common.Hash) int {
-	tx, err := client.TransactionReceipt(context.Background(), txHash)
-	if err != nil {
-		return -1
+func waitTx(ctx context.Context, tx *types.Transaction) {
+	if _, err := bind.WaitMined(ctx, client, tx); err != nil {
+		log.Fatal("WaitDeployed failed: ", err)
 	}
-	return int(tx.Status)
 }
 
 func buildTxOpts() *bind.TransactOpts {
