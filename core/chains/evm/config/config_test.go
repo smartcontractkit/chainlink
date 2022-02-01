@@ -98,6 +98,27 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 	})
+
+	t.Run("LinkContractAddress", func(t *testing.T) {
+		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
+			assert.Equal(t, "", cfg.LinkContractAddress())
+		})
+
+		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
+			val := "0x5431F5F973781809D18643b87B44921b11355d81"
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.LinkContractAddress = null.StringFrom(val)
+			})
+
+			assert.Equal(t, val, cfg.LinkContractAddress())
+		})
+		t.Run("uses global value when that is set", func(t *testing.T) {
+			val := "0x5431F5F973781809D18643b87B44921b11355d81"
+			gcfg.Overrides.LinkContractAddress = null.StringFrom(val)
+
+			assert.Equal(t, val, cfg.LinkContractAddress())
+		})
+	})
 }
 
 func TestChainScopedConfig_BSCDefaults(t *testing.T) {

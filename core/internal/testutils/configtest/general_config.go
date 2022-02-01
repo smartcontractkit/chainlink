@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -102,6 +102,7 @@ type GeneralConfigOverrides struct {
 	KeySpecific                               map[string]types.ChainCfg
 	FeatureOffchainReporting                  null.Bool
 	FeatureOffchainReporting2                 null.Bool
+	LinkContractAddress                       null.String
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
