@@ -1,13 +1,7 @@
 pragma solidity 0.7.6;
 
 contract UpkeepPerformCounterRestrictive {
-  event PerformingUpkeep (
-    bool eligible,
-    address from,
-    uint256 initialCall,
-    uint256 nextEligible,
-    uint256 blockNumber
-  );
+  event PerformingUpkeep(bool eligible, address from, uint256 initialCall, uint256 nextEligible, uint256 blockNumber);
 
   uint256 public initialCall = 0;
   uint256 public nextEligible = 0;
@@ -32,23 +26,19 @@ contract UpkeepPerformCounterRestrictive {
     if (initialCall == 0) {
       initialCall = blockNum;
     }
-    nextEligible = (blockNum + rand() % (averageEligibilityCadence * 2)) + 1;
+    nextEligible = (blockNum + (rand() % (averageEligibilityCadence * 2))) + 1;
     count++;
   }
 
-  function getCountPerforms() view public returns(uint256) {
+  function getCountPerforms() public view returns (uint256) {
     return count;
   }
 
-  function eligible() view internal returns(bool) {
-    return initialCall == 0 ||
-    (
-    block.number - initialCall < testRange &&
-    block.number > nextEligible
-    );
+  function eligible() internal view returns (bool) {
+    return initialCall == 0 || (block.number - initialCall < testRange && block.number > nextEligible);
   }
 
-  function checkEligible() view public returns(bool) {
+  function checkEligible() public view returns (bool) {
     return eligible();
   }
 
@@ -57,7 +47,7 @@ contract UpkeepPerformCounterRestrictive {
     count = 0;
   }
 
-  function setSpread(uint _newTestRange, uint _newAverageEligibilityCadence) external {
+  function setSpread(uint256 _newTestRange, uint256 _newAverageEligibilityCadence) external {
     testRange = _newTestRange;
     averageEligibilityCadence = _newAverageEligibilityCadence;
   }
