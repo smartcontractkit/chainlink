@@ -296,6 +296,7 @@ func (c *TestGeneralConfig) DatabaseURL() url.URL {
 	return c.GeneralConfig.DatabaseURL()
 }
 
+// DatabaseLockingMode returns either overridden DatabaseLockingMode value or "none"
 func (c *TestGeneralConfig) DatabaseLockingMode() string {
 	if c.Overrides.DatabaseLockingMode.Valid {
 		return c.Overrides.DatabaseLockingMode.String

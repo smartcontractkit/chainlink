@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -25,6 +26,7 @@ type lockedDb struct {
 	advisoryLock AdvisoryLock
 }
 
+// NewLockedDB creates a new instance of LockedDB
 func NewLockedDB(cfg config.GeneralConfig, lggr logger.Logger) LockedDB {
 	return &lockedDb{
 		cfg:  cfg,
