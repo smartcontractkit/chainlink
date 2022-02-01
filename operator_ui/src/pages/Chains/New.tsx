@@ -41,7 +41,7 @@ const styles = (theme: Theme) =>
 const SuccessNotification = ({ id }: { id: string }) => (
   <>
     Successfully created chain{' '}
-    <BaseLink id="created-chain" href={`/chains`}>
+    <BaseLink id="created-chain" href={'/chains'}>
       {id}
     </BaseLink>
   </>

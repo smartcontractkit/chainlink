@@ -9,15 +9,13 @@ import Header from 'pages/Header'
 import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
-import { ChainsScreen } from 'screens/Chains/ChainsScreen'
-import ChainsNew from 'pages/Chains/New'
-import ChainShow from 'pages/Chains/Show'
 import NotFound from 'pages/NotFound'
 
 import { BridgesPage } from 'pages/bridges'
 import { ConfigPage } from 'pages/config'
 import { DashboardPage } from 'pages/dashboard'
 import { JobsPage } from 'pages/JobsIndex'
+import { ChainsPage } from 'pages/Chains'
 import { KeysPage } from 'pages/keys'
 import { JobRunsPage } from 'pages/job_runs'
 import { FeedsManagerPage } from 'pages/feeds_manager'
@@ -25,14 +23,12 @@ import { JobProposalsPage } from 'pages/job_proposals'
 import { NodesPage } from 'pages/nodes'
 import { TransactionsPage } from 'pages/Transactions'
 
-const styles = (theme: Theme) => {
-  return {
-    content: {
-      marginTop: 0,
-      marginBottom: theme.spacing.unit * 5,
-    },
-  }
-}
+const styles = (theme: Theme) => ({
+  content: {
+    marginTop: 0,
+    marginBottom: theme.spacing.unit * 5,
+  },
+})
 
 const Private = ({ classes }: { classes: { content: string } }) => {
   const [headerHeight, setHeaderHeight] = React.useState(0)
@@ -60,14 +56,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               </PrivateRoute>
 
               <PrivateRoute exact path="/chains">
-                <ChainsScreen />
-              </PrivateRoute>
-              <PrivateRoute exact path="/chains/new">
-                <ChainsNew />
-              </PrivateRoute>
-
-              <PrivateRoute path="/chains/:chainId">
-                <ChainShow />
+                <ChainsPage />
               </PrivateRoute>
 
               <PrivateRoute path="/bridges">
