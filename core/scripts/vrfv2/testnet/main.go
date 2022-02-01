@@ -76,7 +76,7 @@ func main() {
 	case "bhs-deploy":
 		bhsAddress, tx, _, err := blockhash_store.DeployBlockhashStore(owner, ec)
 		helpers.PanicErr(err)
-		fmt.Println("BlockhashStore", bhsAddress.String(), "hash", tx.Hash())
+		fmt.Println("BlockhashStore", bhsAddress.String(), "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
@@ -90,7 +90,7 @@ func main() {
 			common.HexToAddress(*coordinatorDeployBHSAddress),
 			common.HexToAddress(*coordinatorDeployLinkEthFeedAddress))
 		helpers.PanicErr(err)
-		fmt.Println("Coordinator", coordinatorAddress.String(), "hash", tx.Hash())
+		fmt.Println("Coordinator", coordinatorAddress.String(), "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "coordinator-set-config":
 		coordinatorSetConfigCmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := coordinatorSetConfigCmd.String("address", "", "coordinator address")
@@ -118,7 +118,7 @@ func main() {
 			},
 		)
 		helpers.PanicErr(err)
-		fmt.Println("hash", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "coordinator-register-key":
 		coordinatorRegisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
@@ -140,7 +140,7 @@ func main() {
 			common.HexToAddress(*registerKeyOracleAddress),
 			[2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
-		fmt.Println("hash", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
@@ -159,7 +159,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := coordinator.DeregisterProvingKey(owner, [2]*big.Int{pk.X, pk.Y})
 		helpers.PanicErr(err)
-		fmt.Println("hash", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "coordinator-subscription":
 		coordinatorSub := flag.NewFlagSet("coordinator-subscription", flag.ExitOnError)
 		address := coordinatorSub.String("address", "", "coordinator address")
@@ -189,7 +189,7 @@ func main() {
 			uint32(1),       // words
 			keyHashBytes)
 		helpers.PanicErr(err)
-		fmt.Println("Consumer address", consumerAddress, "hash", tx.Hash())
+		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "consumer-subscribe":
 		consumerSubscribeCmd := flag.NewFlagSet("consumer-subscribe", flag.ExitOnError)
 		consumerSubscribeAddress := consumerSubscribeCmd.String("address", "", "consumer address")
@@ -217,7 +217,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := consumer.Unsubscribe(owner, owner.From)
 		helpers.PanicErr(err)
-		fmt.Println("hash", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "consumer-topup":
 		// NOTE NEED TO FUND CONSUMER WITH LINK FIRST
 		consumerTopupCmd := flag.NewFlagSet("consumer-topup", flag.ExitOnError)
@@ -232,7 +232,7 @@ func main() {
 		}
 		tx, err := consumer.TopUpSubscription(owner, amount)
 		helpers.PanicErr(err)
-		fmt.Println("hash", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "consumer-request":
 		consumerRequestCmd := flag.NewFlagSet("consumer-request", flag.ExitOnError)
 		consumerRequestAddress := consumerRequestCmd.String("address", "", "consumer address")
@@ -241,7 +241,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := consumer.RequestRandomWords(owner)
 		helpers.PanicErr(err)
-		fmt.Println("tx", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "consumer-fund-and-request":
 		consumerRequestCmd := flag.NewFlagSet("consumer-request", flag.ExitOnError)
 		consumerRequestAddress := consumerRequestCmd.String("address", "", "consumer address")
@@ -251,7 +251,7 @@ func main() {
 		// Fund and request 3 link
 		tx, err := consumer.FundAndRequestRandomWords(owner, big.NewInt(3000000000000000000))
 		helpers.PanicErr(err)
-		fmt.Println("tx", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "consumer-print":
 		consumerPrint := flag.NewFlagSet("consumer-print", flag.ExitOnError)
 		address := consumerPrint.String("address", "", "consumer address")
@@ -278,7 +278,7 @@ func main() {
 			common.HexToAddress(*consumerCoordinator),
 			common.HexToAddress(*consumerLinkAddress))
 		helpers.PanicErr(err)
-		fmt.Println("Consumer address", consumerAddress, "hash", tx.Hash())
+		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
@@ -287,7 +287,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := coordinator.CreateSubscription(owner)
 		helpers.PanicErr(err)
-		fmt.Println("Create subscription", "TX hash", tx.Hash())
+		fmt.Println("Create subscription", "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-add-sub-consumer":
 		addSubConsCmd := flag.NewFlagSet("eoa-add-sub-consumer", flag.ExitOnError)
 		coordinatorAddress := addSubConsCmd.String("coordinator-address", "", "coordinator address")
@@ -316,7 +316,7 @@ func main() {
 		fmt.Println(amount, consumerLinkAddress)
 		txcreate, err := coordinator.CreateSubscription(owner)
 		helpers.PanicErr(err)
-		fmt.Println("Create sub", "hash", txcreate.Hash())
+		fmt.Println("Create sub", "TX", helpers.ExplorerLink(chainID, txcreate.Hash()))
 		sub := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated)
 		subscription, err := coordinator.WatchSubscriptionCreated(nil, sub, nil)
 		helpers.PanicErr(err)
@@ -332,7 +332,7 @@ func main() {
 		owner.GasLimit = 500000
 		tx, err := linkToken.TransferAndCall(owner, coordinator.Address(), amount, b)
 		helpers.PanicErr(err)
-		fmt.Println("Funding sub", created.SubId, "hash", tx.Hash())
+		fmt.Println("Funding sub", created.SubId, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 		subFunded := make(chan *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionFunded)
 		fundSub, err := coordinator.WatchSubscriptionFunded(nil, subFunded, []uint64{created.SubId})
 		helpers.PanicErr(err)
@@ -340,7 +340,7 @@ func main() {
 		<-subFunded // Add a consumer once its funded
 		txadd, err := coordinator.AddConsumer(owner, created.SubId, common.HexToAddress(*consumerAddress))
 		helpers.PanicErr(err)
-		fmt.Println("adding consumer", "hash", txadd.Hash())
+		fmt.Println("adding consumer", "TX", helpers.ExplorerLink(chainID, txadd.Hash()))
 	case "eoa-request":
 		request := flag.NewFlagSet("eoa-request", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
@@ -357,7 +357,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := consumer.RequestRandomWords(owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes)
 		helpers.PanicErr(err)
-		fmt.Println("TX hash:", tx.Hash())
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-transfer-sub":
 		trans := flag.NewFlagSet("eoa-transfer-sub", flag.ExitOnError)
 		coordinatorAddress := trans.String("coordinator-address", "", "coordinator address")
@@ -368,7 +368,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := coordinator.RequestSubscriptionOwnerTransfer(owner, uint64(*subID), common.HexToAddress(*to))
 		helpers.PanicErr(err)
-		fmt.Println("ownership transfer requested", tx.Hash())
+		fmt.Println("ownership transfer requested TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-accept-sub":
 		accept := flag.NewFlagSet("eoa-accept-sub", flag.ExitOnError)
 		coordinatorAddress := accept.String("coordinator-address", "", "coordinator address")
@@ -378,7 +378,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := coordinator.AcceptSubscriptionOwnerTransfer(owner, uint64(*subID))
 		helpers.PanicErr(err)
-		fmt.Println("ownership transfer accepted", tx.Hash())
+		fmt.Println("ownership transfer accepted TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-cancel-sub":
 		cancel := flag.NewFlagSet("eoa-cancel-sub", flag.ExitOnError)
 		coordinatorAddress := cancel.String("coordinator-address", "", "coordinator address")
@@ -388,7 +388,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := coordinator.CancelSubscription(owner, uint64(*subID), owner.From)
 		helpers.PanicErr(err)
-		fmt.Println("sub cancelled", tx.Hash())
+		fmt.Println("sub cancelled TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-fund-sub":
 		fund := flag.NewFlagSet("eoa-fund-sub", flag.ExitOnError)
 		coordinatorAddress := fund.String("coordinator-address", "", "coordinator address")
@@ -412,7 +412,7 @@ func main() {
 		owner.GasLimit = 500000
 		tx, err := linkToken.TransferAndCall(owner, coordinator.Address(), amount, b)
 		helpers.PanicErr(err)
-		fmt.Println("Funding sub", *subID, "hash", tx.Hash())
+		fmt.Println("Funding sub", *subID, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 		helpers.PanicErr(err)
 	case "owner-cancel-sub":
 		cancel := flag.NewFlagSet("owner-cancel-sub", flag.ExitOnError)
@@ -423,7 +423,7 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := coordinator.OwnerCancelSubscription(owner, uint64(*subID))
 		helpers.PanicErr(err)
-		fmt.Println("sub cancelled", tx.Hash())
+		fmt.Println("sub cancelled TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "sub-balance":
 		consumerBalanceCmd := flag.NewFlagSet("sub-balance", flag.ExitOnError)
 		coordinatorAddress := consumerBalanceCmd.String("coordinator-address", "", "coordinator address")
