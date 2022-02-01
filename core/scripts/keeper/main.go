@@ -141,7 +141,7 @@ func init() {
 
 func main() {
 	// Deploy keeper registry
-	registryAddr, tx, registryInstance, err := keeper.DeployKeeperRegistry(buildTxOpts(), client,
+	registryAddr, deployKeeperRegistryTx, registryInstance, err := keeper.DeployKeeperRegistry(buildTxOpts(), client,
 		common.HexToAddress(config.LinkTokenAddr),
 		common.HexToAddress(config.LinkETHFeedAddr),
 		common.HexToAddress(config.FastGasFeedAddr),
@@ -157,60 +157,64 @@ func main() {
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
 	}
-	waitForTx(tx.Hash())
-	log.Println("KeeperRegistry deployed:", registryAddr.Hex(), "-", tx.Hash().Hex())
+	waitForTx(deployKeeperRegistryTx.Hash())
+	log.Println("KeeperRegistry deployed:", registryAddr.Hex(), "-", deployKeeperRegistryTx.Hash().Hex())
 
 	// Approve keeper registry
-	tx, err = linkToken.Approve(buildTxOpts(), registryAddr, approveAmount)
+	approveRegistryTx, err := linkToken.Approve(buildTxOpts(), registryAddr, approveAmount)
 	if err != nil {
 		log.Fatal("Approve failed: ", err)
 	}
-	waitForTx(tx.Hash())
-	log.Println("KeeperRegistry approved:", registryAddr.Hex(), "-", tx.Hash().Hex())
+	waitForTx(approveRegistryTx.Hash())
+	log.Println("KeeperRegistry approved:", registryAddr.Hex(), "-", approveRegistryTx.Hash().Hex())
 
 	// Deploy Upkeeps
 	for i := 0; i < 5; i++ {
 		// Deploy
-		upkeepAddr, tx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(buildTxOpts(), client,
+		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(buildTxOpts(), client,
 			big.NewInt(config.UpkeepTestRange), big.NewInt(config.UpkeepAverageEligibilityCadence),
 		)
 		if err != nil {
 			log.Fatal(i, " - DeployAbi failed: ", err)
 		}
-		waitForTx(tx.Hash())
-		log.Println(i, " - Upkeep deployed:", upkeepAddr.Hex(), "-", tx.Hash().Hex())
+		waitForTx(deployUpkeepTx.Hash())
+		log.Println(i, " - Upkeep deployed:", upkeepAddr.Hex(), "-", deployUpkeepTx.Hash().Hex())
 
 		// Approve
-		if tx, err = linkToken.Approve(buildTxOpts(), upkeepAddr, approveAmount); err != nil {
+		approveUpkeepTx, err := linkToken.Approve(buildTxOpts(), upkeepAddr, approveAmount)
+		if err != nil {
 			log.Fatal(i, " - Approve failed: ", err)
 		}
-		waitForTx(tx.Hash())
-		log.Println(i, " - Upkeep approved:", upkeepAddr.Hex(), "-", tx.Hash().Hex())
+		waitForTx(approveUpkeepTx.Hash())
+		log.Println(i, " - Upkeep approved:", upkeepAddr.Hex(), "-", approveUpkeepTx.Hash().Hex())
 
 		// Register
-		if tx, err = registryInstance.RegisterUpkeep(buildTxOpts(),
+		registerUpkeepTx, err := registryInstance.RegisterUpkeep(buildTxOpts(),
 			upkeepAddr, config.UpkeepGasLimit, fromAddr, []byte(config.UpkeepCheckData),
-		); err != nil {
+		)
+		if err != nil {
 			log.Fatal(i, " - RegisterUpkeep failed: ", err)
 		}
-		waitForTx(tx.Hash())
-		log.Println(i, " - Upkeep registered:", upkeepAddr.Hex(), "-", tx.Hash().Hex())
+		waitForTx(registerUpkeepTx.Hash())
+		log.Println(i, " - Upkeep registered:", upkeepAddr.Hex(), "-", registerUpkeepTx.Hash().Hex())
 
 		// Fund
-		if tx, err = registryInstance.AddFunds(buildTxOpts(), big.NewInt(int64(i)), addFundsAmount); err != nil {
+		addFundsTx, err := registryInstance.AddFunds(buildTxOpts(), big.NewInt(int64(i)), addFundsAmount)
+		if err != nil {
 			log.Fatal(i, " - AddFunds failed: ", err)
 		}
-		waitForTx(tx.Hash())
-		log.Println(i, " - Upkeep funded:", upkeepAddr.Hex(), "-", tx.Hash().Hex())
+		waitForTx(addFundsTx.Hash())
+		log.Println(i, " - Upkeep funded:", upkeepAddr.Hex(), "-", addFundsTx.Hash().Hex())
 	}
 
 	// Set Keepers
 	keepers, owners := config.keepers()
-	if tx, err = registryInstance.SetKeepers(buildTxOpts(), keepers, owners); err != nil {
+	setKeepersTx, err := registryInstance.SetKeepers(buildTxOpts(), keepers, owners)
+	if err != nil {
 		log.Fatal("SetKeepers failed: ", err)
 	}
-	waitForTx(tx.Hash())
-	log.Println("Keepers registered:", tx.Hash().Hex())
+	waitForTx(setKeepersTx.Hash())
+	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
 }
 
 func waitForTx(tx common.Hash) int {
