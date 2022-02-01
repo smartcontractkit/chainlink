@@ -120,7 +120,7 @@ func TestResolver_Chains(t *testing.T) {
 								"address": "test-address",
 								"config": {
 									"blockHistoryEstimatorBlockDelay": 0,
-									"evmEIP1559DynamicFees": false,
+									"evmEIP1559DynamicFees": false
 								}
 							}]
 						},
@@ -407,7 +407,7 @@ func TestResolver_CreateChain(t *testing.T) {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
 											"chainType": "EXCHAIN",
-											"gasEstimatorMode": "BLOCK_HISTORY",
+											"gasEstimatorMode": "BLOCK_HISTORY"
 										}
 									}
 								]
@@ -713,7 +713,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 											"blockHistoryEstimatorBlockDelay": 0,
 											"ethTxReaperThreshold": "1m0s",
 											"chainType": "EXCHAIN",
-											"gasEstimatorMode": "BLOCK_HISTORY",
+											"gasEstimatorMode": "BLOCK_HISTORY"
 										}
 									}
 								]
