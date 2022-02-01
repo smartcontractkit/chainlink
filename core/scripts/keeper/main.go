@@ -185,8 +185,9 @@ func main() {
 }
 
 func deployUpkeeps(registryInstance *keeper.KeeperRegistry) {
-	fmt.Println()
 	for i := int64(0); i < config.UpkeepCount; i++ {
+		fmt.Println()
+
 		// Deploy
 		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(buildTxOpts(), client,
 			big.NewInt(config.UpkeepTestRange), big.NewInt(config.UpkeepAverageEligibilityCadence),
