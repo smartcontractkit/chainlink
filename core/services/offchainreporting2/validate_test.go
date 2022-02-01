@@ -235,7 +235,6 @@ contractID    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]
 isBootstrapPeer    = false
-contractConfigTrackerSubscribeInterval = "0s"
 observationSource = """
 blah
 """
@@ -373,7 +372,7 @@ chainID = 1337
 		t.Run(tc.name, func(t *testing.T) {
 			c := configtest.NewTestGeneralConfig(t)
 			c.Overrides.Dev = null.BoolFrom(false)
-			c.Overrides.EthereumDisabled = null.BoolFrom(true)
+			c.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 			if tc.setGlobals != nil {
 				tc.setGlobals(t, c)
 			}

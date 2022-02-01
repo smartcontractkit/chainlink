@@ -62,10 +62,10 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 
 	// Generally speaking, most tests that use startNewApplication don't
 	// actually need ChainSets loaded. We can greatly reduce test
-	// overhead by setting EVM_DISABLED here. If you need EVM interactions in
+	// overhead by disabling EVM here. If you need EVM interactions in
 	// your tests, you can manually override and turn it on using
 	// withConfigSet.
-	config.Overrides.EVMDisabled = null.BoolFrom(true)
+	config.Overrides.EVMEnabled = null.BoolFrom(false)
 
 	if sopts.SetConfig != nil {
 		sopts.SetConfig(config)
@@ -121,9 +121,8 @@ func deleteKeyExportFile(t *testing.T) {
 	err := os.Remove(keyName)
 	if err == nil || os.IsNotExist(err) {
 		return
-	} else {
-		require.NoError(t, err)
 	}
+	require.NoError(t, err)
 }
 
 func TestClient_ReplayBlocks(t *testing.T) {
@@ -131,7 +130,7 @@ func TestClient_ReplayBlocks(t *testing.T) {
 
 	app := startNewApplication(t,
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 			c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
@@ -329,7 +328,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		withKey(),
 		withMocks(ethMock),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
@@ -416,7 +415,8 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
+		c.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
 	}))
 	client, _ := app.NewClientAndRenderer()

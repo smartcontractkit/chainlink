@@ -286,7 +286,7 @@ func TestClient_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
 	}))
 	client, r := app.NewClientAndRenderer()
 
@@ -309,7 +309,7 @@ func TestClient_ShowJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
 	}))
 	client, r := app.NewClientAndRenderer()
 
@@ -336,7 +336,8 @@ func TestClient_CreateJobV2(t *testing.T) {
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
+		c.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
@@ -363,7 +364,7 @@ func TestClient_DeleteJob(t *testing.T) {
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
 		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")

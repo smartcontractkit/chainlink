@@ -131,6 +131,8 @@ juelsPerFeeCoinSource = """
 
 [relayConfig]
 chainID = "Chainlink-99"`
+	OCR2TerraNodeSpecMinimal = OCR2TerraSpecMinimal + `
+nodeName = "some-test-node"`
 
 	WebhookSpecNoBody = `
 type            = "webhook"
@@ -157,6 +159,16 @@ observationSource   = """
 
     parse_request -> multiply -> send_to_bridge;
 """
+`
+
+	OCRBootstrapSpec = `
+type			= "bootstrap"
+name			= "bootstrap"
+relay			= "evm"
+schemaVersion	= 1
+contractID		= "0x613a38AC1659769640aaE063C651F48E0250454C"
+[relayConfig]
+chainID			= 1337
 `
 )
 

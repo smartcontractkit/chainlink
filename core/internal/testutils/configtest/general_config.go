@@ -49,9 +49,10 @@ type GeneralConfigOverrides struct {
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
 	Dev                                       null.Bool
+	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
-	EVMDisabled                               null.Bool
-	EthereumDisabled                          null.Bool
+	EVMEnabled                                null.Bool
+	EVMRPCEnabled                             null.Bool
 	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
 	FeatureFeedsManager                       null.Bool
@@ -65,6 +66,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasBumpPercent                   null.Int
 	GlobalEvmGasBumpTxDepth                   null.Int
 	GlobalEvmGasBumpWei                       *big.Int
+	GlobalEvmGasFeeCapDefault                 *big.Int
 	GlobalEvmGasLimitDefault                  null.Int
 	GlobalEvmGasLimitMultiplier               null.Float
 	GlobalEvmGasPriceDefault                  *big.Int
@@ -84,6 +86,7 @@ type GeneralConfigOverrides struct {
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
 	GlobalOCRObservationGracePeriod           time.Duration
+	KeeperCheckUpkeepGasPriceFeatureEnabled   null.Bool
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
@@ -207,6 +210,14 @@ func (c *TestGeneralConfig) Dev() bool {
 	return true
 }
 
+// ShutdownGracePeriod returns shutdown grace period duration.
+func (c *TestGeneralConfig) ShutdownGracePeriod() time.Duration {
+	if c.Overrides.ShutdownGracePeriod != nil {
+		return *c.Overrides.ShutdownGracePeriod
+	}
+	return c.GeneralConfig.ShutdownGracePeriod()
+}
+
 func (c *TestGeneralConfig) MigrateDatabase() bool {
 	return false
 }
@@ -229,21 +240,20 @@ func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 }
 
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
-	return 5
-}
-
-func (c *TestGeneralConfig) ORMMaxOpenConns() int {
-	// HACK: txdb does not appear to use connection pooling properly, so that
-	// if this value is not large enough instead of waiting for a connection the
-	// database call will fail with "conn busy" or some other cryptic error
 	return 20
 }
 
-func (c *TestGeneralConfig) EthereumDisabled() bool {
-	if c.Overrides.EthereumDisabled.Valid {
-		return c.Overrides.EthereumDisabled.Bool
+func (c *TestGeneralConfig) ORMMaxOpenConns() int {
+	// Set this to a reasonable number to enable test parallelisation (it requires one conn per db in tests)
+	return 20
+}
+
+// EVMRPCEnabled overrides
+func (c *TestGeneralConfig) EVMRPCEnabled() bool {
+	if c.Overrides.EVMRPCEnabled.Valid {
+		return c.Overrides.EVMRPCEnabled.Bool
 	}
-	return c.GeneralConfig.EthereumDisabled()
+	return c.GeneralConfig.EVMRPCEnabled()
 }
 
 func (c *TestGeneralConfig) EthereumURL() string {
@@ -362,6 +372,14 @@ func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
 }
 
+// KeeperCheckUpkeepGasPriceFeatureEnabled overrides
+func (c *TestGeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	if c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Valid {
+		return c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Bool
+	}
+	return c.GeneralConfig.KeeperCheckUpkeepGasPriceFeatureEnabled()
+}
+
 func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
 	if c.Overrides.BlockBackfillDepth.Valid {
 		return uint64(c.Overrides.BlockBackfillDepth.Int64)
@@ -411,11 +429,12 @@ func (c *TestGeneralConfig) LogSQL() bool {
 	return c.GeneralConfig.LogSQL()
 }
 
-func (c *TestGeneralConfig) EVMDisabled() bool {
-	if c.Overrides.EVMDisabled.Valid {
-		return c.Overrides.EVMDisabled.Bool
+// EVMEnabled overrides
+func (c *TestGeneralConfig) EVMEnabled() bool {
+	if c.Overrides.EVMEnabled.Valid {
+		return c.Overrides.EVMEnabled.Bool
 	}
-	return c.GeneralConfig.EVMDisabled()
+	return c.GeneralConfig.EVMEnabled()
 }
 
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
@@ -443,6 +462,14 @@ func (c *TestGeneralConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
 		return c.Overrides.GlobalBalanceMonitorEnabled.Bool, true
 	}
 	return c.GeneralConfig.GlobalBalanceMonitorEnabled()
+}
+
+// GlobalEvmGasFeeCapDefault is the override for EvmGasFeeCapDefault
+func (c *TestGeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmGasFeeCapDefault != nil {
+		return c.Overrides.GlobalEvmGasFeeCapDefault, true
+	}
+	return c.GeneralConfig.GlobalEvmGasFeeCapDefault()
 }
 
 func (c *TestGeneralConfig) GlobalEvmGasLimitDefault() (uint64, bool) {

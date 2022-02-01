@@ -46,35 +46,37 @@ type ORM interface {
 }
 
 type ChainCfg struct {
-	BlockHistoryEstimatorBlockDelay       null.Int
-	BlockHistoryEstimatorBlockHistorySize null.Int
-	EthTxReaperThreshold                  *models.Duration
-	EthTxResendAfterThreshold             *models.Duration
-	EvmEIP1559DynamicFees                 null.Bool
-	EvmFinalityDepth                      null.Int
-	EvmGasBumpPercent                     null.Int
-	EvmGasBumpTxDepth                     null.Int
-	EvmGasBumpWei                         *utils.Big
-	EvmGasLimitDefault                    null.Int
-	EvmGasLimitMultiplier                 null.Float
-	EvmGasPriceDefault                    *utils.Big
-	EvmGasTipCapDefault                   *utils.Big
-	EvmGasTipCapMinimum                   *utils.Big
-	EvmHeadTrackerHistoryDepth            null.Int
-	EvmHeadTrackerMaxBufferSize           null.Int
-	EvmHeadTrackerSamplingInterval        *models.Duration
-	EvmLogBackfillBatchSize               null.Int
-	EvmMaxGasPriceWei                     *utils.Big
-	EvmNonceAutoSync                      null.Bool
-	EvmRPCDefaultBatchSize                null.Int
-	FlagsContractAddress                  null.String
-	GasEstimatorMode                      null.String
-	ChainType                             null.String
-	MinIncomingConfirmations              null.Int
-	MinRequiredOutgoingConfirmations      null.Int
-	MinimumContractPayment                *assets.Link
-	OCRObservationTimeout                 *models.Duration
-	KeySpecific                           map[string]ChainCfg
+	BlockHistoryEstimatorBlockDelay                null.Int
+	BlockHistoryEstimatorBlockHistorySize          null.Int
+	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks null.Int
+	EthTxReaperThreshold                           *models.Duration
+	EthTxResendAfterThreshold                      *models.Duration
+	EvmEIP1559DynamicFees                          null.Bool
+	EvmFinalityDepth                               null.Int
+	EvmGasBumpPercent                              null.Int
+	EvmGasBumpTxDepth                              null.Int
+	EvmGasBumpWei                                  *utils.Big
+	EvmGasFeeCapDefault                            *utils.Big
+	EvmGasLimitDefault                             null.Int
+	EvmGasLimitMultiplier                          null.Float
+	EvmGasPriceDefault                             *utils.Big
+	EvmGasTipCapDefault                            *utils.Big
+	EvmGasTipCapMinimum                            *utils.Big
+	EvmHeadTrackerHistoryDepth                     null.Int
+	EvmHeadTrackerMaxBufferSize                    null.Int
+	EvmHeadTrackerSamplingInterval                 *models.Duration
+	EvmLogBackfillBatchSize                        null.Int
+	EvmMaxGasPriceWei                              *utils.Big
+	EvmNonceAutoSync                               null.Bool
+	EvmRPCDefaultBatchSize                         null.Int
+	FlagsContractAddress                           null.String
+	GasEstimatorMode                               null.String
+	ChainType                                      null.String
+	MinIncomingConfirmations                       null.Int
+	MinRequiredOutgoingConfirmations               null.Int
+	MinimumContractPayment                         *assets.Link
+	OCRObservationTimeout                          *models.Duration
+	KeySpecific                                    map[string]ChainCfg
 }
 
 func (c *ChainCfg) Scan(value interface{}) error {
@@ -97,11 +99,6 @@ type Chain struct {
 	UpdatedAt time.Time
 	Enabled   bool
 }
-
-func (Chain) TableName() string {
-	return "evm_chains"
-}
-
 type Node struct {
 	ID         int32
 	Name       string

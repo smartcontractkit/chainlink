@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web/gqlscalar"
@@ -87,6 +88,15 @@ func (r *SpecResolver) ToBlockhashStoreSpec() (*BlockhashStoreSpecResolver, bool
 	}
 
 	return &BlockhashStoreSpecResolver{spec: *r.j.BlockhashStoreSpec}, true
+}
+
+// ToBootstrapSpec resolves to the Booststrap Spec Resolver
+func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
+	if r.j.Type != job.Bootstrap {
+		return nil, false
+	}
+
+	return &BootstrapSpecResolver{spec: *r.j.BootstrapSpec}, true
 }
 
 type CronSpecResolver struct {
@@ -510,18 +520,6 @@ func (r *OCR2SpecResolver) ContractConfigTrackerPollInterval() *string {
 	return &interval
 }
 
-// ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
-// interval config.
-func (r *OCR2SpecResolver) ContractConfigTrackerSubscribeInterval() *string {
-	if r.spec.ContractConfigTrackerSubscribeInterval.Duration() == 0 {
-		return nil
-	}
-
-	interval := r.spec.ContractConfigTrackerSubscribeInterval.Duration().String()
-
-	return &interval
-}
-
 // CreatedAt resolves the spec's created at timestamp.
 func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
@@ -731,4 +729,77 @@ func (b *BlockhashStoreSpecResolver) FromAddress() *string {
 // CreatedAt resolves the spec's created at timestamp.
 func (b *BlockhashStoreSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: b.spec.CreatedAt}
+}
+
+// BootstrapSpecResolver defines the Bootstrap Spec Resolver
+type BootstrapSpecResolver struct {
+	spec job.BootstrapSpec
+}
+
+// ID resolves the Bootstrap spec ID
+func (r *BootstrapSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+// ContractID resolves the spec's contract address
+func (r *BootstrapSpecResolver) ContractID() string {
+	return r.spec.ContractID
+}
+
+// Relay resolves the spec's relay
+func (r *BootstrapSpecResolver) Relay() string {
+	return string(r.spec.Relay)
+}
+
+// RelayConfig resolves the spec's relay config
+func (r *BootstrapSpecResolver) RelayConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.RelayConfig)
+}
+
+// MonitoringEndpoint resolves the spec's monitoring endpoint
+func (r *BootstrapSpecResolver) MonitoringEndpoint() *string {
+	if !r.spec.MonitoringEndpoint.Valid {
+		return nil
+	}
+
+	return &r.spec.MonitoringEndpoint.String
+}
+
+// BlockchainTimeout resolves the spec's blockchain timeout
+func (r *BootstrapSpecResolver) BlockchainTimeout() *string {
+	if r.spec.BlockchainTimeout.Duration() == 0 {
+		return nil
+	}
+
+	interval := r.spec.BlockchainTimeout.Duration().String()
+
+	return &interval
+}
+
+// ContractConfigTrackerPollInterval resolves the spec's contract tracker poll
+// interval config.
+func (r *BootstrapSpecResolver) ContractConfigTrackerPollInterval() *string {
+	if r.spec.ContractConfigTrackerPollInterval.Duration() == 0 {
+		return nil
+	}
+
+	interval := r.spec.ContractConfigTrackerPollInterval.Duration().String()
+
+	return &interval
+}
+
+// ContractConfigConfirmations resolves the spec's confirmations config.
+func (r *BootstrapSpecResolver) ContractConfigConfirmations() *int32 {
+	if r.spec.ContractConfigConfirmations == 0 {
+		return nil
+	}
+
+	confirmations := int32(r.spec.ContractConfigConfirmations)
+
+	return &confirmations
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *BootstrapSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
 }

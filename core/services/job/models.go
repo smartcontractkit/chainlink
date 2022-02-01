@@ -38,6 +38,7 @@ const (
 	VRF                Type = "vrf"
 	BlockhashStore     Type = "blockhashstore"
 	Webhook            Type = "webhook"
+	Bootstrap          Type = "bootstrap"
 )
 
 //revive:disable:redefines-builtin-id
@@ -70,6 +71,7 @@ var (
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
+		Bootstrap:          false,
 	}
 	supportsAsync = map[Type]bool{
 		Cron:               true,
@@ -81,6 +83,7 @@ var (
 		VRF:                true,
 		Webhook:            true,
 		BlockhashStore:     false,
+		Bootstrap:          false,
 	}
 	schemaVersions = map[Type]uint32{
 		Cron:               1,
@@ -92,6 +95,7 @@ var (
 		VRF:                1,
 		Webhook:            1,
 		BlockhashStore:     1,
+		Bootstrap:          1,
 	}
 )
 
@@ -116,6 +120,8 @@ type Job struct {
 	WebhookSpec                    *WebhookSpec
 	BlockhashStoreSpecID           *int32
 	BlockhashStoreSpec             *BlockhashStoreSpec
+	BootstrapSpec                  *BootstrapSpec
+	BootstrapSpecID                *int32
 	PipelineSpecID                 int32
 	PipelineSpec                   *pipeline.Spec
 	JobSpecErrors                  []SpecError
@@ -148,10 +154,6 @@ func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
 }
 
-func (j Job) TableName() string {
-	return "jobs"
-}
-
 // SetID takes the id as a string and attempts to convert it to an int32. If
 // it succeeds, it will set it as the id on the job
 func (j *Job) SetID(value string) error {
@@ -170,10 +172,6 @@ type SpecError struct {
 	Occurrences uint
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-}
-
-func (SpecError) TableName() string {
-	return "job_spec_errors"
 }
 
 // SetID takes the id as a string and attempts to convert it to an int32. If
@@ -247,10 +245,6 @@ func (s *OffchainReportingOracleSpec) SetID(value string) error {
 	return nil
 }
 
-func (OffchainReportingOracleSpec) TableName() string {
-	return "offchainreporting_oracle_specs"
-}
-
 type RelayConfig map[string]interface{}
 
 func (r RelayConfig) Bytes() []byte {
@@ -272,22 +266,21 @@ func (r *RelayConfig) Scan(value interface{}) error {
 
 // Relay config is chain specific config for a relay (chain adapter).
 type OffchainReporting2OracleSpec struct {
-	ID                                     int32              `toml:"-"`
-	ContractID                             string             `toml:"contractID"`
-	Relay                                  relaytypes.Network `toml:"relay"`
-	RelayConfig                            RelayConfig        `toml:"relayConfig"`
-	P2PBootstrapPeers                      pq.StringArray     `toml:"p2pBootstrapPeers"`
-	IsBootstrapPeer                        bool               `toml:"isBootstrapPeer"`
-	OCRKeyBundleID                         null.String        `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                     null.String        `toml:"monitoringEndpoint"`
-	TransmitterID                          null.String        `toml:"transmitterID"`
-	BlockchainTimeout                      models.Interval    `toml:"blockchainTimeout"`
-	ContractConfigTrackerSubscribeInterval models.Interval    `toml:"contractConfigTrackerSubscribeInterval"`
-	ContractConfigTrackerPollInterval      models.Interval    `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations            uint16             `toml:"contractConfigConfirmations"`
-	JuelsPerFeeCoinPipeline                string             `toml:"juelsPerFeeCoinSource"`
-	CreatedAt                              time.Time          `toml:"-"`
-	UpdatedAt                              time.Time          `toml:"-"`
+	ID                                int32              `toml:"-"`
+	ContractID                        string             `toml:"contractID"`
+	Relay                             relaytypes.Network `toml:"relay"`
+	RelayConfig                       RelayConfig        `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
+	IsBootstrapPeer                   bool               `toml:"isBootstrapPeer"`
+	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String        `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline           string             `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                         time.Time          `toml:"-"`
+	UpdatedAt                         time.Time          `toml:"-"`
 }
 
 func (s OffchainReporting2OracleSpec) GetID() string {
@@ -301,10 +294,6 @@ func (s *OffchainReporting2OracleSpec) SetID(value string) error {
 	}
 	s.ID = int32(ID)
 	return nil
-}
-
-func (OffchainReporting2OracleSpec) TableName() string {
-	return "offchainreporting2_oracle_specs"
 }
 
 type ExternalInitiatorWebhookSpec struct {
@@ -335,10 +324,6 @@ func (w *WebhookSpec) SetID(value string) error {
 	return nil
 }
 
-func (WebhookSpec) TableName() string {
-	return "webhook_specs"
-}
-
 type DirectRequestSpec struct {
 	ID                          int32                    `toml:"-"`
 	ContractAddress             ethkey.EIP55Address      `toml:"contractAddress"`
@@ -349,10 +334,6 @@ type DirectRequestSpec struct {
 	EVMChainID                  *utils.Big               `toml:"evmChainID"`
 	CreatedAt                   time.Time                `toml:"-"`
 	UpdatedAt                   time.Time                `toml:"-"`
-}
-
-func (DirectRequestSpec) TableName() string {
-	return "direct_request_specs"
 }
 
 type CronSpec struct {
@@ -373,10 +354,6 @@ func (s *CronSpec) SetID(value string) error {
 	}
 	s.ID = int32(ID)
 	return nil
-}
-
-func (CronSpec) TableName() string {
-	return "cron_specs"
 }
 
 // Need to also try integer thresholds until
@@ -485,4 +462,36 @@ type BlockhashStoreSpec struct {
 
 	// UpdatedAt is the time this job was last updated.
 	UpdatedAt time.Time `toml:"-"`
+}
+
+// BootstrapSpec defines the spec to handles the node communication setup process.
+type BootstrapSpec struct {
+	ID                                int32              `toml:"-"`
+	ContractID                        string             `toml:"contractID"`
+	Relay                             relaytypes.Network `toml:"relay"`
+	RelayConfig                       RelayConfig
+	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
+	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
+	CreatedAt                         time.Time       `toml:"-"`
+	UpdatedAt                         time.Time       `toml:"-"`
+}
+
+// AsOCR2Spec transforms the bootstrap spec into a generic OCR2 format to enable code sharing between specs.
+func (s BootstrapSpec) AsOCR2Spec() OffchainReporting2OracleSpec {
+	return OffchainReporting2OracleSpec{
+		ID:                                s.ID,
+		ContractID:                        s.ContractID,
+		Relay:                             s.Relay,
+		RelayConfig:                       s.RelayConfig,
+		MonitoringEndpoint:                s.MonitoringEndpoint,
+		BlockchainTimeout:                 s.BlockchainTimeout,
+		ContractConfigTrackerPollInterval: s.ContractConfigTrackerPollInterval,
+		ContractConfigConfirmations:       s.ContractConfigConfirmations,
+		CreatedAt:                         s.CreatedAt,
+		UpdatedAt:                         s.UpdatedAt,
+
+		IsBootstrapPeer: true,
+	}
 }

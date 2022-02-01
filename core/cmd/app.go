@@ -723,12 +723,6 @@ func NewApp(client *Client) *cli.App {
 			Description: "Commands can only be run from on the same machine as the Chainlink node.",
 			Subcommands: []cli.Command{
 				{
-					Name:        "deleteuser",
-					Usage:       "Erase the *local node's* user and corresponding session to force recreation on next node launch.",
-					Description: "Does not work remotely over API.",
-					Action:      client.DeleteUser,
-				},
-				{
 					Name:   "setnextnonce",
 					Usage:  "Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.",
 					Action: client.SetNextNonce,
@@ -1091,10 +1085,6 @@ func NewApp(client *Client) *cli.App {
 								cli.StringFlag{
 									Name:  "tendermint-url",
 									Usage: "Tendermint URL",
-								},
-								cli.StringFlag{
-									Name:  "fcd-url",
-									Usage: "FCD URL",
 								},
 							},
 						},

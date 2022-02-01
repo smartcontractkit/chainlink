@@ -12,11 +12,6 @@ type Registry struct {
 	KeeperIndex       int32
 	NumKeepers        int32
 }
-
-func (Registry) TableName() string {
-	return "keeper_registries"
-}
-
 type UpkeepRegistration struct {
 	ID                  int32
 	CheckData           []byte

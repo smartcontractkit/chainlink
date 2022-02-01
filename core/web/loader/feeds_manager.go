@@ -28,7 +28,7 @@ func (b *feedsBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dat
 	}
 
 	// Fetch the feeds managers
-	managers, err := b.app.GetFeedsService().GetManagers(managersIDs)
+	managers, err := b.app.GetFeedsService().ListManagersByIDs(managersIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

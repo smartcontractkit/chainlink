@@ -46,7 +46,8 @@ type EnvPrinter struct {
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
-	EthereumDisabled                           bool            `json:"ETH_DISABLED"`
+	ShutdownGracePeriod                        time.Duration   `json:"SHUTDOWN_GRACE_PERIOD"`
+	EVMRPCEnabled                              bool            `json:"EVM_RPC_ENABLED"`
 	EthereumHTTPURL                            string          `json:"ETH_HTTP_URL"`
 	EthereumSecondaryURLs                      []string        `json:"ETH_SECONDARY_URLS"`
 	EthereumURL                                string          `json:"ETH_URL"`
@@ -67,6 +68,7 @@ type EnvPrinter struct {
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
+	KeeperCheckUpkeepGasPriceFeatureEnabled    bool            `json:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED"`
 	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
 	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
@@ -150,7 +152,8 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			DefaultHTTPLimit:                   cfg.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                 cfg.DefaultHTTPTimeout(),
 			Dev:                                cfg.Dev(),
-			EthereumDisabled:                   cfg.EthereumDisabled(),
+			ShutdownGracePeriod:                cfg.ShutdownGracePeriod(),
+			EVMRPCEnabled:                      cfg.EVMRPCEnabled(),
 			EthereumHTTPURL:                    ethereumHTTPURL,
 			EthereumSecondaryURLs:              mapToStringA(cfg.EthereumSecondaryURLs()),
 			EthereumURL:                        cfg.EthereumURL(),

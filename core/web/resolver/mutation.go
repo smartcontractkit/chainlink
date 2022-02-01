@@ -10,6 +10,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
@@ -304,7 +305,7 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 
 	feedsService := r.App.GetFeedsService()
 
-	err = feedsService.UpdateFeedsManager(ctx, *mgr)
+	err = feedsService.UpdateManager(ctx, *mgr)
 	if err != nil {
 		return nil, err
 	}
@@ -507,64 +508,107 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 	return NewDeleteVRFKeyPayloadResolver(key, nil), nil
 }
 
-func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
+// ApproveJobProposalSpec approves the job proposal spec.
+func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*ApproveJobProposalPayloadResolver, error) {
-	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, approve,
-	})
+}) (*ApproveJobProposalSpecPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
 
+	id, err := stringutils.ToInt64(string(args.ID))
 	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+	if err = feedsSvc.ApproveSpec(ctx, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewApproveJobProposalPayload(nil, err), nil
+			return NewApproveJobProposalSpecPayload(nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	return NewApproveJobProposalPayload(jp, nil), nil
+	spec, err := feedsSvc.GetSpec(id)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+
+	return NewApproveJobProposalSpecPayload(spec, err), nil
 }
 
-func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
+// CancelJobProposalSpec cancels the job proposal spec.
+func (r *Resolver) CancelJobProposalSpec(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*CancelJobProposalPayloadResolver, error) {
-	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, cancel,
-	})
+}) (*CancelJobProposalSpecPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
 
+	id, err := stringutils.ToInt64(string(args.ID))
 	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+	if err = feedsSvc.CancelSpec(ctx, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewCancelJobProposalPayload(nil, err), nil
+			return NewCancelJobProposalSpecPayload(nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	return NewCancelJobProposalPayload(jp, nil), nil
+	spec, err := feedsSvc.GetSpec(id)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+
+	return NewCancelJobProposalSpecPayload(spec, err), nil
 }
 
-func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
+// RejectJobProposalSpec rejects the job proposal spec.
+func (r *Resolver) RejectJobProposalSpec(ctx context.Context, args struct {
 	ID graphql.ID
-}) (*RejectJobProposalPayloadResolver, error) {
-	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, reject,
-	})
+}) (*RejectJobProposalSpecPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
 
+	id, err := stringutils.ToInt64(string(args.ID))
 	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+	if err = feedsSvc.RejectSpec(ctx, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewRejectJobProposalPayload(nil, err), nil
+			return NewRejectJobProposalSpecPayload(nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	return NewRejectJobProposalPayload(jp, nil), nil
+	spec, err := feedsSvc.GetSpec(id)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
+
+	return NewRejectJobProposalSpecPayload(spec, err), nil
 }
 
-func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
+// UpdateJobProposalSpecDefinition updates the spec definition.
+func (r *Resolver) UpdateJobProposalSpecDefinition(ctx context.Context, args struct {
 	ID    graphql.ID
-	Input *struct{ Spec string }
-}) (*UpdateJobProposalSpecPayloadResolver, error) {
+	Input *struct{ Definition string }
+}) (*UpdateJobProposalSpecDefinitionPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -576,65 +620,23 @@ func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
 
 	feedsSvc := r.App.GetFeedsService()
 
-	err = feedsSvc.UpdateJobProposalSpec(ctx, id, args.Input.Spec)
+	err = feedsSvc.UpdateSpecDefinition(ctx, id, args.Input.Definition)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewUpdateJobProposalSpecPayload(nil, err), nil
+			return NewUpdateJobProposalSpecDefinitionPayload(nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	jp, err := r.App.GetFeedsService().GetJobProposal(id)
+	spec, err := feedsSvc.GetSpec(id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewUpdateJobProposalSpecPayload(nil, err), nil
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
 		}
-
-		return nil, err
 	}
 
-	return NewUpdateJobProposalSpecPayload(jp, nil), nil
-}
-
-type jobProposalAction struct {
-	jpID graphql.ID
-	name JobProposalAction
-}
-
-func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (*feeds.JobProposal, error) {
-	if err := authenticateUser(ctx); err != nil {
-		return nil, err
-	}
-
-	id, err := stringutils.ToInt64(string(action.jpID))
-	if err != nil {
-		return nil, err
-	}
-
-	feedsSvc := r.App.GetFeedsService()
-
-	switch action.name {
-	case approve:
-		err = feedsSvc.ApproveJobProposal(ctx, id)
-	case cancel:
-		err = feedsSvc.CancelJobProposal(ctx, id)
-	case reject:
-		err = feedsSvc.RejectJobProposal(ctx, id)
-	default:
-		return nil, errors.New("invalid job proposal action")
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	jp, err := r.App.GetFeedsService().GetJobProposal(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return jp, nil
+	return NewUpdateJobProposalSpecDefinitionPayload(spec, err), nil
 }
 
 func (r *Resolver) SetServicesLogLevels(ctx context.Context, args struct {
@@ -968,6 +970,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
+	case job.Bootstrap:
+		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

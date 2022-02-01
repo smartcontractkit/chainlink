@@ -415,6 +415,20 @@ func (_m *ChainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	return r0
 }
 
+// BlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
+func (_m *ChainScopedConfig) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
 // BlockHistoryEstimatorTransactionPercentile provides a mock function with given fields:
 func (_m *ChainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16 {
 	ret := _m.Called()
@@ -731,8 +745,22 @@ func (_m *ChainScopedConfig) Dev() bool {
 	return r0
 }
 
-// EVMDisabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) EVMDisabled() bool {
+// EVMEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) EVMEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// EVMRPCEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) EVMRPCEnabled() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -782,20 +810,6 @@ func (_m *ChainScopedConfig) EthTxResendAfterThreshold() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// EthereumDisabled provides a mock function with given fields:
-func (_m *ChainScopedConfig) EthereumDisabled() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -933,8 +947,8 @@ func (_m *ChainScopedConfig) EvmGasBumpWei() *big.Int {
 	return r0
 }
 
-// EvmGasFeeCap provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmGasFeeCap() *big.Int {
+// EvmGasFeeCapDefault provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasFeeCapDefault() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -1325,20 +1339,6 @@ func (_m *ChainScopedConfig) FeatureUICSAKeys() bool {
 	return r0
 }
 
-// FeatureUIFeedsManager provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureUIFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FlagsContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) FlagsContractAddress() string {
 	ret := _m.Called()
@@ -1481,6 +1481,27 @@ func (_m *ChainScopedConfig) GlobalBlockHistoryEstimatorBlockDelay() (uint16, bo
 
 // GlobalBlockHistoryEstimatorBlockHistorySize provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool) {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
 	ret := _m.Called()
 
 	var r0 uint16
@@ -1733,6 +1754,29 @@ func (_m *ChainScopedConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
 
 // GlobalEvmGasBumpWei provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasFeeCapDefault provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -2419,6 +2463,20 @@ func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
+// KeeperCheckUpkeepGasPriceFeatureEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -3272,6 +3330,20 @@ func (_m *ChainScopedConfig) P2PDHTLookupInterval() int {
 	return r0
 }
 
+// P2PEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2PEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // P2PIncomingMessageBufferSize provides a mock function with given fields:
 func (_m *ChainScopedConfig) P2PIncomingMessageBufferSize() int {
 	ret := _m.Called()
@@ -3702,6 +3774,34 @@ func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
 	_m.Called(logSQL)
 }
 
+// ShutdownGracePeriod provides a mock function with given fields:
+func (_m *ChainScopedConfig) ShutdownGracePeriod() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// SolanaEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) SolanaEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // TLSCertPath provides a mock function with given fields:
 func (_m *ChainScopedConfig) TLSCertPath() string {
 	ret := _m.Called()
@@ -3825,6 +3925,20 @@ func (_m *ChainScopedConfig) TelemetryIngressURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// TerraEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) TerraEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

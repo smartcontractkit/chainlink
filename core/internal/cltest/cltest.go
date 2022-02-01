@@ -69,7 +69,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -297,21 +296,23 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback jsonrpcHandler) string
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
+	shutdownGracePeriod := defaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
-		SecretGenerator: MockSecretGenerator{},
-		Dialect:         dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:  null.IntFrom(NewRandomInt64()),
+		SecretGenerator:     MockSecretGenerator{},
+		Dialect:             dialects.TransactionWrappedPostgres,
+		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
 
-// NewApplicationEVMDisabled creates a new application with default config but ethereum disabled
+// NewApplicationEVMDisabled creates a new application with default config but EVM disabled
 // Useful for testing controllers
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
-	c.Overrides.EVMDisabled = null.BoolFrom(true)
+	c.Overrides.EVMEnabled = null.BoolFrom(false)
 
 	return NewApplicationWithConfig(t, c)
 }
@@ -372,7 +373,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	lggr := logger.TestLogger(t)
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
-	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
 	db, err := pg.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), pg.Config{
@@ -451,7 +451,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
-		ShutdownSignal:           shutdownSignal,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		Chains:                   chains,
@@ -979,7 +978,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 		var matched []pipeline.Run
 		for _, pr := range prs {
-			if !pr.State.Finished() && pr.State != state {
+			if !pr.State.Finished() || pr.State != state {
 				continue
 			}
 
