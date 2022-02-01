@@ -19,12 +19,6 @@ import (
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 )
 
-const (
-	defaultGasLimit        = 8000000
-	defaultUpkeepGasLimit  = 500000
-	defaultCheckUpkeepData = "0x00"
-)
-
 var (
 	client     *ethclient.Client
 	privateKey *ecdsa.PrivateKey
@@ -39,15 +33,32 @@ var (
 
 // Config represents configuration fields
 type Config struct {
-	NodeURL         string   `mapstructure:"NODE_URL"`
-	ChainID         int64    `mapstructure:"CHAIN_ID"`
-	PrivateKey      string   `mapstructure:"PRIVATE_KEY"`
-	LinkTokenAddr   string   `mapstructure:"LINK_TOKEN_ADDR"`
-	LinkETHFeedAddr string   `mapstructure:"LINK_ETH_FEED"`
-	FastGasFeedAddr string   `mapstructure:"FAST_GAS_FEED"`
-	Keepers         []string `mapstructure:"KEEPERS"`
-	ApproveAmount   string   `mapstructure:"APPROVE_AMOUNT"`
-	AddFundsAmount  string   `mapstructure:"ADD_FUNDS_AMOUNT"`
+	NodeURL        string   `mapstructure:"NODE_URL"`
+	ChainID        int64    `mapstructure:"CHAIN_ID"`
+	PrivateKey     string   `mapstructure:"PRIVATE_KEY"`
+	LinkTokenAddr  string   `mapstructure:"LINK_TOKEN_ADDR"`
+	Keepers        []string `mapstructure:"KEEPERS"`
+	ApproveAmount  string   `mapstructure:"APPROVE_AMOUNT"`
+	AddFundsAmount string   `mapstructure:"ADD_FUNDS_AMOUNT"`
+	GasLimit       uint64   `mapstructure:"GAS_LIMIT"`
+
+	// Keeper config
+	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
+	FastGasFeedAddr      string `mapstructure:"FAST_GAS_FEED"`
+	PaymentPremiumPBB    uint32 `mapstructure:"PAYMENT_PREMIUM_PBB"`
+	FlatFeeMicroLink     uint32 `mapstructure:"FLAT_FEE_MICRO_LINK"`
+	BlockCountPerTurn    int64  `mapstructure:"BLOCK_COUNT_PER_TURN"`
+	CheckGasLimit        uint32 `mapstructure:"CHECK_GAS_LIMIT"`
+	StalenessSeconds     int64  `mapstructure:"STALENESS_SECONDS"`
+	GasCeilingMultiplier uint16 `mapstructure:"GAS_CEILING_MULTIPLIER"`
+	FallbackGasPrice     int64  `mapstructure:"FALLBACK_GAS_PRICE"`
+	FallbackLinkPrice    int64  `mapstructure:"FALLBACK_LINK_PRICE"`
+
+	// Upkeep Config
+	UpkeepTestRange                 int64  `mapstructure:"UPKEEP_TEST_RANGE"`
+	UpkeepAverageEligibilityCadence int64  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
+	UpkeepCheckData                 string `mapstructure:"UPKEEP_CHECK_DATA"`
+	UpkeepGasLimit                  uint32 `mapstructure:"UPKEEP_GAS_LIMIT"`
 }
 
 func (c *Config) keepers() ([]common.Address, []common.Address) {
@@ -63,6 +74,19 @@ func (c *Config) keepers() ([]common.Address, []common.Address) {
 func init() {
 	viper.SetDefault("APPROVE_AMOUNT", "1000000000000000000000")
 	viper.SetDefault("ADD_FUNDS_AMOUNT", "1000000000000000000")
+	viper.SetDefault("GAS_LIMIT", 8000000)
+	viper.SetDefault("PAYMENT_PREMIUM_PBB", 200000000)
+	viper.SetDefault("FLAT_FEE_MICRO_LINK", 0)
+	viper.SetDefault("BLOCK_COUNT_PER_TURN", 1)
+	viper.SetDefault("CHECK_GAS_LIMIT", 650000000)
+	viper.SetDefault("STALENESS_SECONDS", 90000)
+	viper.SetDefault("GAS_CEILING_MULTIPLIER", 3)
+	viper.SetDefault("FALLBACK_GAS_PRICE", 10000000000)
+	viper.SetDefault("FALLBACK_LINK_PRICE", 200000000000000000)
+	viper.SetDefault("UPKEEP_TEST_RANGE", 1)
+	viper.SetDefault("UPKEEP_AVERAGE_ELIGIBILITY_CADENCE", 1)
+	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
+	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
 
 	viper.SetConfigFile(".env")
 	viper.AutomaticEnv()
@@ -121,14 +145,14 @@ func main() {
 		common.HexToAddress(config.LinkTokenAddr),
 		common.HexToAddress(config.LinkETHFeedAddr),
 		common.HexToAddress(config.FastGasFeedAddr),
-		200000000,
-		0,
-		big.NewInt(1),
-		650000000,
-		big.NewInt(90000),
-		3,
-		big.NewInt(10000000000),
-		big.NewInt(200000000000000000),
+		config.PaymentPremiumPBB,
+		config.FlatFeeMicroLink,
+		big.NewInt(config.BlockCountPerTurn),
+		config.CheckGasLimit,
+		big.NewInt(config.StalenessSeconds),
+		config.GasCeilingMultiplier,
+		big.NewInt(config.FallbackGasPrice),
+		big.NewInt(config.FallbackLinkPrice),
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
@@ -147,7 +171,9 @@ func main() {
 	// Deploy Upkeeps
 	for i := 0; i < 5; i++ {
 		// Deploy
-		upkeepAddr, tx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(buildTxOpts(), client, big.NewInt(1), big.NewInt(1))
+		upkeepAddr, tx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(buildTxOpts(), client,
+			big.NewInt(config.UpkeepTestRange), big.NewInt(config.UpkeepAverageEligibilityCadence),
+		)
 		if err != nil {
 			log.Fatal(i, " - DeployAbi failed: ", err)
 		}
@@ -162,7 +188,9 @@ func main() {
 		log.Println(i, " - Upkeep approved:", upkeepAddr.Hex(), "-", tx.Hash().Hex())
 
 		// Register
-		if tx, err = registryInstance.RegisterUpkeep(buildTxOpts(), upkeepAddr, defaultUpkeepGasLimit, fromAddr, []byte(defaultCheckUpkeepData)); err != nil {
+		if tx, err = registryInstance.RegisterUpkeep(buildTxOpts(),
+			upkeepAddr, config.UpkeepGasLimit, fromAddr, []byte(config.UpkeepCheckData),
+		); err != nil {
 			log.Fatal(i, " - RegisterUpkeep failed: ", err)
 		}
 		waitForTx(tx.Hash())
@@ -237,8 +265,8 @@ func buildTxOpts() *bind.TransactOpts {
 	}
 
 	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)              // in wei
-	auth.GasLimit = uint64(defaultGasLimit) // in units
+	auth.Value = big.NewInt(0)      // in wei
+	auth.GasLimit = config.GasLimit // in units
 	auth.GasPrice = gasPrice
 
 	return auth
