@@ -329,7 +329,7 @@ func bumpDynamicFee(cfg Config, lggr logger.Logger, currentTipCap, currentBaseFe
 
 	if currentTipCap != nil {
 		if currentTipCap.Cmp(maxGasPrice) > 0 {
-			lggr.Errorf("invariant violation: ignoring current tip cap of %s that would exceed max gas price of %s", currentTipCap.String(), maxGasPrice.String())
+			lggr.Warnf("AssumptionViolation: ignoring current tip cap of %s that would exceed max gas price of %s", currentTipCap.String(), maxGasPrice.String())
 		} else if bumpedTipCap.Cmp(currentTipCap) < 0 {
 			// If the current gas tip cap is higher than the old tip cap with bump applied, use that instead
 			bumpedTipCap = currentTipCap
