@@ -49,6 +49,7 @@ type ChainCfg struct {
 	BlockHistoryEstimatorBlockDelay                null.Int
 	BlockHistoryEstimatorBlockHistorySize          null.Int
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks null.Int
+	ChainType                                      null.String
 	EthTxReaperThreshold                           *models.Duration
 	EthTxResendAfterThreshold                      *models.Duration
 	EvmEIP1559DynamicFees                          null.Bool
@@ -71,13 +72,12 @@ type ChainCfg struct {
 	EvmRPCDefaultBatchSize                         null.Int
 	FlagsContractAddress                           null.String
 	GasEstimatorMode                               null.String
-	ChainType                                      null.String
+	KeySpecific                                    map[string]ChainCfg
+	LinkContractAddress                            null.String
 	MinIncomingConfirmations                       null.Int
 	MinRequiredOutgoingConfirmations               null.Int
 	MinimumContractPayment                         *assets.Link
 	OCRObservationTimeout                          *models.Duration
-	LinkContractAddress                            null.String
-	KeySpecific                                    map[string]ChainCfg
 }
 
 func (c *ChainCfg) Scan(value interface{}) error {

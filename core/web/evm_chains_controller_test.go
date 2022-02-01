@@ -81,7 +81,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(50),
 					EvmEIP1559DynamicFees:                 null.BoolFrom(true),
 					MinIncomingConfirmations:              null.IntFrom(12),
-					LinkContractAddress:                   null.StringFrom(utils.ZeroAddress.String()),
+					LinkContractAddress:                   null.StringFrom(cltest.NewAddress().String()),
 				}
 
 				chain := types.Chain{
