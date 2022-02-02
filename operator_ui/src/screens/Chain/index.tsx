@@ -2,7 +2,7 @@ import React from 'react'
 import { Route, Switch, useRouteMatch } from 'react-router-dom'
 
 import ChainsNew from './New'
-import ChainShow from './Show'
+import { ChainScreen } from 'src/screens/Chain/ChainScreen'
 import { ChainsScreen } from 'src/screens/Chains/ChainsScreen'
 
 export const ChainsPage = function () {
@@ -15,7 +15,7 @@ export const ChainsPage = function () {
       </Route>
 
       <Route path={`${path}/:id`}>
-        <ChainShow />
+        <ChainScreen />
       </Route>
 
       <Route exact path={path}>
