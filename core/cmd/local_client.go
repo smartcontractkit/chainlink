@@ -241,12 +241,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 	if cli.Config.SolanaEnabled() {
-		solanaKey, didExist, err2 := app.GetKeyStore().Solana().EnsureKey()
-		if err2 != nil {
+		err2 := app.GetKeyStore().Solana().EnsureKey()
+		if err2 != nil && !errors.Is(err, keystore.ErrSolanaKeySeeded) {
 			return errors.Wrap(err2, "failed to ensure solana key")
-		}
-		if !didExist {
-			lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
 		}
 	}
 	if cli.Config.TerraEnabled() {

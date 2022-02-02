@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -135,10 +136,15 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		err = ks.EnsureKeys()
 		assert.NoError(t, err)
 
-		keys2, err := ks.GetAll()
+		evmKeys, err := ks.GetAllOfType(chaintype.EVM)
+		assert.NoError(t, err)
+		solanaKeys, err := ks.GetAllOfType(chaintype.Solana)
+		assert.NoError(t, err)
+		terraKeys, err := ks.GetAllOfType(chaintype.Terra)
 		assert.NoError(t, err)
 
-		require.Equal(t, 3, len(keys2))
-		require.Equal(t, keys, keys2)
+		require.Equal(t, 1, len(evmKeys))
+		require.Equal(t, 1, len(solanaKeys))
+		require.Equal(t, 1, len(terraKeys))
 	})
 }

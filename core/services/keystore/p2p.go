@@ -11,7 +11,7 @@ import (
 
 //go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
 
-// ErrOCRKeySeeded describes the error when the OCR key was already seeded
+// ErrP2PKeySeeded describes the error when the OCR key was already seeded
 var ErrP2PKeySeeded = errors.New("P2P key was already seeded")
 
 type P2P interface {
