@@ -20,6 +20,7 @@ type CSA interface {
 	Delete(id string) (csakey.KeyV2, error)
 	Import(keyJSON []byte, password string) (csakey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
+	EnsureKey() (csakey.KeyV2, bool, error)
 
 	GetV1KeysAsV2() ([]csakey.KeyV2, error)
 }
@@ -131,6 +132,26 @@ func (ks *csa) Export(id string, password string) ([]byte, error) {
 		return nil, err
 	}
 	return key.ToEncryptedJSON(password, ks.scryptParams)
+}
+
+// EnsureKey verifies whether the CSA key has been created, if not, it creates it.
+func (ks *csa) EnsureKey() (csakey.KeyV2, bool, error) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	if ks.isLocked() {
+		return csakey.KeyV2{}, false, ErrLocked
+	}
+
+	if len(ks.keyRing.CSA) > 0 {
+		return csakey.KeyV2{}, true, nil
+	}
+
+	key, err := csakey.NewV2()
+	if err != nil {
+		return csakey.KeyV2{}, false, err
+	}
+
+	return key, false, ks.safeAddKey(key)
 }
 
 func (ks *csa) GetV1KeysAsV2() (keys []csakey.KeyV2, _ error) {
