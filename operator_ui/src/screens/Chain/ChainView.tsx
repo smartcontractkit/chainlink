@@ -1,15 +1,11 @@
 import React from 'react'
 import { gql } from '@apollo/client'
 import { Switch, Route, useParams, useRouteMatch } from 'react-router-dom'
-import { v2 } from 'api'
-import { NodeResource } from './ChainNodes'
-import RegionalNav from './RegionalNav'
-import { Resource, Chain } from 'core/store/models'
+import { RegionalNav } from './RegionalNav'
 import { ChainNodes } from './ChainNodes'
 import { ChainConfig } from './ChainConfig'
 import NewChainNode from './NewChainNode'
 import UpdateChain from './UpdateChain'
-import { ChainPayload } from 'src/types/generated/graphql'
 
 export const CHAIN_PAYLOAD__NODES_FIELDS = gql`
   fragment ChainPayload_NodesFields on Node {
@@ -52,7 +48,7 @@ export const ChainView: React.FC<Props> = ({ chain, onDelete }) => {
 
   return (
     <>
-      <RegionalNav chainId={id} chain={chain} />
+      <RegionalNav chainId={id} chain={chain} onDelete={onDelete} />
       <Switch>
         <Route path={`${path}/nodes/new`}>
           {<NewChainNode chain={chain} />}

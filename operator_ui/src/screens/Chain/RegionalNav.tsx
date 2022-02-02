@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { connect } from 'react-redux'
 import { Chain, Resource } from 'core/store/models'
 import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
 import { Redirect, useLocation } from 'react-router-dom'
@@ -19,8 +18,6 @@ import {
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import Link from 'components/Link'
-import ErrorMessage from 'components/Notifications/DefaultError'
-import { deleteChain } from 'actionCreators'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -116,19 +113,19 @@ export type ChainResource = Resource<Chain>
 
 interface Props extends WithStyles<typeof styles> {
   chainId: string
-  chain?: ChainResource
-  deleteChain: Function
+  chain?: ChainPayload_Fields
+  onDelete: Function
 }
 
-const DeleteSuccessNotification = ({ id }: any) => (
-  <React.Fragment>Successfully deleted chain {id}</React.Fragment>
-)
+// const DeleteSuccessNotification = ({ id }: any) => (
+//   <React.Fragment>Successfully deleted chain {id}</React.Fragment>
+// )
 
-const RegionalNavComponent = ({
+export const RegionalNavComponent: React.FC<Props> = ({
   classes,
   chainId,
   chain,
-  deleteChain,
+  onDelete,
 }: Props) => {
   const [modalOpen, setModalOpen] = useState(false)
   const [deleted, setDeleted] = useState(false)
@@ -137,8 +134,8 @@ const RegionalNavComponent = ({
   const editActive = location.pathname.endsWith('/edit')
   const navNodesActive = !navOverridesActive && !editActive
 
-  const handleDelete = (id: string) => {
-    deleteChain(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
+  function handleDelete(chainId: string) {
+    onDelete(chainId)
     setDeleted(true)
   }
 
@@ -258,11 +255,10 @@ const RegionalNavComponent = ({
             </Grid>
           </Grid>
           <Grid item xs={12}>
-            {chain?.attributes.createdAt && (
+            {chain?.createdAt && (
               <Typography variant="subtitle2" color="textSecondary">
-                Created{' '}
-                <TimeAgo tooltip={false}>{chain.attributes.createdAt}</TimeAgo>{' '}
-                ({localizedTimestamp(chain.attributes.createdAt)})
+                Created <TimeAgo tooltip={false}>{chain.createdAt}</TimeAgo> (
+                {localizedTimestamp(chain.createdAt)})
               </Typography>
             )}
           </Grid>
@@ -298,8 +294,4 @@ const RegionalNavComponent = ({
   )
 }
 
-export const ConnectedRegionalNav = connect(null, {
-  deleteChain,
-})(RegionalNavComponent)
-
-export default withStyles(styles)(ConnectedRegionalNav)
+export const RegionalNav = withStyles(styles)(RegionalNavComponent)
