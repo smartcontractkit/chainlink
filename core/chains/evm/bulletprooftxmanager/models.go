@@ -67,8 +67,12 @@ const (
 	// chain.
 	TransmitCheckerTypeSimulate = TransmitCheckerType("simulate")
 
-	// TransmitCheckerTypeVRFV2 is a checker that will not submit VRF fulfillment requests that have
-	// already been fulfilled. This could happen if the request was fulfilled by another node.
+	// TransmitCheckerTypeVRFV1 is a checker that will not submit VRF V1 fulfillment requests that
+	// have already been fulfilled. This could happen if the request was fulfilled by another node.
+	TransmitCheckerTypeVRFV1 = TransmitCheckerType("vrf_v1")
+
+	// TransmitCheckerTypeVRFV2 is a checker that will not submit VRF V2 fulfillment requests that
+	// have already been fulfilled. This could happen if the request was fulfilled by another node.
 	TransmitCheckerTypeVRFV2 = TransmitCheckerType("vrf_v2")
 )
 
