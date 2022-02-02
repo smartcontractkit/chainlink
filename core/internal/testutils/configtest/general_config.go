@@ -674,6 +674,7 @@ func (c *TestGeneralConfig) LogFileDir() string {
 	return c.RootDir()
 }
 
+// GlobalLinkContractAddress allows to override the LINK contract address
 func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
 	if c.Overrides.LinkContractAddress.Valid {
 		return c.Overrides.LinkContractAddress.String, true
