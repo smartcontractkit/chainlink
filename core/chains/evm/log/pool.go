@@ -31,8 +31,8 @@ type iLogPool interface {
 	// Returns nil if this ends up emptying the pool.
 	DeleteOlderLogs(keptDepth int64) *int64
 
-	// RemoveBlock removes all logs for the block identified by provided Block Hash and Block Number.
-	RemoveBlock(blockHash common.Hash, blockNumber uint64)
+	// RemoveBlock removes all logs for the block identified by provided Block hash and number.
+	RemoveBlock(hash common.Hash, number uint64)
 
 	// TestOnly_getNumLogsForBlock FOR TESTING USE ONLY.
 	// Returns all logs for the provided block hash.
@@ -144,12 +144,12 @@ func (pool *logPool) DeleteOlderLogs(keptDepth int64) *int64 {
 	return nil
 }
 
-func (pool *logPool) RemoveBlock(blockHash common.Hash, blockNumber uint64) {
+func (pool *logPool) RemoveBlock(hash common.Hash, number uint64) {
 	// deleting all logs for this log's block hash
-	delete(pool.logsByBlockHash, blockHash)
-	delete(pool.hashesByBlockNumbers[blockNumber], blockHash)
-	if len(pool.hashesByBlockNumbers[blockNumber]) == 0 {
-		delete(pool.hashesByBlockNumbers, blockNumber)
+	delete(pool.logsByBlockHash, hash)
+	delete(pool.hashesByBlockNumbers[number], hash)
+	if len(pool.hashesByBlockNumbers[number]) == 0 {
+		delete(pool.hashesByBlockNumbers, number)
 	}
 }
 

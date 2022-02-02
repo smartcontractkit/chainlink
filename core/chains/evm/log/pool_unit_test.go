@@ -6,8 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/stretchr/testify/require"
+
+	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 )
 
 var (
