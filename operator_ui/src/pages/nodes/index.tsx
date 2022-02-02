@@ -9,6 +9,10 @@ export const NodesPage = function () {
 
   return (
     <Switch>
+      <Route path={`${path}/new`}>
+        <NodeScreen />
+      </Route>
+
       <Route path={`${path}/:id`}>
         <NodeScreen />
       </Route>

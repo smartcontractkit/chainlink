@@ -4,7 +4,7 @@ import { Switch, Route, useParams, useRouteMatch } from 'react-router-dom'
 import { RegionalNav } from './RegionalNav'
 import { ChainNodes } from './ChainNodes'
 import { ChainConfig } from './ChainConfig'
-import NewChainNode from './NewChainNode'
+import { NewChainNode } from './NewChainNode'
 import UpdateChain from './UpdateChain'
 
 export const CHAIN_PAYLOAD__NODES_FIELDS = gql`

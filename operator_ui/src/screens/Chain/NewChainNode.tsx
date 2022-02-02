@@ -1,69 +1,25 @@
 import React from 'react'
-import { ApiResponse } from 'utils/json-api-client'
 import Button from '@material-ui/core/Button'
-import * as api from 'api'
-import { useDispatch } from 'react-redux'
-import { CreateNodeRequest, Node } from 'core/store/models'
-import BaseLink from 'components/BaseLink'
-import ErrorMessage from 'components/Notifications/DefaultError'
-import { notifySuccess, notifyError } from 'actionCreators'
 import Content from 'components/Content'
 import { Grid, Card, CardContent, CardHeader } from '@material-ui/core'
-import { ChainResource } from './RegionalNav'
 import { Field, Form, Formik } from 'formik'
 import { TextField } from 'formik-material-ui'
 import * as Yup from 'yup'
 
-const SuccessNotification = ({ id }: { id: string }) => (
-  <>
-    Successfully created node{' '}
-    <BaseLink id="created-node" href={`/nodes`}>
-      {id}
-    </BaseLink>
-  </>
-)
+// const SuccessNotification = ({ id }: { id: string }) => (
+//   <>
+//     Successfully created node{' '}
+//     <BaseLink id="created-node" href={`/nodes`}>
+//       {id}
+//     </BaseLink>
+//   </>
+// )
 
-function apiCall({
-  name,
-  wsURL,
-  httpURL,
-  evmChainID,
-}: {
-  name: string
-  httpURL: string
-  wsURL: string
-  evmChainID: string
-}): Promise<ApiResponse<Node>> {
-  const definition: CreateNodeRequest = { name, wsURL, httpURL, evmChainID }
-  return api.v2.nodes.createNode(definition)
+interface Props {
+  onNewNode: Function
 }
 
-const NewChainNode = ({ chain }: { chain: ChainResource }) => {
-  const dispatch = useDispatch()
-
-  async function handleSubmit({
-    name,
-    httpURL,
-    wsURL,
-  }: {
-    name: string
-    httpURL: string
-    wsURL: string
-  }) {
-    apiCall({
-      name,
-      wsURL,
-      httpURL,
-      evmChainID: chain.id,
-    })
-      .then(({ data }) => {
-        dispatch(notifySuccess(SuccessNotification, data))
-      })
-      .catch((error) => {
-        dispatch(notifyError(ErrorMessage, error))
-      })
-  }
-
+export const NewChainNode: React.FC<Props> = ({ onNewNode }) => {
   const initialValues = {
     name: '',
     wsURL: '',
@@ -104,8 +60,8 @@ const NewChainNode = ({ chain }: { chain: ChainResource }) => {
               <Formik
                 initialValues={initialValues}
                 validationSchema={ValidationSchema}
-                onSubmit={async (values) => {
-                  handleSubmit(values)
+                onSubmit={(values) => {
+                  onNewNode(values)
                 }}
               >
                 {({ isSubmitting, submitForm }) => (
@@ -168,5 +124,3 @@ const NewChainNode = ({ chain }: { chain: ChainResource }) => {
     </Content>
   )
 }
-
-export default NewChainNode

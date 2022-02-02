@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route, Switch, useRouteMatch } from 'react-router-dom'
 
-import ChainsNew from './New'
+import ChainsNew from 'src/screens/Chain/New'
 import { ChainScreen } from 'src/screens/Chain/ChainScreen'
 import { ChainsScreen } from 'src/screens/Chains/ChainsScreen'
 
