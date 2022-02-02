@@ -9,7 +9,7 @@ import (
 
 //go:generate mockery --name CSA --output mocks/ --case=underscore
 
-var ErrCSAKeyExists = errors.New("CSA key does not exist")
+var ErrCSAKeyExists = errors.New("can only have 1 CSA key")
 
 // type CSAKeystoreInterface interface {
 type CSA interface {
@@ -68,7 +68,7 @@ func (ks *csa) Create() (csakey.KeyV2, error) {
 	// restriction until we are able to handle multiple CSA keys in the
 	// communication channel
 	if len(ks.keyRing.CSA) > 0 {
-		return csakey.KeyV2{}, errors.New("can only have 1 CSA key")
+		return csakey.KeyV2{}, ErrCSAKeyExists
 	}
 	key, err := csakey.NewV2()
 	if err != nil {
@@ -84,7 +84,7 @@ func (ks *csa) Add(key csakey.KeyV2) error {
 		return ErrLocked
 	}
 	if len(ks.keyRing.CSA) > 0 {
-		return errors.New("can only have 1 CSA key")
+		return ErrCSAKeyExists
 	}
 	return ks.safeAddKey(key)
 }
