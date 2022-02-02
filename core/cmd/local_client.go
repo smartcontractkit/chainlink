@@ -235,12 +235,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 	if cli.Config.P2PEnabled() {
-		p2pKey, didExist, err2 := app.GetKeyStore().P2P().EnsureKey()
-		if err2 != nil {
+		err2 := app.GetKeyStore().P2P().EnsureKey()
+		if err2 != nil && !errors.Is(err, keystore.ErrP2PKeySeeded) {
 			return errors.Wrap(err2, "failed to ensure p2p key")
-		}
-		if !didExist {
-			lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
 		}
 	}
 	if cli.Config.SolanaEnabled() {
