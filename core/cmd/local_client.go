@@ -214,15 +214,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 
 		for _, ch := range evmChainSet.Chains() {
-			skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+			err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 			if err2 != nil {
 				return errors.Wrap(err2, "failed to ensure keystore keys")
-			}
-			if !fexisted {
-				lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
-			}
-			if !sexisted {
-				lggr.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
 			}
 		}
 	}
