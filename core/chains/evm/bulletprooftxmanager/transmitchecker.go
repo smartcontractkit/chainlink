@@ -9,7 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	v2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -20,6 +21,7 @@ var (
 
 	_ TransmitCheckerFactory = &CheckerFactory{}
 	_ TransmitChecker        = &SimulateChecker{}
+	_ TransmitChecker        = &VRFV1Checker{}
 	_ TransmitChecker        = &VRFV2Checker{}
 )
 
@@ -33,8 +35,15 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
 		return &SimulateChecker{c.Client}, nil
+	case TransmitCheckerTypeVRFV1:
+		coord, err := v1.NewVRFCoordinator(spec.VRFCoordinatorAddress, c.Client)
+		if err != nil {
+			return nil, errors.Wrapf(err,
+				"failed to create VRF V1 coordinator at address %v", spec.VRFCoordinatorAddress)
+		}
+		return &VRFV1Checker{coord.Callbacks}, nil
 	case TransmitCheckerTypeVRFV2:
-		coord, err := vrf_coordinator_v2.NewVRFCoordinatorV2(spec.VRFCoordinatorAddress, c.Client)
+		coord, err := v2.NewVRFCoordinatorV2(spec.VRFCoordinatorAddress, c.Client)
 		if err != nil {
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V2 coordinator at address %v", spec.VRFCoordinatorAddress)
@@ -101,6 +110,71 @@ func (s *SimulateChecker) Check(
 			"ethTxAttemptID", a.ID, "txHash", a.Hash, "returnValue", b.String())
 	}
 	return nil
+}
+
+// VRFV1Checker is an implementation of TransmitChecker that checks whether a VRF V1 fulfillment
+// has already been fulfilled.
+type VRFV1Checker struct {
+
+	// Callbacks checks whether a VRF V1 request has already been fulfilled on the VRFCoordinator
+	// Solidity contract
+	Callbacks func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error)
+}
+
+// Check satisfies the TransmitChecker interface.
+func (v *VRFV1Checker) Check(
+	ctx context.Context,
+	l logger.Logger,
+	tx EthTx,
+	_ EthTxAttempt,
+) error {
+	meta, err := tx.GetMeta()
+	if err != nil {
+		l.Errorw("Failed to parse transaction meta. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxId", tx.ID,
+			"meta", tx.Meta)
+		return nil
+	}
+
+	if meta == nil {
+		l.Errorw("Expected a non-nil meta for a VRF transaction. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxId", tx.ID,
+			"meta", tx.Meta)
+		return nil
+	}
+
+	if len(meta.RequestID.Bytes()) != 32 {
+		l.Errorw("Unexpected request ID. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxId", tx.ID,
+			"meta", tx.Meta)
+		return nil
+	}
+
+	var reqID [32]byte
+	copy(reqID[:], meta.RequestID.Bytes())
+	callback, err := v.Callbacks(&bind.CallOpts{Context: ctx}, reqID)
+	if err != nil {
+		l.Errorw("Unable to check if already fulfilled. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxId", tx.ID,
+			"meta", tx.Meta,
+			"reqID", reqID)
+		return nil
+	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
+		// Request already fulfilled
+		l.Infow("Request already fulfilled",
+			"err", err,
+			"ethTxId", tx.ID,
+			"meta", tx.Meta,
+			"reqID", reqID)
+		return errors.New("request already fulfilled")
+	} else {
+		// Request not fulfilled
+		return nil
+	}
 }
 
 // VRFV2Checker is an implementation of TransmitChecker that checks whether a VRF V2 fulfillment
