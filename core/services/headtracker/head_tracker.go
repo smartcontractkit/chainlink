@@ -235,7 +235,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				h := eth.AsHead(head)
 				{
-					ctx, cancel := eth.DefaultQueryCtx()
+					ctx, cancel := utils.ContextFromChan(ht.chStop)
 					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
