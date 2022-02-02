@@ -673,3 +673,10 @@ func (c *TestGeneralConfig) LogFileDir() string {
 	}
 	return c.RootDir()
 }
+
+func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
+	if c.Overrides.LinkContractAddress.Valid {
+		return c.Overrides.LinkContractAddress.String, true
+	}
+	return c.GeneralConfig.GlobalLinkContractAddress()
+}
