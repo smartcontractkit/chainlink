@@ -180,6 +180,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	healthChecker := services.NewChecker()
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
+	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
@@ -190,11 +191,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// Use Explorer over TelemetryIngress if both URLs are set
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
-		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
-			cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
-		monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
+		if cfg.TelemetryIngressUseBatchSend() {
+			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval())
+			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
+
+		} else {
+			telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
+			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
+		}
 	}
-	subservices = append(subservices, explorerClient, telemetryIngressClient)
+	subservices = append(subservices, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
