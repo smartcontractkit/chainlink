@@ -224,7 +224,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	if cli.Config.FeatureOffchainReporting() {
 		err2 := app.GetKeyStore().OCR().EnsureKey()
-		if err2 != nil {
+		if err2 != nil && !errors.Is(err, keystore.ErrOCRKeySeeded) {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
@@ -247,17 +247,13 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 	if cli.Config.TerraEnabled() {
-		terraKey, didExist, err2 := app.GetKeyStore().Terra().EnsureKey()
-		if err2 != nil {
+		err2 := app.GetKeyStore().Terra().EnsureKey()
+		if err2 != nil && !errors.Is(err, keystore.ErrTerraKeySeeded) {
 			return errors.Wrap(err2, "failed to ensure terra key")
-		}
-		if !didExist {
-			lggr.Infof("Created Terra key with ID %s", terraKey.ID())
 		}
 	}
 
 	err2 := app.GetKeyStore().CSA().EnsureKey()
-	// only fail is the key doesn't exists and there was an error
 	if err2 != nil && !errors.Is(err, keystore.ErrCSAKeyExists) {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
