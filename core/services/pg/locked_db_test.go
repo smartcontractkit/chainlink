@@ -48,8 +48,9 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 
 	err := ldb.Open(context.Background())
 	require.NoError(t, err)
-	err2 := ldb.Open(context.Background())
-	require.Error(t, err2)
+	require.Panics(t, func() {
+		_ = ldb.Open(context.Background())
+	})
 
 	_ = ldb.Close()
 }
@@ -73,4 +74,21 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 	ldb2 := pg.NewLockedDB(config, lggr)
 	err = ldb2.Open(ctx)
 	require.Error(t, err)
+}
+
+func TestOpenUnlockedDB(t *testing.T) {
+	config := cltest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t)
+
+	db1, err1 := pg.OpenUnlockedDB(config, lggr)
+	require.NoError(t, err1)
+	require.NotNil(t, db1)
+
+	// should not block the second connection
+	db2, err2 := pg.OpenUnlockedDB(config, lggr)
+	require.NoError(t, err2)
+	require.NotNil(t, db2)
+
+	require.NoError(t, db1.Close())
+	require.NoError(t, db2.Close())
 }

@@ -26,12 +26,19 @@ type lockedDb struct {
 	advisoryLock AdvisoryLock
 }
 
-// NewLockedDB creates a new instance of LockedDB
+// NewLockedDB creates a new instance of LockedDB.
 func NewLockedDB(cfg config.GeneralConfig, lggr logger.Logger) LockedDB {
 	return &lockedDb{
 		cfg:  cfg,
 		lggr: lggr.Named("LockedDB"),
 	}
+}
+
+// OpenUnlockedDB just opens DB connection, without any DB locks.
+// This should be used carefully, when we know we don't need any locks.
+// Currently this is used by RebroadcastTransactions command only.
+func OpenUnlockedDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
+	return openDB(cfg, lggr)
 }
 
 // Open function connects to DB and acquires DB locks based on configuration.
@@ -41,7 +48,7 @@ func NewLockedDB(cfg config.GeneralConfig, lggr logger.Logger) LockedDB {
 func (l *lockedDb) Open(ctx context.Context) (err error) {
 	// If Open succeeded previously, db will not be nil
 	if l.db != nil {
-		return errors.New("calling Open() twice")
+		l.lggr.Panic("calling Open() twice")
 	}
 
 	// Step 1: open DB connection
@@ -110,7 +117,7 @@ func (l *lockedDb) Close() error {
 	return nil
 }
 
-// DB returns DB connection if Opened successfully, or nil
+// DB returns DB connection if Opened successfully, or nil.
 func (l lockedDb) DB() *sqlx.DB {
 	return l.db
 }

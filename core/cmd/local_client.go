@@ -364,13 +364,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	lggr := cli.Logger.Named("RebroadcastTransactions")
-	ldb := pg.NewLockedDB(cli.Config, lggr)
-	if err = ldb.Open(context.Background()); err != nil {
-		return cli.errorOut(errors.Wrap(err, "opening LockedDB"))
+	db, err := pg.OpenUnlockedDB(cli.Config, lggr)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "opening DB"))
 	}
-	defer lggr.ErrorIfClosing(ldb, "db")
+	defer lggr.ErrorIfClosing(db, "db")
 
-	app, err := cli.AppFactory.NewApplication(cli.Config, ldb.DB())
+	app, err := cli.AppFactory.NewApplication(cli.Config, db)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
