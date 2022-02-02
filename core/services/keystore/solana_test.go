@@ -90,7 +90,7 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = ks.EnsureKey()
-		require.ErrorIs(t, err, keystore.ErrSolanaKeySeeded)
+		assert.NoError(t, err)
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)

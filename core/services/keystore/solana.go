@@ -10,9 +10,6 @@ import (
 
 //go:generate mockery --name Solana --output ./mocks/ --case=underscore --filename solana.go
 
-// ErrSolanaKeySeeded describes the error when the OCR key was already seeded
-var ErrSolanaKeySeeded = errors.New("Solana key was already seeded")
-
 type Solana interface {
 	Get(id string) (solkey.Key, error)
 	GetAll() ([]solkey.Key, error)
@@ -132,7 +129,7 @@ func (ks *solana) EnsureKey() error {
 		return ErrLocked
 	}
 	if len(ks.keyRing.Solana) > 0 {
-		return ErrSolanaKeySeeded
+		return nil
 	}
 
 	key, err := solkey.New()

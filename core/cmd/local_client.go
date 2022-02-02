@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
@@ -224,7 +223,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	if cli.Config.FeatureOffchainReporting() {
 		err2 := app.GetKeyStore().OCR().EnsureKey()
-		if err2 != nil && !errors.Is(err, keystore.ErrOCRKeySeeded) {
+		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
 	}
@@ -236,25 +235,25 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 	if cli.Config.P2PEnabled() {
 		err2 := app.GetKeyStore().P2P().EnsureKey()
-		if err2 != nil && !errors.Is(err, keystore.ErrP2PKeySeeded) {
+		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
 	}
 	if cli.Config.SolanaEnabled() {
 		err2 := app.GetKeyStore().Solana().EnsureKey()
-		if err2 != nil && !errors.Is(err, keystore.ErrSolanaKeySeeded) {
+		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
 	}
 	if cli.Config.TerraEnabled() {
 		err2 := app.GetKeyStore().Terra().EnsureKey()
-		if err2 != nil && !errors.Is(err, keystore.ErrTerraKeySeeded) {
+		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure terra key")
 		}
 	}
 
 	err2 := app.GetKeyStore().CSA().EnsureKey()
-	if err2 != nil && !errors.Is(err, keystore.ErrCSAKeyExists) {
+	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
 

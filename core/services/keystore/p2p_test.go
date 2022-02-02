@@ -97,7 +97,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.Equal(t, 1, len(keys))
 
 		err = ks.EnsureKey()
-		assert.Error(t, err, keystore.ErrP2PKeySeeded)
+		assert.NoError(t, err)
 
 		keys, err = ks.GetAll()
 		assert.NoError(t, err)

@@ -10,9 +10,6 @@ import (
 
 //go:generate mockery --name OCR --output ./mocks/ --case=underscore
 
-// ErrOCRKeySeeded describes the error when the OCR key was already seeded
-var ErrOCRKeySeeded = errors.New("OCR key was already seeded")
-
 type OCR interface {
 	Get(id string) (ocrkey.KeyV2, error)
 	GetAll() ([]ocrkey.KeyV2, error)
@@ -146,7 +143,7 @@ func (ks *ocr) EnsureKey() error {
 	}
 
 	if len(ks.keyRing.OCR) > 0 {
-		return ErrOCRKeySeeded
+		return nil
 	}
 
 	key, err := ocrkey.NewV2()

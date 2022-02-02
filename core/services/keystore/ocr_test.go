@@ -87,7 +87,7 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		err := ks.EnsureKey()
 		require.NoError(t, err)
 		err = ks.EnsureKey()
-		require.ErrorIs(t, err, keystore.ErrOCRKeySeeded)
+		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))

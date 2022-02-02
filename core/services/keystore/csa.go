@@ -144,7 +144,7 @@ func (ks *csa) EnsureKey() error {
 	}
 
 	if len(ks.keyRing.CSA) > 0 {
-		return ErrCSAKeyExists
+		return nil
 	}
 
 	key, err := csakey.NewV2()

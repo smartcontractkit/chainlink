@@ -11,9 +11,6 @@ import (
 
 //go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
 
-// ErrP2PKeySeeded describes the error when the OCR key was already seeded
-var ErrP2PKeySeeded = errors.New("P2P key was already seeded")
-
 type P2P interface {
 	Get(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 	GetAll() ([]p2pkey.KeyV2, error)
@@ -141,7 +138,7 @@ func (ks *p2p) EnsureKey() error {
 	}
 
 	if len(ks.keyRing.P2P) > 0 {
-		return ErrP2PKeySeeded
+		return nil
 	}
 
 	key, err := p2pkey.NewV2()

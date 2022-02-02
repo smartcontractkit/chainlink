@@ -10,9 +10,6 @@ import (
 
 //go:generate mockery --name Terra --output ./mocks/ --case=underscore --filename terra.go
 
-// ErrTerraKeySeeded describes the error when the OCR key was already seeded
-var ErrTerraKeySeeded = errors.New("Terra key was already seeded")
-
 type Terra interface {
 	Get(id string) (terrakey.Key, error)
 	GetAll() ([]terrakey.Key, error)
@@ -130,7 +127,7 @@ func (ks *terra) EnsureKey() error {
 	}
 
 	if len(ks.keyRing.Terra) > 0 {
-		return ErrTerraKeySeeded
+		return nil
 	}
 
 	key := terrakey.New()
