@@ -135,7 +135,7 @@ func (ks *csa) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-// EnsureKey verifies whether the CSA key has been created, if not, it creates it.
+// EnsureKey verifies whether the CSA key has been seeded, if not, it creates it.
 func (ks *csa) EnsureKey() error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()

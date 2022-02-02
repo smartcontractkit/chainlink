@@ -222,12 +222,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	if cli.Config.FeatureOffchainReporting() {
-		ocrKey, didExist, err2 := app.GetKeyStore().OCR().EnsureKey()
+		err2 := app.GetKeyStore().OCR().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
-		}
-		if !didExist {
-			lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 		}
 	}
 	if cli.Config.FeatureOffchainReporting2() {
