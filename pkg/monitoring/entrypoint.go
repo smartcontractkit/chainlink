@@ -66,8 +66,8 @@ func Entrypoint(
 		transmissionSchema,
 		configSetSimplifiedSchema,
 
-		cfg.Kafka.ConfigSetSimplifiedTopic,
 		cfg.Kafka.TransmissionTopic,
+		cfg.Kafka.ConfigSetSimplifiedTopic,
 	)
 
 	monitor := NewMultiFeedMonitor(
