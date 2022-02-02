@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
@@ -228,14 +229,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 	if cli.Config.FeatureOffchainReporting2() {
-		ocr2Keys, keysDidExist, err2 := app.GetKeyStore().OCR2().EnsureKeys()
+		err2 := app.GetKeyStore().OCR2().EnsureKeys()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
-		}
-		for chainType, didExist := range keysDidExist {
-			if !didExist {
-				lggr.Infof("Created OCR2 key with ID %s", ocr2Keys[chainType].ID())
-			}
 		}
 	}
 	if cli.Config.P2PEnabled() {
@@ -267,7 +263,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	err2 := app.GetKeyStore().CSA().EnsureKey()
-	if err2 != nil {
+	// only fail is the key doesn't exists and there was an error
+	if err2 != nil && !errors.Is(err, keystore.ErrCSAKeyExists) {
 		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
 
