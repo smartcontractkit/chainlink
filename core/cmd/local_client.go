@@ -275,12 +275,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}
 
-	csaKey, didExist, err2 := app.GetKeyStore().CSA().EnsureKey()
+	err2 := app.GetKeyStore().CSA().EnsureKey()
 	if err2 != nil {
 		return errors.Wrap(err2, "failed to ensure CSA key")
-	}
-	if !didExist {
-		lggr.Infof("Created CSA key with ID %s", csaKey.ID())
 	}
 
 	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {
