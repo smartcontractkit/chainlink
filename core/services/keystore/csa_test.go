@@ -87,30 +87,30 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		defer reset()
 
 		newKey, err := csakey.NewV2()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		err = ks.Add(newKey)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		csaKey, didExists, err := keyStore.CSA().EnsureKey()
 
-		assert.NoError(t, err)
-		assert.True(t, didExists)
-		assert.Exactly(t, csakey.KeyV2{}, csaKey)
+		require.NoError(t, err)
+		require.True(t, didExists)
+		require.Exactly(t, csakey.KeyV2{}, csaKey)
 	})
 
 	t.Run("auto creates a key if it doesn't exists when trying to ensure it already exists", func(t *testing.T) {
 		defer reset()
 
 		keys, err := ks.GetAll()
-		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(keys))
 
 		csaKey, didExists, err := keyStore.CSA().EnsureKey()
 
-		assert.NoError(t, err)
-		assert.False(t, didExists)
-		assert.NotEmpty(t, csaKey.ID())
-		assert.NotEmpty(t, csaKey.Version)
-		assert.NotEmpty(t, csaKey.PublicKey)
+		require.NoError(t, err)
+		require.False(t, didExists)
+		require.NotEmpty(t, csaKey.ID())
+		require.NotEmpty(t, csaKey.Version)
+		require.NotEmpty(t, csaKey.PublicKey)
 	})
 }
