@@ -70,6 +70,7 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 			prometheusExporterFactory,
 			kafkaExporterFactory,
 		},
+		100, // bufferCapacity for source pollers
 	)
 	wg.Add(1)
 	go func() {

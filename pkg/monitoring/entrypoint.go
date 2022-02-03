@@ -76,9 +76,9 @@ func Entrypoint(
 	monitor := NewMultiFeedMonitor(
 		chainConfig,
 		log,
-
 		append([]SourceFactory{sourceFactory}, extraSourceFactories...),
 		append([]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}, extraExporterFactories...),
+		100, // bufferCapacity for source pollers
 	)
 
 	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser)

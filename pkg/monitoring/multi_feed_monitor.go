@@ -16,6 +16,8 @@ func NewMultiFeedMonitor(
 
 	sourceFactories []SourceFactory,
 	exporterFactories []ExporterFactory,
+
+	bufferCapacity uint32,
 ) MultiFeedMonitor {
 	return &multiFeedMonitor{
 		chainConfig,
@@ -23,6 +25,8 @@ func NewMultiFeedMonitor(
 
 		sourceFactories,
 		exporterFactories,
+
+		bufferCapacity,
 	}
 }
 
@@ -32,9 +36,9 @@ type multiFeedMonitor struct {
 	log               Logger
 	sourceFactories   []SourceFactory
 	exporterFactories []ExporterFactory
-}
 
-const bufferCapacity = 100
+	bufferCapacity uint32
+}
 
 // Run should be executed as a goroutine.
 func (m *multiFeedMonitor) Run(ctx context.Context, feeds []FeedConfig) {
@@ -60,7 +64,7 @@ FEED_LOOP:
 				feedLogger.With("component", "chain-poller"),
 				m.chainConfig.GetPollInterval(),
 				m.chainConfig.GetReadTimeout(),
-				bufferCapacity,
+				m.bufferCapacity,
 			)
 			pollers = append(pollers, poller)
 		}

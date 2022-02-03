@@ -54,9 +54,9 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 	monitor := NewMultiFeedMonitor(
 		chainCfg,
 		newNullLogger(),
-
 		[]SourceFactory{factory},
 		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
+		100, // bufferCapacity for source pollers
 	)
 	wg.Add(1)
 	go func() {
@@ -137,9 +137,9 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	monitor := NewMultiFeedMonitor(
 		chainCfg,
 		newNullLogger(),
-
 		[]SourceFactory{factory},
 		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
+		100, // bufferCapacity for source pollers
 	)
 	wg.Add(1)
 	go func() {
@@ -208,6 +208,7 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 			newNullLogger(),
 			[]SourceFactory{sourceFactory1, sourceFactory2, sourceFactory3},
 			[]ExporterFactory{exporterFactory1, exporterFactory2, exporterFactory3},
+			100, // bufferCapacity for source pollers
 		)
 
 		envelope, err := generateEnvelope()
