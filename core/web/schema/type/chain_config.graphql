@@ -41,6 +41,7 @@ interface GeneralChainConfig {
     minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
+    linkContractAddress: String
 }
 
 type ChainConfig implements GeneralChainConfig {
@@ -72,6 +73,7 @@ type ChainConfig implements GeneralChainConfig {
     minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
+    linkContractAddress: String
     keySpecificConfigs: [KeySpecificChainConfig]!
 }
 
@@ -109,6 +111,7 @@ input ChainConfigInput {
     minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
+    linkContractAddress: String
 }
 
 input KeySpecificChainConfigInput {
