@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -157,20 +156,24 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(ccOpts)
 	if err != nil {
-		appLggr.Fatal(err)
+		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
-	terraLggr := appLggr.Named("Terra")
-	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
-		Config:           cfg,
-		Logger:           terraLggr,
-		DB:               db,
-		KeyStore:         keyStore.Terra(),
-		EventBroadcaster: eventBroadcaster,
-		ORM:              terra.NewORM(db, terraLggr, cfg),
-	})
-	if err != nil {
-		appLggr.Fatal(err)
+
+	if cfg.TerraEnabled() {
+		terraLggr := appLggr.Named("Terra")
+		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+			Config:           cfg,
+			Logger:           terraLggr,
+			DB:               db,
+			KeyStore:         keyStore.Terra(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Terra chainset")
+		}
 	}
+
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -199,7 +202,10 @@ func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, ap
 	}
 	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic databsae backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
 
-	databaseBackup := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	if err != nil {
+		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
+	}
 	return databaseBackup.RunBackup(appv.String())
 }
 
@@ -228,7 +234,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	g, gCtx := errgroup.WithContext(ctx)
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
-		log.Fatal("You must specify at least one port to listen on")
+		return errors.New("You must specify at least one port to listen on")
 	}
 
 	server := server{handler: handler, lggr: app.GetLogger()}
