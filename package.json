@@ -40,7 +40,7 @@
     "eslint-plugin-react-hooks": "^4.0.0",
     "postinstall-postinstall": "^2.1.0",
     "prettier": "2.4.1",
-    "ts-node": "^10.0.0",
+    "ts-node": "^10.4.0",
     "typescript": "^3.7.4",
     "wsrun": "^5.2.4"
   },
