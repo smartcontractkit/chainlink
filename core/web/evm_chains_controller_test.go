@@ -10,16 +10,18 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"gopkg.in/guregu/null.v4"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_EVMChainsController_Create(t *testing.T) {
@@ -79,6 +81,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(50),
 					EvmEIP1559DynamicFees:                 null.BoolFrom(true),
 					MinIncomingConfirmations:              null.IntFrom(12),
+					LinkContractAddress:                   null.StringFrom(cltest.NewAddress().String()),
 				}
 
 				chain := types.Chain{
@@ -135,6 +138,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, wantedResult.Cfg.BlockHistoryEstimatorBlockHistorySize)
 				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, wantedResult.Cfg.EvmEIP1559DynamicFees)
 				assert.Equal(t, resource1.Config.MinIncomingConfirmations, wantedResult.Cfg.MinIncomingConfirmations)
+				assert.Equal(t, resource1.Config.LinkContractAddress, wantedResult.Cfg.LinkContractAddress)
 			}
 		})
 	}
@@ -192,7 +196,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	var links jsonapi.Links
 
-	chains := []presenters.EVMChainResource{}
+	var chains []presenters.EVMChainResource
 	err = web.ParsePaginatedResponse(body, &chains, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
@@ -233,6 +237,7 @@ func Test_EVMChainsController_Update(t *testing.T) {
 			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(33),
 			EvmEIP1559DynamicFees:                 null.BoolFrom(true),
 			MinIncomingConfirmations:              null.IntFrom(100),
+			LinkContractAddress:                   null.StringFrom(utils.ZeroAddress.String()),
 		},
 	}
 
@@ -315,6 +320,7 @@ func Test_EVMChainsController_Update(t *testing.T) {
 				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, chainUpdate.Config.BlockHistoryEstimatorBlockHistorySize)
 				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, chainUpdate.Config.EvmEIP1559DynamicFees)
 				assert.Equal(t, resource1.Config.MinIncomingConfirmations, chainUpdate.Config.MinIncomingConfirmations)
+				assert.Equal(t, resource1.Config.LinkContractAddress, chainUpdate.Config.LinkContractAddress)
 			}
 		})
 	}
