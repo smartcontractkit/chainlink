@@ -138,10 +138,15 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	// create 4 keys - 1 funding and 3 sending
 	err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
+	sendingKeys, err := ethKeyStore.SendingKeys()
+	assert.NoError(t, err)
+
+	k1 := sendingKeys[0]
+
 	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	sendingKeys, err := ethKeyStore.SendingKeys()
+	sendingKeys, err = ethKeyStore.SendingKeys()
 	assert.NoError(t, err)
 	require.Equal(t, 3, len(sendingKeys))
 
@@ -172,8 +177,8 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	t.Run("with address filter, rotates between given addresses that match sending keys", func(t *testing.T) {
-		// kf is a funding address so even though it's whitelisted, it will be ignored
-		addresses := []common.Address{fundingKeys[0].Address.Address(), sendingKeys[0].Address.Address(), k2.Address.Address(), cltest.NewAddress()}
+		// fundingKeys[0] is a funding address so even though it's whitelisted, it will be ignored
+		addresses := []common.Address{fundingKeys[0].Address.Address(), k1.Address.Address(), k2.Address.Address(), cltest.NewAddress()}
 
 		address1, err := ethKeyStore.GetRoundRobinAddress(addresses...)
 		require.NoError(t, err)
@@ -184,8 +189,8 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 		address4, err := ethKeyStore.GetRoundRobinAddress(addresses...)
 		require.NoError(t, err)
 
-		require.True(t, address1 == sendingKeys[0].Address.Address() || address1 == k2.Address.Address())
-		require.True(t, address2 == sendingKeys[0].Address.Address() || address2 == k2.Address.Address())
+		require.True(t, address1 == k1.Address.Address() || address1 == k2.Address.Address())
+		require.True(t, address2 == k1.Address.Address() || address2 == k2.Address.Address())
 		require.NotEqual(t, address1, address2)
 		require.Equal(t, address1, address3)
 		require.Equal(t, address2, address4)
