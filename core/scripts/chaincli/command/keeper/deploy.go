@@ -19,7 +19,3 @@ var deployCmd = &cobra.Command{
 		hdlr.DeployKeepers(cmd.Context())
 	},
 }
-
-func init() {
-	rootCmd.AddCommand(deployCmd)
-}
