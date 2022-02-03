@@ -214,65 +214,47 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 
 		for _, ch := range evmChainSet.Chains() {
-			skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+			err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 			if err2 != nil {
 				return errors.Wrap(err2, "failed to ensure keystore keys")
-			}
-			if !fexisted {
-				lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
-			}
-			if !sexisted {
-				lggr.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
 			}
 		}
 	}
 
 	if cli.Config.FeatureOffchainReporting() {
-		ocrKey, didExist, err2 := app.GetKeyStore().OCR().EnsureKey()
+		err2 := app.GetKeyStore().OCR().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
-		}
-		if !didExist {
-			lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 		}
 	}
 	if cli.Config.FeatureOffchainReporting2() {
-		ocr2Keys, keysDidExist, err2 := app.GetKeyStore().OCR2().EnsureKeys()
+		err2 := app.GetKeyStore().OCR2().EnsureKeys()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
-		for chainType, didExist := range keysDidExist {
-			if !didExist {
-				lggr.Infof("Created OCR2 key with ID %s", ocr2Keys[chainType].ID())
-			}
-		}
 	}
 	if cli.Config.P2PEnabled() {
-		p2pKey, didExist, err2 := app.GetKeyStore().P2P().EnsureKey()
+		err2 := app.GetKeyStore().P2P().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
-		if !didExist {
-			lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
-		}
 	}
 	if cli.Config.SolanaEnabled() {
-		solanaKey, didExist, err2 := app.GetKeyStore().Solana().EnsureKey()
+		err2 := app.GetKeyStore().Solana().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
-		if !didExist {
-			lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
-		}
 	}
 	if cli.Config.TerraEnabled() {
-		terraKey, didExist, err2 := app.GetKeyStore().Terra().EnsureKey()
+		err2 := app.GetKeyStore().Terra().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure terra key")
 		}
-		if !didExist {
-			lggr.Infof("Created Terra key with ID %s", terraKey.ID())
-		}
+	}
+
+	err2 := app.GetKeyStore().CSA().EnsureKey()
+	if err2 != nil {
+		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
 
 	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {
