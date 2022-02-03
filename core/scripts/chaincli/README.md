@@ -20,11 +20,11 @@ account that does not hold real funds.
 
 1. "cd" into the keeper scripts  directory
 ```shell
-cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/keeper
+cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/chaincli
 ```
 2. Create `.env` file based on the example `.env.example`
 
-Run the script:
+To see all available commands, run the following:
 ```bash
-go run main.go
+go run main.go --help
 ```
