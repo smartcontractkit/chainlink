@@ -23,6 +23,7 @@ func TestFeedMonitor(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
+		cfg := config.Config{}
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
 
@@ -65,25 +66,22 @@ func TestFeedMonitor(t *testing.T) {
 
 		producer := fakeProducer{make(chan producerMessage), ctx}
 
-		transmissionSchema := fakeSchema{transmissionCodec}
-		configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
-
-		cfg := config.Config{}
+		transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
+		configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 		prometheusExporterFactory := NewPrometheusExporterFactory(
 			newNullLogger(),
 			&devnullMetrics{},
 		)
-		kafkaExporterFactory := NewKafkaExporterFactory(
+		kafkaExporterFactory, err := NewKafkaExporterFactory(
 			newNullLogger(),
 			producer,
-
-			transmissionSchema,
-			configSetSimplifiedSchema,
-
-			cfg.Kafka.TransmissionTopic,
-			cfg.Kafka.ConfigSetSimplifiedTopic,
+			[]Pipeline{
+				{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
+				{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
+			},
 		)
+		require.NoError(t, err)
 		prometheusExporter, err := prometheusExporterFactory.NewExporter(
 			chainConfig,
 			feedConfig,

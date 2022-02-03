@@ -61,3 +61,8 @@ func (w wrapSchema) Decode(buf []byte) (interface{}, error) {
 func (w wrapSchema) String() string {
 	return fmt.Sprintf("schema(subject=%s,id=%d,version=%d)", w.subject, w.Schema.ID(), w.Schema.Version())
 }
+
+// SubjectFromTopic is a utility to the associated schema subject from a kafka topic name.
+func SubjectFromTopic(topic string) string {
+	return fmt.Sprintf("%s-value", topic)
+}

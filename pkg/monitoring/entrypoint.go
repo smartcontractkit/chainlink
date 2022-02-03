@@ -35,11 +35,13 @@ func Entrypoint(
 
 	schemaRegistry := NewSchemaRegistry(cfg.SchemaRegistry, log)
 
-	transmissionSchema, err := schemaRegistry.EnsureSchema(cfg.Kafka.TransmissionTopic+"-value", TransmissionAvroSchema)
+	transmissionSchema, err := schemaRegistry.EnsureSchema(
+		SubjectFromTopic(cfg.Kafka.TransmissionTopic), TransmissionAvroSchema)
 	if err != nil {
 		log.Fatalw("failed to prepare transmission schema", "error", err)
 	}
-	configSetSimplifiedSchema, err := schemaRegistry.EnsureSchema(cfg.Kafka.ConfigSetSimplifiedTopic+"-value", ConfigSetSimplifiedAvroSchema)
+	configSetSimplifiedSchema, err := schemaRegistry.EnsureSchema(
+		SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic), ConfigSetSimplifiedAvroSchema)
 	if err != nil {
 		log.Fatalw("failed to prepare config_set_simplified schema", "error", err)
 	}
@@ -59,16 +61,17 @@ func Entrypoint(
 		log.With("component", "prometheus-exporter"),
 		metrics,
 	)
-	kafkaExporterFactory := NewKafkaExporterFactory(
+	kafkaExporterFactory, err := NewKafkaExporterFactory(
 		log.With("component", "kafka-exporter"),
 		producer,
-
-		transmissionSchema,
-		configSetSimplifiedSchema,
-
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
+		[]Pipeline{
+			{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
+			{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
+		},
 	)
+	if err != nil {
+		log.Fatalw("failed to create kafka exporter", "error", err)
+	}
 
 	monitor := NewMultiFeedMonitor(
 		chainConfig,

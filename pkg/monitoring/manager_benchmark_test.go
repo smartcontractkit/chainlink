@@ -37,8 +37,8 @@ func BenchmarkManager(b *testing.B) {
 	chainCfg.ReadTimeout = 0 * time.Second
 	chainCfg.PollInterval = 0 * time.Second
 
-	transmissionSchema := fakeSchema{transmissionCodec}
-	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
+	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
+	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
@@ -47,14 +47,17 @@ func BenchmarkManager(b *testing.B) {
 		newNullLogger(),
 		&devnullMetrics{},
 	)
-	kafkaExporterFactory := NewKafkaExporterFactory(
+	kafkaExporterFactory, err := NewKafkaExporterFactory(
 		newNullLogger(),
 		producer,
-		transmissionSchema,
-		configSetSimplifiedSchema,
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
+		[]Pipeline{
+			{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
+			{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
+		},
 	)
+	if err != nil {
+		b.Fatalf("failed to build kafka exporter: %v", err)
+	}
 
 	monitor := NewMultiFeedMonitor(
 		chainCfg,

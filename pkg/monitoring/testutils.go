@@ -494,7 +494,8 @@ func (f fakeProducer) Produce(key, value []byte, topic string) error {
 // Schema
 
 type fakeSchema struct {
-	codec *goavro.Codec
+	codec   *goavro.Codec
+	subject string
 }
 
 func (f fakeSchema) ID() int {
@@ -506,7 +507,7 @@ func (f fakeSchema) Version() int {
 }
 
 func (f fakeSchema) Subject() string {
-	return "n/a"
+	return f.subject
 }
 
 func (f fakeSchema) Encode(value interface{}) ([]byte, error) {
