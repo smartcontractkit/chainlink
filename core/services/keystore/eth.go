@@ -27,7 +27,7 @@ type Eth interface {
 	Import(keyJSON []byte, password string, chainID *big.Int) (ethkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
 
-	EnsureKeys(chainID *big.Int) (ethkey.KeyV2, bool, ethkey.KeyV2, bool, error)
+	EnsureKeys(chainID *big.Int) error
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 
 	SignTx(fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
@@ -117,18 +117,19 @@ func (ks *eth) Add(key ethkey.KeyV2, chainID *big.Int) error {
 	return nil
 }
 
-func (ks *eth) EnsureKeys(chainID *big.Int) (
-	sendingKey ethkey.KeyV2,
-	sendDidExist bool,
-	fundingKey ethkey.KeyV2,
-	fundDidExist bool,
-	err error,
-) {
+// EnsureKeys verifies whether the ETH keys have been seeded, if not, it creates them.
+func (ks *eth) EnsureKeys(chainID *big.Int) (err error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, ErrLocked
+		return ErrLocked
 	}
+
+	var sendDidExist bool
+	var fundDidExist bool
+	var sendingKey ethkey.KeyV2
+	var fundingKey ethkey.KeyV2
+
 	// check & setup sending key
 	sendingKeys := ks.sendingKeys()
 	if len(sendingKeys) > 0 {
@@ -137,13 +138,15 @@ func (ks *eth) EnsureKeys(chainID *big.Int) (
 	} else {
 		sendingKey, err = ethkey.NewV2()
 		if err != nil {
-			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
+			return err
 		}
 		err = ks.addEthKeyWithState(sendingKey, ethkey.State{EVMChainID: *utils.NewBig(chainID), IsFunding: false})
 		if err != nil {
-			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
+			return err
 		}
+		ks.logger.Infow("New sending address created", "address", sendingKey.Address.Hex(), "evmChainID", chainID)
 	}
+
 	// check & setup funding key
 	fundingKeys := ks.fundingKeys()
 	if len(fundingKeys) > 0 {
@@ -152,17 +155,20 @@ func (ks *eth) EnsureKeys(chainID *big.Int) (
 	} else {
 		fundingKey, err = ethkey.NewV2()
 		if err != nil {
-			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
+			return err
 		}
 		err = ks.addEthKeyWithState(fundingKey, ethkey.State{EVMChainID: *utils.NewBig(chainID), IsFunding: true})
 		if err != nil {
-			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
+			return err
 		}
+		ks.logger.Infow("New funding address created", "address", fundingKey.Address.Hex(), "evmChainID", chainID)
 	}
+
 	if !sendDidExist || !fundDidExist {
 		ks.notify()
 	}
-	return sendingKey, sendDidExist, fundingKey, fundDidExist, nil
+
+	return nil
 }
 
 func (ks *eth) Import(keyJSON []byte, password string, chainID *big.Int) (ethkey.KeyV2, error) {
