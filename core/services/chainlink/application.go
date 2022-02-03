@@ -199,7 +199,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
+		}
 		subservices = append(subservices, databaseBackup)
 	} else {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
