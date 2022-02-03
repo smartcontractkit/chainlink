@@ -1,6 +1,6 @@
-# Contributing to ChainLink
+# Contributing to Chainlink
 
-First, thank you for considering contributing to ChainLink.
+First, thank you for considering contributing to Chainlink.
 The Chainlink source code is [licensed under the MIT license](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE).
 We value contributions of any size or type from anyone!
 The smallest of fixes can make the biggest difference.
