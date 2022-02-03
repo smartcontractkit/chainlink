@@ -23,6 +23,8 @@ import (
 //    6679	    180862 ns/op	   92230 B/op	    1493 allocs/op
 // (18 jan 2022)
 //   16504	     71478 ns/op	   77515 B/op	     963 allocs/op
+// (3 feb 2022
+//   59468	     23180 ns/op	    5921 B/op	      61 allocs/op
 func BenchmarkManager(b *testing.B) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
@@ -38,7 +40,6 @@ func BenchmarkManager(b *testing.B) {
 	chainCfg.PollInterval = 0 * time.Second
 
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
-	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
@@ -52,7 +53,6 @@ func BenchmarkManager(b *testing.B) {
 		producer,
 		[]Pipeline{
 			{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
-			{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
 		},
 	)
 	if err != nil {
@@ -67,12 +67,13 @@ func BenchmarkManager(b *testing.B) {
 			prometheusExporterFactory,
 			kafkaExporterFactory,
 		},
+		0, // bufferCapacity for source pollers
 	)
 
 	rddPoller := NewSourcePoller(
-		NewFakeRDDSource(5, 6), // Always produce 5 random feeds.,
+		NewFakeRDDSource(5, 6), // Always produce 1 random feed.
 		newNullLogger(),
-		1*time.Second, // cfg.Feeds.RDDPollInterval,
+		2*time.Second, // cfg.Feeds.RDDPollInterval,
 		1*time.Second, // cfg.Feeds.RDDReadTimeout,
 		0,             // no buffering!
 	)
@@ -103,23 +104,8 @@ func BenchmarkManager(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-BENCH_LOOP:
 	for i := 0; i < b.N; i++ {
-		//for {
-		select {
-		case factory.updates <- envelope:
-		case <-ctx.Done():
-			continue BENCH_LOOP
-		}
-		for {
-			select {
-			case <-producer.sendCh:
-				continue BENCH_LOOP
-			case <-ctx.Done():
-				continue BENCH_LOOP
-			default:
-				continue BENCH_LOOP
-			}
-		}
+		factory.updates <- envelope
+		<-producer.sendCh
 	}
 }
