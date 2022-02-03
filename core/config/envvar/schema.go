@@ -109,7 +109,6 @@ type ConfigSchema struct {
 	DefaultChainID *big.Int `env:"ETH_CHAIN_ID"`
 	// Per-chain overrides
 	BalanceMonitorEnabled             bool          `env:"BALANCE_MONITOR_ENABLED"`
-	BlockBackfillDepth                uint64        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BlockBackfillSkip                 bool          `env:"BLOCK_BACKFILL_SKIP" default:"false"`
 	BlockEmissionIdleWarningThreshold time.Duration `env:"BLOCK_EMISSION_IDLE_WARNING_THRESHOLD"` //nodoc
 	EthTxReaperInterval               time.Duration `env:"ETH_TX_REAPER_INTERVAL"`

@@ -117,10 +117,6 @@ func TestResolver_Config(t *testing.T) {
         "value": "test"
       },
       {
-        "key": "BLOCK_BACKFILL_DEPTH",
-        "value": "1"
-      },
-      {
         "key": "BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY",
         "value": "0"
       },

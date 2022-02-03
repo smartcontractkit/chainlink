@@ -29,7 +29,6 @@ func TestConfigSchema(t *testing.T) {
 		"AutoPprofPollInterval":                          "AUTO_PPROF_POLL_INTERVAL",
 		"AutoPprofProfileRoot":                           "AUTO_PPROF_PROFILE_ROOT",
 		"BalanceMonitorEnabled":                          "BALANCE_MONITOR_ENABLED",
-		"BlockBackfillDepth":                             "BLOCK_BACKFILL_DEPTH",
 		"BlockBackfillSkip":                              "BLOCK_BACKFILL_SKIP",
 		"BlockEmissionIdleWarningThreshold":              "BLOCK_EMISSION_IDLE_WARNING_THRESHOLD",
 		"BlockHistoryEstimatorBatchSize":                 "BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE",
