@@ -18,7 +18,7 @@ type Terra interface {
 	Delete(id string) (terrakey.Key, error)
 	Import(keyJSON []byte, password string) (terrakey.Key, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() (terrakey.Key, bool, error)
+	EnsureKey() error
 }
 
 type terra struct {
@@ -119,17 +119,22 @@ func (ks *terra) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *terra) EnsureKey() (terrakey.Key, bool, error) {
+func (ks *terra) EnsureKey() error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return terrakey.Key{}, false, ErrLocked
+		return ErrLocked
 	}
+
 	if len(ks.keyRing.Terra) > 0 {
-		return terrakey.Key{}, true, nil
+		return nil
 	}
+
 	key := terrakey.New()
-	return key, false, ks.safeAddKey(key)
+
+	ks.logger.Infof("Created Terra key with ID %s", key.ID())
+
+	return ks.safeAddKey(key)
 }
 
 var (
