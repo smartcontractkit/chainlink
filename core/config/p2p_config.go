@@ -26,7 +26,7 @@ func (c *generalConfig) P2PNetworkingStack() (n ocrnetworking.NetworkingStack) {
 	str := c.P2PNetworkingStackRaw()
 	err := n.UnmarshalText([]byte(str))
 	if err != nil {
-		c.lggr.Fatalf("P2PNetworkingStack failed to unmarshal '%s': %s", str, err)
+		c.lggr.Panicf("P2PNetworkingStack failed to unmarshal '%s': %s", str, err)
 	}
 	return n
 }
