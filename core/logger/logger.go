@@ -21,6 +21,9 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
+	if os.Getenv("LOG_COLOR") != "true" {
+		InitColor(false)
+	}
 }
 
 // Logger is the main interface of this package.

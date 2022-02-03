@@ -9,7 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-
 New ENV vars:
 
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
@@ -29,6 +28,8 @@ New ENV vars:
 
 `EVM_DISABLED` has been deprecated and replaced by `EVM_ENABLED` for consistency with other feature flags.
 `ETH_DISABLED` has been deprecated and replaced by `EVM_RPC_ENABLED` for consistency, and because this was confusingly named. In most cases you want to set `EVM_ENABLED=false` and not `EVM_RPC_ENABLED=false`.
+
+Log colorization is now disabled by default because it causes issues when piped to text files. To re-enable log colorization, set `LOG_COLOR=true`.
 
 ### Fixed
 
@@ -50,7 +51,7 @@ Bumping works as follows:
 - Increase feecap by `max(feecap * (1 + ETH_GAS_BUMP_PERCENT), feecap + ETH_GAS_BUMP_WEI)`
 
 
-#### Boostrap job
+#### Bootstrap job
 
 Added a new `bootstrap` job type. This job removes the need for every job to implement their own bootstrapping logic.
 It makes OCR2 jobs that currently use `isBootstrapPeer=true` deprecated but still supported.
