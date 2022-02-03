@@ -69,31 +69,17 @@ func (_m *Terra) Delete(id string) (terrakey.Key, error) {
 }
 
 // EnsureKey provides a mock function with given fields:
-func (_m *Terra) EnsureKey() (terrakey.Key, bool, error) {
+func (_m *Terra) EnsureKey() error {
 	ret := _m.Called()
 
-	var r0 terrakey.Key
-	if rf, ok := ret.Get(0).(func() terrakey.Key); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(terrakey.Key)
+		r0 = ret.Error(0)
 	}
 
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	var r2 error
-	if rf, ok := ret.Get(2).(func() error); ok {
-		r2 = rf()
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0
 }
 
 // Export provides a mock function with given fields: id, password
