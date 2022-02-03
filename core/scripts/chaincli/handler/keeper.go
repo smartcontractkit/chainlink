@@ -2,31 +2,21 @@ package handler
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 
 	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	link "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 )
 
 // Keeper is the keepers commands handler
 type Keeper struct {
-	cfg *config.Config
-
-	client     *ethclient.Client
-	privateKey *ecdsa.PrivateKey
-	linkToken  *link.LinkToken
-	fromAddr   common.Address
+	*baseHandler
 
 	approveAmount  *big.Int
 	addFundsAmount *big.Int
@@ -34,38 +24,6 @@ type Keeper struct {
 
 // NewKeeper is the constructor of Keeper
 func NewKeeper(cfg *config.Config) *Keeper {
-	// Created a client by the given node address
-	nodeClient, err := ethclient.Dial(cfg.NodeURL)
-	if err != nil {
-		log.Fatal("failed to deal with ETH node", err)
-	}
-
-	// Parse private key
-	d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := &ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
-
-	// Init from address
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("error casting public key to ECDSA")
-	}
-	fromAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
-
-	// Create link token wrapper
-	linkToken, err := link.NewLinkToken(common.HexToAddress(cfg.LinkTokenAddr), nodeClient)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	approveAmount := big.NewInt(0)
 	approveAmount.SetString(cfg.ApproveAmount, 10)
 
@@ -73,11 +31,7 @@ func NewKeeper(cfg *config.Config) *Keeper {
 	addFundsAmount.SetString(cfg.AddFundsAmount, 10)
 
 	return &Keeper{
-		cfg:            cfg,
-		client:         nodeClient,
-		privateKey:     privateKey,
-		linkToken:      linkToken,
-		fromAddr:       fromAddr,
+		baseHandler:    newBaseHandler(cfg),
 		approveAmount:  approveAmount,
 		addFundsAmount: addFundsAmount,
 	}
@@ -104,7 +58,7 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 		log.Fatal("DeployAbi failed: ", err)
 	}
 	log.Println("Waiting for keeper registry contract deployment confirmation...", deployKeeperRegistryTx.Hash().Hex())
-	h.waitDeployment(ctx, deployKeeperRegistryTx)
+	waitDeployment(ctx, h.client, deployKeeperRegistryTx)
 	log.Println(registryAddr.Hex(), ": KeeperRegistry deployed - ", deployKeeperRegistryTx.Hash().Hex())
 
 	// Approve keeper registry
@@ -112,7 +66,7 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 	if err != nil {
 		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
 	}
-	h.waitTx(ctx, approveRegistryTx)
+	waitTx(ctx, h.client, approveRegistryTx)
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", approveRegistryTx.Hash().Hex())
 
 	// Deploy Upkeeps
@@ -125,7 +79,7 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 	if err != nil {
 		log.Fatal("SetKeepers failed: ", err)
 	}
-	h.waitTx(ctx, setKeepersTx)
+	waitTx(ctx, h.client, setKeepersTx)
 	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
 }
 
@@ -151,7 +105,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, ": DeployAbi failed - ", err)
 		}
-		h.waitDeployment(ctx, deployUpkeepTx)
+		waitDeployment(ctx, h.client, deployUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", deployUpkeepTx.Hash().Hex())
 
 		// Approve
@@ -159,7 +113,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": Approve failed - ", err)
 		}
-		h.waitTx(ctx, approveUpkeepTx)
+		waitTx(ctx, h.client, approveUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep approved - ", approveUpkeepTx.Hash().Hex())
 
 		// Register
@@ -169,7 +123,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 		}
-		h.waitTx(ctx, registerUpkeepTx)
+		waitTx(ctx, h.client, registerUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", registerUpkeepTx.Hash().Hex())
 
 		// Fund
@@ -177,7 +131,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": AddFunds failed - ", err)
 		}
-		h.waitTx(ctx, addFundsTx)
+		waitTx(ctx, h.client, addFundsTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep funded - ", addFundsTx.Hash().Hex())
 	}
 	fmt.Println()
@@ -205,16 +159,4 @@ func (h *Keeper) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 	auth.GasPrice = gasPrice
 
 	return auth
-}
-
-func (h *Keeper) waitDeployment(ctx context.Context, tx *types.Transaction) {
-	if _, err := bind.WaitDeployed(ctx, h.client, tx); err != nil {
-		log.Fatal("WaitDeployed failed: ", err)
-	}
-}
-
-func (h *Keeper) waitTx(ctx context.Context, tx *types.Transaction) {
-	if _, err := bind.WaitMined(ctx, h.client, tx); err != nil {
-		log.Fatal("WaitDeployed failed: ", err)
-	}
 }
