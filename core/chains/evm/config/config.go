@@ -10,9 +10,10 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -734,6 +735,13 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 	if ok {
 		c.logEnvOverrideOnce("LinkContractAddress", val)
 		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.LinkContractAddress
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("LinkContractAddress", p.String)
+		return p.String
 	}
 	return c.defaultSet.linkContractAddress
 }
