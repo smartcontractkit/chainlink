@@ -375,6 +375,7 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	})
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
+	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
 	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx)); err != nil {
@@ -387,10 +388,21 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"reqTxHash", req.Raw.TxHash)
 	} else {
-		lsn.l.Debugw("Executed fulfillment run",
-			"reqID", hex.EncodeToString(req.RequestID[:]),
-			"keyHash", hex.EncodeToString(req.KeyHash[:]),
-			"reqTxHash", req.Raw.TxHash)
+		if run.HasErrors() || run.HasFatalErrors() {
+			lsn.l.Error("VRFV1 pipeline run failed with errors",
+				"reqID", hex.EncodeToString(req.RequestID[:]),
+				"keyHash", hex.EncodeToString(req.KeyHash[:]),
+				"reqTxHash", req.Raw.TxHash,
+				"runErrors", run.AllErrors.ToError(),
+				"runFatalErrors", run.FatalErrors.ToError(),
+			)
+		} else {
+			lsn.l.Debugw("Executed VRFV1 fulfillment run",
+				"reqID", hex.EncodeToString(req.RequestID[:]),
+				"keyHash", hex.EncodeToString(req.KeyHash[:]),
+				"reqTxHash", req.Raw.TxHash,
+			)
+		}
 	}
 }
 
