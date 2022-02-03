@@ -31,5 +31,5 @@ jobs:
           context: .
           file: core/chainlink.Dockerfile
           build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-          tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:develop.latest
+          tags: 323150190480.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:develop.latest
           push: true
