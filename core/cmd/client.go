@@ -281,7 +281,7 @@ func (s *server) run(port uint16, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTP on port %d", port)
 	s.httpServer = createServer(s.handler, port, writeTimeout)
 	err := s.httpServer.ListenAndServe()
-	s.lggr.ErrorIf(err, "Error starting server")
+	s.lggr.ErrorIf(err, "Error starting server, to disable the plaintext HTTP server set CHAINLINK_PORT=0")
 	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
@@ -289,7 +289,7 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	s.lggr.ErrorIf(err, "Error starting TLS server")
+	s.lggr.ErrorIf(err, "Error starting TLS server - to disable TLS, set CHAINLINK_TLS_PORT=0")
 	return errors.Wrap(err, "failed to run TLS server")
 }
 
