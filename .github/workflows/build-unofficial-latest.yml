@@ -1,10 +1,7 @@
 # This builds and publishes a develop.latest image to a private ECR repo. This image is intended only for internal
 # testing purposes.
 name: Build and Push Unofficial Latest
-on:
-  push:
-    branches:
-      - "develop"
+on: [pull_request]
 jobs:
   build-chainlink:
     name: Build Chainlink Image
