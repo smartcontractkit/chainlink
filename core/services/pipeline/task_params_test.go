@@ -1,8 +1,12 @@
 package pipeline_test
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"net/url"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -53,6 +57,14 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 		{"string", "foo bar baz", pipeline.BytesParam("foo bar baz"), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.BytesParam("foo bar baz"), nil},
 		{"int", 12345, pipeline.BytesParam(nil), pipeline.ErrBadInput},
+
+		// The base64 encoding for the binary 0b110100110001 is '0x', but we assume that means hex, and error out.
+		{"hex-invalid", "0xh",
+			pipeline.BytesParam(nil), hex.InvalidByteError('h')},
+		{"b64-hex-prefix", base64.StdEncoding.EncodeToString([]byte{0b11010011, 0b00011000, 0b01001101}),
+			pipeline.BytesParam(nil), hex.InvalidByteError('h')},
+		{"b64-hex-prefix-2", base64.StdEncoding.EncodeToString(hexutil.MustDecode("0xd3184d")),
+			pipeline.BytesParam(nil), hex.InvalidByteError('h')},
 	}
 
 	for _, test := range tests {
