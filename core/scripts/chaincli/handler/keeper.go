@@ -37,7 +37,7 @@ func NewKeeper(cfg *config.Config) *Keeper {
 	}
 }
 
-// DeployKeepers contains a logic to deploy keepers
+// DeployKeepers contains a logic to deploy keepers.
 func (h *Keeper) DeployKeepers(ctx context.Context) {
 	// Deploy keeper registry
 	log.Println("Deploying keeper registry...")
@@ -93,6 +93,7 @@ func (h *Keeper) keepers() ([]common.Address, []common.Address) {
 	return addrs, fromAddrs
 }
 
+// deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
 func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistry) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
