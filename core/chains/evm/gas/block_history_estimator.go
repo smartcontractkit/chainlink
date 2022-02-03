@@ -143,7 +143,7 @@ func (b *BlockHistoryEstimator) getCurrentBaseFee() *big.Int {
 
 func (b *BlockHistoryEstimator) Start() error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
-		b.logger.Trace("starting")
+		b.logger.Trace("Starting")
 
 		ctx, cancel := context.WithTimeout(b.ctx, maxStartTime)
 		defer cancel()
@@ -159,7 +159,7 @@ func (b *BlockHistoryEstimator) Start() error {
 		}
 		b.wg.Add(1)
 		go b.runLoop()
-		b.logger.Trace("started")
+		b.logger.Trace("Started")
 		return nil
 	})
 }
@@ -280,7 +280,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 		case <-b.mb.Notify():
 			head, exists := b.mb.Retrieve()
 			if !exists {
-				b.logger.Debug("no head to retrieve")
+				b.logger.Debug("No head to retrieve")
 				continue
 			}
 			h := evmtypes.AsHead(head)
@@ -412,7 +412,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 
 	lggr := b.logger.With("head", head)
 
-	lggr.Tracew(fmt.Sprintf("fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
+	lggr.Tracew(fmt.Sprintf("Fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
 	if err := b.batchFetch(ctx, reqs); err != nil {
 		return err
 	}
@@ -607,11 +607,13 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *
 			return tx.GasPrice
 		}
 		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
-			b.logger.Warnw("Invariant violated: MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
+			// This should not pass config validation
+			b.logger.Errorw("AssumptionViolation: MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
-			b.logger.Warnw("Invariant violated: MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
+			// This should not pass config validation
+			b.logger.Errorw("AssumptionViolation: MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.GasPrice != nil {
@@ -629,7 +631,7 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *
 		effectiveGasPrice := big.NewInt(0).Add(priorityFeePerGas, block.BaseFeePerGas)
 		return effectiveGasPrice
 	default:
-		b.logger.Warnw(fmt.Sprintf("ignoring unknown transaction type %v", tx.Type), "block", block, "tx", tx)
+		b.logger.Warnw(fmt.Sprintf("Ignoring unknown transaction type %v", tx.Type), "block", block, "tx", tx)
 		return nil
 	}
 }
@@ -647,7 +649,7 @@ func (b *BlockHistoryEstimator) EffectiveTipCap(block Block, tx Transaction) *bi
 		}
 		effectiveTipCap := big.NewInt(0).Sub(tx.GasPrice, block.BaseFeePerGas)
 		if effectiveTipCap.Cmp(big.NewInt(0)) < 0 {
-			b.logger.Warnw("Invariant violated: GasPrice - BaseFeePerGas >= 0", "block", block, "tx", tx)
+			b.logger.Errorw("AssumptionViolation: GasPrice - BaseFeePerGas >= 0", "block", block, "tx", tx)
 			return nil
 		}
 		return effectiveTipCap

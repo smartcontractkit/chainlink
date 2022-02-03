@@ -122,7 +122,7 @@ func (o *optimismEstimator) refreshPrices() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	if err := o.client.Call(&res, "rollup_gasPrices"); err != nil {
-		o.logger.Warnf("OptimismEstimator: Failed to refresh prices, got error: %s", err)
+		o.logger.Warnf("Failed to refresh prices, got error: %s", err)
 		return
 	}
 
