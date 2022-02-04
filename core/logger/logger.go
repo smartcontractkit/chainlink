@@ -106,12 +106,14 @@ type Logger interface {
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker     = "HeadTracker"
-	HeadListener    = "HeadListener"
-	HeadSaver       = "HeadSaver"
-	HeadBroadcaster = "HeadBroadcaster"
-	FluxMonitor     = "FluxMonitor"
-	Keeper          = "Keeper"
+	HeadTracker                 = "HeadTracker"
+	HeadListener                = "HeadListener"
+	HeadSaver                   = "HeadSaver"
+	HeadBroadcaster             = "HeadBroadcaster"
+	FluxMonitor                 = "FluxMonitor"
+	Keeper                      = "Keeper"
+	TelemetryIngressBatchClient = "TelemetryIngressBatchClient"
+	TelemetryIngressBatchWorker = "TelemetryIngressBatchWorker"
 )
 
 func GetLogServices() []string {
