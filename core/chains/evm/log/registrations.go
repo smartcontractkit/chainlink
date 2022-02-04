@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -33,6 +34,7 @@ import (
 // The registrations' methods are NOT thread-safe.
 type (
 	registrations struct {
+		clientSubs  map[*subscriber]struct{}
 		subscribers map[uint32]*subscribers
 		decoders    map[common.Address]ParseLogFunc
 		logger      logger.Logger
@@ -44,7 +46,6 @@ type (
 	}
 
 	subscribers struct {
-		subs       map[*subscriber]struct{}
 		handlers   map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
 		evmChainID big.Int
 	}
@@ -64,6 +65,7 @@ type (
 
 func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
+		clientSubs:  make(map[*subscriber]struct{}),
 		subscribers: make(map[uint32]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
 		evmChainID:  evmChainID,
@@ -72,11 +74,14 @@ func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 }
 
 func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
-	// Need to track registered since addr/topic _might_ be shared across registrations
-	r.registered[sub] = struct{}{}
+	if _, exists := r.clientSubs[sub]; exists {
+		panic(fmt.Sprintf("Subscription %p with job ID %v already added", sub, sub.listener.JobID()))
+	}
+	// TODO: Make trace level
+	r.logger.Debugf("Removed subscription %p with job ID %v", sub, sub.listener.JobID())
 
 	addr := sub.opts.Contract
-	// TODO: Need to merge here actually, not clobber
+	// FIXME: Need to merge here actually, not clobber
 	r.decoders[addr] = sub.opts.ParseLog
 
 	if _, exists := r.subscribers[sub.opts.MinIncomingConfirmations]; !exists {
@@ -95,7 +100,11 @@ func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
 
 // TODO: unit test various combinations of adding/removing subs especially with common topics and MinIncomingConfirmations
 func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
-	delete(r.subscribers, sub)
+	if _, exists := r.clientSubs[sub]; !exists {
+		panic(fmt.Sprintf("Cannot remove subscription %p with job ID %v; not registered as a subscriber", sub, sub.listener.JobID()))
+	}
+	// TODO: Make trace level
+	r.logger.Debugf("Added subscription %p with job ID %v", sub, sub.listener.JobID())
 
 	subscribers, exists := r.subscribers[sub.opts.MinIncomingConfirmations]
 	if !exists {
@@ -199,7 +208,8 @@ func newSubscribers(evmChainID big.Int) *subscribers {
 }
 
 func (r *subscribers) addSubscriber(sub *subscriber) (needsResubscribe bool) {
-	// TODO: listener metadata needs to be multiple somehow to represent multiple subs on same contract
+	// TODO (1): Panic if trying to add a sub thats already added (and same for remove):
+	// TODO (2): listener metadata needs to be multiple somehow to represent multiple subs on same contract
 	addr := sub.opts.Contract
 
 	if sub.opts.MinIncomingConfirmations <= 0 {

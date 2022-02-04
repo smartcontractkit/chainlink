@@ -138,7 +138,7 @@ func (s *subscriber) isSubscribed() {
 }
 
 func (s *subscriber) isRemoved() {
-	close(r.removed)
+	close(s.removed)
 }
 
 var _ Broadcaster = (*broadcaster)(nil)
@@ -214,48 +214,51 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
-	if len(opts.LogsWithTopics) == 0 {
-		b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
-	}
-
-	chSubbed := make(chan struct{})
-	chRemoved := make(chan struct{})
-	sub := &subscriber{listener, opts, chSubbed, chRemoved}
-	wasOverCapacity := b.addSubscriber.Deliver(sub)
-	if wasOverCapacity {
-		b.logger.Error("Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
-	}
-
-	// Better to panic than infinitely hang due to progamming error
-	// const subWaitSanityLimit = 5 * time.Minute
-	const subWaitSanityLimit = 30 * time.Second
-
-	t := time.NewTimer(subWaitSanityLimit)
-	defer t.Stop()
-	select {
-	case <-chSubbed:
-	case <-b.chStop:
-		b.logger.Debugw("Abandoned registration for listener due to log broadcaster stop", "jobID", listener.JobID())
-	case <-t.C:
-		panic("awaiting registration subscription timed out")
-	}
-
-	return func() {
-		wasOverCapacity := b.rmSubscriber.Deliver(sub)
-		if wasOverCapacity {
-			b.logger.Error("Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+	// IfStarted RLocks the state mutex so LB cannot be closed until this returns
+	ok := b.IfStarted(func() {
+		if len(opts.LogsWithTopics) == 0 {
+			b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
 		}
+
+		chSubbed := make(chan struct{})
+		chRemoved := make(chan struct{})
+		sub := &subscriber{listener, opts, chSubbed, chRemoved}
+		wasOverCapacity := b.addSubscriber.Deliver(sub)
+		if wasOverCapacity {
+			b.logger.Error("Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
+		}
+
+		// Better to panic than infinitely hang due to progamming error
+		// const subWaitSanityLimit = 5 * time.Minute
+		const subWaitSanityLimit = 30 * time.Second
 
 		t := time.NewTimer(subWaitSanityLimit)
 		defer t.Stop()
 		select {
-		case <-chRemoved:
-		case <-b.chStop:
-			b.logger.Debugw("Abandoned waiting unsubscribe for listener due to log broadcaster stop", "jobID", listener.JobID())
+		case <-chSubbed:
 		case <-t.C:
 			panic("awaiting registration subscription timed out")
 		}
+
+		unsubscribe = func() {
+			wasOverCapacity := b.rmSubscriber.Deliver(sub)
+			if wasOverCapacity {
+				b.logger.Error("Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+			}
+
+			t := time.NewTimer(subWaitSanityLimit)
+			defer t.Stop()
+			select {
+			case <-chRemoved:
+			case <-t.C:
+				panic("awaiting registration subscription timed out")
+			}
+		}
+	})
+	if !ok {
+		panic("Register cannot be called on an unstarted log broadcaster")
 	}
+	return
 }
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
@@ -533,12 +536,12 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 		if !exists {
 			break
 		}
-		reg, ok := x.(registration)
+		reg, ok := x.(*subscriber)
 		if !ok {
 			b.logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		b.logger.Debugw("Subscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract)
+		b.logger.Debugw("Subscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract, "jobID", reg.listener.JobID())
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -554,12 +557,12 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 		if !exists {
 			break
 		}
-		reg, ok := x.(registration)
+		reg, ok := x.(*subscriber)
 		if !ok {
 			b.logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		b.logger.Debugw("Unsubscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract)
+		b.logger.Debugw("Unsubscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract, "jobID", reg.listener.JobID())
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
