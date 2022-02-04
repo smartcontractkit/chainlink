@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -45,6 +45,7 @@ type GeneralConfigOverrides struct {
 	BlockBackfillSkip                         null.Bool
 	ClientNodeURL                             null.String
 	DatabaseURL                               null.String
+	DatabaseLockingMode                       null.String
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
@@ -102,6 +103,7 @@ type GeneralConfigOverrides struct {
 	KeySpecific                               map[string]types.ChainCfg
 	FeatureOffchainReporting                  null.Bool
 	FeatureOffchainReporting2                 null.Bool
+	LinkContractAddress                       null.String
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -293,6 +295,15 @@ func (c *TestGeneralConfig) DatabaseURL() url.URL {
 		return *uri
 	}
 	return c.GeneralConfig.DatabaseURL()
+}
+
+// DatabaseLockingMode returns either overridden DatabaseLockingMode value or "none"
+func (c *TestGeneralConfig) DatabaseLockingMode() string {
+	if c.Overrides.DatabaseLockingMode.Valid {
+		return c.Overrides.DatabaseLockingMode.String
+	}
+	// tests do not need DB locks, except for LockedDB tests
+	return "none"
 }
 
 func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
@@ -633,11 +644,6 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	return c.GeneralConfig.GlobalEvmGasTipCapMinimum()
 }
 
-// There is no need for any database application locking in tests
-func (c *TestGeneralConfig) DatabaseLockingMode() string {
-	return "none"
-}
-
 func (c *TestGeneralConfig) LeaseLockRefreshInterval() time.Duration {
 	if c.Overrides.LeaseLockRefreshInterval != nil {
 		return *c.Overrides.LeaseLockRefreshInterval
@@ -671,4 +677,12 @@ func (c *TestGeneralConfig) LogFileDir() string {
 		return c.Overrides.LogFileDir.String
 	}
 	return c.RootDir()
+}
+
+// GlobalLinkContractAddress allows to override the LINK contract address
+func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
+	if c.Overrides.LinkContractAddress.Valid {
+		return c.Overrides.LinkContractAddress.String, true
+	}
+	return c.GeneralConfig.GlobalLinkContractAddress()
 }

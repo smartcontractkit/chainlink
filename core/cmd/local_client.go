@@ -46,64 +46,11 @@ import (
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0700)
 
-func openDB(cfg config.GeneralConfig, lggr logger.Logger) (db *sqlx.DB, err error) {
-	uri := cfg.DatabaseURL()
-	appid := cfg.AppID()
-	static.SetConsumerName(&uri, "App", &appid)
-	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, err = pg.NewConnection(uri.String(), string(dialect), pg.Config{
-		Logger:       lggr,
-		MaxOpenConns: cfg.ORMMaxOpenConns(),
-		MaxIdleConns: cfg.ORMMaxIdleConns(),
-	})
-	err = errors.Wrap(err, "failed to open db")
-	return
-}
-
-func applicationLockDB(ctx context.Context, cfg config.GeneralConfig, db *sqlx.DB, lggr logger.Logger) (func(), error) {
-	lockingMode := cfg.DatabaseLockingMode()
-
-	lggr.Debugf("Using database locking mode: %s", lockingMode)
-
-	// Take the lease before any other DB operations
-	var leaseLock pg.LeaseLock
-	switch lockingMode {
-	case "lease", "dual":
-		leaseLock = pg.NewLeaseLock(db, cfg.AppID(), lggr, cfg.LeaseLockRefreshInterval(), cfg.LeaseLockDuration())
-		if err := leaseLock.TakeAndHold(ctx); err != nil {
-			return nil, errors.Wrap(err, "failed to take initial lease on database")
-		}
-	}
-
-	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	var advisoryLock pg.AdvisoryLock
-	switch lockingMode {
-	case "advisorylock", "dual":
-		advisoryLock = pg.NewAdvisoryLock(db, cfg.AdvisoryLockID(), lggr, cfg.AdvisoryLockCheckInterval())
-		if err := advisoryLock.TakeAndHold(ctx); err != nil {
-			if leaseLock != nil {
-				// For dual, we need to release the first lock now that we've failed to take the second.
-				leaseLock.Release()
-			}
-			return nil, errors.Wrap(err, "error acquiring lock")
-		}
-	}
-
-	return func() {
-		if leaseLock != nil {
-			leaseLock.Release()
-		}
-		if advisoryLock != nil {
-			advisoryLock.Release()
-		}
-	}, nil
-}
-
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err := cli.runNode(c); err != nil {
 		err = errors.Wrap(err, "Cannot boot Chainlink")
-		cli.Logger.Error(err)
+		cli.Logger.Errorw(err.Error(), "err", err)
 		if serr := cli.Logger.Sync(); serr != nil {
 			err = multierr.Combine(serr, err)
 		}
@@ -126,15 +73,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 
-	// DB conn is opened before any services have started,
-	// and closed after all services have stopped.
-	db, err := openDB(cli.Config, lggr)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "opening db"))
-	}
-	defer lggr.ErrorIfClosing(db, "db")
+	ldb := pg.NewLockedDB(cli.Config, lggr)
 
-	// rootCtx will be cancelled when SIGINT|SIGTERM is received.
+	// rootCtx will be cancelled when SIGINT|SIGTERM is received
 	rootCtx, cancelRootCtx := context.WithCancel(context.Background())
 
 	// cleanExit is used to skip "fail fast" routine
@@ -156,8 +97,10 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 
 		lggr.Criticalf("Shutdown grace period of %v exceeded, closing DB and exiting...", cli.Config.ShutdownGracePeriod())
-		if err = db.Close(); err != nil {
-			lggr.Criticalf("Failed to close DB: %v", err)
+		// LockedDB.Close() will release DB locks and close DB connection
+		// Executing this explicitly because defers are not executed in case of os.Exit()
+		if err = ldb.Close(); err != nil {
+			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
 		if err = lggr.Sync(); err != nil {
 			log.Printf("Failed to sync Logger: %v", err)
@@ -166,14 +109,18 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		os.Exit(-1)
 	})
 
-	releaseDbLocks, err := applicationLockDB(rootCtx, cli.Config, db, lggr)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "obtaining application db lock"))
+	// Try opening DB connection and acquiring DB locks at once
+	if err = ldb.Open(rootCtx); err != nil {
+		// If not successful, we know neither locks nor connection remains opened
+		return cli.errorOut(errors.Wrap(err, "opening db"))
 	}
+	defer lggr.ErrorIfClosing(ldb, "db")
 
-	app, err := cli.AppFactory.NewApplication(cli.Config, db)
+	// From now on, DB locks and DB connection will be released on every return.
+	// Keep watching on logger.Fatal* calls and os.Exit(), because defer will not be executed.
+
+	app, err := cli.AppFactory.NewApplication(cli.Config, ldb.DB())
 	if err != nil {
-		releaseDbLocks()
 		return cli.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
@@ -214,65 +161,47 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 
 		for _, ch := range evmChainSet.Chains() {
-			skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+			err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 			if err2 != nil {
 				return errors.Wrap(err2, "failed to ensure keystore keys")
-			}
-			if !fexisted {
-				lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
-			}
-			if !sexisted {
-				lggr.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
 			}
 		}
 	}
 
 	if cli.Config.FeatureOffchainReporting() {
-		ocrKey, didExist, err2 := app.GetKeyStore().OCR().EnsureKey()
+		err2 := app.GetKeyStore().OCR().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
-		}
-		if !didExist {
-			lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 		}
 	}
 	if cli.Config.FeatureOffchainReporting2() {
-		ocr2Keys, keysDidExist, err2 := app.GetKeyStore().OCR2().EnsureKeys()
+		err2 := app.GetKeyStore().OCR2().EnsureKeys()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure ocr key")
 		}
-		for chainType, didExist := range keysDidExist {
-			if !didExist {
-				lggr.Infof("Created OCR2 key with ID %s", ocr2Keys[chainType].ID())
-			}
-		}
 	}
 	if cli.Config.P2PEnabled() {
-		p2pKey, didExist, err2 := app.GetKeyStore().P2P().EnsureKey()
+		err2 := app.GetKeyStore().P2P().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure p2p key")
 		}
-		if !didExist {
-			lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
-		}
 	}
 	if cli.Config.SolanaEnabled() {
-		solanaKey, didExist, err2 := app.GetKeyStore().Solana().EnsureKey()
+		err2 := app.GetKeyStore().Solana().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure solana key")
 		}
-		if !didExist {
-			lggr.Infof("Created Solana key with ID %s", solanaKey.ID())
-		}
 	}
 	if cli.Config.TerraEnabled() {
-		terraKey, didExist, err2 := app.GetKeyStore().Terra().EnsureKey()
+		err2 := app.GetKeyStore().Terra().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure terra key")
 		}
-		if !didExist {
-			lggr.Infof("Created Terra key with ID %s", terraKey.ID())
-		}
+	}
+
+	err2 := app.GetKeyStore().CSA().EnsureKey()
+	if err2 != nil {
+		return errors.Wrap(err2, "failed to ensure CSA key")
 	}
 
 	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {
@@ -300,7 +229,6 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		<-grpCtx.Done()
-		defer releaseDbLocks()
 		if err = app.Stop(); err != nil {
 			return errors.Wrap(err, "error stopping app")
 		}
@@ -418,9 +346,9 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	lggr := cli.Logger.Named("RebroadcastTransactions")
-	db, err := openDB(cli.Config, lggr)
+	db, err := pg.OpenUnlockedDB(cli.Config, lggr)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "opening db"))
+		return cli.errorOut(errors.Wrap(err, "opening DB"))
 	}
 	defer lggr.ErrorIfClosing(db, "db")
 

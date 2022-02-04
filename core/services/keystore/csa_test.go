@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,5 +81,41 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, 0, len(keys))
 		_, err = ks.Get(newKey.ID())
 		require.Error(t, err)
+	})
+
+	t.Run("adds an externally created key/ensures it already exists", func(t *testing.T) {
+		defer reset()
+
+		newKey, err := csakey.NewV2()
+		assert.NoError(t, err)
+		err = ks.Add(newKey)
+		assert.NoError(t, err)
+
+		err = keyStore.CSA().EnsureKey()
+		assert.NoError(t, err)
+		keys, err2 := ks.GetAll()
+		assert.NoError(t, err2)
+
+		require.Equal(t, 1, len(keys))
+		require.Equal(t, newKey.ID(), keys[0].ID())
+		require.Equal(t, newKey.Version, keys[0].Version)
+		require.Equal(t, newKey.PublicKey, keys[0].PublicKey)
+	})
+
+	t.Run("auto creates a key if it doesn't exists when trying to ensure it already exists", func(t *testing.T) {
+		defer reset()
+
+		keys, err := ks.GetAll()
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(keys))
+
+		err = keyStore.CSA().EnsureKey()
+		assert.NoError(t, err)
+
+		keys, err = ks.GetAll()
+		assert.NoError(t, err)
+
+		require.NoError(t, err)
+		require.Equal(t, 1, len(keys))
 	})
 }

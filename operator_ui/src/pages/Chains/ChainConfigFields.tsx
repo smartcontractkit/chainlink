@@ -600,6 +600,23 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
         </Grid>
       </Grid>
 
+      <Grid item xs={6}>
+        <Grid item xs={6}>
+          <TextField
+            label="Link Contract Address"
+            name="LinkContractAddress"
+            placeholder="LinkContractAddress"
+            value={getFieldValue('LinkContractAddress')}
+            type="text"
+            fullWidth
+            onChange={handleOverrideChange}
+          />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
+        </Grid>
+      </Grid>
+
       <Grid item xs={12} style={{ marginTop: 10 }}>
         <FormLabel>Key Specific Config Overrides</FormLabel>
       </Grid>
