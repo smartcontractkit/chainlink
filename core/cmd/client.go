@@ -259,15 +259,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		<-gCtx.Done()
 		var err error
 		if server.httpServer != nil {
-			err = server.httpServer.Shutdown(context.Background())
+			err = errors.WithStack(server.httpServer.Shutdown(context.Background()))
 		}
 		if server.tlsServer != nil {
-			err = multierr.Combine(err, server.tlsServer.Shutdown(context.Background()))
+			err = multierr.Combine(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
 		}
 		return err
 	})
 
-	return g.Wait()
+	return errors.WithStack(g.Wait())
 }
 
 func logErrorAndRepeat(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, fn func() error) {
@@ -299,7 +299,7 @@ func (s *server) run(port uint16, writeTimeout time.Duration) error {
 	s.httpServer = createServer(s.handler, port, writeTimeout)
 	err := s.httpServer.ListenAndServe()
 	s.lggr.ErrorIf(err, "Error starting server")
-	return err
+	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
 func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
@@ -307,7 +307,7 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
 	s.lggr.ErrorIf(err, "Error starting TLS server")
-	return err
+	return errors.Wrap(err, "failed to run TLS server")
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
