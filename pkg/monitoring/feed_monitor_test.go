@@ -27,11 +27,11 @@ func TestFeedMonitor(t *testing.T) {
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
 
-		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan interface{})}
 		source1, err := sourceFactory1.NewSource(chainConfig, feedConfig)
 		require.NoError(t, err)
 
-		sourceFactory2 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		sourceFactory2 := &fakeRandomDataSourceFactory{make(chan interface{})}
 		source2, err := sourceFactory2.NewSource(chainConfig, feedConfig)
 		require.NoError(t, err)
 

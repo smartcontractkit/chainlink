@@ -12,6 +12,8 @@ type Metrics interface {
 	SetHeadTrackerCurrentHead(blockNumber uint64, networkName, chainID, networkID string)
 	SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string)
 	SetFeedContractLinkBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetFeedContractTransmissionsSucceeded(numSucceeded uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetFeedContractTransmissionsFailed(numFailed uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string)
 	SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorAnswers(answer *big.Float, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
@@ -44,6 +46,18 @@ var (
 	feedContractLinkBalance = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "feed_contract_link_balance",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
+	feedContractTransmissionsSucceeded = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "feed_contract_transmissions_succeeded",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
+	feedContractTransmissionsFailed = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "feed_contract_transmissions_failed",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
@@ -111,6 +125,8 @@ func init() {
 	prometheus.MustRegister(headTrackerCurrentHead)
 	prometheus.MustRegister(feedContractMetadata)
 	prometheus.MustRegister(feedContractLinkBalance)
+	prometheus.MustRegister(feedContractTransmissionsSucceeded)
+	prometheus.MustRegister(feedContractTransmissionsFailed)
 	prometheus.MustRegister(nodeMetadata)
 	prometheus.MustRegister(offchainAggregatorAnswersRaw)
 	prometheus.MustRegister(offchainAggregatorAnswers)
@@ -135,6 +151,14 @@ func (d *defaultMetrics) SetFeedContractMetadata(chainID, contractAddress, feedI
 
 func (d *defaultMetrics) SetFeedContractLinkBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 	feedContractLinkBalance.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(balance))
+}
+
+func (d *defaultMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractTransmissionsSucceeded.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(numSucceeded))
+}
+
+func (d *defaultMetrics) SetFeedContractTransmissionsFailed(numFailed uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractTransmissionsFailed.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(numFailed))
 }
 
 func (d *defaultMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {
@@ -184,6 +208,8 @@ func (d *defaultMetrics) Cleanup(
 	_ = headTrackerCurrentHead.DeleteLabelValues(networkName, chainID, networkID)
 	_ = feedContractMetadata.DeleteLabelValues(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol)
 	_ = feedContractLinkBalance.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+	_ = feedContractTransmissionsSucceeded.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+	_ = feedContractTransmissionsFailed.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 	_ = nodeMetadata.DeleteLabelValues(chainID, networkID, networkName, oracleName, sender)
 	_ = offchainAggregatorAnswersRaw.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 	_ = offchainAggregatorAnswers.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)

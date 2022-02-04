@@ -514,4 +514,59 @@ func TestPrometheusExporter(t *testing.T) {
 		metrics.AssertNumberOfCalls(t, "SetOffchainAggregatorSubmissionReceivedValues", 1)
 		mock.AssertExpectationsForObjects(t, metrics)
 	})
+	t.Run("should emit transaction results metrics", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		log := newNullLogger()
+		metrics := new(mocks.Metrics)
+		metrics.Test(t)
+		factory := NewPrometheusExporterFactory(log, metrics)
+
+		chainConfig := generateChainConfig()
+		feedConfig := generateFeedConfig()
+
+		metrics.On("SetFeedContractMetadata",
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+			feedConfig.GetSymbol(),         // symbol
+		).Once()
+		exporter, err := factory.NewExporter(chainConfig, feedConfig)
+		require.NoError(t, err)
+
+		txResults := generateTxResults()
+		metrics.On("SetFeedContractTransmissionsSucceeded",
+			txResults.NumSucceeded,         // succeeded
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
+		metrics.On("SetFeedContractTransmissionsFailed",
+			txResults.NumFailed,            // failed
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
+		exporter.Export(ctx, txResults)
+
+		mock.AssertExpectationsForObjects(t, metrics)
+	})
 }

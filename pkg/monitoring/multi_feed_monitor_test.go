@@ -35,7 +35,7 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
-	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+	factory := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
 		newNullLogger(),
@@ -118,7 +118,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
-	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+	factory := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
 		newNullLogger(),
@@ -194,9 +194,9 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		wg := &sync.WaitGroup{}
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 
-		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan interface{})}
 		sourceFactory2 := &fakeSourceFactoryWithError{make(chan interface{}), make(chan error), true}
-		sourceFactory3 := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		sourceFactory3 := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 		exporterFactory1 := &fakeExporterFactory{make(chan interface{}), false}
 		exporterFactory2 := &fakeExporterFactory{make(chan interface{}), true} // factory errors out on NewExporter.

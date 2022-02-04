@@ -42,7 +42,7 @@ func BenchmarkManager(b *testing.B) {
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
-	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+	factory := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
 		newNullLogger(),

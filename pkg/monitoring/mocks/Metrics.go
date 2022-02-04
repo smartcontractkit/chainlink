@@ -50,6 +50,16 @@ func (_m *Metrics) SetFeedContractMetadata(chainID string, contractAddress strin
 	_m.Called(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol)
 }
 
+// SetFeedContractTransmissionsFailed provides a mock function with given fields: numFailed, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *Metrics) SetFeedContractTransmissionsFailed(numFailed uint64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(numFailed, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
+// SetFeedContractTransmissionsSucceeded provides a mock function with given fields: numSucceeded, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *Metrics) SetFeedContractTransmissionsSucceeded(numSucceeded uint64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(numSucceeded, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
 // SetHeadTrackerCurrentHead provides a mock function with given fields: blockNumber, networkName, chainID, networkID
 func (_m *Metrics) SetHeadTrackerCurrentHead(blockNumber uint64, networkName string, chainID string, networkID string) {
 	_m.Called(blockNumber, networkName, chainID, networkID)
