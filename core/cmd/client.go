@@ -282,10 +282,9 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case <-time.After(cfg.DefaultHTTPTimeout().Duration()):
+			// pause between attempts, default 15s
 		}
-		// pause between attempts, default 15s
-		time.Sleep(cfg.DefaultHTTPTimeout().Duration())
 	}
 }
 
