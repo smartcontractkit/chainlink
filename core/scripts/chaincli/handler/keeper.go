@@ -49,16 +49,8 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 		registryAddr, registry = k.deployRegistry(ctx)
 	}
 
-	// Approve keeper registry
-	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
-	if err != nil {
-		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
-	}
-	waitTx(ctx, k.client, approveRegistryTx)
-	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
-
 	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registry)
+	k.deployUpkeeps(ctx, registryAddr, registry)
 
 	// Set Keepers
 	log.Println("Set keepers...")
@@ -103,7 +95,7 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 	if err != nil {
 		log.Fatal("Registry failed: ", err)
 	}
-	log.Println("KeeperRegistry at:", k.cfg.RegistryAddress)
+	log.Println("KeeperRegistry at:", registryAddr)
 	if k.cfg.RegistryConfigUpdate {
 		transaction, err := registryInstance.SetConfig(k.buildTxOpts(ctx),
 			k.cfg.PaymentPremiumPBB,
@@ -118,7 +110,7 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 			log.Fatal("Registry config update: ", err)
 		}
 		waitTx(ctx, k.client, transaction)
-		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
+		log.Println("KeeperRegistry config update:", registryAddr, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
 	} else {
 		log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
 	}
@@ -136,7 +128,7 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 }
 
 // deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
-func (k *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistry) {
+func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistry) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
 	for i := int64(0); i < k.cfg.UpkeepCount; i++ {
@@ -152,7 +144,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
 
 		// Approve
-		approveUpkeepTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), upkeepAddr, k.approveAmount)
+		approveUpkeepTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": Approve failed - ", err)
 		}
