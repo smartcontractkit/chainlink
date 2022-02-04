@@ -17,6 +17,11 @@ import "../interfaces/AggregatorV2V3Interface.sol";
  * Quote: AVAX/USD
  * Quote Address: 0x5498BB86BC934c8D34FDA08E81D444153d0D06aD
  * Decimals: 8
+ *
+ * Chainlink Data Feeds can be used in combination to derive denominated price pairs in other currencies.
+ * If you require a denomination other than what is provided, you can use two data feeds to derive the pair that you need.
+ * For example, if you needed a LINK / FTM price, you could take the LINK / USD feed and the FTM / USD feed and derive LINK / FTM using division.
+ * (LINK/USD)/(FTM/USD) = LINK/FTM
  */
 contract DerivedPriceFeed is AggregatorV2V3Interface {
   uint256 public constant override version = 0;
@@ -30,32 +35,33 @@ contract DerivedPriceFeed is AggregatorV2V3Interface {
   mapping(uint256 => uint256) public override getTimestamp;
   mapping(uint256 => uint256) private getStartedAt;
 
-  address public base;
-  address public quote;
+  AggregatorV3Interface public base;
+  AggregatorV3Interface public quote;
 
   constructor(
     address _base,
     address _quote,
     uint8 _decimals
   ) {
+    require(_decimals > uint8(0) && _decimals <= uint8(18), "Invalid _decimals");
     decimals = _decimals;
-    base = _base;
-    quote = _quote;
+    base = AggregatorV3Interface(_base);
+    quote = AggregatorV3Interface(_quote);
   }
 
-  function getRoundData(uint80 _roundId)
-    external
-    view
-    override
-    returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    )
+  function getRoundData(uint80)
+  external
+  pure
+  override
+  returns (
+    uint80,
+    int256,
+    uint256,
+    uint256,
+    uint80
+  )
   {
-    return (_roundId, getAnswer[_roundId], getStartedAt[_roundId], getTimestamp[_roundId], _roundId);
+    revert("not implemented - use latestRoundData()");
   }
 
   function description() external pure override returns (string memory) {
@@ -77,19 +83,19 @@ contract DerivedPriceFeed is AggregatorV2V3Interface {
     return (uint80(0), getDerivedPrice(base, quote, decimals), block.timestamp, block.timestamp, uint80(0));
   }
 
+  // https://docs.chain.link/docs/get-the-latest-price/#getting-a-different-price-denomination
   function getDerivedPrice(
-    address _base,
-    address _quote,
+    AggregatorV3Interface _base,
+    AggregatorV3Interface _quote,
     uint8 _decimals
   ) internal view returns (int256) {
-    require(_decimals > uint8(0) && _decimals <= uint8(18), "Invalid _decimals");
     int256 decimals = int256(10**uint256(_decimals));
-    (, int256 basePrice, , , ) = AggregatorV3Interface(_base).latestRoundData();
-    uint8 baseDecimals = AggregatorV3Interface(_base).decimals();
+    (, int256 basePrice, , , ) = _base.latestRoundData();
+    uint8 baseDecimals = _base.decimals();
     basePrice = scalePrice(basePrice, baseDecimals, _decimals);
 
-    (, int256 quotePrice, , , ) = AggregatorV3Interface(_quote).latestRoundData();
-    uint8 quoteDecimals = AggregatorV3Interface(_quote).decimals();
+    (, int256 quotePrice, , , ) = _quote.latestRoundData();
+    uint8 quoteDecimals = _quote.decimals();
     quotePrice = scalePrice(quotePrice, quoteDecimals, _decimals);
 
     return (basePrice * decimals) / quotePrice;

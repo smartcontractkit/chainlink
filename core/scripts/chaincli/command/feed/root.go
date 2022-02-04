@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RootCmd represents the root price feed sub-command to manage feeds
+// RootCmd represents the root price feed sub-command to manage feeds.
 var RootCmd = &cobra.Command{
 	Use:   "feed",
 	Short: "Manage price feeds",

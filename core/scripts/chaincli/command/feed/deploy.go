@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
 )
 
-// deployCmd represents the command to run the service
+// deployCmd represents the command to run the service.
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy price feed",
