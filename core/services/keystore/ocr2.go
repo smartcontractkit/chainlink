@@ -19,7 +19,7 @@ type OCR2 interface {
 	Delete(id string) error
 	Import(keyJSON []byte, password string) (ocr2key.KeyBundle, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKeys() (map[chaintype.ChainType]ocr2key.KeyBundle, map[chaintype.ChainType]bool, error)
+	EnsureKeys() error
 }
 
 type ocr2 struct {
@@ -130,32 +130,32 @@ func (ks ocr2) Export(id string, password string) ([]byte, error) {
 	return ocr2key.ToEncryptedJSON(key, password, ks.scryptParams)
 }
 
-func (ks ocr2) EnsureKeys() (map[chaintype.ChainType]ocr2key.KeyBundle, map[chaintype.ChainType]bool, error) {
+func (ks ocr2) EnsureKeys() error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return nil, nil, ErrLocked
+		return ErrLocked
 	}
-	existingKeys := make((map[chaintype.ChainType]ocr2key.KeyBundle))
-	existed := make((map[chaintype.ChainType]bool))
+
 	for _, chainType := range chaintype.SupportedChainTypes {
 		keys, err := ks.getAllOfType(chainType)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
-		if len(keys) != 0 {
-			existed[chainType] = true
-			existingKeys[chainType] = keys[0]
-		} else {
-			existed[chainType] = false
-			created, err := ks.create(chainType)
-			if err != nil {
-				return nil, nil, err
-			}
-			existingKeys[chainType] = created
+
+		if len(keys) > 0 {
+			continue
 		}
+
+		created, err := ks.create(chainType)
+		if err != nil {
+			return err
+		}
+
+		ks.logger.Infof("Created OCR2 key with ID %s", created.ID())
 	}
-	return existingKeys, existed, nil
+
+	return nil
 }
 
 func (ks ocr2) getByID(id string) (ocr2key.KeyBundle, error) {
