@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/command/feed"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/command/keeper"
 )
 
@@ -27,4 +28,5 @@ func Execute() {
 
 func init() {
 	RootCmd.AddCommand(keeper.RootCmd)
+	RootCmd.AddCommand(feed.RootCmd)
 }

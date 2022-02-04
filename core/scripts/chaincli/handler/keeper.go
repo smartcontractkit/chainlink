@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
@@ -18,21 +17,17 @@ import (
 type Keeper struct {
 	*baseHandler
 
-	approveAmount  *big.Int
 	addFundsAmount *big.Int
 }
 
 // NewKeeper is the constructor of Keeper
 func NewKeeper(cfg *config.Config) *Keeper {
-	approveAmount := big.NewInt(0)
-	approveAmount.SetString(cfg.ApproveAmount, 10)
 
 	addFundsAmount := big.NewInt(0)
 	addFundsAmount.SetString(cfg.AddFundsAmount, 10)
 
 	return &Keeper{
 		baseHandler:    newBaseHandler(cfg),
-		approveAmount:  approveAmount,
 		addFundsAmount: addFundsAmount,
 	}
 }
@@ -55,10 +50,10 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 		big.NewInt(h.cfg.FallbackLinkPrice),
 	)
 	if err != nil {
-		log.Fatal("DeployAbi failed: ", err)
+		log.Fatal("DeployKeeperRegistry failed: ", err)
 	}
 	log.Println("Waiting for keeper registry contract deployment confirmation...", deployKeeperRegistryTx.Hash().Hex())
-	waitDeployment(ctx, h.client, deployKeeperRegistryTx)
+	h.waitDeployment(ctx, deployKeeperRegistryTx)
 	log.Println(registryAddr.Hex(), ": KeeperRegistry deployed - ", deployKeeperRegistryTx.Hash().Hex())
 
 	// Approve keeper registry
@@ -66,7 +61,7 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 	if err != nil {
 		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
 	}
-	waitTx(ctx, h.client, approveRegistryTx)
+	h.waitTx(ctx, approveRegistryTx)
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", approveRegistryTx.Hash().Hex())
 
 	// Deploy Upkeeps
@@ -79,18 +74,8 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 	if err != nil {
 		log.Fatal("SetKeepers failed: ", err)
 	}
-	waitTx(ctx, h.client, setKeepersTx)
+	h.waitTx(ctx, setKeepersTx)
 	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
-}
-
-func (h *Keeper) keepers() ([]common.Address, []common.Address) {
-	var addrs []common.Address
-	var fromAddrs []common.Address
-	for _, addr := range h.cfg.Keepers {
-		addrs = append(addrs, common.HexToAddress(addr))
-		fromAddrs = append(fromAddrs, h.fromAddr)
-	}
-	return addrs, fromAddrs
 }
 
 // deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
@@ -106,7 +91,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, ": DeployAbi failed - ", err)
 		}
-		waitDeployment(ctx, h.client, deployUpkeepTx)
+		h.waitDeployment(ctx, deployUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", deployUpkeepTx.Hash().Hex())
 
 		// Approve
@@ -114,7 +99,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": Approve failed - ", err)
 		}
-		waitTx(ctx, h.client, approveUpkeepTx)
+		h.waitTx(ctx, approveUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep approved - ", approveUpkeepTx.Hash().Hex())
 
 		// Register
@@ -124,7 +109,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 		}
-		waitTx(ctx, h.client, registerUpkeepTx)
+		h.waitTx(ctx, registerUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep registered - ", registerUpkeepTx.Hash().Hex())
 
 		// Fund
@@ -132,32 +117,18 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": AddFunds failed - ", err)
 		}
-		waitTx(ctx, h.client, addFundsTx)
+		h.waitTx(ctx, addFundsTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep funded - ", addFundsTx.Hash().Hex())
 	}
 	fmt.Println()
 }
 
-func (h *Keeper) buildTxOpts(ctx context.Context) *bind.TransactOpts {
-	nonce, err := h.client.PendingNonceAt(ctx, h.fromAddr)
-	if err != nil {
-		log.Fatal("PendingNonceAt failed: ", err)
+func (h *Keeper) keepers() ([]common.Address, []common.Address) {
+	var addrs []common.Address
+	var fromAddrs []common.Address
+	for _, addr := range h.cfg.Keepers {
+		addrs = append(addrs, common.HexToAddress(addr))
+		fromAddrs = append(fromAddrs, h.fromAddr)
 	}
-
-	gasPrice, err := h.client.SuggestGasPrice(ctx)
-	if err != nil {
-		log.Fatal("SuggestGasPrice failed: ", err)
-	}
-
-	auth, err := bind.NewKeyedTransactorWithChainID(h.privateKey, big.NewInt(h.cfg.ChainID))
-	if err != nil {
-		log.Fatal("NewKeyedTransactorWithChainID failed: ", err)
-	}
-
-	auth.Nonce = big.NewInt(int64(nonce))
-	auth.Value = big.NewInt(0)     // in wei
-	auth.GasLimit = h.cfg.GasLimit // in units
-	auth.GasPrice = gasPrice
-
-	return auth
+	return addrs, fromAddrs
 }
