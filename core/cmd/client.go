@@ -240,13 +240,13 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	if config.Port() != 0 {
-		g.Go(func() error {
+		go logErrorAndRepeat(gCtx, app.GetLogger(), config, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		g.Go(func() error {
+		go logErrorAndRepeat(gCtx, app.GetLogger(), config, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -268,6 +268,23 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	})
 
 	return g.Wait()
+}
+
+func logErrorAndRepeat(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, fn func() error) {
+	for {
+		// try calling fn() and log error if any
+		if err := fn(); err != nil {
+			lggr.Criticalf("%v", err)
+		}
+		// if ctx is cancelled, we must leave the loop
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		// pause between attempts, default 15s
+		time.Sleep(cfg.DefaultHTTPTimeout().Duration())
+	}
 }
 
 type server struct {
