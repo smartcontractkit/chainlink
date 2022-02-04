@@ -240,13 +240,13 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	if config.Port() != 0 {
-		go logErrorAndRepeat(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		go logErrorAndRepeat(gCtx, app.GetLogger(), config, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -270,11 +270,13 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	return errors.WithStack(g.Wait())
 }
 
-func logErrorAndRepeat(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, fn func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, runServer func() error) {
 	for {
-		// try calling fn() and log error if any
-		if err := fn(); err != nil {
-			lggr.Criticalf("%v", err)
+		// try calling runServer() and log error if any
+		if err := runServer(); err != nil {
+			if err != http.ErrServerClosed {
+				lggr.Criticalf("%v", err)
+			}
 		}
 		// if ctx is cancelled, we must leave the loop
 		select {
