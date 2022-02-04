@@ -11,11 +11,25 @@ import (
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy keepers",
-	Long:  `This command deploys keepers (keeper registry + upkeeps).`,
+	Long:  `This command deploys keepers (keeper registry + upkeeps). Accepts a filename argument else will look for .env`,
+	Args:  cobra.RangeArgs(0, 1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := config.New()
+		cfg := config.New(args)
 		hdlr := handler.NewKeeper(cfg)
 
 		hdlr.DeployKeepers(cmd.Context())
+	},
+}
+
+var updateRegistryCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update keeper registry",
+	Long:  `This command updates existing keeper registry. Accepts a filename argument else will look for .env`,
+	Args:  cobra.RangeArgs(0, 1),
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := config.New(args)
+		hdlr := handler.NewKeeper(cfg)
+
+		hdlr.GetRegistry(cmd.Context())
 	},
 }
