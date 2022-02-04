@@ -65,7 +65,7 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", approveRegistryTx.Hash().Hex())
 
 	// Deploy Upkeeps
-	h.deployUpkeeps(ctx, registryInstance)
+	h.deployUpkeeps(ctx, registryAddr, registryInstance)
 
 	// Set Keepers
 	log.Println("Set keepers...")
@@ -79,7 +79,7 @@ func (h *Keeper) DeployKeepers(ctx context.Context) {
 }
 
 // deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
-func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistry) {
+func (h *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistry) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
 	for i := int64(0); i < h.cfg.UpkeepCount; i++ {
@@ -95,7 +95,7 @@ func (h *Keeper) deployUpkeeps(ctx context.Context, registryInstance *keeper.Kee
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", deployUpkeepTx.Hash().Hex())
 
 		// Approve
-		approveUpkeepTx, err := h.linkToken.Approve(h.buildTxOpts(ctx), upkeepAddr, h.approveAmount)
+		approveUpkeepTx, err := h.linkToken.Approve(h.buildTxOpts(ctx), registryAddr, h.approveAmount)
 		if err != nil {
 			log.Fatal(i, upkeepAddr.Hex(), ": Approve failed - ", err)
 		}
