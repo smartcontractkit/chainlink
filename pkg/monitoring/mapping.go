@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type Mapper func(Envelope, ChainConfig, FeedConfig) (map[string]interface{}, error)
+
 func MakeTransmissionMapping(
 	envelope Envelope,
 	chainConfig ChainConfig,
@@ -54,6 +56,7 @@ func MakeTransmissionMapping(
 
 func MakeConfigSetSimplifiedMapping(
 	envelope Envelope,
+	_ ChainConfig,
 	feedConfig FeedConfig,
 ) (map[string]interface{}, error) {
 	offchainConfig, err := parseOffchainConfig(envelope.ContractConfig.OffchainConfig)
@@ -94,6 +97,12 @@ func MakeConfigSetSimplifiedMapping(
 	}
 	return out, nil
 }
+
+// Type checking.
+var (
+	_ Mapper = MakeTransmissionMapping
+	_ Mapper = MakeConfigSetSimplifiedMapping
+)
 
 // Helpers
 

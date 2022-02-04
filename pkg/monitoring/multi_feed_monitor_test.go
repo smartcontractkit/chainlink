@@ -31,8 +31,8 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 		feeds[i] = generateFeedConfig()
 	}
 
-	transmissionSchema := fakeSchema{transmissionCodec}
-	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
+	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
+	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
@@ -41,23 +41,22 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 		newNullLogger(),
 		&devnullMetrics{},
 	)
-	kafkaExporterFactory := NewKafkaExporterFactory(
+	kafkaExporterFactory, err := NewKafkaExporterFactory(
 		newNullLogger(),
 		producer,
-
-		transmissionSchema,
-		configSetSimplifiedSchema,
-
-		cfg.Kafka.ConfigSetSimplifiedTopic,
-		cfg.Kafka.TransmissionTopic,
+		[]Pipeline{
+			{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
+			{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
+		},
 	)
+	require.NoError(t, err)
 
 	monitor := NewMultiFeedMonitor(
 		chainCfg,
 		newNullLogger(),
-
 		[]SourceFactory{factory},
 		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
+		100, // bufferCapacity for source pollers
 	)
 	wg.Add(1)
 	go func() {
@@ -115,8 +114,8 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 		feeds = append(feeds, generateFeedConfig())
 	}
 
-	transmissionSchema := fakeSchema{transmissionCodec}
-	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
+	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
+	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
@@ -125,23 +124,22 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 		newNullLogger(),
 		&devnullMetrics{},
 	)
-	kafkaExporterFactory := NewKafkaExporterFactory(
+	kafkaExporterFactory, err := NewKafkaExporterFactory(
 		newNullLogger(),
 		producer,
-
-		transmissionSchema,
-		configSetSimplifiedSchema,
-
-		cfg.Kafka.ConfigSetSimplifiedTopic,
-		cfg.Kafka.TransmissionTopic,
+		[]Pipeline{
+			{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
+			{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
+		},
 	)
+	require.NoError(t, err)
 
 	monitor := NewMultiFeedMonitor(
 		chainCfg,
 		newNullLogger(),
-
 		[]SourceFactory{factory},
 		[]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory},
+		100, // bufferCapacity for source pollers
 	)
 	wg.Add(1)
 	go func() {
@@ -210,6 +208,7 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 			newNullLogger(),
 			[]SourceFactory{sourceFactory1, sourceFactory2, sourceFactory3},
 			[]ExporterFactory{exporterFactory1, exporterFactory2, exporterFactory3},
+			100, // bufferCapacity for source pollers
 		)
 
 		envelope, err := generateEnvelope()

@@ -20,13 +20,16 @@ func TestKafkaExporter(t *testing.T) {
 		cfg := config.Config{}
 		cfg.Kafka.TransmissionTopic = "transmissions"
 		cfg.Kafka.ConfigSetSimplifiedTopic = "config-set-simplified"
-		transmissionSchema := fakeSchema{transmissionCodec}
-		configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
-		factory := NewKafkaExporterFactory(
+		transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
+		configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
+		factory, err := NewKafkaExporterFactory(
 			log, producer,
-			transmissionSchema, configSetSimplifiedSchema,
-			cfg.Kafka.TransmissionTopic, cfg.Kafka.ConfigSetSimplifiedTopic,
+			[]Pipeline{
+				{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
+				{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
+			},
 		)
+		require.NoError(t, err)
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
 		exporter, err := factory.NewExporter(chainConfig, feedConfig)

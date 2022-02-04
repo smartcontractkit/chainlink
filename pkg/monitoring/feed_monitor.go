@@ -35,7 +35,7 @@ func (f *feedMonitor) Run(ctx context.Context) {
 	wg := &sync.WaitGroup{}
 
 	// Listen for updates
-	updates := make(chan interface{})
+	updatesFanIn := make(chan interface{})
 	wg.Add(len(f.pollers))
 	for _, poller := range f.pollers {
 		go func(poller Poller) {
@@ -44,7 +44,7 @@ func (f *feedMonitor) Run(ctx context.Context) {
 				select {
 				case update := <-poller.Updates():
 					select {
-					case updates <- update:
+					case updatesFanIn <- update:
 					case <-ctx.Done():
 						return
 					}
@@ -60,7 +60,7 @@ CONSUME_LOOP:
 	for {
 		var update interface{}
 		select {
-		case update = <-updates:
+		case update = <-updatesFanIn:
 		case <-ctx.Done():
 			break CONSUME_LOOP
 		}

@@ -40,8 +40,8 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 	chainCfg.PollInterval = 0 * time.Second
 	feeds := []FeedConfig{generateFeedConfig()}
 
-	transmissionSchema := fakeSchema{transmissionCodec}
-	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec}
+	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
+	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
 	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
@@ -50,14 +50,17 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 		newNullLogger(),
 		&devnullMetrics{},
 	)
-	kafkaExporterFactory := NewKafkaExporterFactory(
+	kafkaExporterFactory, err := NewKafkaExporterFactory(
 		newNullLogger(),
 		producer,
-		transmissionSchema,
-		configSetSimplifiedSchema,
-		cfg.Kafka.TransmissionTopic,
-		cfg.Kafka.ConfigSetSimplifiedTopic,
+		[]Pipeline{
+			{cfg.Kafka.TransmissionTopic, MakeTransmissionMapping, transmissionSchema},
+			{cfg.Kafka.ConfigSetSimplifiedTopic, MakeConfigSetSimplifiedMapping, configSetSimplifiedSchema},
+		},
 	)
+	if err != nil {
+		b.Fatalf("failed to build kafka exporter: %v", err)
+	}
 
 	monitor := NewMultiFeedMonitor(
 		chainCfg,
@@ -67,6 +70,7 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 			prometheusExporterFactory,
 			kafkaExporterFactory,
 		},
+		100, // bufferCapacity for source pollers
 	)
 	wg.Add(1)
 	go func() {

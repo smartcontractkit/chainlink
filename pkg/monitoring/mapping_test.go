@@ -76,7 +76,7 @@ func TestMapping(t *testing.T) {
 	})
 
 	t.Run("MakeSimplifiedConfigSetMapping", func(t *testing.T) {
-		mapping, err := MakeConfigSetSimplifiedMapping(envelope, feedConfig)
+		mapping, err := MakeConfigSetSimplifiedMapping(envelope, chainConfig, feedConfig)
 		require.NoError(t, err)
 
 		var output []byte
@@ -108,7 +108,7 @@ func TestMapping(t *testing.T) {
 	})
 
 	t.Run("MakeSimplifiedConfigSetMapping works for an empty envelope", func(t *testing.T) {
-		mapping, err := MakeConfigSetSimplifiedMapping(envelope, feedConfig)
+		mapping, err := MakeConfigSetSimplifiedMapping(envelope, chainConfig, feedConfig)
 		require.NoError(t, err)
 		_, err = configSetSimplifiedCodec.BinaryFromNative(nil, mapping)
 		require.NoError(t, err)
