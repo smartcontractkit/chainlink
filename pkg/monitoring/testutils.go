@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -45,32 +44,23 @@ func (f *fakeRddSource) Fetch(_ context.Context) (interface{}, error) {
 	return feeds, nil
 }
 
-func NewRandomDataSourceFactory(ctx context.Context, wg *sync.WaitGroup, log Logger) *fakeRandomDataSourceFactory {
-	f := &fakeRandomDataSourceFactory{
-		make(chan Envelope),
-		ctx,
+func (f *fakeRandomDataSourceFactory) Run(ctx context.Context, log Logger) {
+	update, err := generateEnvelope()
+	if err != nil {
+		log.Errorw("failed to generate fake read from chain", "error", err)
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		update, err := generateEnvelope()
-		if err != nil {
-			log.Errorw("failed to generate fake read from chain", "error", err)
-		}
-		for {
-			select {
-			case f.updates <- update:
-				log.Infow("generate envelope")
-				update, err = generateEnvelope()
-				if err != nil {
-					log.Errorw("failed to generate fake read from chain", "error", err)
-				}
-			case <-ctx.Done():
-				return
+	for {
+		select {
+		case f.updates <- update:
+			log.Infow("generate envelope")
+			update, err = generateEnvelope()
+			if err != nil {
+				log.Errorw("failed to generate fake read from chain", "error", err)
 			}
+		case <-ctx.Done():
+			return
 		}
-	}()
-	return f
+	}
 }
 
 var _ SourceFactory = (*fakeRandomDataSourceFactory)(nil)

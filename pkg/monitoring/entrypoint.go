@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -10,52 +11,64 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 )
 
-// Entrypoint is the entrypoint to the monitoring service.
-// All arguments are required!
-// To terminate, cancel the context and wait for Entrypoint to exit.
-func Entrypoint(
+type Entrypoint struct {
+	Context context.Context
+
+	ChainConfig ChainConfig
+	Config      config.Config
+
+	Log            Logger
+	Producer       Producer
+	Metrics        Metrics
+	SchemaRegistry SchemaRegistry
+
+	SourceFactories   []SourceFactory
+	ExporterFactories []ExporterFactory
+
+	RDDSource Source
+	RDDPoller Poller
+
+	Manager Manager
+
+	HTTPServer HTTPServer
+}
+
+func NewEntrypoint(
 	ctx context.Context,
 	log Logger,
 	chainConfig ChainConfig,
-	sourceFactory SourceFactory,
+	envelopeSourceFactory SourceFactory,
 	feedParser FeedParser,
-	extraSourceFactories []SourceFactory,
-	extraExporterFactories []ExporterFactory,
-) {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
-	bgCtx, cancelBgCtx := context.WithCancel(ctx)
-	defer cancelBgCtx()
-
+) (*Entrypoint, error) {
 	cfg, err := config.Parse()
 	if err != nil {
-		log.Fatalw("failed to parse generic configuration", "error", err)
+		return nil, fmt.Errorf("failed to parse generic configuration: %w", err)
 	}
+
+	if cfg.Feature.TestOnlyFakeReaders {
+		envelopeSourceFactory = &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+	}
+	sourceFactories := []SourceFactory{envelopeSourceFactory}
+
+	producer, err := NewProducer(ctx, log.With("component", "producer"), cfg.Kafka)
+	if err != nil {
+		log.Fatalw("failed to create kafka producer", "error", err)
+	}
+
+	metrics := DefaultMetrics
 
 	schemaRegistry := NewSchemaRegistry(cfg.SchemaRegistry, log)
 
 	transmissionSchema, err := schemaRegistry.EnsureSchema(
 		SubjectFromTopic(cfg.Kafka.TransmissionTopic), TransmissionAvroSchema)
 	if err != nil {
-		log.Fatalw("failed to prepare transmission schema", "error", err)
+		return nil, fmt.Errorf("failed to prepare transmission schema: %w", err)
 	}
 	configSetSimplifiedSchema, err := schemaRegistry.EnsureSchema(
 		SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic), ConfigSetSimplifiedAvroSchema)
 	if err != nil {
-		log.Fatalw("failed to prepare config_set_simplified schema", "error", err)
+		return nil, fmt.Errorf("failed to prepare config_set_simplified schema: %w", err)
 	}
-
-	producer, err := NewProducer(bgCtx, log.With("component", "producer"), cfg.Kafka)
-	if err != nil {
-		log.Fatalw("failed to create kafka producer", "error", err)
-	}
-
-	if cfg.Feature.TestOnlyFakeReaders {
-		sourceFactory = NewRandomDataSourceFactory(bgCtx, wg, log.With("component", "rand-source"))
-	}
-
-	metrics := DefaultMetrics
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
 		log.With("component", "prometheus-exporter"),
@@ -70,16 +83,10 @@ func Entrypoint(
 		},
 	)
 	if err != nil {
-		log.Fatalw("failed to create kafka exporter", "error", err)
+		return nil, fmt.Errorf("failed to create kafka exporter: %w", err)
 	}
 
-	monitor := NewMultiFeedMonitor(
-		chainConfig,
-		log,
-		append([]SourceFactory{sourceFactory}, extraSourceFactories...),
-		append([]ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}, extraExporterFactories...),
-		100, // bufferCapacity for source pollers
-	)
+	exporterFactories := []ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}
 
 	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser)
 	if cfg.Feature.TestOnlyFakeRdd {
@@ -93,35 +100,97 @@ func Entrypoint(
 		cfg.Feeds.RDDReadTimeout,
 		0, // no buffering!
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		rddPoller.Run(bgCtx)
-	}()
 
 	manager := NewManager(
 		log.With("component", "manager"),
 		rddPoller,
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		manager.Run(bgCtx, monitor.Run)
-	}()
 
 	// Configure HTTP server
-	httpServer := NewHTTPServer(bgCtx, cfg.HTTP.Address, log.With("component", "http-server"))
+	httpServer := NewHTTPServer(ctx, cfg.HTTP.Address, log.With("component", "http-server"))
 	httpServer.Handle("/metrics", metrics.HTTPHandler())
 	httpServer.Handle("/debug", manager.HTTPHandler())
+
+	return &Entrypoint{
+		ctx,
+
+		chainConfig,
+		cfg,
+
+		log,
+		producer,
+		metrics,
+		schemaRegistry,
+
+		sourceFactories,
+		exporterFactories,
+
+		rddSource,
+		rddPoller,
+
+		manager,
+
+		httpServer,
+	}, nil
+}
+
+func (e Entrypoint) Run() {
+	ctx, cancel := context.WithCancel(e.Context)
+	defer cancel()
+	wg := &sync.WaitGroup{}
+
+	if e.Config.Feature.TestOnlyFakeReaders {
+		for _, factory := range e.SourceFactories {
+			if fakeFactory, ok := factory.(*fakeRandomDataSourceFactory); ok {
+				wg.Add(1)
+				go func(fakeFactory *fakeRandomDataSourceFactory) {
+					defer wg.Done()
+					fakeFactory.Run(ctx, e.Log.With("component", "rand-source"))
+				}(fakeFactory)
+			}
+		}
+	}
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		httpServer.Run(bgCtx)
+		e.RDDPoller.Run(ctx)
+	}()
+
+	monitor := NewMultiFeedMonitor(
+		e.ChainConfig,
+		e.Log,
+		e.SourceFactories,
+		e.ExporterFactories,
+		100, // bufferCapacity for source pollers
+	)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		e.Manager.Run(ctx, monitor.Run)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		e.HTTPServer.Run(ctx)
 	}()
 
 	// Handle signals from the OS
-	osSignalsCh := make(chan os.Signal, 1)
-	signal.Notify(osSignalsCh, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-osSignalsCh
-	log.Infow("received signal. Stopping", "signal", sig)
+	wg.Add(1)
+	func() {
+		defer wg.Done()
+		osSignalsCh := make(chan os.Signal, 1)
+		signal.Notify(osSignalsCh, syscall.SIGINT, syscall.SIGTERM)
+		var sig os.Signal
+		select {
+		case sig = <-osSignalsCh:
+			e.Log.Infow("received signal. Stopping", "signal", sig)
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	wg.Wait()
 }
