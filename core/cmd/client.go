@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -157,20 +156,24 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(ccOpts)
 	if err != nil {
-		appLggr.Fatal(err)
+		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
-	terraLggr := appLggr.Named("Terra")
-	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
-		Config:           cfg,
-		Logger:           terraLggr,
-		DB:               db,
-		KeyStore:         keyStore.Terra(),
-		EventBroadcaster: eventBroadcaster,
-		ORM:              terra.NewORM(db, terraLggr, cfg),
-	})
-	if err != nil {
-		appLggr.Fatal(err)
+
+	if cfg.TerraEnabled() {
+		terraLggr := appLggr.Named("Terra")
+		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+			Config:           cfg,
+			Logger:           terraLggr,
+			DB:               db,
+			KeyStore:         keyStore.Terra(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Terra chainset")
+		}
 	}
+
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
@@ -199,7 +202,10 @@ func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, ap
 	}
 	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic databsae backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
 
-	databaseBackup := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	if err != nil {
+		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
+	}
 	return databaseBackup.RunBackup(appv.String())
 }
 
@@ -228,7 +234,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	g, gCtx := errgroup.WithContext(ctx)
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
-		log.Fatal("You must specify at least one port to listen on")
+		return errors.New("You must specify at least one port to listen on")
 	}
 
 	server := server{handler: handler, lggr: app.GetLogger()}
@@ -253,15 +259,15 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 		<-gCtx.Done()
 		var err error
 		if server.httpServer != nil {
-			err = server.httpServer.Shutdown(context.Background())
+			err = errors.WithStack(server.httpServer.Shutdown(context.Background()))
 		}
 		if server.tlsServer != nil {
-			err = multierr.Combine(err, server.tlsServer.Shutdown(context.Background()))
+			err = multierr.Combine(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
 		}
 		return err
 	})
 
-	return g.Wait()
+	return errors.WithStack(g.Wait())
 }
 
 type server struct {
@@ -276,7 +282,7 @@ func (s *server) run(port uint16, writeTimeout time.Duration) error {
 	s.httpServer = createServer(s.handler, port, writeTimeout)
 	err := s.httpServer.ListenAndServe()
 	s.lggr.ErrorIf(err, "Error starting server")
-	return err
+	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
 func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
@@ -284,7 +290,7 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
 	s.lggr.ErrorIf(err, "Error starting TLS server")
-	return err
+	return errors.Wrap(err, "failed to run TLS server")
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {

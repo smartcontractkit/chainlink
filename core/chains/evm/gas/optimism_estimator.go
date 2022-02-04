@@ -52,7 +52,7 @@ func NewOptimismEstimator(lggr logger.Logger, config Config, client optimismRPCC
 		config,
 		client,
 		10 * time.Second,
-		lggr,
+		lggr.Named("OptimismEstimator"),
 		sync.RWMutex{},
 		nil,
 		nil,
@@ -122,7 +122,7 @@ func (o *optimismEstimator) refreshPrices() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	if err := o.client.Call(&res, "rollup_gasPrices"); err != nil {
-		o.logger.Warnf("OptimismEstimator: Failed to refresh prices, got error: %s", err)
+		o.logger.Warnf("Failed to refresh prices, got error: %s", err)
 		return
 	}
 
@@ -234,7 +234,7 @@ func NewOptimism2Estimator(lggr logger.Logger, config Config, client optimismRPC
 		config,
 		client,
 		10 * time.Second,
-		lggr,
+		lggr.Named("Optimism2Estimator"),
 		sync.RWMutex{},
 		nil,
 		make(chan (chan struct{})),

@@ -46,7 +46,7 @@ func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrcommontypes.Bootstra
 		var locator ocrcommontypes.BootstrapperLocator
 		err := locator.UnmarshalText([]byte(s))
 		if err != nil {
-			c.lggr.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)
+			c.lggr.Panicf("invalid format for bootstrapper '%s', got error: %s", s, err)
 		}
 		locators = append(locators, locator)
 	}
