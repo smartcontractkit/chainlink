@@ -93,6 +93,7 @@ func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.Ke
 	return registryAddr, registryInstance
 }
 
+// GetRegistry is used to attach to an existing registry
 func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
 	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
 	registryInstance, err := keeper.NewKeeperRegistry(
