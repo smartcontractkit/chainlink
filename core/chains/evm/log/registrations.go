@@ -44,6 +44,7 @@ type (
 	}
 
 	subscribers struct {
+		subs       map[*subscriber]struct{}
 		handlers   map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
 		evmChainID big.Int
 	}
@@ -70,34 +71,41 @@ func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 	}
 }
 
-func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) {
-	addr := reg.opts.Contract
-	r.decoders[addr] = reg.opts.ParseLog
+func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
+	// Need to track registered since addr/topic _might_ be shared across registrations
+	r.registered[sub] = struct{}{}
 
-	if _, exists := r.subscribers[reg.opts.MinIncomingConfirmations]; !exists {
-		r.subscribers[reg.opts.MinIncomingConfirmations] = newSubscribers(r.evmChainID)
+	addr := sub.opts.Contract
+	// TODO: Need to merge here actually, not clobber
+	r.decoders[addr] = sub.opts.ParseLog
+
+	if _, exists := r.subscribers[sub.opts.MinIncomingConfirmations]; !exists {
+		r.subscribers[sub.opts.MinIncomingConfirmations] = newSubscribers(r.evmChainID)
 	}
 
-	needsResubscribe = r.subscribers[reg.opts.MinIncomingConfirmations].addSubscriber(reg)
+	needsResubscribe = r.subscribers[sub.opts.MinIncomingConfirmations].addSubscriber(sub)
 
 	// increase the variable for highest number of confirmations among all subscribers,
 	// if the new subscriber has a higher value
-	if reg.opts.MinIncomingConfirmations > r.highestNumConfirmations {
-		r.highestNumConfirmations = reg.opts.MinIncomingConfirmations
+	if sub.opts.MinIncomingConfirmations > r.highestNumConfirmations {
+		r.highestNumConfirmations = sub.opts.MinIncomingConfirmations
 	}
 	return
 }
 
-func (r *registrations) removeSubscriber(reg registration) (needsResubscribe bool) {
-	subscribers, exists := r.subscribers[reg.opts.MinIncomingConfirmations]
+// TODO: unit test various combinations of adding/removing subs especially with common topics and MinIncomingConfirmations
+func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
+	delete(r.subscribers, sub)
+
+	subscribers, exists := r.subscribers[sub.opts.MinIncomingConfirmations]
 	if !exists {
 		return
 	}
 
-	needsResubscribe = subscribers.removeSubscriber(reg)
+	needsResubscribe = subscribers.removeSubscriber(sub)
 
-	if len(r.subscribers[reg.opts.MinIncomingConfirmations].handlers) == 0 {
-		delete(r.subscribers, reg.opts.MinIncomingConfirmations)
+	if len(r.subscribers[sub.opts.MinIncomingConfirmations].handlers) == 0 {
+		delete(r.subscribers, sub.opts.MinIncomingConfirmations)
 		r.resetHighestNumConfirmationsValue()
 	}
 	return
@@ -190,44 +198,47 @@ func newSubscribers(evmChainID big.Int) *subscribers {
 	}
 }
 
-func (r *subscribers) addSubscriber(reg registration) (needsResubscribe bool) {
-	addr := reg.opts.Contract
+func (r *subscribers) addSubscriber(sub *subscriber) (needsResubscribe bool) {
+	// TODO: listener metadata needs to be multiple somehow to represent multiple subs on same contract
+	addr := sub.opts.Contract
 
-	if reg.opts.MinIncomingConfirmations <= 0 {
-		reg.opts.MinIncomingConfirmations = 1
+	if sub.opts.MinIncomingConfirmations <= 0 {
+		sub.opts.MinIncomingConfirmations = 1
 	}
 
 	if _, exists := r.handlers[addr]; !exists {
 		r.handlers[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
 	}
 
-	for topic, topicValueFilters := range reg.opts.LogsWithTopics {
+	for topic, topicValueFilters := range sub.opts.LogsWithTopics {
 		if _, exists := r.handlers[addr][topic]; !exists {
 			r.handlers[addr][topic] = make(map[Listener]*listenerMetadata)
 			needsResubscribe = true
 		}
 
-		r.handlers[addr][topic][reg.listener] = &listenerMetadata{
-			opts:    reg.opts,
+		r.handlers[addr][topic][sub.listener] = &listenerMetadata{
+			opts:    sub.opts,
 			filters: topicValueFilters,
 		}
 	}
 	return
 }
 
-func (r *subscribers) removeSubscriber(reg registration) (needsResubscribe bool) {
-	addr := reg.opts.Contract
+func (r *subscribers) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
+	addr := sub.opts.Contract
 
+	// FIXME: What about the case where you remove/add a job with the same contract address?
+	// addr is not good enough to be a unique key
 	if _, exists := r.handlers[addr]; !exists {
 		return
 	}
-	for topic := range reg.opts.LogsWithTopics {
+	for topic := range sub.opts.LogsWithTopics {
 		topicMap, exists := r.handlers[addr][topic]
 		if !exists {
 			continue
 		}
 
-		delete(topicMap, reg.listener)
+		delete(topicMap, sub.listener)
 
 		if len(topicMap) == 0 {
 			needsResubscribe = true

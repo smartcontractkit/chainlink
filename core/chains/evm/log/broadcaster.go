@@ -123,13 +123,23 @@ type (
 
 	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
 
-	registration struct {
-		listener Listener
-		opts     ListenerOpts
+	subscriber struct {
+		listener   Listener
+		opts       ListenerOpts
+		subscribed chan struct{}
+		removed    chan struct{}
 	}
 
 	Topic common.Hash
 )
+
+func (s *subscriber) isSubscribed() {
+	close(s.subscribed)
+}
+
+func (s *subscriber) isRemoved() {
+	close(r.removed)
+}
 
 var _ Broadcaster = (*broadcaster)(nil)
 
@@ -208,15 +218,42 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 		b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
 	}
 
-	reg := registration{listener, opts}
-	wasOverCapacity := b.addSubscriber.Deliver(reg)
+	chSubbed := make(chan struct{})
+	chRemoved := make(chan struct{})
+	sub := &subscriber{listener, opts, chSubbed, chRemoved}
+	wasOverCapacity := b.addSubscriber.Deliver(sub)
 	if wasOverCapacity {
 		b.logger.Error("Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
 	}
+
+	// Better to panic than infinitely hang due to progamming error
+	// const subWaitSanityLimit = 5 * time.Minute
+	const subWaitSanityLimit = 30 * time.Second
+
+	t := time.NewTimer(subWaitSanityLimit)
+	defer t.Stop()
+	select {
+	case <-chSubbed:
+	case <-b.chStop:
+		b.logger.Debugw("Abandoned registration for listener due to log broadcaster stop", "jobID", listener.JobID())
+	case <-t.C:
+		panic("awaiting registration subscription timed out")
+	}
+
 	return func() {
-		wasOverCapacity := b.rmSubscriber.Deliver(reg)
+		wasOverCapacity := b.rmSubscriber.Deliver(sub)
 		if wasOverCapacity {
 			b.logger.Error("Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+		}
+
+		t := time.NewTimer(subWaitSanityLimit)
+		defer t.Stop()
+		select {
+		case <-chRemoved:
+		case <-b.chStop:
+			b.logger.Debugw("Abandoned waiting unsubscribe for listener due to log broadcaster stop", "jobID", listener.JobID())
+		case <-t.C:
+			panic("awaiting registration subscription timed out")
 		}
 	}
 }
@@ -506,6 +543,7 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 		if needsResub {
 			needsResubscribe = true
 		}
+		reg.isSubscribed()
 	}
 	return
 }
@@ -526,6 +564,7 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 		if needsResub {
 			needsResubscribe = true
 		}
+		reg.isRemoved()
 	}
 	return
 }

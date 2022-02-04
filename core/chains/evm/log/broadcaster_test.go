@@ -35,11 +35,11 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.lb.AddDependents(2)
 
-	var listener = helper.newLogListenerWithJob("A")
-	helper.register(listener, newMockContract(), 1)
-
 	helper.start()
 	defer helper.stop()
+
+	var listener = helper.newLogListenerWithJob("A")
+	helper.register(listener, newMockContract(), 1)
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, cltest.WaitTimeout(t), 100*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
@@ -94,14 +94,16 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	}
 
 	listener := helper.newLogListenerWithJob("initial")
+
+	helper.start()
+	defer helper.stop()
+
 	helper.register(listener, newMockContract(), numConfirmations)
 
 	for i := 0; i < numContracts; i++ {
 		listener := helper.newLogListenerWithJob("")
 		helper.register(listener, newMockContract(), 1)
 	}
-
-	helper.start()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
 	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
@@ -125,7 +127,6 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, cltest.WaitTimeout(t), time.Second)
 
-	helper.stop()
 	helper.mockEth.assertExpectations(t)
 }
 
@@ -1714,4 +1715,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	gm.Consistently(func() bool {
 		return len(listener1.getUniqueLogs()) == len(addr1SentLogs) && len(listener2.getUniqueLogs()) == len(addr1SentLogs)
 	}, 1*time.Second, cltest.DBPollingInterval).Should(gomega.BeTrue())
+}
+
+func TestBroadcaster_UnregisterAndReRegisterSameContract(t *testing.T) {
 }
