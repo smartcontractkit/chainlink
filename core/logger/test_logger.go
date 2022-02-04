@@ -69,7 +69,10 @@ func TestLogger(t T) Logger {
 	cfg := newTestConfig()
 	ll, invalid := envvar.LogLevel.ParseLogLevel()
 	cfg.Level.SetLevel(ll)
-	l, err := newZapLogger(cfg)
+	l, err := newZapLogger(ZapLoggerConfig{
+		Config: cfg,
+		local:  &Config{},
+	})
 	if err != nil {
 		if t == nil {
 			log.Fatal(err)

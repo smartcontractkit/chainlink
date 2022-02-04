@@ -210,11 +210,14 @@ func NewLogger() Logger {
 }
 
 type Config struct {
-	LogLevel    zapcore.Level
-	Dir         string
-	JsonConsole bool
-	ToDisk      bool // if false, the Logger will only log to stdout.
-	UnixTS      bool
+	LogLevel                   zapcore.Level
+	Dir                        string
+	JsonConsole                bool
+	UnixTS                     bool
+	ToDisk                     bool // if false, the Logger will only log to stdout.
+	DiskMaxSizeBeforeRotate    int  // megabytes
+	DiskMaxAgeBeforeDelete     int  // days
+	DiskMaxBackupsBeforeDelete int  // files
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -222,7 +225,10 @@ type Config struct {
 func (c *Config) New() Logger {
 	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, err := newZapLogger(cfg)
+	l, err := newZapLogger(ZapLoggerConfig{
+		local:  c,
+		Config: cfg,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
