@@ -75,6 +75,16 @@ func (_m *Metrics) SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddr
 	_m.Called(answer, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 
+// SetOffchainAggregatorJuelsPerFeeCoinRaw provides a mock function with given fields: juelsPerFeeCoin, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *Metrics) SetOffchainAggregatorJuelsPerFeeCoinRaw(juelsPerFeeCoin *big.Int, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(juelsPerFeeCoin, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
+// SetOffchainAggregatorRoundID provides a mock function with given fields: aggregatorRoundID, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *Metrics) SetOffchainAggregatorRoundID(aggregatorRoundID uint32, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(aggregatorRoundID, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
 // SetOffchainAggregatorSubmissionReceivedValues provides a mock function with given fields: value, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
 func (_m *Metrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress string, feedID string, sender string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
 	_m.Called(value, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)

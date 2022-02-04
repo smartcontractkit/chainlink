@@ -31,4 +31,7 @@ type Envelope struct {
 	BlockNumber uint64
 	Transmitter types.Account
 	LinkBalance uint64
+
+	JuelsPerFeeCoin   *big.Int
+	AggregatorRoundID uint32
 }

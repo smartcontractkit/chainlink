@@ -363,8 +363,10 @@ func generateEnvelope() (Envelope, error) {
 		Transmitter: types.Account(hexutil.Encode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(rand.Intn(32)),
 		})),
-
 		LinkBalance: rand.Uint64(),
+
+		JuelsPerFeeCoin:   big.NewInt(rand.Int63()),
+		AggregatorRoundID: rand.Uint32(),
 	}, nil
 }
 
@@ -430,10 +432,16 @@ func (d *devnullMetrics) SetOffchainAggregatorAnswers(answer *big.Float, contrac
 func (d *devnullMetrics) IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
+func (d *devnullMetrics) SetOffchainAggregatorJuelsPerFeeCoinRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+
 func (d *devnullMetrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
 func (d *devnullMetrics) SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+
+func (d *devnullMetrics) SetOffchainAggregatorRoundID(aggregatorRoundID uint32, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
 func (d *devnullMetrics) Cleanup(networkName, networkID, chainID, oracleName, sender, feedName, feedPath, symbol, contractType, contractStatus, contractAddress, feedID string) {
