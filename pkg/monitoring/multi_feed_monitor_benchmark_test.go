@@ -44,7 +44,7 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
 
 	producer := fakeProducer{make(chan producerMessage), ctx}
-	factory := &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+	factory := &fakeRandomDataSourceFactory{make(chan interface{})}
 
 	prometheusExporterFactory := NewPrometheusExporterFactory(
 		newNullLogger(),

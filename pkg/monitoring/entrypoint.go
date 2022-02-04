@@ -38,6 +38,7 @@ func NewEntrypoint(
 	log Logger,
 	chainConfig ChainConfig,
 	envelopeSourceFactory SourceFactory,
+	txResultsSourceFactory SourceFactory,
 	feedParser FeedParser,
 ) (*Entrypoint, error) {
 	cfg, err := config.Parse()
@@ -46,9 +47,10 @@ func NewEntrypoint(
 	}
 
 	if cfg.Feature.TestOnlyFakeReaders {
-		envelopeSourceFactory = &fakeRandomDataSourceFactory{make(chan Envelope), ctx}
+		envelopeSourceFactory = &fakeRandomDataSourceFactory{make(chan interface{})}
+		txResultsSourceFactory = &fakeRandomDataSourceFactory{make(chan interface{})}
 	}
-	sourceFactories := []SourceFactory{envelopeSourceFactory}
+	sourceFactories := []SourceFactory{envelopeSourceFactory, txResultsSourceFactory}
 
 	producer, err := NewProducer(ctx, log.With("component", "producer"), cfg.Kafka)
 	if err != nil {
@@ -140,15 +142,17 @@ func (e Entrypoint) Run() {
 	wg := &sync.WaitGroup{}
 
 	if e.Config.Feature.TestOnlyFakeReaders {
-		for _, factory := range e.SourceFactories {
-			if fakeFactory, ok := factory.(*fakeRandomDataSourceFactory); ok {
-				wg.Add(1)
-				go func(fakeFactory *fakeRandomDataSourceFactory) {
-					defer wg.Done()
-					fakeFactory.Run(ctx, e.Log.With("component", "rand-source"))
-				}(fakeFactory)
-			}
-		}
+		envelopeFactory := e.SourceFactories[0].(*fakeRandomDataSourceFactory)
+		txResultsFactory := e.SourceFactories[1].(*fakeRandomDataSourceFactory)
+		wg.Add(2)
+		go func(factory *fakeRandomDataSourceFactory) {
+			defer wg.Done()
+			factory.RunWithEnvelope(ctx, e.Log)
+		}(envelopeFactory)
+		go func(factory *fakeRandomDataSourceFactory) {
+			defer wg.Done()
+			factory.RunWithTxResults(ctx, e.Log)
+		}(txResultsFactory)
 	}
 
 	wg.Add(1)

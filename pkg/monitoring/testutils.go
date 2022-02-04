@@ -44,15 +44,22 @@ func (f *fakeRddSource) Fetch(_ context.Context) (interface{}, error) {
 	return feeds, nil
 }
 
-func (f *fakeRandomDataSourceFactory) Run(ctx context.Context, log Logger) {
+type fakeRandomDataSourceFactory struct {
+	updates chan interface{}
+}
+
+var _ SourceFactory = (*fakeRandomDataSourceFactory)(nil)
+
+func (f *fakeRandomDataSourceFactory) RunWithEnvelope(ctx context.Context, log Logger) {
+	log.With("component", "source-envelope")
 	update, err := generateEnvelope()
 	if err != nil {
-		log.Errorw("failed to generate fake read from chain", "error", err)
+		log.Errorw("failed to generate fake data", "error", err)
 	}
 	for {
 		select {
 		case f.updates <- update:
-			log.Infow("generate envelope")
+			log.Infow("generate Envelope")
 			update, err = generateEnvelope()
 			if err != nil {
 				log.Errorw("failed to generate fake read from chain", "error", err)
@@ -63,14 +70,21 @@ func (f *fakeRandomDataSourceFactory) Run(ctx context.Context, log Logger) {
 	}
 }
 
-var _ SourceFactory = (*fakeRandomDataSourceFactory)(nil)
-
-type fakeRandomDataSourceFactory struct {
-	updates chan Envelope
-	ctx     context.Context
+func (f *fakeRandomDataSourceFactory) RunWithTxResults(ctx context.Context, log Logger) {
+	log.With("component", "source-txresults")
+	update := generateTxResults()
+	for {
+		select {
+		case f.updates <- update:
+			log.Infow("generate TxResults")
+			update = generateTxResults()
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
-func (f *fakeRandomDataSourceFactory) NewSource(chainConfig ChainConfig, feedConfig FeedConfig) (Source, error) {
+func (f *fakeRandomDataSourceFactory) NewSource(_ ChainConfig, _ FeedConfig) (Source, error) {
 	return &fakeSource{f}, nil
 }
 
@@ -79,11 +93,10 @@ type fakeSource struct {
 }
 
 func (f *fakeSource) Fetch(ctx context.Context) (interface{}, error) {
-	var update Envelope
 	select {
-	case update = <-f.factory.updates:
+	case update := <-f.factory.updates:
 		return update, nil
-	case <-f.factory.ctx.Done():
+	case <-ctx.Done():
 		return nil, fmt.Errorf("source closed")
 	}
 }
@@ -363,9 +376,18 @@ func generateEnvelope() (Envelope, error) {
 		Transmitter: types.Account(hexutil.Encode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(rand.Intn(32)),
 		})),
-
 		LinkBalance: rand.Uint64(),
+
+		JuelsPerFeeCoin:   big.NewInt(rand.Int63()),
+		AggregatorRoundID: rand.Uint32(),
 	}, nil
+}
+
+func generateTxResults() TxResults {
+	return TxResults{
+		NumSucceeded: rand.Uint64(),
+		NumFailed:    rand.Uint64(),
+	}
 }
 
 type fakeChainConfig struct {
@@ -418,6 +440,12 @@ func (d *devnullMetrics) SetFeedContractMetadata(chainID, contractAddress, feedI
 func (d *devnullMetrics) SetFeedContractLinkBalance(balance uint64, chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
+func (d *devnullMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+
+func (d *devnullMetrics) SetFeedContractTransmissionsFailed(numFailed uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+
 func (d *devnullMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {
 }
 
@@ -430,10 +458,16 @@ func (d *devnullMetrics) SetOffchainAggregatorAnswers(answer *big.Float, contrac
 func (d *devnullMetrics) IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
+func (d *devnullMetrics) SetOffchainAggregatorJuelsPerFeeCoinRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+
 func (d *devnullMetrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
 func (d *devnullMetrics) SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+
+func (d *devnullMetrics) SetOffchainAggregatorRoundID(aggregatorRoundID uint32, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 
 func (d *devnullMetrics) Cleanup(networkName, networkID, chainID, oracleName, sender, feedName, feedPath, symbol, contractType, contractStatus, contractAddress, feedID string) {

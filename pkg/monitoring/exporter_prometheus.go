@@ -79,11 +79,16 @@ type prometheusExporter struct {
 	prevMu        sync.Mutex
 }
 
-func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
-	envelope, isEnvelope := data.(Envelope)
-	if !isEnvelope {
-		return
+func (p *prometheusExporter) Export(_ context.Context, data interface{}) {
+	switch typed := data.(type) {
+	case Envelope:
+		p.exportEnvelope(typed)
+	case TxResults:
+		p.exportTxResults(typed)
 	}
+}
+
+func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 	p.updateLabels(prometheusLabels{
 		sender: string(envelope.Transmitter),
 	})
@@ -137,7 +142,6 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 	if p.feedConfig.GetMultiply() != 0 {
 		humanizedValue = new(big.Float).Quo(humanizedValue, big.NewFloat(float64(p.feedConfig.GetMultiply())))
 	}
-
 	p.metrics.SetOffchainAggregatorAnswers(
 		humanizedValue,
 		p.feedConfig.GetID(),
@@ -173,11 +177,62 @@ func (p *prometheusExporter) Export(ctx context.Context, data interface{}) {
 		p.chainConfig.GetNetworkID(),
 		p.chainConfig.GetNetworkName(),
 	)
+	p.metrics.SetOffchainAggregatorJuelsPerFeeCoinRaw(
+		envelope.JuelsPerFeeCoin,
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
 	p.metrics.SetOffchainAggregatorSubmissionReceivedValues(
 		humanizedValue,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		string(envelope.Transmitter),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
+	p.metrics.SetOffchainAggregatorRoundID(
+		envelope.AggregatorRoundID,
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
+}
+
+func (p *prometheusExporter) exportTxResults(res TxResults) {
+	p.metrics.SetFeedContractTransmissionsSucceeded(
+		res.NumSucceeded,
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
+	p.metrics.SetFeedContractTransmissionsFailed(
+		res.NumFailed,
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
 		p.feedConfig.GetContractStatus(),
 		p.feedConfig.GetContractType(),

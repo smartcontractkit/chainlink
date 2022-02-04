@@ -12,12 +12,16 @@ type Metrics interface {
 	SetHeadTrackerCurrentHead(blockNumber uint64, networkName, chainID, networkID string)
 	SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string)
 	SetFeedContractLinkBalance(balance uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetFeedContractTransmissionsSucceeded(numSucceeded uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetFeedContractTransmissionsFailed(numFailed uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string)
 	SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorAnswers(answer *big.Float, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetOffchainAggregatorJuelsPerFeeCoinRaw(juelsPerFeeCoin *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetOffchainAggregatorRoundID(aggregatorRoundID uint32, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	// Cleanup deletes all the metrics
 	Cleanup(networkName, networkID, chainID, oracleName, sender, feedName, feedPath, symbol, contractType, contractStatus, contractAddress, feedID string)
 	// Exposes the accumulated metrics to HTTP.
@@ -42,6 +46,18 @@ var (
 	feedContractLinkBalance = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "feed_contract_link_balance",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
+	feedContractTransmissionsSucceeded = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "feed_contract_transmissions_succeeded",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
+	feedContractTransmissionsFailed = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "feed_contract_transmissions_failed",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
@@ -73,6 +89,13 @@ var (
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
+	offchainAggregatorJuelsPerFeeCoinRaw = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "offchain_aggregator_juels_per_fee_coin_raw",
+			Help: "Reports the latest raw answer for juels/fee_coin.",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
 	offchainAggregatorSubmissionReceivedValues = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "offchain_aggregator_submission_received_values",
@@ -87,6 +110,13 @@ var (
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
+	offchainAggregatorRoundID = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "offchain_aggregator_round_id",
+			Help: "Sets the aggregator contract's round id.",
+		},
+		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
 )
 
 var DefaultMetrics Metrics
@@ -95,12 +125,16 @@ func init() {
 	prometheus.MustRegister(headTrackerCurrentHead)
 	prometheus.MustRegister(feedContractMetadata)
 	prometheus.MustRegister(feedContractLinkBalance)
+	prometheus.MustRegister(feedContractTransmissionsSucceeded)
+	prometheus.MustRegister(feedContractTransmissionsFailed)
 	prometheus.MustRegister(nodeMetadata)
 	prometheus.MustRegister(offchainAggregatorAnswersRaw)
 	prometheus.MustRegister(offchainAggregatorAnswers)
 	prometheus.MustRegister(offchainAggregatorAnswersTotal)
+	prometheus.MustRegister(offchainAggregatorJuelsPerFeeCoinRaw)
 	prometheus.MustRegister(offchainAggregatorSubmissionReceivedValues)
 	prometheus.MustRegister(offchainAggregatorAnswerStalled)
+	prometheus.MustRegister(offchainAggregatorRoundID)
 
 	DefaultMetrics = &defaultMetrics{}
 }
@@ -119,8 +153,20 @@ func (d *defaultMetrics) SetFeedContractLinkBalance(balance uint64, contractAddr
 	feedContractLinkBalance.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(balance))
 }
 
+func (d *defaultMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractTransmissionsSucceeded.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(numSucceeded))
+}
+
+func (d *defaultMetrics) SetFeedContractTransmissionsFailed(numFailed uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractTransmissionsFailed.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(numFailed))
+}
+
 func (d *defaultMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {
 	nodeMetadata.WithLabelValues(chainID, networkID, networkName, oracleName, sender).Set(1)
+}
+
+func (d *defaultMetrics) SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	offchainAggregatorAnswersRaw.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(answer.Int64()))
 }
 
 func (d *defaultMetrics) SetOffchainAggregatorAnswers(answer *big.Float, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
@@ -128,12 +174,12 @@ func (d *defaultMetrics) SetOffchainAggregatorAnswers(answer *big.Float, contrac
 	offchainAggregatorAnswers.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(value)
 }
 
-func (d *defaultMetrics) SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	offchainAggregatorAnswersRaw.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(answer.Int64()))
-}
-
 func (d *defaultMetrics) IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 	offchainAggregatorAnswersTotal.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Inc()
+}
+
+func (d *defaultMetrics) SetOffchainAggregatorJuelsPerFeeCoinRaw(juelsPerFeeCoin *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	offchainAggregatorJuelsPerFeeCoinRaw.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(juelsPerFeeCoin.Int64()))
 }
 
 func (d *defaultMetrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
@@ -149,6 +195,10 @@ func (d *defaultMetrics) SetOffchainAggregatorAnswerStalled(isSet bool, contract
 	offchainAggregatorAnswerStalled.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(value)
 }
 
+func (d *defaultMetrics) SetOffchainAggregatorRoundID(aggregatorRoundID uint32, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	offchainAggregatorRoundID.WithLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName).Set(float64(aggregatorRoundID))
+}
+
 func (d *defaultMetrics) Cleanup(
 	networkName, networkID, chainID, oracleName, sender string,
 	feedName, feedPath, symbol, contractType, contractStatus string,
@@ -157,11 +207,17 @@ func (d *defaultMetrics) Cleanup(
 	// TODO (dru) can delete fail?!
 	_ = headTrackerCurrentHead.DeleteLabelValues(networkName, chainID, networkID)
 	_ = feedContractMetadata.DeleteLabelValues(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol)
+	_ = feedContractLinkBalance.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+	_ = feedContractTransmissionsSucceeded.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+	_ = feedContractTransmissionsFailed.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 	_ = nodeMetadata.DeleteLabelValues(chainID, networkID, networkName, oracleName, sender)
+	_ = offchainAggregatorAnswersRaw.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 	_ = offchainAggregatorAnswers.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 	_ = offchainAggregatorAnswersTotal.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+	_ = offchainAggregatorJuelsPerFeeCoinRaw.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 	_ = offchainAggregatorSubmissionReceivedValues.DeleteLabelValues(contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 	_ = offchainAggregatorAnswerStalled.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+	_ = offchainAggregatorRoundID.DeleteLabelValues(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 
 func (d *defaultMetrics) HTTPHandler() http.Handler {
