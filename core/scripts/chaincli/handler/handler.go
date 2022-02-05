@@ -27,8 +27,8 @@ type baseHandler struct {
 	approveAmount *big.Int
 }
 
-// newBaseHandler is the constructor of baseHandler
-func newBaseHandler(cfg *config.Config) *baseHandler {
+// NewBaseHandler is the constructor of baseHandler
+func NewBaseHandler(cfg *config.Config) *baseHandler {
 	// Created a client by the given node address
 	nodeClient, err := ethclient.Dial(cfg.NodeURL)
 	if err != nil {

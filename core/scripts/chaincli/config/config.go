@@ -8,13 +8,15 @@ import (
 
 // Config represents configuration fields
 type Config struct {
-	NodeURL       string   `mapstructure:"NODE_URL"`
-	ChainID       int64    `mapstructure:"CHAIN_ID"`
-	PrivateKey    string   `mapstructure:"PRIVATE_KEY"`
-	LinkTokenAddr string   `mapstructure:"LINK_TOKEN_ADDR"`
-	Keepers       []string `mapstructure:"KEEPERS"`
-	ApproveAmount string   `mapstructure:"APPROVE_AMOUNT"`
-	GasLimit      uint64   `mapstructure:"GAS_LIMIT"`
+	NodeURL              string   `mapstructure:"NODE_URL"`
+	ChainID              int64    `mapstructure:"CHAIN_ID"`
+	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
+	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
+	Keepers              []string `mapstructure:"KEEPERS"`
+	ApproveAmount        string   `mapstructure:"APPROVE_AMOUNT"`
+	GasLimit             uint64   `mapstructure:"GAS_LIMIT"`
+	RegistryAddress      string   `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
+	RegistryConfigUpdate bool     `mapstructure:"KEEPER_CONFIG_UPDATE"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
@@ -45,6 +47,19 @@ type Config struct {
 // New is the constructor of Config
 func New() *Config {
 	var cfg Config
+	configFile := viper.GetString("config")
+	if configFile != "" {
+		log.Println("Using config file", configFile)
+		// Use config file from the flag.
+		viper.SetConfigFile(configFile)
+	} else {
+		log.Println("Using config file .env")
+		viper.SetConfigFile(".env")
+	}
+	viper.AutomaticEnv()
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatal("failed to read config: ", err)
+	}
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatal("failed to unmarshal config: ", err)
 	}
@@ -73,11 +88,4 @@ func init() {
 	viper.SetDefault("UPKEEP_COUNT", 5)
 
 	viper.SetDefault("FEED_DECIMALS", 8)
-
-	viper.SetConfigFile(".env")
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatal("failed to read config: ", err)
-	}
 }

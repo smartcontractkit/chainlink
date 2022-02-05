@@ -22,7 +22,7 @@ type Feed struct {
 // NewFeed is the constructor of Feed
 func NewFeed(cfg *config.Config) *Feed {
 	return &Feed{
-		baseHandler:  newBaseHandler(cfg),
+		baseHandler:  NewBaseHandler(cfg),
 		baseAddress:  common.HexToAddress(cfg.FeedBaseAddr),
 		quoteAddress: common.HexToAddress(cfg.FeedQuoteAddr),
 		decimals:     cfg.FeedDecimals,
