@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math/big"
 
@@ -48,7 +47,7 @@ func getFailureReason(client *ethclient.Client, from common.Address, tx *types.T
 	if len(code) == 0 {
 		return "no error message or out of gas"
 	}
-	return fmt.Sprintf(string(code))
+	return string(code)
 }
 
 func createCallMsgFromTransaction(from common.Address, tx *types.Transaction) ethereum.CallMsg {
