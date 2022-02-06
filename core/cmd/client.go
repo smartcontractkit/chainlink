@@ -275,7 +275,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
 			if err != http.ErrServerClosed {
-				lggr.Criticalf("%v", err)
+				lggr.Criticalf("Error starting server: %v", err)
 			}
 		}
 		// if ctx is cancelled, we must leave the loop
@@ -299,7 +299,6 @@ func (s *server) run(port uint16, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTP on port %d", port)
 	s.httpServer = createServer(s.handler, port, writeTimeout)
 	err := s.httpServer.ListenAndServe()
-	s.lggr.ErrorIf(err, "Error starting server")
 	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
@@ -307,7 +306,6 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	s.lggr.ErrorIf(err, "Error starting TLS server")
 	return errors.Wrap(err, "failed to run TLS server")
 }
 
