@@ -662,17 +662,10 @@ const GasProofVerification uint32 = 200_000
 // given the callback gas limit, the gas price, and the wei per unit link.
 func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *big.Int) *big.Int {
 	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
-	costWei := new(big.Float).SetInt(
-		maxGasUsed.Mul(maxGasUsed, maxGasPriceWei),
-	)
-	costLink := costWei.Quo(
-		costWei,
-		new(big.Float).SetInt(weiPerUnitLink),
-	)
-	costJuelsFloat := costLink.Mul(
-		costLink,
-		big.NewFloat(1e18),
-	)
-	costJuels, _ := costJuelsFloat.Int(nil)
+	costWei := maxGasUsed.Mul(maxGasUsed, maxGasPriceWei)
+	// Multiply by 1e18 first so that we don't lose a ton of digits due to truncation when we divide
+	// by weiPerUnitLink
+	numerator := costWei.Mul(costWei, big.NewInt(1e18))
+	costJuels := numerator.Quo(numerator, weiPerUnitLink)
 	return costJuels
 }

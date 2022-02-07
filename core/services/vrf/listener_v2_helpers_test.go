@@ -17,4 +17,9 @@ func TestListener_EstimateFeeJuels(t *testing.T) {
 	actual := vrf.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, weiPerUnitLink)
 	expected := big.NewInt(1780216203019246680)
 	require.True(t, actual.Cmp(expected) == 0, "expected:", expected.String(), "actual:", actual.String())
+
+	weiPerUnitLink = big.NewInt(5898161234554321)
+	actual = vrf.EstimateFeeJuels(callbackGasLimit, maxGasPriceGwei, weiPerUnitLink)
+	expected = big.NewInt(1780215830399116719)
+	require.True(t, actual.Cmp(expected) == 0, "expected:", expected.String(), "actual:", actual.String())
 }
