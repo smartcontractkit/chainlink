@@ -8,14 +8,15 @@ import (
 
 // Config represents configuration fields
 type Config struct {
-	NodeURL        string   `mapstructure:"NODE_URL"`
-	ChainID        int64    `mapstructure:"CHAIN_ID"`
-	PrivateKey     string   `mapstructure:"PRIVATE_KEY"`
-	LinkTokenAddr  string   `mapstructure:"LINK_TOKEN_ADDR"`
-	Keepers        []string `mapstructure:"KEEPERS"`
-	ApproveAmount  string   `mapstructure:"APPROVE_AMOUNT"`
-	AddFundsAmount string   `mapstructure:"ADD_FUNDS_AMOUNT"`
-	GasLimit       uint64   `mapstructure:"GAS_LIMIT"`
+	NodeURL              string   `mapstructure:"NODE_URL"`
+	ChainID              int64    `mapstructure:"CHAIN_ID"`
+	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
+	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
+	Keepers              []string `mapstructure:"KEEPERS"`
+	ApproveAmount        string   `mapstructure:"APPROVE_AMOUNT"`
+	GasLimit             uint64   `mapstructure:"GAS_LIMIT"`
+	RegistryAddress      string   `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
+	RegistryConfigUpdate bool     `mapstructure:"KEEPER_CONFIG_UPDATE"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
@@ -35,11 +36,30 @@ type Config struct {
 	UpkeepCheckData                 string `mapstructure:"UPKEEP_CHECK_DATA"`
 	UpkeepGasLimit                  uint32 `mapstructure:"UPKEEP_GAS_LIMIT"`
 	UpkeepCount                     int64  `mapstructure:"UPKEEP_COUNT"`
+	AddFundsAmount                  string `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
+
+	// Feeds config
+	FeedBaseAddr  string `mapstructure:"FEED_BASE_ADDR"`
+	FeedQuoteAddr string `mapstructure:"FEED_QUOTE_ADDR"`
+	FeedDecimals  uint8  `mapstructure:"FEED_DECIMALS"`
 }
 
 // New is the constructor of Config
 func New() *Config {
 	var cfg Config
+	configFile := viper.GetString("config")
+	if configFile != "" {
+		log.Println("Using config file", configFile)
+		// Use config file from the flag.
+		viper.SetConfigFile(configFile)
+	} else {
+		log.Println("Using config file .env")
+		viper.SetConfigFile(".env")
+	}
+	viper.AutomaticEnv()
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatal("failed to read config: ", err)
+	}
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatal("failed to unmarshal config: ", err)
 	}
@@ -50,8 +70,6 @@ func New() *Config {
 func init() {
 	// Represented in WEI, which is 1000 Ether
 	viper.SetDefault("APPROVE_AMOUNT", "1000000000000000000000")
-	// Represented in WEI, which is 100 Ether
-	viper.SetDefault("ADD_FUNDS_AMOUNT", "100000000000000000000")
 	viper.SetDefault("GAS_LIMIT", 8000000)
 	viper.SetDefault("PAYMENT_PREMIUM_PBB", 200000000)
 	viper.SetDefault("FLAT_FEE_MICRO_LINK", 0)
@@ -61,16 +79,13 @@ func init() {
 	viper.SetDefault("GAS_CEILING_MULTIPLIER", 3)
 	viper.SetDefault("FALLBACK_GAS_PRICE", 10000000000)
 	viper.SetDefault("FALLBACK_LINK_PRICE", 200000000000000000)
+	// Represented in WEI, which is 100 Ether
+	viper.SetDefault("UPKEEP_ADD_FUNDS_AMOUNT", "100000000000000000000")
 	viper.SetDefault("UPKEEP_TEST_RANGE", 1)
 	viper.SetDefault("UPKEEP_AVERAGE_ELIGIBILITY_CADENCE", 1)
 	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
 	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
 	viper.SetDefault("UPKEEP_COUNT", 5)
 
-	viper.SetConfigFile(".env")
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatal("failed to read config: ", err)
-	}
+	viper.SetDefault("FEED_DECIMALS", 8)
 }
