@@ -114,4 +114,25 @@ func TestPoller(t *testing.T) {
 		source.updates <- "update4"
 		require.Equal(t, "update4", <-poller.Updates())
 	})
+	t.Run("ErrNoUpdate is ignored", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		source := &fakeSourceWithError{make(chan interface{}), make(chan error)}
+		poller := NewSourcePoller(
+			source,
+			newNullLogger(),
+			10*time.Millisecond, // poll interval
+			10*time.Millisecond, // read timeout
+			0,                   // buffer capacity
+		)
+		go poller.Run(ctx)
+
+		source.errors <- ErrNoUpdate
+		select {
+		case <-poller.Updates():
+			t.Fatalf("unexpected update when source produced ErrNoUpdate")
+		default:
+		}
+	})
 }

@@ -44,7 +44,9 @@ func (s *sourcePoller) Run(ctx context.Context) {
 	defer s.log.Debugw("poller closed")
 	// Initial fetch.
 	data, err := s.source.Fetch(ctx)
-	if err != nil {
+	if err != nil && err == ErrNoUpdate {
+		s.log.Debugw("no update found on initial fetch")
+	} else if err != nil {
 		s.log.Errorw("failed initial fetch", "error", err)
 	} else {
 		select {
@@ -65,7 +67,10 @@ func (s *sourcePoller) Run(ctx context.Context) {
 				defer cancel()
 				data, err = s.source.Fetch(ctx)
 			}()
-			if err != nil {
+			if err != nil && err == ErrNoUpdate {
+				s.log.Debugw("no update found")
+				continue
+			} else if err != nil {
 				s.log.Errorw("failed to fetch from source", "error", err)
 				reusedTimer.Reset(s.pollInterval)
 				continue
