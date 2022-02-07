@@ -14,6 +14,7 @@ import (
 
 var _ Logger = &zapLogger{}
 
+// ZapLoggerConfig defines the struct that serves as config when spinning up a the zap logger
 type ZapLoggerConfig struct {
 	zap.Config
 	local Config
@@ -59,11 +60,10 @@ func newConsoleCore(cfg Config) zapcore.Core {
 	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
 
 	var sink zap.Sink
-	if cfg.JsonConsole {
-
-	} else {
+	if !cfg.JsonConsole {
 		sink = PrettyConsole{os.Stderr}
 	}
+	// TODO: setup a JsonConsole?
 
 	return zapcore.NewCore(encoder, sink, filteredLogLevels)
 }
