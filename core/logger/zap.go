@@ -18,6 +18,7 @@ var _ Logger = &zapLogger{}
 type ZapLoggerConfig struct {
 	zap.Config
 	local Config
+	sinks []zapcore.WriteSyncer
 }
 
 type zapLogger struct {
@@ -29,11 +30,26 @@ type zapLogger struct {
 }
 
 func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
-	core := newConsoleCore(cfg)
+	sinksCores := []zapcore.Core{
+		newConsoleCore(cfg),
+	}
 
 	if cfg.local.ToDisk {
-		core = zapcore.NewTee(core, newDiskCore(cfg.local))
+		sinksCores = append(sinksCores, newDiskCore(cfg.local))
 	}
+
+	for _, sink := range cfg.sinks {
+		sinksCores = append(
+			sinksCores,
+			zapcore.NewCore(
+				zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local)),
+				sink,
+				zap.LevelEnablerFunc(cfg.Level.Enabled),
+			),
+		)
+	}
+
+	core := zapcore.NewTee(sinksCores...)
 
 	return &zapLogger{config: cfg, SugaredLogger: zap.New(core).Sugar()}, nil
 }
@@ -62,7 +78,6 @@ func newConsoleCore(cfg ZapLoggerConfig) zapcore.Core {
 	if !cfg.local.JsonConsole {
 		sink = PrettyConsole{os.Stderr}
 	}
-	// TODO: setup a JsonConsole?
 
 	return zapcore.NewCore(encoder, sink, filteredLogLevels)
 }
@@ -121,6 +136,7 @@ func (l *zapLogger) Named(name string) Logger {
 
 func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	newLogger := *l
+	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
 	zl, err := newLogger.config.Build()
 	if err != nil {
 		return nil, err

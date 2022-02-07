@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 )
@@ -72,6 +73,7 @@ func TestLogger(t T) Logger {
 	l, err := newZapLogger(ZapLoggerConfig{
 		Config: cfg,
 		local:  Config{},
+		sinks:  []zapcore.WriteSyncer{PrettyConsole{Sink: &testMemoryLog}},
 	})
 	if err != nil {
 		if t == nil {
