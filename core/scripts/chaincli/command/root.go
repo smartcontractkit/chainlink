@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
-
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/command/feed"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/command/keeper"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+var configFile string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -26,5 +29,10 @@ func Execute() {
 }
 
 func init() {
+	RootCmd.PersistentFlags().StringVar(&configFile, "config", "", "config file (default is .env)")
+	_ = viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
+
 	RootCmd.AddCommand(keeper.RootCmd)
+	RootCmd.AddCommand(feed.RootCmd)
+	RootCmd.AddCommand(RevertReasonCmd)
 }
