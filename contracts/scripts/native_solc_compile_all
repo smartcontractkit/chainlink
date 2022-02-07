@@ -32,6 +32,9 @@ $SCRIPTPATH/native_solc7_compile KeeperRegistry.sol
 $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 
+# Feeds
+$SCRIPTPATH/native_solc7_compile tests/DerivedPriceFeed.sol
+
 $SCRIPTPATH/native_solc8_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc8_compile VRFRequestIDBase.sol

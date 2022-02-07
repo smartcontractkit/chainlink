@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../dev/VRFConsumerBaseV2.sol";
+import "../VRFConsumerBaseV2.sol";
 
 // VRFV2RevertingExample will always revert. Used for testing only, useless in prod.
 contract VRFV2RevertingExample is VRFConsumerBaseV2 {

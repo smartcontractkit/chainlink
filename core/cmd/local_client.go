@@ -50,7 +50,7 @@ const ownerPermsMask = os.FileMode(0700)
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err := cli.runNode(c); err != nil {
 		err = errors.Wrap(err, "Cannot boot Chainlink")
-		cli.Logger.Error(err)
+		cli.Logger.Errorw(err.Error(), "err", err)
 		if serr := cli.Logger.Sync(); serr != nil {
 			err = multierr.Combine(serr, err)
 		}
