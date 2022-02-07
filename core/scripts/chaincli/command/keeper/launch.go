@@ -7,14 +7,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
 )
 
-// deployCmd represents the command to run the service
-var deployCmd = &cobra.Command{
-	Use:   "deploy",
-	Short: "Deploy keepers",
-	Long:  `This command deploys keepers (keeper registry + upkeeps).`,
+var launchAndTestCmd = &cobra.Command{
+	Use:   "launch-and-test",
+	Short: "Launches keepers and starts performing",
+	Long:  `This command launches chainlink nodes, keeper setup and starts performing upkeeps.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
-		hdlr.DeployKeepers(cmd.Context())
+		hdlr.LaunchAndTest(cmd.Context())
 	},
 }

@@ -24,7 +24,6 @@ type Keeper struct {
 
 // NewKeeper is the constructor of Keeper
 func NewKeeper(cfg *config.Config) *Keeper {
-
 	addFundsAmount := big.NewInt(0)
 	addFundsAmount.SetString(cfg.AddFundsAmount, 10)
 
