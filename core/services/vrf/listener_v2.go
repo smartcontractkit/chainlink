@@ -442,7 +442,7 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPriceWei *big.Int, req pen
 	juelsNeeded, err := lsn.estimateJuelsNeeded(req.req, maxGasPriceWei)
 	if err != nil {
 		// not critical, just log and continue
-		lsn.l.Debugw("unable to estimate juels needed for request, continuing anyway", "reqID", req.req.RequestId)
+		lsn.l.Warnw("unable to estimate juels needed for request, continuing anyway", "reqID", req.req.RequestId)
 		juelsNeeded = big.NewInt(0)
 	}
 	var (
