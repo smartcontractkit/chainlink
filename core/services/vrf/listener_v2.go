@@ -413,7 +413,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 	)
 }
 
-func (lsn *listenerV2) estimateJuelsNeeded(
+func (lsn *listenerV2) estimateFeeJuels(
 	req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested,
 	maxGasPriceWei *big.Int,
 ) (*big.Int, error) {
@@ -439,10 +439,13 @@ func (lsn *listenerV2) estimateJuelsNeeded(
 // then simulate the transaction at the max gas price to determine its maximum link cost.
 func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPriceWei *big.Int, req pendingRequest) (*big.Int, pipeline.Run, string, uint64, error) {
 	// estimate how much juels are needed so that we can log it if the simulation fails.
-	juelsNeeded, err := lsn.estimateJuelsNeeded(req.req, maxGasPriceWei)
+	juelsNeeded, err := lsn.estimateFeeJuels(req.req, maxGasPriceWei)
 	if err != nil {
 		// not critical, just log and continue
-		lsn.l.Warnw("unable to estimate juels needed for request, continuing anyway", "reqID", req.req.RequestId)
+		lsn.l.Warnw("unable to estimate juels needed for request, continuing anyway",
+			"reqID", req.req.RequestId,
+			"err", err,
+		)
 		juelsNeeded = big.NewInt(0)
 	}
 	var (
