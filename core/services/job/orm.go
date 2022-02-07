@@ -44,6 +44,7 @@ type ORM interface {
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
+	FindJobByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -620,6 +621,11 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 
 func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) (jb Job, err error) {
 	err = o.findJob(&jb, "external_job_id", externalJobID, qopts...)
+	return
+}
+
+func (o *orm) FindJobByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (jb Job, err error) {
+	err = o.findJob(&jb, "contract_address", address, qopts...)
 	return
 }
 
