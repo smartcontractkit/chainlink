@@ -422,7 +422,7 @@ func (lsn *listenerV2) estimateJuelsNeeded(
 	defer cancel()
 	weiPerUnitLink, err := lsn.aggregator.LatestAnswer(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "get aggregator latestAnswer")
 	}
 	// NOTE: no need to sanity check this as this is for logging purposes only
 	// and should not be used to determine whether a user has enough funds in actuality,
@@ -663,14 +663,13 @@ const GasProofVerification uint32 = 200_000
 func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *big.Int) *big.Int {
 	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
 	costWei := new(big.Float).SetInt(
-		new(big.Int).Set(maxGasUsed).
-			Mul(maxGasUsed, maxGasPriceWei),
+		maxGasUsed.Mul(maxGasUsed, maxGasPriceWei),
 	)
-	costLink := new(big.Float).Set(costWei).Quo(
+	costLink := costWei.Quo(
 		costWei,
 		new(big.Float).SetInt(weiPerUnitLink),
 	)
-	costJuelsFloat := new(big.Float).Set(costLink).Mul(
+	costJuelsFloat := costLink.Mul(
 		costLink,
 		big.NewFloat(1e18),
 	)
