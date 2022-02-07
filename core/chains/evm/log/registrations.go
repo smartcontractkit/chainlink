@@ -74,14 +74,23 @@ func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 }
 
 func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
+	fmt.Printf("BALLS add subscriber %p with job ID %v\n", sub, sub.listener.JobID())
+	// It is not allowed to add or remove the same subscriber twice
 	if _, exists := r.clientSubs[sub]; exists {
 		panic(fmt.Sprintf("Subscription %p with job ID %v already added", sub, sub.listener.JobID()))
 	}
+	r.clientSubs[sub] = struct{}{}
 	// TODO: Make trace level
 	r.logger.Debugf("Removed subscription %p with job ID %v", sub, sub.listener.JobID())
 
 	addr := sub.opts.Contract
-	// FIXME: Need to merge here actually, not clobber
+	// FIXME: Do we want to merge here instead of panic?
+	// It is assumed that each subscriber has it's own unique address and in
+	// the case of two subscribers for the same address, the old one will fully
+	// finish unsubscribing before the new one subscribes itself
+	if _, exists := r.decoders[addr]; exists {
+		panic(fmt.Sprintf("Decoder already exists for address %s", addr.Hex()))
+	}
 	r.decoders[addr] = sub.opts.ParseLog
 
 	if _, exists := r.subscribers[sub.opts.MinIncomingConfirmations]; !exists {
@@ -100,9 +109,11 @@ func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
 
 // TODO: unit test various combinations of adding/removing subs especially with common topics and MinIncomingConfirmations
 func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
+	fmt.Printf("BALLS remove subscriber %p with job ID %v\n", sub, sub.listener.JobID())
 	if _, exists := r.clientSubs[sub]; !exists {
 		panic(fmt.Sprintf("Cannot remove subscription %p with job ID %v; not registered as a subscriber", sub, sub.listener.JobID()))
 	}
+	delete(r.clientSubs, sub)
 	// TODO: Make trace level
 	r.logger.Debugf("Added subscription %p with job ID %v", sub, sub.listener.JobID())
 
@@ -117,6 +128,13 @@ func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool
 		delete(r.subscribers, sub.opts.MinIncomingConfirmations)
 		r.resetHighestNumConfirmationsValue()
 	}
+
+	// NOTE: Previously we did not remove decoder, this was a bug?
+	addr := sub.opts.Contract
+	if _, exists := r.decoders[addr]; !exists {
+		panic(fmt.Sprintf("Cannot remove decoder; decoder did not exist for address %s", addr.Hex()))
+	}
+	delete(r.decoders, addr)
 	return
 }
 

@@ -214,7 +214,8 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
-	// IfStarted RLocks the state mutex so LB cannot be closed until this returns
+	// IfStarted RLocks the state mutex so LB cannot be closed until this
+	// returns (no need to worry about listening for b.chStop)
 	ok := b.IfStarted(func() {
 		if len(opts.LogsWithTopics) == 0 {
 			b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
