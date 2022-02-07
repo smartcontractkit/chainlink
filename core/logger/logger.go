@@ -226,7 +226,7 @@ func (c *Config) New() Logger {
 	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, err := newZapLogger(ZapLoggerConfig{
-		local:  c,
+		local:  *c,
 		Config: cfg,
 	})
 	if err != nil {

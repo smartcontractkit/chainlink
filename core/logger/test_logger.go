@@ -71,7 +71,7 @@ func TestLogger(t T) Logger {
 	cfg.Level.SetLevel(ll)
 	l, err := newZapLogger(ZapLoggerConfig{
 		Config: cfg,
-		local:  &Config{},
+		local:  Config{},
 	})
 	if err != nil {
 		if t == nil {

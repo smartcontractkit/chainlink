@@ -16,7 +16,7 @@ var _ Logger = &zapLogger{}
 
 type ZapLoggerConfig struct {
 	zap.Config
-	local *Config
+	local Config
 }
 
 type zapLogger struct {
@@ -37,7 +37,7 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 	return &zapLogger{config: cfg, SugaredLogger: zap.New(core).Sugar()}, nil
 }
 
-func newDiskCore(cfg *Config) zapcore.Core {
+func newDiskCore(cfg Config) zapcore.Core {
 	var (
 		encoder = zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
 		sink    = zapcore.AddSync(&lumberjack.Logger{
@@ -47,18 +47,14 @@ func newDiskCore(cfg *Config) zapcore.Core {
 			MaxBackups: cfg.DiskMaxBackupsBeforeDelete,
 			Compress:   true,
 		})
-		allLogLevels = zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-			return zap.DebugLevel.Enabled(lvl)
-		})
+		allLogLevels = zap.LevelEnablerFunc(zap.DebugLevel.Enabled)
 	)
 	return zapcore.NewCore(encoder, sink, allLogLevels)
 }
 
-func newConsoleCore(cfg *Config) zapcore.Core {
+func newConsoleCore(cfg Config) zapcore.Core {
 	logLvl := zap.NewAtomicLevelAt(cfg.LogLevel)
-	filteredLogLevels := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return logLvl.Enabled(lvl)
-	})
+	filteredLogLevels := zap.LevelEnablerFunc(logLvl.Enabled)
 
 	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
 
@@ -72,7 +68,7 @@ func newConsoleCore(cfg *Config) zapcore.Core {
 	return zapcore.NewCore(encoder, sink, filteredLogLevels)
 }
 
-func makeEncoderConfig(cfg *Config) zapcore.EncoderConfig {
+func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
 	encoderConfig := zap.NewProductionEncoderConfig()
 
 	if !cfg.UnixTS {
