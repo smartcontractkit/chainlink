@@ -29,7 +29,7 @@ type zapLogger struct {
 }
 
 func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
-	core := newConsoleCore(cfg.local)
+	core := newConsoleCore(cfg)
 
 	if cfg.local.ToDisk {
 		core = zapcore.NewTee(core, newDiskCore(cfg.local))
@@ -53,14 +53,13 @@ func newDiskCore(cfg Config) zapcore.Core {
 	return zapcore.NewCore(encoder, sink, allLogLevels)
 }
 
-func newConsoleCore(cfg Config) zapcore.Core {
-	logLvl := zap.NewAtomicLevelAt(cfg.LogLevel)
-	filteredLogLevels := zap.LevelEnablerFunc(logLvl.Enabled)
+func newConsoleCore(cfg ZapLoggerConfig) zapcore.Core {
+	filteredLogLevels := zap.LevelEnablerFunc(cfg.Level.Enabled)
 
-	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
+	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local))
 
 	var sink zap.Sink
-	if !cfg.JsonConsole {
+	if !cfg.local.JsonConsole {
 		sink = PrettyConsole{os.Stderr}
 	}
 	// TODO: setup a JsonConsole?
