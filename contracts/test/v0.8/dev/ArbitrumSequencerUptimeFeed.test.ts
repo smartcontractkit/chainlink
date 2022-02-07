@@ -221,7 +221,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const noUpdateTx = await _noUpdateTx.wait(1)
       // Assert no update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(0)
-      expect(noUpdateTx.cumulativeGasUsed).to.equal(26329)
+      expect(noUpdateTx.cumulativeGasUsed).to.equal(26317)
 
       // Gas for update
       const _updateTx = await arbitrumSequencerUptimeFeed
