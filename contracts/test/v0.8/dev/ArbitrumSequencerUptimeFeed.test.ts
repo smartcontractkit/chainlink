@@ -221,7 +221,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const noUpdateTx = await _noUpdateTx.wait(1)
       // Assert no update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(0)
-      expect(noUpdateTx.cumulativeGasUsed).to.equal(26329)
+      expect(noUpdateTx.cumulativeGasUsed).to.equal(26317)
 
       // Gas for update
       const _updateTx = await arbitrumSequencerUptimeFeed
@@ -230,7 +230,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const updateTx = await _updateTx.wait(1)
       // Assert update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
-      expect(updateTx.cumulativeGasUsed).to.equal(93088)
+      expect(updateTx.cumulativeGasUsed).to.equal(93076)
     })
 
     it('should consume a known amount of gas for getRoundData(uint80) @skip-coverage', async () => {
