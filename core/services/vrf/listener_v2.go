@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/vrf/estimate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -428,7 +427,7 @@ func (lsn *listenerV2) estimateJuelsNeeded(
 	// NOTE: no need to sanity check this as this is for logging purposes only
 	// and should not be used to determine whether a user has enough funds in actuality,
 	// we should always simulate for that.
-	juelsNeeded := estimate.JuelsNeeded(
+	juelsNeeded := EstimateFeeJuels(
 		req.CallbackGasLimit,
 		maxGasPriceWei,
 		weiPerUnitLink,
@@ -653,4 +652,28 @@ func toRequestSet(reqs []pendingRequest) map[string]struct{} {
 		s[r.req.RequestId.String()] = struct{}{}
 	}
 	return s
+}
+
+// GasProofVerification is an upper limit on the gas used for verifying the VRF proof on-chain.
+// It can be used to estimate the amount of LINK needed to fulfill a request.
+const GasProofVerification uint32 = 200_000
+
+// EstimateFeeJuels estimates the amount of link needed to fulfill a request
+// given the callback gas limit, the gas price, and the wei per unit link.
+func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *big.Int) *big.Int {
+	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
+	costWei := new(big.Float).SetInt(
+		new(big.Int).Set(maxGasUsed).
+			Mul(maxGasUsed, maxGasPriceWei),
+	)
+	costLink := new(big.Float).Set(costWei).Quo(
+		costWei,
+		new(big.Float).SetInt(weiPerUnitLink),
+	)
+	costJuelsFloat := new(big.Float).Set(costLink).Mul(
+		costLink,
+		big.NewFloat(1e18),
+	)
+	costJuels, _ := costJuelsFloat.Int(nil)
+	return costJuels
 }
