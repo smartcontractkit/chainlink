@@ -75,7 +75,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
-	metricRoutes(app, api)
+	unauthenticatedDevOnlyMetricRoutes(app, api)
 	healthRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
@@ -158,26 +158,30 @@ func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
 
 	return secureFunc
 }
-func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
+func unauthenticatedDevOnlyMetricRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
 	if app.GetConfig().Dev() {
 		// No authentication because `go tool pprof` doesn't support it
-		pprofGroup := r.Group("/debug/pprof")
-		pprofGroup.GET("/", pprofHandler(pprof.Index))
-		pprofGroup.GET("/cmdline", pprofHandler(pprof.Cmdline))
-		pprofGroup.GET("/profile", pprofHandler(pprof.Profile))
-		pprofGroup.POST("/symbol", pprofHandler(pprof.Symbol))
-		pprofGroup.GET("/symbol", pprofHandler(pprof.Symbol))
-		pprofGroup.GET("/trace", pprofHandler(pprof.Trace))
-		pprofGroup.GET("/allocs", pprofHandler(pprof.Handler("allocs").ServeHTTP))
-		pprofGroup.GET("/block", pprofHandler(pprof.Handler("block").ServeHTTP))
-		pprofGroup.GET("/goroutine", pprofHandler(pprof.Handler("goroutine").ServeHTTP))
-		pprofGroup.GET("/heap", pprofHandler(pprof.Handler("heap").ServeHTTP))
-		pprofGroup.GET("/mutex", pprofHandler(pprof.Handler("mutex").ServeHTTP))
-		pprofGroup.GET("/threadcreate", pprofHandler(pprof.Handler("threadcreate").ServeHTTP))
+		metricRoutes(r)
 	}
+}
+
+func metricRoutes(r *gin.RouterGroup) {
+	pprofGroup := r.Group("/debug/pprof")
+	pprofGroup.GET("/", pprofHandler(pprof.Index))
+	pprofGroup.GET("/cmdline", pprofHandler(pprof.Cmdline))
+	pprofGroup.GET("/profile", pprofHandler(pprof.Profile))
+	pprofGroup.POST("/symbol", pprofHandler(pprof.Symbol))
+	pprofGroup.GET("/symbol", pprofHandler(pprof.Symbol))
+	pprofGroup.GET("/trace", pprofHandler(pprof.Trace))
+	pprofGroup.GET("/allocs", pprofHandler(pprof.Handler("allocs").ServeHTTP))
+	pprofGroup.GET("/block", pprofHandler(pprof.Handler("block").ServeHTTP))
+	pprofGroup.GET("/goroutine", pprofHandler(pprof.Handler("goroutine").ServeHTTP))
+	pprofGroup.GET("/heap", pprofHandler(pprof.Handler("heap").ServeHTTP))
+	pprofGroup.GET("/mutex", pprofHandler(pprof.Handler("mutex").ServeHTTP))
+	pprofGroup.GET("/threadcreate", pprofHandler(pprof.Handler("threadcreate").ServeHTTP))
 }
 
 func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
@@ -338,6 +342,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/chains/evm/:ID/nodes", paginatedRequest(nc.Index))
 		authv2.POST("/nodes", nc.Create)
 		authv2.DELETE("/nodes/:ID", nc.Delete)
+
+		// Debug routes accessible via authentication
+		metricRoutes(authv2)
 	}
 
 	ping := PingController{app}
