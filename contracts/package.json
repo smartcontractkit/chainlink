@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.4.0-beta.0",
+  "version": "0.4.0",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
