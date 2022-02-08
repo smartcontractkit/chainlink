@@ -69,6 +69,20 @@ func (_m *CSA) Delete(id string) (csakey.KeyV2, error) {
 	return r0, r1
 }
 
+// EnsureKey provides a mock function with given fields:
+func (_m *CSA) EnsureKey() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Export provides a mock function with given fields: id, password
 func (_m *CSA) Export(id string, password string) ([]byte, error) {
 	ret := _m.Called(id, password)

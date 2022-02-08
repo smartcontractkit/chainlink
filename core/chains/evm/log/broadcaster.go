@@ -205,7 +205,7 @@ func (b *broadcaster) awaitInitialSubscribers() {
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
 	if len(opts.LogsWithTopics) == 0 {
-		b.logger.Fatal("Must supply at least 1 LogsWithTopics element to Register")
+		b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
 	}
 
 	reg := registration{listener, opts}

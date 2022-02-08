@@ -70,18 +70,24 @@ func (d Delegate) JobType() job.Type {
 func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
-func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
-	if jobSpec.OffchainreportingOracleSpec == nil {
-		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
+// ServicesForSpec returns the OCR services that need to run for this job
+func (d Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error) {
+	if jb.OffchainreportingOracleSpec == nil {
+		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jobSpec.OffchainreportingOracleSpec.EVMChainID.ToInt())
+	chain, err := d.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jobSpec.OffchainreportingOracleSpec)
+	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jb.OffchainreportingOracleSpec)
 	if err != nil {
 		return nil, err
 	}
+	lggr := d.lggr.With(
+		"contractAddress", concreteSpec.ContractAddress,
+		"jobName", jb.Name.ValueOrZero(),
+		"jobID", jb.ID,
+		"externalJobID", jb.ExternalJobID)
 
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
@@ -98,7 +104,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrDB := NewDB(d.db.DB, concreteSpec.ID, d.lggr)
+	ocrDB := NewDB(d.db.DB, concreteSpec.ID, lggr)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -106,8 +112,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		contractCaller,
 		chain.Client(),
 		chain.LogBroadcaster(),
-		jobSpec.ID,
-		d.lggr,
+		jb.ID,
+		lggr,
 		d.db,
 		ocrDB,
 		chain.Config(),
@@ -133,20 +139,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	// TODO: May want to follow up with spec override support for v2 bootstrappers?
 	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
 
-	loggerWith := d.lggr.With(
-		"contractAddress", concreteSpec.ContractAddress,
-		"jobName", jobSpec.Name.ValueOrZero(),
-		"jobID", jobSpec.ID,
-	)
-	ocrLogger := logger.NewOCRWrapper(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
-		d.jobORM.TryRecordError(jobSpec.ID, msg)
+	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
+		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
 	lc := toLocalConfig(chain.Config(), *concreteSpec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
-	loggerWith.Info(fmt.Sprintf("OCR job using local config %+v", lc))
+	lggr.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
 	if concreteSpec.IsBootstrapPeer {
 		var bootstrapper *ocr.BootstrapNode
@@ -177,7 +178,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
+		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
 
 		var checker bulletprooftxmanager.TransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {
@@ -195,11 +196,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
-		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
-		jobSpec.PipelineSpec.JobID = jobSpec.ID
+		jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
+		jb.PipelineSpec.JobID = jb.ID
 
 		var configOverrider ocrtypes.ConfigOverrider
-		configOverriderService, err := d.maybeCreateConfigOverrider(loggerWith, chain, concreteSpec.ContractAddress)
+		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to create ConfigOverrider")
 		}
@@ -221,9 +222,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Database: ocrDB,
 			Datasource: ocrcommon.NewDataSourceV1(
 				d.pipelineRunner,
-				jobSpec,
-				*jobSpec.PipelineSpec,
-				loggerWith,
+				jb,
+				*jb.PipelineSpec,
+				lggr,
 				runResults,
 			),
 			LocalConfig:                  lc,
@@ -249,7 +250,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),
-			loggerWith,
+			lggr,
 		)}, services...)
 	}
 

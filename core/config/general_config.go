@@ -1058,7 +1058,7 @@ func (c *generalConfig) getWithFallback(name string, parser func(string) (interf
 func (c *generalConfig) getEnvWithFallback(e *envvar.EnvVar) interface{} {
 	v, invalid, err := e.ParseFrom(c.viper.GetString)
 	if err != nil {
-		c.lggr.Fatal(err)
+		c.lggr.Panic(err)
 	}
 	if invalid != "" {
 		c.lggr.Error(invalid)

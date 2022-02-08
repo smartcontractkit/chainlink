@@ -53,14 +53,15 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.6-0.20220125203222-e68f44abb5ce
-	github.com/smartcontractkit/chainlink-terra v0.0.5-0.20220128171600-6414879ce5eb
-	github.com/smartcontractkit/helmenv v1.0.27
-	github.com/smartcontractkit/integrations-framework v1.0.42
+	github.com/smartcontractkit/chainlink-solana v0.2.10-0.20220208192802-307c6fba76f0
+	github.com/smartcontractkit/chainlink-terra v0.0.6-0.20220208194913-255b3c844119
+	github.com/smartcontractkit/helmenv v1.0.32
+	github.com/smartcontractkit/integrations-framework v1.0.44
 	github.com/smartcontractkit/libocr v0.0.0-20220125200954-5b957c834276
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.5
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tendermint/tendermint v0.34.15
@@ -340,7 +341,6 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.4.1 // indirect
-	github.com/spf13/cobra v1.2.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
