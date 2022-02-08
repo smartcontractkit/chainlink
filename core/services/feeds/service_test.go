@@ -150,6 +150,11 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
+	mgrInvalid := feeds.FeedsManager{IsOCRBootstrapPeer: true, JobTypes: pq.StringArray{feeds.JobTypeFluxMonitor}}
+	_, err = svc.RegisterManager(&mgrInvalid)
+	require.Error(t, err)
+	require.ErrorIs(t, err, feeds.ErrBootstrapXorJobs)
+
 	actual, err := svc.RegisterManager(&mgr)
 	// We need to stop the service because the manager will attempt to make a
 	// connection

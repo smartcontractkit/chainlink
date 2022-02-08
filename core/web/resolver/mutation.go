@@ -180,7 +180,9 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 		if errors.Is(err, feeds.ErrSingleFeedsManager) {
 			return NewCreateFeedsManagerPayload(nil, err, nil), nil
 		}
-
+		if errors.Is(err, feeds.ErrBootstrapXorJobs) {
+			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+		}
 		return nil, err
 	}
 
