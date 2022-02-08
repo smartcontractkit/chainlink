@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 // MemorySink implements zap.Sink by writing all messages to a buffer.
@@ -82,7 +83,7 @@ func TestLogger(t T) Logger {
 	if t == nil {
 		return l
 	}
-	return l.Named(t.Name())
+	return l.Named(static.Version).Named(t.Name())
 }
 
 func newTestConfig() zap.Config {
