@@ -461,7 +461,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64) error {
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
 	default:
-		return errors.Errorf("unknown job type: %s", j.Type)
+		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 	}
 
 	q := s.q.WithOpts(pctx)
