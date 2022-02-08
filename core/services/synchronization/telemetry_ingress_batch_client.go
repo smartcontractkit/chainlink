@@ -2,6 +2,7 @@ package synchronization
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"sync"
 	"time"
@@ -83,14 +84,38 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 }
 
 // Start connects the wsrpc client to the telemetry ingress server
+//
+// If a connection cannot be established with the ingress server, Dial will return without
+// an error and wsrpc will continue to retry the connection. Eventually when the ingress
+// server does come back up, wsrpc will establish the connection without any interaction
+// on behalf of the node operator.
 func (tc *telemetryIngressBatchClient) Start() error {
 	return tc.StartOnce("TelemetryIngressBatchClient", func() error {
-		privkey, err := tc.getCSAPrivateKey()
+		clientPrivKey, err := tc.getCSAPrivateKey()
 		if err != nil {
 			return err
 		}
 
-		tc.connect(privkey)
+		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
+
+		conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+		if err != nil {
+			return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
+		}
+
+		// Initialize a new wsrpc client caller
+		// This is used to call RPC methods on the server
+		if tc.telemClient == nil { // only preset for tests
+			tc.telemClient = telemPb.NewTelemClient(conn)
+		}
+
+		tc.wgDone.Add(1)
+		go func() {
+			// Wait for close
+			<-tc.chDone
+			conn.Close()
+			tc.wgDone.Done()
+		}()
 
 		return nil
 	})
@@ -103,41 +128,6 @@ func (tc *telemetryIngressBatchClient) Close() error {
 		tc.wgDone.Wait()
 		return nil
 	})
-}
-
-// Connects to the telemetry ingress server
-//
-// Connection is handled in a goroutine because Dial will block
-// until it can establish a connection. This is important during startup because
-// we do not want to block other services from starting.
-//
-// Eventually when the ingress server does come back up, wsrpc will establish the connection
-// without any interaction on behalf of the node operator.
-func (tc *telemetryIngressBatchClient) connect(clientPrivKey []byte) {
-	tc.wgDone.Add(1)
-
-	go func() {
-		defer tc.wgDone.Done()
-
-		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
-
-		conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
-		if err != nil {
-			tc.lggr.Errorf("Error connecting to telemetry ingress server: %v", err)
-			return
-		}
-		defer conn.Close()
-
-		// Initialize a new wsrpc client caller
-		// This is used to call RPC methods on the server
-		if tc.telemClient == nil { // only preset for tests
-			tc.telemClient = telemPb.NewTelemClient(conn)
-		}
-
-		// Wait for close
-		<-tc.chDone
-
-	}()
 }
 
 // getCSAPrivateKey gets the client's CSA private key
