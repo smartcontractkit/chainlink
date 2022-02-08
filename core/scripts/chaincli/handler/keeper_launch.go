@@ -84,6 +84,11 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	k.waitTx(ctx, approveRegistryTx)
 	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
 
+	// Fund registry
+	if err = k.sendEth(ctx, registryAddr, 5); err != nil {
+		log.Fatal(registryAddr.Hex(), ": Fund failed - ", err)
+	}
+
 	// Run chainlink nodes and create jobs
 	nodesCount := 2
 	nodeAddrs := make([]common.Address, nodesCount)
@@ -127,12 +132,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 				errs[i] = fmt.Errorf("failed to create keeper job: %s", err)
 				return
 			}
-
-			// Fund node
-			if err := k.sendEth(ctx, nodeAddrs[i], 5); err != nil {
-				errs[i] = fmt.Errorf("failed to fund chainlink node: %s", err)
-				return
-			}
 		}(i)
 	}
 	wg.Wait()
@@ -156,7 +155,12 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 
 	// Prepare keeper addresses and owners
 	var owners []common.Address
-	for range nodeAddrs {
+	for _, nodeAddr := range nodeAddrs {
+		// Fund node
+		if err = k.sendEth(ctx, nodeAddr, 5); err != nil {
+			log.Fatal("Failed to fund chainlink node: ", err)
+		}
+
 		owners = append(owners, k.fromAddr)
 	}
 

@@ -69,7 +69,7 @@ func New() *Config {
 
 func init() {
 	// Represented in WEI, which is 1000 Ether
-	viper.SetDefault("APPROVE_AMOUNT", "1000000000000000000000")
+	viper.SetDefault("APPROVE_AMOUNT", "100000000000000000000000")
 	viper.SetDefault("GAS_LIMIT", 8000000)
 	viper.SetDefault("PAYMENT_PREMIUM_PBB", 200000000)
 	viper.SetDefault("FLAT_FEE_MICRO_LINK", 0)
