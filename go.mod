@@ -10,7 +10,7 @@ require (
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
-	github.com/ethereum/go-ethereum v1.10.15
+	github.com/ethereum/go-ethereum v1.10.11
 	github.com/fatih/color v1.13.0
 	github.com/fxamacker/cbor/v2 v2.3.0
 	github.com/gagliardetto/solana-go v1.0.4
@@ -53,8 +53,8 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.6-0.20220125203222-e68f44abb5ce
-	github.com/smartcontractkit/chainlink-terra v0.0.6-0.20220208120626-a2d7411d61b5
+	github.com/smartcontractkit/chainlink-solana v0.2.10-0.20220208192802-307c6fba76f0
+	github.com/smartcontractkit/chainlink-terra v0.0.6-0.20220208190429-8bacca060a2b
 	github.com/smartcontractkit/helmenv v1.0.32
 	github.com/smartcontractkit/integrations-framework v1.0.44
 	github.com/smartcontractkit/libocr v0.0.0-20220125200954-5b957c834276
