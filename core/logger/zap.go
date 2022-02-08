@@ -55,7 +55,7 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 
 func newDiskCore(cfg Config) zapcore.Core {
 	var (
-		encoder = zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
+		encoder = zapcore.NewConsoleEncoder(makeEncoderConfig(cfg))
 		sink    = zapcore.AddSync(&lumberjack.Logger{
 			Filename:   logFileURI(cfg.Dir),
 			MaxSize:    cfg.DiskMaxSizeBeforeRotate,
