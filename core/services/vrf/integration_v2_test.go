@@ -751,8 +751,9 @@ func TestMaliciousConsumer(t *testing.T) {
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
 	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
-	config.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(1000000000)  // 1 gwei
-	config.Overrides.GlobalEvmGasPriceDefault = big.NewInt(1000000000) // 1 gwei
+	config.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1)
+	config.Overrides.GlobalEvmGasPriceDefault = assets.GWei(1)
+	config.Overrides.GlobalEvmGasFeeCapDefault = assets.GWei(1)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	require.NoError(t, app.Start())

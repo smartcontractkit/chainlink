@@ -33,3 +33,13 @@ func GetTipCap(b *BlockHistoryEstimator) *big.Int {
 	defer b.mu.RUnlock()
 	return b.tipCap
 }
+
+func GetLatestBaseFee(b *BlockHistoryEstimator) *big.Int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.latestBaseFee
+}
+
+func SimulateStart(b *BlockHistoryEstimator) {
+	b.StartOnce("BlockHistoryEstimatorSimulatedStart", func() error { return nil })
+}

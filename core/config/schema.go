@@ -18,7 +18,9 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
-	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"`
+	FeatureFeedsManager                            bool     `env:"FEATURE_FEEDS_MANAGER" default:"false"`
+	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16   `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
+	EvmGasFeeCapDefault                            *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
 
 	AdminCredentialsFile                       string                        `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
 	AllowOrigins                               string                        `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
