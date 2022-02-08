@@ -754,8 +754,6 @@ func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 }
 
 func Test_Service_ApproveSpec(t *testing.T) {
-	//rawKey, err := keystest.NewKey()
-	//require.NoError(t, err)
 	address := ethkey.EIP55AddressFromAddress(common.Address{})
 
 	var (
