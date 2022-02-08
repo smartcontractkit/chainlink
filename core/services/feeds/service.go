@@ -467,14 +467,13 @@ func (s *service) ApproveSpec(ctx context.Context, id int64) error {
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
 
-		existingJob, err := s.jobORM.FindJobByAddress(address, pg.WithQueryer(tx))
+		existingJobID, err := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
 		if err == nil {
-			// delete job
-			if err = s.jobSpawner.DeleteJob(existingJob.ID, pg.WithQueryer(tx)); err != nil {
+			if err = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); err != nil {
 				return errors.Wrap(err, "DeleteJob failed")
 			}
 		} else if !errors.Is(err, sql.ErrNoRows) {
-			return errors.Wrap(err, "FindJobByAddress failed")
+			return errors.Wrap(err, "FindJobIDByAddress failed")
 		}
 
 		// Create the job

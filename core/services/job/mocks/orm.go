@@ -134,8 +134,8 @@ func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
 	return r0, r1
 }
 
-// FindJobByAddress provides a mock function with given fields: address, qopts
-func (_m *ORM) FindJobByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (job.Job, error) {
+// FindJobIDByAddress provides a mock function with given fields: address, qopts
+func (_m *ORM) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -145,11 +145,11 @@ func (_m *ORM) FindJobByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 job.Job
-	if rf, ok := ret.Get(0).(func(ethkey.EIP55Address, ...pg.QOpt) job.Job); ok {
+	var r0 int32
+	if rf, ok := ret.Get(0).(func(ethkey.EIP55Address, ...pg.QOpt) int32); ok {
 		r0 = rf(address, qopts...)
 	} else {
-		r0 = ret.Get(0).(job.Job)
+		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
