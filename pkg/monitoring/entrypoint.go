@@ -54,7 +54,7 @@ func NewEntrypoint(
 
 	producer, err := NewProducer(ctx, log.With("component", "producer"), cfg.Kafka)
 	if err != nil {
-		log.Fatalw("failed to create kafka producer", "error", err)
+		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
 
 	metrics := DefaultMetrics

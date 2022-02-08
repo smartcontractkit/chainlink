@@ -65,7 +65,7 @@ func TestSchemaRegistry(t *testing.T) {
 		require.Equal(t, subject, decoded)
 	})
 	t.Run("live registry", func(t *testing.T) {
-		if _, isPresent := os.LookupEnv("FEATURE_TEST_ONLY_LIVE_SCHEMA_REGISTRY"); !isPresent {
+		if _, isPresent := os.LookupEnv("FEATURE_TEST_ONLY_ENV_RUNNING"); !isPresent {
 			t.Skip()
 		}
 		srURL := os.Getenv("SCHEMA_REGISTRY_URL")
