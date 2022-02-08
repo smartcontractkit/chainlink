@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +17,12 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/manyminds/api2go/jsonapi"
+
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 const (
@@ -22,6 +30,47 @@ const (
 
 	defaultChainlinkNodeLogin    = "test@smartcontract.com"
 	defaultChainlinkNodePassword = "!PASsword000!"
+
+	keeperJobTemplate = `
+type            		 	= "keeper"
+schemaVersion   		 	= 3
+name            		 	= "CHAINCLI: Load testing"
+contractAddress 		 	= "%s"
+fromAddress     		 	= "%s"
+evmChainID      		 	= %d
+minIncomingConfirmations	= 1
+externalJobID   		 	= "123e4567-e89b-12d3-a456-426655440002"
+
+
+observationSource = """
+encode_check_upkeep_tx   [type=ethabiencode
+                          abi="checkUpkeep(uint256 id, address from)"
+                          data="{\\"id\\":$(jobSpec.upkeepID),\\"from\\":$(jobSpec.fromAddress)}"]
+check_upkeep_tx          [type=ethcall
+                          failEarly=true
+                          extractRevertReason=true
+                          evmChainID="$(jobSpec.evmChainID)"
+                          contract="$(jobSpec.contractAddress)"
+                          gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
+                          gasTipCap="$(jobSpec.gasTipCap)"
+                          gasFeeCap="$(jobSpec.gasFeeCap)"
+                          data="$(encode_check_upkeep_tx)"]
+decode_check_upkeep_tx   [type=ethabidecode
+                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+encode_perform_upkeep_tx [type=ethabiencode
+                          abi="performUpkeep(uint256 id, bytes calldata performData)"
+                          data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
+perform_upkeep_tx        [type=ethtx
+                          minConfirmations=0
+                          to="$(jobSpec.contractAddress)"
+                          from="[$(jobSpec.fromAddress)]"
+                          evmChainID="$(jobSpec.evmChainID)"
+                          data="$(encode_perform_upkeep_tx)"
+                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
+"""`
 )
 
 // LaunchAndTest launches keeper registry, chainlink nodes, upkeeps and start performing.
@@ -36,6 +85,10 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	nodeAddr1, cleanup1 := k.launchChainlinkNode(ctx)
 	defer cleanup1()
 
+	if err := k.createKeepers(ctx, nodeAddr1); err != nil {
+		log.Fatal("failed to create keepers: ", err)
+	}
+
 	log.Println("nodeAddr1", nodeAddr1)
 	time.Sleep(time.Minute * 5)
 
@@ -46,6 +99,68 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	//log.Println("Docker container successfully stopped")
 
 	// client := cmd.NewAuthenticatedHTTPClient()
+}
+
+type cfg struct {
+	nodeURL string
+}
+
+func (c cfg) ClientNodeURL() string    { return c.nodeURL }
+func (c cfg) InsecureSkipVerify() bool { return true }
+
+func (k *Keeper) createKeepers(ctx context.Context, nodeURL string) error {
+	sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
+	store := &cmd.MemoryCookieStore{}
+	tca := cmd.NewSessionCookieAuthenticator(cfg{nodeURL: nodeURL}, store, logger.NewLogger())
+	if _, err := tca.Authenticate(sr); err != nil {
+		return err
+	}
+
+	cl := cmd.NewAuthenticatedHTTPClient(cfg{nodeURL: nodeURL}, tca, sr)
+
+	resp, err := cl.Get("/v2/keys/eth")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	raw, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	var keys cmd.EthKeyPresenters
+	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
+		return err
+	}
+
+	keeperRegistryAddr := k.deployKeepers(ctx)
+
+	request, err := json.Marshal(web.CreateJobRequest{
+		TOML: fmt.Sprintf(keeperJobTemplate, keeperRegistryAddr.Hex(), keys[0].Address, k.cfg.ChainID),
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err = cl.Post("/v2/jobs", bytes.NewReader(request))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		return fmt.Errorf("unable to create keeper job: '%v' [%d]", string(body), resp.StatusCode)
+	}
+
+	log.Println("Keeper job has been successfully created")
+
+	return nil
 }
 
 func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
@@ -176,12 +291,9 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 		log.Fatal("Failed to start node container: ", err)
 	}
 
-	nodeContainerInspect, err := dockerClient.ContainerInspect(ctx, nodeContainerResp.ID)
-	if err != nil {
-		log.Fatal("Failed to inspect node container: ", err)
-	}
+	time.Sleep(time.Second * 30)
 
-	return fmt.Sprintf("http://%s:6688", nodeContainerInspect.NetworkSettings.IPAddress), func() {
+	return fmt.Sprintf("http://localhost:%d", 6688), func() {
 		os.Remove(apiFile.Name())
 		os.Remove(passwordFile.Name())
 

@@ -35,6 +35,10 @@ func NewKeeper(cfg *config.Config) *Keeper {
 
 // DeployKeepers contains a logic to deploy keepers.
 func (k *Keeper) DeployKeepers(ctx context.Context) {
+	k.deployKeepers(ctx)
+}
+
+func (k *Keeper) deployKeepers(ctx context.Context) common.Address {
 	var registry *keeper.KeeperRegistry
 	var registryAddr common.Address
 	var upkeepCount int64
@@ -77,6 +81,8 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 	}
 	k.waitTx(ctx, setKeepersTx)
 	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+
+	return registryAddr
 }
 
 func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
