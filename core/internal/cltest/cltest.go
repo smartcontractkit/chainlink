@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
@@ -104,7 +105,7 @@ const (
 
 var (
 	DefaultP2PPeerID p2pkey.PeerID
-	FixtureChainID   = *big.NewInt(0)
+	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
 	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))

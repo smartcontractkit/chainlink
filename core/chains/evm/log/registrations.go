@@ -233,6 +233,7 @@ func (r *handlers) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
 
 	// FIXME: What about the case where you remove/add a job with the same contract address?
 	// addr is not good enough to be a unique key
+	// MARK MARK MARK
 	if _, exists := r.handlersByAddr[addr]; !exists {
 		return
 	}
