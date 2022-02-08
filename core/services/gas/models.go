@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -27,20 +28,20 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump))
 }
 
-func NewEstimator(lggr logger.Logger, ethClient eth.Client, config Config) Estimator {
-	s := config.GasEstimatorMode()
+func NewEstimator(lggr logger.Logger, ethClient eth.Client, cfg Config) Estimator {
+	s := cfg.GasEstimatorMode()
 	switch s {
 	case "BlockHistory":
-		return NewBlockHistoryEstimator(lggr, ethClient, config, *ethClient.ChainID())
+		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
 	case "FixedPrice":
-		return NewFixedPriceEstimator(config, lggr)
+		return NewFixedPriceEstimator(cfg, lggr)
 	case "Optimism":
-		return NewOptimismEstimator(lggr, config, ethClient)
+		return NewOptimismEstimator(lggr, cfg, ethClient)
 	case "Optimism2":
-		return NewOptimism2Estimator(lggr, config, ethClient)
+		return NewOptimism2Estimator(lggr, cfg, ethClient)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewFixedPriceEstimator(config, lggr)
+		return NewFixedPriceEstimator(cfg, lggr)
 	}
 }
 
@@ -81,12 +82,14 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
+	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16
 	ChainType() chains.ChainType
 	EvmEIP1559DynamicFees() bool
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
+	EvmGasBumpThreshold() uint64
 	EvmGasBumpWei() *big.Int
-	EvmGasFeeCap() *big.Int
+	EvmGasFeeCapDefault() *big.Int
 	EvmGasLimitMultiplier() float32
 	EvmGasPriceDefault() *big.Int
 	EvmGasTipCapDefault() *big.Int
@@ -129,6 +132,7 @@ type Block struct {
 	Hash          common.Hash
 	ParentHash    common.Hash
 	BaseFeePerGas *big.Int
+	Timestamp     time.Time
 	Transactions  []Transaction
 }
 
@@ -137,6 +141,7 @@ type blockInternal struct {
 	Hash          common.Hash
 	ParentHash    common.Hash
 	BaseFeePerGas *hexutil.Big
+	Timestamp     hexutil.Uint64
 	Transactions  []Transaction
 }
 
@@ -147,6 +152,7 @@ func (b Block) MarshalJSON() ([]byte, error) {
 		b.Hash,
 		b.ParentHash,
 		(*hexutil.Big)(b.BaseFeePerGas),
+		(hexutil.Uint64)(uint64(b.Timestamp.Unix())),
 		b.Transactions,
 	})
 }
@@ -166,6 +172,7 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		bi.Hash,
 		bi.ParentHash,
 		(*big.Int)(bi.BaseFeePerGas),
+		time.Unix((int64((uint64)(bi.Timestamp))), 0),
 		bi.Transactions,
 	}
 	return nil
@@ -239,12 +246,12 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 // BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit
-func BumpLegacyGasPriceOnly(config Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	gasPrice, err = bumpGasPrice(config, lggr, currentGasPrice, originalGasPrice)
+func BumpLegacyGasPriceOnly(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice)
 	if err != nil {
 		return nil, 0, err
 	}
-	chainSpecificGasLimit = applyMultiplier(originalGasLimit, config.EvmGasLimitMultiplier())
+	chainSpecificGasLimit = applyMultiplier(originalGasLimit, cfg.EvmGasLimitMultiplier())
 	return
 }
 
@@ -252,15 +259,15 @@ func BumpLegacyGasPriceOnly(config Config, lggr logger.Logger, currentGasPrice, 
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func bumpGasPrice(config Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
-	maxGasPrice := config.EvmMaxGasPriceWei()
+func bumpGasPrice(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
+	maxGasPrice := cfg.EvmMaxGasPriceWei()
 
 	var priceByPercentage = new(big.Int)
-	priceByPercentage.Mul(originalGasPrice, big.NewInt(int64(100+config.EvmGasBumpPercent())))
+	priceByPercentage.Mul(originalGasPrice, big.NewInt(int64(100+cfg.EvmGasBumpPercent())))
 	priceByPercentage.Div(priceByPercentage, big.NewInt(100))
 
 	var priceByIncrement = new(big.Int)
-	priceByIncrement.Add(originalGasPrice, config.EvmGasBumpWei())
+	priceByIncrement.Add(originalGasPrice, cfg.EvmGasBumpWei())
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if currentGasPrice != nil {
@@ -293,8 +300,8 @@ func max(a, b *big.Int) *big.Int {
 }
 
 // BumpDynamicFeeOnly bumps the tip cap and max gas price if necessary
-func BumpDynamicFeeOnly(config Config, lggr logger.Logger, currentTipCap *big.Int, originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	bumped, err = bumpDynamicFee(config, lggr, currentTipCap, originalFee)
+func BumpDynamicFeeOnly(config Config, lggr logger.Logger, currentTipCap *big.Int, currentBaseFee *big.Int, originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+	bumped, err = bumpDynamicFee(config, lggr, currentTipCap, currentBaseFee, originalFee)
 	if err != nil {
 		return bumped, 0, err
 	}
@@ -306,19 +313,18 @@ func BumpDynamicFeeOnly(config Config, lggr logger.Logger, currentTipCap *big.In
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline tip cap.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline tip cap.
 // The baseline tip cap is the maximum of the previous tip cap attempt and the node's current tip cap.
-// It increases the max fee cap if it changed
-func bumpDynamicFee(config Config, lggr logger.Logger, currentTipCap *big.Int, originalFee DynamicFee) (bumpedFee DynamicFee, err error) {
-	maxGasPrice := config.EvmMaxGasPriceWei()
-	baselineTipCap := max(originalFee.TipCap, config.EvmGasTipCapDefault())
+// It increases the max fee cap by GasBumpPercent
+//
+// NOTE: We would prefer to have set a large FeeCap and leave it fixed, bumping
+// the Tip only. Unfortunately due to a flaw of how EIP-1559 is implemented we
+// have to bump FeeCap by at least 10% each time we bump the tip cap.
+// See: https://github.com/ethereum/go-ethereum/issues/24284
+func bumpDynamicFee(cfg Config, lggr logger.Logger, currentTipCap, currentBaseFee *big.Int, originalFee DynamicFee) (bumpedFee DynamicFee, err error) {
+	maxGasPrice := cfg.EvmMaxGasPriceWei()
+	baselineTipCap := max(originalFee.TipCap, cfg.EvmGasTipCapDefault())
 
-	var tipCapByPercentage = new(big.Int)
-	tipCapByPercentage.Mul(baselineTipCap, big.NewInt(int64(100+config.EvmGasBumpPercent())))
-	tipCapByPercentage.Div(tipCapByPercentage, big.NewInt(100))
+	bumpedTipCap := increaseByPercentageOrIncrement(baselineTipCap, cfg.EvmGasBumpPercent(), cfg.EvmGasBumpWei())
 
-	var tipCapByIncrement = new(big.Int)
-	tipCapByIncrement.Add(baselineTipCap, config.EvmGasBumpWei())
-
-	bumpedTipCap := max(tipCapByPercentage, tipCapByIncrement)
 	if currentTipCap != nil {
 		if currentTipCap.Cmp(maxGasPrice) > 0 {
 			lggr.Errorf("invariant violation: ignoring current tip cap of %s that would exceed max gas price of %s", currentTipCap.String(), maxGasPrice.String())
@@ -339,7 +345,41 @@ func bumpDynamicFee(config Config, lggr logger.Logger, currentTipCap *big.Int, o
 			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedTipCap.String(), originalFee.TipCap.String())
 	}
 
-	bumpedFeeCap := max(originalFee.FeeCap, maxGasPrice)
+	// Always bump the FeeCap by at least the bump percentage (should be greater than or
+	// equal to than geth's configured bump minimum which is 10%)
+	// See: https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298
+	bumpedFeeCap := increaseByPercentageOrIncrement(originalFee.FeeCap, cfg.EvmGasBumpPercent(), cfg.EvmGasBumpWei())
+
+	if currentBaseFee != nil {
+		if currentBaseFee.Cmp(maxGasPrice) > 0 {
+			lggr.Warnf("ignoring current base fee of %s which is greater than max gas price of %s", currentBaseFee.String(), maxGasPrice.String())
+		} else {
+			currentFeeCap := calcFeeCap(currentBaseFee, cfg, bumpedTipCap)
+			bumpedFeeCap = max(bumpedFeeCap, currentFeeCap)
+		}
+	}
+
+	if bumpedFeeCap.Cmp(maxGasPrice) > 0 {
+		return bumpedFee, errors.Wrapf(ErrBumpGasExceedsLimit, "bumped fee cap of %s would exceed configured max gas price of %s (original fee: tip cap %s, fee cap %s). %s",
+			bumpedFeeCap.String(), maxGasPrice, originalFee.TipCap.String(), originalFee.FeeCap.String(), static.EthNodeConnectivityProblemLabel)
+	}
 
 	return DynamicFee{FeeCap: bumpedFeeCap, TipCap: bumpedTipCap}, nil
+}
+
+// Returns whichever is greater, the percentage bump or the bump by fixed increment
+func increaseByPercentageOrIncrement(original *big.Int, percentage uint16, increment *big.Int) (bumped *big.Int) {
+	percentageBump := increaseByPercentage(original, percentage)
+
+	incrementBump := new(big.Int).Add(original, increment)
+
+	return max(percentageBump, incrementBump)
+}
+
+func increaseByPercentage(original *big.Int, percentage uint16) (bumped *big.Int) {
+	bumped = new(big.Int)
+	bumped.Set(original)
+	bumped.Mul(original, big.NewInt(int64(100+percentage)))
+	bumped.Div(bumped, big.NewInt(100))
+	return
 }
