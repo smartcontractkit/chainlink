@@ -14,6 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 )
 
+// LogsFile describes the logs file name
+const LogsFile = "logs.log"
+
 func init() {
 	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
 	if err != nil {
