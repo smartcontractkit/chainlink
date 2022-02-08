@@ -1,5 +1,5 @@
 db.sqlite3
-log.jsonl
+logs.log
 cookie
 secret
 chainlink.lock

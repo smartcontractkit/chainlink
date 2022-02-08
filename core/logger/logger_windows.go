@@ -16,7 +16,7 @@ import (
 // Windows to get around their handling of the file:// schema in uber.org/zap.
 // https://github.com/uber-go/zap/issues/621
 func logFileURI(configRootDir string) string {
-	return "winfile:///" + filepath.ToSlash(filepath.Join(configRootDir, "log.jsonl"))
+	return "winfile:///" + filepath.ToSlash(filepath.Join(configRootDir, "logs.log"))
 }
 
 func registerOSSinks() error {

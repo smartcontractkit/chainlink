@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -58,7 +57,7 @@ func newDiskCore(cfg Config) zapcore.Core {
 	var (
 		encoder = zapcore.NewJSONEncoder(makeEncoderConfig(cfg))
 		sink    = zapcore.AddSync(&lumberjack.Logger{
-			Filename:   filepath.ToSlash(filepath.Join(cfg.Dir, "log.jsonl")),
+			Filename:   logFileURI(cfg.Dir),
 			MaxSize:    cfg.DiskMaxSizeBeforeRotate,
 			MaxAge:     cfg.DiskMaxAgeBeforeDelete,
 			MaxBackups: cfg.DiskMaxBackupsBeforeDelete,

@@ -805,7 +805,7 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(dir string) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", dir)
+	logFile := fmt.Sprintf("%s/logs.log", dir)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }

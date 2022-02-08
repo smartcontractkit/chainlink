@@ -394,7 +394,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 
 			cfg.New().Debug("test")
 
-			filepath := filepath.Join(cfg.Dir, "log.jsonl")
+			filepath := filepath.Join(cfg.Dir, "logs.log")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
