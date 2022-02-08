@@ -271,6 +271,14 @@ func (b *broadcaster) startResubscribeLoop() {
 		}
 	}
 
+	if b.backfillBlockNumber.Valid {
+		b.logger.Debugw("Using an override as a start of the backfill",
+			"blockNumber", b.backfillBlockNumber.Int64,
+			"highestNumConfirmations", b.registrations.highestNumConfirmations,
+			"blockBackfillDepth", b.config.BlockBackfillDepth(),
+		)
+	}
+
 	var chRawLogs chan types.Log
 	for {
 		b.logger.Infow("Resubscribing and backfilling logs...")
@@ -279,14 +287,6 @@ func (b *broadcaster) startResubscribeLoop() {
 		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
 		if abort {
 			return
-		}
-
-		if b.backfillBlockNumber.Valid {
-			b.logger.Debugw("Using an override as a start of the backfill",
-				"blockNumber", b.backfillBlockNumber.Int64,
-				"highestNumConfirmations", b.registrations.highestNumConfirmations,
-				"blockBackfillDepth", b.config.BlockBackfillDepth(),
-			)
 		}
 
 		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.backfillBlockNumber, addresses, topics)
@@ -354,18 +354,26 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	for {
 		select {
 		case rawLog := <-chRawLogs:
-
 			b.logger.Debugw("Received a log",
 				"blockNumber", rawLog.BlockNumber, "blockHash", rawLog.BlockHash, "address", rawLog.Address)
-
 			b.onNewLog(rawLog)
 
 		case <-b.newHeads.Notify():
 			b.onNewHeads()
 
 		case err := <-chErr:
-			// Note we'll get a message on this channel
-			// if the eth node terminates the connection.
+			// The eth node connection was terminated so we need to backfill after resubscribing.
+			lggr := b.logger
+			// Do we have logs in the pool?
+			if min := b.logPool.heap.FindMin(); min != nil {
+				// They are are invalid, since we may have missed 'removed' logs.
+				b.logPool = newLogPool()
+				// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
+				blockNum := int64(min.(Uint64))
+				b.backfillBlockNumber.SetValid(blockNum)
+				lggr = lggr.With("blockNumber", blockNum)
+			}
+			lggr.Debugw("Subscription terminated. Backfilling after resubscribing")
 			return true, err
 
 		case <-b.addSubscriber.Notify():
