@@ -229,8 +229,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		<-grpCtx.Done()
-		if err = app.Stop(); err != nil {
-			return errors.Wrap(err, "error stopping app")
+		if errInternal := app.Stop(); errInternal != nil {
+			return errors.Wrap(errInternal, "error stopping app")
 		}
 		return nil
 	})
@@ -240,14 +240,14 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 
 	grp.Go(func() error {
-		err = cli.Runner.Run(grpCtx, app)
-		if err == http.ErrServerClosed {
-			err = nil
+		errInternal := cli.Runner.Run(grpCtx, app)
+		if errInternal == http.ErrServerClosed {
+			errInternal = nil
 		}
 		// In tests we have custom runners that stop the app gracefully,
 		// therefore we need to cancel rootCtx when the Runner has quit.
 		cancelRootCtx()
-		return err
+		return errInternal
 	})
 
 	return grp.Wait()

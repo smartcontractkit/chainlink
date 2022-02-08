@@ -45,6 +45,8 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 		fmtURL = "https://testnet.bscscan.com/tx/%s"
 	case 137: // Polygon mainnet
 		fmtURL = "https://polygonscan.com/tx/%s"
+	case 4002: // Fantom testnet
+		fmtURL = "https://testnet.ftmscan.com/tx/%s"
 	case 80001: // Polygon Mumbai testnet
 		fmtURL = "https://mumbai.polygonscan.com/tx/%s"
 	default: // Unknown chain, return TX as-is
