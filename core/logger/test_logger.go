@@ -72,7 +72,6 @@ func TestLogger(t T) Logger {
 	cfg.Level.SetLevel(ll)
 	l, err := newZapLogger(ZapLoggerConfig{
 		Config: cfg,
-		local:  Config{},
 		sinks:  []zapcore.WriteSyncer{PrettyConsole{Sink: &testMemoryLog}},
 	})
 	if err != nil {
