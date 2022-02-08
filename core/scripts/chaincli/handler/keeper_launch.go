@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -17,11 +18,16 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
@@ -30,48 +36,14 @@ const (
 
 	defaultChainlinkNodeLogin    = "test@smartcontract.com"
 	defaultChainlinkNodePassword = "!PASsword000!"
-
-	keeperJobTemplate = `
-type            		 	= "keeper"
-schemaVersion   		 	= 3
-name            		 	= "CHAINCLI: Load testing"
-contractAddress 		 	= "%s"
-fromAddress     		 	= "%s"
-evmChainID      		 	= %d
-minIncomingConfirmations	= 1
-externalJobID   		 	= "123e4567-e89b-12d3-a456-426655440002"
-
-
-observationSource = """
-encode_check_upkeep_tx   [type=ethabiencode
-                          abi="checkUpkeep(uint256 id, address from)"
-                          data="{\\"id\\":$(jobSpec.upkeepID),\\"from\\":$(jobSpec.fromAddress)}"]
-check_upkeep_tx          [type=ethcall
-                          failEarly=true
-                          extractRevertReason=true
-                          evmChainID="$(jobSpec.evmChainID)"
-                          contract="$(jobSpec.contractAddress)"
-                          gas="$(jobSpec.checkUpkeepGasLimit)"
-                          gasPrice="$(jobSpec.gasPrice)"
-                          gasTipCap="$(jobSpec.gasTipCap)"
-                          gasFeeCap="$(jobSpec.gasFeeCap)"
-                          data="$(encode_check_upkeep_tx)"]
-decode_check_upkeep_tx   [type=ethabidecode
-                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
-encode_perform_upkeep_tx [type=ethabiencode
-                          abi="performUpkeep(uint256 id, bytes calldata performData)"
-                          data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
-perform_upkeep_tx        [type=ethtx
-                          minConfirmations=0
-                          to="$(jobSpec.contractAddress)"
-                          from="[$(jobSpec.fromAddress)]"
-                          evmChainID="$(jobSpec.evmChainID)"
-                          data="$(encode_perform_upkeep_tx)"
-                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
-"""`
 )
+
+type cfg struct {
+	nodeURL string
+}
+
+func (c cfg) ClientNodeURL() string    { return c.nodeURL }
+func (c cfg) InsecureSkipVerify() bool { return true }
 
 // LaunchAndTest launches keeper registry, chainlink nodes, upkeeps and start performing.
 // 1. launch chainlink node using docker image
@@ -82,14 +54,121 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 // 6. set keepers in the registry
 // 7. wait until tests are done
 func (k *Keeper) LaunchAndTest(ctx context.Context) {
-	nodeAddr1, cleanup1 := k.launchChainlinkNode(ctx)
-	defer cleanup1()
-
-	if err := k.createKeepers(ctx, nodeAddr1); err != nil {
-		log.Fatal("failed to create keepers: ", err)
+	var registry *keeper.KeeperRegistry
+	var registryAddr common.Address
+	var upkeepCount int64
+	if k.cfg.RegistryAddress != "" {
+		// Get existing keeper registry
+		registryAddr, registry = k.GetRegistry(ctx)
+		callOpts := bind.CallOpts{
+			Pending: false,
+			From:    k.fromAddr,
+			Context: ctx,
+		}
+		count, err := registry.GetUpkeepCount(&callOpts)
+		if err != nil {
+			log.Fatal(registryAddr.Hex(), ": UpkeepCount failed - ", err)
+		}
+		upkeepCount = count.Int64()
+	} else {
+		// Deploy keeper registry
+		registryAddr, registry = k.deployRegistry(ctx)
+		upkeepCount = 0
 	}
 
-	log.Println("nodeAddr1", nodeAddr1)
+	// Approve keeper registry
+	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
+	if err != nil {
+		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
+	}
+	k.waitTx(ctx, approveRegistryTx)
+	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
+
+	// Run chainlink nodes and create jobs
+	nodesCount := 2
+	nodeAddrs := make([]common.Address, nodesCount)
+	cleanups := make([]func(), nodesCount)
+	errs := make([]error, nodesCount)
+	var wg sync.WaitGroup
+	for i := 0; i < nodesCount; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			// Run chainlink node
+			var err error
+			var nodeURL string
+			if nodeURL, cleanups[i], err = k.launchChainlinkNode(ctx, 6688+i); err != nil {
+				errs[i] = fmt.Errorf("failed to launch chainlink node: %s", err)
+				return
+			}
+
+			// Create authenticated client
+			c := cfg{nodeURL: nodeURL}
+			sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
+			store := &cmd.MemoryCookieStore{}
+			tca := cmd.NewSessionCookieAuthenticator(c, store, logger.NewLogger())
+			if _, err = tca.Authenticate(sr); err != nil {
+				errs[i] = fmt.Errorf("failed to authenticate: %s", err)
+				return
+			}
+			cl := cmd.NewAuthenticatedHTTPClient(c, tca, sr)
+
+			// Get node's wallet address
+			nodeAddr, err := k.getNodeAddress(cl)
+			if err != nil {
+				errs[i] = fmt.Errorf("failed to get node addr: %s", err)
+				return
+			}
+			nodeAddrs[i] = common.HexToAddress(nodeAddr)
+
+			// Create keepers
+			if err = k.createKeeperJob(cl, registryAddr.Hex(), nodeAddr); err != nil {
+				errs[i] = fmt.Errorf("failed to create keeper job: %s", err)
+				return
+			}
+
+			// Fund node
+			if err := k.sendEth(ctx, nodeAddrs[i], 5); err != nil {
+				errs[i] = fmt.Errorf("failed to fund chainlink node: %s", err)
+				return
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Make sure there were no errors
+	for _, err = range errs {
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	// Cleanup resources
+	defer func() {
+		for _, cleanup := range cleanups {
+			go cleanup()
+		}
+	}()
+
+	// Deploy Upkeeps
+	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
+
+	// Prepare keeper addresses and owners
+	var owners []common.Address
+	for range nodeAddrs {
+		owners = append(owners, k.fromAddr)
+	}
+
+	// Set Keepers
+	log.Println("Set keepers...")
+	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), nodeAddrs, owners)
+	if err != nil {
+		log.Fatal("SetKeepers failed: ", err)
+	}
+	k.waitTx(ctx, setKeepersTx)
+	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+
 	time.Sleep(time.Minute * 5)
 
 	// Stop container
@@ -101,58 +180,49 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	// client := cmd.NewAuthenticatedHTTPClient()
 }
 
-type cfg struct {
-	nodeURL string
-}
-
-func (c cfg) ClientNodeURL() string    { return c.nodeURL }
-func (c cfg) InsecureSkipVerify() bool { return true }
-
-func (k *Keeper) createKeepers(ctx context.Context, nodeURL string) error {
-	sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
-	store := &cmd.MemoryCookieStore{}
-	tca := cmd.NewSessionCookieAuthenticator(cfg{nodeURL: nodeURL}, store, logger.NewLogger())
-	if _, err := tca.Authenticate(sr); err != nil {
-		return err
-	}
-
-	cl := cmd.NewAuthenticatedHTTPClient(cfg{nodeURL: nodeURL}, tca, sr)
-
-	resp, err := cl.Get("/v2/keys/eth")
+func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
+	resp, err := client.Get("/v2/keys/eth")
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to get ETH keys: %s", err)
 	}
 	defer resp.Body.Close()
 
 	raw, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("failed to read response body: %s", err)
 	}
 
 	var keys cmd.EthKeyPresenters
 	if err = jsonapi.Unmarshal(raw, &keys); err != nil {
-		return err
+		return "", fmt.Errorf("failed to unmarshal response body: %s", err)
 	}
 
-	keeperRegistryAddr := k.deployKeepers(ctx)
+	return keys[0].Address, nil
+}
 
+func (k *Keeper) createKeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
-		TOML: fmt.Sprintf(keeperJobTemplate, keeperRegistryAddr.Hex(), keys[0].Address, k.cfg.ChainID),
+		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
+			ContractAddress:          contractAddr,
+			FromAddress:              nodeAddr,
+			EvmChainID:               int(k.cfg.ChainID),
+			MinIncomingConfirmations: 1,
+		}).Toml(),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal request: %s", err)
 	}
 
-	resp, err = cl.Post("/v2/jobs", bytes.NewReader(request))
+	resp, err := client.Post("/v2/jobs", bytes.NewReader(request))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create keeper job: %s", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read error response body: %s", err)
 		}
 
 		return fmt.Errorf("unable to create keeper job: '%v' [%d]", string(body), resp.StatusCode)
@@ -163,16 +233,18 @@ func (k *Keeper) createKeepers(ctx context.Context, nodeURL string) error {
 	return nil
 }
 
-func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
+func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, func(), error) {
+	portStr := fmt.Sprintf("%d", port)
+
 	// Create docker client to launch nodes
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
-		log.Fatal("Failed to create docker client from env: ", err)
+		return "", nil, fmt.Errorf("failed to create docker client from env: %s", err)
 	}
 
 	// Make sure everything works well
 	if _, err = dockerClient.Ping(ctx); err != nil {
-		log.Fatal("Failed to ping docker server: ", err)
+		return "", nil, fmt.Errorf("failed to ping docker server: %s", err)
 	}
 
 	log.Println("Docker client successfully created")
@@ -180,7 +252,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 	// Pull DB image if needed
 	out, err := dockerClient.ImagePull(ctx, "postgres:13", types.ImagePullOptions{})
 	if err != nil {
-		log.Fatal("Failed to pull DB image: ", err)
+		return "", nil, fmt.Errorf("failed to pull DB image: %s", err)
 	}
 	defer out.Close()
 	io.Copy(os.Stdout, out)
@@ -197,24 +269,24 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 		ExposedPorts: nat.PortSet{"5432": struct{}{}},
 	}, nil, &network.NetworkingConfig{}, nil, "")
 	if err != nil {
-		log.Fatal("Failed to create DB container: ", err)
+		return "", nil, fmt.Errorf("failed to create DB container: %s", err)
 	}
 	log.Println("DB docker container successfully created")
 
 	// Start container
 	if err = dockerClient.ContainerStart(ctx, dbContainerResp.ID, types.ContainerStartOptions{}); err != nil {
-		log.Fatal("Failed to start DB container: ", err)
+		return "", nil, fmt.Errorf("failed to start DB container: %s", err)
 	}
 
 	dbContainerInspect, err := dockerClient.ContainerInspect(ctx, dbContainerResp.ID)
 	if err != nil {
-		log.Fatal("Failed to inspect DB container: ", err)
+		return "", nil, fmt.Errorf("failed to inspect DB container: %s", err)
 	}
 
 	// Pull node image if needed
 	out, err = dockerClient.ImagePull(ctx, defaultChainlinkNodeImage, types.ImagePullOptions{})
 	if err != nil {
-		log.Fatal("Failed to pull node image: ", err)
+		return "", nil, fmt.Errorf("failed to pull node image: %s", err)
 	}
 	defer out.Close()
 	io.Copy(os.Stdout, out)
@@ -222,7 +294,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 	// Create temporary file with chainlink node login creds
 	apiFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-api")
 	if err != nil {
-		log.Fatal("Failed to create api file: ", err)
+		return "", nil, fmt.Errorf("failed to create api file: %s", err)
 	}
 	apiFile.WriteString(defaultChainlinkNodeLogin)
 	apiFile.WriteString("\n")
@@ -231,7 +303,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 	// Create temporary file with chainlink node password
 	passwordFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-password")
 	if err != nil {
-		log.Fatal("Failed to create password file: ", err)
+		return "", nil, fmt.Errorf("failed to create password file: %s", err)
 	}
 	passwordFile.WriteString(defaultChainlinkNodePassword)
 
@@ -246,7 +318,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 			"LINK_CONTRACT_ADDRESS=" + k.cfg.LinkTokenAddr,
 			"DATABASE_BACKUP_MODE=lite",
 			"ROOT=/chainlink",
-			"LOG_LEVEL=info",
+			"LOG_LEVEL=debug",
 			"MIN_OUTGOING_CONFIRMATIONS=2",
 			"CHAINLINK_TLS_PORT=0",
 			"SECURE_COOKIES=false",
@@ -257,7 +329,7 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 			"FEATURE_UI_FEEDS_MANAGER=true",
 		},
 		ExposedPorts: map[nat.Port]struct{}{
-			"6688": {},
+			nat.Port(portStr): {},
 		},
 	}, &container.HostConfig{
 		Mounts: []mount.Mount{
@@ -276,24 +348,24 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 			"6688/tcp": []nat.PortBinding{
 				{
 					HostIP:   "0.0.0.0",
-					HostPort: "6688",
+					HostPort: portStr,
 				},
 			},
 		},
 	}, nil, nil, "")
 	if err != nil {
-		log.Fatal("Failed to create node container: ", err)
+		return "", nil, fmt.Errorf("failed to create node container: %s", err)
 	}
 	log.Println("Node docker container successfully created")
 
 	// Start container
 	if err = dockerClient.ContainerStart(ctx, nodeContainerResp.ID, types.ContainerStartOptions{}); err != nil {
-		log.Fatal("Failed to start node container: ", err)
+		return "", nil, fmt.Errorf("failed to start node container: %s", err)
 	}
 
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 10)
 
-	return fmt.Sprintf("http://localhost:%d", 6688), func() {
+	return fmt.Sprintf("http://localhost:%s", portStr), func() {
 		os.Remove(apiFile.Name())
 		os.Remove(passwordFile.Name())
 
@@ -310,5 +382,5 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context) (string, func()) {
 		if err = dockerClient.ContainerRemove(ctx, dbContainerResp.ID, types.ContainerRemoveOptions{}); err != nil {
 			log.Fatal("Failed to remove DB container: ", err)
 		}
-	}
+	}, nil
 }

@@ -8,11 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 
 	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
 // Keeper is the keepers commands handler
@@ -35,10 +35,11 @@ func NewKeeper(cfg *config.Config) *Keeper {
 
 // DeployKeepers contains a logic to deploy keepers.
 func (k *Keeper) DeployKeepers(ctx context.Context) {
-	k.deployKeepers(ctx)
+	keepers, owners := k.keepers()
+	k.deployKeepers(ctx, keepers, owners)
 }
 
-func (k *Keeper) deployKeepers(ctx context.Context) common.Address {
+func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, owners []common.Address) common.Address {
 	var registry *keeper.KeeperRegistry
 	var registryAddr common.Address
 	var upkeepCount int64
@@ -74,7 +75,6 @@ func (k *Keeper) deployKeepers(ctx context.Context) common.Address {
 
 	// Set Keepers
 	log.Println("Set keepers...")
-	keepers, owners := k.keepers()
 	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
 	if err != nil {
 		log.Fatal("SetKeepers failed: ", err)
