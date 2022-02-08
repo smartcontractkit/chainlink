@@ -15,28 +15,28 @@ import (
 type iLogPool interface {
 
 	// AddLog adds log to the pool and returns true if its block number is a new minimum.
-	AddLog(log types.Log) bool
+	addLog(log types.Log) bool
 
 	// GetAndDeleteAll purges the pool completely, returns all logs, and also the minimum and
 	// maximum block numbers retrieved.
-	GetAndDeleteAll() ([]logsOnBlock, int64, int64)
+	getAndDeleteAll() ([]logsOnBlock, int64, int64)
 
 	// GetLogsToSend returns all logs upto the block number specified in latestBlockNum.
 	// Also returns the minimum block number in the result.
 	// In case the pool is empty, returns empty results, and min block number=0
-	GetLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64)
+	getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64)
 
 	// DeleteOlderLogs deletes all logs in blocks that are less than specific block number keptDepth.
 	// Also returns the remaining minimum block number in pool after these deletions.
 	// Returns nil if this ends up emptying the pool.
-	DeleteOlderLogs(keptDepth int64) *int64
+	deleteOlderLogs(keptDepth int64) *int64
 
 	// RemoveBlock removes all logs for the block identified by provided Block hash and number.
-	RemoveBlock(hash common.Hash, number uint64)
+	removeBlock(hash common.Hash, number uint64)
 
 	// TestOnly_getNumLogsForBlock FOR TESTING USE ONLY.
 	// Returns all logs for the provided block hash.
-	TestOnly_getNumLogsForBlock(bh common.Hash) int
+	testOnly_getNumLogsForBlock(bh common.Hash) int
 }
 
 type logPool struct {
@@ -61,7 +61,7 @@ func newLogPool() *logPool {
 	}
 }
 
-func (pool *logPool) AddLog(log types.Log) bool {
+func (pool *logPool) addLog(log types.Log) bool {
 	_, exists := pool.hashesByBlockNumbers[log.BlockNumber]
 	if !exists {
 		pool.hashesByBlockNumbers[log.BlockNumber] = make(map[common.Hash]struct{})
@@ -77,7 +77,7 @@ func (pool *logPool) AddLog(log types.Log) bool {
 	return min == nil || log.BlockNumber < uint64(min.(Uint64))
 }
 
-func (pool *logPool) GetAndDeleteAll() ([]logsOnBlock, int64, int64) {
+func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
 	logsToReturn := make([]logsOnBlock, 0)
 	lowest := int64(math.MaxInt64)
 	highest := int64(0)
@@ -109,7 +109,7 @@ func (pool *logPool) GetAndDeleteAll() ([]logsOnBlock, int64, int64) {
 	return logsToReturn, lowest, highest
 }
 
-func (pool *logPool) GetLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) {
+func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) {
 	logsToReturn := make([]logsOnBlock, 0)
 
 	// gathering logs to return - from min block number kept, to latestBlockNum
@@ -127,7 +127,7 @@ func (pool *logPool) GetLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) 
 	return logsToReturn, minBlockNumToSend
 }
 
-func (pool *logPool) DeleteOlderLogs(keptDepth int64) *int64 {
+func (pool *logPool) deleteOlderLogs(keptDepth int64) *int64 {
 	min := pool.heap.FindMin
 	for item := min(); item != nil; item = min() {
 		blockNum := uint64(item.(Uint64))
@@ -144,7 +144,7 @@ func (pool *logPool) DeleteOlderLogs(keptDepth int64) *int64 {
 	return nil
 }
 
-func (pool *logPool) RemoveBlock(hash common.Hash, number uint64) {
+func (pool *logPool) removeBlock(hash common.Hash, number uint64) {
 	// deleting all logs for this log's block hash
 	delete(pool.logsByBlockHash, hash)
 	delete(pool.hashesByBlockNumbers[number], hash)
@@ -153,7 +153,7 @@ func (pool *logPool) RemoveBlock(hash common.Hash, number uint64) {
 	}
 }
 
-func (pool *logPool) TestOnly_getNumLogsForBlock(bh common.Hash) int {
+func (pool *logPool) testOnly_getNumLogsForBlock(bh common.Hash) int {
 	return len(pool.logsByBlockHash[bh])
 }
 

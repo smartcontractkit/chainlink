@@ -1,4 +1,4 @@
-package log_test
+package log
 
 import (
 	"math/big"
@@ -7,8 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
-	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 )
 
 var (
@@ -45,9 +43,9 @@ var (
 	}
 )
 
-func TestPool_AddLog(t *testing.T) {
+func TestUnit_AddLog(t *testing.T) {
 	t.Parallel()
-	p := log.NewLogPool()
+	var p iLogPool = newLogPool()
 
 	blockHash := common.BigToHash(big.NewInt(1))
 	l1 := types.Log{
@@ -56,47 +54,47 @@ func TestPool_AddLog(t *testing.T) {
 		BlockNumber: 1,
 	}
 	// 1st log added should be the minimum
-	require.True(t, p.AddLog(l1), "AddLog should have returned true for first log added")
-	require.Equal(t, 1, p.TestOnly_getNumLogsForBlock(blockHash))
+	require.True(t, p.addLog(l1), "AddLog should have returned true for first log added")
+	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(blockHash))
 
 	// Reattempting to add same log should work, but shouldn't be the minimum
-	require.False(t, p.AddLog(l1), "AddLog should have returned false for a 2nd reattempt")
-	require.Equal(t, 1, p.TestOnly_getNumLogsForBlock(blockHash))
+	require.False(t, p.addLog(l1), "AddLog should have returned false for a 2nd reattempt")
+	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(blockHash))
 
 	// 2nd log with same loghash should add a new log, which shouldn't be minimum
 	l2 := l1
 	l2.Index = 43
-	require.False(t, p.AddLog(l2), "AddLog should have returned false for same log added")
-	require.Equal(t, 2, p.TestOnly_getNumLogsForBlock(blockHash))
+	require.False(t, p.addLog(l2), "AddLog should have returned false for same log added")
+	require.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
 
 	// New log with different larger BlockNumber/loghash should add a new log, not as minimum
 	l3 := l1
 	l3.BlockNumber = 3
 	l3.BlockHash = common.BigToHash(big.NewInt(3))
-	require.False(t, p.AddLog(l3), "AddLog should have returned false for same log added")
-	require.Equal(t, 2, p.TestOnly_getNumLogsForBlock(blockHash))
-	require.Equal(t, 1, p.TestOnly_getNumLogsForBlock(l3.BlockHash))
+	require.False(t, p.addLog(l3), "AddLog should have returned false for same log added")
+	require.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
+	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
 
 	// New log with different smaller BlockNumber/loghash should add a new log, as minimum
 	l4 := l1
 	l4.BlockNumber = 0 // New minimum block number
 	l4.BlockHash = common.BigToHash(big.NewInt(0))
-	require.True(t, p.AddLog(l4), "AddLog should have returned true for smallest BlockNumber")
-	require.Equal(t, 2, p.TestOnly_getNumLogsForBlock(blockHash))
-	require.Equal(t, 1, p.TestOnly_getNumLogsForBlock(l3.BlockHash))
-	require.Equal(t, 1, p.TestOnly_getNumLogsForBlock(l4.BlockHash))
+	require.True(t, p.addLog(l4), "AddLog should have returned true for smallest BlockNumber")
+	require.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
+	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
+	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l4.BlockHash))
 }
 
-func TestPool_GetAndDeleteAll(t *testing.T) {
+func TestUnit_GetAndDeleteAll(t *testing.T) {
 	t.Parallel()
-	p := log.NewLogPool()
-	p.AddLog(L1)
-	p.AddLog(L1) // duplicate an add
-	p.AddLog(L21)
-	p.AddLog(L22)
-	p.AddLog(L3)
+	var p iLogPool = newLogPool()
+	p.addLog(L1)
+	p.addLog(L1) // duplicate an add
+	p.addLog(L21)
+	p.addLog(L22)
+	p.addLog(L3)
 
-	logsOnBlock, lowest, highest := p.GetAndDeleteAll()
+	logsOnBlock, lowest, highest := p.getAndDeleteAll()
 
 	require.Equal(t, int64(1), lowest)
 	require.Equal(t, int64(3), highest)
@@ -116,39 +114,39 @@ func TestPool_GetAndDeleteAll(t *testing.T) {
 			t.Errorf("Received unexpected BlockNumber in results: %d", logs.BlockNumber)
 		}
 	}
-	require.Equal(t, 0, p.TestOnly_getNumLogsForBlock(L1.BlockHash))
-	require.Equal(t, 0, p.TestOnly_getNumLogsForBlock(L21.BlockHash))
-	require.Equal(t, 0, p.TestOnly_getNumLogsForBlock(L3.BlockHash))
+	require.Equal(t, 0, p.testOnly_getNumLogsForBlock(L1.BlockHash))
+	require.Equal(t, 0, p.testOnly_getNumLogsForBlock(L21.BlockHash))
+	require.Equal(t, 0, p.testOnly_getNumLogsForBlock(L3.BlockHash))
 }
 
-func TestPool_GetLogsToSendWhenEmptyPool(t *testing.T) {
+func TestUnit_GetLogsToSendWhenEmptyPool(t *testing.T) {
 	t.Parallel()
-	p := log.NewLogPool()
-	logsOnBlocks, minBlockNumToSend := p.GetLogsToSend(1)
+	var p iLogPool = newLogPool()
+	logsOnBlocks, minBlockNumToSend := p.getLogsToSend(1)
 	require.Equal(t, int64(0), minBlockNumToSend)
-	require.ElementsMatch(t, []log.LogsOnBlock{}, logsOnBlocks)
+	require.ElementsMatch(t, []logsOnBlock{}, logsOnBlocks)
 }
 
-func TestPool_GetLogsToSend(t *testing.T) {
+func TestUnit_GetLogsToSend(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name                      string
 		latestBlockNumber         int64
 		expectedMinBlockNumToSend int64
-		expectedLogs              []log.LogsOnBlock
+		expectedLogs              []logsOnBlock
 	}{
 		{
 			name:                      "NoLogsToSend",
 			latestBlockNumber:         0,
 			expectedMinBlockNumToSend: 1,
-			expectedLogs:              []log.LogsOnBlock{},
+			expectedLogs:              []logsOnBlock{},
 		},
 		{
 			name:                      "PartialLogsToSend",
 			latestBlockNumber:         2,
 			expectedMinBlockNumToSend: 1,
-			expectedLogs: []log.LogsOnBlock{
+			expectedLogs: []logsOnBlock{
 				{
 					BlockNumber: 1,
 					Logs: []types.Log{
@@ -167,7 +165,7 @@ func TestPool_GetLogsToSend(t *testing.T) {
 			name:                      "AllLogsToSend",
 			latestBlockNumber:         4,
 			expectedMinBlockNumToSend: 1,
-			expectedLogs: []log.LogsOnBlock{
+			expectedLogs: []logsOnBlock{
 				{
 					BlockNumber: 1,
 					Logs: []types.Log{
@@ -190,29 +188,29 @@ func TestPool_GetLogsToSend(t *testing.T) {
 		},
 	}
 
-	p := log.NewLogPool()
-	p.AddLog(L1)
-	p.AddLog(L21)
-	p.AddLog(L3)
+	var p iLogPool = newLogPool()
+	p.addLog(L1)
+	p.addLog(L21)
+	p.addLog(L3)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			logsOnBlocks, minBlockNumToSend := p.GetLogsToSend(test.latestBlockNumber)
+			logsOnBlocks, minBlockNumToSend := p.getLogsToSend(test.latestBlockNumber)
 			require.Equal(t, test.expectedMinBlockNumToSend, minBlockNumToSend)
 			require.ElementsMatch(t, test.expectedLogs, logsOnBlocks)
 		})
 	}
 }
 
-func TestPool_DeleteOlderLogsWhenEmptyPool(t *testing.T) {
+func TestUnit_DeleteOlderLogsWhenEmptyPool(t *testing.T) {
 	t.Parallel()
-	p := log.NewLogPool()
-	keptDepth := p.DeleteOlderLogs(1)
+	var p iLogPool = newLogPool()
+	keptDepth := p.deleteOlderLogs(1)
 	var expectedKeptDepth *int64 = nil
 	require.Equal(t, expectedKeptDepth, keptDepth)
 }
 
-func TestPool_DeleteOlderLogs(t *testing.T) {
+func TestUnit_DeleteOlderLogs(t *testing.T) {
 	t.Parallel()
 	keptDepth3 := int64(3)
 	keptDepth1 := int64(1)
@@ -220,19 +218,19 @@ func TestPool_DeleteOlderLogs(t *testing.T) {
 		name                string
 		keptDepth           int64
 		expectedOldestBlock *int64
-		expectedKeptLogs    []log.LogsOnBlock
+		expectedKeptLogs    []logsOnBlock
 	}{
 		{
 			name:                "AllLogsDeleted",
 			keptDepth:           4,
 			expectedOldestBlock: nil,
-			expectedKeptLogs:    []log.LogsOnBlock{},
+			expectedKeptLogs:    []logsOnBlock{},
 		},
 		{
 			name:                "PartialLogsDeleted",
 			keptDepth:           3,
 			expectedOldestBlock: &keptDepth3,
-			expectedKeptLogs: []log.LogsOnBlock{
+			expectedKeptLogs: []logsOnBlock{
 				{
 					BlockNumber: 3,
 					Logs: []types.Log{
@@ -245,7 +243,7 @@ func TestPool_DeleteOlderLogs(t *testing.T) {
 			name:                "NoLogsDeleted",
 			keptDepth:           0,
 			expectedOldestBlock: &keptDepth1,
-			expectedKeptLogs: []log.LogsOnBlock{
+			expectedKeptLogs: []logsOnBlock{
 				{
 					BlockNumber: 3,
 					Logs: []types.Log{
@@ -270,51 +268,51 @@ func TestPool_DeleteOlderLogs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			p := log.NewLogPool()
-			p.AddLog(L1)
-			p.AddLog(L21)
-			p.AddLog(L3)
+			var p iLogPool = newLogPool()
+			p.addLog(L1)
+			p.addLog(L21)
+			p.addLog(L3)
 
-			oldestKeptBlock := p.DeleteOlderLogs(test.keptDepth)
+			oldestKeptBlock := p.deleteOlderLogs(test.keptDepth)
 
 			require.Equal(t, test.expectedOldestBlock, oldestKeptBlock)
-			keptLogs, _ := p.GetLogsToSend(4)
+			keptLogs, _ := p.getLogsToSend(4)
 			require.ElementsMatch(t, test.expectedKeptLogs, keptLogs)
 		})
 	}
 }
 
-func TestPool_RemoveBlockWhenEmptyPool(t *testing.T) {
+func TestUnit_RemoveBlockWhenEmptyPool(t *testing.T) {
 	t.Parallel()
-	p := log.NewLogPool()
-	p.RemoveBlock(L1.BlockHash, L1.BlockNumber)
+	var p iLogPool = newLogPool()
+	p.removeBlock(L1.BlockHash, L1.BlockNumber)
 }
 
-func TestPool_RemoveBlock(t *testing.T) {
+func TestUnit_RemoveBlock(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name                  string
 		blockHash             common.Hash
 		blockNumber           uint64
-		expectedRemainingLogs []log.LogsOnBlock
+		expectedRemainingLogs []logsOnBlock
 	}{
 		{
 			name:                  "BlockNotFound",
 			blockHash:             L1.BlockHash,
 			blockNumber:           L1.BlockNumber,
-			expectedRemainingLogs: []log.LogsOnBlock{},
+			expectedRemainingLogs: []logsOnBlock{},
 		},
 		{
 			name:                  "BlockNumberWasUnique",
 			blockHash:             L3.BlockHash,
 			blockNumber:           L3.BlockNumber,
-			expectedRemainingLogs: []log.LogsOnBlock{},
+			expectedRemainingLogs: []logsOnBlock{},
 		},
 		{
 			name:        "MultipleBlocksWithSameBlockNumber",
 			blockHash:   L21.BlockHash,
 			blockNumber: L21.BlockNumber,
-			expectedRemainingLogs: []log.LogsOnBlock{
+			expectedRemainingLogs: []logsOnBlock{
 				{
 					BlockNumber: L23.BlockNumber,
 					Logs: []types.Log{
@@ -327,17 +325,17 @@ func TestPool_RemoveBlock(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			p := log.NewLogPool()
-			p.AddLog(L21)
-			p.AddLog(L22)
-			p.AddLog(L23)
-			p.AddLog(L3)
+			var p iLogPool = newLogPool()
+			p.addLog(L21)
+			p.addLog(L22)
+			p.addLog(L23)
+			p.addLog(L3)
 
-			p.RemoveBlock(test.blockHash, test.blockNumber)
+			p.removeBlock(test.blockHash, test.blockNumber)
 
-			require.Equal(t, 0, p.TestOnly_getNumLogsForBlock(test.blockHash))
-			p.DeleteOlderLogs(int64(test.blockNumber)) // Pruning logs for easier testing next line
-			logsOnBlock, _ := p.GetLogsToSend(int64(test.blockNumber))
+			require.Equal(t, 0, p.testOnly_getNumLogsForBlock(test.blockHash))
+			p.deleteOlderLogs(int64(test.blockNumber)) // Pruning logs for easier testing next line
+			logsOnBlock, _ := p.getLogsToSend(int64(test.blockNumber))
 			require.ElementsMatch(t, test.expectedRemainingLogs, logsOnBlock)
 		})
 	}
