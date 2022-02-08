@@ -293,23 +293,23 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 		return "", nil, fmt.Errorf("failed to pull node image: %s", err)
 	}
 	defer out.Close()
-	io.Copy(os.Stdout, out)
+	_, _ = io.Copy(os.Stdout, out)
 
 	// Create temporary file with chainlink node login creds
 	apiFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-api")
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create api file: %s", err)
 	}
-	apiFile.WriteString(defaultChainlinkNodeLogin)
-	apiFile.WriteString("\n")
-	apiFile.WriteString(defaultChainlinkNodePassword)
+	_, _ = apiFile.WriteString(defaultChainlinkNodeLogin)
+	_, _ = apiFile.WriteString("\n")
+	_, _ = apiFile.WriteString(defaultChainlinkNodePassword)
 
 	// Create temporary file with chainlink node password
 	passwordFile, err := ioutil.TempFile(os.TempDir(), "chainlink-node-password")
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create password file: %s", err)
 	}
-	passwordFile.WriteString(defaultChainlinkNodePassword)
+	_, _ = passwordFile.WriteString(defaultChainlinkNodePassword)
 
 	// Create container with mounted files
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
