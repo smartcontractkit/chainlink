@@ -240,13 +240,13 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	if config.Port() != 0 {
-		g.Go(func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		g.Go(func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -270,6 +270,24 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	return errors.WithStack(g.Wait())
 }
 
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, runServer func() error) {
+	for {
+		// try calling runServer() and log error if any
+		if err := runServer(); err != nil {
+			if err != http.ErrServerClosed {
+				lggr.Criticalf("Error starting server: %v", err)
+			}
+		}
+		// if ctx is cancelled, we must leave the loop
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(cfg.DefaultHTTPTimeout().Duration()):
+			// pause between attempts, default 15s
+		}
+	}
+}
+
 type server struct {
 	httpServer *http.Server
 	tlsServer  *http.Server
@@ -281,7 +299,6 @@ func (s *server) run(port uint16, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTP on port %d", port)
 	s.httpServer = createServer(s.handler, port, writeTimeout)
 	err := s.httpServer.ListenAndServe()
-	s.lggr.ErrorIf(err, "Error starting server")
 	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
@@ -289,7 +306,6 @@ func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
 	s.tlsServer = createServer(s.handler, port, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
-	s.lggr.ErrorIf(err, "Error starting TLS server")
 	return errors.Wrap(err, "failed to run TLS server")
 }
 

@@ -163,14 +163,24 @@ func (s *service) SyncNodeInfo(id int64) error {
 		}
 	}
 
-	keys, err := s.ethKeyStore.SendingKeys()
+	// Assemble EVM keys
+	evmKeys, err := s.ethKeyStore.SendingKeys()
 	if err != nil {
 		return err
 	}
 
-	addresses := []string{}
-	for _, k := range keys {
-		addresses = append(addresses, k.Address.String())
+	evmKeyStates, err := s.ethKeyStore.GetStatesForKeys(evmKeys)
+	if err != nil {
+		return err
+	}
+
+	accounts := make([]*pb.Account, 0, len(evmKeyStates))
+	for _, k := range evmKeyStates {
+		accounts = append(accounts, &pb.Account{
+			ChainType: pb.ChainType_CHAIN_TYPE_EVM,
+			ChainId:   k.EVMChainID.String(),
+			Address:   k.Address.String(),
+		})
 	}
 
 	// Make the remote call to FMS
@@ -187,10 +197,10 @@ func (s *service) SyncNodeInfo(id int64) error {
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes:           jobtypes,
 		ChainIds:           chainIDs,
-		AccountAddresses:   addresses,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
 		Version:            s.version,
+		Accounts:           accounts,
 	})
 	if err != nil {
 		return err

@@ -27,6 +27,7 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 
 	"github.com/lib/pq"
@@ -432,13 +433,17 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
 		}
+		evmKeys = []ethkey.KeyV2{sendingKey}
 	)
 
 	svc := setupTestService(t)
 
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", feedsMgr.ID).Return(feedsMgr, nil)
-	svc.ethKeystore.On("SendingKeys").Return([]ethkey.KeyV2{sendingKey}, nil)
+	svc.ethKeystore.On("SendingKeys").Return(evmKeys, nil)
+	svc.ethKeystore.
+		On("GetStatesForKeys", evmKeys).
+		Return([]ethkey.State{{Address: sendingKey.Address, EVMChainID: *utils.NewBigI(42)}}, nil)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
 	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
 
@@ -446,10 +451,14 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
 		JobTypes:           []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
 		ChainIds:           []int64{svc.cc.Chains()[0].ID().Int64()},
-		AccountAddresses:   []string{sendingKey.Address.String()},
 		IsBootstrapPeer:    true,
 		BootstrapMultiaddr: multiaddr,
 		Version:            nodeVersion.Version,
+		Accounts: []*proto.Account{{
+			ChainType: proto.ChainType_CHAIN_TYPE_EVM,
+			ChainId:   "42",
+			Address:   sendingKey.Address.String(),
+		}},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
