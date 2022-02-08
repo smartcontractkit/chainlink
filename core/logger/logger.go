@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func init() {
@@ -177,7 +178,7 @@ func NewLogger() Logger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l
+	return l.Named(static.Version)
 }
 
 type Config struct {
