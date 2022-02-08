@@ -60,5 +60,21 @@ func TestKafkaExporter(t *testing.T) {
 		require.NotNil(t, receivedConfigSetSimplified)
 		require.Equal(t, receivedConfigSetSimplified.topic, cfg.Kafka.ConfigSetSimplifiedTopic)
 		require.Equal(t, receivedConfigSetSimplified.key, feedConfig.GetContractAddressBytes())
+
+		// Checking whether the right payload is written to corresponding topic.
+
+		decodedTransmission, err := transmissionSchema.Decode(receivedTransmission.value)
+		require.NoError(t, err)
+		transmission, ok := decodedTransmission.(map[string]interface{})
+		require.True(t, ok)
+		answer, ok := transmission["answer"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, answer["data"], envelope.LatestAnswer.Bytes())
+
+		decodedConfigSetSimplified, err := configSetSimplifiedSchema.Decode(receivedConfigSetSimplified.value)
+		require.NoError(t, err)
+		configSetSimplified, ok := decodedConfigSetSimplified.(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, configSetSimplified["block_number"], uint64ToBeBytes(envelope.BlockNumber))
 	})
 }

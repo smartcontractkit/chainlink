@@ -48,7 +48,8 @@ func (m *multiFeedMonitor) Run(ctx context.Context, feeds []FeedConfig) {
 FEED_LOOP:
 	for _, feedConfig := range feeds {
 		feedLogger := m.log.With(
-			"feed", feedConfig.GetName(),
+			"feed_name", feedConfig.GetName(),
+			"feed_id", feedConfig.GetID(),
 			"network", m.chainConfig.GetNetworkName(),
 		)
 		// Create data sources

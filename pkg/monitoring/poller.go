@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -45,7 +46,13 @@ func (s *sourcePoller) Run(ctx context.Context) {
 	// Initial fetch.
 	data, err := s.source.Fetch(ctx)
 	if err != nil {
-		s.log.Errorw("failed initial fetch", "error", err)
+		if errors.Is(err, ErrNoUpdate) {
+			s.log.Debugw("no update found on initial fetch")
+		} else if errors.Is(err, context.Canceled) {
+			return
+		} else {
+			s.log.Errorw("failed initial fetch", "error", err)
+		}
 	} else {
 		select {
 		case s.updates <- data:
@@ -66,9 +73,17 @@ func (s *sourcePoller) Run(ctx context.Context) {
 				data, err = s.source.Fetch(ctx)
 			}()
 			if err != nil {
-				s.log.Errorw("failed to fetch from source", "error", err)
-				reusedTimer.Reset(s.pollInterval)
-				continue
+				if errors.Is(err, ErrNoUpdate) {
+					s.log.Debugw("no update found")
+					reusedTimer.Reset(s.pollInterval)
+					continue
+				} else if errors.Is(err, context.Canceled) {
+					return
+				} else {
+					s.log.Errorw("failed to fetch from source", "error", err)
+					reusedTimer.Reset(s.pollInterval)
+					continue
+				}
 			}
 			select {
 			case s.updates <- data:
