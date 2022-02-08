@@ -42,7 +42,7 @@ func (d delegate) ServicesForSpec(js job.Job) ([]job.Service, error) {
 }
 
 func clearDB(t *testing.T, db *sqlx.DB) {
-	_, err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`)
+	_, err := db.Exec(`DELETE FROM jobs, pipeline_runs, pipeline_specs, pipeline_task_runs`)
 	require.NoError(t, err)
 }
 

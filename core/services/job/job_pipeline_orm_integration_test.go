@@ -18,9 +18,8 @@ import (
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
-	t.Helper()
 	// Ordering matters here to avoid deadlocks
-	_, err := db.Exec(`TRUNCATE flux_monitor_round_stats_v2, jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`)
+	_, err := db.Exec(`DELETE FROM flux_monitor_round_stats_v2, jobs, pipeline_runs, pipeline_specs, pipeline_task_runs`)
 	require.NoError(t, err)
 }
 
@@ -120,9 +119,9 @@ func TestPipelineORM_Integration(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
-	t.Run("creates task DAGs", func(t *testing.T) {
-		clearJobsDb(t, db)
+	clearJobsDb(t, db)
 
+	t.Run("creates task DAGs", func(t *testing.T) {
 		orm := pipeline.NewORM(db, logger.TestLogger(t), config)
 
 		p, err := pipeline.Parse(DotStr)
@@ -143,10 +142,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	clearJobsDb(t, db)
+
 	t.Run("creates runs", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		cfg := cltest.NewTestGeneralConfig(t)
-		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
