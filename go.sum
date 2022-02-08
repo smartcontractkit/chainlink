@@ -694,8 +694,8 @@ github.com/ethereum/go-ethereum v1.9.18/go.mod h1:JSSTypSMTkGZtAdAChH2wP5dZEvPGh
 github.com/ethereum/go-ethereum v1.9.24/go.mod h1:JIfVb6esrqALTExdz9hRYvrP0xBDf6wCncIu1hNwHpM=
 github.com/ethereum/go-ethereum v1.9.25/go.mod h1:vMkFiYLHI4tgPw4k2j4MHKoovchFE8plZ0M9VMk4/oM=
 github.com/ethereum/go-ethereum v1.10.4/go.mod h1:nEE0TP5MtxGzOMd7egIrbPJMQBnhVU3ELNxhBglIzhg=
-github.com/ethereum/go-ethereum v1.10.11 h1:KKIcwpmur9iTaVbR2dxlHu+peHVhU+/KX//NWvT1n9U=
 github.com/ethereum/go-ethereum v1.10.11/go.mod h1:W3yfrFyL9C1pHcwY5hmRHVDaorTiQxhYBkKyu5mEDHw=
+github.com/ethereum/go-ethereum v1.10.15 h1:E9o0kMbD8HXhp7g6UwIwntY05WTDheCGziMhegcBsQw=
 github.com/ethereum/go-ethereum v1.10.15/go.mod h1:W3yfrFyL9C1pHcwY5hmRHVDaorTiQxhYBkKyu5mEDHw=
 github.com/evanphx/json-patch v4.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/evanphx/json-patch v4.11.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
@@ -2261,15 +2261,11 @@ github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.m
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
 github.com/smartcontractkit/chainlink-solana v0.2.6-0.20220125203222-e68f44abb5ce h1:QXJ71/JCrguIwu+n4o7xwv9qn3WKB4OvotJZf21pKDg=
 github.com/smartcontractkit/chainlink-solana v0.2.6-0.20220125203222-e68f44abb5ce/go.mod h1:6yKFtZsZvYRAKkah5rdqg/qFrtHCBSEci0bn9xi/oYI=
-github.com/smartcontractkit/chainlink-terra v0.0.5-0.20220202164606-d206947f6d67 h1:lzTv1jsRSehalg9rIUwxp9j9jRF1ZMeOFGbbR/bcaN0=
-github.com/smartcontractkit/chainlink-terra v0.0.5-0.20220202164606-d206947f6d67/go.mod h1:AVv6Hvx6g1GY7V6iilBL8BAqBdIkW5+AYuXXXhnPM8w=
 github.com/smartcontractkit/chainlink-terra v0.0.6-0.20220208120626-a2d7411d61b5 h1:rB3mUs5gDBnkIDTCYTcSw5g0yL5mq6vGlkrjqK5YYBA=
 github.com/smartcontractkit/chainlink-terra v0.0.6-0.20220208120626-a2d7411d61b5/go.mod h1:eyB9U4Vw1+BArAL0IhC1SPqz0W78msYjzwRIcOImoUc=
-github.com/smartcontractkit/helmenv v1.0.27 h1:BVxTQZQlFElh6YVK8mY9LSljX7uyx4jyImmHh/fMqEo=
-github.com/smartcontractkit/helmenv v1.0.27/go.mod h1:ef0doolSZf8ckqaWMIK2M+EPXdIKYVzttd6EXaCgCK4=
+github.com/smartcontractkit/helmenv v1.0.32 h1:CX8bcmZOsAPbhwdUbaD4AJxqgJV6R1CfgEb0YjT8CAc=
 github.com/smartcontractkit/helmenv v1.0.32/go.mod h1:ef0doolSZf8ckqaWMIK2M+EPXdIKYVzttd6EXaCgCK4=
-github.com/smartcontractkit/integrations-framework v1.0.42 h1:3AGYdYz86Jl10eXagmhFGvIyDZdDPcZ/JwqkUlCzXTE=
-github.com/smartcontractkit/integrations-framework v1.0.42/go.mod h1:TwDu8hGhQjt9o8XYFXPKKnUN5OqsgelHTgpW0PcL6/I=
+github.com/smartcontractkit/integrations-framework v1.0.44 h1:/2lAuWN5ELKFb36NIM++49ktXKLHJMfppB1cA78mn0c=
 github.com/smartcontractkit/integrations-framework v1.0.44/go.mod h1:80yVYzfn5jz2ubPbDEuD7Kw0a55cS+o7tZlTHQu4VQc=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
 github.com/smartcontractkit/libocr v0.0.0-20220125200954-5b957c834276 h1:sE+0R3qyCnZRiDoEoWT8St+Pmb1ZdRDhyq7xZPrwoZ0=
