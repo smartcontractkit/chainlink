@@ -70,7 +70,7 @@ func (c *generalConfig) P2POutgoingMessageBufferSize() int {
 }
 
 type P2PDeprecated interface {
-	// DEPRECATED - HERE FOR BACKWARDS COMPATABILITY
+	// DEPRECATED - HERE FOR BACKWARDS COMPATIBILITY
 	OCRNewStreamTimeout() time.Duration
 	OCRBootstrapCheckInterval() time.Duration
 	OCRDHTLookupInterval() int
