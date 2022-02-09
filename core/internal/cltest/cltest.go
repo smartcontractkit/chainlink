@@ -1650,7 +1650,7 @@ func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bul
 }
 
 // ClearDBTables deletes all rows from the given tables
-func ClearDBTables(t *testing.T, db *sqlx.DB, tables []string) {
+func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 	tx, err := db.Beginx()
 	require.NoError(t, err)
 
