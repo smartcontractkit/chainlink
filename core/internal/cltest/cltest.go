@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -809,17 +808,6 @@ func ReadLogs(dir string) (string, error) {
 	logFile := filepath.Join(dir, logger.LogsFile)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
-}
-
-// FindLogMessage returns the message from the first JSON log line for which test returns true.
-func FindLogMessage(logs string, test func(msg string) bool) string {
-	for _, line := range strings.Split(logs, "\n") {
-		if test(line) {
-			return line
-		}
-	}
-
-	return ""
 }
 
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
