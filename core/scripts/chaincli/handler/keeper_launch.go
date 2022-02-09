@@ -220,7 +220,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance 
 
 	var tx *ethtypes.Transaction
 	if tx, err = registryInstance.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
-		return fmt.Errorf("failed to recover funds %d: %s", err)
+		return fmt.Errorf("failed to recover funds: %s", err)
 	}
 	k.waitTx(ctx, tx)
 
