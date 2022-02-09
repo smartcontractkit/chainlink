@@ -40,7 +40,7 @@ contract UpkeepCounter {
     return (block.number - initialBlock) < testRange && (block.number - lastBlock) >= interval;
   }
 
-  function reset(uint256 _testRange, uint256 _interval) external {
+  function setSpread(uint256 _testRange, uint256 _interval) external {
     testRange = _testRange;
     interval = _interval;
     initialBlock = 0;
