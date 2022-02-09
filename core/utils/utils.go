@@ -944,6 +944,20 @@ func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
 	return false
 }
 
+// IfNotStopped runs the func and returns true if in any state other than Stopped
+func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
+	once.RLock()
+	defer once.RUnlock()
+
+	state := once.state.Load()
+
+	if StartStopOnceState(state) == StartStopOnce_Stopped {
+		return false
+	}
+	f()
+	return true
+}
+
 func (once *StartStopOnce) Ready() error {
 	if once.State() == StartStopOnce_Started {
 		return nil

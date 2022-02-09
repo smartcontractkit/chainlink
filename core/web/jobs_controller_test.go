@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -40,7 +41,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
-	randomBytes := cltest.Random32Byte()
+	randomBytes := testutils.Random32Byte()
 
 	var tt = []struct {
 		name        string

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -1287,7 +1288,7 @@ func TestRequestCost(t *testing.T) {
 	// Ensure even with large number of consumers its still cheap
 	var addrs []common.Address
 	for i := 0; i < 99; i++ {
-		addrs = append(addrs, cltest.NewAddress())
+		addrs = append(addrs, testutils.NewAddress())
 	}
 	_, err = carolContract.UpdateSubscription(carol,
 		addrs) // 0.1 LINK
@@ -1320,7 +1321,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	require.NoError(t, err)
 	var addrs []common.Address
 	for i := 0; i < 98; i++ {
-		addrs = append(addrs, cltest.NewAddress())
+		addrs = append(addrs, testutils.NewAddress())
 	}
 	_, err = carolContract.UpdateSubscription(carol, addrs)
 	// Ensure even with max number of consumers its still reasonable gas costs.
@@ -1332,7 +1333,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	assert.Less(t, estimate, uint64(265000))
 	estimate = estimateGas(t, uni.backend, carolContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
-		"addConsumer", subId, cltest.NewAddress())
+		"addConsumer", subId, testutils.NewAddress())
 	t.Log(estimate)
 	assert.Less(t, estimate, uint64(100000))
 }
