@@ -58,12 +58,12 @@ type startedNodeData struct {
 
 // LaunchAndTest launches keeper registry, chainlink nodes, upkeeps and start performing.
 // 1. launch chainlink node using docker image
-// 2. return node's wallet address
-// 3. fund node by ETH and LINK
-// 4. deploy keeper registry and upkeeps
-// 5. create keeper job using keeper registry address
+// 2. get keeper registry instance, deploy if needed
+// 3. deploy upkeeps
+// 4. create keeper jobs
+// 5. fund nodes if needed
 // 6. set keepers in the registry
-// 7. wait until tests are done
+// 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
 func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	// Run chainlink nodes and create jobs
 	startedNodes := make([]startedNodeData, k.cfg.KeepersCount)
