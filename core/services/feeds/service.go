@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -469,8 +470,28 @@ func (s *service) ApproveSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
+	var address ethkey.EIP55Address
+	switch j.Type {
+	case job.OffchainReporting:
+		address = j.OffchainreportingOracleSpec.ContractAddress
+	case job.FluxMonitor:
+		address = j.FluxMonitorSpec.ContractAddress
+	default:
+		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+	}
+
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
+
+		existingJobID, err2 := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
+		if err2 == nil {
+			if err2 = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); err2 != nil {
+				return errors.Wrap(err2, "DeleteJob failed")
+			}
+		} else if !errors.Is(err2, sql.ErrNoRows) {
+			return errors.Wrap(err2, "FindJobIDByAddress failed")
+		}
+
 		// Create the job
 		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err

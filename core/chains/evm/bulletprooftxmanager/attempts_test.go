@@ -14,13 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 )
 
 func TestBulletproofTxManager_NewDynamicFeeTx(t *testing.T) {
-	addr := cltest.NewAddress()
+	addr := testutils.NewAddress()
 	gcfg := cltest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	kst := new(ksmocks.Eth)
@@ -85,7 +86,7 @@ func TestBulletproofTxManager_NewDynamicFeeTx(t *testing.T) {
 }
 
 func TestBulletproofTxManager_NewLegacyAttempt(t *testing.T) {
-	addr := cltest.NewAddress()
+	addr := testutils.NewAddress()
 	gcfg := cltest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	gcfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(50)

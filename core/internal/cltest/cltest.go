@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
@@ -104,7 +105,7 @@ const (
 
 var (
 	DefaultP2PPeerID p2pkey.PeerID
-	FixtureChainID   = *big.NewInt(0)
+	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
 	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
@@ -1647,4 +1648,18 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 
 func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bulletprooftxmanager.ORM {
 	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t), cfg)
+}
+
+// ClearDBTables deletes all rows from the given tables
+func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
+	tx, err := db.Beginx()
+	require.NoError(t, err)
+
+	for _, table := range tables {
+		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		require.NoError(t, err)
+	}
+
+	err = tx.Commit()
+	require.NoError(t, err)
 }

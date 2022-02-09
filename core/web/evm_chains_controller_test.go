@@ -14,6 +14,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -81,7 +82,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(50),
 					EvmEIP1559DynamicFees:                 null.BoolFrom(true),
 					MinIncomingConfirmations:              null.IntFrom(12),
-					LinkContractAddress:                   null.StringFrom(cltest.NewAddress().String()),
+					LinkContractAddress:                   null.StringFrom(testutils.NewAddress().String()),
 				}
 
 				chain := types.Chain{
