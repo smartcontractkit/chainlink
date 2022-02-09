@@ -35,6 +35,10 @@ function renderComponent(mocks: MockedResponse[]) {
           <JobProposalScreen />
         </MockedProvider>
       </Route>
+
+      <Route exact path="/feeds_manager">
+        Root Redirect Success
+      </Route>
     </>,
     { initialEntries: ['/job_proposals/1'] },
   )
@@ -248,8 +252,8 @@ describe('JobProposalScreen', () => {
     userEvent.click(getByRole('button', { name: /approve/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
+    expect(await findByText('Root Redirect Success')).toBeInTheDocument()
     expect(await findByText('Spec approved')).toBeInTheDocument()
-    expect(await findByText('Approved')).toBeInTheDocument()
   })
 
   it('rejects a pending proposal', async () => {
@@ -433,8 +437,8 @@ describe('JobProposalScreen', () => {
     userEvent.click(getByRole('button', { name: /approve/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
+    expect(await findByText('Root Redirect Success')).toBeInTheDocument()
     expect(await findByText('Spec approved')).toBeInTheDocument()
-    expect(await findByText('Approved')).toBeInTheDocument()
   })
 
   it('renders a not found page', async () => {

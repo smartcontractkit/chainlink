@@ -1,7 +1,7 @@
 import React from 'react'
 
 import { gql, useMutation, useQuery } from '@apollo/client'
-import { useParams } from 'react-router'
+import { useHistory, useParams } from 'react-router'
 import { useDispatch } from 'react-redux'
 
 import { notifySuccessMsg, notifyErrorMsg } from 'actionCreators'
@@ -95,6 +95,7 @@ interface RouteParams {
 export const JobProposalScreen: React.FC = () => {
   const { id } = useParams<RouteParams>()
   const dispatch = useDispatch()
+  const history = useHistory()
   const { handleMutationError } = useMutationErrorHandler()
   const { data, loading, error } = useQuery<
     FetchJobProposal,
@@ -142,8 +143,6 @@ export const JobProposalScreen: React.FC = () => {
       const result = await updateJobProposalSpecDefinition({
         variables: { id: values.id, input: { definition: values.definition } },
       })
-
-      console.log(result)
 
       const payload = result.data?.updateJobProposalSpecDefinition
       switch (payload?.__typename) {
@@ -211,7 +210,9 @@ export const JobProposalScreen: React.FC = () => {
       const payload = result.data?.approveJobProposalSpec
       switch (payload?.__typename) {
         case 'ApproveJobProposalSpecSuccess':
-          dispatch(notifySuccessMsg('Spec approved'))
+          history.push('/feeds_manager')
+
+          setTimeout(() => dispatch(notifySuccessMsg('Spec approved')), 200)
 
           break
         case 'NotFoundError':
