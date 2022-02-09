@@ -12,7 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
+
+func init() {
+	static.Version = "0.0.0"
+	static.Sha = "exampleSHA"
+}
 
 func run(args ...string) {
 	t := &testing.T{}
@@ -43,7 +49,7 @@ func ExampleRun() {
 	//    core.test [global options] command [command options] [arguments...]
 	//
 	// VERSION:
-	//    unset@unset
+	//    0.0.0@exampleSHA
 	//
 	// COMMANDS:
 	//    admin           Commands for remotely taking admin related actions
@@ -63,7 +69,7 @@ func ExampleRun() {
 	//    --json, -j     json output as opposed to table
 	//    --help, -h     show help
 	//    --version, -v  print the version
-	// core.test version unset@unset
+	// core.test version 0.0.0@exampleSHA
 }
 
 func ExampleRun_admin() {
