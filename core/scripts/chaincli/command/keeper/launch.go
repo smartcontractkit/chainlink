@@ -1,6 +1,8 @@
 package keeper
 
 import (
+	"log"
+
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -14,6 +16,16 @@ var launchAndTestCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
-		hdlr.LaunchAndTest(cmd.Context())
+
+		withdraw, err := cmd.Flags().GetBool("withdraw")
+		if err != nil {
+			log.Fatal("failed to get withdraw flag: ", err)
+		}
+
+		hdlr.LaunchAndTest(cmd.Context(), withdraw)
 	},
+}
+
+func init() {
+	launchAndTestCmd.Flags().BoolP("withdraw", "w", false, "Specify if funds should be withdrawn and upkeeps should be canceled")
 }

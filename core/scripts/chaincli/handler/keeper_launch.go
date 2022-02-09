@@ -64,7 +64,7 @@ type startedNodeData struct {
 // 5. fund nodes if needed
 // 6. set keepers in the registry
 // 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
-func (k *Keeper) LaunchAndTest(ctx context.Context) {
+func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Run chainlink nodes and create jobs
 	startedNodes := make([]startedNodeData, k.cfg.KeepersCount)
 	var wg sync.WaitGroup
@@ -187,12 +187,14 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 		}
 	}
 
-	// Cancel upkeeps
-	log.Println("Canceling upkeeps...")
-	if err = k.cancelAndWithdrawUpkeeps(ctx, registry); err != nil {
-		log.Fatal("Failed to cancel upkeeps: ", err)
+	// Cancel upkeeps and withdraw funds
+	if withdraw {
+		log.Println("Canceling upkeeps...")
+		if err = k.cancelAndWithdrawUpkeeps(ctx, registry); err != nil {
+			log.Fatal("Failed to cancel upkeeps: ", err)
+		}
+		log.Println("Upkeeps successfully canceled")
 	}
-	log.Println("Upkeeps successfully canceled")
 }
 
 // cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
