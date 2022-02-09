@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -141,8 +142,8 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 		cl := cmd.NewAuthenticatedHTTPClient(c, tca, sr)
 
 		// Get node's wallet address
-		nodeAddrHex, err := k.getNodeAddress(cl)
-		if err != nil {
+		var nodeAddrHex string
+		if nodeAddrHex, err = k.getNodeAddress(cl); err != nil {
 			log.Println("Failed to get node addr: ", err)
 			continue
 		}
@@ -252,13 +253,13 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 	log.Println("Docker client successfully created")
 
 	// Pull DB image if needed
+	var out io.ReadCloser
 	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, defaultPOSTGRESImage); err != nil {
 		log.Println("Pulling Postgres docker image...")
-		out, err := dockerClient.ImagePull(ctx, defaultPOSTGRESImage, types.ImagePullOptions{})
-		if err != nil {
+		if out, err = dockerClient.ImagePull(ctx, defaultPOSTGRESImage, types.ImagePullOptions{}); err != nil {
 			return "", nil, fmt.Errorf("failed to pull Postgres image: %s", err)
 		}
-		defer out.Close()
+		out.Close()
 		log.Println("Postgres docker image successfully pulled!")
 	}
 
@@ -292,11 +293,10 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 	// Pull node image if needed
 	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, defaultChainlinkNodeImage); err != nil {
 		log.Println("Pulling node docker image...")
-		out, err := dockerClient.ImagePull(ctx, defaultChainlinkNodeImage, types.ImagePullOptions{})
-		if err != nil {
+		if out, err = dockerClient.ImagePull(ctx, defaultChainlinkNodeImage, types.ImagePullOptions{}); err != nil {
 			return "", nil, fmt.Errorf("failed to pull node image: %s", err)
 		}
-		defer out.Close()
+		out.Close()
 		log.Println("Node docker image successfully pulled!")
 	}
 
