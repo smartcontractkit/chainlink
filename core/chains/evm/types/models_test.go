@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -91,7 +92,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := gethTypes.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)
 
@@ -353,7 +354,7 @@ func TestHead_MarshalJSON(t *testing.T) {
 }
 
 func Test_NullableEIP2930AccessList(t *testing.T) {
-	addr := cltest.NewAddress()
+	addr := testutils.NewAddress()
 	storageKey := utils.NewHash()
 	al := gethTypes.AccessList{{Address: addr, StorageKeys: []common.Hash{storageKey}}}
 	alb, err := json.Marshal(al)

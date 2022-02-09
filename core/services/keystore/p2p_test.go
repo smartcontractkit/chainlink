@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -133,12 +134,12 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		p2pPeer1 := ocrcommon.P2PPeer{
 			ID:     cltest.NewPeerID().String(),
-			Addr:   cltest.NewAddress().Hex(),
+			Addr:   testutils.NewAddress().Hex(),
 			PeerID: cltest.DefaultPeerID, // different p2p key
 		}
 		p2pPeer2 := ocrcommon.P2PPeer{
 			ID:     cltest.NewPeerID().String(),
-			Addr:   cltest.NewAddress().Hex(),
+			Addr:   testutils.NewAddress().Hex(),
 			PeerID: key.PeerID().Raw(),
 		}
 		const p2pTableName = "p2p_peers"
