@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"os"
 	"os/signal"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -187,6 +189,36 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-termChan // Blocks here until either SIGINT or SIGTERM is received.
 	log.Println("Stopping...")
+
+	// Cancel upkeeps
+	log.Println("Canceling upkeeps...")
+	if err = k.cancelAndWithdrawUpkeeps(ctx, registry); err != nil {
+		log.Fatal("Failed to cancel upkeeps: ", err)
+	}
+	log.Println("Upkeeps successfully canceled")
+}
+
+// cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
+func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistry) error {
+	count, err := registryInstance.GetUpkeepCount(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get upkeeps count: %s", err)
+	}
+
+	for i := int64(0); i < count.Int64(); i++ {
+		var tx *ethtypes.Transaction
+		if tx, err = registryInstance.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
+			return fmt.Errorf("failed to cancel upkeep %d: %s", i, err)
+		}
+		k.waitTx(ctx, tx)
+
+		if tx, err = registryInstance.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
+			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
+		}
+		k.waitTx(ctx, tx)
+	}
+
+	return nil
 }
 
 // getNodeAddress returns chainlink node's wallet address
