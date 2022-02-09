@@ -118,6 +118,15 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
+	// Cleanup resources
+	defer func() {
+		for _, startedNode := range startedNodes {
+			if startedNode.err == nil && startedNode.cleanup != nil {
+				startedNode.cleanup()
+			}
+		}
+	}()
+
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
 	var owners []common.Address
@@ -126,9 +135,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 			log.Println("Failed to start node: ", err)
 			continue
 		}
-
-		// Cleanup node's resources
-		defer startedNode.cleanup()
 
 		// Create authenticated client
 		c := cfg{nodeURL: startedNode.url}
