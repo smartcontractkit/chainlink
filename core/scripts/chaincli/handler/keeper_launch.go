@@ -120,15 +120,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
-	// Cleanup resources
-	defer func() {
-		for _, startedNode := range startedNodes {
-			if startedNode.err == nil && startedNode.cleanup != nil {
-				startedNode.cleanup()
-			}
-		}
-	}()
-
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
 	var owners []common.Address
@@ -190,6 +181,13 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 	<-termChan // Blocks here until either SIGINT or SIGTERM is received.
 	log.Println("Stopping...")
 
+	// Cleanup resources
+	for _, startedNode := range startedNodes {
+		if startedNode.err == nil && startedNode.cleanup != nil {
+			startedNode.cleanup()
+		}
+	}
+
 	// Cancel upkeeps
 	log.Println("Canceling upkeeps...")
 	if err = k.cancelAndWithdrawUpkeeps(ctx, registry); err != nil {
@@ -216,7 +214,15 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance 
 			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
 		}
 		k.waitTx(ctx, tx)
+
+		log.Println("Upkeep successfully canceled and refunded: ", i)
 	}
+
+	var tx *ethtypes.Transaction
+	if tx, err = registryInstance.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
+		return fmt.Errorf("failed to recover funds %d: %s", err)
+	}
+	k.waitTx(ctx, tx)
 
 	return nil
 }
