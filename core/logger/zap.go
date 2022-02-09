@@ -26,13 +26,24 @@ type zapLogger struct {
 	name       string
 	fields     []interface{}
 	callerSkip int
-	cores      []zapcore.Core
 }
 
 func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 	cores := []zapcore.Core{
 		newConsoleCore(cfg),
 	}
+	cores = append(cores, newCores(cfg)...)
+
+	core := zapcore.NewTee(cores...)
+
+	return &zapLogger{
+		config:        cfg,
+		SugaredLogger: zap.New(core).Sugar(),
+	}, nil
+}
+
+func newCores(cfg ZapLoggerConfig) []zapcore.Core {
+	var cores []zapcore.Core
 
 	if cfg.local.ToDisk {
 		cores = append(cores, newDiskCore(cfg.local))
@@ -49,14 +60,7 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 		)
 	}
 
-	core := zapcore.NewTee(cores...)
-
-	return &zapLogger{
-		config: cfg,
-		// We don't store the console core since we want the console core to be unique per root when calling `NewRootLogger()`
-		cores:         cores[1:],
-		SugaredLogger: zap.New(core).Sugar(),
-	}, nil
+	return cores
 }
 
 func newDiskCore(cfg Config) zapcore.Core {
@@ -145,9 +149,9 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 
 	cores := []zapcore.Core{
 		// The console core is what we want to be unique per root, so we spin a new one here
-		newConsoleCore(l.config),
+		newConsoleCore(newLogger.config),
 	}
-	cores = append(cores, l.cores...)
+	cores = append(cores, newCores(newLogger.config)...)
 	core := zap.New(zapcore.NewTee(cores...)).WithOptions(zap.AddCallerSkip(l.callerSkip))
 
 	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
