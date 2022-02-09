@@ -44,6 +44,7 @@ type ORM interface {
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
+	FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -621,6 +622,32 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) (jb Job, err error) {
 	err = o.findJob(&jb, "external_job_id", externalJobID, qopts...)
 	return
+}
+
+// FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
+func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (jobID int32, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT jobs.id
+FROM jobs
+LEFT JOIN offchainreporting_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.id = jobs.offchainreporting_oracle_spec_id
+LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.id = jobs.flux_monitor_spec_id
+WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
+`
+		err = tx.Get(&jobID, stmt, address)
+
+		if !errors.Is(err, sql.ErrNoRows) {
+			if err != nil {
+				return errors.Wrap(err, "error searching for job by contract address")
+			}
+			return nil
+		}
+
+		return err
+	})
+
+	return jobID, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
