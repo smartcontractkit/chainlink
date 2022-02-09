@@ -15,7 +15,7 @@ import (
 )
 
 // LogsFile describes the logs file name
-const LogsFile = "logs.log"
+const LogsFile = "chainlink_debug.log"
 
 func init() {
 	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
