@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 )
@@ -22,7 +23,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	gasLimit := uint64(1000)
-	toAddress := cltest.NewAddress()
+	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
 	txm := new(bptxmmocks.TxManager)
 	strategy := new(bptxmmocks.TxStrategy)
