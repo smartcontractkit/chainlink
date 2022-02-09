@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -121,6 +122,7 @@ type (
 		// Event types to receive, with value filter for each field in the event
 		// No filter or an empty filter for a given field position mean: all values allowed
 		// the key should be a result of AbigenLog.Topic() call
+		// topic => topicValueFilters
 		LogsWithTopics map[common.Hash][][]Topic
 
 		ParseLog ParseLogFunc
@@ -223,6 +225,10 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 		if len(opts.LogsWithTopics) == 0 {
 			b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
 		}
+		if opts.MinIncomingConfirmations <= 0 {
+			b.logger.Warnw(fmt.Sprintf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined. MinIncomingConfirmations will be set to 1.", opts.MinIncomingConfirmations), "addr", opts.Contract.Hex(), "jobID", listener.JobID())
+			opts.MinIncomingConfirmations = 1
+		}
 
 		sub := &subscriber{listener, opts}
 		b.logger.Debugf("Registering subscriber %p with job ID %v", sub, sub.listener.JobID())
@@ -231,6 +237,10 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 			b.logger.Panicf("LogBroadcaster subscribe: cannot subscribe %p with job ID %v; changeSubscriberStatus channel was full", sub, sub.listener.JobID())
 		}
 
+		// this is asynchronous but it shouldn't matter, since the channel is
+		// ordered then it will work properly as long as you call unsubscribe
+		// before subscribing a new listener with the same job/addr (e.g. on
+		// replacement of the same job)
 		unsubscribe = func() {
 			b.logger.Debugf("Unregistering subscriber %p with job ID %v", sub, sub.listener.JobID())
 			wasOverCapacity := b.changeSubscriberStatus.Deliver(changeSubscriberStatus{subscriberStatusUnsubscribe, sub})
