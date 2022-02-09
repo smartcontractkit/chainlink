@@ -15,6 +15,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -178,7 +179,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 
 	t.Run("with address filter, rotates between given addresses that match sending keys", func(t *testing.T) {
 		// fundingKeys[0] is a funding address so even though it's whitelisted, it will be ignored
-		addresses := []common.Address{fundingKeys[0].Address.Address(), k1.Address.Address(), k2.Address.Address(), cltest.NewAddress()}
+		addresses := []common.Address{fundingKeys[0].Address.Address(), k1.Address.Address(), k2.Address.Address(), testutils.NewAddress()}
 
 		address1, err := ethKeyStore.GetRoundRobinAddress(addresses...)
 		require.NoError(t, err)
@@ -197,7 +198,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	t.Run("with address filter when no address matches", func(t *testing.T) {
-		_, err := ethKeyStore.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
+		_, err := ethKeyStore.GetRoundRobinAddress([]common.Address{testutils.NewAddress()}...)
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
@@ -212,9 +213,9 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	k, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	chainID := big.NewInt(evmclient.NullClientChainID)
-	tx := types.NewTransaction(0, cltest.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
+	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
 
-	randomAddress := cltest.NewAddress()
+	randomAddress := testutils.NewAddress()
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
 	require.EqualError(t, err, fmt.Sprintf("unable to find eth key with id %s", randomAddress.Hex()))
 
