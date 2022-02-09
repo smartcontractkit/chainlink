@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -178,7 +179,7 @@ func NewLogger() Logger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l.Named(static.Version)
+	return l.Named(fmt.Sprintf("%s@%s", static.Version, static.Sha[:7]))
 }
 
 type Config struct {
