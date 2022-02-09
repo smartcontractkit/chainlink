@@ -95,6 +95,14 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		Logger:                   svcLogger,
 		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 	})
+
+	/* check that node has proper configuration for the given chain ID */
+	chainId := chain.Client().ChainID().Text(10)
+	if hasEIP1559Support(chainId) && !chain.Config().EvmEIP1559DynamicFees() {
+		return nil, errors.Errorf("cannot perform upkeeps on chain %d as it supports EIP1559 and node is not configured for EIP1559", chainId)
+	}
+
+	/* construct executer */
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
 		orm,
@@ -110,4 +118,14 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		registrySynchronizer,
 		upkeepExecuter,
 	}, nil
+}
+
+/* todo: move before merged to an appropriate location */
+func hasEIP1559Support(chainId string) bool {
+	switch chainId {
+	case "1":
+		return true
+	default:
+		return false
+	}
 }

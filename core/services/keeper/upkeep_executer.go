@@ -184,14 +184,12 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	}
 
 	var gasPrice, gasTipCap, gasFeeCap *big.Int
-	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
-		price, fee, err := ex.estimateGasPrice(upkeep)
-		if err != nil {
-			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
-			return
-		}
-		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
+	price, fee, err := ex.estimateGasPrice(upkeep)
+	if err != nil {
+		svcLogger.Error(errors.Wrap(err, "estimating gas price"))
+		return
 	}
+	gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
