@@ -8,15 +8,14 @@ import (
 
 // Config represents configuration fields
 type Config struct {
-	NodeURL              string   `mapstructure:"NODE_URL"`
-	ChainID              int64    `mapstructure:"CHAIN_ID"`
-	PrivateKey           string   `mapstructure:"PRIVATE_KEY"`
-	LinkTokenAddr        string   `mapstructure:"LINK_TOKEN_ADDR"`
-	Keepers              []string `mapstructure:"KEEPERS"`
-	ApproveAmount        string   `mapstructure:"APPROVE_AMOUNT"`
-	GasLimit             uint64   `mapstructure:"GAS_LIMIT"`
-	RegistryAddress      string   `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
-	RegistryConfigUpdate bool     `mapstructure:"KEEPER_CONFIG_UPDATE"`
+	NodeURL        string   `mapstructure:"NODE_URL"`
+	ChainID        int64    `mapstructure:"CHAIN_ID"`
+	PrivateKey     string   `mapstructure:"PRIVATE_KEY"`
+	LinkTokenAddr  string   `mapstructure:"LINK_TOKEN_ADDR"`
+	Keepers        []string `mapstructure:"KEEPERS"`
+	ApproveAmount  string   `mapstructure:"APPROVE_AMOUNT"`
+	GasLimit       uint64   `mapstructure:"GAS_LIMIT"`
+	FundNodeAmount int      `mapstructure:"FUND_CHAINLINK_NODE"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
@@ -30,7 +29,10 @@ type Config struct {
 	FallbackGasPrice     int64  `mapstructure:"FALLBACK_GAS_PRICE"`
 	FallbackLinkPrice    int64  `mapstructure:"FALLBACK_LINK_PRICE"`
 
-	// Upkeep Config
+	// Keepers Config
+	RegistryAddress                 string `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
+	RegistryConfigUpdate            bool   `mapstructure:"KEEPER_CONFIG_UPDATE"`
+	KeepersCount                    int    `mapstructure:"KEEPERS_COUNT"`
 	UpkeepTestRange                 int64  `mapstructure:"UPKEEP_TEST_RANGE"`
 	UpkeepAverageEligibilityCadence int64  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
 	UpkeepCheckData                 string `mapstructure:"UPKEEP_CHECK_DATA"`
@@ -77,8 +79,8 @@ func init() {
 	viper.SetDefault("CHECK_GAS_LIMIT", 650000000)
 	viper.SetDefault("STALENESS_SECONDS", 90000)
 	viper.SetDefault("GAS_CEILING_MULTIPLIER", 3)
-	viper.SetDefault("FALLBACK_GAS_PRICE", 10000000000)
-	viper.SetDefault("FALLBACK_LINK_PRICE", 200000000000000000)
+	viper.SetDefault("FALLBACK_GAS_PRICE", 200000000000)
+	viper.SetDefault("FALLBACK_LINK_PRICE", 20000000000000000)
 	// Represented in WEI, which is 100 Ether
 	viper.SetDefault("UPKEEP_ADD_FUNDS_AMOUNT", "100000000000000000000")
 	viper.SetDefault("UPKEEP_TEST_RANGE", 1)
@@ -86,6 +88,7 @@ func init() {
 	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
 	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
 	viper.SetDefault("UPKEEP_COUNT", 5)
+	viper.SetDefault("KEEPERS_COUNT", 2)
 
 	viper.SetDefault("FEED_DECIMALS", 8)
 }

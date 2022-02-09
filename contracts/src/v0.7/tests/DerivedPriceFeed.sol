@@ -9,14 +9,14 @@ import "../interfaces/AggregatorV2V3Interface.sol";
  * Base Address: 0x6d5689Ad4C1806D1BA0c70Ab95ebe0Da6B204fC5
  * Quote: FTM/USD
  * Quote Address: 0xe04676B9A9A2973BCb0D1478b5E1E9098BBB7f3D
- * Decimals: 8
+ * Decimals: 18
  *
  * Network: AVAX Testnet
  * Base: LINK/USD
  * Base Address: 0x34C4c526902d88a3Aa98DB8a9b802603EB1E3470
  * Quote: AVAX/USD
  * Quote Address: 0x5498BB86BC934c8D34FDA08E81D444153d0D06aD
- * Decimals: 8
+ * Decimals: 18
  *
  * Chainlink Data Feeds can be used in combination to derive denominated price pairs in other currencies.
  * If you require a denomination other than what is provided, you can use two data feeds to derive the pair that you need.
