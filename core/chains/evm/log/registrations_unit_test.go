@@ -135,7 +135,7 @@ func TestRegistrationsUnit_addSubscriber(t *testing.T) {
 	require.Contains(t, r.handlersByConfs, uint32(42))
 
 	// contractAddress => logTopic => Listener
-	handlers1 := r.handlersByConfs[1].lookupSubscribers
+	handlers1 := r.handlersByConfs[1].lookupSubs
 	assert.Len(t, handlers1, 1)
 	assert.Contains(t, handlers1, contractAddr)
 	h1 := handlers1[contractAddr]
@@ -158,7 +158,7 @@ func TestRegistrationsUnit_addSubscriber(t *testing.T) {
 	assert.Len(t, h1[topic4], 1) // listener 3
 	assert.Contains(t, h1[topic4], sub3)
 
-	handlers42 := r.handlersByConfs[42].lookupSubscribers
+	handlers42 := r.handlersByConfs[42].lookupSubs
 	assert.Len(t, handlers42, 1)
 	assert.Contains(t, handlers1, contractAddr)
 	h42 := handlers42[contractAddr]
