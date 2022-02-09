@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -805,30 +806,20 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(dir string) (string, error) {
-	logFile := fmt.Sprintf("%s/%s", dir, logger.LogsFile)
+	logFile := filepath.Join(dir, logger.LogsFile)
+	fmt.Println(logFile)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
 }
 
 // FindLogMessage returns the message from the first JSON log line for which test returns true.
 func FindLogMessage(logs string, test func(msg string) bool) string {
-	for _, l := range strings.Split(logs, "\n") {
-		var line map[string]interface{}
-		if json.Unmarshal([]byte(l), &line) != nil {
-			continue
-		}
-		m, ok := line["msg"]
-		if !ok {
-			continue
-		}
-		ms, ok := m.(string)
-		if !ok {
-			continue
-		}
-		if test(ms) {
-			return ms
+	for _, line := range strings.Split(logs, "\n") {
+		if test(line) {
+			return line
 		}
 	}
+
 	return ""
 }
 

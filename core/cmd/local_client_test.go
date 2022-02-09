@@ -100,13 +100,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	awaiter.AwaitOrFail(t)
 	require.NoError(t, client.Logger.Sync())
 
-	logs, err := cltest.ReadLogs(lcfg.Dir)
-	require.NoError(t, err)
-	msg := cltest.FindLogMessage(logs, func(msg string) bool {
-		return strings.HasPrefix(msg, "Environment variables")
-	})
-	require.NotEmpty(t, msg, "No env var message found")
-
 	expected := fmt.Sprintf(`Environment variables
 ADVISORY_LOCK_CHECK_INTERVAL: 1s
 ADVISORY_LOCK_ID: 1027321974924625846
@@ -189,8 +182,18 @@ CHAINLINK_TLS_HOST:
 CHAINLINK_TLS_PORT: 6689
 CHAINLINK_TLS_REDIRECT: false`, cfg.RootDir())
 
-	if !strings.Contains(msg, expected) {
-		t.Errorf("Expected to find:\n\n%s\n\nWithin:\n\n%s\n\nDiff:\n\n%s", expected, msg, diff.Diff(expected, msg))
+	logs, err := cltest.ReadLogs(lcfg.Dir)
+	require.NoError(t, err)
+
+	for _, envVarLog := range strings.Split(expected, "\n") {
+		msg := cltest.FindLogMessage(logs, func(msg string) bool {
+			return strings.HasSuffix(msg, envVarLog)
+		})
+		require.NotEmpty(t, msg, "No env var message found")
+
+		if !strings.Contains(msg, envVarLog) {
+			t.Errorf("Expected to find:\n\n%s\n\nWithin:\n\n%s\n\nDiff:\n\n%s", msg, envVarLog, diff.Diff(expected, msg))
+		}
 	}
 
 	app.AssertExpectations(t)
