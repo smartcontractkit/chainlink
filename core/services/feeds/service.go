@@ -150,6 +150,13 @@ func (s *service) SyncNodeInfo(id int64) error {
 		return err
 	}
 
+	// Get the FMS RPC client
+	fmsClient, err := s.connMgr.GetClient(id)
+	if err != nil {
+		return errors.Wrap(err, "could not fetch client")
+	}
+
+	// Generate job types
 	jobtypes := []pb.JobType{}
 	for _, jt := range mgr.JobTypes {
 		switch jt {
@@ -173,6 +180,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		return err
 	}
 
+	// Generate accounts
 	accounts := make([]*pb.Account, 0, len(evmKeyStates))
 	for _, k := range evmKeyStates {
 		accounts = append(accounts, &pb.Account{
@@ -182,20 +190,18 @@ func (s *service) SyncNodeInfo(id int64) error {
 		})
 	}
 
-	// Make the remote call to FMS
-	fmsClient, err := s.connMgr.GetClient(id)
-	if err != nil {
-		return errors.Wrap(err, "could not fetch client")
-	}
-
-	chainIDs := []int64{}
+	// Generate chains
+	chains := make([]*pb.Chain, 0, len(s.chainSet.Chains()))
 	for _, c := range s.chainSet.Chains() {
-		chainIDs = append(chainIDs, c.ID().Int64())
+		chains = append(chains, &pb.Chain{
+			Id:   c.ID().String(),
+			Type: pb.ChainType_CHAIN_TYPE_EVM,
+		})
 	}
 
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes:           jobtypes,
-		ChainIds:           chainIDs,
+		Chains:             chains,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
 		Version:            s.version,
