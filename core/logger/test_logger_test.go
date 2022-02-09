@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 )
@@ -38,7 +37,7 @@ func TestTestLogger(t *testing.T) {
 	)
 	lgr.Warn(testMessage)
 	// [WARN]  Test message		logger/test_logger_test.go:23    logger=1.0.0@sHaValue.TestLogger
-	requireContains("[WARN]", testMessage, fmt.Sprintf("logger=%s@%s.%s", static.Version, static.Sha[:7], testName))
+	requireContains("[WARN]", testMessage, fmt.Sprintf("logger=%s.%s", baseLoggerName(), testName))
 
 	const (
 		serviceName    = "ServiceName"
@@ -51,7 +50,7 @@ func TestTestLogger(t *testing.T) {
 	srvLgr.Debugw(serviceMessage, key, value)
 	// [DEBUG]  Service message		logger/test_logger_test.go:35    key=value logger=1.0.0@sHaValue.TestLogger.ServiceName
 	requireContains("[DEBUG]", serviceMessage, fmt.Sprintf("%s=%s", key, value),
-		fmt.Sprintf("logger=%s@%s.%s.%s", static.Version, static.Sha[:7], testName, serviceName))
+		fmt.Sprintf("logger=%s.%s.%s", baseLoggerName(), testName, serviceName))
 	lgr.Debugw(omittedMessage) // omitted since still Info level
 	requireNotContains(omittedMessage)
 
@@ -65,11 +64,11 @@ func TestTestLogger(t *testing.T) {
 	wrkLgr.Infow(workerMessage, resultKey, resultVal)
 	// [INFO]	Did some work		logger/test_logger_test.go:49    logger=1.0.0@sHaValue.TestLogger.ServiceName.WorkerName result=success workerId=42
 	requireContains("[INFO]", workerMessage, fmt.Sprintf("%s=%s", idKey, workerId),
-		fmt.Sprintf("%s=%s", resultKey, resultVal), fmt.Sprintf("logger=%s@%s.%s.%s.%s", static.Version, static.Sha[:7], testName, serviceName, workerName))
+		fmt.Sprintf("%s=%s", resultKey, resultVal), fmt.Sprintf("logger=%s.%s.%s.%s", baseLoggerName(), testName, serviceName, workerName))
 
 	const (
 		critMsg = "Critical error"
 	)
 	lgr.Critical(critMsg)
-	requireContains("[CRIT]", critMsg, fmt.Sprintf("logger=%s@%s.%s", static.Version, static.Sha[:7], testName))
+	requireContains("[CRIT]", critMsg, fmt.Sprintf("logger=%s.%s", baseLoggerName(), testName))
 }
