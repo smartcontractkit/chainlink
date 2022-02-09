@@ -2,8 +2,9 @@
 
 pragma solidity 0.8.6;
 
-import "../ConfirmedOwner.sol";
-import "../interfaces/KeeperCompatibleInterface.sol";
+import "@chainlink/contracts/src/v0.8/KeeperCompatible.sol";
+import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
