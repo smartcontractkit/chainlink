@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func init() {
@@ -137,6 +139,10 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 	return config
 }
 
+func baseLoggerName() string {
+	return fmt.Sprintf("%s@%s", static.Version, static.Sha[:7])
+}
+
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
 func NewLogger() Logger {
@@ -177,7 +183,7 @@ func NewLogger() Logger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l
+	return l.Named(baseLoggerName())
 }
 
 type Config struct {
