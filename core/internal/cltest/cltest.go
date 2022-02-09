@@ -1649,12 +1649,13 @@ func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bul
 	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t), cfg)
 }
 
+// ClearDBTables deletes all rows from the given tables
 func ClearDBTables(t *testing.T, db *sqlx.DB, tables []string) {
 	tx, err := db.Beginx()
 	require.NoError(t, err)
 
 	for _, table := range tables {
-		_, err := tx.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s", table))
 		require.NoError(t, err)
 	}
 
