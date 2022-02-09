@@ -4,7 +4,6 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"net/url"
 	"sync"
@@ -12,7 +11,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
-	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 // MemorySink implements zap.Sink by writing all messages to a buffer.
@@ -84,7 +82,7 @@ func TestLogger(t T) Logger {
 	if t == nil {
 		return l
 	}
-	return l.Named(fmt.Sprintf("%s@%s", static.Version, static.Sha[:7])).Named(t.Name())
+	return l.Named(baseLoggerName()).Named(t.Name())
 }
 
 func newTestConfig() zap.Config {
