@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added support for the Nethermind Ethereum client.
+
 New ENV vars:
 
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
 - `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
 - `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
-- `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed. 
+- `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed.
 - `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
 - `TERRA_ENABLED` (default: false) - set to true to enable Terra support
 - `BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS` - if EIP1559 mode is enabled, this optional env var controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used. It is not recommended to change this unless you know what you are doing.
@@ -39,7 +41,7 @@ The new EIP-1559 implementation works as follows:
 
 If you are using FixedPriceEstimator:
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`
-- With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.  
+- With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.
 
 If you are using BlockHistoryEstimator (default for most chains):
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
