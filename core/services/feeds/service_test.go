@@ -440,8 +440,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
-		JobTypes:           []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
-		ChainIds:           []int64{svc.cc.Chains()[0].ID().Int64()},
+		JobTypes: []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
+		Chains: []*proto.Chain{{
+			Id:   svc.cc.Chains()[0].ID().String(),
+			Type: proto.ChainType_CHAIN_TYPE_EVM,
+		}},
 		IsBootstrapPeer:    true,
 		BootstrapMultiaddr: multiaddr,
 		Version:            nodeVersion.Version,
