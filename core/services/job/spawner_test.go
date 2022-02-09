@@ -42,8 +42,8 @@ func (d delegate) ServicesForSpec(js job.Job) ([]job.Service, error) {
 }
 
 func clearDB(t *testing.T, db *sqlx.DB) {
-	_, err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`)
-	require.NoError(t, err)
+	tables := []string{"jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs"}
+	cltest.ClearDBTables(t, db, tables)
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
