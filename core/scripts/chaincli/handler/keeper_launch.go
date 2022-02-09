@@ -81,7 +81,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context) {
 				startedNodes[i].err = fmt.Errorf("failed to launch chainlink node: %s", err)
 				return
 			}
-			log.Println("Chainlink node successfully started: ", startedNodes[i].url)
 		}(i)
 	}
 	wg.Wait()
@@ -294,8 +293,6 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 		return "", nil, fmt.Errorf("failed to ping docker server: %s", err)
 	}
 
-	log.Println("Docker client successfully created")
-
 	// Pull DB image if needed
 	var out io.ReadCloser
 	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, defaultPOSTGRESImage); err != nil {
@@ -403,11 +400,13 @@ func (k *Keeper) launchChainlinkNode(ctx context.Context, port int) (string, fun
 	if err = dockerClient.ContainerStart(ctx, nodeContainerResp.ID, types.ContainerStartOptions{}); err != nil {
 		return "", nil, fmt.Errorf("failed to start node container: %s", err)
 	}
-	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID)
+
+	addr := fmt.Sprintf("http://localhost:%s", portStr)
+	log.Println("Node docker container successfully created and started: ", nodeContainerResp.ID, addr)
 
 	time.Sleep(time.Second * 20)
 
-	return fmt.Sprintf("http://localhost:%s", portStr), func() {
+	return addr, func() {
 		fileCleanup()
 
 		if err = dockerClient.ContainerStop(ctx, nodeContainerResp.ID, nil); err != nil {
