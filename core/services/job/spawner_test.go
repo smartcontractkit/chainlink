@@ -42,8 +42,7 @@ func (d delegate) ServicesForSpec(js job.Job) ([]job.Service, error) {
 }
 
 func clearDB(t *testing.T, db *sqlx.DB) {
-	tables := []string{"jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs"}
-	cltest.ClearDBTables(t, db, tables)
+	cltest.ClearDBTables(t, db, "jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs")
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {

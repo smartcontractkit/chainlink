@@ -18,8 +18,7 @@ import (
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
-	tables := []string{"flux_monitor_round_stats_v2", "jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs"}
-	cltest.ClearDBTables(t, db, tables)
+	cltest.ClearDBTables(t, db, "flux_monitor_round_stats_v2", "jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs")
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
