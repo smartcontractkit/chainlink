@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-...
+### Changed
+
+- Ignore status update in `ArbitrumSequencerUptimeFeed` if incoming update has stale timestamp
 
 ## 0.4.0 - 2022-02-07
 
