@@ -35,12 +35,15 @@ import (
 // The registrations' methods are NOT thread-safe.
 type (
 	registrations struct {
+		// Map only used for invariant checking:
 		// registeredSubs is used to sanity check adding/removing the exact same subscriber twice
 		registeredSubs map[*subscriber]struct{}
+		// Map only used for invariant checking:
 		// jobIDAddr enforces that no two listeners can share the same jobID and contract address
 		// This is because log_broadcasts table can only be consumed once and
 		// assumes one listener per job per log event
 		jobIDAddrs map[int32]map[common.Address]struct{}
+
 		// handlersByConfs maps numConfirmations => *handler
 		handlersByConfs map[uint32]*handler
 		logger          logger.Logger
@@ -90,11 +93,13 @@ func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
 
 	r.logger.Tracef("Added subscription %p with job ID %v", sub, sub.listener.JobID())
 
-	if _, exists := r.handlersByConfs[sub.opts.MinIncomingConfirmations]; !exists {
-		r.handlersByConfs[sub.opts.MinIncomingConfirmations] = newHandler(r.logger, r.evmChainID)
+	handler, exists := r.handlersByConfs[sub.opts.MinIncomingConfirmations]
+	if !exists {
+		handler = newHandler(r.logger, r.evmChainID)
+		r.handlersByConfs[sub.opts.MinIncomingConfirmations] = handler
 	}
 
-	needsResubscribe = r.handlersByConfs[sub.opts.MinIncomingConfirmations].addSubscriber(sub)
+	needsResubscribe = handler.addSubscriber(sub, r.handlersWithGreaterConfs(sub.opts.MinIncomingConfirmations))
 
 	// increase the variable for highest number of confirmations among all subscribers,
 	// if the new subscriber has a higher value
@@ -104,8 +109,20 @@ func (r *registrations) addSubscriber(sub *subscriber) (needsResubscribe bool) {
 	return
 }
 
-// checkAddSubscriber makes sure we aren't violating any assumptions by adding
-// this subscriber
+// handlersWithGreaterConfs allows for an optimisation - in the case that we
+// are already listening on this topic for a handler with a GREATER
+// MinIncomingConfirmations, it is not necessary to subscribe again
+func (r *registrations) handlersWithGreaterConfs(confs uint32) (handlersWithGreaterConfs []*handler) {
+	for hConfs, handler := range r.handlersByConfs {
+		if hConfs > confs {
+			handlersWithGreaterConfs = append(handlersWithGreaterConfs, handler)
+		}
+	}
+	return
+}
+
+// checkAddSubscriber registers the subsciber and makes sure we aren't violating any assumptions
+// maps modified are only used for checks
 func (r *registrations) checkAddSubscriber(sub *subscriber) error {
 	if sub.opts.MinIncomingConfirmations <= 0 {
 		return errors.Errorf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined.", sub.opts.MinIncomingConfirmations)
@@ -138,7 +155,7 @@ func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool
 		return
 	}
 
-	needsResubscribe = handlers.removeSubscriber(sub)
+	needsResubscribe = handlers.removeSubscriber(sub, r.handlersByConfs)
 
 	if len(r.handlersByConfs[sub.opts.MinIncomingConfirmations].lookupSubs) == 0 {
 		delete(r.handlersByConfs, sub.opts.MinIncomingConfirmations)
@@ -148,7 +165,9 @@ func (r *registrations) removeSubscriber(sub *subscriber) (needsResubscribe bool
 	return
 }
 
-// checkRemoveSubscriber validates we aren't violating any assumptions by removing this subscriber
+// checkRemoveSubscriber deregisters the subscriber and validates we aren't
+// violating any assumptions
+// maps modified are only used for checks
 func (r *registrations) checkRemoveSubscriber(sub *subscriber) error {
 	jobID := sub.listener.JobID()
 	if _, exists := r.registeredSubs[sub]; !exists {
@@ -258,7 +277,7 @@ func newHandler(lggr logger.Logger, evmChainID big.Int) *handler {
 	}
 }
 
-func (r *handler) addSubscriber(sub *subscriber) (needsResubscribe bool) {
+func (r *handler) addSubscriber(sub *subscriber, handlersWithGreaterConfs []*handler) (needsResubscribe bool) {
 	addr := sub.opts.Contract
 
 	if sub.opts.MinIncomingConfirmations <= 0 {
@@ -271,16 +290,31 @@ func (r *handler) addSubscriber(sub *subscriber) (needsResubscribe bool) {
 
 	for topic, topicValueFilters := range sub.opts.LogsWithTopics {
 		if _, exists := r.lookupSubs[addr][topic]; !exists {
+			r.logger.Tracef("No existing sub for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 			r.lookupSubs[addr][topic] = make(subscribers)
-			needsResubscribe = true
-		}
 
+			if !needsResubscribe {
+				// NOTE: This is an optimization; if we already have a
+				// subscription to this addr/topic at a higher
+				// MinIncomingConfirmations then we don't need to resubscribe
+				// again since even the worst case lookback is already covered
+				for _, existingHandler := range handlersWithGreaterConfs {
+					if _, exists := existingHandler.lookupSubs[addr][topic]; exists {
+						r.logger.Tracef("Sub already exists for addr %s and topic %s at greater than this MinIncomingConfirmations of %v. Resubscribe is not required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+						goto TopicSubscribedAtGreaterConf
+					}
+				}
+				r.logger.Tracef("No sub exists for addr %s and topic %s at this or greater MinIncomingConfirmations of %v. Resubscribe is required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+				needsResubscribe = true
+			}
+		}
+	TopicSubscribedAtGreaterConf:
 		r.lookupSubs[addr][topic][sub] = topicValueFilters
 	}
 	return
 }
 
-func (r *handler) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
+func (r *handler) removeSubscriber(sub *subscriber, allHandlers map[uint32]*handler) (needsResubscribe bool) {
 	addr := sub.opts.Contract
 
 	for topic := range sub.opts.LogsWithTopics {
@@ -303,7 +337,26 @@ func (r *handler) removeSubscriber(sub *subscriber) (needsResubscribe bool) {
 
 		// cleanup and resubscribe
 		if len(topicMap) == 0 {
-			needsResubscribe = true
+			r.logger.Tracef("No subs left for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+
+			if !needsResubscribe {
+				// NOTE: This is an optimization. Resub not necessary if there
+				// are still any other handlers listening on this addr/topic.
+				for confs, otherHandler := range allHandlers {
+					if confs == sub.opts.MinIncomingConfirmations {
+						// no need to check ourself, already did this above
+						continue
+					}
+					if _, exists := otherHandler.lookupSubs[addr][topic]; exists {
+						r.logger.Tracef("Sub still exists for addr %s and topic %s. Resubscribe will not be performed", addr.Hex(), topic.Hex())
+						goto TopicStillSubscribedByOtherHandler
+					}
+				}
+
+				r.logger.Tracef("No sub exists for addr %s and topic %s. Resubscribe will be performed", addr.Hex(), topic.Hex())
+				needsResubscribe = true
+			}
+		TopicStillSubscribedByOtherHandler:
 			delete(r.lookupSubs[addr], topic)
 		}
 		if len(r.lookupSubs[addr]) == 0 {

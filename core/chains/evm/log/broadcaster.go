@@ -316,6 +316,7 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
+		// FIXME: What about r.highestNumConfirmations, should we incorporate that here?
 		if b.backfillBlockNumber.Valid {
 			b.logger.Debugw("Using an override as a start of the backfill",
 				"blockNumber", b.backfillBlockNumber.Int64,
