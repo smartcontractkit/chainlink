@@ -439,7 +439,8 @@ func (b *broadcaster) onNewLog(log types.Log) {
 	b.maybeWarnOnLargeBlockNumberDifference(int64(log.BlockNumber))
 
 	if log.Removed {
-		b.logPool.removeLog(log)
+		// Remove the whole block that contained this log.
+		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
 		return
@@ -638,7 +639,7 @@ func (b *broadcaster) Resume() {
 
 // test only
 func (b *broadcaster) LogsFromBlock(bh common.Hash) int {
-	return len(b.logPool.logsByBlockHash[bh])
+	return b.logPool.testOnly_getNumLogsForBlock(bh)
 }
 
 var _ BroadcasterInTest = &NullBroadcaster{}
