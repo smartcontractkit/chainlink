@@ -325,7 +325,6 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :offchainreporting_oracle_spec_id, :offchainreporting2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, NOW())
 		RETURNING *;`
-	o.lggr.Infof("%+v\n", job)
 	return q.GetNamed(query, job, job)
 }
 
