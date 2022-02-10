@@ -160,6 +160,10 @@ type GeneralOnlyConfig interface {
 	TelemetryIngressLogging() bool
 	TelemetryIngressServerPubKey() string
 	TelemetryIngressURL() *url.URL
+	TelemetryIngressBufferSize() uint
+	TelemetryIngressMaxBatchSize() uint
+	TelemetryIngressSendInterval() time.Duration
+	TelemetryIngressUseBatchSend() bool
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
@@ -855,6 +859,26 @@ func (c *generalConfig) TelemetryIngressURL() *url.URL {
 // TelemetryIngressServerPubKey returns the public key to authenticate the telemetry ingress server
 func (c *generalConfig) TelemetryIngressServerPubKey() string {
 	return c.viper.GetString(envvar.Name("TelemetryIngressServerPubKey"))
+}
+
+// TelemetryIngressBufferSize is the number of telemetry messages to buffer before dropping new ones
+func (c *generalConfig) TelemetryIngressBufferSize() uint {
+	return c.viper.GetUint(envvar.Name("TelemetryIngressBufferSize"))
+}
+
+// TelemetryIngressMaxBatchSize is the maximum number of messages to batch into one telemetry request
+func (c *generalConfig) TelemetryIngressMaxBatchSize() uint {
+	return c.viper.GetUint(envvar.Name("TelemetryIngressMaxBatchSize"))
+}
+
+// TelemetryIngressSendInterval is the cadence on which batched telemetry is sent to the ingress server
+func (c *generalConfig) TelemetryIngressSendInterval() time.Duration {
+	return c.getDuration("TelemetryIngressSendInterval")
+}
+
+// TelemetryIngressUseBatchSend toggles sending telemetry using the batch client to the ingress server
+func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
+	return c.viper.GetBool(envvar.Name("TelemetryIngressUseBatchSend"))
 }
 
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
