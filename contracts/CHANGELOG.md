@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+...
+
+## 0.4.0 - 2022-02-07
+
 ### Added
 
 - `ArbitrumSequencerUptimeFeedInterface` and `ArbitrumSequencerUptimeFeed` added in v0.8.
@@ -10,6 +14,7 @@
 
 - Changed `ArbitrumValidator#validate` target to `ArbitrumSequencerUptimeFeed` instead of
   Flags contract.
+- Moved `VRFConsumerBaseV2` out of dev
 
 ## 0.3.1 - 2022-01-05
 
