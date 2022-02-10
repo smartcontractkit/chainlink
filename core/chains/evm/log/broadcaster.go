@@ -301,6 +301,8 @@ func (b *broadcaster) startResubscribeLoop() {
 	if backfillStart, abort := b.reinitialize(); abort {
 		return
 	} else if backfillStart != nil {
+		// No need to worry about r.highestNumConfirmations here because it's
+		// already at minimum this deep due to the latest seen head check above
 		if !b.backfillBlockNumber.Valid || *backfillStart < b.backfillBlockNumber.Int64 {
 			b.backfillBlockNumber.SetValid(*backfillStart)
 		}
@@ -316,7 +318,6 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		// FIXME: What about r.highestNumConfirmations, should we incorporate that here?
 		if b.backfillBlockNumber.Valid {
 			b.logger.Debugw("Using an override as a start of the backfill",
 				"blockNumber", b.backfillBlockNumber.Int64,
@@ -407,6 +408,9 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			needsResubscribe = b.onChangeSubscriberStatus() || needsResubscribe
 
 		case blockNumber := <-b.replayChannel:
+			// NOTE: This ignores r.highestNumConfirmations, but it is
+			// generally assumed that this will only be performed rarely and
+			// manually by someone who knows what he is doing
 			b.backfillBlockNumber.SetValid(blockNumber)
 			b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
 			return true, nil
