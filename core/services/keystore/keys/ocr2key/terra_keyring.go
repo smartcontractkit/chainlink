@@ -57,7 +57,14 @@ func (ok *terraKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.R
 	return utils.ConcatBytes(ok.PublicKey(), signedMsg), nil
 }
 
+// Note signature is prefixed with the public key.
 func (ok *terraKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+	if len(signature) != ok.MaxSignatureLength() {
+		return false
+	}
+	if len(publicKey) != ed25519.PublicKeySize {
+		return false
+	}
 	hash, err := ok.reportToSigData(reportCtx, report)
 	if err != nil {
 		return false
