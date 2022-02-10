@@ -77,7 +77,7 @@ func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 	broadcasted, err := txm.orm.SelectMsgsWithState(db.Broadcasted)
 	if err != nil {
 		// Should never happen but if so, theoretically can retry with a reboot
-		txm.lggr.CriticalW("unable to look for broadcasted but unconfirmed txes", "err", err)
+		txm.lggr.Criticalw("unable to look for broadcasted but unconfirmed txes", "err", err)
 		return
 	}
 	if len(broadcasted) == 0 {
@@ -85,7 +85,7 @@ func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 	}
 	tc, err := txm.tc()
 	if err != nil {
-		txm.lggr.CriticalW("unable to get client for handling broadcasted but unconfirmed txes", "count", len(broadcasted), "err", err)
+		txm.lggr.Criticalw("unable to get client for handling broadcasted but unconfirmed txes", "count", len(broadcasted), "err", err)
 		return
 	}
 	msgsByTxHash := make(map[string]terra.Msgs)
@@ -143,7 +143,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 		err := ms.Unmarshal(m.Raw)
 		if err != nil {
 			// Should be impossible given the check in Enqueue
-			txm.lggr.CriticalW("failed to unmarshal msg, skipping", "err", err, "msg", m)
+			txm.lggr.Criticalw("failed to unmarshal msg, skipping", "err", err, "msg", m)
 			continue
 		}
 		m.ExecuteContract = &ms
@@ -161,7 +161,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	gasPrice, ok := prices["uluna"]
 	if !ok {
 		// Should be impossible
-		txm.lggr.CriticalW("unexpected empty uluna price")
+		txm.lggr.Criticalw("unexpected empty uluna price")
 		return
 	}
 	for s, msgs := range msgsByFrom {
@@ -183,7 +183,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs terra.Msgs) {
 	tc, err := txm.tc()
 	if err != nil {
-		txm.lggr.CriticalW("unable to get client", "err", err)
+		txm.lggr.Criticalw("unable to get client", "err", err)
 		return
 	}
 	an, sn, err := tc.Account(sender)
@@ -264,7 +264,7 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 		}
 		if resp.TxResponse.TxHash != txHash {
 			// Should never happen
-			txm.lggr.CriticalW("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
+			txm.lggr.Criticalw("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
 		}
 		return nil
 	})
