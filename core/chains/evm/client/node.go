@@ -516,11 +516,19 @@ func (n *node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 }
 
 func (n *node) wrapWS(err error) error {
-	return wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.String()))
+	err = wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.String()))
+	if err != nil {
+		n.log.Debug("Call failed", "err", err)
+	}
+	return err
 }
 
 func (n *node) wrapHTTP(err error) error {
-	return wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.String()))
+	err = wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.String()))
+	if err != nil {
+		n.log.Debug("Call failed", "err", err)
+	}
+	return err
 }
 
 func wrap(err error, tp string) error {

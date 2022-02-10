@@ -454,6 +454,10 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		// sent this exact same transaction even if this is our first time
 		// calling SendTransaction().
 		//
+		// SCENARIO 4 (most likely)
+		//
+		// A sendonly node got the transaction in first.
+		//
 		// In all scenarios, the correct thing to do is assume success for now
 		// and hand off to the eth confirmer to get the receipt (or mark as
 		// failed).
