@@ -79,7 +79,7 @@ type (
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
-		logPool       iLogPool
+		logPool       *logPool
 
 		addSubscriber *utils.Mailbox
 		rmSubscriber  *utils.Mailbox

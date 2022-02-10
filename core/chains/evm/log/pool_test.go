@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
@@ -54,34 +56,34 @@ func TestUnit_AddLog(t *testing.T) {
 		BlockNumber: 1,
 	}
 	// 1st log added should be the minimum
-	require.True(t, p.addLog(l1), "AddLog should have returned true for first log added")
+	assert.True(t, p.addLog(l1), "AddLog should have returned true for first log added")
 	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(blockHash))
 
 	// Reattempting to add same log should work, but shouldn't be the minimum
-	require.False(t, p.addLog(l1), "AddLog should have returned false for a 2nd reattempt")
+	assert.False(t, p.addLog(l1), "AddLog should have returned false for a 2nd reattempt")
 	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(blockHash))
 
 	// 2nd log with same loghash should add a new log, which shouldn't be minimum
 	l2 := l1
 	l2.Index = 43
-	require.False(t, p.addLog(l2), "AddLog should have returned false for same log added")
+	assert.False(t, p.addLog(l2), "AddLog should have returned false for same log added")
 	require.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
 
 	// New log with different larger BlockNumber/loghash should add a new log, not as minimum
 	l3 := l1
 	l3.BlockNumber = 3
 	l3.BlockHash = common.BigToHash(big.NewInt(3))
-	require.False(t, p.addLog(l3), "AddLog should have returned false for same log added")
-	require.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
+	assert.False(t, p.addLog(l3), "AddLog should have returned false for same log added")
+	assert.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
 	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
 
 	// New log with different smaller BlockNumber/loghash should add a new log, as minimum
 	l4 := l1
 	l4.BlockNumber = 0 // New minimum block number
 	l4.BlockHash = common.BigToHash(big.NewInt(0))
-	require.True(t, p.addLog(l4), "AddLog should have returned true for smallest BlockNumber")
-	require.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
-	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
+	assert.True(t, p.addLog(l4), "AddLog should have returned true for smallest BlockNumber")
+	assert.Equal(t, 2, p.testOnly_getNumLogsForBlock(blockHash))
+	assert.Equal(t, 1, p.testOnly_getNumLogsForBlock(l3.BlockHash))
 	require.Equal(t, 1, p.testOnly_getNumLogsForBlock(l4.BlockHash))
 }
 
@@ -96,35 +98,35 @@ func TestUnit_GetAndDeleteAll(t *testing.T) {
 
 	logsOnBlock, lowest, highest := p.getAndDeleteAll()
 
-	require.Equal(t, int64(1), lowest)
-	require.Equal(t, int64(3), highest)
-	require.Len(t, logsOnBlock, 3)
+	assert.Equal(t, int64(1), lowest)
+	assert.Equal(t, int64(3), highest)
+	assert.Len(t, logsOnBlock, 3)
 	for _, logs := range logsOnBlock {
 		switch logs.BlockNumber {
 		case 1:
 			l1s := [1]types.Log{L1}
-			require.ElementsMatch(t, l1s, logs.Logs)
+			assert.ElementsMatch(t, l1s, logs.Logs)
 		case 2:
 			l2s := [2]types.Log{L21, L22}
-			require.ElementsMatch(t, l2s, logs.Logs)
+			assert.ElementsMatch(t, l2s, logs.Logs)
 		case 3:
 			l3s := [1]types.Log{L3}
-			require.ElementsMatch(t, l3s, logs.Logs)
+			assert.ElementsMatch(t, l3s, logs.Logs)
 		default:
 			t.Errorf("Received unexpected BlockNumber in results: %d", logs.BlockNumber)
 		}
 	}
-	require.Equal(t, 0, p.testOnly_getNumLogsForBlock(L1.BlockHash))
-	require.Equal(t, 0, p.testOnly_getNumLogsForBlock(L21.BlockHash))
-	require.Equal(t, 0, p.testOnly_getNumLogsForBlock(L3.BlockHash))
+	assert.Equal(t, 0, p.testOnly_getNumLogsForBlock(L1.BlockHash))
+	assert.Equal(t, 0, p.testOnly_getNumLogsForBlock(L21.BlockHash))
+	assert.Equal(t, 0, p.testOnly_getNumLogsForBlock(L3.BlockHash))
 }
 
 func TestUnit_GetLogsToSendWhenEmptyPool(t *testing.T) {
 	t.Parallel()
 	var p iLogPool = newLogPool()
 	logsOnBlocks, minBlockNumToSend := p.getLogsToSend(1)
-	require.Equal(t, int64(0), minBlockNumToSend)
-	require.ElementsMatch(t, []logsOnBlock{}, logsOnBlocks)
+	assert.Equal(t, int64(0), minBlockNumToSend)
+	assert.ElementsMatch(t, []logsOnBlock{}, logsOnBlocks)
 }
 
 func TestUnit_GetLogsToSend(t *testing.T) {
@@ -196,8 +198,8 @@ func TestUnit_GetLogsToSend(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			logsOnBlocks, minBlockNumToSend := p.getLogsToSend(test.latestBlockNumber)
-			require.Equal(t, test.expectedMinBlockNumToSend, minBlockNumToSend)
-			require.ElementsMatch(t, test.expectedLogs, logsOnBlocks)
+			assert.Equal(t, test.expectedMinBlockNumToSend, minBlockNumToSend)
+			assert.ElementsMatch(t, test.expectedLogs, logsOnBlocks)
 		})
 	}
 }
@@ -275,9 +277,9 @@ func TestUnit_DeleteOlderLogs(t *testing.T) {
 
 			oldestKeptBlock := p.deleteOlderLogs(test.keptDepth)
 
-			require.Equal(t, test.expectedOldestBlock, oldestKeptBlock)
+			assert.Equal(t, test.expectedOldestBlock, oldestKeptBlock)
 			keptLogs, _ := p.getLogsToSend(4)
-			require.ElementsMatch(t, test.expectedKeptLogs, keptLogs)
+			assert.ElementsMatch(t, test.expectedKeptLogs, keptLogs)
 		})
 	}
 }
@@ -333,10 +335,10 @@ func TestUnit_RemoveBlock(t *testing.T) {
 
 			p.removeBlock(test.blockHash, test.blockNumber)
 
-			require.Equal(t, 0, p.testOnly_getNumLogsForBlock(test.blockHash))
+			assert.Equal(t, 0, p.testOnly_getNumLogsForBlock(test.blockHash))
 			p.deleteOlderLogs(int64(test.blockNumber)) // Pruning logs for easier testing next line
 			logsOnBlock, _ := p.getLogsToSend(int64(test.blockNumber))
-			require.ElementsMatch(t, test.expectedRemainingLogs, logsOnBlock)
+			assert.ElementsMatch(t, test.expectedRemainingLogs, logsOnBlock)
 		})
 	}
 }
