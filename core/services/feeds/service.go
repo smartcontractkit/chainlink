@@ -29,6 +29,7 @@ import (
 var (
 	ErrOCRDisabled        = errors.New("ocr is disabled")
 	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
+	ErrBootstrapXorJobs   = errors.New("feeds manager cannot be bootstrap while having assigned job types")
 
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
@@ -127,6 +128,10 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 		return 0, ErrSingleFeedsManager
 	}
 
+	if mgr.IsOCRBootstrapPeer && len(mgr.JobTypes) > 0 {
+		return 0, ErrBootstrapXorJobs
+	}
+
 	id, err := s.orm.CreateManager(mgr)
 	if err != nil {
 		return 0, err
@@ -218,6 +223,10 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+	if mgr.IsOCRBootstrapPeer && len(mgr.JobTypes) > 0 {
+		return ErrBootstrapXorJobs
+	}
+
 	err := s.orm.UpdateManager(mgr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")
