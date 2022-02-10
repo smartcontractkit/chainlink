@@ -118,7 +118,7 @@ func (r *FeedsManagerResolver) IsConnectionActive() bool {
 	return r.mgr.IsConnectionActive
 }
 
-// BootstrapPeer resolves the feed managers's isConnectionActive field.
+// BootstrapPeerMultiaddr resolves the feed managers's isConnectionActive field.
 func (r *FeedsManagerResolver) BootstrapPeerMultiaddr() *string {
 	return r.mgr.OCRBootstrapPeerMultiaddr.Ptr()
 }
@@ -204,6 +204,7 @@ func (r *CreateFeedsManagerPayloadResolver) ToSingleFeedsManagerError() (*Single
 	return nil, false
 }
 
+// ToBootstrapXorJobsError
 func (r *CreateFeedsManagerPayloadResolver) ToBootstrapXorJobsError() (*BootstrapXorJobsErrorResolver, bool) {
 	if r.err != nil && errors.Is(r.err, feeds.ErrBootstrapXorJobs) {
 		return NewBootstrapXorJobsError(r.err.Error()), true
@@ -240,6 +241,7 @@ func (r *CreateFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver
 	return NewFeedsManager(r.mgr)
 }
 
+// SingleFeedsManagerErrorResolver
 type SingleFeedsManagerErrorResolver struct {
 	message string
 }
@@ -258,20 +260,24 @@ func (r *SingleFeedsManagerErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
 }
 
+// BootstrapXorJobsErrorResolver
 type BootstrapXorJobsErrorResolver struct {
 	message string
 }
 
+// NewBootstrapXorJobsError
 func NewBootstrapXorJobsError(message string) *BootstrapXorJobsErrorResolver {
 	return &BootstrapXorJobsErrorResolver{
 		message: message,
 	}
 }
 
+// Message
 func (r *BootstrapXorJobsErrorResolver) Message() string {
 	return r.message
 }
 
+// Code
 func (r *BootstrapXorJobsErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
 }
@@ -303,6 +309,7 @@ func (r *UpdateFeedsManagerPayloadResolver) ToUpdateFeedsManagerSuccess() (*Upda
 	return nil, false
 }
 
+// ToBootstrapXorJobsError
 func (r *UpdateFeedsManagerPayloadResolver) ToBootstrapXorJobsError() (*BootstrapXorJobsErrorResolver, bool) {
 	if r.err != nil && errors.Is(r.err, feeds.ErrBootstrapXorJobs) {
 		return NewBootstrapXorJobsError(r.err.Error()), true
