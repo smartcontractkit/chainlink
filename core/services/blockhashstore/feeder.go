@@ -25,7 +25,7 @@ type Coordinator interface {
 	// Requests fetches VRF requests that occurred within the specified blocks.
 	Requests(ctx context.Context, fromBlock uint64, toBlock uint64) ([]Event, error)
 
-	// Fulfillments fetches VRF fulfillments that occured since the specified block.
+	// Fulfillments fetches VRF fulfillments that occurred since the specified block.
 	Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error)
 }
 

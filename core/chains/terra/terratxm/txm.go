@@ -223,8 +223,9 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 		// Assume transient api issue and retry.
 		return
 	}
+	timeoutHeight := uint64(lb.Block.Header.Height) + uint64(txm.cfg.BlocksUntilTxTimeout())
 	signedTx, err := tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
-		gasPrice, NewKeyWrapper(key), uint64(lb.Block.Header.Height)+uint64(txm.cfg.BlocksUntilTxTimeout()))
+		gasPrice, NewKeyWrapper(key), timeoutHeight)
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
 		return
@@ -241,7 +242,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 			return err
 		}
 
-		txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.Succeeded)
+		txm.lggr.Infow("broadcasting tx", "from", sender, "msgs", simResults.Succeeded, "gasLimit", gasLimit, "gasPrice", gasPrice.String(), "timeoutHeight", timeoutHeight, "hash", txHash)
 		resp, err = tc.Broadcast(signedTx, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 		if err != nil {
 			// Rollback marking as broadcasted
@@ -319,6 +320,7 @@ func (txm *Txm) confirmTx(tc terraclient.Reader, txHash string, broadcasted []in
 		}
 		return nil
 	}
+	txm.lggr.Errorw("unable to confirm tx after timeout period, marking errored", "hash", txHash)
 	// If we are unable to confirm the tx after the timeout period
 	// mark these msgs as errored
 	err := txm.orm.UpdateMsgsWithState(broadcasted, db.Errored, nil)

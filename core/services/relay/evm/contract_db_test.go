@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
@@ -28,7 +29,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/round_requested_log_1_1.json")
 
 	rr := ocr2aggregator.OCR2AggregatorRoundRequested{
-		Requester:    cltest.NewAddress(),
+		Requester:    testutils.NewAddress(),
 		ConfigDigest: testhelpers.MakeConfigDigest(t),
 		Epoch:        42,
 		Round:        9,
@@ -45,7 +46,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 
 		// Now overwrite to prove that updating works
 		rr = ocr2aggregator.OCR2AggregatorRoundRequested{
-			Requester:    cltest.NewAddress(),
+			Requester:    testutils.NewAddress(),
 			ConfigDigest: testhelpers.MakeConfigDigest(t),
 			Epoch:        43,
 			Round:        8,
