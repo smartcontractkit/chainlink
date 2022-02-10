@@ -1,6 +1,7 @@
 package terratxm
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -94,7 +95,7 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
-		txm.sendMsgBatch()
+		txm.sendMsgBatch(testContext(t))
 
 		// Should be in completed state
 		completed, err := txm.orm.SelectMsgsWithIDs([]int64{id1})
@@ -156,7 +157,7 @@ func TestTxm(t *testing.T) {
 				TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 			}, nil).Once()
 		}
-		txm.sendMsgBatch()
+		txm.sendMsgBatch(testContext(t))
 
 		// Should be in completed state
 		completed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
@@ -180,7 +181,7 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		txh := "0x123"
 		require.NoError(t, txm.orm.UpdateMsgsWithState([]int64{i}, Broadcasted, &txh))
-		err = txm.confirmTx(tc, txh, []int64{i}, 2, 1*time.Millisecond)
+		err = txm.confirmTx(testContext(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
 		m, err := txm.orm.SelectMsgsWithIDs([]int64{i})
 		require.NoError(t, err)
@@ -213,7 +214,7 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 
 		// Confirm them as in a restart while confirming scenario
-		txm.confirmAnyUnconfirmed()
+		txm.confirmAnyUnconfirmed(testContext(t))
 		require.NoError(t, err)
 		confirmed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
 		require.NoError(t, err)
@@ -222,4 +223,14 @@ func TestTxm(t *testing.T) {
 		assert.Equal(t, Confirmed, confirmed[1].State)
 		tc.AssertExpectations(t)
 	})
+}
+
+func testContext(t *testing.T) (ctx context.Context) {
+	ctx = context.Background()
+	if d, ok := t.Deadline(); ok {
+		var cancel func()
+		ctx, cancel = context.WithDeadline(ctx, d)
+		t.Cleanup(cancel)
+	}
+	return ctx
 }
