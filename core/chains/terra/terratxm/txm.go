@@ -1,6 +1,7 @@
 package terratxm
 
 import (
+	"context"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -70,7 +71,7 @@ func (txm *Txm) Start() error {
 	})
 }
 
-func (txm *Txm) confirmAnyUnconfirmed() {
+func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 	// Confirm any broadcasted but not confirmed txes.
 	// This is an edge case if we crash after having broadcasted but before we confirm.
 	broadcasted, err := txm.orm.SelectMsgsWithState(db.Broadcasted)
@@ -93,24 +94,29 @@ func (txm *Txm) confirmAnyUnconfirmed() {
 	}
 	for txHash, msgs := range msgsByTxHash {
 		maxPolls, pollPeriod := txm.confirmPollConfig()
-		err := txm.confirmTx(tc, txHash, msgs.GetIDs(), maxPolls, pollPeriod)
+		err := txm.confirmTx(ctx, tc, txHash, msgs.GetIDs(), maxPolls, pollPeriod)
 		if err != nil {
 			txm.lggr.Errorw("unable to confirm broadcasted but unconfirmed txes", "err", err, "txhash", txHash)
+			if ctx.Err() != nil {
+				return
+			}
 		}
 	}
 }
 
 func (txm *Txm) run() {
 	defer close(txm.done)
-	txm.confirmAnyUnconfirmed()
+	ctx, cancel := utils.ContextFromChan(txm.stop)
+	defer cancel()
+	txm.confirmAnyUnconfirmed(ctx)
 	// Jitter in case we have multiple terra chains each with their own client.
 	tick := time.After(utils.WithJitter(txm.cfg.BlockRate()))
 	for {
 		select {
 		case <-txm.sub.Events():
-			txm.sendMsgBatch()
+			txm.sendMsgBatch(ctx)
 		case <-tick:
-			txm.sendMsgBatch()
+			txm.sendMsgBatch(ctx)
 			tick = time.After(utils.WithJitter(txm.cfg.BlockRate()))
 		case <-txm.stop:
 			return
@@ -118,7 +124,7 @@ func (txm *Txm) run() {
 	}
 }
 
-func (txm *Txm) sendMsgBatch() {
+func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	unstarted, err := txm.orm.SelectMsgsWithState(db.Unstarted)
 	if err != nil {
 		txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
@@ -167,11 +173,14 @@ func (txm *Txm) sendMsgBatch() {
 			// after it was added for this to happen. Retry on next poll should the key be re-added.
 			continue
 		}
-		txm.sendMsgBatchFromAddress(gasPrice, sender, key, msgs)
+		txm.sendMsgBatchFromAddress(ctx, gasPrice, sender, key, msgs)
+		if ctx.Err() != nil {
+			return
+		}
 	}
 }
 
-func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs terra.Msgs) {
+func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoin, sender sdk.AccAddress, key terrakey.Key, msgs terra.Msgs) {
 	tc, err := txm.tc()
 	if err != nil {
 		txm.lggr.CriticalW("unable to get client", "err", err)
@@ -266,7 +275,7 @@ func (txm *Txm) sendMsgBatchFromAddress(gasPrice sdk.DecCoin, sender sdk.AccAddr
 	}
 
 	maxPolls, pollPeriod := txm.confirmPollConfig()
-	if err := txm.confirmTx(tc, resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs(), maxPolls, pollPeriod); err != nil {
+	if err := txm.confirmTx(ctx, tc, resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs(), maxPolls, pollPeriod); err != nil {
 		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
 		return
 	}
@@ -285,7 +294,7 @@ func (txm *Txm) confirmPollConfig() (maxPolls int, pollPeriod time.Duration) {
 	return
 }
 
-func (txm *Txm) confirmTx(tc terraclient.Reader, txHash string, broadcasted []int64, maxPolls int, pollPeriod time.Duration) error {
+func (txm *Txm) confirmTx(ctx context.Context, tc terraclient.Reader, txHash string, broadcasted []int64, maxPolls int, pollPeriod time.Duration) error {
 	// We either mark these broadcasted txes as confirmed or errored.
 	// Confirmed: we see the txhash onchain. There are no reorgs in cosmos chains.
 	// Errored: we do not see the txhash onchain after waiting for N blocks worth
@@ -294,7 +303,11 @@ func (txm *Txm) confirmTx(tc terraclient.Reader, txHash string, broadcasted []in
 	// and the tx is not confirmed, we know it has timed out.
 	for tries := 0; tries < maxPolls; tries++ {
 		// Jitter in-case we're confirming multiple txes in parallel for different keys
-		time.Sleep(utils.WithJitter(pollPeriod))
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(utils.WithJitter(pollPeriod)):
+		}
 		// Confirm that this tx is onchain, ensuring the sequence number has incremented
 		// so we can build a new batch
 		tx, err := tc.Tx(txHash)
@@ -356,7 +369,7 @@ func (txm *Txm) Enqueue(contractID string, msg []byte) (int64, error) {
 // Close close service
 func (txm *Txm) Close() error {
 	txm.sub.Close()
-	txm.stop <- struct{}{}
+	close(txm.stop)
 	<-txm.done
 	return nil
 }
