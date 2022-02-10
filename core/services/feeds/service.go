@@ -223,6 +223,10 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+	if mgr.IsOCRBootstrapPeer && len(mgr.JobTypes) > 0 {
+		return ErrBootstrapXorJobs
+	}
+
 	err := s.orm.UpdateManager(mgr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")

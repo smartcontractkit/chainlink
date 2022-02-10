@@ -225,7 +225,12 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
-	err := svc.UpdateManager(context.Background(), mgr)
+	mgrInvalid := feeds.FeedsManager{IsOCRBootstrapPeer: true, JobTypes: pq.StringArray{feeds.JobTypeFluxMonitor}}
+	err := svc.UpdateManager(context.Background(), mgrInvalid)
+	require.Error(t, err)
+	require.ErrorIs(t, err, feeds.ErrBootstrapXorJobs)
+
+	err = svc.UpdateManager(context.Background(), mgr)
 	require.NoError(t, err)
 }
 

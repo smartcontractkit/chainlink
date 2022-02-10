@@ -204,6 +204,14 @@ func (r *CreateFeedsManagerPayloadResolver) ToSingleFeedsManagerError() (*Single
 	return nil, false
 }
 
+func (r *CreateFeedsManagerPayloadResolver) ToBootstrapXorJobsError() (*BootstrapXorJobsErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, feeds.ErrBootstrapXorJobs) {
+		return NewBootstrapXorJobsError(r.err.Error()), true
+	}
+
+	return nil, false
+}
+
 func (r *CreateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
 		var errs []*InputErrorResolver
@@ -250,6 +258,24 @@ func (r *SingleFeedsManagerErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
 }
 
+type BootstrapXorJobsErrorResolver struct {
+	message string
+}
+
+func NewBootstrapXorJobsError(message string) *BootstrapXorJobsErrorResolver {
+	return &BootstrapXorJobsErrorResolver{
+		message: message,
+	}
+}
+
+func (r *BootstrapXorJobsErrorResolver) Message() string {
+	return r.message
+}
+
+func (r *BootstrapXorJobsErrorResolver) Code() ErrorCode {
+	return ErrorCodeUnprocessable
+}
+
 // -- UpdateFeedsManager Mutation --
 
 // UpdateFeedsManagerPayloadResolver
@@ -272,6 +298,14 @@ func NewUpdateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs 
 func (r *UpdateFeedsManagerPayloadResolver) ToUpdateFeedsManagerSuccess() (*UpdateFeedsManagerSuccessResolver, bool) {
 	if r.mgr != nil {
 		return NewUpdateFeedsManagerSuccessResolver(*r.mgr), true
+	}
+
+	return nil, false
+}
+
+func (r *UpdateFeedsManagerPayloadResolver) ToBootstrapXorJobsError() (*BootstrapXorJobsErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, feeds.ErrBootstrapXorJobs) {
+		return NewBootstrapXorJobsError(r.err.Error()), true
 	}
 
 	return nil, false
