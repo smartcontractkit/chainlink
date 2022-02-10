@@ -1,6 +1,21 @@
 # This is reusable workflow that is helpful if you wish to check integration against chainlink repo from another repo with custom deps
 name: Custom image build
 on:
+  workflow_dispatch:
+    inputs:
+      cl_ref:
+        description: chainlink commit or branch
+        required: true
+        default: develop
+        type: string
+      dep_solana_sha:
+        description: chainlink-solana commit or branch
+        required: false
+        type: string
+      dep_terra_sha:
+        description: chainlink-terra commit or branch
+        required: false
+        type: string
   workflow_call:
     inputs:
       cl_repo:
@@ -8,8 +23,8 @@ on:
         default: ${{ github.repository }}
         type: string
       cl_ref:
-        required: true
-        default: develop.latest
+        required: false
+        default: develop
         type: string
       dep_solana_sha:
         required: false
@@ -37,7 +52,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: ${{ inputs.cl_repo }}
-          ref: ${{ inputs.cl_ref }}
+          ref: ${{ github.event.inputs.cl_ref }}
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.2'
@@ -74,5 +89,5 @@ jobs:
           context: .
           file: core/chainlink.Dockerfile
           build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-          tags: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:custom.${{ github.sha}}
+          tags: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:custom.${{ github.sha }}
           push: true
