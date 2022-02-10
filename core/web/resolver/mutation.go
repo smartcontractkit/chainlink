@@ -177,10 +177,9 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 
 	id, err := feedsService.RegisterManager(mgr)
 	if err != nil {
-		if errors.Is(err, feeds.ErrSingleFeedsManager) {
+		if errors.Is(err, feeds.ErrSingleFeedsManager) || errors.Is(err, feeds.ErrBootstrapXorJobs) {
 			return NewCreateFeedsManagerPayload(nil, err, nil), nil
 		}
-
 		return nil, err
 	}
 
@@ -307,6 +306,9 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 
 	err = feedsService.UpdateManager(ctx, *mgr)
 	if err != nil {
+		if errors.Is(err, feeds.ErrBootstrapXorJobs) {
+			return NewUpdateFeedsManagerPayload(nil, err, nil), nil
+		}
 		return nil, err
 	}
 
