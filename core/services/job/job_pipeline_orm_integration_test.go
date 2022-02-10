@@ -18,10 +18,7 @@ import (
 )
 
 func clearJobsDb(t *testing.T, db *sqlx.DB) {
-	t.Helper()
-	// Ordering matters here to avoid deadlocks
-	_, err := db.Exec(`TRUNCATE flux_monitor_round_stats_v2, jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`)
-	require.NoError(t, err)
+	cltest.ClearDBTables(t, db, "flux_monitor_round_stats_v2", "jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs")
 }
 
 func TestPipelineORM_Integration(t *testing.T) {

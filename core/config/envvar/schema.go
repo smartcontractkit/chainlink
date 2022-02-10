@@ -36,6 +36,10 @@ type ConfigSchema struct {
 	TelemetryIngressLogging      bool            `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
 	TelemetryIngressServerPubKey string          `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
 	TelemetryIngressURL          *url.URL        `env:"TELEMETRY_INGRESS_URL"`
+	TelemetryIngressBufferSize   uint            `env:"TELEMETRY_INGRESS_BUFFER_SIZE" default:"100"`
+	TelemetryIngressMaxBatchSize uint            `env:"TELEMETRY_INGRESS_MAX_BATCH_SIZE" default:"50"`
+	TelemetryIngressSendInterval time.Duration   `env:"TELEMETRY_INGRESS_SEND_INTERVAL" default:"500ms"`
+	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
 	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
 	// Database

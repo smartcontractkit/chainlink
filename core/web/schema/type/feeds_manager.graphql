@@ -44,9 +44,15 @@ type SingleFeedsManagerError implements Error {
 	code: ErrorCode!
 }
 
+type BootstrapXorJobsError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
 # CreateFeedsManagerPayload defines the response when creating a feeds manager
 union CreateFeedsManagerPayload = CreateFeedsManagerSuccess
 	| SingleFeedsManagerError
+	| BootstrapXorJobsError
 	| NotFoundError
 	| InputErrors
 
@@ -68,4 +74,5 @@ type UpdateFeedsManagerSuccess {
 # UpdateFeedsManagerPayload defines the response when updating a feeds manager
 union UpdateFeedsManagerPayload = UpdateFeedsManagerSuccess
 	| NotFoundError
+	| BootstrapXorJobsError
 	| InputErrors

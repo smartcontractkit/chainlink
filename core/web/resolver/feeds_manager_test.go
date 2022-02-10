@@ -229,6 +229,10 @@ func Test_CreateFeedsManager(t *testing.T) {
 						message
 						code
 					}
+					... on BootstrapXorJobsError {
+						message
+						code
+					}
 					... on NotFoundError {
 						message
 						code
@@ -321,6 +325,25 @@ func Test_CreateFeedsManager(t *testing.T) {
 			}`,
 		},
 		{
+			name:          "bootstrap or job types error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.
+					On("RegisterManager", mock.IsType(&feeds.FeedsManager{})).
+					Return(int64(0), feeds.ErrBootstrapXorJobs)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"createFeedsManager": {
+					"message": "feeds manager cannot be bootstrap while having assigned job types",
+					"code": "UNPROCESSABLE"
+				}
+			}`,
+		},
+		{
 			name:          "not found",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
@@ -389,6 +412,10 @@ func Test_UpdateFeedsManager(t *testing.T) {
 							bootstrapPeerMultiaddr
 							createdAt
 						}
+					}
+					... on BootstrapXorJobsError {
+						message
+						code
 					}
 					... on NotFoundError {
 						message
@@ -479,6 +506,23 @@ func Test_UpdateFeedsManager(t *testing.T) {
 				"updateFeedsManager": {
 					"message": "feeds manager not found",
 					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+		{
+			name:          "bootstrap or job types error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(feeds.ErrBootstrapXorJobs)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"updateFeedsManager": {
+					"message": "feeds manager cannot be bootstrap while having assigned job types",
+					"code": "UNPROCESSABLE"
 				}
 			}`,
 		},

@@ -19,6 +19,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 )
@@ -36,7 +37,7 @@ func TestFactory(t *testing.T) {
 	t.Run("vrf v1 checker", func(t *testing.T) {
 		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
 			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV1,
-			VRFCoordinatorAddress: cltest.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddress(),
 		})
 		require.NoError(t, err)
 		require.IsType(t, &bulletprooftxmanager.VRFV1Checker{}, c)
@@ -45,7 +46,7 @@ func TestFactory(t *testing.T) {
 	t.Run("vrf v2 checker", func(t *testing.T) {
 		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
 			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
-			VRFCoordinatorAddress: cltest.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddress(),
 		})
 		require.NoError(t, err)
 		require.IsType(t, &bulletprooftxmanager.VRFV2Checker{}, c)

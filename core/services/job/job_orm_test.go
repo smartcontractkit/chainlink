@@ -475,7 +475,7 @@ func Test_FindJob(t *testing.T) {
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+	job, err := offchainreporting.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
@@ -485,17 +485,17 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	err = orm.CreateJob(&jb)
+	err = orm.CreateJob(&job)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		jb, err = orm.FindJob(ctx, jb.ID)
+		jb, err := orm.FindJob(ctx, job.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, jb.ID, jb.ID)
-		assert.Equal(t, jb.Name, jb.Name)
+		assert.Equal(t, jb.ID, job.ID)
+		assert.Equal(t, jb.Name, job.Name)
 
 		require.Greater(t, jb.PipelineSpecID, int32(0))
 		require.NotNil(t, jb.PipelineSpec)
@@ -507,13 +507,24 @@ func Test_FindJob(t *testing.T) {
 		jb, err := orm.FindJobByExternalJobID(externalJobID)
 		require.NoError(t, err)
 
-		assert.Equal(t, jb.ID, jb.ID)
-		assert.Equal(t, jb.Name, jb.Name)
+		assert.Equal(t, jb.ID, job.ID)
+		assert.Equal(t, jb.Name, job.Name)
 
 		require.Greater(t, jb.PipelineSpecID, int32(0))
 		require.NotNil(t, jb.PipelineSpec)
 		require.NotNil(t, jb.OffchainreportingOracleSpecID)
 		require.NotNil(t, jb.OffchainreportingOracleSpec)
+	})
+
+	t.Run("by address", func(t *testing.T) {
+		jbID, err := orm.FindJobIDByAddress(job.OffchainreportingOracleSpec.ContractAddress)
+		require.NoError(t, err)
+
+		assert.Equal(t, job.ID, jbID)
+
+		_, err = orm.FindJobIDByAddress("not-existing")
+		require.Error(t, err)
+		require.ErrorIs(t, err, sql.ErrNoRows)
 	})
 }
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -45,7 +46,7 @@ func TestUtils_IsEmptyAddress(t *testing.T) {
 		want bool
 	}{
 		{"zero address", common.Address{}, true},
-		{"non-zero address", cltest.NewAddress(), false},
+		{"non-zero address", testutils.NewAddress(), false},
 	}
 
 	for _, tt := range tests {
