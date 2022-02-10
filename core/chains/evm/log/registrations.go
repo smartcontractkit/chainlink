@@ -293,22 +293,23 @@ func (r *handler) addSubscriber(sub *subscriber, handlersWithGreaterConfs []*han
 			r.logger.Tracef("No existing sub for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 			r.lookupSubs[addr][topic] = make(subscribers)
 
-			if !needsResubscribe {
-				// NOTE: This is an optimization; if we already have a
-				// subscription to this addr/topic at a higher
-				// MinIncomingConfirmations then we don't need to resubscribe
-				// again since even the worst case lookback is already covered
-				for _, existingHandler := range handlersWithGreaterConfs {
-					if _, exists := existingHandler.lookupSubs[addr][topic]; exists {
-						r.logger.Tracef("Sub already exists for addr %s and topic %s at greater than this MinIncomingConfirmations of %v. Resubscribe is not required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
-						goto TopicSubscribedAtGreaterConf
+			func() {
+				if !needsResubscribe {
+					// NOTE: This is an optimization; if we already have a
+					// subscription to this addr/topic at a higher
+					// MinIncomingConfirmations then we don't need to resubscribe
+					// again since even the worst case lookback is already covered
+					for _, existingHandler := range handlersWithGreaterConfs {
+						if _, exists := existingHandler.lookupSubs[addr][topic]; exists {
+							r.logger.Tracef("Sub already exists for addr %s and topic %s at greater than this MinIncomingConfirmations of %v. Resubscribe is not required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+							return
+						}
 					}
+					r.logger.Tracef("No sub exists for addr %s and topic %s at this or greater MinIncomingConfirmations of %v. Resubscribe is required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
+					needsResubscribe = true
 				}
-				r.logger.Tracef("No sub exists for addr %s and topic %s at this or greater MinIncomingConfirmations of %v. Resubscribe is required", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
-				needsResubscribe = true
-			}
+			}()
 		}
-	TopicSubscribedAtGreaterConf:
 		r.lookupSubs[addr][topic][sub] = topicValueFilters
 	}
 	return
@@ -339,24 +340,25 @@ func (r *handler) removeSubscriber(sub *subscriber, allHandlers map[uint32]*hand
 		if len(topicMap) == 0 {
 			r.logger.Tracef("No subs left for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 
-			if !needsResubscribe {
-				// NOTE: This is an optimization. Resub not necessary if there
-				// are still any other handlers listening on this addr/topic.
-				for confs, otherHandler := range allHandlers {
-					if confs == sub.opts.MinIncomingConfirmations {
-						// no need to check ourself, already did this above
-						continue
+			func() {
+				if !needsResubscribe {
+					// NOTE: This is an optimization. Resub not necessary if there
+					// are still any other handlers listening on this addr/topic.
+					for confs, otherHandler := range allHandlers {
+						if confs == sub.opts.MinIncomingConfirmations {
+							// no need to check ourself, already did this above
+							continue
+						}
+						if _, exists := otherHandler.lookupSubs[addr][topic]; exists {
+							r.logger.Tracef("Sub still exists for addr %s and topic %s. Resubscribe will not be performed", addr.Hex(), topic.Hex())
+							return
+						}
 					}
-					if _, exists := otherHandler.lookupSubs[addr][topic]; exists {
-						r.logger.Tracef("Sub still exists for addr %s and topic %s. Resubscribe will not be performed", addr.Hex(), topic.Hex())
-						goto TopicStillSubscribedByOtherHandler
-					}
-				}
 
-				r.logger.Tracef("No sub exists for addr %s and topic %s. Resubscribe will be performed", addr.Hex(), topic.Hex())
-				needsResubscribe = true
-			}
-		TopicStillSubscribedByOtherHandler:
+					r.logger.Tracef("No sub exists for addr %s and topic %s. Resubscribe will be performed", addr.Hex(), topic.Hex())
+					needsResubscribe = true
+				}
+			}()
 			delete(r.lookupSubs[addr], topic)
 		}
 		if len(r.lookupSubs[addr]) == 0 {
