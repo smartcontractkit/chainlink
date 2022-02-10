@@ -43,6 +43,8 @@ jobs:
           key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
           restore-keys: |
             go-mod-${{ env.CACHE_VERSION }}
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
       - name: Setup DB
@@ -70,7 +72,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: "16"
       - name: Yarn cache
         uses: actions/cache@v2
         env:

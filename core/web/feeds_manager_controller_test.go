@@ -28,7 +28,7 @@ func Test_FeedsManagersController_Create(t *testing.T) {
 	body, err := json.Marshal(web.CreateFeedsManagerRequest{
 		Name:                   "Chainlink FM",
 		URI:                    "127.0.0.1:2000",
-		JobTypes:               []string{"fluxmonitor"},
+		JobTypes:               []string{},
 		PublicKey:              *pubKey,
 		IsBootstrapPeer:        true,
 		BootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
@@ -76,7 +76,7 @@ func Test_FeedsManagersController_List(t *testing.T) {
 	ms1 := feeds.FeedsManager{
 		Name:                      "Chainlink FM",
 		URI:                       "wss://127.0.0.1:2000",
-		JobTypes:                  []string{"fluxmonitor"},
+		JobTypes:                  []string{},
 		PublicKey:                 *pubKey,
 		IsOCRBootstrapPeer:        true,
 		OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
@@ -110,7 +110,7 @@ func Test_FeedsManagersController_Show(t *testing.T) {
 		ms1 = feeds.FeedsManager{
 			Name:                      "Chainlink FM",
 			URI:                       "wss://127.0.0.1:2000",
-			JobTypes:                  []string{"fluxmonitor"},
+			JobTypes:                  []string{},
 			PublicKey:                 *pubKey,
 			IsOCRBootstrapPeer:        true,
 			OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),

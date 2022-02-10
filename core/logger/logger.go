@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func init() {
@@ -104,12 +106,14 @@ type Logger interface {
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker     = "HeadTracker"
-	HeadListener    = "HeadListener"
-	HeadSaver       = "HeadSaver"
-	HeadBroadcaster = "HeadBroadcaster"
-	FluxMonitor     = "FluxMonitor"
-	Keeper          = "Keeper"
+	HeadTracker                 = "HeadTracker"
+	HeadListener                = "HeadListener"
+	HeadSaver                   = "HeadSaver"
+	HeadBroadcaster             = "HeadBroadcaster"
+	FluxMonitor                 = "FluxMonitor"
+	Keeper                      = "Keeper"
+	TelemetryIngressBatchClient = "TelemetryIngressBatchClient"
+	TelemetryIngressBatchWorker = "TelemetryIngressBatchWorker"
 )
 
 func GetLogServices() []string {
@@ -135,6 +139,10 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
 	return config
+}
+
+func baseLoggerName() string {
+	return fmt.Sprintf("%s@%s", static.Version, static.Sha[:7])
 }
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
@@ -177,7 +185,7 @@ func NewLogger() Logger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l
+	return l.Named(baseLoggerName())
 }
 
 type Config struct {

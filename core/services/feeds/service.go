@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -28,6 +29,7 @@ import (
 var (
 	ErrOCRDisabled        = errors.New("ocr is disabled")
 	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
+	ErrBootstrapXorJobs   = errors.New("feeds manager cannot be bootstrap while having assigned job types")
 
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
@@ -126,6 +128,10 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 		return 0, ErrSingleFeedsManager
 	}
 
+	if mgr.IsOCRBootstrapPeer && len(mgr.JobTypes) > 0 {
+		return 0, ErrBootstrapXorJobs
+	}
+
 	id, err := s.orm.CreateManager(mgr)
 	if err != nil {
 		return 0, err
@@ -150,6 +156,13 @@ func (s *service) SyncNodeInfo(id int64) error {
 		return err
 	}
 
+	// Get the FMS RPC client
+	fmsClient, err := s.connMgr.GetClient(id)
+	if err != nil {
+		return errors.Wrap(err, "could not fetch client")
+	}
+
+	// Generate job types
 	jobtypes := []pb.JobType{}
 	for _, jt := range mgr.JobTypes {
 		switch jt {
@@ -173,6 +186,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		return err
 	}
 
+	// Generate accounts
 	accounts := make([]*pb.Account, 0, len(evmKeyStates))
 	for _, k := range evmKeyStates {
 		accounts = append(accounts, &pb.Account{
@@ -182,20 +196,18 @@ func (s *service) SyncNodeInfo(id int64) error {
 		})
 	}
 
-	// Make the remote call to FMS
-	fmsClient, err := s.connMgr.GetClient(id)
-	if err != nil {
-		return errors.Wrap(err, "could not fetch client")
-	}
-
-	chainIDs := []int64{}
+	// Generate chains
+	chains := make([]*pb.Chain, 0, len(s.chainSet.Chains()))
 	for _, c := range s.chainSet.Chains() {
-		chainIDs = append(chainIDs, c.ID().Int64())
+		chains = append(chains, &pb.Chain{
+			Id:   c.ID().String(),
+			Type: pb.ChainType_CHAIN_TYPE_EVM,
+		})
 	}
 
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes:           jobtypes,
-		ChainIds:           chainIDs,
+		Chains:             chains,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
 		Version:            s.version,
@@ -211,6 +223,10 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+	if mgr.IsOCRBootstrapPeer && len(mgr.JobTypes) > 0 {
+		return ErrBootstrapXorJobs
+	}
+
 	err := s.orm.UpdateManager(mgr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")
@@ -463,8 +479,28 @@ func (s *service) ApproveSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
+	var address ethkey.EIP55Address
+	switch j.Type {
+	case job.OffchainReporting:
+		address = j.OffchainreportingOracleSpec.ContractAddress
+	case job.FluxMonitor:
+		address = j.FluxMonitorSpec.ContractAddress
+	default:
+		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+	}
+
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
+
+		existingJobID, err2 := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
+		if err2 == nil {
+			if err2 = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); err2 != nil {
+				return errors.Wrap(err2, "DeleteJob failed")
+			}
+		} else if !errors.Is(err2, sql.ErrNoRows) {
+			return errors.Wrap(err2, "FindJobIDByAddress failed")
+		}
+
 		// Create the job
 		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err

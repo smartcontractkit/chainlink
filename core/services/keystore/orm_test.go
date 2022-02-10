@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -26,8 +27,8 @@ func Test_ORM(t *testing.T) {
 	orm := keystore.NewORM(db, logger.TestLogger(t), cfg)
 
 	csa := csakey.MustNewV2XXXTestingOnly(big.NewInt(42))
-	eth1 := cltest.NewAddress()
-	eth2 := cltest.NewAddress()
+	eth1 := testutils.NewAddress()
+	eth2 := testutils.NewAddress()
 	ocr1 := utils.NewHash()
 	ocr2 := utils.NewHash()
 	p1 := cltest.MustRandomP2PPeerID(t)
@@ -41,8 +42,8 @@ func Test_ORM(t *testing.T) {
 		// two per key-type, one deleted and one not deleted
 		utils.JustError(db.Exec(`INSERT INTO keys (address, json, created_at, updated_at, next_nonce, is_funding, deleted_at) VALUES ($1, '{}', NOW(), NOW(), 0, false, NULL)`, eth1)),
 		utils.JustError(db.Exec(`INSERT INTO keys (address, json, created_at, updated_at, next_nonce, is_funding, deleted_at) VALUES ($1, '{}', NOW(), NOW(), 0, false, NOW())`, eth2)),
-		utils.JustError(db.Exec(`INSERT INTO encrypted_ocr_key_bundles (id, on_chain_signing_address, off_chain_public_key, encrypted_private_keys, created_at, updated_at, config_public_key, deleted_at) VALUES ($1, $2, $3, '{}', NOW(), NOW(), $4, NULL)`, ocr1, cltest.NewAddress(), utils.NewHash(), utils.NewHash())),
-		utils.JustError(db.Exec(`INSERT INTO encrypted_ocr_key_bundles (id, on_chain_signing_address, off_chain_public_key, encrypted_private_keys, created_at, updated_at, config_public_key, deleted_at) VALUES ($1, $2, $3, '{}', NOW(), NOW(), $4, NOW())`, ocr2, cltest.NewAddress(), utils.NewHash(), utils.NewHash())),
+		utils.JustError(db.Exec(`INSERT INTO encrypted_ocr_key_bundles (id, on_chain_signing_address, off_chain_public_key, encrypted_private_keys, created_at, updated_at, config_public_key, deleted_at) VALUES ($1, $2, $3, '{}', NOW(), NOW(), $4, NULL)`, ocr1, testutils.NewAddress(), utils.NewHash(), utils.NewHash())),
+		utils.JustError(db.Exec(`INSERT INTO encrypted_ocr_key_bundles (id, on_chain_signing_address, off_chain_public_key, encrypted_private_keys, created_at, updated_at, config_public_key, deleted_at) VALUES ($1, $2, $3, '{}', NOW(), NOW(), $4, NOW())`, ocr2, testutils.NewAddress(), utils.NewHash(), utils.NewHash())),
 		utils.JustError(db.Exec(`INSERT INTO encrypted_p2p_keys (peer_id, pub_key, encrypted_priv_key, created_at, updated_at, deleted_at) VALUES ($1, $2, '{}', NOW(), NOW(), NULL)`, p1.Pretty(), utils.NewHash())),
 		utils.JustError(db.Exec(`INSERT INTO encrypted_p2p_keys (peer_id, pub_key, encrypted_priv_key, created_at, updated_at, deleted_at) VALUES ($1, $2, '{}', NOW(), NOW(), NOW())`, p2.Pretty(), utils.NewHash())),
 		utils.JustError(db.Exec(`INSERT INTO encrypted_vrf_keys (public_key, vrf_key, created_at, updated_at, deleted_at) VALUES ($1, '{}',  NOW(), NOW(), NULL)`, v1.PublicKey)),
