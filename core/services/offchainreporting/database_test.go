@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -110,8 +111,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
-		Signers:              []common.Address{cltest.NewAddress(), cltest.NewAddress()},
-		Transmitters:         []common.Address{cltest.NewAddress(), cltest.NewAddress()},
+		Signers:              []common.Address{testutils.NewAddress(), testutils.NewAddress()},
+		Transmitters:         []common.Address{testutils.NewAddress(), testutils.NewAddress()},
 		Threshold:            uint8(35),
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
@@ -138,8 +139,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest:         cltest.MakeConfigDigest(t),
-			Signers:              []common.Address{utils.ZeroAddress, transmitterAddress, cltest.NewAddress()},
-			Transmitters:         []common.Address{utils.ZeroAddress, transmitterAddress, cltest.NewAddress()},
+			Signers:              []common.Address{utils.ZeroAddress, transmitterAddress, testutils.NewAddress()},
+			Transmitters:         []common.Address{utils.ZeroAddress, transmitterAddress, testutils.NewAddress()},
 			Threshold:            uint8(36),
 			EncodedConfigVersion: uint64(987655),
 			Encoded:              []byte{2, 3, 4, 5, 6},
@@ -214,9 +215,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(41)),
 			SerializedReport: []byte{0, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte(), cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte(), cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte(), testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte(), testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 
 		err := odb.StorePendingTransmission(ctx, k, p)
@@ -230,9 +231,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(42)),
 			SerializedReport: []byte{1, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 		err = odb.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
@@ -244,9 +245,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(43)),
 			SerializedReport: []byte{2, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 
 		err = odb.StorePendingTransmission(ctx, k2, p2)
@@ -261,9 +262,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(43)),
 			SerializedReport: []byte{3, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 
 		err = odb.StorePendingTransmission(ctx, kRedHerring, pRedHerring)
@@ -299,9 +300,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Unix(100, 0),
 			Median:           ocrtypes.Observation(big.NewInt(44)),
 			SerializedReport: []byte{1, 4, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 		err := odb.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
@@ -326,9 +327,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Unix(100, 0),
 			Median:           ocrtypes.Observation(big.NewInt(44)),
 			SerializedReport: []byte{1, 4, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 		err := odb.StorePendingTransmission(ctx, k2, p)
 		require.NoError(t, err)
@@ -344,9 +345,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Unix(100, 0),
 			Median:           ocrtypes.Observation(big.NewInt(41)),
 			SerializedReport: []byte{0, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 
 		err := odb.StorePendingTransmission(ctx, k, p)
@@ -356,9 +357,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Unix(1000, 0),
 			Median:           ocrtypes.Observation(big.NewInt(42)),
 			SerializedReport: []byte{1, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 		err = odb.StorePendingTransmission(ctx, k2, p2)
 		require.NoError(t, err)
@@ -367,9 +368,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(43)),
 			SerializedReport: []byte{2, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
-			Vs:               cltest.Random32Byte(),
+			Rs:               [][32]byte{testutils.Random32Byte()},
+			Ss:               [][32]byte{testutils.Random32Byte()},
+			Vs:               testutils.Random32Byte(),
 		}
 
 		err = odb.StorePendingTransmission(ctx, k2, p2)
@@ -402,7 +403,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 
 	rr := offchainaggregator.OffchainAggregatorRoundRequested{
-		Requester:    cltest.NewAddress(),
+		Requester:    testutils.NewAddress(),
 		ConfigDigest: cltest.MakeConfigDigest(t),
 		Epoch:        42,
 		Round:        9,
@@ -417,7 +418,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 
 		// Now overwrite to prove that updating works
 		rr = offchainaggregator.OffchainAggregatorRoundRequested{
-			Requester:    cltest.NewAddress(),
+			Requester:    testutils.NewAddress(),
 			ConfigDigest: cltest.MakeConfigDigest(t),
 			Epoch:        43,
 			Round:        8,

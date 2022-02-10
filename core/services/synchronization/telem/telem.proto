@@ -6,6 +6,7 @@ package telem;
 
 service Telem {
     rpc Telem(TelemRequest) returns (TelemResponse);
+    rpc TelemBatch(TelemBatchRequest) returns (TelemResponse);
 }
 
 message TelemRequest {
@@ -13,6 +14,12 @@ message TelemRequest {
     string address = 2;
 }
 
+message TelemBatchRequest {
+    string contract_id = 1;
+    repeated bytes telemetry = 2;
+}
+
 message TelemResponse {
     string body = 1;
 }
+
