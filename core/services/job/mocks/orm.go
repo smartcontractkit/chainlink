@@ -134,34 +134,6 @@ func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
 	return r0, r1
 }
 
-// FindJobIDByAddress provides a mock function with given fields: address, qopts
-func (_m *ORM) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, address)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 int32
-	if rf, ok := ret.Get(0).(func(ethkey.EIP55Address, ...pg.QOpt) int32); ok {
-		r0 = rf(address, qopts...)
-	} else {
-		r0 = ret.Get(0).(int32)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(ethkey.EIP55Address, ...pg.QOpt) error); ok {
-		r1 = rf(address, qopts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // FindJobByExternalJobID provides a mock function with given fields: _a0, qopts
 func (_m *ORM) FindJobByExternalJobID(_a0 uuid.UUID, qopts ...pg.QOpt) (job.Job, error) {
 	_va := make([]interface{}, len(qopts))
@@ -183,6 +155,34 @@ func (_m *ORM) FindJobByExternalJobID(_a0 uuid.UUID, qopts ...pg.QOpt) (job.Job,
 	var r1 error
 	if rf, ok := ret.Get(1).(func(uuid.UUID, ...pg.QOpt) error); ok {
 		r1 = rf(_a0, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindJobIDByAddress provides a mock function with given fields: address, qopts
+func (_m *ORM) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, address)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func(ethkey.EIP55Address, ...pg.QOpt) int32); ok {
+		r0 = rf(address, qopts...)
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(ethkey.EIP55Address, ...pg.QOpt) error); ok {
+		r1 = rf(address, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
