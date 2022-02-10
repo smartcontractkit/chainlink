@@ -335,7 +335,7 @@ func (r *handler) removeSubscriber(sub *subscriber, allHandlers map[uint32]*hand
 		}
 		delete(topicMap, sub)
 
-		// cleanup and resubscribe
+		// cleanup and resubscribe if necessary
 		if len(topicMap) == 0 {
 			r.logger.Tracef("No subs left for addr %s and topic %s at this MinIncomingConfirmations of %v", addr.Hex(), topic.Hex(), sub.opts.MinIncomingConfirmations)
 
