@@ -48,6 +48,8 @@ contract ArbitrumSequencerUptimeFeed is
 
   event Initialized();
   event L1SenderTransferred(address indexed from, address indexed to);
+  /// @dev Emitted when an `updateStatus` call is ignored due to unchanged status or stale timestamp
+  event UpdateIgnored(bool latestStatus, uint64 latestTimestamp, bool incomingStatus, uint64 incomingTimestamp);
 
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
   address public constant FLAG_L2_SEQ_OFFLINE =
@@ -210,8 +212,9 @@ contract ArbitrumSequencerUptimeFeed is
       revert InvalidSender();
     }
 
-    // Ignore if status did not change
-    if (feedState.latestStatus == status) {
+    // Ignore if status did not change or latest recorded timestamp is newer
+    if (feedState.latestStatus == status || feedState.latestTimestamp > timestamp) {
+      emit UpdateIgnored(feedState.latestStatus, feedState.latestTimestamp, status, timestamp);
       return;
     }
 
