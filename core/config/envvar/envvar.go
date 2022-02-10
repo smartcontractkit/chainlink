@@ -15,7 +15,6 @@ var (
 	LogLevel    = New("LogLevel", parse.LogLevel)
 	RootDir     = New("RootDir", parse.HomeDir)
 	JSONConsole = New("JSONConsole", parse.Bool)
-	LogToDisk   = New("LogToDisk", parse.Bool)
 	LogUnixTS   = New("LogUnixTS", parse.Bool)
 )
 

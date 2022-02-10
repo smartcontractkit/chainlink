@@ -67,7 +67,6 @@ type ConfigSchema struct {
 	LogFileDir  string        `env:"LOG_FILE_DIR"`
 	LogLevel    zapcore.Level `env:"LOG_LEVEL"`
 	LogSQL      bool          `env:"LOG_SQL" default:"false"`
-	LogToDisk   bool          `env:"LOG_TO_DISK" default:"false"`
 	LogUnixTS   bool          `env:"LOG_UNIX_TS" default:"false"`
 
 	// Web Server

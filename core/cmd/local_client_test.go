@@ -68,7 +68,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 
 	lcfg := logger.Config{
 		LogLevel: zapcore.DebugLevel,
-		ToDisk:   true,
 		Dir:      t.TempDir(),
 	}
 
@@ -148,7 +147,6 @@ LINK_CONTRACT_ADDRESS:
 LOG_FILE_DIR: %[1]s
 LOG_LEVEL: debug
 LOG_SQL: false
-LOG_TO_DISK: false
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 
@@ -368,30 +366,17 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	}
 }
 
-func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
-	tests := []struct {
-		name            string
-		logToDiskValue  bool
-		fileShouldExist bool
-	}{
-		{"LogToDisk = false => no log on disk", false, false},
-		{"LogToDisk = true => log on disk (positive control)", true, true},
+func TestClient_AlwaysLogsToDisk(t *testing.T) {
+	cfg := logger.Config{
+		Dir: t.TempDir(),
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := logger.Config{
-				ToDisk: tt.logToDiskValue,
-				Dir:    t.TempDir(),
-			}
-			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
+	require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
-			cfg.New().Debug("test")
+	cfg.New().Debug("test")
 
-			filepath := filepath.Join(cfg.Dir, logger.LogsFile)
-			_, err := os.Stat(filepath)
-			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
-		})
-	}
+	filepath := filepath.Join(cfg.Dir, logger.LogsFile)
+	_, err := os.Stat(filepath)
+	assert.Equal(t, os.IsNotExist(err), false)
 }
 
 func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {

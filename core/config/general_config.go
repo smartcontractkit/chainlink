@@ -137,7 +137,6 @@ type GeneralOnlyConfig interface {
 	LogFileDir() string
 	LogLevel() zapcore.Level
 	LogSQL() bool
-	LogToDisk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
@@ -382,10 +381,6 @@ EVM_ENABLED=false
 
 	if c.LeaseLockRefreshInterval() > c.LeaseLockDuration()/2 {
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
-	}
-
-	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.LogToDisk() {
-		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
 	}
 
 	return nil
@@ -912,11 +907,6 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	defer c.logMutex.Unlock()
 	c.logLevel = lvl
 	return nil
-}
-
-// LogToDisk configures disk preservation of logs.
-func (c *generalConfig) LogToDisk() bool {
-	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger
