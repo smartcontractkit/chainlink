@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package terratxm_test
 
 import (
