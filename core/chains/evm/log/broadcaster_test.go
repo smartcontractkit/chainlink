@@ -571,6 +571,10 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		helper.start()
 		defer helper.stop()
 
+		helper.register(listener1, contract1, 1)
+		helper.register(listener2, contract1, 1)
+		helper.register(listener3, contract2, 1)
+		helper.register(listener4, contract2, 1)
 		headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     0,
 			EndBlock:       9,
@@ -578,10 +582,6 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 			Blocks:         blocks,
 		})
 
-		helper.register(listener1, contract1, 1)
-		helper.register(listener2, contract1, 1)
-		helper.register(listener3, contract2, 1)
-		helper.register(listener4, contract2, 1)
 		defer helper.unsubscribeAll()
 
 		chRawLogs := <-helper.chchRawLogs
