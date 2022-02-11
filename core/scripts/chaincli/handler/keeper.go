@@ -8,11 +8,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 
 	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
 // Keeper is the keepers commands handler
@@ -24,7 +24,6 @@ type Keeper struct {
 
 // NewKeeper is the constructor of Keeper
 func NewKeeper(cfg *config.Config) *Keeper {
-
 	addFundsAmount := big.NewInt(0)
 	addFundsAmount.SetString(cfg.AddFundsAmount, 10)
 
@@ -36,6 +35,11 @@ func NewKeeper(cfg *config.Config) *Keeper {
 
 // DeployKeepers contains a logic to deploy keepers.
 func (k *Keeper) DeployKeepers(ctx context.Context) {
+	keepers, owners := k.keepers()
+	k.deployKeepers(ctx, keepers, owners)
+}
+
+func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, owners []common.Address) common.Address {
 	var registry *keeper.KeeperRegistry
 	var registryAddr common.Address
 	var upkeepCount int64
@@ -71,13 +75,14 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 
 	// Set Keepers
 	log.Println("Set keepers...")
-	keepers, owners := k.keepers()
 	setKeepersTx, err := registry.SetKeepers(k.buildTxOpts(ctx), keepers, owners)
 	if err != nil {
 		log.Fatal("SetKeepers failed: ", err)
 	}
 	k.waitTx(ctx, setKeepersTx)
 	log.Println("Keepers registered:", setKeepersTx.Hash().Hex())
+
+	return registryAddr
 }
 
 func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
