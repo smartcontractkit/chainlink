@@ -1,7 +1,6 @@
 package terratxm
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -23,6 +22,7 @@ import (
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
 	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -95,7 +95,7 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
-		txm.sendMsgBatch(testContext(t))
+		txm.sendMsgBatch(testutils.Context(t))
 
 		// Should be in completed state
 		completed, err := txm.orm.SelectMsgsWithIDs([]int64{id1})
@@ -157,7 +157,7 @@ func TestTxm(t *testing.T) {
 				TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 			}, nil).Once()
 		}
-		txm.sendMsgBatch(testContext(t))
+		txm.sendMsgBatch(testutils.Context(t))
 
 		// Should be in completed state
 		completed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
@@ -181,7 +181,7 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		txh := "0x123"
 		require.NoError(t, txm.orm.UpdateMsgsWithState([]int64{i}, Broadcasted, &txh))
-		err = txm.confirmTx(testContext(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
+		err = txm.confirmTx(testutils.Context(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
 		m, err := txm.orm.SelectMsgsWithIDs([]int64{i})
 		require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 
 		// Confirm them as in a restart while confirming scenario
-		txm.confirmAnyUnconfirmed(testContext(t))
+		txm.confirmAnyUnconfirmed(testutils.Context(t))
 		require.NoError(t, err)
 		confirmed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
 		require.NoError(t, err)
@@ -223,14 +223,4 @@ func TestTxm(t *testing.T) {
 		assert.Equal(t, Confirmed, confirmed[1].State)
 		tc.AssertExpectations(t)
 	})
-}
-
-func testContext(t *testing.T) (ctx context.Context) {
-	ctx = context.Background()
-	if d, ok := t.Deadline(); ok {
-		var cancel func()
-		ctx, cancel = context.WithDeadline(ctx, d)
-		t.Cleanup(cancel)
-	}
-	return ctx
 }
