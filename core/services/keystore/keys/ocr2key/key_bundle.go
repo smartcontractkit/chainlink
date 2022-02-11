@@ -17,7 +17,9 @@ import (
 )
 
 type KeyBundle interface {
+	// OnchainKeyring is used for signing reports (groups of observations, verified onchain)
 	ocrtypes.OnchainKeyring
+	// OffchainKeyring is used for signing observations
 	ocrtypes.OffchainKeyring
 	ID() string
 	ChainType() chaintype.ChainType

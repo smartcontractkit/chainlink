@@ -44,7 +44,6 @@ func (ok *solanaKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, repor
 
 func (ok *solanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	return crypto.Sign(ok.reportToSigData(reportCtx, report), &ok.privateKey)
-
 }
 
 func (ok *solanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {

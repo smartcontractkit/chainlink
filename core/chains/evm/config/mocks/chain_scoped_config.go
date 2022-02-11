@@ -3886,6 +3886,20 @@ func (_m *ChainScopedConfig) TLSRedirect() bool {
 	return r0
 }
 
+// TelemetryIngressBufferSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) TelemetryIngressBufferSize() uint {
+	ret := _m.Called()
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
 // TelemetryIngressLogging provides a mock function with given fields:
 func (_m *ChainScopedConfig) TelemetryIngressLogging() bool {
 	ret := _m.Called()
@@ -3895,6 +3909,34 @@ func (_m *ChainScopedConfig) TelemetryIngressLogging() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TelemetryIngressMaxBatchSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) TelemetryIngressMaxBatchSize() uint {
+	ret := _m.Called()
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
+// TelemetryIngressSendInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) TelemetryIngressSendInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -3925,6 +3967,20 @@ func (_m *ChainScopedConfig) TelemetryIngressURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// TelemetryIngressUseBatchSend provides a mock function with given fields:
+func (_m *ChainScopedConfig) TelemetryIngressUseBatchSend() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
