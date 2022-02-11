@@ -1,6 +1,7 @@
 package vrf_test
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -47,7 +48,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			cu := newVRFCoordinatorUniverse(t, key)
 			incomingConfs := 2
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
-			require.NoError(t, app.Start())
+			require.NoError(t, app.Start(context.TODO()))
 
 			jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
 			require.NoError(t, app.JobSpawner().CreateJob(&jb))
@@ -107,7 +108,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	incomingConfs := 2
 	config.Overrides.BlockBackfillDepth = null.IntFrom(500)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	// Create VRF job but do not start it yet
 	jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)

@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"math/big"
 	"net/http"
@@ -33,7 +34,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -74,7 +75,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -117,7 +118,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -147,7 +148,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
@@ -180,7 +181,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(assets.NewEth(10).ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -218,7 +219,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -245,7 +246,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 

@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -190,7 +191,7 @@ func setupFeedsManagerTest(t *testing.T) (*cltest.TestApplication, cltest.HTTPCl
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureFeedsManager = null.BoolFrom(true)
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	// We need a CSA key to establish a connection to the FMS
 	app.KeyStore.CSA().Create()
 

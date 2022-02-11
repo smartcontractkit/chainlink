@@ -1,6 +1,7 @@
 package fluxmonitorv2_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -218,7 +219,7 @@ func startApplication(
 	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
 	setConfig(config)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	return app
 }
 

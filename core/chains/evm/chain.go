@@ -28,7 +28,7 @@ import (
 
 //go:generate mockery --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	services.Service
+	services.ServiceCtx
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
@@ -164,10 +164,8 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	return &c, nil
 }
 
-func (c *chain) Start() error {
+func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() (merr error) {
-		ctx := context.Background()
-
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
@@ -177,7 +175,7 @@ func (c *chain) Start() error {
 		merr = multierr.Combine(
 			c.txm.Start(),
 			c.headBroadcaster.Start(),
-			c.headTracker.Start(),
+			c.headTracker.Start(ctx),
 			c.logBroadcaster.Start(),
 		)
 		if c.balanceMonitor != nil {

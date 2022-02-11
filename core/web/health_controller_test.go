@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestHealthController_Readyz(t *testing.T) {
 			healthChecker.On("Close").Return(nil).Once()
 
 			app.HealthChecker = healthChecker
-			require.NoError(t, app.Start())
+			require.NoError(t, app.Start(context.TODO()))
 
 			client := app.NewHTTPClient()
 			resp, cleanup := client.Get("/readyz")

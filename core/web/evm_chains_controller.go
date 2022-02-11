@@ -68,7 +68,7 @@ func (cc *EVMChainsController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := cc.App.GetChains().EVM.Add(request.ID.ToInt(), request.Config)
+	chain, err := cc.App.GetChains().EVM.Add(c, request.ID.ToInt(), request.Config)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -99,7 +99,7 @@ func (cc *EVMChainsController) Update(c *gin.Context) {
 		return
 	}
 
-	chain, err := cc.App.GetChains().EVM.Configure(id.ToInt(), request.Enabled, request.Config)
+	chain, err := cc.App.GetChains().EVM.Configure(c, id.ToInt(), request.Enabled, request.Config)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, err)

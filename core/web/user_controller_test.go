@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,7 +18,7 @@ import (
 
 func TestUserController_UpdatePassword(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -70,7 +71,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
@@ -92,7 +93,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
@@ -108,7 +109,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
@@ -125,7 +126,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{

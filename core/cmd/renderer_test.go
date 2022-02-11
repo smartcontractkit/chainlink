@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"regexp"
 	"testing"
@@ -35,7 +36,7 @@ func TestRendererTable_RenderConfiguration(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/config")

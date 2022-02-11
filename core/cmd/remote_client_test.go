@@ -72,7 +72,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	}
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	return app
 }

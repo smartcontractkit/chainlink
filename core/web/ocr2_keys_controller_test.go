@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -98,7 +99,7 @@ func setupOCR2KeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keyst
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	client := app.NewHTTPClient()
 
 	app.KeyStore.OCR2().Add(cltest.DefaultOCR2Key)

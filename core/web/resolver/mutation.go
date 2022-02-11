@@ -839,7 +839,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChains().EVM.Add(id.ToInt(), *chainCfg)
+	chain, err := r.App.GetChains().EVM.Add(ctx, id.ToInt(), *chainCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -887,7 +887,7 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChains().EVM.Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
+	chain, err := r.App.GetChains().EVM.Configure(ctx, id.ToInt(), args.Input.Enabled, *chainCfg)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateChainPayload(nil, nil, err), nil

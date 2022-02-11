@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -17,7 +18,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
@@ -48,7 +49,7 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")

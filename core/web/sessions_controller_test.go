@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -22,7 +23,7 @@ func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	config := app.GetConfig()
 	client := http.Client{}
@@ -82,7 +83,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
@@ -112,7 +113,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	correctSession := sessions.NewSession()
 	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
@@ -155,7 +156,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	client := http.Client{}
 	app := cltest.NewApplicationEVMDisabled(t)
 	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	correctSession := sessions.NewSession()
 	mustInsertSession(t, q, &correctSession)

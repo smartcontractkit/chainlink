@@ -648,7 +648,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg})
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	var (
 		eiName    = "substrate-ei"
@@ -826,7 +826,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg})
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	var (
 		eiName    = "substrate-ei"

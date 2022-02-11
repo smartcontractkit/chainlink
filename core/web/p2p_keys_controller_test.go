@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -40,7 +41,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	client := app.NewHTTPClient()
 	keyStore := app.GetKeyStore()
 
@@ -109,7 +110,7 @@ func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keysto
 	t.Helper()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 

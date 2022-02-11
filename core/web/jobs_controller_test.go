@@ -326,7 +326,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
@@ -352,7 +352,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -487,7 +487,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 	vrfKeyStore := app.GetKeyStore().VRF()
@@ -502,7 +502,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())

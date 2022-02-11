@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -45,7 +46,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
 
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -179,7 +180,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 		tc := tc
 		t.Run(tc.Description, func(t *testing.T) {
 			app := cltest.NewApplicationEVMDisabled(t)
-			require.NoError(t, app.Start())
+			require.NoError(t, app.Start(context.TODO()))
 			client := app.NewHTTPClient()
 
 			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}

@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -38,7 +39,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	client := app.NewHTTPClient()
 	keyStore := app.GetKeyStore()
 
@@ -93,7 +94,7 @@ func setupSolanaKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, key
 	t.Helper()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.Solana().Add(cltest.DefaultSolanaKey)
 

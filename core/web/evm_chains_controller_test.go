@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -399,7 +400,7 @@ func setupEVMChainsControllerTest(t *testing.T) *TestEVMChainsController {
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 

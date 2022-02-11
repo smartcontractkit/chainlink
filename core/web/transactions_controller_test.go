@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -21,7 +22,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	db := app.GetSqlxDB()
 	borm := app.BPTXMORM()
@@ -66,7 +67,7 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
@@ -78,7 +79,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
@@ -111,7 +112,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()

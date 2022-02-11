@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	tests := []struct {
 		name, email, pwd string

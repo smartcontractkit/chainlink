@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -17,7 +18,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := app.NewHTTPClient()
 
@@ -32,7 +33,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	eia := &auth.Token{
 		AccessKey: "abracadabra",
@@ -70,7 +71,7 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := http.Client{}
 	url := app.Config.ClientNodeURL() + "/v2/ping"

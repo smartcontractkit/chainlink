@@ -83,7 +83,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	var shutdownStartTime time.Time
 	defer func() {
 		close(cleanExit)
-		log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+		if !shutdownStartTime.IsZero() {
+			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+		}
 	}()
 
 	go shutdown.HandleShutdown(func() {
@@ -221,11 +223,11 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	lggr.Info("API exposed for user ", user.Email)
 
-	grp, grpCtx := errgroup.WithContext(rootCtx)
-
-	if err = app.Start(); err != nil {
+	if err = app.Start(rootCtx); err != nil {
 		return errors.Wrap(err, "error starting app")
 	}
+
+	grp, grpCtx := errgroup.WithContext(rootCtx)
 
 	grp.Go(func() error {
 		<-grpCtx.Done()

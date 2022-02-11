@@ -60,7 +60,7 @@ import (
 
 // Application implements the common functions used in the core node.
 type Application interface {
-	Start() error
+	Start(ctx context.Context) error
 	Stop() error
 	GetLogger() logger.Logger
 	GetHealthChecker() services.Checker
@@ -123,7 +123,7 @@ type ChainlinkApplication struct {
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
 	explorerClient           synchronization.ExplorerClient
-	subservices              []services.Service
+	subservices              []interface{} // services.Service or services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
@@ -156,7 +156,7 @@ type Chains struct {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []services.Service
+	var subservices []interface{}
 	db := opts.SqlxDB
 	cfg := opts.Config
 	keyStore := opts.KeyStore
@@ -407,7 +407,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	for _, service := range app.subservices {
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), service); err != nil {
+		checkable := service.(services.Checkable)
+		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
 			return nil, err
 		}
 	}
@@ -441,10 +442,9 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 	return logger.NewORM(app.GetSqlxDB(), app.GetLogger()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
-// Start all necessary services. If successful, nil will be returned.  Also
-// listens for interrupt signals from the operating system so that the
-// application can be properly closed before the application exits.
-func (app *ChainlinkApplication) Start() error {
+// Start all necessary services. If successful, nil will be returned.
+// Start sequence is terminated if the context gets cancelled.
+func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	app.startStopMu.Lock()
 	defer app.startStopMu.Unlock()
 	if app.started {
@@ -458,9 +458,24 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	for _, subservice := range app.subservices {
+		if ctx.Err() != nil {
+			return errors.Wrap(ctx.Err(), "aborting start")
+		}
+
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
-		if err := subservice.Start(); err != nil {
-			return err
+
+		// Eventually all services will migrate to ServiceCtx interface and this switch will be removed.
+		switch ss := subservice.(type) {
+		case services.Service:
+			if err := ss.Start(); err != nil {
+				return err
+			}
+		case services.ServiceCtx:
+			if err := ss.Start(ctx); err != nil {
+				return err
+			}
+		default:
+			panic("unknown service type")
 		}
 	}
 
@@ -511,7 +526,14 @@ func (app *ChainlinkApplication) stop() (err error) {
 			for i := len(app.subservices) - 1; i >= 0; i-- {
 				service := app.subservices[i]
 				app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
-				merr = multierr.Append(merr, service.Close())
+				switch ss := service.(type) {
+				case services.Service:
+					merr = multierr.Append(merr, ss.Close())
+				case services.ServiceCtx:
+					merr = multierr.Append(merr, ss.Close())
+				default:
+					panic("unknown service type")
+				}
 			}
 
 			app.logger.Debug("Stopping SessionReaper...")

@@ -78,7 +78,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	var (
 		eiName    = "substrate-ei"
@@ -249,7 +249,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app := cltest.NewApplication(t, ethClient)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	// set up user
 	mockUser := cltest.MustRandomUser(t)
@@ -369,7 +369,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			require.NoError(t, err)
 			b.Commit()
 
-			err = app.Start()
+			err = app.Start(context.TODO())
 			require.NoError(t, err)
 
 			mockServerUSD := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
@@ -640,7 +640,7 @@ func TestIntegration_OCR(t *testing.T) {
 			require.NoError(t, err)
 			b.Commit()
 
-			err = appBootstrap.Start()
+			err = appBootstrap.Start(context.TODO())
 			require.NoError(t, err)
 
 			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
@@ -676,7 +676,7 @@ isBootstrapPeer    = true
 				"0": {}, "10": {}, "20": {}, "30": {},
 			}
 			for i := 0; i < numOracles; i++ {
-				err = apps[i].Start()
+				err = apps[i].Start(context.TODO())
 				require.NoError(t, err)
 
 				// Since this API speed is > ObservationTimeout we should ignore it and still produce values.
@@ -857,7 +857,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	require.NoError(t, cc.Start())
+	require.NoError(t, cc.Start(context.TODO()))
 	var newHeads chan<- *evmtypes.Head
 	select {
 	case newHeads = <-chchNewHeads:

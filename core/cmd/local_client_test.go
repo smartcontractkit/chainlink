@@ -63,7 +63,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-	app.On("Start").Return(nil)
+	app.On("Start", mock.Anything).Return(nil)
 	app.On("Stop").Return(nil)
 	app.On("ID").Return(uuid.NewV4())
 
@@ -223,7 +223,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-			app.On("Start").Maybe().Return(nil)
+			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
@@ -271,7 +271,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-	app.On("Start").Maybe().Return(nil)
+	app.On("Start", mock.Anything).Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
 
@@ -337,7 +337,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-			app.On("Start").Maybe().Return(nil)
+			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 

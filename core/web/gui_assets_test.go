@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"embed"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +26,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := &http.Client{}
 
@@ -55,7 +56,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := &http.Client{}
 
@@ -88,7 +89,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.Dev = null.BoolFrom(false)
 	app := cltest.NewApplicationWithConfig(t, config)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 
 	client := &http.Client{}
 

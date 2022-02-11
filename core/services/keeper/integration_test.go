@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -120,7 +121,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// helps prevent missed heads
 			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
-			require.NoError(t, app.Start())
+			require.NoError(t, app.Start(context.TODO()))
 
 			// create job
 			regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)

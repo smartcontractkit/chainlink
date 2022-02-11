@@ -182,6 +182,22 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
+func TestHeadTracker_Start_CancelContext(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	logger := logger.TestLogger(t)
+	config := newCfg(t)
+	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
+	ethClient, _ := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	ht := createHeadTracker(t, ethClient, config, orm)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := ht.headTracker.Start(ctx)
+	require.Error(t, err)
+}
+
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
@@ -960,7 +976,7 @@ func (u *headTrackerUniverse) Start(t *testing.T) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	require.NoError(t, u.headBroadcaster.Start())
-	require.NoError(t, u.headTracker.Start())
+	require.NoError(t, u.headTracker.Start(context.TODO()))
 	t.Cleanup(func() {
 		u.Stop(t)
 	})

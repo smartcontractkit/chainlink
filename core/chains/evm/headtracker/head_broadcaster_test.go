@@ -53,7 +53,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hr, hs)
 	require.NoError(t, hr.Start())
-	require.NoError(t, ht.Start())
+	require.NoError(t, ht.Start(context.TODO()))
 
 	latest1, unsubscribe1 := hr.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet

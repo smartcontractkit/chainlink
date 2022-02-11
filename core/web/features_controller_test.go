@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"testing"
@@ -37,7 +38,7 @@ func setupFeaturesControllerTest(t *testing.T) (*cltest.TestApplication, cltest.
 	os.Setenv("FEATURE_UI_CSA_KEYS", "true")
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(context.TODO()))
 	client := app.NewHTTPClient()
 
 	return app, client

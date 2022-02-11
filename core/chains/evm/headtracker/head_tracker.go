@@ -46,8 +46,6 @@ type headTracker struct {
 	backfillMB   *utils.Mailbox
 	broadcastMB  *utils.Mailbox
 	headListener httypes.HeadListener
-	ctx          context.Context
-	cancel       context.CancelFunc
 	chStop       chan struct{}
 	wgDone       sync.WaitGroup
 	utils.StartStopOnce
@@ -63,7 +61,6 @@ func NewHeadTracker(
 ) httypes.HeadTracker {
 	chStop := make(chan struct{})
 	lggr = lggr.Named(logger.HeadTracker)
-	ctx, cancel := context.WithCancel(context.Background())
 	return &headTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
@@ -72,8 +69,6 @@ func NewHeadTracker(
 		log:             lggr,
 		backfillMB:      utils.NewMailbox(1),
 		broadcastMB:     utils.NewMailbox(HeadsBufferSize),
-		ctx:             ctx,
-		cancel:          cancel,
 		chStop:          chStop,
 		headListener:    NewHeadListener(lggr, ethClient, config, chStop),
 		headSaver:       headSaver,
@@ -85,10 +80,10 @@ func (ht *headTracker) SetLogLevel(lvl zapcore.Level) {
 }
 
 // Start starts HeadTracker service.
-func (ht *headTracker) Start() error {
+func (ht *headTracker) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
 		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.chainID.Int64())
-		latestChain, err := ht.headSaver.LoadFromDB(ht.ctx)
+		latestChain, err := ht.headSaver.LoadFromDB(ctx)
 		if err != nil {
 			return err
 		}
@@ -107,11 +102,11 @@ func (ht *headTracker) Start() error {
 		// anyway when we connect (but we should not rely on this because it is
 		// not specced). If it happens this is fine, and the head will be
 		// ignored as a duplicate.
-		initialHead, err := ht.getInitialHead(ht.ctx)
+		initialHead, err := ht.getInitialHead(ctx)
 		if err != nil {
 			ht.log.Errorw("Error getting initial head", "err", err)
 		} else if initialHead != nil {
-			if err := ht.handleNewHead(ht.ctx, initialHead); err != nil {
+			if err := ht.handleNewHead(ctx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
 			}
 		} else {
@@ -130,7 +125,6 @@ func (ht *headTracker) Start() error {
 // Close stops HeadTracker service.
 func (ht *headTracker) Close() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.cancel()
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -256,6 +250,9 @@ func (ht *headTracker) broadcastLoop() {
 func (ht *headTracker) backfillLoop() {
 	defer ht.wgDone.Done()
 
+	ctx, cancel := utils.ContextFromChan(ht.chStop)
+	defer cancel()
+
 	for {
 		select {
 		case <-ht.chStop:
@@ -268,10 +265,10 @@ func (ht *headTracker) backfillLoop() {
 				}
 				head := evmtypes.AsHead(item)
 				{
-					err := ht.Backfill(ht.ctx, head, uint(ht.config.EvmFinalityDepth()))
+					err := ht.Backfill(ctx, head, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
-					} else if ht.ctx.Err() != nil {
+					} else if ctx.Err() != nil {
 						break
 					}
 				}
@@ -341,11 +338,11 @@ var NullTracker httypes.HeadTracker = &nullTracker{}
 
 type nullTracker struct{}
 
-func (*nullTracker) Start() error              { return nil }
-func (*nullTracker) Close() error              { return nil }
-func (*nullTracker) Ready() error              { return nil }
-func (*nullTracker) Healthy() error            { return nil }
-func (*nullTracker) SetLogLevel(zapcore.Level) {}
+func (*nullTracker) Start(context.Context) error { return nil }
+func (*nullTracker) Close() error                { return nil }
+func (*nullTracker) Ready() error                { return nil }
+func (*nullTracker) Healthy() error              { return nil }
+func (*nullTracker) SetLogLevel(zapcore.Level)   {}
 func (*nullTracker) Backfill(ctx context.Context, headWithChain *evmtypes.Head, depth uint) (err error) {
 	return nil
 }

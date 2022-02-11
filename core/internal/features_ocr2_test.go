@@ -208,7 +208,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	b.Commit()
 
-	err = appBootstrap.Start()
+	err = appBootstrap.Start(context.TODO())
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
@@ -240,7 +240,7 @@ chainID 			= 1337
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
 	for i := 0; i < 4; i++ {
-		err = apps[i].Start()
+		err = apps[i].Start(context.TODO())
 		require.NoError(t, err)
 		defer apps[i].Stop()
 
