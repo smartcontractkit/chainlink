@@ -578,6 +578,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 			Blocks:         blocks,
 		})
 
+		time.Sleep(9 * time.Second)
 		helper.register(listener1, contract1, 1)
 		helper.register(listener2, contract1, 1)
 		helper.register(listener3, contract2, 1)
