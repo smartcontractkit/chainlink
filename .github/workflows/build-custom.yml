@@ -11,10 +11,12 @@ on:
       dep_solana_sha:
         description: chainlink-solana commit or branch
         required: false
+        default: develop
         type: string
       dep_terra_sha:
         description: chainlink-terra commit or branch
         required: false
+        default: main
         type: string
   workflow_call:
     inputs:
@@ -33,13 +35,13 @@ on:
         required: false
         type: string
     secrets:
-      QA_AWS_ACCESS_KEY_ID:
+      AWS_ACCESS_KEY_ID:
         required: true
-      QA_AWS_SECRET_KEY:
+      AWS_SECRET_ACCESS_KEY:
         required: true
-      QA_AWS_REGION:
+      AWS_REGION:
         required: true
-      QA_AWS_ROLE_TO_ASSUME:
+      AWS_ROLE_TO_ASSUME:
         required: true
       QA_KUBECONFIG:
         required: true
@@ -56,15 +58,24 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.2'
-      - name: Replace Solana deps
+      - name: Replace Solana deps manual flow
+        if: ${{ github.event.inputs.dep_solana_sha }}
+        run: |
+          go get github.com/smartcontractkit/chainlink-solana@${{ github.event.inputs.dep_solana_sha }}
+      - name: Replace Terra deps manual flow
+        if: ${{ github.event.inputs.dep_terra_sha }}
+        run: |
+          go get github.com/smartcontractkit/chainlink-terra@${{ github.event.inputs.dep_terra_sha }}
+      - name: Replace Solana deps workflow_call
         if: ${{ inputs.dep_solana_sha }}
         run: |
           go get github.com/smartcontractkit/chainlink-solana@${{ inputs.dep_solana_sha }}
-          go mod tidy -compat=1.17
-      - name: Replace Terra deps
+      - name: Replace Terra deps workflow_call
         if: ${{ inputs.dep_terra_sha }}
         run: |
           go get github.com/smartcontractkit/chainlink-terra@${{ inputs.dep_terra_sha }}
+      - name: Tidy
+        run: |
           go mod tidy -compat=1.17
       - name: Env vars
         run: env
@@ -73,10 +84,10 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.QA_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.QA_AWS_SECRET_KEY }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 3600
       - name: Login to Amazon ECR
         id: login-ecr
@@ -89,5 +100,5 @@ jobs:
           context: .
           file: core/chainlink.Dockerfile
           build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-          tags: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:custom.${{ github.sha }}
+          tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:custom.${{ github.sha }}
           push: true
