@@ -189,13 +189,32 @@ func TestHeadTracker_Start_CancelContext(t *testing.T) {
 	logger := logger.TestLogger(t)
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
-	ethClient, _ := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil)
+	chStarted := make(chan struct{})
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Run(func(args mock.Arguments) {
+		ctx := args.Get(0).(context.Context)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+			assert.FailNow(t, "context was not cancelled within 10s")
+		}
+	}).Return(cltest.Head(0), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(mock.Arguments) { close(chStarted) }).
+		Return(sub, nil)
+
 	ht := createHeadTracker(t, ethClient, config, orm)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	go func() {
+		time.Sleep(1 * time.Second)
+		cancel()
+	}()
 	err := ht.headTracker.Start(ctx)
-	require.Error(t, err)
+	require.NoError(t, err)
 }
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
