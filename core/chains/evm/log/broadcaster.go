@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -121,6 +122,7 @@ type (
 		// Event types to receive, with value filter for each field in the event
 		// No filter or an empty filter for a given field position mean: all values allowed
 		// the key should be a result of AbigenLog.Topic() call
+		// topic => topicValueFilters
 		LogsWithTopics map[common.Hash][][]Topic
 
 		ParseLog ParseLogFunc
@@ -223,6 +225,10 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 		if len(opts.LogsWithTopics) == 0 {
 			b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
 		}
+		if opts.MinIncomingConfirmations <= 0 {
+			b.logger.Warnw(fmt.Sprintf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined. MinIncomingConfirmations will be set to 1.", opts.MinIncomingConfirmations), "addr", opts.Contract.Hex(), "jobID", listener.JobID())
+			opts.MinIncomingConfirmations = 1
+		}
 
 		sub := &subscriber{listener, opts}
 		b.logger.Debugf("Registering subscriber %p with job ID %v", sub, sub.listener.JobID())
@@ -231,6 +237,10 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 			b.logger.Panicf("LogBroadcaster subscribe: cannot subscribe %p with job ID %v; changeSubscriberStatus channel was full", sub, sub.listener.JobID())
 		}
 
+		// this is asynchronous but it shouldn't matter, since the channel is
+		// ordered then it will work properly as long as you call unsubscribe
+		// before subscribing a new listener with the same job/addr (e.g. on
+		// replacement of the same job)
 		unsubscribe = func() {
 			b.logger.Debugf("Unregistering subscriber %p with job ID %v", sub, sub.listener.JobID())
 			wasOverCapacity := b.changeSubscriberStatus.Deliver(changeSubscriberStatus{subscriberStatusUnsubscribe, sub})
@@ -291,6 +301,8 @@ func (b *broadcaster) startResubscribeLoop() {
 	if backfillStart, abort := b.reinitialize(); abort {
 		return
 	} else if backfillStart != nil {
+		// No need to worry about r.highestNumConfirmations here because it's
+		// already at minimum this deep due to the latest seen head check above
 		if !b.backfillBlockNumber.Valid || *backfillStart < b.backfillBlockNumber.Int64 {
 			b.backfillBlockNumber.SetValid(*backfillStart)
 		}
@@ -396,6 +408,9 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			needsResubscribe = b.onChangeSubscriberStatus() || needsResubscribe
 
 		case blockNumber := <-b.replayChannel:
+			// NOTE: This ignores r.highestNumConfirmations, but it is
+			// generally assumed that this will only be performed rarely and
+			// manually by someone who knows what he is doing
 			b.backfillBlockNumber.SetValid(blockNumber)
 			b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
 			return true, nil
@@ -424,7 +439,8 @@ func (b *broadcaster) onNewLog(log types.Log) {
 	b.maybeWarnOnLargeBlockNumberDifference(int64(log.BlockNumber))
 
 	if log.Removed {
-		b.logPool.removeLog(log)
+		// Remove the whole block that contained this log.
+		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
 		return
@@ -623,7 +639,7 @@ func (b *broadcaster) Resume() {
 
 // test only
 func (b *broadcaster) LogsFromBlock(bh common.Hash) int {
-	return len(b.logPool.logsByBlockHash[bh])
+	return b.logPool.testOnly_getNumLogsForBlock(bh)
 }
 
 var _ BroadcasterInTest = &NullBroadcaster{}
