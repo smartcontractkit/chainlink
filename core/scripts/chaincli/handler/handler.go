@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"log"
 	"math/big"
 
@@ -96,6 +97,34 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 	auth.GasPrice = gasPrice
 
 	return auth
+}
+
+// Send eth from prefunded account.
+// Amount is number of ETH not wei.
+func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount int) error {
+	txOpts := k.buildTxOpts(ctx)
+	txOpts.Value = big.NewInt(0).Mul(big.NewInt(int64(amount)), big.NewInt(1000000000000000000))
+
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    txOpts.Nonce.Uint64(),
+		To:       &to,
+		Value:    txOpts.Value,
+		Gas:      txOpts.GasLimit,
+		GasPrice: txOpts.GasPrice,
+		Data:     nil,
+	})
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(k.cfg.ChainID)), k.privateKey)
+	if err != nil {
+		return fmt.Errorf("failed to sign tx: %s", err)
+	}
+
+	if err = k.client.SendTransaction(ctx, signedTx); err != nil {
+		return fmt.Errorf("failed to send tx: %s", err)
+	}
+
+	k.waitTx(ctx, signedTx)
+
+	return nil
 }
 
 func (h *baseHandler) waitDeployment(ctx context.Context, tx *types.Transaction) {
