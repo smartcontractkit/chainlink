@@ -90,5 +90,5 @@ func init() {
 	viper.SetDefault("UPKEEP_COUNT", 5)
 	viper.SetDefault("KEEPERS_COUNT", 2)
 
-	viper.SetDefault("FEED_DECIMALS", 8)
+	viper.SetDefault("FEED_DECIMALS", 18)
 }
