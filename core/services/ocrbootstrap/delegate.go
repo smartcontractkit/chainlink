@@ -55,11 +55,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 
 	ocr2Spec := spec.AsOCR2Spec()
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &ocr2Spec)
+	contractReady := make(chan struct{})
+	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &ocr2Spec, contractReady)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
-	services = append(services, ocr2Provider)
+	//services = append(services, ocr2Provider)
 
 	ocrDB := offchainreporting2.NewDB(d.db.DB, spec.ID, d.lggr)
 	peerWrapper := d.peerWrapper
@@ -107,9 +108,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 	}
-	services = append(services, bootstrapper)
-
-	return services, nil
+	return []job.Service{
+		ocr2Provider,
+		ocrcommon.NewDependentOCRService(contractReady, bootstrapper, ocrLogger),
+	}, nil
 }
 
 // AfterJobCreated satisfies the job.Delegate interface.

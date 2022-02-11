@@ -105,9 +105,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	// We buffer so that ocr2 providers may signal and continue working
-	// upon detecting contract config.
-	contractReady := make(chan struct{}, 1)
+	// We expect ocr2 providers to close this channel and continue working
+	// upon detecting contract config. Closing signifies config has been detected and
+	// we're ready to start the oracle.
+	contractReady := make(chan struct{})
 	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, spec, contractReady)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
@@ -133,11 +134,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 		}
 		return []job.Service{
-			&bootstrapService{
-				provider:      ocr2Provider,
-				contractReady: contractReady,
-				oracle:        bootstrapper,
-			},
+			ocrcommon.NewDependentOCRService(
+				contractReady,
+				bootstrapper,
+				ocrLogger,
+			),
 		}, nil
 	}
 
@@ -206,58 +207,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			d.pipelineRunner,
 			make(chan struct{}),
 			loggerWith),
-		&oracleService{
-			provider:      ocr2Provider,
-			contractReady: contractReady,
-			oracle:        oracle,
-		},
+		ocr2Provider,
+		ocrcommon.NewDependentOCRService(
+			contractReady,
+			oracle,
+			ocrLogger,
+		),
 	}, nil
-}
-
-type oracleService struct {
-	provider      types.OCR2Provider
-	contractReady chan struct{}
-	oracle        *libocr2.Oracle
-}
-
-func (o *oracleService) Start() error {
-	if err := o.provider.Start(); err != nil {
-		return err
-	}
-	go func() {
-		<-o.contractReady
-		if err := o.oracle.Start(); err != nil {
-			// Log to job errors
-		}
-	}()
-	return nil
-}
-
-func (o *oracleService) Close() error {
-	// TODO: noop if not started
-	return o.oracle.Close()
-}
-
-type bootstrapService struct {
-	provider      types.OCR2Provider
-	contractReady chan struct{}
-	oracle        *libocr2.Bootstrapper
-}
-
-func (b *bootstrapService) Start() error {
-	if err := b.provider.Start(); err != nil {
-		return err
-	}
-	go func() {
-		<-b.contractReady
-		if err := b.oracle.Start(); err != nil {
-			// Log to job errors
-		}
-	}()
-	return nil
-}
-
-func (b *bootstrapService) Close() error {
-	// TODO: noop if not started
-	return b.oracle.Close()
 }
