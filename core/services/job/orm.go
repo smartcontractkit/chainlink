@@ -330,6 +330,7 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
+	o.lggr.Debugw("Deleting job", "jobID", id)
 	q := o.q.WithOpts(qopts...)
 	query := `
 		WITH deleted_jobs AS (
@@ -389,6 +390,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
+	o.lggr.Debugw("Deleted job", "jobID", id)
 	return nil
 }
 
