@@ -72,7 +72,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				// keep blocks coming in for the lb to send the backfilled logs.
 				cu.backend.Commit()
 				return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
-			}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+			}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
 			assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
@@ -83,7 +83,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
-			}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+			}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 			// Assert the request was fulfilled on-chain.
 			gomega.NewWithT(t).Eventually(func() bool {
@@ -94,7 +94,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 					rf = append(rf, rfIterator.Event)
 				}
 				return len(rf) == 1
-			}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
+			}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 		})
 	}
 }
