@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -229,7 +230,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	t.Run("stores and retrieves pending transmissions", func(t *testing.T) {
 		p := ocrtypes.PendingTransmission{
 			Time:      time.Now(),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{0, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -246,7 +247,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		// Now overwrite value for k to prove that updating works
 		p = ocrtypes.PendingTransmission{
 			Time:      time.Now(),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{1, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -260,7 +261,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 
 		p2 := ocrtypes.PendingTransmission{
 			Time:      time.Now(),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{2, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -277,7 +278,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		}
 		pRedHerring := ocrtypes.PendingTransmission{
 			Time:      time.Now(),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{3, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -315,7 +316,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	t.Run("deletes pending transmission by key", func(t *testing.T) {
 		p := ocrtypes.PendingTransmission{
 			Time:      time.Unix(100, 0),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{1, 4, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -342,7 +343,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	t.Run("allows multiple duplicate keys for different spec ID", func(t *testing.T) {
 		p := ocrtypes.PendingTransmission{
 			Time:      time.Unix(100, 0),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{2, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -361,7 +362,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	t.Run("deletes pending transmission older than", func(t *testing.T) {
 		p := ocrtypes.PendingTransmission{
 			Time:      time.Unix(100, 0),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{2, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -373,7 +374,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 
 		p2 := ocrtypes.PendingTransmission{
 			Time:      time.Unix(1000, 0),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{2, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},
@@ -384,7 +385,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 
 		p2 = ocrtypes.PendingTransmission{
 			Time:      time.Now(),
-			ExtraHash: cltest.Random32Byte(),
+			ExtraHash: testutils.Random32Byte(),
 			Report:    []byte{2, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
 				{Signature: cltest.MustRandomBytes(t, 7), Signer: 248},

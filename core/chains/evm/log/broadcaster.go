@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -68,6 +69,13 @@ type (
 		LogsFromBlock(bh common.Hash) int
 	}
 
+	subscriberStatus int
+
+	changeSubscriberStatus struct {
+		newStatus subscriberStatus
+		sub       *subscriber
+	}
+
 	broadcaster struct {
 		orm        ORM
 		config     Config
@@ -81,9 +89,10 @@ type (
 		registrations *registrations
 		logPool       *logPool
 
-		addSubscriber *utils.Mailbox
-		rmSubscriber  *utils.Mailbox
-		newHeads      *utils.Mailbox
+		// Use the same channel for subs/unsubs so ordering is preserved
+		// (unsubscribe must happen after subscribe)
+		changeSubscriberStatus *utils.Mailbox
+		newHeads               *utils.Mailbox
 
 		utils.StartStopOnce
 		utils.DependentAwaiter
@@ -113,6 +122,7 @@ type (
 		// Event types to receive, with value filter for each field in the event
 		// No filter or an empty filter for a given field position mean: all values allowed
 		// the key should be a result of AbigenLog.Topic() call
+		// topic => topicValueFilters
 		LogsWithTopics map[common.Hash][][]Topic
 
 		ParseLog ParseLogFunc
@@ -123,12 +133,17 @@ type (
 
 	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
 
-	registration struct {
+	subscriber struct {
 		listener Listener
 		opts     ListenerOpts
 	}
 
 	Topic common.Hash
+)
+
+const (
+	subscriberStatusSubscribe = iota
+	subscriberStatusUnsubscribe
 )
 
 var _ Broadcaster = (*broadcaster)(nil)
@@ -138,20 +153,19 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 	chStop := make(chan struct{})
 	lggr = lggr.Named("LogBroadcaster")
 	return &broadcaster{
-		orm:              orm,
-		config:           config,
-		logger:           lggr,
-		evmChainID:       *ethClient.ChainID(),
-		ethSubscriber:    newEthSubscriber(ethClient, config, lggr, chStop),
-		registrations:    newRegistrations(lggr, *ethClient.ChainID()),
-		logPool:          newLogPool(),
-		addSubscriber:    utils.NewMailbox(0),
-		rmSubscriber:     utils.NewMailbox(0),
-		newHeads:         utils.NewMailbox(1),
-		DependentAwaiter: utils.NewDependentAwaiter(),
-		chStop:           chStop,
-		highestSavedHead: highestSavedHead,
-		replayChannel:    make(chan int64, 1),
+		orm:                    orm,
+		config:                 config,
+		logger:                 lggr,
+		evmChainID:             *ethClient.ChainID(),
+		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
+		registrations:          newRegistrations(lggr, *ethClient.ChainID()),
+		logPool:                newLogPool(),
+		changeSubscriberStatus: utils.NewMailbox(100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
+		newHeads:               utils.NewMailbox(1),
+		DependentAwaiter:       utils.NewDependentAwaiter(),
+		chStop:                 chStop,
+		highestSavedHead:       highestSavedHead,
+		replayChannel:          make(chan int64, 1),
 	}
 }
 
@@ -184,15 +198,12 @@ func (b *broadcaster) awaitInitialSubscribers() {
 	b.logger.Debug("Starting to await initial subscribers until all dependents are ready...")
 	for {
 		select {
-		case <-b.addSubscriber.Notify():
-			b.onAddSubscribers()
-
-		case <-b.rmSubscriber.Notify():
-			b.onRmSubscribers()
+		case <-b.changeSubscriberStatus.Notify():
+			b.onChangeSubscriberStatus()
 
 		case <-b.DependentAwaiter.AwaitDependents():
 			// ensure that any queued dependent subscriptions are registered first
-			b.onAddSubscribers()
+			b.onChangeSubscriberStatus()
 			go b.startResubscribeLoop()
 			return
 
@@ -204,21 +215,44 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
-	if len(opts.LogsWithTopics) == 0 {
-		b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
-	}
-
-	reg := registration{listener, opts}
-	wasOverCapacity := b.addSubscriber.Deliver(reg)
-	if wasOverCapacity {
-		b.logger.Error("Subscription mailbox is over capacity - dropped the oldest unprocessed subscription")
-	}
-	return func() {
-		wasOverCapacity := b.rmSubscriber.Deliver(reg)
-		if wasOverCapacity {
-			b.logger.Error("Subscription removal mailbox is over capacity - dropped the oldest unprocessed removal")
+	// IfNotStopped RLocks the state mutex so LB cannot be closed until this
+	// returns (no need to worry about listening for b.chStop)
+	//
+	// NOTE: We do not use IfStarted here because it is explicitly ok to
+	// register listeners before starting, this allows us to register many
+	// listeners then subscribe once on start, avoiding thrashing
+	ok := b.IfNotStopped(func() {
+		if len(opts.LogsWithTopics) == 0 {
+			b.logger.Panic("Must supply at least 1 LogsWithTopics element to Register")
 		}
+		if opts.MinIncomingConfirmations <= 0 {
+			b.logger.Warnw(fmt.Sprintf("LogBroadcaster requires that MinIncomingConfirmations must be at least 1 (got %v). Logs must have been confirmed in at least 1 block, it does not support reading logs from the mempool before they have been mined. MinIncomingConfirmations will be set to 1.", opts.MinIncomingConfirmations), "addr", opts.Contract.Hex(), "jobID", listener.JobID())
+			opts.MinIncomingConfirmations = 1
+		}
+
+		sub := &subscriber{listener, opts}
+		b.logger.Debugf("Registering subscriber %p with job ID %v", sub, sub.listener.JobID())
+		wasOverCapacity := b.changeSubscriberStatus.Deliver(changeSubscriberStatus{subscriberStatusSubscribe, sub})
+		if wasOverCapacity {
+			b.logger.Panicf("LogBroadcaster subscribe: cannot subscribe %p with job ID %v; changeSubscriberStatus channel was full", sub, sub.listener.JobID())
+		}
+
+		// this is asynchronous but it shouldn't matter, since the channel is
+		// ordered then it will work properly as long as you call unsubscribe
+		// before subscribing a new listener with the same job/addr (e.g. on
+		// replacement of the same job)
+		unsubscribe = func() {
+			b.logger.Debugf("Unregistering subscriber %p with job ID %v", sub, sub.listener.JobID())
+			wasOverCapacity := b.changeSubscriberStatus.Deliver(changeSubscriberStatus{subscriberStatusUnsubscribe, sub})
+			if wasOverCapacity {
+				b.logger.Panicf("LogBroadcaster unsubscribe: cannot unsubscribe %p with job ID %v; changeSubscriberStatus channel was full", sub, sub.listener.JobID())
+			}
+		}
+	})
+	if !ok {
+		b.logger.Panic("Register cannot be called on a stopped log broadcaster (this is an invariant violation because all dependent services should have unregistered themselves before logbroadcaster.Close was called)")
 	}
+	return
 }
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
@@ -267,6 +301,8 @@ func (b *broadcaster) startResubscribeLoop() {
 	if backfillStart, abort := b.reinitialize(); abort {
 		return
 	} else if backfillStart != nil {
+		// No need to worry about r.highestNumConfirmations here because it's
+		// already at minimum this deep due to the latest seen head check above
 		if !b.backfillBlockNumber.Valid || *backfillStart < b.backfillBlockNumber.Int64 {
 			b.backfillBlockNumber.SetValid(*backfillStart)
 		}
@@ -355,7 +391,6 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	for {
 		select {
 		case rawLog := <-chRawLogs:
-
 			b.logger.Debugw("Received a log",
 				"blockNumber", rawLog.BlockNumber, "blockHash", rawLog.BlockHash, "address", rawLog.Address)
 
@@ -369,13 +404,13 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			// if the eth node terminates the connection.
 			return true, err
 
-		case <-b.addSubscriber.Notify():
-			needsResubscribe = b.onAddSubscribers() || needsResubscribe
-
-		case <-b.rmSubscriber.Notify():
-			needsResubscribe = b.onRmSubscribers() || needsResubscribe
+		case <-b.changeSubscriberStatus.Notify():
+			needsResubscribe = b.onChangeSubscriberStatus() || needsResubscribe
 
 		case blockNumber := <-b.replayChannel:
+			// NOTE: This ignores r.highestNumConfirmations, but it is
+			// generally assumed that this will only be performed rarely and
+			// manually by someone who knows what he is doing
 			b.backfillBlockNumber.SetValid(blockNumber)
 			b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
 			return true, nil
@@ -404,7 +439,8 @@ func (b *broadcaster) onNewLog(log types.Log) {
 	b.maybeWarnOnLargeBlockNumberDifference(int64(log.BlockNumber))
 
 	if log.Removed {
-		b.logPool.removeLog(log)
+		// Remove the whole block that contained this log.
+		b.logPool.removeBlock(log.BlockHash, log.BlockNumber)
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
 		return
@@ -490,41 +526,30 @@ func (b *broadcaster) onNewHeads() {
 	}
 }
 
-func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
+func (b *broadcaster) onChangeSubscriberStatus() (needsResubscribe bool) {
 	for {
-		x, exists := b.addSubscriber.Retrieve()
+		x, exists := b.changeSubscriberStatus.Retrieve()
 		if !exists {
 			break
 		}
-		reg, ok := x.(registration)
+		change, ok := x.(changeSubscriberStatus)
 		if !ok {
-			b.logger.Errorf("expected `registration`, got %T", x)
-			continue
+			b.logger.Panicf("expected `changeSubscriberStatus`, got %T", x)
 		}
-		b.logger.Debugw("Subscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract)
-		needsResub := b.registrations.addSubscriber(reg)
-		if needsResub {
-			needsResubscribe = true
-		}
-	}
-	return
-}
+		sub := change.sub
 
-func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
-	for {
-		x, exists := b.rmSubscriber.Retrieve()
-		if !exists {
-			break
-		}
-		reg, ok := x.(registration)
-		if !ok {
-			b.logger.Errorf("expected `registration`, got %T", x)
-			continue
-		}
-		b.logger.Debugw("Unsubscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract)
-		needsResub := b.registrations.removeSubscriber(reg)
-		if needsResub {
-			needsResubscribe = true
+		if change.newStatus == subscriberStatusSubscribe {
+			b.logger.Debugw("Subscribing listener", "requiredBlockConfirmations", sub.opts.MinIncomingConfirmations, "address", sub.opts.Contract, "jobID", sub.listener.JobID())
+			needsResub := b.registrations.addSubscriber(sub)
+			if needsResub {
+				needsResubscribe = true
+			}
+		} else {
+			b.logger.Debugw("Unsubscribing listener", "requiredBlockConfirmations", sub.opts.MinIncomingConfirmations, "address", sub.opts.Contract, "jobID", sub.listener.JobID())
+			needsResub := b.registrations.removeSubscriber(sub)
+			if needsResub {
+				needsResubscribe = true
+			}
 		}
 	}
 	return
@@ -614,7 +639,7 @@ func (b *broadcaster) Resume() {
 
 // test only
 func (b *broadcaster) LogsFromBlock(bh common.Hash) int {
-	return len(b.logPool.logsByBlockHash[bh])
+	return b.logPool.testOnly_getNumLogsForBlock(bh)
 }
 
 var _ BroadcasterInTest = &NullBroadcaster{}

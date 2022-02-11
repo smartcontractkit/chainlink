@@ -1,0 +1,93 @@
+# This is reusable workflow that is helpful if you wish to check integration against chainlink repo from another repo with custom deps
+name: Custom image build
+on:
+  workflow_dispatch:
+    inputs:
+      cl_ref:
+        description: chainlink commit or branch
+        required: true
+        default: develop
+        type: string
+      dep_solana_sha:
+        description: chainlink-solana commit or branch
+        required: false
+        type: string
+      dep_terra_sha:
+        description: chainlink-terra commit or branch
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      cl_repo:
+        required: true
+        default: ${{ github.repository }}
+        type: string
+      cl_ref:
+        required: false
+        default: develop
+        type: string
+      dep_solana_sha:
+        required: false
+        type: string
+      dep_terra_sha:
+        required: false
+        type: string
+    secrets:
+      QA_AWS_ACCESS_KEY_ID:
+        required: true
+      QA_AWS_SECRET_KEY:
+        required: true
+      QA_AWS_REGION:
+        required: true
+      QA_AWS_ROLE_TO_ASSUME:
+        required: true
+      QA_KUBECONFIG:
+        required: true
+jobs:
+  build-chainlink:
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Chainlink repo
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ inputs.cl_repo }}
+          ref: ${{ github.event.inputs.cl_ref }}
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.2'
+      - name: Replace Solana deps
+        if: ${{ inputs.dep_solana_sha }}
+        run: |
+          go get github.com/smartcontractkit/chainlink-solana@${{ inputs.dep_solana_sha }}
+          go mod tidy -compat=1.17
+      - name: Replace Terra deps
+        if: ${{ inputs.dep_terra_sha }}
+        run: |
+          go get github.com/smartcontractkit/chainlink-terra@${{ inputs.dep_terra_sha }}
+          go mod tidy -compat=1.17
+      - name: Env vars
+        run: env
+      - name: Cat go.mod
+        run: cat go.mod
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.QA_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.QA_AWS_SECRET_KEY }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Build and Push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: core/chainlink.Dockerfile
+          build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
+          tags: 795953128386.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:custom.${{ github.sha }}
+          push: true
