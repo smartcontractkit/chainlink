@@ -176,7 +176,7 @@ type KeeperSpecParams struct {
 	ContractAddress          string
 	FromAddress              string
 	EvmChainID               int
-	minIncomingConfirmations int
+	MinIncomingConfirmations int
 }
 
 type KeeperSpec struct {
@@ -232,7 +232,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.minIncomingConfirmations),
+		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
 	}
 }
 
