@@ -1,3 +1,5 @@
+//go:build integration
+
 package terratxm_test
 
 import (
@@ -31,7 +33,6 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
