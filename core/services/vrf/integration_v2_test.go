@@ -11,10 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -34,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_consumer_v2"
@@ -42,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -56,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // vrfConsumerContract is the common interface implemented by
@@ -497,12 +496,12 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
 	}, big.NewInt(10e9))
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
@@ -551,7 +550,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	vrfKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address.Address(), 10)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create BHS key
 	bhsKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -559,7 +558,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	sendEth(t, ownerKey, uni.backend, bhsKey.Address.Address(), 10)
 
 	// Configure VRF and BHS keys
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		vrfKey.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
@@ -650,12 +649,12 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000e9)), // 1000 gwei
 		},
 	}, big.NewInt(1000e9))
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
@@ -719,7 +718,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	expensiveKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, expensiveKey.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		cheapKey.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
@@ -727,7 +726,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000e9)), // 1000 gwei
 		},
 	}, big.NewInt(10e9))
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF jobs.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{cheapKey, expensiveKey}, app, uni)
@@ -807,12 +806,12 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
 	}, big.NewInt(10e9))
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
@@ -839,11 +838,11 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	t.Log("Done!")
 }
 
-func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
+func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
 	app.Chains.EVM.Configure(
-		context.TODO(),
+		testutils.Context(t),
 		big.NewInt(1337),
 		true,
 		types.ChainCfg{
@@ -991,13 +990,13 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// max gas limit of 2M and a key specific max 10 gwei price.
 	// Keep the prices low so we can operate with small link balance subscriptions.
 	gasPrice := decimal.NewFromBigInt(big.NewInt(1000000000), 0)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		keys[0].Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)),
 		},
 	}, gasPrice.BigInt())
 
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
@@ -1175,7 +1174,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	config.Overrides.GlobalEvmGasFeeCapDefault = assets.GWei(1)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	err := app.GetKeyStore().Unlock(cltest.Password)
 	require.NoError(t, err)
@@ -1270,7 +1269,7 @@ func TestRequestCost(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
@@ -1313,7 +1312,7 @@ func TestMaxConsumersCost(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 	_, err := carolContract.TestCreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
@@ -1348,7 +1347,7 @@ func TestFulfillmentCost(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)

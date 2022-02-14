@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"bytes"
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +18,7 @@ import (
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
@@ -32,7 +32,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
@@ -47,7 +47,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
@@ -79,7 +79,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
@@ -111,7 +111,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 
 func TestSessions_RateLimited(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
@@ -139,7 +139,7 @@ func TestSessions_RateLimited(t *testing.T) {
 
 func TestRouter_LargePOSTBody(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
@@ -158,7 +158,7 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)

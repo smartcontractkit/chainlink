@@ -1,13 +1,13 @@
 package web_test
 
 import (
-	"context"
 	"math/big"
 	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -45,7 +45,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	ethClient.On("GetLINKBalance", mock.Anything, expectedKeys[0].Address.Address()).Return(assets.NewLinkFromJuels(256), nil).Once()
 	ethClient.On("GetLINKBalance", mock.Anything, expectedKeys[1].Address.Address()).Return(assets.NewLinkFromJuels(1), nil).Once()
 
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/keys/eth")
@@ -86,7 +86,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
 
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/keys/eth")
@@ -111,7 +111,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 
@@ -144,7 +144,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	resp, cleanup := client.Post("/v2/keys/eth", nil)
 	defer cleanup()
@@ -172,7 +172,7 @@ func TestETHKeysController_UpdateSuccess(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	resp, cleanup := client.Post("/v2/keys/eth", nil)
 	defer cleanup()

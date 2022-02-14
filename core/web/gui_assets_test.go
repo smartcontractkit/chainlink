@@ -1,22 +1,20 @@
 package web_test
 
 import (
-	"context"
 	"embed"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/gin-gonic/gin"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 //go:embed fixtures/operator_ui/assets
@@ -26,7 +24,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := &http.Client{}
 
@@ -56,7 +54,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := &http.Client{}
 
@@ -89,7 +87,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.Dev = null.BoolFrom(false)
 	app := cltest.NewApplicationWithConfig(t, config)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := &http.Client{}
 

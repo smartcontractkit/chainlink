@@ -14,6 +14,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -53,7 +54,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hr, hs)
 	require.NoError(t, hr.Start())
-	require.NoError(t, ht.Start(context.TODO()))
+	require.NoError(t, ht.Start(testutils.Context(t)))
 
 	latest1, unsubscribe1 := hr.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet

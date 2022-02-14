@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -9,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/require"
@@ -18,7 +18,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 
@@ -33,7 +33,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	eia := &auth.Token{
 		AccessKey: "abracadabra",
@@ -71,7 +71,7 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := http.Client{}
 	url := app.Config.ClientNodeURL() + "/v2/ping"

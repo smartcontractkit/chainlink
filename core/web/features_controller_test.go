@@ -1,14 +1,15 @@
 package web_test
 
 import (
-	"context"
 	"net/http"
 	"os"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +39,7 @@ func setupFeaturesControllerTest(t *testing.T) (*cltest.TestApplication, cltest.
 	os.Setenv("FEATURE_UI_CSA_KEYS", "true")
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 
 	return app, client

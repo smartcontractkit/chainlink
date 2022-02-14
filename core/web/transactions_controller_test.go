@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -22,7 +22,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	db := app.GetSqlxDB()
 	borm := app.BPTXMORM()
@@ -67,7 +67,7 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
@@ -79,7 +79,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
@@ -112,7 +112,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(context.TODO()))
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
