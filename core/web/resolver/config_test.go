@@ -296,6 +296,10 @@ func TestResolver_Config(t *testing.T) {
         "value": "true"
       },
       {
+        "key": "LOG_TO_DISK",
+        "value": "true"
+      },
+      {
         "key": "LOG_FILE_MAX_SIZE",
         "value": "1"
       },
@@ -306,10 +310,6 @@ func TestResolver_Config(t *testing.T) {
       {
         "key": "LOG_FILE_MAX_BACKUPS",
         "value": "12"
-      },
-      {
-        "key": "LOG_TO_DISK",
-        "value": "true"
       },
       {
         "key": "TRIGGER_FALLBACK_DB_POLL_INTERVAL",
