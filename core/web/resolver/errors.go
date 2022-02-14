@@ -36,6 +36,22 @@ func (e *NotFoundErrorUnionType) ToNotFoundError() (*NotFoundErrorResolver, bool
 	return nil, false
 }
 
+//
+//// ToJobAlreadyExistsError -
+//func (e *NotFoundErrorUnionType) ToJobAlreadyExistsError() (*JobAlreadyExistsErrorResolver, bool) {
+//	isErrFn := func(err error) bool { return false }
+//
+//	if e.isExpectedErrorFn != nil {
+//		isErrFn = e.isExpectedErrorFn
+//	}
+//
+//	if e.err != nil && isErrFn(e.err) {
+//		return NewJobAlreadyExistsErrorResolver(e.message), true
+//	}
+//
+//	return nil, false
+//}
+
 func isNotFoundSQLError(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }

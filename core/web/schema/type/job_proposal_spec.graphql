@@ -16,13 +16,19 @@ type JobProposalSpec {
     updatedAt: Time!
 }
 
+type JobAlreadyExistsError implements Error {
+    message: String!
+    code: ErrorCode!
+}
+
+
 # ApproveJobProposalSpec
 
 type ApproveJobProposalSpecSuccess {
     spec: JobProposalSpec!
 }
 
-union ApproveJobProposalSpecPayload = ApproveJobProposalSpecSuccess | NotFoundError
+union ApproveJobProposalSpecPayload = ApproveJobProposalSpecSuccess | NotFoundError | JobAlreadyExistsError
 
 # CancelJobProposalSpec
 

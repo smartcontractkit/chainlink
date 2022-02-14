@@ -30,6 +30,8 @@ var (
 	ErrOCRDisabled        = errors.New("ocr is disabled")
 	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
 	ErrBootstrapXorJobs   = errors.New("feeds manager cannot be bootstrap while having assigned job types")
+	ErrJobAlreadyExists   = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
+	ErrSpecNotFound       = errors.New("spec not found")
 
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
@@ -57,7 +59,7 @@ type Service interface {
 	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 	ListJobProposals() ([]JobProposal, error)
 
-	ApproveSpec(ctx context.Context, id int64) error
+	ApproveSpec(ctx context.Context, id int64, force bool) error
 	CancelSpec(ctx context.Context, id int64) error
 	GetSpec(id int64) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64) ([]JobProposalSpec, error)
@@ -452,11 +454,14 @@ func (s *service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
 
 // ApproveSpec approves a spec for a job proposal and creates a job with the
 // spec.
-func (s *service) ApproveSpec(ctx context.Context, id int64) error {
+func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	pctx := pg.WithParentCtx(ctx)
 
 	spec, err := s.orm.GetSpec(id, pctx)
 	if err != nil {
+		//if errors.Is(err, sql.ErrNoRows) {
+		//	return ErrSpecNotFound
+		//}
 		return errors.Wrap(err, "orm: job proposal spec")
 	}
 
@@ -494,8 +499,12 @@ func (s *service) ApproveSpec(ctx context.Context, id int64) error {
 
 		existingJobID, err2 := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
 		if err2 == nil {
-			if err2 = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); err2 != nil {
-				return errors.Wrap(err2, "DeleteJob failed")
+			if force {
+				if err2 = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); err2 != nil {
+					return errors.Wrap(err2, "DeleteJob failed")
+				}
+			} else {
+				return ErrJobAlreadyExists
 			}
 		} else if !errors.Is(err2, sql.ErrNoRows) {
 			return errors.Wrap(err2, "FindJobIDByAddress failed")
@@ -748,7 +757,7 @@ type NullService struct{}
 //revive:disable
 func (ns NullService) Start() error { return nil }
 func (ns NullService) Close() error { return nil }
-func (ns NullService) ApproveSpec(ctx context.Context, id int64) error {
+func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return errors.New("feeds manager is disabled")
 }
 func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {
