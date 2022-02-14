@@ -257,7 +257,7 @@ func (s *sentryLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	s.h.Errorw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
-func (s *sentryLogger) CriticalW(msg string, keysAndValues ...interface{}) {
+func (s *sentryLogger) Criticalw(msg string, keysAndValues ...interface{}) {
 	defer sentry.Flush(SentryFlushDeadline)
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
@@ -265,7 +265,7 @@ func (s *sentryLogger) CriticalW(msg string, keysAndValues ...interface{}) {
 		scope.SetLevel(sentry.LevelFatal)
 	})
 	eid := hub.CaptureMessage(msg)
-	s.h.CriticalW(msg, append(keysAndValues, "sentryEventID", eid)...)
+	s.h.Criticalw(msg, append(keysAndValues, "sentryEventID", eid)...)
 }
 
 func (s *sentryLogger) Panicw(msg string, keysAndValues ...interface{}) {

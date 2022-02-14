@@ -120,7 +120,7 @@ var (
 func init() {
 	gin.SetMode(gin.TestMode)
 
-	gomega.SetDefaultEventuallyTimeout(defaultWaitTimeout)
+	gomega.SetDefaultEventuallyTimeout(testutils.DefaultWaitTimeout)
 	gomega.SetDefaultEventuallyPollingInterval(DBPollingInterval)
 	gomega.SetDefaultConsistentlyDuration(time.Second)
 	gomega.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
@@ -297,7 +297,7 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback jsonrpcHandler) string
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
-	shutdownGracePeriod := defaultWaitTimeout
+	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
 		SecretGenerator:     MockSecretGenerator{},
 		Dialect:             dialects.TransactionWrappedPostgres,
@@ -930,20 +930,11 @@ const (
 	DBPollingInterval = 100 * time.Millisecond
 	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
 	AssertNoActionTimeout = 3 * time.Second
-
-	defaultWaitTimeout = 30 * time.Second
 )
 
-// WaitTimeout returns a timeout based on the test's Deadline, if available.
-// Especially important to use in parallel tests, as their individual execution
-// can get paused for arbitrary amounts of time.
-func WaitTimeout(t *testing.T) time.Duration {
-	if d, ok := t.Deadline(); ok {
-		// 10% buffer for cleanup and scheduling delay
-		return time.Until(d) * 9 / 10
-	}
-	return defaultWaitTimeout
-}
+// WaitTimeout is just preserved for compatabilty. Use testutils.WaitTimeout directly instead.
+// Deprecated
+var WaitTimeout = testutils.WaitTimeout
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
