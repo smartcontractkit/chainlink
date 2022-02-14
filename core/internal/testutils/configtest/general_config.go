@@ -99,6 +99,9 @@ type GeneralConfigOverrides struct {
 	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
+	LogFileMaxSize                            null.Int
+	LogFileMaxAge                             null.Int
+	LogFileMaxBackups                         null.Int
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
@@ -363,6 +366,27 @@ func (c *TestGeneralConfig) LogToDisk() bool {
 		return c.Overrides.LogToDisk.Bool
 	}
 	return c.GeneralConfig.LogToDisk()
+}
+
+func (c *TestGeneralConfig) LogFileMaxSize() int64 {
+	if c.Overrides.LogFileMaxSize.Valid {
+		return c.Overrides.LogFileMaxSize.Int64
+	}
+	return int64(c.GeneralConfig.LogFileMaxSize())
+}
+
+func (c *TestGeneralConfig) LogFileMaxAge() int64 {
+	if c.Overrides.LogFileMaxAge.Valid {
+		return c.Overrides.LogFileMaxAge.Int64
+	}
+	return int64(c.GeneralConfig.LogFileMaxAge())
+}
+
+func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
+	if c.Overrides.LogFileMaxBackups.Valid {
+		return c.Overrides.LogFileMaxBackups.Int64
+	}
+	return int64(c.GeneralConfig.LogFileMaxBackups())
 }
 
 func (c *TestGeneralConfig) AdminCredentialsFile() string {

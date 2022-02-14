@@ -77,6 +77,9 @@ type EnvPrinter struct {
 	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
+	LogFileMaxSize                             int64           `json:"LOG_FILE_MAX_SIZE"`
+	LogFileMaxAge                              int64           `json:"LOG_FILE_MAX_AGE"`
+	LogFileMaxBackups                          int64           `json:"LOG_FILE_MAX_BACKUPS"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 
 	// OCR1
@@ -171,6 +174,9 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			LeaseLockDuration:                  cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
 			LogFileDir:                         cfg.LogFileDir(),
+			LogFileMaxSize:                     cfg.LogFileMaxSize(),
+			LogFileMaxAge:                      cfg.LogFileMaxAge(),
+			LogFileMaxBackups:                  cfg.LogFileMaxBackups(),
 			LogLevel:                           cfg.LogLevel(),
 			LogSQL:                             cfg.LogSQL(),
 			LogToDisk:                          cfg.LogToDisk(),

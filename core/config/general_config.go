@@ -138,6 +138,9 @@ type GeneralOnlyConfig interface {
 	LogLevel() zapcore.Level
 	LogSQL() bool
 	LogToDisk() bool
+	LogFileMaxSize() int64
+	LogFileMaxAge() int64
+	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
@@ -917,6 +920,21 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 // LogToDisk configures disk preservation of logs.
 func (c *generalConfig) LogToDisk() bool {
 	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
+}
+
+// LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.
+func (c *generalConfig) LogFileMaxSize() int64 {
+	return c.getWithFallback("LogFileMaxSize", parse.Int64).(int64)
+}
+
+// LogFileMaxAge configures disk preservation of logs max age (in days) before file rotation.
+func (c *generalConfig) LogFileMaxAge() int64 {
+	return c.getWithFallback("LogFileMaxAge", parse.Int64).(int64)
+}
+
+// LogFileMaxBackups configures disk preservation of the max amount of old log files to retain.
+func (c *generalConfig) LogFileMaxBackups() int64 {
+	return c.getWithFallback("LogFileMaxBackups", parse.Int64).(int64)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger

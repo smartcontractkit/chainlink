@@ -12,11 +12,14 @@ import (
 )
 
 var (
-	LogLevel    = New("LogLevel", parse.LogLevel)
-	RootDir     = New("RootDir", parse.HomeDir)
-	JSONConsole = New("JSONConsole", parse.Bool)
-	LogToDisk   = New("LogToDisk", parse.Bool)
-	LogUnixTS   = New("LogUnixTS", parse.Bool)
+	LogLevel          = New("LogLevel", parse.LogLevel)
+	RootDir           = New("RootDir", parse.HomeDir)
+	JSONConsole       = New("JSONConsole", parse.Bool)
+	LogToDisk         = New("LogToDisk", parse.Bool)
+	LogFileMaxSize    = New("LogFileMaxSize", parse.Int64)
+	LogFileMaxAge     = New("LogFileMaxAge", parse.Int64)
+	LogFileMaxBackups = New("LogFileMaxAge", parse.Int64)
+	LogUnixTS         = New("LogUnixTS", parse.Bool)
 )
 
 // EnvVar is an environment variable which
@@ -83,6 +86,12 @@ func (e *EnvVar) ParseBool() (v bool, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
 	return i.(bool), invalid
+}
+
+func (e *EnvVar) ParseInt() (v int, invalid string) {
+	var i interface{}
+	i, invalid = e.Parse()
+	return i.(int), invalid
 }
 
 func (e *EnvVar) ParseLogLevel() (v zapcore.Level, invalid string) {
