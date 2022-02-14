@@ -235,7 +235,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				h := eth.AsHead(head)
 				{
-					ctx, cancel := eth.DefaultQueryCtx()
+					ctx, cancel := utils.ContextFromChan(ht.chStop)
 					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
@@ -286,8 +286,6 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseH
 			"err", err)
 	}()
 
-	ctx, cancel := utils.CombinedContext(ht.chStop, ctxParent)
-	defer cancel()
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		existingHead := ht.headSaver.Chain(head.ParentHash)
@@ -295,6 +293,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseH
 			head = existingHead
 			continue
 		}
+		ctx, _ := eth.DefaultQueryCtx(ctxParent)
 		head, err = ht.fetchAndSaveHead(ctx, i)
 		fetched++
 		if ctx.Err() != nil {
