@@ -368,6 +368,7 @@ func (c *TestGeneralConfig) LogToDisk() bool {
 	return c.GeneralConfig.LogToDisk()
 }
 
+// LogFileMaxSize allows to override the log file's max size before file rotation.
 func (c *TestGeneralConfig) LogFileMaxSize() int64 {
 	if c.Overrides.LogFileMaxSize.Valid {
 		return c.Overrides.LogFileMaxSize.Int64
@@ -375,6 +376,7 @@ func (c *TestGeneralConfig) LogFileMaxSize() int64 {
 	return int64(c.GeneralConfig.LogFileMaxSize())
 }
 
+// LogFileMaxSize allows to override the log file's max age before file rotation.
 func (c *TestGeneralConfig) LogFileMaxAge() int64 {
 	if c.Overrides.LogFileMaxAge.Valid {
 		return c.Overrides.LogFileMaxAge.Int64
@@ -382,6 +384,7 @@ func (c *TestGeneralConfig) LogFileMaxAge() int64 {
 	return int64(c.GeneralConfig.LogFileMaxAge())
 }
 
+// LogFileMaxSize allows to override the max amount of old log files to retain.
 func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
 	if c.Overrides.LogFileMaxBackups.Valid {
 		return c.Overrides.LogFileMaxBackups.Int64

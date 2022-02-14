@@ -12,14 +12,22 @@ import (
 )
 
 var (
-	LogLevel          = New("LogLevel", parse.LogLevel)
-	RootDir           = New("RootDir", parse.HomeDir)
-	JSONConsole       = New("JSONConsole", parse.Bool)
-	LogToDisk         = New("LogToDisk", parse.Bool)
-	LogFileMaxSize    = New("LogFileMaxSize", parse.Int64)
-	LogFileMaxAge     = New("LogFileMaxAge", parse.Int64)
-	LogFileMaxBackups = New("LogFileMaxAge", parse.Int64)
-	LogUnixTS         = New("LogUnixTS", parse.Bool)
+	// LogLevel reprents a parseable version of the `LOG_LEVEL`env var.
+	LogLevel = New("LogLevel", parse.LogLevel)
+	// LogLevel reprents a parseable version of the `ROOT`env var.
+	RootDir = New("RootDir", parse.HomeDir)
+	// LogLevel reprents a parseable version of the `JSON_CONSOLE`env var.
+	JSONConsole = New("JSONConsole", parse.Bool)
+	// LogToDisk reprents a parseable version of the `LOG_TO_DISK`env var.
+	LogToDisk = New("LogToDisk", parse.Bool)
+	// LogFileMaxSize reprents a parseable version of the `LOG_FILE_MAX_SIZE`env var.
+	LogFileMaxSize = New("LogFileMaxSize", parse.Int64)
+	// LogFileMaxAge reprents a parseable version of the `LOG_FILE_MAX_AGE`env var.
+	LogFileMaxAge = New("LogFileMaxAge", parse.Int64)
+	// LogFileMaxBackups reprents a parseable version of the `LOG_FILE_MAX_BACKUPS`env var.
+	LogFileMaxBackups = New("LogFileMaxBackups", parse.Int64)
+	// LogUnixTS reprents a parseable version of the `LOG_UNIX_TS`env var.
+	LogUnixTS = New("LogUnixTS", parse.Bool)
 )
 
 // EnvVar is an environment variable which
@@ -88,6 +96,7 @@ func (e *EnvVar) ParseBool() (v bool, invalid string) {
 	return i.(bool), invalid
 }
 
+// ParseInt parses value into `int`
 func (e *EnvVar) ParseInt() (v int, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
