@@ -14,9 +14,9 @@ import (
 var (
 	// LogLevel reprents a parseable version of the `LOG_LEVEL`env var.
 	LogLevel = New("LogLevel", parse.LogLevel)
-	// LogLevel reprents a parseable version of the `ROOT`env var.
+	// RootDir reprents a parseable version of the `ROOT`env var.
 	RootDir = New("RootDir", parse.HomeDir)
-	// LogLevel reprents a parseable version of the `JSON_CONSOLE`env var.
+	// JSONConsole reprents a parseable version of the `JSON_CONSOLE`env var.
 	JSONConsole = New("JSONConsole", parse.Bool)
 	// LogToDisk reprents a parseable version of the `LOG_TO_DISK`env var.
 	LogToDisk = New("LogToDisk", parse.Bool)
