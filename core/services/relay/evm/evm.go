@@ -173,10 +173,7 @@ type ocr2Provider struct {
 
 // On start, an ethereum ocr2 provider will start the contract tracker.
 func (p ocr2Provider) Start() error {
-	if err := p.tracker.Start(); err != nil {
-		return err
-	}
-	return nil
+	return p.tracker.Start()
 }
 
 // On close, an ethereum ocr2 provider will close the contract tracker.

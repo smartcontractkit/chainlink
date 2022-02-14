@@ -420,7 +420,3 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
-
-//replace github.com/smartcontractkit/chainlink-solana => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-solana
-//
-//replace github.com/smartcontractkit/chainlink-terra => /Users/connorstein/go/src/github.com/smartcontractkit/chainlink-terra

@@ -48,6 +48,7 @@ func (ds *DependentOCRService) run() {
 func (ds *DependentOCRService) Close() error {
 	if ds.started.Load() {
 		// Assumes service close is synchronous
+		ds.lggr.Info("closed dependent ocr service", ocrtypes.LogFields{})
 		return ds.service.Close()
 	} else {
 		// If it hasn't started lets stop waiting for the deps
