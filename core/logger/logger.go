@@ -137,7 +137,7 @@ func GetLogServices() []string {
 }
 
 // newProductionConfig returns a new production zap.Config.
-func newProductionConfig(dir string, jsonConsole bool, unixTS bool) zap.Config {
+func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
 	config := newBaseConfig()
 	if !unixTS {
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -145,11 +145,11 @@ func newProductionConfig(dir string, jsonConsole bool, unixTS bool) zap.Config {
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
-
-	destination := logFileURI(dir)
-	config.OutputPaths = append(config.OutputPaths, destination)
-	config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
-
+	if toDisk {
+		destination := logFileURI(dir)
+		config.OutputPaths = append(config.OutputPaths, destination)
+		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
+	}
 	return config
 }
 
@@ -195,6 +195,11 @@ func NewLogger() Logger {
 		parseErrs = append(parseErrs, invalid)
 	}
 
+	c.ToDisk, invalid = envvar.LogToDisk.ParseBool()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
 	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
@@ -212,15 +217,16 @@ type Config struct {
 	Dir                        string
 	JsonConsole                bool
 	UnixTS                     bool
-	DiskMaxSizeBeforeRotate    int // megabytes
-	DiskMaxAgeBeforeDelete     int // days
-	DiskMaxBackupsBeforeDelete int // files
+	ToDisk                     bool // if false, the Logger will only log to stdout.
+	DiskMaxSizeBeforeRotate    int  // megabytes
+	DiskMaxAgeBeforeDelete     int  // days
+	DiskMaxBackupsBeforeDelete int  // files
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() Logger {
-	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.UnixTS)
+	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, err := newZapLogger(ZapLoggerConfig{
 		local:  *c,

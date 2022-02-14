@@ -43,8 +43,10 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 }
 
 func newCores(cfg ZapLoggerConfig) []zapcore.Core {
-	cores := []zapcore.Core{
-		newDiskCore(cfg.local),
+	var cores []zapcore.Core
+
+	if cfg.local.ToDisk {
+		cores = append(cores, newDiskCore(cfg.local))
 	}
 
 	for _, sink := range cfg.sinks {

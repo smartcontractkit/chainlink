@@ -127,6 +127,7 @@ func TestConfigSchema(t *testing.T) {
 		"LogFileDir":                                     "LOG_FILE_DIR",
 		"LogLevel":                                       "LOG_LEVEL",
 		"LogSQL":                                         "LOG_SQL",
+		"LogToDisk":                                      "LOG_TO_DISK",
 		"LogUnixTS":                                      "LOG_UNIX_TS",
 		"MaximumServiceDuration":                         "MAXIMUM_SERVICE_DURATION",
 		"MigrateDatabase":                                "MIGRATE_DATABASE",

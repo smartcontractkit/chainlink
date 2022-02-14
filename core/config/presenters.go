@@ -76,6 +76,7 @@ type EnvPrinter struct {
 	LogFileDir                                 string          `json:"LOG_FILE_DIR"`
 	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
+	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 
 	// OCR1
@@ -172,6 +173,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			LogFileDir:                         cfg.LogFileDir(),
 			LogLevel:                           cfg.LogLevel(),
 			LogSQL:                             cfg.LogSQL(),
+			LogToDisk:                          cfg.LogToDisk(),
 
 			// OCRV1
 			OCRContractTransmitterTransmitTimeout: ocrTransmitTimeout,

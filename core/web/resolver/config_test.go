@@ -84,6 +84,7 @@ func TestResolver_Config(t *testing.T) {
 					DefaultLogLevel:                           nil,
 					LogFileDir:                                null.StringFrom("foo"),
 					LogSQL:                                    null.BoolFrom(true),
+					LogToDisk:                                 null.BoolFrom(true),
 					OCRKeyBundleID:                            null.StringFrom("test"),
 					OCRObservationTimeout:                     nil,
 					OCRTransmitterAddress:                     nil,
@@ -289,6 +290,10 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "LOG_SQL",
+        "value": "true"
+      },
+      {
+        "key": "LOG_TO_DISK",
         "value": "true"
       },
       {
