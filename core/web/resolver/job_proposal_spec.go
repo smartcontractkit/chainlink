@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
 
