@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
 
@@ -107,22 +106,6 @@ func NewApproveJobProposalSpecPayload(spec *feeds.JobProposalSpec, err error) *A
 	return &ApproveJobProposalSpecPayloadResolver{spec: spec, NotFoundErrorUnionType: e}
 }
 
-//// NewApproveJobProposalSpecPayload generates the spec payload resolver.
-//func NewApproveJobProposalSpecPayload2(spec *feeds.JobProposalSpec, err error) *ApproveJobProposalSpecPayloadResolver {
-//	if err != nil {
-//		e := NotFoundErrorUnionType{err: err, message: err.Error()}
-//
-//		if errors.Is(err, feeds.ErrJobAlreadyExists) {
-//			e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
-//				return errors.Is(err, feeds.ErrJobAlreadyExists)
-//			}}
-//		}
-//
-//		return &ApproveJobProposalSpecPayloadResolver{spec: spec, NotFoundErrorUnionType: e}
-//	}
-//	return &ApproveJobProposalSpecPayloadResolver{spec, NotFoundErrorUnionType{err: nil, message: ""}}
-//}
-
 // ToApproveJobProposalSpecSuccess resolves to the approval job proposal success
 // resolver.
 func (r *ApproveJobProposalSpecPayloadResolver) ToApproveJobProposalSpecSuccess() (*ApproveJobProposalSpecSuccessResolver, bool) {
@@ -140,15 +123,6 @@ func (r *ApproveJobProposalSpecPayloadResolver) ToJobAlreadyExistsError() (*JobA
 
 	return nil, false
 }
-
-//// ToBootstrapXorJobsError -
-//func (r *ApproveJobProposalSpecPayloadResolver) ToBootstrapXorJobsError() (*BootstrapXorJobsErrorResolver, bool) {
-//	if r.err != nil && errors.Is(r.err, feeds.ErrBootstrapXorJobs) {
-//		return NewBootstrapXorJobsError(r.err.Error()), true
-//	}
-//
-//	return nil, false
-//}
 
 // JobAlreadyExistsErrorResolver -
 type JobAlreadyExistsErrorResolver struct {

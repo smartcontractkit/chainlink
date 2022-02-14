@@ -31,7 +31,6 @@ var (
 	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
 	ErrBootstrapXorJobs   = errors.New("feeds manager cannot be bootstrap while having assigned job types")
 	ErrJobAlreadyExists   = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
-	ErrSpecNotFound       = errors.New("spec not found")
 
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
@@ -459,9 +458,6 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 	spec, err := s.orm.GetSpec(id, pctx)
 	if err != nil {
-		//if errors.Is(err, sql.ErrNoRows) {
-		//	return ErrSpecNotFound
-		//}
 		return errors.Wrap(err, "orm: job proposal spec")
 	}
 

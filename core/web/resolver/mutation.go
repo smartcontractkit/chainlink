@@ -526,7 +526,7 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 
 	feedsSvc := r.App.GetFeedsService()
 	if err = feedsSvc.ApproveSpec(ctx, id, args.Force); err != nil {
-		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, feeds.ErrSpecNotFound) || errors.Is(err, feeds.ErrJobAlreadyExists) {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, feeds.ErrJobAlreadyExists) {
 			return NewApproveJobProposalSpecPayload(nil, err), nil
 		}
 		return nil, err
