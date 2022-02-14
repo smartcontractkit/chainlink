@@ -6,6 +6,7 @@ import (
 	"go.uber.org/atomic"
 )
 
+// DependentOCRService is an OCR service which is gated on a dependency.
 type DependentOCRService struct {
 	ready      <-chan struct{}
 	stop, done chan struct{}
@@ -14,6 +15,7 @@ type DependentOCRService struct {
 	lggr       ocrtypes.Logger
 }
 
+// NewDependentOCRService creates a new service that waits for a signal on the ready chan.
 func NewDependentOCRService(ready <-chan struct{}, service job.Service, lggr ocrtypes.Logger) *DependentOCRService {
 	return &DependentOCRService{
 		ready:   ready,
@@ -25,6 +27,7 @@ func NewDependentOCRService(ready <-chan struct{}, service job.Service, lggr ocr
 	}
 }
 
+// Start starts the service asynchronously.
 func (ds *DependentOCRService) Start() error {
 	go ds.run()
 	return nil
@@ -45,15 +48,15 @@ func (ds *DependentOCRService) run() {
 	}
 }
 
+// Close closes the service synchronously.
 func (ds *DependentOCRService) Close() error {
 	if ds.started.Load() {
 		// Assumes service close is synchronous
 		ds.lggr.Info("closed dependent ocr service", ocrtypes.LogFields{})
 		return ds.service.Close()
-	} else {
-		// If it hasn't started lets stop waiting for the deps
-		close(ds.stop)
-		<-ds.done
 	}
+	// If it hasn't started lets stop waiting for the deps
+	close(ds.stop)
+	<-ds.done
 	return nil
 }

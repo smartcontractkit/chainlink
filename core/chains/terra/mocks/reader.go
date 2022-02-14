@@ -3,12 +3,9 @@
 package mocks
 
 import (
-	query "github.com/cosmos/cosmos-sdk/types/query"
-	mock "github.com/stretchr/testify/mock"
-
 	tmservice "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
-
 	tx "github.com/cosmos/cosmos-sdk/types/tx"
+	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/cosmos/cosmos-sdk/types"
 )
@@ -161,13 +158,13 @@ func (_m *Reader) Tx(hash string) (*tx.GetTxResponse, error) {
 	return r0, r1
 }
 
-// TxsEvents provides a mock function with given fields: events, paginationParams
-func (_m *Reader) TxsEvents(events []string, paginationParams *query.PageRequest) (*tx.GetTxsEventResponse, error) {
-	ret := _m.Called(events, paginationParams)
+// TxsEvents provides a mock function with given fields: events
+func (_m *Reader) TxsEvents(events []string) (*tx.GetTxsEventResponse, error) {
+	ret := _m.Called(events)
 
 	var r0 *tx.GetTxsEventResponse
-	if rf, ok := ret.Get(0).(func([]string, *query.PageRequest) *tx.GetTxsEventResponse); ok {
-		r0 = rf(events, paginationParams)
+	if rf, ok := ret.Get(0).(func([]string) *tx.GetTxsEventResponse); ok {
+		r0 = rf(events)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*tx.GetTxsEventResponse)
@@ -175,8 +172,8 @@ func (_m *Reader) TxsEvents(events []string, paginationParams *query.PageRequest
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]string, *query.PageRequest) error); ok {
-		r1 = rf(events, paginationParams)
+	if rf, ok := ret.Get(1).(func([]string) error); ok {
+		r1 = rf(events)
 	} else {
 		r1 = ret.Error(1)
 	}

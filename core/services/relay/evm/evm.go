@@ -62,6 +62,7 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
+// NewOCR2Provider creates a per-job set of OCR2 dependencies.
 func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contractReady chan<- struct{}) (types2.OCR2Provider, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
