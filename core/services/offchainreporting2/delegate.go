@@ -139,6 +139,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				bootstrapper,
 				ocrLogger,
 			),
+			ocr2Provider,
 		}, nil
 	}
 
@@ -207,11 +208,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			d.pipelineRunner,
 			make(chan struct{}),
 			loggerWith),
-		ocr2Provider,
 		ocrcommon.NewDependentOCRService(
 			contractReady,
 			oracle,
 			ocrLogger,
 		),
+		ocr2Provider,
 	}, nil
 }

@@ -29,7 +29,7 @@ type Relayer interface {
 	// NewOCR2Provider creates an OCR2Provider for a given OCR job spec.
 	// It signals on contractReady once contract configuration has been detected
 	// and the OCR protocol may begin.
-	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}, contractReady chan struct{}) (OCR2Provider, error)
+	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}, contractReady chan<- struct{}) (OCR2Provider, error)
 }
 
 // OCR2Provider is network and job specific.

@@ -83,6 +83,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.ec = new(evmmocks.Client)
 
 	db := pgtest.NewSqlxDB(t)
+	contractReady := make(chan struct{})
 	uni.tracker = offchainreporting.NewOCRContractTracker(
 		contract,
 		filterer,
@@ -95,6 +96,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		uni.db,
 		chain,
 		uni.hb,
+		contractReady,
 	)
 
 	t.Cleanup(func() {

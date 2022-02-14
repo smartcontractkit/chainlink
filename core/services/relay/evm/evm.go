@@ -62,7 +62,7 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
-func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contractReady chan struct{}) (types2.OCR2Provider, error) {
+func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contractReady chan<- struct{}) (types2.OCR2Provider, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
 	chain, err := r.chainSet.Get(spec.ChainID)
@@ -103,6 +103,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contra
 		ocrDB,
 		chain.Config(),
 		chain.HeadBroadcaster(),
+		contractReady,
 	)
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
@@ -113,7 +114,6 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contra
 	if spec.IsBootstrap {
 		// Return early if bootstrap node (doesn't require the full OCR2 provider)
 		return &ocr2Provider{
-			contractReady:          contractReady,
 			tracker:                tracker,
 			offchainConfigDigester: offchainConfigDigester,
 		}, nil
@@ -142,7 +142,6 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contra
 	)
 
 	return &ocr2Provider{
-		contractReady:          contractReady,
 		tracker:                tracker,
 		offchainConfigDigester: offchainConfigDigester,
 		reportCodec:            reportCodec,
@@ -177,8 +176,6 @@ func (p ocr2Provider) Start() error {
 	if err := p.tracker.Start(); err != nil {
 		return err
 	}
-	// TODO: Move EVM relay to config/state polling
-	p.contractReady <- struct{}{}
 	return nil
 }
 

@@ -60,7 +60,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
-	//services = append(services, ocr2Provider)
 
 	ocrDB := offchainreporting2.NewDB(d.db.DB, spec.ID, d.lggr)
 	peerWrapper := d.peerWrapper
@@ -109,8 +108,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 	}
 	return []job.Service{
-		ocr2Provider,
 		ocrcommon.NewDependentOCRService(contractReady, bootstrapper, ocrLogger),
+		ocr2Provider,
 	}, nil
 }
 

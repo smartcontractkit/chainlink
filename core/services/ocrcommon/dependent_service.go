@@ -7,13 +7,14 @@ import (
 )
 
 type DependentOCRService struct {
-	ready, stop, done chan struct{}
-	service           job.Service
-	started           *atomic.Bool
-	lggr              ocrtypes.Logger
+	ready      <-chan struct{}
+	stop, done chan struct{}
+	service    job.Service
+	started    *atomic.Bool
+	lggr       ocrtypes.Logger
 }
 
-func NewDependentOCRService(ready chan struct{}, service job.Service, lggr ocrtypes.Logger) *DependentOCRService {
+func NewDependentOCRService(ready <-chan struct{}, service job.Service, lggr ocrtypes.Logger) *DependentOCRService {
 	return &DependentOCRService{
 		ready:   ready,
 		stop:    make(chan struct{}),
@@ -34,8 +35,9 @@ func (ds *DependentOCRService) run() {
 	select {
 	case <-ds.ready:
 		if err := ds.service.Start(); err != nil {
-			// Log to job errors
+			ds.lggr.Error("unable to start service", ocrtypes.LogFields{"err": err})
 		} else {
+			ds.lggr.Info("started dependent ocr service", ocrtypes.LogFields{})
 			ds.started.Store(true)
 		}
 	case <-ds.stop:

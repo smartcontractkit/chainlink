@@ -86,7 +86,7 @@ func (d delegate) Healthy() error {
 	return err
 }
 
-func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contractReady chan struct{}) (types.OCR2Provider, error) {
+func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}, contractReady chan<- struct{}) (types.OCR2Provider, error) {
 	// We expect trusted input
 	spec := s.(*job.OffchainReporting2OracleSpec)
 	choice := spec.Relay

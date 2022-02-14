@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -86,6 +88,10 @@ type ContractTracker struct {
 	// LatestBlockHeight
 	latestBlockHeight   int64
 	latestBlockHeightMu sync.RWMutex
+
+	// Signal that contract is ready upon first config detection
+	contractReady chan<- struct{}
+	configFound   *atomic.Bool
 }
 
 // NewOCRContractTracker makes a new ContractTracker
@@ -101,6 +107,7 @@ func NewOCRContractTracker(
 	odb OCRContractTrackerDB,
 	chain ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
+	contractReady chan<- struct{},
 ) (o *ContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &ContractTracker{
@@ -128,11 +135,13 @@ func NewOCRContractTracker(
 		make(chan ocrtypes.ContractConfig),
 		-1,
 		sync.RWMutex{},
+		contractReady,
+		atomic.NewBool(false),
 	}
 }
 
 // Start must be called before logs can be delivered
-// It ought to be called before starting OCR
+// It signals on contract
 func (t *ContractTracker) Start() error {
 	return t.StartOnce("ContractTracker", func() (err error) {
 		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested()
@@ -218,6 +227,11 @@ func (t *ContractTracker) processLogs() {
 				cc, ok := x.(ocrtypes.ContractConfig)
 				if !ok {
 					panic(fmt.Sprintf("expected ocrtypes.ContractConfig but got %T", x))
+				}
+				// We have received a config set log, signal if necessary to start libocr
+				if !t.configFound.Load() {
+					t.contractReady <- struct{}{}
+					t.configFound.Store(true)
 				}
 				select {
 				case t.chConfigs <- cc:
