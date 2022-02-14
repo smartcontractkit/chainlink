@@ -26,6 +26,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -241,7 +242,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
 		rnd := int64(1000000000 + rand.Intn(5000))
 		cfg.Overrides.GlobalEvmGasTipCapDefault = big.NewInt(rnd)
-		cfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(rnd + 1)
+		cfg.Overrides.GlobalEvmGasFeeCapDefault = big.NewInt(rnd + 1)
+		cfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(rnd + 2)
 
 		eipTxWithoutAl := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -260,7 +262,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 1),
 			State:          bulletprooftxmanager.EthTxUnstarted,
-			AccessList:     bulletprooftxmanager.NullableEIP2930AccessListFrom(gethTypes.AccessList{gethTypes.AccessTuple{Address: cltest.NewAddress(), StorageKeys: []gethCommon.Hash{utils.NewHash()}}}),
+			AccessList:     bulletprooftxmanager.NullableEIP2930AccessListFrom(gethTypes.AccessList{gethTypes.AccessTuple{Address: testutils.NewAddress(), StorageKeys: []gethCommon.Hash{utils.NewHash()}}}),
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(3) && tx.Value().Cmp(big.NewInt(142)) == 0
@@ -559,7 +561,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 
 	etx := bulletprooftxmanager.EthTx{
 		FromAddress:    fromAddress,
-		ToAddress:      cltest.NewAddress(),
+		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{42, 42, 0},
 		Value:          *assets.NewEth(0),
 		GasLimit:       500000,
@@ -1574,9 +1576,9 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	eb := cltest.NewEthBroadcaster(t, db, cltest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{}, &testCheckerFactory{})
 
-	eb.Trigger(cltest.NewAddress())
-	eb.Trigger(cltest.NewAddress())
-	eb.Trigger(cltest.NewAddress())
+	eb.Trigger(testutils.NewAddress())
+	eb.Trigger(testutils.NewAddress())
+	eb.Trigger(testutils.NewAddress())
 }
 
 func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {

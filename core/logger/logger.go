@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func init() {
@@ -20,6 +22,9 @@ func init() {
 	err = registerOSSinks()
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
+	}
+	if os.Getenv("LOG_COLOR") != "true" {
+		InitColor(false)
 	}
 }
 
@@ -57,6 +62,9 @@ type Logger interface {
 	Error(args ...interface{})
 	Critical(args ...interface{})
 	Panic(args ...interface{})
+	// Fatal logs and then calls os.Exit(1)
+	// Be careful about using this since it does NOT unwind the stack and may
+	// exit uncleanly
 	Fatal(args ...interface{})
 
 	Tracef(format string, values ...interface{})
@@ -73,7 +81,7 @@ type Logger interface {
 	Infow(msg string, keysAndValues ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
 	Errorw(msg string, keysAndValues ...interface{})
-	CriticalW(msg string, keysAndValues ...interface{})
+	Criticalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
 
@@ -98,12 +106,14 @@ type Logger interface {
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker     = "HeadTracker"
-	HeadListener    = "HeadListener"
-	HeadSaver       = "HeadSaver"
-	HeadBroadcaster = "HeadBroadcaster"
-	FluxMonitor     = "FluxMonitor"
-	Keeper          = "Keeper"
+	HeadTracker                 = "HeadTracker"
+	HeadListener                = "HeadListener"
+	HeadSaver                   = "HeadSaver"
+	HeadBroadcaster             = "HeadBroadcaster"
+	FluxMonitor                 = "FluxMonitor"
+	Keeper                      = "Keeper"
+	TelemetryIngressBatchClient = "TelemetryIngressBatchClient"
+	TelemetryIngressBatchWorker = "TelemetryIngressBatchWorker"
 )
 
 func GetLogServices() []string {
@@ -129,6 +139,10 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
 	return config
+}
+
+func baseLoggerName() string {
+	return fmt.Sprintf("%s@%s", static.Version, static.Sha[:7])
 }
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
@@ -171,7 +185,7 @@ func NewLogger() Logger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l
+	return l.Named(baseLoggerName())
 }
 
 type Config struct {

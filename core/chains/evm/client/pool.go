@@ -184,12 +184,14 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 		go func(n SendOnlyNode) {
 			defer wg.Done()
 			err := NewSendError(n.SendTransaction(ctx, tx))
+			p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
 				// Nonce too low or transaction known errors are expected since
 				// the primary SendTransaction may well have succeeded already
 				return
 			}
-			p.logger.Warnw("eth client returned error", "name", n.String(), "err", err, "tx", tx)
+
+			p.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
 		}(n)
 	}
 

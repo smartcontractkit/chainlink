@@ -8,6 +8,8 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/cosmos/cosmos-sdk v0.44.5
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
+	github.com/docker/docker v20.10.12+incompatible
+	github.com/docker/go-connections v0.4.0
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
 	github.com/ethereum/go-ethereum v1.10.11
@@ -20,6 +22,7 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.4
+	github.com/gobuffalo/packr v1.30.1
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
@@ -42,7 +45,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/okex/exchain-ethereum-compatible v1.0.2
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/ginkgo/v2 v2.1.0
+	github.com/onsi/ginkgo/v2 v2.0.0
 	github.com/onsi/gomega v1.17.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/pkg/errors v0.9.1
@@ -61,6 +64,7 @@ require (
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.5
+	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tendermint/tendermint v0.34.15
@@ -106,6 +110,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/Masterminds/squirrel v1.5.2 // indirect
+	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
@@ -147,7 +152,6 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.12+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
-	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
@@ -179,6 +183,8 @@ require (
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
+	github.com/gobuffalo/envy v1.7.0 // indirect
+	github.com/gobuffalo/packd v1.0.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/gateway v1.1.0 // indirect
@@ -234,6 +240,7 @@ require (
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/jmoiron/sqlx v1.3.4 // indirect
+	github.com/joho/godotenv v1.3.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
@@ -329,6 +336,7 @@ require (
 	github.com/regen-network/cosmos-proto v0.3.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
+	github.com/rogpeppe/go-internal v1.5.2 // indirect
 	github.com/rs/cors v1.8.0 // indirect
 	github.com/rubenv/sql-migrate v0.0.0-20211023115951-9f02b1e13857 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect

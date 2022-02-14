@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -94,6 +95,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	}
 
 	listener := helper.newLogListenerWithJob("initial")
+
 	helper.register(listener, newMockContract(), numConfirmations)
 
 	for i := 0; i < numContracts; i++ {
@@ -102,6 +104,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	}
 
 	helper.start()
+	defer helper.stop()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
 	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
@@ -125,7 +128,6 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, cltest.WaitTimeout(t), time.Second)
 
-	helper.stop()
 	helper.mockEth.assertExpectations(t)
 }
 
@@ -494,7 +496,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 		expectedBatches        = 61
 	)
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 7)
@@ -543,9 +545,9 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
-	contract2, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract2, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 10)
@@ -569,6 +571,10 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		helper.start()
 		defer helper.stop()
 
+		helper.register(listener1, contract1, 1)
+		helper.register(listener2, contract1, 1)
+		helper.register(listener3, contract2, 1)
+		helper.register(listener4, contract2, 1)
 		headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     0,
 			EndBlock:       9,
@@ -576,10 +582,6 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 			Blocks:         blocks,
 		})
 
-		helper.register(listener1, contract1, 1)
-		helper.register(listener2, contract1, 1)
-		helper.register(listener3, contract2, 1)
-		helper.register(listener4, contract2, 1)
 		defer helper.unsubscribeAll()
 
 		chRawLogs := <-helper.chchRawLogs
@@ -608,7 +610,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.start()
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 10)
@@ -693,7 +695,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 20)
@@ -758,7 +760,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 20)
@@ -823,7 +825,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 20)
@@ -906,7 +908,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 	helper.start()
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 12)
@@ -955,7 +957,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.start()
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 10)
@@ -1004,7 +1006,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 	helper.start()
 
-	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 
 	blocks := cltest.NewBlocks(t, 12)
@@ -1474,7 +1476,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	blocksForked := blocks.ForkAt(t, 1, 5)
 
 	var (
-		addr = cltest.NewAddress()
+		addr = testutils.NewAddress()
 
 		log0        = blocks.LogOnBlockNum(0, addr)
 		log1        = blocks.LogOnBlockNum(1, addr)
@@ -1562,7 +1564,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	addr1 := cltest.NewAddress()
+	addr1 := testutils.NewAddress()
 	contract, err := flux_aggregator_wrapper.NewFluxAggregator(addr1, nil)
 	require.NoError(t, err)
 

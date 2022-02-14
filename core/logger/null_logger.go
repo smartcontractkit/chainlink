@@ -38,7 +38,7 @@ func (l *nullLogger) Debugw(msg string, keysAndValues ...interface{})    {}
 func (l *nullLogger) Infow(msg string, keysAndValues ...interface{})     {}
 func (l *nullLogger) Warnw(msg string, keysAndValues ...interface{})     {}
 func (l *nullLogger) Errorw(msg string, keysAndValues ...interface{})    {}
-func (l *nullLogger) CriticalW(msg string, keysAndValues ...interface{}) {}
+func (l *nullLogger) Criticalw(msg string, keysAndValues ...interface{}) {}
 func (l *nullLogger) Panicw(msg string, keysAndValues ...interface{})    {}
 func (l *nullLogger) Fatalw(msg string, keysAndValues ...interface{})    {}
 

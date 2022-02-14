@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -500,7 +501,7 @@ ds1 -> ds1_parse;
 		// Create a keystore with an ocr key bundle and p2p key.
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
-		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
+		spec := fmt.Sprintf(ocrJobSpecTemplate, testutils.NewAddress().Hex(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
 		jb := makeOCRJobSpecFromToml(t, spec)
 
 		// Create an OCR job

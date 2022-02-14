@@ -160,6 +160,10 @@ type GeneralOnlyConfig interface {
 	TelemetryIngressLogging() bool
 	TelemetryIngressServerPubKey() string
 	TelemetryIngressURL() *url.URL
+	TelemetryIngressBufferSize() uint
+	TelemetryIngressMaxBatchSize() uint
+	TelemetryIngressSendInterval() time.Duration
+	TelemetryIngressUseBatchSend() bool
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
@@ -174,7 +178,9 @@ type GlobalConfig interface {
 	GlobalBlockHistoryEstimatorBatchSize() (uint32, bool)
 	GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool)
 	GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool)
+	GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool)
 	GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool)
+	GlobalChainType() (string, bool)
 	GlobalEthTxReaperInterval() (time.Duration, bool)
 	GlobalEthTxReaperThreshold() (time.Duration, bool)
 	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
@@ -185,6 +191,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpThreshold() (uint64, bool)
 	GlobalEvmGasBumpTxDepth() (uint16, bool)
 	GlobalEvmGasBumpWei() (*big.Int, bool)
+	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint64, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
@@ -203,7 +210,6 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
-	GlobalChainType() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -855,6 +861,26 @@ func (c *generalConfig) TelemetryIngressServerPubKey() string {
 	return c.viper.GetString(envvar.Name("TelemetryIngressServerPubKey"))
 }
 
+// TelemetryIngressBufferSize is the number of telemetry messages to buffer before dropping new ones
+func (c *generalConfig) TelemetryIngressBufferSize() uint {
+	return c.viper.GetUint(envvar.Name("TelemetryIngressBufferSize"))
+}
+
+// TelemetryIngressMaxBatchSize is the maximum number of messages to batch into one telemetry request
+func (c *generalConfig) TelemetryIngressMaxBatchSize() uint {
+	return c.viper.GetUint(envvar.Name("TelemetryIngressMaxBatchSize"))
+}
+
+// TelemetryIngressSendInterval is the cadence on which batched telemetry is sent to the ingress server
+func (c *generalConfig) TelemetryIngressSendInterval() time.Duration {
+	return c.getDuration("TelemetryIngressSendInterval")
+}
+
+// TelemetryIngressUseBatchSend toggles sending telemetry using the batch client to the ingress server
+func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
+	return c.viper.GetBool(envvar.Name("TelemetryIngressUseBatchSend"))
+}
+
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
 func (c *generalConfig) TelemetryIngressLogging() bool {
 	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
@@ -1056,7 +1082,7 @@ func (c *generalConfig) getWithFallback(name string, parser func(string) (interf
 func (c *generalConfig) getEnvWithFallback(e *envvar.EnvVar) interface{} {
 	v, invalid, err := e.ParseFrom(c.viper.GetString)
 	if err != nil {
-		c.lggr.Fatal(err)
+		c.lggr.Panic(err)
 	}
 	if invalid != "" {
 		c.lggr.Error(invalid)
@@ -1201,6 +1227,20 @@ func (c *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+func (c *generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasFeeCapDefault"), parse.BigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
+}
+func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks"), parse.Uint16)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint16), ok
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitDefault"), parse.Uint64)

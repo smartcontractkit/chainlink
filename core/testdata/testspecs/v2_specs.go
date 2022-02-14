@@ -176,7 +176,7 @@ type KeeperSpecParams struct {
 	ContractAddress          string
 	FromAddress              string
 	EvmChainID               int
-	minIncomingConfirmations int
+	MinIncomingConfirmations int
 }
 
 type KeeperSpec struct {
@@ -232,7 +232,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.minIncomingConfirmations),
+		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
 	}
 }
 
@@ -299,9 +299,10 @@ encode_tx    [type=ethabiencode
 submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"
             minConfirmations="0"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
+            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
+            transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
 decode_log->vrf->encode_tx->submit_tx
-`, coordinatorAddress)
+`, coordinatorAddress, coordinatorAddress)
 	if params.V2 {
 		observationSource = fmt.Sprintf(`
 decode_log   [type=ethabidecodelog

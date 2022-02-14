@@ -90,7 +90,7 @@ func Test_AdvisoryLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			err = advLock.TakeAndHold(context.Background())
+			err := advLock.TakeAndHold(context.Background())
 			require.NoError(t, err)
 			close(gotLease)
 		}()

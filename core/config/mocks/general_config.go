@@ -946,6 +946,27 @@ func (_m *GeneralConfig) GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, 
 	return r0, r1
 }
 
+// GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalBlockHistoryEstimatorTransactionPercentile provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool) {
 	ret := _m.Called()
@@ -1179,6 +1200,29 @@ func (_m *GeneralConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
 
 // GlobalEvmGasBumpWei provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasFeeCapDefault provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -3130,6 +3174,20 @@ func (_m *GeneralConfig) TLSRedirect() bool {
 	return r0
 }
 
+// TelemetryIngressBufferSize provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressBufferSize() uint {
+	ret := _m.Called()
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
 // TelemetryIngressLogging provides a mock function with given fields:
 func (_m *GeneralConfig) TelemetryIngressLogging() bool {
 	ret := _m.Called()
@@ -3139,6 +3197,34 @@ func (_m *GeneralConfig) TelemetryIngressLogging() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TelemetryIngressMaxBatchSize provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressMaxBatchSize() uint {
+	ret := _m.Called()
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
+// TelemetryIngressSendInterval provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressSendInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -3169,6 +3255,20 @@ func (_m *GeneralConfig) TelemetryIngressURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// TelemetryIngressUseBatchSend provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressUseBatchSend() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

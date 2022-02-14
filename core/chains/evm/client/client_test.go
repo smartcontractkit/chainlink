@@ -24,6 +24,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -86,7 +87,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 func TestEthClient_PendingNonceAt(t *testing.T) {
 	t.Parallel()
 
-	address := cltest.NewAddress()
+	address := testutils.NewAddress()
 
 	url := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
 		require.Equal(t, "eth_getTransactionCount", method)
@@ -113,7 +114,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 	t.Parallel()
 
 	largeBalance, _ := big.NewInt(0).SetString("100000000000000000000", 10)
-	address := cltest.NewAddress()
+	address := testutils.NewAddress()
 
 	tests := []struct {
 		name    string
@@ -161,8 +162,8 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			contractAddress := cltest.NewAddress()
-			userAddress := cltest.NewAddress()
+			contractAddress := testutils.NewAddress()
+			userAddress := testutils.NewAddress()
 			functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
@@ -269,7 +270,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	t.Parallel()
 
-	tx := types.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	url := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
 		require.Equal(t, "eth_sendRawTransaction", method)
@@ -288,7 +289,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
-	tx := types.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	wsUrl := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (string, string) {
 		require.Equal(t, "eth_sendRawTransaction", method)
