@@ -224,6 +224,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	lggr.Info("API exposed for user ", user.Email)
 
 	if err = app.Start(rootCtx); err != nil {
+		// We do not try stopping any sub-services that might be started,
+		// because the app will exit immediately upon return.
+		// But LockedDB will be released by defer in above.
 		return errors.Wrap(err, "error starting app")
 	}
 

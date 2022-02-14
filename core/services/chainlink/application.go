@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"sync"
 
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -512,54 +510,43 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
-		done := make(chan error)
-		go func() {
-			var merr error
-			defer func() {
-				if lerr := app.logger.Sync(); lerr != nil {
-					merr = multierr.Append(merr, lerr)
-				}
-			}()
-			app.logger.Info("Gracefully exiting...")
-
-			// Stop services in the reverse order from which they were started
-			for i := len(app.subservices) - 1; i >= 0; i-- {
-				service := app.subservices[i]
-				app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
-				switch ss := service.(type) {
-				case services.Service:
-					merr = multierr.Append(merr, ss.Close())
-				case services.ServiceCtx:
-					merr = multierr.Append(merr, ss.Close())
-				default:
-					panic("unknown service type")
-				}
+		defer func() {
+			if lerr := app.logger.Sync(); lerr != nil {
+				err = multierr.Append(err, lerr)
 			}
-
-			app.logger.Debug("Stopping SessionReaper...")
-			merr = multierr.Append(merr, app.SessionReaper.Stop())
-			app.logger.Debug("Closing HealthChecker...")
-			merr = multierr.Append(merr, app.HealthChecker.Close())
-			if app.FeedsService != nil {
-				app.logger.Debug("Closing Feeds Service...")
-				merr = multierr.Append(merr, app.FeedsService.Close())
-			}
-
-			if app.Nurse != nil {
-				merr = multierr.Append(merr, app.Nurse.Close())
-			}
-
-			app.logger.Info("Exited all services")
-
-			app.started = false
-			done <- err
 		}()
-		select {
-		case merr := <-done:
-			err = merr
-		case <-time.After(15 * time.Second):
-			err = errors.New("application timed out shutting down")
+		app.logger.Info("Gracefully exiting...")
+
+		// Stop services in the reverse order from which they were started
+		for i := len(app.subservices) - 1; i >= 0; i-- {
+			service := app.subservices[i]
+			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			switch ss := service.(type) {
+			case services.Service:
+				err = multierr.Append(err, ss.Close())
+			case services.ServiceCtx:
+				err = multierr.Append(err, ss.Close())
+			default:
+				panic("unknown service type")
+			}
 		}
+
+		app.logger.Debug("Stopping SessionReaper...")
+		err = multierr.Append(err, app.SessionReaper.Stop())
+		app.logger.Debug("Closing HealthChecker...")
+		err = multierr.Append(err, app.HealthChecker.Close())
+		if app.FeedsService != nil {
+			app.logger.Debug("Closing Feeds Service...")
+			err = multierr.Append(err, app.FeedsService.Close())
+		}
+
+		if app.Nurse != nil {
+			err = multierr.Append(err, app.Nurse.Close())
+		}
+
+		app.logger.Info("Exited all services")
+
+		app.started = false
 	})
 	return err
 }
