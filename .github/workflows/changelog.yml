@@ -8,12 +8,15 @@ on: pull_request
 
 jobs:
   changelog:
+    # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
+    # This check skips the job if it is detected we are running on a fork.
+    if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
     name: Changelog checker
     runs-on: ubuntu-latest
     steps:
       - name: Check for changed files
         id: changedfiles
-        uses: futuratrepadeira/changed-files@186b5b30b1f5e44ed655a59652746c3ce00d53ef # Version v3.1.1
+        uses: umani/changed-files@1d252c611c64289d35243fc37ece7323ea5e93e1 # Version 3.3.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: '^docs/CHANGELOG.*$'

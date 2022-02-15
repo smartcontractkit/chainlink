@@ -1,4 +1,4 @@
-FROM node:12.22.6-alpine
+FROM node:16-alpine3.15
 
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}

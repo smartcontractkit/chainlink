@@ -8,6 +8,8 @@ import (
 	common "github.com/ethereum/go-ethereum/common"
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
+	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/ethereum/go-ethereum/core/types"
@@ -75,45 +77,17 @@ func (_m *Eth) Delete(id string) (ethkey.KeyV2, error) {
 }
 
 // EnsureKeys provides a mock function with given fields: chainID
-func (_m *Eth) EnsureKeys(chainID *big.Int) (ethkey.KeyV2, bool, ethkey.KeyV2, bool, error) {
+func (_m *Eth) EnsureKeys(chainID *big.Int) error {
 	ret := _m.Called(chainID)
 
-	var r0 ethkey.KeyV2
-	if rf, ok := ret.Get(0).(func(*big.Int) ethkey.KeyV2); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
 		r0 = rf(chainID)
 	} else {
-		r0 = ret.Get(0).(ethkey.KeyV2)
+		r0 = ret.Error(0)
 	}
 
-	var r1 bool
-	if rf, ok := ret.Get(1).(func(*big.Int) bool); ok {
-		r1 = rf(chainID)
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	var r2 ethkey.KeyV2
-	if rf, ok := ret.Get(2).(func(*big.Int) ethkey.KeyV2); ok {
-		r2 = rf(chainID)
-	} else {
-		r2 = ret.Get(2).(ethkey.KeyV2)
-	}
-
-	var r3 bool
-	if rf, ok := ret.Get(3).(func(*big.Int) bool); ok {
-		r3 = rf(chainID)
-	} else {
-		r3 = ret.Get(3).(bool)
-	}
-
-	var r4 error
-	if rf, ok := ret.Get(4).(func(*big.Int) error); ok {
-		r4 = rf(chainID)
-	} else {
-		r4 = ret.Error(4)
-	}
-
-	return r0, r1, r2, r3, r4
+	return r0
 }
 
 // Export provides a mock function with given fields: id, password
@@ -302,13 +276,13 @@ func (_m *Eth) GetStatesForKeys(_a0 []ethkey.KeyV2) ([]ethkey.State, error) {
 	return r0, r1
 }
 
-// GetV1KeysAsV2 provides a mock function with given fields: chainID
-func (_m *Eth) GetV1KeysAsV2(chainID *big.Int) ([]ethkey.KeyV2, []ethkey.State, error) {
-	ret := _m.Called(chainID)
+// GetV1KeysAsV2 provides a mock function with given fields: f
+func (_m *Eth) GetV1KeysAsV2(f keystore.DefaultEVMChainIDFunc) ([]ethkey.KeyV2, []ethkey.State, error) {
+	ret := _m.Called(f)
 
 	var r0 []ethkey.KeyV2
-	if rf, ok := ret.Get(0).(func(*big.Int) []ethkey.KeyV2); ok {
-		r0 = rf(chainID)
+	if rf, ok := ret.Get(0).(func(keystore.DefaultEVMChainIDFunc) []ethkey.KeyV2); ok {
+		r0 = rf(f)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]ethkey.KeyV2)
@@ -316,8 +290,8 @@ func (_m *Eth) GetV1KeysAsV2(chainID *big.Int) ([]ethkey.KeyV2, []ethkey.State, 
 	}
 
 	var r1 []ethkey.State
-	if rf, ok := ret.Get(1).(func(*big.Int) []ethkey.State); ok {
-		r1 = rf(chainID)
+	if rf, ok := ret.Get(1).(func(keystore.DefaultEVMChainIDFunc) []ethkey.State); ok {
+		r1 = rf(f)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).([]ethkey.State)
@@ -325,8 +299,8 @@ func (_m *Eth) GetV1KeysAsV2(chainID *big.Int) ([]ethkey.KeyV2, []ethkey.State, 
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(*big.Int) error); ok {
-		r2 = rf(chainID)
+	if rf, ok := ret.Get(2).(func(keystore.DefaultEVMChainIDFunc) error); ok {
+		r2 = rf(f)
 	} else {
 		r2 = ret.Error(2)
 	}

@@ -12,16 +12,22 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin Flags flags_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/Oracle.abi ../../../contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.6/BlockhashStore.abi ../../../contracts/solc/v0.6/BlockhashStore.bin BlockhashStore blockhash_store
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/Consumer.abi ../../../contracts/solc/v0.7/Consumer.bin Consumer consumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin MultiWordConsumer multiwordconsumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/KeeperRegistry.abi ../../../contracts/solc/v0.7/KeeperRegistry.bin KeeperRegistry keeper_registry_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.abi ../../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.bin UpkeepPerformCounterRestrictive upkeep_perform_counter_restrictive_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/UpkeepCounter.abi ../../../contracts/solc/v0.7/UpkeepCounter.bin UpkeepCounter upkeep_counter_wrapper
+
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/DerivedPriceFeed.abi ../../../contracts/solc/v0.7/DerivedPriceFeed.bin DerivedPriceFeed derived_price_feed_wrapper
 
 // v0.8 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id_v08
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.abi ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.bin VRFOwnerlessConsumerExample vrf_ownerless_consumer_example
 
 //go:generate mockery --recursive --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
 //go:generate mockery --recursive --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
@@ -35,6 +41,10 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFTestHelper.abi ../../../contracts/solc/v0.8/VRFTestHelper.bin VRFV08TestHelper solidity_vrf_v08_verifier_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin VRFSingleConsumerExample vrf_single_consumer_example
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.abi ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.bin VRFExternalSubOwnerExample vrf_external_sub_owner_example
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFV2RevertingExample.abi ../../../contracts/solc/v0.8/VRFV2RevertingExample.bin VRFV2RevertingExample vrfv2_reverting_example
+
+// Aggregators
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
 
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:

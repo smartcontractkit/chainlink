@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 type testCase struct {
@@ -36,12 +36,12 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
-	logLevel := config.LogLevel{Level: zapcore.WarnLevel}
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	logLevel := zapcore.WarnLevel
 	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
 	cfg.Overrides.LogSQL = null.BoolFrom(sqlEnabled)
-	defaultLogLevel := config.LogLevel{Level: zapcore.WarnLevel}
+	defaultLogLevel := zapcore.WarnLevel
 	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
 
 	app := cltest.NewApplicationWithConfig(t, cfg)

@@ -1,6 +1,10 @@
 package resolver
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/pkg/errors"
+)
 
 type LogLevel string
 
@@ -23,6 +27,21 @@ func FromLogLevel(logLvl LogLevel) string {
 		return "error"
 	default:
 		return strings.ToLower(string(logLvl))
+	}
+}
+
+func ToLogLevel(str string) (LogLevel, error) {
+	switch str {
+	case "debug":
+		return LogLevelDebug, nil
+	case "info":
+		return LogLevelInfo, nil
+	case "warn":
+		return LogLevelWarn, nil
+	case "error":
+		return LogLevelError, nil
+	default:
+		return "", errors.New("invalid log level")
 	}
 }
 
@@ -111,6 +130,20 @@ func (r *SQLLoggingResolver) Enabled() bool {
 	return r.enabled
 }
 
+// -- GetSQLLogging Query --
+
+type GetSQLLoggingPayloadResolver struct {
+	enabled bool
+}
+
+func NewGetSQLLoggingPayload(enabled bool) *GetSQLLoggingPayloadResolver {
+	return &GetSQLLoggingPayloadResolver{enabled: enabled}
+}
+
+func (r *GetSQLLoggingPayloadResolver) ToSQLLogging() (*SQLLoggingResolver, bool) {
+	return NewSQLLogging(r.enabled), true
+}
+
 // -- SetSQLLogging Mutation --
 
 type SetSQLLoggingPayloadResolver struct {
@@ -135,4 +168,75 @@ func NewSetSQLLoggingSuccess(enabled bool) *SetSQLLoggingSuccessResolver {
 
 func (r *SetSQLLoggingSuccessResolver) SQLLogging() *SQLLoggingResolver {
 	return NewSQLLogging(r.enabled)
+}
+
+// -- GetLogLevel Query --
+
+type GlobalLogLevelResolver struct {
+	lvl string
+}
+
+func GlobalLogLevel(lvl string) *GlobalLogLevelResolver {
+	return &GlobalLogLevelResolver{lvl: lvl}
+}
+
+func (r *GlobalLogLevelResolver) Level() (LogLevel, error) {
+	return ToLogLevel(r.lvl)
+}
+
+type GlobalLogLevelPayloadResolver struct {
+	lgLvl string
+}
+
+func NewGlobalLogLevelPayload(lgLvl string) *GlobalLogLevelPayloadResolver {
+	return &GlobalLogLevelPayloadResolver{lgLvl: lgLvl}
+}
+
+func (r *GlobalLogLevelPayloadResolver) ToGlobalLogLevel() (*GlobalLogLevelResolver, bool) {
+	return GlobalLogLevel(r.lgLvl), true
+}
+
+// -- UpdateGlobalLogLevel Mutation --
+
+type SetGlobalLogLevelPayloadResolver struct {
+	lvl       LogLevel
+	inputErrs map[string]string
+}
+
+func NewSetGlobalLogLevelPayload(lvl LogLevel, inputErrs map[string]string) *SetGlobalLogLevelPayloadResolver {
+	return &SetGlobalLogLevelPayloadResolver{lvl: lvl, inputErrs: inputErrs}
+}
+
+func (r *SetGlobalLogLevelPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs != nil {
+		var errs []*InputErrorResolver
+
+		for path, message := range r.inputErrs {
+			errs = append(errs, NewInputError(path, message))
+		}
+
+		return NewInputErrors(errs), true
+	}
+
+	return nil, false
+}
+
+func (r *SetGlobalLogLevelPayloadResolver) ToSetGlobalLogLevelSuccess() (*SetGlobalLogLevelSuccessResolver, bool) {
+	if r.inputErrs != nil {
+		return nil, false
+	}
+
+	return NewSetGlobalLogLevelSuccess(r.lvl), true
+}
+
+type SetGlobalLogLevelSuccessResolver struct {
+	lvl LogLevel
+}
+
+func NewSetGlobalLogLevelSuccess(lvl LogLevel) *SetGlobalLogLevelSuccessResolver {
+	return &SetGlobalLogLevelSuccessResolver{lvl: lvl}
+}
+
+func (r *SetGlobalLogLevelSuccessResolver) GlobalLogLevel() *GlobalLogLevelResolver {
+	return GlobalLogLevel(FromLogLevel(r.lvl))
 }

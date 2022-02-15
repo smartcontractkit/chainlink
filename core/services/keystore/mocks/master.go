@@ -3,8 +3,6 @@
 package mocks
 
 import (
-	big "math/big"
-
 	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -67,13 +65,13 @@ func (_m *Master) IsEmpty() (bool, error) {
 	return r0, r1
 }
 
-// Migrate provides a mock function with given fields: vrfPassword, chainID
-func (_m *Master) Migrate(vrfPassword string, chainID *big.Int) error {
-	ret := _m.Called(vrfPassword, chainID)
+// Migrate provides a mock function with given fields: vrfPassword, f
+func (_m *Master) Migrate(vrfPassword string, f keystore.DefaultEVMChainIDFunc) error {
+	ret := _m.Called(vrfPassword, f)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, *big.Int) error); ok {
-		r0 = rf(vrfPassword, chainID)
+	if rf, ok := ret.Get(0).(func(string, keystore.DefaultEVMChainIDFunc) error); ok {
+		r0 = rf(vrfPassword, f)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -97,6 +95,22 @@ func (_m *Master) OCR() keystore.OCR {
 	return r0
 }
 
+// OCR2 provides a mock function with given fields:
+func (_m *Master) OCR2() keystore.OCR2 {
+	ret := _m.Called()
+
+	var r0 keystore.OCR2
+	if rf, ok := ret.Get(0).(func() keystore.OCR2); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.OCR2)
+		}
+	}
+
+	return r0
+}
+
 // P2P provides a mock function with given fields:
 func (_m *Master) P2P() keystore.P2P {
 	ret := _m.Called()
@@ -107,6 +121,38 @@ func (_m *Master) P2P() keystore.P2P {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(keystore.P2P)
+		}
+	}
+
+	return r0
+}
+
+// Solana provides a mock function with given fields:
+func (_m *Master) Solana() keystore.Solana {
+	ret := _m.Called()
+
+	var r0 keystore.Solana
+	if rf, ok := ret.Get(0).(func() keystore.Solana); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Solana)
+		}
+	}
+
+	return r0
+}
+
+// Terra provides a mock function with given fields:
+func (_m *Master) Terra() keystore.Terra {
+	ret := _m.Called()
+
+	var r0 keystore.Terra
+	if rf, ok := ret.Get(0).(func() keystore.Terra); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Terra)
 		}
 	}
 

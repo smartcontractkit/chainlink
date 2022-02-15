@@ -9,46 +9,56 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
+
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
 )
 
-// RootDir the root directory for test
-const RootDir = "/tmp/chainlink_test"
+const (
+	// RootDir the root directory for test
+	RootDir       = "/tmp/chainlink_test"
+	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+)
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
 type GeneralConfigOverrides struct {
+	AdvisoryLockCheckInterval                 *time.Duration
 	AdminCredentialsFile                      null.String
 	AdvisoryLockID                            null.Int
 	AllowOrigins                              null.String
 	BlockBackfillDepth                        null.Int
 	BlockBackfillSkip                         null.Bool
 	ClientNodeURL                             null.String
-	DatabaseTimeout                           *time.Duration
 	DatabaseURL                               null.String
+	DatabaseLockingMode                       null.String
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
-	DefaultMaxHTTPAttempts                    null.Int
 	Dev                                       null.Bool
+	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
-	EVMDisabled                               null.Bool
-	EthereumDisabled                          null.Bool
+	EVMEnabled                                null.Bool
+	EVMRPCEnabled                             null.Bool
+	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
 	FeatureFeedsManager                       null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
+	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
 	GlobalEthTxReaperThreshold                *time.Duration
 	GlobalEthTxResendAfterThreshold           *time.Duration
@@ -76,26 +86,51 @@ type GeneralConfigOverrides struct {
 	GlobalMinIncomingConfirmations            null.Int
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
+	GlobalOCRObservationGracePeriod           time.Duration
+	KeeperCheckUpkeepGasPriceFeatureEnabled   null.Bool
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
-	KeeperCheckUpkeepGasPriceFeatureEnabled   null.Bool
-	LogLevel                                  *config.LogLevel
-	DefaultLogLevel                           *config.LogLevel
+	LeaseLockDuration                         *time.Duration
+	LeaseLockRefreshInterval                  *time.Duration
+	LogFileDir                                null.String
+	LogLevel                                  *zapcore.Level
+	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
-	OCRBootstrapCheckInterval                 *time.Duration
-	OCRKeyBundleID                            null.String
-	OCRObservationGracePeriod                 *time.Duration
-	OCRObservationTimeout                     *time.Duration
-	OCRTransmitterAddress                     *ethkey.EIP55Address
-	P2PBootstrapPeers                         []string
-	P2PListenPort                             null.Int
-	P2PPeerID                                 p2pkey.PeerID
-	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
+	FeatureOffchainReporting                  null.Bool
+	FeatureOffchainReporting2                 null.Bool
+	LinkContractAddress                       null.String
+
+	// OCR v2
+	OCR2DatabaseTimeout *time.Duration
+
+	// OCR v1
+	OCRKeyBundleID            null.String
+	OCRDatabaseTimeout        *time.Duration
+	OCRObservationGracePeriod *time.Duration
+	OCRObservationTimeout     *time.Duration
+	OCRTransmitterAddress     *ethkey.EIP55Address
+
+	// P2P v1 and V2
+	P2PPeerID          p2pkey.PeerID
+	P2PPeerIDError     error
+	P2PNetworkingStack ocrnetworking.NetworkingStack
+
+	// P2P v1
+	P2PBootstrapCheckInterval *time.Duration
+	P2PBootstrapPeers         []string
+	P2PListenPort             null.Int
+
+	// P2PV2
+	P2PV2ListenAddresses   []string
+	P2PV2AnnounceAddresses []string
+	P2PV2Bootstrappers     []ocrcommontypes.BootstrapperLocator
+	P2PV2DeltaDial         *time.Duration
+	P2PV2DeltaReconcile    *time.Duration
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
@@ -103,16 +138,19 @@ func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duratio
 	o.TriggerFallbackDBPollInterval = &d
 }
 func (o *GeneralConfigOverrides) SetOCRBootstrapCheckInterval(d time.Duration) {
-	o.OCRBootstrapCheckInterval = &d
-}
-func (o *GeneralConfigOverrides) SetOCRObservationGracePeriod(d time.Duration) {
-	o.OCRObservationGracePeriod = &d
+	o.P2PBootstrapCheckInterval = &d
 }
 func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 	o.OCRObservationTimeout = &d
 }
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
+}
+func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
+	o.P2PV2DeltaDial = &d
+}
+func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
+	o.P2PV2DeltaReconcile = &d
 }
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
@@ -129,7 +167,7 @@ func NewTestGeneralConfig(t *testing.T) *TestGeneralConfig {
 }
 
 func NewTestGeneralConfigWithOverrides(t testing.TB, overrides GeneralConfigOverrides) *TestGeneralConfig {
-	cfg := config.NewGeneralConfig()
+	cfg := config.NewGeneralConfig(logger.TestLogger(t))
 	return &TestGeneralConfig{
 		cfg,
 		t,
@@ -164,7 +202,7 @@ func (c *TestGeneralConfig) DefaultChainID() *big.Int {
 	if c.Overrides.DefaultChainID != nil {
 		return c.Overrides.DefaultChainID
 	}
-	return big.NewInt(eth.NullClientChainID)
+	return big.NewInt(evmclient.NullClientChainID)
 }
 
 func (c *TestGeneralConfig) Dev() bool {
@@ -172,6 +210,14 @@ func (c *TestGeneralConfig) Dev() bool {
 		return c.Overrides.Dev.Bool
 	}
 	return true
+}
+
+// ShutdownGracePeriod returns shutdown grace period duration.
+func (c *TestGeneralConfig) ShutdownGracePeriod() time.Duration {
+	if c.Overrides.ShutdownGracePeriod != nil {
+		return *c.Overrides.ShutdownGracePeriod
+	}
+	return c.GeneralConfig.ShutdownGracePeriod()
 }
 
 func (c *TestGeneralConfig) MigrateDatabase() bool {
@@ -182,6 +228,11 @@ func (c *TestGeneralConfig) RootDir() string {
 	return c.rootdir
 }
 
+// SetRootDir Added in order to not get a different dir on certain tests that validate this value
+func (c *TestGeneralConfig) SetRootDir(dir string) {
+	c.rootdir = dir
+}
+
 func (c *TestGeneralConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(2 * time.Minute)
 }
@@ -190,51 +241,28 @@ func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
 }
 
-func (c *TestGeneralConfig) P2PListenPort() uint16 {
-	if c.Overrides.P2PListenPort.Valid {
-		return uint16(c.Overrides.P2PListenPort.Int64)
-	}
-	return 12345
-}
-
-func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
-	if c.Overrides.P2PPeerID.String() != "" {
-		return c.Overrides.P2PPeerID
-	}
-	return ""
-}
-
-func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
-	if c.Overrides.DatabaseTimeout != nil {
-		return models.MustMakeDuration(*c.Overrides.DatabaseTimeout)
-	}
-	return models.MustMakeDuration(5 * time.Second)
-}
-
-func (c *TestGeneralConfig) GlobalLockRetryInterval() models.Duration {
-	return models.MustMakeDuration(10 * time.Millisecond)
-}
-
 func (c *TestGeneralConfig) ORMMaxIdleConns() int {
-	return 5
-}
-
-func (c *TestGeneralConfig) ORMMaxOpenConns() int {
-	// HACK: txdb does not appear to use connection pooling properly, so that
-	// if this value is not large enough instead of waiting for a connection the
-	// database call will fail with "conn busy" or some other cryptic error
 	return 20
 }
 
-func (c *TestGeneralConfig) LogSQLMigrations() bool {
-	return false
+func (c *TestGeneralConfig) ORMMaxOpenConns() int {
+	// Set this to a reasonable number to enable test parallelisation (it requires one conn per db in tests)
+	return 20
 }
 
-func (c *TestGeneralConfig) EthereumDisabled() bool {
-	if c.Overrides.EthereumDisabled.Valid {
-		return c.Overrides.EthereumDisabled.Bool
+// EVMRPCEnabled overrides
+func (c *TestGeneralConfig) EVMRPCEnabled() bool {
+	if c.Overrides.EVMRPCEnabled.Valid {
+		return c.Overrides.EVMRPCEnabled.Bool
 	}
-	return c.GeneralConfig.EthereumDisabled()
+	return c.GeneralConfig.EVMRPCEnabled()
+}
+
+func (c *TestGeneralConfig) EthereumURL() string {
+	if c.Overrides.EthereumURL.Valid {
+		return c.Overrides.EthereumURL.String
+	}
+	return c.GeneralConfig.EthereumURL()
 }
 
 func (c *TestGeneralConfig) SessionSecret() ([]byte, error) {
@@ -269,6 +297,15 @@ func (c *TestGeneralConfig) DatabaseURL() url.URL {
 	return c.GeneralConfig.DatabaseURL()
 }
 
+// DatabaseLockingMode returns either overridden DatabaseLockingMode value or "none"
+func (c *TestGeneralConfig) DatabaseLockingMode() string {
+	if c.Overrides.DatabaseLockingMode.Valid {
+		return c.Overrides.DatabaseLockingMode.String
+	}
+	// tests do not need DB locks, except for LockedDB tests
+	return "none"
+}
+
 func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
 	if c.Overrides.FeatureExternalInitiators.Valid {
 		return c.Overrides.FeatureExternalInitiators.Bool
@@ -283,6 +320,20 @@ func (c *TestGeneralConfig) FeatureFeedsManager() bool {
 	return c.GeneralConfig.FeatureFeedsManager()
 }
 
+func (c *TestGeneralConfig) FeatureOffchainReporting() bool {
+	if c.Overrides.FeatureOffchainReporting.Valid {
+		return c.Overrides.FeatureOffchainReporting.Bool
+	}
+	return c.GeneralConfig.FeatureOffchainReporting()
+}
+
+func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
+	if c.Overrides.FeatureOffchainReporting2.Valid {
+		return c.Overrides.FeatureOffchainReporting2.Bool
+	}
+	return c.GeneralConfig.FeatureOffchainReporting2()
+}
+
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
 		return *c.Overrides.TriggerFallbackDBPollInterval
@@ -290,39 +341,11 @@ func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	return c.GeneralConfig.TriggerFallbackDBPollInterval()
 }
 
-func (c *TestGeneralConfig) OCRBootstrapCheckInterval() time.Duration {
-	if c.Overrides.OCRBootstrapCheckInterval != nil {
-		return *c.Overrides.OCRBootstrapCheckInterval
-	}
-	return c.GeneralConfig.OCRBootstrapCheckInterval()
-}
-
-func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
-	if c.Overrides.OCRObservationGracePeriod != nil {
-		return *c.Overrides.OCRObservationGracePeriod
-	}
-	return c.GeneralConfig.OCRObservationGracePeriod()
-}
-
-func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
-	if c.Overrides.OCRObservationTimeout != nil {
-		return *c.Overrides.OCRObservationTimeout
-	}
-	return c.GeneralConfig.OCRObservationTimeout()
-}
-
 func (c *TestGeneralConfig) LogToDisk() bool {
 	if c.Overrides.LogToDisk.Valid {
 		return c.Overrides.LogToDisk.Bool
 	}
 	return c.GeneralConfig.LogToDisk()
-}
-
-func (c *TestGeneralConfig) DefaultMaxHTTPAttempts() uint {
-	if c.Overrides.DefaultMaxHTTPAttempts.Valid {
-		return uint(c.Overrides.DefaultMaxHTTPAttempts.Int64)
-	}
-	return c.GeneralConfig.DefaultMaxHTTPAttempts()
 }
 
 func (c *TestGeneralConfig) AdminCredentialsFile() string {
@@ -337,27 +360,6 @@ func (c *TestGeneralConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
 		return c.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess.Bool
 	}
 	return c.GeneralConfig.DefaultHTTPAllowUnrestrictedNetworkAccess()
-}
-
-func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
-	if c.Overrides.P2PBootstrapPeers != nil {
-		return c.Overrides.P2PBootstrapPeers, nil
-	}
-	return c.GeneralConfig.P2PBootstrapPeers()
-}
-
-func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {
-	if c.Overrides.OCRKeyBundleID.Valid {
-		return c.Overrides.OCRKeyBundleID.String, nil
-	}
-	return c.GeneralConfig.OCRKeyBundleID()
-}
-
-func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	if c.Overrides.OCRTransmitterAddress != nil {
-		return *c.Overrides.OCRTransmitterAddress, nil
-	}
-	return c.GeneralConfig.OCRTransmitterAddress()
 }
 
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {
@@ -381,6 +383,7 @@ func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
 }
 
+// KeeperCheckUpkeepGasPriceFeatureEnabled overrides
 func (c *TestGeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	if c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Valid {
 		return c.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled.Bool
@@ -418,14 +421,14 @@ func (c *TestGeneralConfig) AllowOrigins() string {
 
 func (c *TestGeneralConfig) LogLevel() zapcore.Level {
 	if c.Overrides.LogLevel != nil {
-		return c.Overrides.LogLevel.Level
+		return *c.Overrides.LogLevel
 	}
 	return c.GeneralConfig.LogLevel()
 }
 
 func (c *TestGeneralConfig) DefaultLogLevel() zapcore.Level {
 	if c.Overrides.DefaultLogLevel != nil {
-		return c.Overrides.DefaultLogLevel.Level
+		return *c.Overrides.DefaultLogLevel
 	}
 	return c.GeneralConfig.DefaultLogLevel()
 }
@@ -437,11 +440,12 @@ func (c *TestGeneralConfig) LogSQL() bool {
 	return c.GeneralConfig.LogSQL()
 }
 
-func (c *TestGeneralConfig) EVMDisabled() bool {
-	if c.Overrides.EVMDisabled.Valid {
-		return c.Overrides.EVMDisabled.Bool
+// EVMEnabled overrides
+func (c *TestGeneralConfig) EVMEnabled() bool {
+	if c.Overrides.EVMEnabled.Valid {
+		return c.Overrides.EVMEnabled.Bool
 	}
-	return c.GeneralConfig.EVMDisabled()
+	return c.GeneralConfig.EVMEnabled()
 }
 
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
@@ -471,6 +475,7 @@ func (c *TestGeneralConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
 	return c.GeneralConfig.GlobalBalanceMonitorEnabled()
 }
 
+// GlobalEvmGasFeeCapDefault is the override for EvmGasFeeCapDefault
 func (c *TestGeneralConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
 	if c.Overrides.GlobalEvmGasFeeCapDefault != nil {
 		return c.Overrides.GlobalEvmGasFeeCapDefault, true
@@ -639,11 +644,45 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	return c.GeneralConfig.GlobalEvmGasTipCapMinimum()
 }
 
-func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
-	c.Overrides.Dialect = d
+func (c *TestGeneralConfig) LeaseLockRefreshInterval() time.Duration {
+	if c.Overrides.LeaseLockRefreshInterval != nil {
+		return *c.Overrides.LeaseLockRefreshInterval
+	}
+	return c.GeneralConfig.LeaseLockRefreshInterval()
 }
 
-// There is no need for any database application locking in tests
-func (c *TestGeneralConfig) DatabaseLockingMode() string {
-	return "none"
+func (c *TestGeneralConfig) LeaseLockDuration() time.Duration {
+	if c.Overrides.LeaseLockDuration != nil {
+		return *c.Overrides.LeaseLockDuration
+	}
+	return c.GeneralConfig.LeaseLockDuration()
+}
+
+func (c *TestGeneralConfig) AdvisoryLockCheckInterval() time.Duration {
+	if c.Overrides.AdvisoryLockCheckInterval != nil {
+		return *c.Overrides.AdvisoryLockCheckInterval
+	}
+	return c.GeneralConfig.AdvisoryLockCheckInterval()
+}
+
+func (c *TestGeneralConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
+	if c.Overrides.GlobalBlockEmissionIdleWarningThreshold != nil {
+		return *c.Overrides.GlobalBlockEmissionIdleWarningThreshold, true
+	}
+	return c.GeneralConfig.GlobalBlockEmissionIdleWarningThreshold()
+}
+
+func (c *TestGeneralConfig) LogFileDir() string {
+	if c.Overrides.LogFileDir.Valid {
+		return c.Overrides.LogFileDir.String
+	}
+	return c.RootDir()
+}
+
+// GlobalLinkContractAddress allows to override the LINK contract address
+func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
+	if c.Overrides.LinkContractAddress.Valid {
+		return c.Overrides.LinkContractAddress.String, true
+	}
+	return c.GeneralConfig.GlobalLinkContractAddress()
 }

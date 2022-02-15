@@ -18,10 +18,9 @@
     ]
   },
   "engines": {
-    "node": "^12.0.0"
+    "node": "^16.0.0"
   },
   "scripts": {
-    "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') === -1) throw new Error('Please use yarn to install dependencies\\n\\n')\"",
     "lint": "eslint --ext js,jsx,ts,tsx .",
     "prettier:check": "yarn prettier . --check --ignore-unknown",
     "prettier:write": "yarn prettier . --write --ignore-unknown",
@@ -31,6 +30,7 @@
     "clean": "wsrun -me clean"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-etherscan": "^2.1.8",
     "@typescript-eslint/eslint-plugin": "^2.34.0",
     "@typescript-eslint/parser": "^2.34.0",
     "eslint": "^6.8.0",
@@ -40,7 +40,6 @@
     "eslint-plugin-react-hooks": "^4.0.0",
     "postinstall-postinstall": "^2.1.0",
     "prettier": "2.4.1",
-    "prettier-plugin-solidity": "1.0.0-beta.18",
     "ts-node": "^10.0.0",
     "typescript": "^3.7.4",
     "wsrun": "^5.2.4"

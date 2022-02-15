@@ -18,7 +18,7 @@ type OCR interface {
 	Delete(id string) (ocrkey.KeyV2, error)
 	Import(keyJSON []byte, password string) (ocrkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() (ocrkey.KeyV2, bool, error)
+	EnsureKey() error
 
 	GetV1KeysAsV2() ([]ocrkey.KeyV2, error)
 }
@@ -134,20 +134,26 @@ func (ks *ocr) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *ocr) EnsureKey() (ocrkey.KeyV2, bool, error) {
+// EnsureKey verifies whether the OCR key has been seeded, if not, it creates it.
+func (ks *ocr) EnsureKey() error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return ocrkey.KeyV2{}, false, ErrLocked
+		return ErrLocked
 	}
+
 	if len(ks.keyRing.OCR) > 0 {
-		return ocrkey.KeyV2{}, true, nil
+		return nil
 	}
+
 	key, err := ocrkey.NewV2()
 	if err != nil {
-		return ocrkey.KeyV2{}, false, err
+		return err
 	}
-	return key, false, ks.safeAddKey(key)
+
+	ks.logger.Infof("Created OCR key with ID %s", key.ID())
+
+	return ks.safeAddKey(key)
 }
 
 func (ks *ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {

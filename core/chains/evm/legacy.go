@@ -72,11 +72,11 @@ func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logge
 		return errors.Wrap(err, "failed to insert evm_chain")
 	}
 
-	if _, err := db.Exec("DELETE FROM nodes WHERE evm_chain_id = $1", ethChainID.String()); err != nil {
-		return errors.Wrap(err, "failed to insert evm_chain")
+	if _, err := db.Exec("DELETE FROM evm_nodes WHERE evm_chain_id = $1", ethChainID.String()); err != nil {
+		return errors.Wrap(err, "failed to delete evm_node")
 	}
 
-	stmt := `INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,NOW(),NOW())`
+	stmt := `INSERT INTO evm_nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,NOW(),NOW())`
 	var primaryHTTP null.String
 	if config.EthereumHTTPURL() != nil {
 		primaryHTTP = null.StringFrom(config.EthereumHTTPURL().String())

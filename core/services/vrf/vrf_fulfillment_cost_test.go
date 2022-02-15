@@ -6,10 +6,10 @@ import (
 
 	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
 // TestMeasureFulfillmentGasCost establishes rough bounds on the cost of
@@ -30,7 +30,7 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	seed := proof2.FinalSeed(s)
 	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
 	require.NoError(t, err)
-	proofBlob, err := vrf.GenerateProofResponseFromProof(proof, s)
+	proofBlob, err := GenerateProofResponseFromProof(proof, s)
 	require.NoError(t, err, "could not generate VRF proof!")
 	coordinator.backend.Commit() // Work around simbackend/EVM block number bug
 	estimate := estimateGas(t, coordinator.backend, coordinator.neil.From,

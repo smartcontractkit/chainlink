@@ -162,9 +162,9 @@ func (s *prometheusLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	s.h.Errorw(msg, keysAndValues...)
 }
 
-func (s *prometheusLogger) CriticalW(msg string, keysAndValues ...interface{}) {
+func (s *prometheusLogger) Criticalw(msg string, keysAndValues ...interface{}) {
 	criticalCounter.Inc()
-	s.h.CriticalW(msg, keysAndValues...)
+	s.h.Criticalw(msg, keysAndValues...)
 }
 
 func (s *prometheusLogger) Panicw(msg string, keysAndValues ...interface{}) {
@@ -197,4 +197,9 @@ func (s *prometheusLogger) Sync() error {
 
 func (s *prometheusLogger) Helper(add int) Logger {
 	return &prometheusLogger{s.h.Helper(add)}
+}
+
+func (s *prometheusLogger) Recover(panicErr interface{}) {
+	panicCounter.Inc()
+	s.h.Recover(panicErr)
 }

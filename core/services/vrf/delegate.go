@@ -10,17 +10,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v2v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type Delegate struct {
@@ -90,8 +91,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
-	abiV2 := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -102,19 +101,25 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+			if err != nil {
+				return nil, err
+			}
+			aggregator, err := aggregator_v2v3_interface.NewAggregatorV2V3Interface(linkEthFeedAddress, chain.Client())
+			if err != nil {
+				return nil, err
+			}
 			return []job.Service{&listenerV2{
 				cfg:                chain.Config(),
 				l:                  lV2,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
 				q:                  d.q,
-				abi:                abiV2,
 				coordinator:        coordinatorV2,
+				aggregator:         aggregator,
 				txm:                chain.TxManager(),
 				pipelineRunner:     d.pr,
-				vrfks:              d.ks.VRF(),
 				gethks:             d.ks.Eth(),
-				pipelineORM:        d.porm,
 				job:                jb,
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
@@ -133,12 +138,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				logBroadcaster:  chain.LogBroadcaster(),
 				q:               d.q,
 				txm:             chain.TxManager(),
-				abi:             abi,
 				coordinator:     coordinator,
 				pipelineRunner:  d.pr,
-				vrfks:           d.ks.VRF(),
 				gethks:          d.ks.Eth(),
-				pipelineORM:     d.porm,
 				job:             jb,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
@@ -242,7 +244,7 @@ SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
 FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
 	join eth_receipts er on eta.hash = er.tx_hash
 WHERE et.meta->'RequestID' is not null
-AND er.block_number >= (SELECT number FROM heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
+AND er.block_number >= (SELECT number FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
 GROUP BY meta->'RequestID'
 	`
 	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery

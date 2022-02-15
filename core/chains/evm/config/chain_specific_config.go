@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	// DefaultGasFeeCap is the default value to use for Fee Cap in EIP-1559 transactions
 	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
@@ -60,10 +61,15 @@ type (
 		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
 		nonceAutoSync                                  bool
-		ocrContractConfirmations                       uint16
 		rpcDefaultBatchSize                            uint32
 		// set true if fully configured
 		complete bool
+
+		// Chain specific OCR1 config
+		ocrContractConfirmations              uint16
+		ocrContractTransmitterTransmitTimeout time.Duration
+		ocrDatabaseTimeout                    time.Duration
+		ocrObservationGracePeriod             time.Duration
 	}
 )
 
@@ -95,40 +101,43 @@ func setChainSpecificConfigDefaultSets() {
 		blockHistoryEstimatorBlockDelay:            1,
 		blockHistoryEstimatorBlockHistorySize:      16,
 		blockHistoryEstimatorTransactionPercentile: 60,
-		chainType:                        "",
-		eip1559DynamicFees:               false,
-		ethTxReaperInterval:              1 * time.Hour,
-		ethTxReaperThreshold:             168 * time.Hour,
-		ethTxResendAfterThreshold:        1 * time.Minute,
-		finalityDepth:                    50,
-		gasBumpPercent:                   20,
-		gasBumpThreshold:                 3,
-		gasBumpTxDepth:                   10,
-		gasBumpWei:                       *assets.GWei(5),
-		gasEstimatorMode:                 "BlockHistory",
-		gasFeeCapDefault:                 *DefaultGasFeeCap,
-		gasLimitDefault:                  DefaultGasLimit,
-		gasLimitMultiplier:               1.0,
-		gasLimitTransfer:                 21000,
-		gasPriceDefault:                  *DefaultGasPrice,
-		gasTipCapDefault:                 *DefaultGasTip,
-		gasTipCapMinimum:                 *big.NewInt(0),
-		headTrackerHistoryDepth:          100,
-		headTrackerMaxBufferSize:         3,
-		headTrackerSamplingInterval:      1 * time.Second,
-		linkContractAddress:              "",
-		logBackfillBatchSize:             100,
-		maxGasPriceWei:                   *assets.GWei(5000),
-		maxInFlightTransactions:          16,
-		maxQueuedTransactions:            250,
-		minGasPriceWei:                   *assets.GWei(1),
-		minIncomingConfirmations:         3,
-		minRequiredOutgoingConfirmations: 12,
-		minimumContractPayment:           DefaultMinimumContractPayment,
-		nonceAutoSync:                    true,
-		ocrContractConfirmations:         4,
-		rpcDefaultBatchSize:              100,
-		complete:                         true,
+		chainType:                             "",
+		eip1559DynamicFees:                    false,
+		ethTxReaperInterval:                   1 * time.Hour,
+		ethTxReaperThreshold:                  168 * time.Hour,
+		ethTxResendAfterThreshold:             1 * time.Minute,
+		finalityDepth:                         50,
+		gasBumpPercent:                        20,
+		gasBumpThreshold:                      3,
+		gasBumpTxDepth:                        10,
+		gasBumpWei:                            *assets.GWei(5),
+		gasEstimatorMode:                      "BlockHistory",
+		gasFeeCapDefault:                      *DefaultGasFeeCap,
+		gasLimitDefault:                       DefaultGasLimit,
+		gasLimitMultiplier:                    1.0,
+		gasLimitTransfer:                      21000,
+		gasPriceDefault:                       *DefaultGasPrice,
+		gasTipCapDefault:                      *DefaultGasTip,
+		gasTipCapMinimum:                      *big.NewInt(0),
+		headTrackerHistoryDepth:               100,
+		headTrackerMaxBufferSize:              3,
+		headTrackerSamplingInterval:           1 * time.Second,
+		linkContractAddress:                   "",
+		logBackfillBatchSize:                  100,
+		maxGasPriceWei:                        *assets.GWei(5000),
+		maxInFlightTransactions:               16,
+		maxQueuedTransactions:                 250,
+		minGasPriceWei:                        *assets.GWei(1),
+		minIncomingConfirmations:              3,
+		minRequiredOutgoingConfirmations:      12,
+		minimumContractPayment:                DefaultMinimumContractPayment,
+		nonceAutoSync:                         true,
+		ocrContractConfirmations:              4,
+		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
+		ocrDatabaseTimeout:                    10 * time.Second,
+		ocrObservationGracePeriod:             1 * time.Second,
+		rpcDefaultBatchSize:                   100,
+		complete:                              true,
 	}
 
 	mainnet := fallbackDefaultSet
@@ -181,6 +190,9 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.minGasPriceWei = *assets.GWei(1)
 	bscMainnet.minIncomingConfirmations = 3
 	bscMainnet.minRequiredOutgoingConfirmations = 12
+	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
+	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
+	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
 
 	hecoMainnet := bscMainnet
 

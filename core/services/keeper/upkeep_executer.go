@@ -12,10 +12,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -45,7 +46,7 @@ var (
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
 	chStop          chan struct{}
-	ethClient       eth.Client
+	ethClient       evmclient.Client
 	config          Config
 	executionQueue  chan struct{}
 	headBroadcaster httypes.HeadBroadcasterRegistry
@@ -64,7 +65,7 @@ func NewUpkeepExecuter(
 	job job.Job,
 	orm ORM,
 	pr pipeline.Runner,
-	ethClient eth.Client,
+	ethClient evmclient.Client,
 	headBroadcaster httypes.HeadBroadcaster,
 	gasEstimator gas.Estimator,
 	logger logger.Logger,
@@ -113,7 +114,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head *eth.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	ex.mailbox.Deliver(head)
 }
 
@@ -138,7 +139,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		return
 	}
 
-	head := eth.AsHead(item)
+	head := evmtypes.AsHead(item)
 
 	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 
@@ -209,8 +210,8 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	})
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
-	if _, err := ex.pr.Run(ctxService, &run, ex.logger, true, nil); err != nil {
-		ex.logger.With("error", err).Errorw("failed executing run")
+	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
+		svcLogger.With("error", err).Errorw("failed executing run")
 		return
 	}
 
@@ -218,7 +219,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, headNumber, pg.WithParentCtx(ctxService))
 		if err != nil {
-			ex.logger.With("error", err).Errorw("failed to set last run height for upkeep")
+			svcLogger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}
 
 		elapsed := time.Since(start)

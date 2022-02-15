@@ -11,20 +11,21 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true?")
+// ErrNoChains indicates that no EVM chains have been started
+var ErrNoChains = errors.New("no EVM chains loaded")
 
 var _ ChainSet = &chainSet{}
 
@@ -32,7 +33,7 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 
 //go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
-	service.Service
+	services.Service
 	Get(id *big.Int) (Chain, error)
 	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
 	Remove(id *big.Int) error
@@ -55,9 +56,12 @@ type chainSet struct {
 }
 
 func (cll *chainSet) Start() error {
-	if cll.opts.Config.EVMDisabled() {
+	if !cll.opts.Config.EVMEnabled() {
 		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
 		return nil
+	}
+	if !cll.opts.Config.EVMRPCEnabled() {
+		cll.logger.Warn("EVM RPC connections are disabled. Chainlink will not connect to any EVM RPC node.")
 	}
 	for _, c := range cll.Chains() {
 		if err := c.Start(); err != nil {
@@ -112,9 +116,11 @@ func (cll *chainSet) Default() (Chain, error) {
 	len := len(cll.chains)
 	cll.chainsMu.RUnlock()
 	if len == 0 {
-		return nil, errors.Wrap(ErrNoChains, "cannot get default chain")
+		return nil, errors.Wrap(ErrNoChains, "cannot get default EVM chain; no EVM chains are available")
 	}
 	if cll.defaultID == nil {
+		// This is an invariant violation; if any chains are available then a
+		// default should _always_ have been set in the constructor
 		return nil, errors.New("no default chain ID specified")
 	}
 
@@ -270,9 +276,9 @@ type ChainSetOpts struct {
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func(types.Chain) eth.Client
+	GenEthClient      func(types.Chain) evmclient.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
-	GenHeadTracker    func(types.Chain) httypes.Tracker
+	GenHeadTracker    func(types.Chain) httypes.HeadTracker
 	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager
 }
 
@@ -291,19 +297,19 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	lggr := opts.Logger.Named("EVM")
+	opts.Logger = opts.Logger.Named("EVM")
 	defaultChainID := opts.Config.DefaultChainID()
 	if defaultChainID == nil && len(dbchains) >= 1 {
 		defaultChainID = dbchains[0].ID.ToInt()
 		if len(dbchains) > 1 {
-			lggr.Debugf("Multiple chains present but ETH_CHAIN_ID was not specified, falling back to default chain: %s", defaultChainID.String())
+			opts.Logger.Debugf("Multiple chains present but ETH_CHAIN_ID was not specified, falling back to default chain: %s", defaultChainID.String())
 		}
 	}
 	var err error
-	cll := &chainSet{defaultChainID, make(map[string]*chain), make([]Chain, 0), sync.RWMutex{}, lggr, opts.ORM, opts}
+	cll := &chainSet{defaultChainID, make(map[string]*chain), make([]Chain, 0), sync.RWMutex{}, opts.Logger.Named("ChainSet"), opts.ORM, opts}
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
-		lggr.Infow(fmt.Sprintf("EVM: Loading chain %s", cid), "evmChainID", cid)
+		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := newChain(dbchains[i], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)

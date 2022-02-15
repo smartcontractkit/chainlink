@@ -3,8 +3,8 @@ package fluxmonitorv2
 import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -62,12 +62,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err erro
 	if err != nil {
 		return nil, err
 	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth(), chain.Config().FMSimulateTransactions())
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
+	var checker bulletprooftxmanager.TransmitCheckerSpec
+	if chain.Config().FMSimulateTransactions() {
+		checker.CheckerType = bulletprooftxmanager.TransmitCheckerTypeSimulate
+	}
 
 	fm, err := NewFromJobSpec(
 		jb,
 		d.db,
-		NewORM(d.db, d.lggr, chain.Config(), chain.TxManager(), strategy),
+		NewORM(d.db, d.lggr, chain.Config(), chain.TxManager(), strategy, checker),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),

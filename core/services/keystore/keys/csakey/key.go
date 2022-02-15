@@ -18,10 +18,6 @@ type Key struct {
 	UpdatedAt           time.Time
 }
 
-func (Key) TableName() string {
-	return "csa_keys"
-}
-
 // New creates a new CSA key consisting of an ed25519 key. It encrypts the
 // Key with the passphrase.
 func New(passphrase string, scryptParams utils.ScryptParams) (*Key, error) {

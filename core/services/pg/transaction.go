@@ -26,12 +26,6 @@ type TxOptions struct {
 // They cannot easily be set at a session level due to how Go's connection
 // pooling works.
 const (
-	// DefaultLockTimeout controls the max time we will wait for any kind of database lock.
-	// It's good to set this to _something_ because waiting for locks forever is really bad.
-	DefaultLockTimeout = 15 * time.Second
-	// DefaultIdleInTxSessionTimeout controls the max time we leave a transaction open and idle.
-	// It's good to set this to _something_ because leaving transactions open forever is really bad.
-	DefaultIdleInTxSessionTimeout = 1 * time.Hour
 	// NOTE: This is the default level in Postgres anyway, we just make it
 	// explicit here
 	DefaultIsolation = sql.LevelReadCommitted

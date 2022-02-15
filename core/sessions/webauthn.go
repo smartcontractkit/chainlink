@@ -20,7 +20,7 @@ type WebAuthn struct {
 }
 
 // This struct implements the required duo-labs/webauthn/ 'User' interface
-// kept seperate from our internal 'User' struct
+// kept separate from our internal 'User' struct
 type WebAuthnUser struct {
 	Email         string
 	WACredentials []webauthn.Credential
@@ -274,7 +274,7 @@ func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (webauthn.Sess
 
 	assertion, ok := store.take(key)
 	if !ok {
-		return sessionData, fmt.Errorf("assertion not in challege store")
+		return sessionData, fmt.Errorf("assertion not in challenge store")
 	}
 	err := json.Unmarshal([]byte(assertion), &sessionData)
 	if err != nil {

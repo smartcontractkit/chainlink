@@ -11,16 +11,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	log_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/log"
-	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -423,12 +424,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("requesters is specified and log is requested by a whitelisted address", func(t *testing.T) {
-		requester := cltest.NewAddress()
+		requester := testutils.NewAddress()
 		cfg := configtest.NewTestGeneralConfig(t)
 		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
-			jb.DirectRequestSpec.Requesters = []common.Address{cltest.NewAddress(), requester}
+			jb.DirectRequestSpec.Requesters = []common.Address{testutils.NewAddress(), requester}
 		})
 		defer uni.Cleanup()
 
@@ -479,12 +480,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("requesters is specified and log is requested by a non-whitelisted address", func(t *testing.T) {
-		requester := cltest.NewAddress()
+		requester := testutils.NewAddress()
 		cfg := configtest.NewTestGeneralConfig(t)
 		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
-			jb.DirectRequestSpec.Requesters = []common.Address{cltest.NewAddress(), cltest.NewAddress()}
+			jb.DirectRequestSpec.Requesters = []common.Address{testutils.NewAddress(), testutils.NewAddress()}
 		})
 		defer uni.Cleanup()
 
