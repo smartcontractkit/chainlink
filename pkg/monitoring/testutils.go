@@ -4,6 +4,7 @@ package monitoring
 
 import (
 	"context"
+	cryptoRand "crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -178,6 +179,18 @@ func (f *fakeExporter) Cleanup(_ context.Context) {
 
 // Generators
 
+func generateBigInt(bitSize uint8) *big.Int {
+	maxBigInt := new(big.Int)
+	maxBigInt.Exp(big.NewInt(2), big.NewInt(int64(bitSize)), nil).Sub(maxBigInt, big.NewInt(1))
+
+	//Generate cryptographically strong pseudo-random between 0 - max
+	num, err := cryptoRand.Int(cryptoRand.Reader, maxBigInt)
+	if err != nil {
+		panic(fmt.Sprintf("failed to generate a really big number: %v", err))
+	}
+	return num
+}
+
 func generate32ByteArr() [32]byte {
 	buf := make([]byte, 32)
 	_, err := rand.Read(buf)
@@ -198,8 +211,8 @@ type fakeFeedConfig struct {
 	ContractType   string `json:"contract_type,omitempty"`
 	ContractStatus string `json:"status,omitempty"`
 	// This functions as a feed identifier.
-	ContractAddress []byte `json:"contract_address,omitempty"`
-	Multiply        uint64 `json:"multiply,omitempty"`
+	ContractAddress []byte   `json:"contract_address,omitempty"`
+	Multiply        *big.Int `json:"multiply,omitempty"`
 }
 
 func (f fakeFeedConfig) GetID() string             { return f.ID }
@@ -213,7 +226,7 @@ func (f fakeFeedConfig) GetContractAddress() string {
 	return base64.StdEncoding.EncodeToString(f.ContractAddress)
 }
 func (f fakeFeedConfig) GetContractAddressBytes() []byte { return f.ContractAddress }
-func (f fakeFeedConfig) GetMultiply() uint64             { return f.Multiply }
+func (f fakeFeedConfig) GetMultiply() *big.Int           { return f.Multiply }
 func (f fakeFeedConfig) ToMapping() map[string]interface{} {
 	return map[string]interface{}{
 		"feed_name":        f.Name,
@@ -242,7 +255,7 @@ func generateFeedConfig() FeedConfig {
 		ContractType:    "ocr2",
 		ContractStatus:  "status",
 		ContractAddress: contractAddress[:],
-		Multiply:        1000,
+		Multiply:        big.NewInt(10000),
 	}
 }
 
@@ -334,8 +347,8 @@ func generateContractConfig(n int) (
 		}))
 	}
 	onchainConfig := median.OnchainConfig{
-		Min: big.NewInt(rand.Int63()),
-		Max: big.NewInt(rand.Int63()),
+		Min: generateBigInt(128),
+		Max: generateBigInt(128),
 	}
 	onchainConfigEncoded, err := onchainConfig.Encode()
 	if err != nil {
@@ -367,7 +380,7 @@ func generateEnvelope() (Envelope, error) {
 		ConfigDigest:    generated.ConfigDigest,
 		Round:           uint8(rand.Intn(256)),
 		Epoch:           rand.Uint32(),
-		LatestAnswer:    big.NewInt(rand.Int63()),
+		LatestAnswer:    generateBigInt(128),
 		LatestTimestamp: time.Now(),
 
 		ContractConfig: generated,
@@ -376,9 +389,9 @@ func generateEnvelope() (Envelope, error) {
 		Transmitter: types.Account(hexutil.Encode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(rand.Intn(32)),
 		})),
-		LinkBalance: rand.Uint64(),
+		LinkBalance: generateBigInt(150),
 
-		JuelsPerFeeCoin:   big.NewInt(rand.Int63()),
+		JuelsPerFeeCoin:   generateBigInt(150),
 		AggregatorRoundID: rand.Uint32(),
 	}, nil
 }
@@ -431,45 +444,34 @@ type devnullMetrics struct{}
 
 var _ Metrics = (*devnullMetrics)(nil)
 
-func (d *devnullMetrics) SetHeadTrackerCurrentHead(blockNumber uint64, networkName, chainID, networkID string) {
+func (d *devnullMetrics) SetHeadTrackerCurrentHead(blockNumber float64, networkName, chainID, networkID string) {
 }
-
 func (d *devnullMetrics) SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string) {
 }
-
-func (d *devnullMetrics) SetFeedContractLinkBalance(balance uint64, chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetFeedContractLinkBalance(balance float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
-func (d *devnullMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
-func (d *devnullMetrics) SetFeedContractTransmissionsFailed(numFailed uint64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetFeedContractTransmissionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
 func (d *devnullMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {
 }
-
-func (d *devnullMetrics) SetOffchainAggregatorAnswersRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetOffchainAggregatorAnswersRaw(answer float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
-func (d *devnullMetrics) SetOffchainAggregatorAnswers(answer *big.Float, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetOffchainAggregatorAnswers(answer float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
 func (d *devnullMetrics) IncOffchainAggregatorAnswersTotal(contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
-func (d *devnullMetrics) SetOffchainAggregatorJuelsPerFeeCoinRaw(answer *big.Int, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetOffchainAggregatorJuelsPerFeeCoinRaw(juelsPerFeeCoin float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
-func (d *devnullMetrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetOffchainAggregatorJuelsPerFeeCoin(juelsPerFeeCoin float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
+func (d *devnullMetrics) SetOffchainAggregatorSubmissionReceivedValues(value float64, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
 func (d *devnullMetrics) SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
-func (d *devnullMetrics) SetOffchainAggregatorRoundID(aggregatorRoundID uint32, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetOffchainAggregatorRoundID(aggregatorRoundID float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-
 func (d *devnullMetrics) Cleanup(networkName, networkID, chainID, oracleName, sender, feedName, feedPath, symbol, contractType, contractStatus, contractAddress, feedID string) {
 }
 
@@ -480,18 +482,16 @@ func (d *devnullMetrics) HTTPHandler() http.Handler {
 type keepLatestMetrics struct {
 	*devnullMetrics
 
-	latestTransmission *big.Float
+	latestTransmission float64
 	latestTransmitter  string
 }
 
-func (k *keepLatestMetrics) SetOffchainAggregatorAnswers(answer *big.Float, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	k.latestTransmission = &big.Float{}
-	k.latestTransmission.Set(answer)
+func (k *keepLatestMetrics) SetOffchainAggregatorAnswers(answer float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	k.latestTransmission = answer
 }
 
-func (k *keepLatestMetrics) SetOffchainAggregatorSubmissionReceivedValues(value *big.Float, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	k.latestTransmission = &big.Float{}
-	k.latestTransmission.Set(value)
+func (k *keepLatestMetrics) SetOffchainAggregatorSubmissionReceivedValues(value float64, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	k.latestTransmission = value
 	k.latestTransmitter = sender
 }
 

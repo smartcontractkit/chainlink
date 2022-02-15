@@ -57,7 +57,7 @@ func NewEntrypoint(
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
 
-	metrics := DefaultMetrics
+	metrics := NewMetrics(log.With("component", "metrics"))
 
 	schemaRegistry := NewSchemaRegistry(cfg.SchemaRegistry, log)
 
