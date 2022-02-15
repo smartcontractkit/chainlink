@@ -99,7 +99,7 @@ type GeneralConfigOverrides struct {
 	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
-	LogFileMaxSize                            null.Int
+	LogFileMaxSize                            null.String
 	LogFileMaxAge                             null.Int
 	LogFileMaxBackups                         null.Int
 	SecretGenerator                           config.SecretGenerator
@@ -369,11 +369,16 @@ func (c *TestGeneralConfig) LogToDisk() bool {
 }
 
 // LogFileMaxSize allows to override the log file's max size before file rotation.
-func (c *TestGeneralConfig) LogFileMaxSize() int64 {
+func (c *TestGeneralConfig) LogFileMaxSize() utils.FileSize {
 	if c.Overrides.LogFileMaxSize.Valid {
-		return c.Overrides.LogFileMaxSize.Int64
+		var val utils.FileSize
+
+		err := val.UnmarshalText([]byte(c.Overrides.LogFileMaxSize.String))
+		require.NoError(c.t, err)
+
+		return val
 	}
-	return int64(c.GeneralConfig.LogFileMaxSize())
+	return c.GeneralConfig.LogFileMaxSize()
 }
 
 // LogFileMaxAge allows to override the log file's max age before file rotation.

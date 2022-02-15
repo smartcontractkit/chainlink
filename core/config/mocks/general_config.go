@@ -2125,14 +2125,14 @@ func (_m *GeneralConfig) LogFileMaxBackups() int64 {
 }
 
 // LogFileMaxSize provides a mock function with given fields:
-func (_m *GeneralConfig) LogFileMaxSize() int64 {
+func (_m *GeneralConfig) LogFileMaxSize() utils.FileSize {
 	ret := _m.Called()
 
-	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Get(0).(utils.FileSize)
 	}
 
 	return r0

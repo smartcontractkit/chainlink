@@ -85,7 +85,7 @@ func TestResolver_Config(t *testing.T) {
 					LogFileDir:                                null.StringFrom("foo"),
 					LogSQL:                                    null.BoolFrom(true),
 					LogToDisk:                                 null.BoolFrom(true),
-					LogFileMaxSize:                            null.IntFrom(1),
+					LogFileMaxSize:                            null.StringFrom("100mb"),
 					LogFileMaxAge:                             null.IntFrom(3),
 					LogFileMaxBackups:                         null.IntFrom(12),
 					OCRKeyBundleID:                            null.StringFrom("test"),
@@ -301,7 +301,7 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "LOG_FILE_MAX_SIZE",
-        "value": "1"
+        "value": "100.00mb"
       },
       {
         "key": "LOG_FILE_MAX_AGE",

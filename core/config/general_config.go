@@ -138,7 +138,7 @@ type GeneralOnlyConfig interface {
 	LogLevel() zapcore.Level
 	LogSQL() bool
 	LogToDisk() bool
-	LogFileMaxSize() int64
+	LogFileMaxSize() utils.FileSize
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
@@ -923,8 +923,8 @@ func (c *generalConfig) LogToDisk() bool {
 }
 
 // LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.
-func (c *generalConfig) LogFileMaxSize() int64 {
-	return c.getWithFallback("LogFileMaxSize", parse.Int64).(int64)
+func (c *generalConfig) LogFileMaxSize() utils.FileSize {
+	return c.getWithFallback("LogFileMaxSize", parse.FileSize).(utils.FileSize)
 }
 
 // LogFileMaxAge configures disk preservation of logs max age (in days) before file rotation.
