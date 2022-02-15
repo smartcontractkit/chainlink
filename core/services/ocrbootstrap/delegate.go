@@ -61,7 +61,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	services = append(services, ocr2Provider)
 
-	ocrDB := offchainreporting2.NewDB(d.db.DB, spec.ID, d.lggr)
+	configDB := NewDB(d.db.DB, spec.ID, d.lggr)
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -96,7 +96,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
 		BootstrapperFactory:    peerWrapper.Peer2,
 		ContractConfigTracker:  tracker,
-		Database:               ocrDB,
+		Database:               configDB,
 		LocalConfig:            lc,
 		Logger:                 ocrLogger,
 		OffchainConfigDigester: offchainConfigDigester,
