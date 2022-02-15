@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // LogsFile describes the logs file name
@@ -201,19 +202,25 @@ func NewLogger() Logger {
 	}
 
 	if c.ToDisk {
-		fileMaxAge, invalid := envvar.LogFileMaxAge.ParseInt64()
+		var (
+			fileMaxAge  int64
+			maxBackups  int64
+			fileMaxSize utils.FileSize
+		)
+
+		fileMaxAge, invalid = envvar.LogFileMaxAge.ParseInt64()
 		c.DiskMaxAgeBeforeDelete = int(fileMaxAge)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 
-		fileMaxSize, invalid := envvar.LogFileMaxSize.ParseFileSize()
+		fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
 		c.DiskMaxSizeBeforeRotate = int(fileMaxSize)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 
-		maxBackups, invalid := envvar.LogFileMaxBackups.ParseInt64()
+		maxBackups, invalid = envvar.LogFileMaxBackups.ParseInt64()
 		c.DiskMaxBackupsBeforeDelete = int(maxBackups)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
