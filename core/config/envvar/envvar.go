@@ -104,14 +104,14 @@ func (e *EnvVar) ParseInt() (v int, invalid string) {
 	return i.(int), invalid
 }
 
-// ParseInt parses value into `int64`
+// ParseInt64 parses value into `int64`
 func (e *EnvVar) ParseInt64() (v int64, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
 	return i.(int64), invalid
 }
 
-// ParseInt parses value into `utils.FileSize`
+// ParseFileSize parses value into `utils.FileSize`
 func (e *EnvVar) ParseFileSize() (v utils.FileSize, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
