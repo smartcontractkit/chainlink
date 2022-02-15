@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/parse"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -101,6 +102,20 @@ func (e *EnvVar) ParseInt() (v int, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
 	return i.(int), invalid
+}
+
+// ParseInt parses value into `int64`
+func (e *EnvVar) ParseInt64() (v int64, invalid string) {
+	var i interface{}
+	i, invalid = e.Parse()
+	return i.(int64), invalid
+}
+
+// ParseInt parses value into `utils.FileSize`
+func (e *EnvVar) ParseFileSize() (v utils.FileSize, invalid string) {
+	var i interface{}
+	i, invalid = e.Parse()
+	return i.(utils.FileSize), invalid
 }
 
 func (e *EnvVar) ParseLogLevel() (v zapcore.Level, invalid string) {
