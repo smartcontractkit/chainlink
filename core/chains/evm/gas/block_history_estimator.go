@@ -86,7 +86,7 @@ type (
 		latestBaseFee *big.Int
 		mu            sync.RWMutex
 
-		logger logger.Logger
+		logger logger.SugaredLogger
 	}
 )
 
@@ -109,7 +109,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, co
 		nil,
 		nil,
 		sync.RWMutex{},
-		lggr.Named("BlockHistoryEstimator"),
+		logger.Sugared(lggr.Named("BlockHistoryEstimator")),
 	}
 
 	return b
@@ -608,12 +608,12 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *
 		}
 		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
 			// This should not pass config validation
-			b.logger.Errorw("AssumptionViolation: MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
+			b.logger.AssumptionViolationw("MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
 			// This should not pass config validation
-			b.logger.Errorw("AssumptionViolation: MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
+			b.logger.AssumptionViolationw("MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.GasPrice != nil {
@@ -649,7 +649,7 @@ func (b *BlockHistoryEstimator) EffectiveTipCap(block Block, tx Transaction) *bi
 		}
 		effectiveTipCap := big.NewInt(0).Sub(tx.GasPrice, block.BaseFeePerGas)
 		if effectiveTipCap.Cmp(big.NewInt(0)) < 0 {
-			b.logger.Errorw("AssumptionViolation: GasPrice - BaseFeePerGas >= 0", "block", block, "tx", tx)
+			b.logger.AssumptionViolationw("GasPrice - BaseFeePerGas >= 0", "block", block, "tx", tx)
 			return nil
 		}
 		return effectiveTipCap
