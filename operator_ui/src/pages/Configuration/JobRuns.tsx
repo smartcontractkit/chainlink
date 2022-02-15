@@ -2,10 +2,9 @@ import React, { useState } from 'react'
 import { useDispatch } from 'react-redux'
 import moment from 'moment'
 import {
-  deleteCompletedJobRuns,
   deleteErroredJobRuns,
   notifySuccess,
-  notifyError,
+  notifyErrorMsg,
 } from 'actionCreators'
 
 import Card from '@material-ui/core/Card'
@@ -49,20 +48,8 @@ export const JobRuns = withStyles(styles)(({ classes }: Props) => {
   const dispatch = useDispatch()
 
   const updatedBefore = new Date(Date.now() - WEEK_MS).toISOString()
-  const [showCompletedConfirm, setCompletedConfirm] = useState(false)
   const [showErroredConfirm, setErroredConfirm] = useState(false)
 
-  const confirmCompletedDelete = async () => {
-    try {
-      await dispatch(deleteCompletedJobRuns(updatedBefore))
-      dispatch(notifySuccess(() => <>Deleted completed job runs</>, {}))
-
-      setCompletedConfirm(false)
-    } catch (e) {
-      dispatch(notifyError(() => <>Something went wrong</>, e))
-      console.log('some error occurred')
-    }
-  }
   const confirmErroredDeleted = async () => {
     try {
       await dispatch(deleteErroredJobRuns(updatedBefore))
@@ -70,8 +57,7 @@ export const JobRuns = withStyles(styles)(({ classes }: Props) => {
 
       setErroredConfirm(false)
     } catch (e) {
-      dispatch(notifyError(() => <>Something went wrong</>, e))
-      console.log('some error occurred')
+      dispatch(notifyErrorMsg('Something went wrong'))
     }
   }
 
@@ -84,23 +70,6 @@ export const JobRuns = withStyles(styles)(({ classes }: Props) => {
 
       <Table>
         <TableBody>
-          <TableRow>
-            <TableCell>
-              <Typography>Completed Runs</Typography>
-              <Typography variant="subtitle2" color="textSecondary">
-                Keeps runs from the last week
-              </Typography>
-            </TableCell>
-            <TableCell align="right" className={classes.deleteCell}>
-              <IconButton
-                onClick={() => setCompletedConfirm(true)}
-                data-cy="delete-completed-job-runs"
-              >
-                <DeleteIcon className={classes.deleteIcon} color="error" />
-              </IconButton>
-            </TableCell>
-          </TableRow>
-
           <TableRow>
             <TableCell>
               <Typography>Errored Runs</Typography>
@@ -119,19 +88,6 @@ export const JobRuns = withStyles(styles)(({ classes }: Props) => {
           </TableRow>
         </TableBody>
       </Table>
-
-      <ConfirmationDialog
-        open={showCompletedConfirm}
-        title="Delete completed jobs runs"
-        body={`Are you sure you want to delete all completed job runs up to
-                ${moment(updatedBefore).format(
-                  'dddd, MMMM Do YYYY, h:mm:ss a',
-                )}?`}
-        confirmButtonText="Confirm"
-        onConfirm={confirmCompletedDelete}
-        cancelButtonText="Cancel"
-        onCancel={() => setCompletedConfirm(false)}
-      />
 
       <ConfirmationDialog
         open={showErroredConfirm}

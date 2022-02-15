@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"reflect"
 	"sync"
@@ -9,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -23,7 +24,7 @@ type (
 	// services that perform the work described by job specs.  Each active job spec
 	// has 1 or more of these services associated with it.
 	Spawner interface {
-		service.Service
+		services.Service
 		CreateJob(jb *Job, qopts ...pg.QOpt) error
 		DeleteJob(jobID int32, qopts ...pg.QOpt) error
 		ActiveJobs() map[int32]Job
@@ -128,6 +129,7 @@ func (js *spawner) stopAllServices() {
 }
 
 func (js *spawner) stopService(jobID int32) {
+	js.lggr.Debugw("Stopping services for job", "jobID", jobID)
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
@@ -137,11 +139,12 @@ func (js *spawner) stopService(jobID int32) {
 		service := aj.services[i]
 		err := service.Close()
 		if err != nil {
-			js.lggr.Errorw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
+			js.lggr.Criticalw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
 		} else {
-			js.lggr.Infow("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", reflect.TypeOf(service))
+			js.lggr.Debugw("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", fmt.Sprintf("%T", service))
 		}
 	}
+	js.lggr.Debugw("Stopped all services for job", "jobID", jobID)
 
 	delete(js.activeJobs, jobID)
 }
@@ -176,11 +179,12 @@ func (js *spawner) StartService(spec Job) error {
 	for _, service := range services {
 		err := service.Start()
 		if err != nil {
-			js.lggr.Errorw("Error creating service for job", "jobID", spec.ID, "error", err)
+			js.lggr.Criticalw("Error creating service for job", "jobID", spec.ID, "error", err)
 			continue
 		}
 		aj.services = append(aj.services, service)
 	}
+	js.lggr.Debugw("JobSpawner: Finished starting services for job", "jobID", spec.ID, "count", len(services))
 	js.activeJobs[spec.ID] = aj
 	return nil
 }
@@ -228,6 +232,9 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		return errors.New("will not delete job with 0 ID")
 	}
 
+	lggr := js.lggr.With("jobID", jobID)
+	lggr.Debugw("Deleting job")
+
 	var aj activeJob
 	var exists bool
 	func() {
@@ -242,7 +249,9 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	// Stop the service if we own the job.
 	js.stopService(jobID)
 
+	lggr.Debugw("Callback: BeforeJobDeleted")
 	aj.delegate.BeforeJobDeleted(aj.spec)
+	lggr.Debugw("Callback: BeforeJobDeleted done")
 
 	var cancel context.CancelFunc
 	defer func() {
@@ -264,7 +273,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		return err
 	}
 
-	js.lggr.Infow("Deleted job", "jobID", jobID)
+	lggr.Infow("Stopped and deleted job")
 
 	return nil
 }

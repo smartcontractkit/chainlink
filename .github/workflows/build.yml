@@ -1,0 +1,22 @@
+name: 'Build Chainlink'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+
+  build-chainlink:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+
+      - name: Build chainlink image
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: false
+          image-name: test-chainlink
+          sign-images: false

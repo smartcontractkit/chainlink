@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -87,14 +90,18 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		_, didExist, err := ks.EnsureKey()
-		require.NoError(t, err)
-		require.False(t, didExist)
-		_, didExist, err = ks.EnsureKey()
-		require.NoError(t, err)
-		require.True(t, didExist)
+		err := ks.EnsureKey()
+		assert.NoError(t, err)
+
 		keys, err := ks.GetAll()
-		require.NoError(t, err)
+		assert.NoError(t, err)
+		require.Equal(t, 1, len(keys))
+
+		err = ks.EnsureKey()
+		assert.NoError(t, err)
+
+		keys, err = ks.GetAll()
+		assert.NoError(t, err)
 		require.Equal(t, 1, len(keys))
 	})
 
@@ -125,19 +132,19 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	t.Run("clears p2p_peers on delete", func(t *testing.T) {
 		key, err := ks.Create()
 		require.NoError(t, err)
-		p2pPeer1 := offchainreporting.P2PPeer{
+		p2pPeer1 := ocrcommon.P2PPeer{
 			ID:     cltest.NewPeerID().String(),
-			Addr:   cltest.NewAddress().Hex(),
+			Addr:   testutils.NewAddress().Hex(),
 			PeerID: cltest.DefaultPeerID, // different p2p key
 		}
-		p2pPeer2 := offchainreporting.P2PPeer{
+		p2pPeer2 := ocrcommon.P2PPeer{
 			ID:     cltest.NewPeerID().String(),
-			Addr:   cltest.NewAddress().Hex(),
+			Addr:   testutils.NewAddress().Hex(),
 			PeerID: key.PeerID().Raw(),
 		}
 		const p2pTableName = "p2p_peers"
-		sql := fmt.Sprintf(`INSERT INTO %s (id, addr, peer_id, created_at, updated_at) 
-		VALUES (:id, :addr, :peer_id, now(), now()) 
+		sql := fmt.Sprintf(`INSERT INTO %s (id, addr, peer_id, created_at, updated_at)
+		VALUES (:id, :addr, :peer_id, now(), now())
 		RETURNING *;`, p2pTableName)
 		stmt, err := db.PrepareNamed(sql)
 		require.NoError(t, err)

@@ -3,7 +3,6 @@ package cltest
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -19,14 +18,19 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -36,18 +40,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 )
 
-// NewAddress return a random new address
-func NewAddress() common.Address {
-	return common.BytesToAddress(randomBytes(20))
-}
-
 func NewEIP55Address() ethkey.EIP55Address {
-	a := NewAddress()
+	a := testutils.NewAddress()
 	e, err := ethkey.NewEIP55Address(a.Hex())
 	if err != nil {
 		panic(err)
@@ -61,17 +57,6 @@ func NewPeerID() p2ppeer.ID {
 		panic(err)
 	}
 	return id
-}
-
-func randomBytes(n int) []byte {
-	b := make([]byte, n)
-	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
-	return b
-}
-
-func Random32Byte() (b [32]byte) {
-	copy(b[:], randomBytes(32))
-	return b
 }
 
 type BridgeOpts struct {
@@ -148,7 +133,7 @@ func EmptyCLIContext() *cli.Context {
 func NewEthTx(t *testing.T, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	return bulletprooftxmanager.EthTx{
 		FromAddress:    fromAddress,
-		ToAddress:      NewAddress(),
+		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
 		GasLimit:       uint64(1000000000),
@@ -182,7 +167,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm bul
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -194,11 +179,27 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm bul
 	return etx
 }
 
+func MustInsertUnconfrimedEthTxWithAttemptState(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, txAttemptState bulletprooftxmanager.EthTxAttemptState, opts ...interface{}) bulletprooftxmanager.EthTx {
+	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
+	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+
+	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = txAttemptState
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx, err := borm.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
 func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
 	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewDynamicFeeEthTxAttempt(t, etx.ID)
 
-	addr := NewAddress()
+	addr := testutils.NewAddress()
 	dtx := types.DynamicFeeTx{
 		ChainID:   big.NewInt(0),
 		Nonce:     uint64(nonce),
@@ -232,7 +233,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, borm bul
 	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
-	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -268,7 +269,7 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, borm bulletprooftxmanage
 	etx.State = bulletprooftxmanager.EthTxInProgress
 	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
-	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
@@ -444,8 +445,8 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) eth.Head {
-	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) evmtypes.Head {
+	h := evmtypes.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
 	err := horm.IdempotentInsertHead(context.Background(), &h)
@@ -485,8 +486,8 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitte
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OffchainReportingOracleSpec{}
-	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations) VALUES (
-NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout) VALUES (
+NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
 ) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec
 }
@@ -594,7 +595,7 @@ func RandomLog(t *testing.T) types.Log {
 	}
 
 	return types.Log{
-		Address:     NewAddress(),
+		Address:     testutils.NewAddress(),
 		BlockHash:   utils.NewHash(),
 		BlockNumber: uint64(mathrand.Intn(9999999)),
 		Index:       uint(mathrand.Intn(9999999)),

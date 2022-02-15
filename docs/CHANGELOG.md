@@ -7,7 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-...
+### Added
+
+- Added support for the Nethermind Ethereum client.
+- Added support for batch sending telemetry to the ingress server to improve performance.
+
+New ENV vars:
+
+- `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
+- `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
+- `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
+- `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed.
+- `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
+- `TERRA_ENABLED` (default: false) - set to true to enable Terra support
+- `BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS` - if EIP1559 mode is enabled, this optional env var controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used. It is not recommended to change this unless you know what you are doing.
+- `TELEMETRY_INGRESS_BUFFER_SIZE` (default: 100) - the number of telemetry messages to buffer before dropping new ones
+- `TELEMETRY_INGRESS_MAX_BATCH_SIZE` (default: 50) - the maximum number of messages to batch into one telemetry request
+- `TELEMETRY_INGRESS_SEND_INTERVAL` (default: 500ms) - the cadence on which batched telemetry is sent to the ingress server
+- `TELEMETRY_INGRESS_USE_BATCH_SEND` (default: true) - toggles sending telemetry using the batch client to the ingress server
+
+#### Bootstrap job
+
+Added a new `bootstrap` job type. This job removes the need for every job to implement their own bootstrapping logic.
+It makes OCR2 jobs that currently use `isBootstrapPeer=true` deprecated but still supported.
+The spec parameters are similar to a basic OCR2 job, an example would be:
+
+```
+type            = "bootstrap"
+name            = "bootstrap"
+relay           = "evm"
+schemaVersion	= 1
+contractID      = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
+[relayConfig]
+chainID	        = 4
+```
+
+### Removed
+
+- `deleteuser` CLI command.
+
+### Changed
+
+`EVM_DISABLED` has been deprecated and replaced by `EVM_ENABLED` for consistency with other feature flags.
+`ETH_DISABLED` has been deprecated and replaced by `EVM_RPC_ENABLED` for consistency, and because this was confusingly named. In most cases you want to set `EVM_ENABLED=false` and not `EVM_RPC_ENABLED=false`.
+
+Log colorization is now disabled by default because it causes issues when piped to text files. To re-enable log colorization, set `LOG_COLOR=true`.
 
 ## [1.1.1] - 2022-02-14
 
@@ -29,7 +73,7 @@ The new EIP-1559 implementation works as follows:
 
 If you are using FixedPriceEstimator:
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`
-- With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.  
+- With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.
 
 If you are using BlockHistoryEstimator (default for most chains):
 - With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
@@ -44,7 +88,7 @@ Bumping works as follows:
 
 ### Added
 
-- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at run-time to enable reporting.
 - Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
 - The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
 - The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.
@@ -52,6 +96,7 @@ Bumping works as follows:
 - CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
 - CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
 - Add partial support for Moonriver chain
+- For OCR jobs, `databaseTimeout`, `observationGracePeriod` and `contractTransmitterTransmitTimeout` can be specified to override chain-specific default values.
 
 Two new log levels have been added.
 
@@ -204,7 +249,7 @@ This only applies to EAs using the `X-Chainlink-Pending` header to signal that t
 
 Added a new optional field for VRF v2 jobs called `requestedConfsDelay`, which configures a
 number of blocks to wait in addition to the request specified `requestConfirmations` before servicing
-the randomness request, i.e the Chainlink node will wait `max(nodeMinConfs, requestConfirmations + requestedConfsDelay)`
+the randomness request, i.e. the Chainlink node will wait `max(nodeMinConfs, requestConfirmations + requestedConfsDelay)`
 blocks before servicing the request.
 
 It can be used in the following way:
@@ -242,10 +287,10 @@ Traditionally Chainlink has used an advisory lock to manage this. However, advis
 - Advisory locks do not play nicely with pooling tools such as pgbouncer.
 - If the application crashes, the advisory lock can be left hanging around for a while (sometimes hours) and can require manual intervention to remove it before another instance of Chainlink will allow itself to boot.
 
-For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in future. `lease`-mode works as follows:
+For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in the future. `lease`-mode works as follows:
 - Have one row in a database which is updated periodically with the client ID.
 - CL node A will run a background process on start that updates this e.g. once per second.
-- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than a set period without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second.
+- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than a set period without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row, and it updates this every second.
 - If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will exit the entire application immediately.
 
 The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
@@ -329,9 +374,9 @@ This would allow for calling of a function `call` with a tuple containing two va
 
 #### Transaction Simulation (Gas Savings)
 
-Chainlink now supports transaction simulation for certain types of job. When this is enabled, transactions will be simulated using `eth_call` before initial send. If the transaction would revert, the tx is marked as errored without being broadcast, potentially avoiding an expensive on-chain revert.
+Chainlink now supports transaction simulation for certain types of job. When this is enabled, transactions will be simulated using `eth_call` before initial send. If the transaction reverted, the tx is marked as errored without being broadcast, potentially avoiding an expensive on-chain revert.
 
-This can add a tiny bit of latency (upper bound 2s, generally much shorter under good conditions) and will add marginally more load to the eth client, since it adds an extra call for every transaction sent. However, it may help to save gas in some cases especially during periods of high demand by avoiding unnecessary reverts (due to outdated round etc).
+This can add a tiny bit of latency (upper bound 2s, generally much shorter under good conditions) and will add marginally more load to the eth client, since it adds an extra call for every transaction sent. However, it may help to save gas in some cases especially during periods of high demand by avoiding unnecessary reverts (due to outdated round etc.).
 
 This option is EXPERIMENTAL and disabled by default.
 
@@ -354,7 +399,7 @@ Chainlink now supports more than one primary eth node per chain. Requests are ro
 
 Add CRUD functionality for EVM Chains and Nodes through Operator UI.
 
-Non fatal errors to a pipeline run are preserved including any run that succeeds but has more than one fatal error.
+Non-fatal errors to a pipeline run are preserved including any run that succeeds but has more than one fatal error.
 
 Chainlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
 
@@ -385,7 +430,7 @@ Max Priority Fee Per Gas = TipCap
 In EIP-1559 mode, the following changes occur to how configuration works:
 
 - All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap (NOTE: existing pending legacy transactions will continue to be gas bumped in legacy mode)
-- BlockHistoryEstimator will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
+- BlockHistoryEstimator will apply its calculations (gas percentile etc.) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 - FixedPriceEstimator will use `EVM_GAS_TIP_CAP_DEFAULT` instead of `ETH_GAS_PRICE_DEFAULT`
 - `ETH_GAS_PRICE_DEFAULT` is ignored for new transactions and `EVM_GAS_TIP_CAP_DEFAULT` is used instead (default 20GWei)
 - `ETH_MIN_GAS_PRICE_WEI` is ignored for new transactions and `EVM_GAS_TIP_CAP_MINIMUM` is used instead (default 0)
@@ -511,7 +556,7 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 
 ## [0.10.15] - 2021-10-14
 
-**It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
+**It is highly recommended upgrading to this version before upgrading to any newer versions to avoid any complications.**
 
 ### Fixed
 
@@ -529,7 +574,7 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 
 V2 direct request specs now support two additional keys:
 
-- "requesters" key which allows to whitelist requesters
+- "requesters" key which allows whitelisting requesters
 - "minContractPaymentLinkJuels" key which allows to specify a job-specific minimum contract payment.
 
 For example:
@@ -599,7 +644,7 @@ ds -> ds_parse -> ds_multiply;
 
 These external initiators will be notified with the given spec after the job is created, and also at deletion time.
 
-Only the External Initiators listed in the toml spec may trigger a run for that job. Logged in users can always trigger a run for any job.
+Only the External Initiators listed in the toml spec may trigger a run for that job. Logged-in users can always trigger a run for any job.
 
 #### Migrating Jobs
 
@@ -675,7 +720,7 @@ Valid values for `GAS_ESTIMATOR_MODE` are as follows:
 `GAS_ESTIMATOR_MODE=FixedPrice` (equivalent to `GAS_UPDATER_ENABLED=false`)
 `GAS_ESTIMATOR_MODE=Optimism` (new)
 
-New gas estimator modes may be added in future.
+New gas estimator modes may be added in the future.
 
 In addition, a minor annoyance has been fixed whereby previously if you enabled the gas updater, it would overwrite the locally stored value for gas price and continue to use this even if it was disabled after a reboot. This will no longer happen: BlockHistory mode will not clobber the locally stored value for fixed gas price, which can still be adjusted via remote API call or using `chainlink config setgasprice XXX`. In order to use this manually fixed gas price, you must enable FixedPrice estimator mode.
 
@@ -712,7 +757,7 @@ Defaults should work well, but it can be controlled if necessary using the follo
 `KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH`
 `OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH`
 
-Setting to 0 will disable (the old behaviour). Setting to 1 (the default) will keep only the latest transaction queued up at any given time. Setting to 2, 3 etc will allow this many transactions to be queued before starting to drop older items.
+Setting to 0 will disable (the old behaviour). Setting to 1 (the default) will keep only the latest transaction queued up at any given time. Setting to 2, 3 etc. will allow this many transactions to be queued before starting to drop older items.
 
 Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to FMv2 to take advantage of this feature.
 
@@ -907,7 +952,7 @@ pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="
 
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
-- Chainlink no longers writes/reads eth key files to disk
+- Chainlink no longer writes/reads eth key files to disk
 
 - Add sensible default configuration settings for Fantom
 
@@ -967,7 +1012,7 @@ chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
   by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL` env var e.g. `ETH_HEAD_TRACKER_SAMPLING_INTERVAL=5s`.
 
 - Database backups: default directory is now a subdirectory 'backup' of chainlink root dir, and can be changed
-  to any chosed directory by setting a new configuration value: `DATABASE_BACKUP_DIR`
+  to any chosen directory by setting a new configuration value: `DATABASE_BACKUP_DIR`
 
 ## [0.10.6] - 2021-05-10
 
@@ -1246,7 +1291,7 @@ for OCR jobs.
 - Silence spurious `Job spawner ORM attempted to claim locally-claimed job` warnings
 - OCR now drops transmissions instead of queueing them if the node is out of Ether
 - Fixed a long-standing issue where standby nodes would hold transactions open forever while waiting for a lock. This was preventing postgres from running necessary cleanup operations, resulting in bad database performance. Any node operators running standby failover chainlink nodes should see major database performance improvements with this release and may be able to reduce the size of their database instances.
-- Fixed an issue where expired session tokens in operator UI would cause a large number of reqeusts to be sent to the node, resulting in a temporary rate-limit and 429 errors.
+- Fixed an issue where expired session tokens in operator UI would cause a large number of requests to be sent to the node, resulting in a temporary rate-limit and 429 errors.
 - Fixed issue whereby http client could leave too many open file descriptors
 
 ### Changed
@@ -1282,7 +1327,7 @@ for OCR jobs.
 
 #### BREAKING CHANGES
 
-- Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accomodate additional types of jobs using the new pipeline.
+- Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accommodate additional types of jobs using the new pipeline.
 
 #### V1 jobs
 
@@ -1397,7 +1442,7 @@ Misc:
 ### Fixed
 
 - Improve transaction manager architecture to be more compatible with `ETH_SECONDARY_URL` option (i.e. concurrent transaction submission to multiple different eth nodes). This also comes with some minor performance improvements in the tx manager and more correct handling of some extremely rare edge cases.
-- As a side-effect, we now no longer handle the case where an external wallet used the chainlink ethereum private key to send a transaction. This use-case was already explicitly unsupported, but we made a best-effort attempt to handle it. We now make no attempt at all to handle it and doing this WILL result in your node not sending the data that it expected to be sent for the nonces that were used by an external wallet.
+- As a side effect, we now no longer handle the case where an external wallet used the chainlink ethereum private key to send a transaction. This use-case was already explicitly unsupported, but we made a best-effort attempt to handle it. We now make no attempt at all to handle it and doing this WILL result in your node not sending the data that it expected to be sent for the nonces that were used by an external wallet.
 - Operator UI now shows booleans correctly
 
 ### Changed
@@ -1414,7 +1459,7 @@ Misc:
 
 ### Added
 
-- Add new env variable ETH_SECONDARY_URL. Default is unset. You may optionally set this to an http(s) ethereum RPC client URL. If set, transactions will also be broadcast to this secondary ethereum node. This allows transaction broadcasting to be more robust in the face of primary ethereum node bugs or failures.
+- Add new env variable ETH_SECONDARY_URL. Default is unset. You may optionally set this to a http(s) ethereum RPC client URL. If set, transactions will also be broadcast to this secondary ethereum node. This allows transaction broadcasting to be more robust in the face of primary ethereum node bugs or failures.
 - Remove configuration option ORACLE_CONTRACT_ADDRESS, it had no effect
 - Add configuration option OPERATOR_CONTRACT_ADDRESS, it filters the contract addresses the node should listen to for Run Logs
 - At startup, the chainlink node will create a new funding address. This will initially be used to pay for cancelling stuck transactions.
@@ -1498,7 +1543,7 @@ A new prometheus metric is also introduced to track dropped heads, called `head_
 
 - Support for RunLogTopic0original and RunLogTopic20190123withFullfillmentParams logs has been dropped. This should not affect any users since these logs predate Chainlink's mainnet launch and have never been used on mainnet.
 
-IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
+IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round-robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
 
 This is done to allow increases in throughput when a node operator has multiple whitelisted addresses for their oracle.
 
@@ -1532,7 +1577,7 @@ If your node only has one key, no action is required.
 
 ### Added
 
-- `ethtx` tasks now support a new parameter, `minRequiredOutgoingConfirmations` which allows you to tune how many confirmations are required before moving on from an `ethtx` task on a per task basis (only works with BulletproofTxManager). If it is not supplied, the default of `MIN_OUTGOING_CONFIRMATIONS` is used (same as the old behaviour).
+- `ethtx` tasks now support a new parameter, `minRequiredOutgoingConfirmations` which allows you to tune how many confirmations are required before moving on from an `ethtx` task on a per-task basis (only works with BulletproofTxManager). If it is not supplied, the default of `MIN_OUTGOING_CONFIRMATIONS` is used (same as the old behaviour).
 
 ### Changed
 
@@ -1541,7 +1586,7 @@ If your node only has one key, no action is required.
 
 ### Breaking changes
 
-- `admin withdraw` command has been removed. This was only ever useful to withdraw LINK if the Oracle contract was owned by the Chainlink node address. It is no longer recommended to have the Oracle owner be the chainlink node address.
+- `admin withdraw` command has been removed. This was only ever useful to withdraw LINK if the Oracle contract was owned by the Chainlink node address. It is no longer recommended having the Oracle owner be the chainlink node address.
 - Fixed `txs create` to send the amount in Eth not in Wei (as per the documentation)
 
 ## [0.8.7] - 2020-06-15
@@ -1562,8 +1607,8 @@ This release contains a number of features aimed at improving the node's reliabi
 - `ENABLE_BULLETPROOF_TX_MANAGER` - set this to true to enable the experimental new transaction manager
 - `ETH_GAS_BUMP_PERCENT` default value has been increased from 10% to 20%
 - `ETH_GAS_BUMP_THRESHOLD` default value has been decreased from 12 to 3
-- `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
-- `EthHeadTrackerHistoryDepth` specifies how many heads the head tracker should keep in the database. The default is 100. It is not recommended to change this setting.
+- `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended changing this setting.
+- `EthHeadTrackerHistoryDepth` specifies how many heads the head tracker should keep in the database. The default is 100. It is not recommended changing this setting.
 - Update README.md with links to mockery, jq, and gencodec as they are required to run `go generate ./...`
 
 ## [0.8.6] - 2020-06-08

@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -8,12 +9,23 @@ import (
 	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
-var envLvl = zapcore.InfoLevel
-
 func init() {
-	_ = envLvl.Set(os.Getenv("LOG_LEVEL"))
+	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
+	if err != nil {
+		log.Fatalf("failed to register pretty printer %+v", err)
+	}
+	err = registerOSSinks()
+	if err != nil {
+		log.Fatalf("failed to register os specific sinks %+v", err)
+	}
+	if os.Getenv("LOG_COLOR") != "true" {
+		InitColor(false)
+	}
 }
 
 // Logger is the main interface of this package.
@@ -27,7 +39,6 @@ func init() {
 //    runtime and limited direct testing.
 //  - Critical level logs should only be used when user intervention is required.
 //  - Trace level logs are omitted unless compiled with the trace tag. For example: go test -tags trace ...
-
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
@@ -51,6 +62,9 @@ type Logger interface {
 	Error(args ...interface{})
 	Critical(args ...interface{})
 	Panic(args ...interface{})
+	// Fatal logs and then calls os.Exit(1)
+	// Be careful about using this since it does NOT unwind the stack and may
+	// exit uncleanly
 	Fatal(args ...interface{})
 
 	Tracef(format string, values ...interface{})
@@ -67,7 +81,7 @@ type Logger interface {
 	Infow(msg string, keysAndValues ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
 	Errorw(msg string, keysAndValues ...interface{})
-	CriticalW(msg string, keysAndValues ...interface{})
+	Criticalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
 
@@ -84,13 +98,22 @@ type Logger interface {
 	// Helper creates a new logger with the number of callers skipped by caller annotation increased by skip.
 	// This allows wrappers and helpers to point higher up the stack (like testing.T.Helper()).
 	Helper(skip int) Logger
+
+	// Recover reports recovered panics; this is useful because it avoids
+	// double-reporting to sentry
+	Recover(panicErr interface{})
 }
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker = "head_tracker"
-	FluxMonitor = "fluxmonitor"
-	Keeper      = "keeper"
+	HeadTracker                 = "HeadTracker"
+	HeadListener                = "HeadListener"
+	HeadSaver                   = "HeadSaver"
+	HeadBroadcaster             = "HeadBroadcaster"
+	FluxMonitor                 = "FluxMonitor"
+	Keeper                      = "Keeper"
+	TelemetryIngressBatchClient = "TelemetryIngressBatchClient"
+	TelemetryIngressBatchWorker = "TelemetryIngressBatchWorker"
 )
 
 func GetLogServices() []string {
@@ -118,31 +141,72 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 	return config
 }
 
-type Config interface {
-	RootDir() string
-	JSONConsole() bool
-	LogToDisk() bool
-	LogLevel() zapcore.Level
-	LogUnixTimestamps() bool
+func baseLoggerName() string {
+	return fmt.Sprintf("%s@%s", static.Version, static.Sha[:7])
 }
 
-// NewLogger returns a new Logger configured by c with pretty printing to stdout.
-// If LogToDisk is false, the Logger will only log to stdout.
-// Tests should use TestLogger instead.
-func NewLogger(c Config) Logger {
-	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
+// NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
+// Tests should use TestLogger.
+func NewLogger() Logger {
+	var c Config
+	var parseErrs []string
+
+	var invalid string
+	c.LogLevel, invalid = envvar.LogLevel.ParseLogLevel()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	c.Dir = os.Getenv("LOG_FILE_DIR")
+	if c.Dir == "" {
+		var invalid2 string
+		c.Dir, invalid2 = envvar.RootDir.ParseString()
+		if invalid2 != "" {
+			parseErrs = append(parseErrs, invalid2)
+		}
+	}
+
+	c.JsonConsole, invalid = envvar.JSONConsole.ParseBool()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	c.ToDisk, invalid = envvar.LogToDisk.ParseBool()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
+	if invalid != "" {
+		parseErrs = append(parseErrs, invalid)
+	}
+
+	l := c.New()
+	for _, msg := range parseErrs {
+		l.Error(msg)
+	}
+	return l.Named(baseLoggerName())
 }
 
-// newLogger returns a new production Logger with sentry forwarding.
-func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool, unixTS bool) Logger {
-	cfg := newProductionConfig(dir, jsonConsole, toDisk, unixTS)
-	cfg.Level.SetLevel(logLevel)
+type Config struct {
+	LogLevel    zapcore.Level
+	Dir         string
+	JsonConsole bool
+	ToDisk      bool // if false, the Logger will only log to stdout.
+	UnixTS      bool
+}
+
+// New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
+// Tests should use TestLogger.
+func (c *Config) New() Logger {
+	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
+	cfg.Level.SetLevel(c.LogLevel)
 	l, err := newZapLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s := newSentryLogger(l)
-	return newPrometheusLogger(s)
+	l = newSentryLogger(l)
+	return newPrometheusLogger(l)
 }
 
 // InitColor explicitly sets the global color.NoColor option.

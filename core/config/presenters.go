@@ -11,6 +11,9 @@ import (
 	"reflect"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -25,6 +28,8 @@ type ConfigPrinter struct {
 
 // EnvPrinter contains the supported environment variables
 type EnvPrinter struct {
+	AdvisoryLockCheckInterval                  time.Duration   `json:"ADVISORY_LOCK_CHECK_INTERVAL"`
+	AdvisoryLockID                             int64           `json:"ADVISORY_LOCK_ID"`
 	AllowOrigins                               string          `json:"ALLOW_ORIGINS"`
 	BlockBackfillDepth                         uint64          `json:"BLOCK_BACKFILL_DEPTH"`
 	BlockHistoryEstimatorBlockDelay            uint16          `json:"GAS_UPDATER_BLOCK_DELAY"`
@@ -36,14 +41,13 @@ type EnvPrinter struct {
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
 	DatabaseBackupOnVersionUpgrade             bool            `json:"DATABASE_BACKUP_ON_VERSION_UPGRADE"`
-	DatabaseMaximumTxDuration                  time.Duration   `json:"DATABASE_MAXIMUM_TX_DURATION"`
-	DatabaseTimeout                            models.Duration `json:"DATABASE_TIMEOUT"`
 	DatabaseLockingMode                        string          `json:"DATABASE_LOCKING_MODE"`
 	DefaultChainID                             string          `json:"ETH_CHAIN_ID"`
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
-	EthereumDisabled                           bool            `json:"ETH_DISABLED"`
+	ShutdownGracePeriod                        time.Duration   `json:"SHUTDOWN_GRACE_PERIOD"`
+	EVMRPCEnabled                              bool            `json:"EVM_RPC_ENABLED"`
 	EthereumHTTPURL                            string          `json:"ETH_HTTP_URL"`
 	EthereumSecondaryURLs                      []string        `json:"ETH_SECONDARY_URLS"`
 	EthereumURL                                string          `json:"ETH_URL"`
@@ -67,48 +71,56 @@ type EnvPrinter struct {
 	KeeperCheckUpkeepGasPriceFeatureEnabled    bool            `json:"KEEPER_CHECK_UPKEEP_GAS_PRICE_FEATURE_ENABLED"`
 	LeaseLockDuration                          time.Duration   `json:"LEASE_LOCK_DURATION"`
 	LeaseLockRefreshInterval                   time.Duration   `json:"LEASE_LOCK_REFRESH_INTERVAL"`
-	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
-	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
-	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
+	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
+	LogFileDir                                 string          `json:"LOG_FILE_DIR"`
+	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
-	OCRBootstrapCheckInterval                  time.Duration   `json:"OCR_BOOTSTRAP_CHECK_INTERVAL"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
-	OCRContractTransmitterTransmitTimeout      time.Duration   `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
-	OCRDatabaseTimeout                         time.Duration   `json:"OCR_DATABASE_TIMEOUT"`
-	OCRDefaultTransactionQueueDepth            uint32          `json:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
-	OCRIncomingMessageBufferSize               int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
-	P2PBootstrapPeers                          []string        `json:"P2P_BOOTSTRAP_PEERS"`
-	P2PListenIP                                string          `json:"P2P_LISTEN_IP"`
-	P2PListenPort                              string          `json:"P2P_LISTEN_PORT"`
-	P2PNetworkingStack                         string          `json:"P2P_NETWORKING_STACK"`
-	P2PPeerID                                  string          `json:"P2P_PEER_ID"`
-	P2PV2AnnounceAddresses                     []string        `json:"P2PV2_ANNOUNCE_ADDRESSES"`
-	P2PV2Bootstrappers                         []string        `json:"P2PV2_BOOTSTRAPPERS"`
-	P2PV2DeltaDial                             models.Duration `json:"P2PV2_DELTA_DIAL"`
-	P2PV2DeltaReconcile                        models.Duration `json:"P2PV2_DELTA_RECONCILE"`
-	P2PV2ListenAddresses                       []string        `json:"P2PV2_LISTEN_ADDRESSES"`
-	OCROutgoingMessageBufferSize               int             `json:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"`
-	OCRNewStreamTimeout                        time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
-	OCRDHTLookupInterval                       int             `json:"OCR_DHT_LOOKUP_INTERVAL"`
-	OCRTraceLogging                            bool            `json:"OCR_TRACE_LOGGING"`
-	Port                                       uint16          `json:"CHAINLINK_PORT"`
-	ReaperExpiration                           models.Duration `json:"REAPER_EXPIRATION"`
-	ReplayFromBlock                            int64           `json:"REPLAY_FROM_BLOCK"`
-	RootDir                                    string          `json:"ROOT"`
-	SecureCookies                              bool            `json:"SECURE_COOKIES"`
-	SessionTimeout                             models.Duration `json:"SESSION_TIMEOUT"`
-	TelemetryIngressLogging                    bool            `json:"TELEMETRY_INGRESS_LOGGING"`
-	TelemetryIngressServerPubKey               string          `json:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
-	TelemetryIngressURL                        string          `json:"TELEMETRY_INGRESS_URL"`
-	TLSHost                                    string          `json:"CHAINLINK_TLS_HOST"`
-	TLSPort                                    uint16          `json:"CHAINLINK_TLS_PORT"`
-	TLSRedirect                                bool            `json:"CHAINLINK_TLS_REDIRECT"`
+
+	// OCR1
+	OCRContractTransmitterTransmitTimeout time.Duration `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
+	OCRDatabaseTimeout                    time.Duration `json:"OCR_DATABASE_TIMEOUT"`
+	OCRDefaultTransactionQueueDepth       uint32        `json:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
+	OCRTraceLogging                       bool          `json:"OCR_TRACE_LOGGING"`
+
+	// P2P General
+	P2PNetworkingStack           string `json:"P2P_NETWORKING_STACK"`
+	P2PPeerID                    string `json:"P2P_PEER_ID"`
+	P2PIncomingMessageBufferSize int    `json:"P2P_INCOMING_MESSAGE_BUFFER_SIZE"`
+	P2POutgoingMessageBufferSize int    `json:"P2P_OUTGOING_MESSAGE_BUFFER_SIZE"`
+
+	// P2P V1
+	P2PBootstrapPeers         []string      `json:"P2P_BOOTSTRAP_PEERS"`
+	P2PListenIP               string        `json:"P2P_LISTEN_IP"`
+	P2PListenPort             string        `json:"P2P_LISTEN_PORT"`
+	P2PNewStreamTimeout       time.Duration `json:"P2P_NEW_STREAM_TIMEOUT"`
+	P2PDHTLookupInterval      int           `json:"P2P_DHT_LOOKUP_INTERVAL"`
+	P2PBootstrapCheckInterval time.Duration `json:"P2P_BOOTSTRAP_CHECK_INTERVAL"`
+
+	// P2P V2
+	P2PV2AnnounceAddresses []string        `json:"P2PV2_ANNOUNCE_ADDRESSES"`
+	P2PV2Bootstrappers     []string        `json:"P2PV2_BOOTSTRAPPERS"`
+	P2PV2DeltaDial         models.Duration `json:"P2PV2_DELTA_DIAL"`
+	P2PV2DeltaReconcile    models.Duration `json:"P2PV2_DELTA_RECONCILE"`
+	P2PV2ListenAddresses   []string        `json:"P2PV2_LISTEN_ADDRESSES"`
+
+	Port                         uint16          `json:"CHAINLINK_PORT"`
+	ReaperExpiration             models.Duration `json:"REAPER_EXPIRATION"`
+	RootDir                      string          `json:"ROOT"`
+	SecureCookies                bool            `json:"SECURE_COOKIES"`
+	SessionTimeout               models.Duration `json:"SESSION_TIMEOUT"`
+	TelemetryIngressLogging      bool            `json:"TELEMETRY_INGRESS_LOGGING"`
+	TelemetryIngressServerPubKey string          `json:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
+	TelemetryIngressURL          string          `json:"TELEMETRY_INGRESS_URL"`
+	TLSHost                      string          `json:"CHAINLINK_TLS_HOST"`
+	TLSPort                      uint16          `json:"CHAINLINK_TLS_PORT"`
+	TLSRedirect                  bool            `json:"CHAINLINK_TLS_REDIRECT"`
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
-func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
+func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 	explorerURL := ""
 	if cfg.ExplorerURL() != nil {
 		explorerURL = cfg.ExplorerURL().String()
@@ -122,84 +134,95 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 	if cfg.TelemetryIngressURL() != nil {
 		telemetryIngressURL = cfg.TelemetryIngressURL().String()
 	}
+	ocrTransmitTimeout, _ := cfg.GlobalOCRContractTransmitterTransmitTimeout()
+	ocrDatabaseTimeout, _ := cfg.GlobalOCRDatabaseTimeout()
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
-			AllowOrigins:                          cfg.AllowOrigins(),
-			BlockBackfillDepth:                    cfg.BlockBackfillDepth(),
-			BridgeResponseURL:                     cfg.BridgeResponseURL().String(),
-			ClientNodeURL:                         cfg.ClientNodeURL(),
-			DatabaseBackupFrequency:               cfg.DatabaseBackupFrequency(),
-			DatabaseBackupMode:                    string(cfg.DatabaseBackupMode()),
-			DatabaseBackupOnVersionUpgrade:        cfg.DatabaseBackupOnVersionUpgrade(),
-			DatabaseMaximumTxDuration:             cfg.DatabaseMaximumTxDuration(),
-			DatabaseTimeout:                       cfg.DatabaseTimeout(),
-			DatabaseLockingMode:                   cfg.DatabaseLockingMode(),
-			DefaultChainID:                        cfg.DefaultChainID().String(),
-			DefaultHTTPLimit:                      cfg.DefaultHTTPLimit(),
-			DefaultHTTPTimeout:                    cfg.DefaultHTTPTimeout(),
-			Dev:                                   cfg.Dev(),
-			EthereumDisabled:                      cfg.EthereumDisabled(),
-			EthereumHTTPURL:                       ethereumHTTPURL,
-			EthereumSecondaryURLs:                 mapToStringA(cfg.EthereumSecondaryURLs()),
-			EthereumURL:                           cfg.EthereumURL(),
-			ExplorerURL:                           explorerURL,
-			FMDefaultTransactionQueueDepth:        cfg.FMDefaultTransactionQueueDepth(),
-			FeatureExternalInitiators:             cfg.FeatureExternalInitiators(),
-			FeatureOffchainReporting:              cfg.FeatureOffchainReporting(),
-			InsecureFastScrypt:                    cfg.InsecureFastScrypt(),
-			JSONConsole:                           cfg.JSONConsole(),
-			JobPipelineReaperInterval:             cfg.JobPipelineReaperInterval(),
-			JobPipelineReaperThreshold:            cfg.JobPipelineReaperThreshold(),
-			KeeperDefaultTransactionQueueDepth:    cfg.KeeperDefaultTransactionQueueDepth(),
-			KeeperGasPriceBufferPercent:           cfg.KeeperGasPriceBufferPercent(),
-			KeeperGasTipCapBufferPercent:          cfg.KeeperGasTipCapBufferPercent(),
-			LeaseLockDuration:                     cfg.LeaseLockDuration(),
-			LeaseLockRefreshInterval:              cfg.LeaseLockRefreshInterval(),
-			LogLevel:                              LogLevel{Level: cfg.LogLevel()},
-			LogSQLMigrations:                      cfg.LogSQLMigrations(),
-			LogSQL:                                cfg.LogSQL(),
-			LogToDisk:                             cfg.LogToDisk(),
-			OCRBootstrapCheckInterval:             cfg.OCRBootstrapCheckInterval(),
-			OCRContractTransmitterTransmitTimeout: cfg.OCRContractTransmitterTransmitTimeout(),
-			OCRDHTLookupInterval:                  cfg.OCRDHTLookupInterval(),
-			OCRDatabaseTimeout:                    cfg.OCRDatabaseTimeout(),
+			AdvisoryLockCheckInterval:          cfg.AdvisoryLockCheckInterval(),
+			AdvisoryLockID:                     cfg.AdvisoryLockID(),
+			AllowOrigins:                       cfg.AllowOrigins(),
+			BlockBackfillDepth:                 cfg.BlockBackfillDepth(),
+			BridgeResponseURL:                  cfg.BridgeResponseURL().String(),
+			ClientNodeURL:                      cfg.ClientNodeURL(),
+			DatabaseBackupFrequency:            cfg.DatabaseBackupFrequency(),
+			DatabaseBackupMode:                 string(cfg.DatabaseBackupMode()),
+			DatabaseBackupOnVersionUpgrade:     cfg.DatabaseBackupOnVersionUpgrade(),
+			DatabaseLockingMode:                cfg.DatabaseLockingMode(),
+			DefaultChainID:                     cfg.DefaultChainID().String(),
+			DefaultHTTPLimit:                   cfg.DefaultHTTPLimit(),
+			DefaultHTTPTimeout:                 cfg.DefaultHTTPTimeout(),
+			Dev:                                cfg.Dev(),
+			ShutdownGracePeriod:                cfg.ShutdownGracePeriod(),
+			EVMRPCEnabled:                      cfg.EVMRPCEnabled(),
+			EthereumHTTPURL:                    ethereumHTTPURL,
+			EthereumSecondaryURLs:              mapToStringA(cfg.EthereumSecondaryURLs()),
+			EthereumURL:                        cfg.EthereumURL(),
+			ExplorerURL:                        explorerURL,
+			FMDefaultTransactionQueueDepth:     cfg.FMDefaultTransactionQueueDepth(),
+			FeatureExternalInitiators:          cfg.FeatureExternalInitiators(),
+			FeatureOffchainReporting:           cfg.FeatureOffchainReporting(),
+			InsecureFastScrypt:                 cfg.InsecureFastScrypt(),
+			JSONConsole:                        cfg.JSONConsole(),
+			JobPipelineReaperInterval:          cfg.JobPipelineReaperInterval(),
+			JobPipelineReaperThreshold:         cfg.JobPipelineReaperThreshold(),
+			KeeperDefaultTransactionQueueDepth: cfg.KeeperDefaultTransactionQueueDepth(),
+			KeeperGasPriceBufferPercent:        cfg.KeeperGasPriceBufferPercent(),
+			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
+			LeaseLockDuration:                  cfg.LeaseLockDuration(),
+			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
+			LogFileDir:                         cfg.LogFileDir(),
+			LogLevel:                           cfg.LogLevel(),
+			LogSQL:                             cfg.LogSQL(),
+			LogToDisk:                          cfg.LogToDisk(),
+
+			// OCRV1
+			OCRContractTransmitterTransmitTimeout: ocrTransmitTimeout,
+			OCRDatabaseTimeout:                    ocrDatabaseTimeout,
 			OCRDefaultTransactionQueueDepth:       cfg.OCRDefaultTransactionQueueDepth(),
-			OCRIncomingMessageBufferSize:          cfg.OCRIncomingMessageBufferSize(),
-			OCRNewStreamTimeout:                   cfg.OCRNewStreamTimeout(),
-			OCROutgoingMessageBufferSize:          cfg.OCROutgoingMessageBufferSize(),
 			OCRTraceLogging:                       cfg.OCRTraceLogging(),
-			P2PBootstrapPeers:                     p2pBootstrapPeers,
-			P2PListenIP:                           cfg.P2PListenIP().String(),
-			P2PListenPort:                         cfg.P2PListenPortRaw(),
-			P2PNetworkingStack:                    cfg.P2PNetworkingStackRaw(),
-			P2PPeerID:                             cfg.P2PPeerIDRaw(),
-			P2PV2AnnounceAddresses:                cfg.P2PV2AnnounceAddressesRaw(),
-			P2PV2Bootstrappers:                    cfg.P2PV2BootstrappersRaw(),
-			P2PV2DeltaDial:                        cfg.P2PV2DeltaDial(),
-			P2PV2DeltaReconcile:                   cfg.P2PV2DeltaReconcile(),
-			P2PV2ListenAddresses:                  cfg.P2PV2ListenAddresses(),
-			Port:                                  cfg.Port(),
-			ReaperExpiration:                      cfg.ReaperExpiration(),
-			ReplayFromBlock:                       cfg.ReplayFromBlock(),
-			RootDir:                               cfg.RootDir(),
-			SecureCookies:                         cfg.SecureCookies(),
-			SessionTimeout:                        cfg.SessionTimeout(),
-			TLSHost:                               cfg.TLSHost(),
-			TLSPort:                               cfg.TLSPort(),
-			TLSRedirect:                           cfg.TLSRedirect(),
-			TelemetryIngressLogging:               cfg.TelemetryIngressLogging(),
-			TelemetryIngressServerPubKey:          cfg.TelemetryIngressServerPubKey(),
-			TelemetryIngressURL:                   telemetryIngressURL,
-			TriggerFallbackDBPollInterval:         cfg.TriggerFallbackDBPollInterval(),
+
+			// P2P General
+			P2PIncomingMessageBufferSize: cfg.P2PIncomingMessageBufferSize(),
+			P2POutgoingMessageBufferSize: cfg.P2POutgoingMessageBufferSize(),
+			P2PNetworkingStack:           cfg.P2PNetworkingStackRaw(),
+			P2PPeerID:                    cfg.P2PPeerIDRaw(),
+
+			// P2PV1
+			P2PBootstrapPeers:         p2pBootstrapPeers,
+			P2PNewStreamTimeout:       cfg.P2PNewStreamTimeout(),
+			P2PBootstrapCheckInterval: cfg.P2PBootstrapCheckInterval(),
+			P2PDHTLookupInterval:      cfg.P2PDHTLookupInterval(),
+			P2PListenIP:               cfg.P2PListenIP().String(),
+			P2PListenPort:             cfg.P2PListenPortRaw(),
+
+			// P2PV2
+			P2PV2AnnounceAddresses: cfg.P2PV2AnnounceAddresses(),
+			P2PV2Bootstrappers:     cfg.P2PV2BootstrappersRaw(),
+			P2PV2DeltaDial:         cfg.P2PV2DeltaDial(),
+			P2PV2DeltaReconcile:    cfg.P2PV2DeltaReconcile(),
+			P2PV2ListenAddresses:   cfg.P2PV2ListenAddresses(),
+
+			Port:                          cfg.Port(),
+			ReaperExpiration:              cfg.ReaperExpiration(),
+			RootDir:                       cfg.RootDir(),
+			SecureCookies:                 cfg.SecureCookies(),
+			SessionTimeout:                cfg.SessionTimeout(),
+			TLSHost:                       cfg.TLSHost(),
+			TLSPort:                       cfg.TLSPort(),
+			TLSRedirect:                   cfg.TLSRedirect(),
+			TelemetryIngressLogging:       cfg.TelemetryIngressLogging(),
+			TelemetryIngressServerPubKey:  cfg.TelemetryIngressServerPubKey(),
+			TelemetryIngressURL:           telemetryIngressURL,
+			TriggerFallbackDBPollInterval: cfg.TriggerFallbackDBPollInterval(),
 		},
-	}, nil
+	}
 }
 
 // String returns the values as a newline delimited string
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	schemaT := reflect.TypeOf(ConfigSchema{})
+	schemaT := reflect.TypeOf(envvar.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
 

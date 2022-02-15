@@ -1,4 +1,6 @@
 scalar Time
+scalar Map
+scalar Bytes
 
 schema {
     query: Query
@@ -10,47 +12,65 @@ type Query {
     bridges(offset: Int, limit: Int): BridgesPayload!
     chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
+    config: ConfigPayload!
     csaKeys: CSAKeysPayload!
+    ethKeys: EthKeysPayload!
+    ethTransaction(hash: ID!): EthTransactionPayload!
+    ethTransactions(offset: Int, limit: Int): EthTransactionsPayload!
+    ethTransactionsAttempts(offset: Int, limit: Int): EthTransactionAttemptsPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
+    globalLogLevel: GlobalLogLevelPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
+    jobRun(id: ID!): JobRunPayload!
+    jobRuns(offset: Int, limit: Int): JobRunsPayload!
     node(id: ID!): NodePayload!
     nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
+    ocr2KeyBundles: OCR2KeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
+    solanaKeys: SolanaKeysPayload!
+    sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!
 }
 
 type Mutation {
-    approveJobProposal(id: ID!): ApproveJobProposalPayload!
-    cancelJobProposal(id: ID!): CancelJobProposalPayload!
+    approveJobProposalSpec(id: ID!): ApproveJobProposalSpecPayload!
+    cancelJobProposalSpec(id: ID!): CancelJobProposalSpecPayload!
     createAPIToken(input: CreateAPITokenInput!): CreateAPITokenPayload!
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createChain(input: CreateChainInput!): CreateChainPayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createJob(input: CreateJobInput!): CreateJobPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createOCR2KeyBundle(chainType: OCR2ChainType!): CreateOCR2KeyBundlePayload!
     createP2PKey: CreateP2PKeyPayload!
     deleteAPIToken(input: DeleteAPITokenInput!): DeleteAPITokenPayload!
     deleteBridge(id: ID!): DeleteBridgePayload!
     deleteChain(id: ID!): DeleteChainPayload!
     deleteCSAKey(id: ID!): DeleteCSAKeyPayload!
+    deleteJob(id: ID!): DeleteJobPayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteOCR2KeyBundle(id: ID!): DeleteOCR2KeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
-    rejectJobProposal(id: ID!): RejectJobProposalPayload!
+    dismissJobError(id: ID!): DismissJobErrorPayload!
+    rejectJobProposalSpec(id: ID!): RejectJobProposalSpecPayload!
+    runJob(id: ID!): RunJobPayload!
+    setGlobalLogLevel(level: LogLevel!): SetGlobalLogLevelPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
     updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateChain(id: ID!, input: UpdateChainInput!): UpdateChainPayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
-    updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
+    updateJobProposalSpecDefinition(id: ID!, input: UpdateJobProposalSpecDefinitionInput!): UpdateJobProposalSpecDefinitionPayload!
     updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
 }

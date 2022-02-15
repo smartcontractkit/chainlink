@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../dev/VRFConsumerBaseV2.sol";
+import "../VRFConsumerBaseV2.sol";
 
 contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
   VRFCoordinatorV2Interface COORDINATOR;
@@ -43,10 +43,8 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     subscribe();
   }
 
-  function fulfillRandomWords(
-    uint256, /* requestId */
-    uint256[] memory randomWords
-  ) internal override {
+  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    require(requestId == s_requestId, "request ID is incorrect");
     s_randomWords = randomWords;
   }
 
@@ -95,7 +93,7 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     s_requestConfig.subId = 0;
   }
 
-  // Keep this separate incase the contract want to unsubscribe and then
+  // Keep this separate in case the contract want to unsubscribe and then
   // resubscribe.
   function subscribe() public onlyOwner {
     // Create a subscription, current subId

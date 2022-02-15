@@ -6,16 +6,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+	null "gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
 )
 
 func TestJobPresenter_RenderTable(t *testing.T) {
@@ -211,6 +212,18 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 			now.Format(time.RFC3339),
 		},
 		{
+			"gets the blockhash store spec created at timestamp",
+			&cmd.JobPresenter{
+				JobResource: presenters.JobResource{
+					Type: presenters.BlockhashStoreJobSpec,
+					BlockhashStoreSpec: &presenters.BlockhashStoreSpec{
+						CreatedAt: now,
+					},
+				},
+			},
+			now.Format(time.RFC3339),
+		},
+		{
 			"invalid type",
 			&cmd.JobPresenter{
 				JobResource: presenters.JobResource{
@@ -273,7 +286,7 @@ func TestClient_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
 	}))
 	client, r := app.NewClientAndRenderer()
 
@@ -296,7 +309,7 @@ func TestClient_ShowJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
 	}))
 	client, r := app.NewClientAndRenderer()
 
@@ -323,7 +336,8 @@ func TestClient_CreateJobV2(t *testing.T) {
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
+		c.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
@@ -350,7 +364,7 @@ func TestClient_DeleteJob(t *testing.T) {
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
 		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")

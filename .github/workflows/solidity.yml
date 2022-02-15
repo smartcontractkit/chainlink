@@ -16,7 +16,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
@@ -46,7 +46,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache

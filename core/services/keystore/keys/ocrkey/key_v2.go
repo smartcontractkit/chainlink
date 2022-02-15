@@ -47,6 +47,8 @@ func (raw Raw) GoString() string {
 	return raw.String()
 }
 
+var _ fmt.GoStringer = &KeyV2{}
+
 type KeyV2 struct {
 	OnChainSigning     *onChainPrivateKey
 	OffChainSigning    *offChainPrivateKey
@@ -135,7 +137,7 @@ func (key KeyV2) PublicKeyAddressOnChain() ocrtypes.OnChainSigningAddress {
 	return ocrtypes.OnChainSigningAddress(key.OnChainSigning.Address())
 }
 
-// PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
+// PublicKeyOffChain returns the public component of the keypair used in SignOffChain
 func (key KeyV2) PublicKeyOffChain() ocrtypes.OffchainPublicKey {
 	return ocrtypes.OffchainPublicKey(key.OffChainSigning.PublicKey())
 }
