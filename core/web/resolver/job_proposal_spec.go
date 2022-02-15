@@ -117,6 +117,7 @@ func (r *ApproveJobProposalSpecPayloadResolver) ToApproveJobProposalSpecSuccess(
 	return nil, false
 }
 
+// ToJobAlreadyExistsError -
 func (r *ApproveJobProposalSpecPayloadResolver) ToJobAlreadyExistsError() (*JobAlreadyExistsErrorResolver, bool) {
 	if r.err != nil && errors.Is(r.err, feeds.ErrJobAlreadyExists) {
 		return NewJobAlreadyExistsError(r.err.Error()), true
@@ -130,16 +131,19 @@ type JobAlreadyExistsErrorResolver struct {
 	message string
 }
 
+// NewJobAlreadyExistsError -
 func NewJobAlreadyExistsError(message string) *JobAlreadyExistsErrorResolver {
 	return &JobAlreadyExistsErrorResolver{
 		message: message,
 	}
 }
 
+// Message -
 func (r *JobAlreadyExistsErrorResolver) Message() string {
 	return r.message
 }
 
+// Code -
 func (r *JobAlreadyExistsErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
 }
