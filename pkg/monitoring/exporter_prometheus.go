@@ -22,11 +22,11 @@ type prometheusExporterFactory struct {
 	metrics Metrics
 }
 
-func (f *prometheusExporterFactory) NewExporter(
+func (p *prometheusExporterFactory) NewExporter(
 	chainConfig ChainConfig,
 	feedConfig FeedConfig,
 ) (Exporter, error) {
-	f.metrics.SetFeedContractMetadata(
+	p.metrics.SetFeedContractMetadata(
 		chainConfig.GetChainID(),
 		feedConfig.GetID(),
 		feedConfig.GetID(),
@@ -38,18 +38,18 @@ func (f *prometheusExporterFactory) NewExporter(
 		chainConfig.GetNetworkName(),
 		feedConfig.GetSymbol(),
 	)
-	p := &prometheusExporter{
+	exporter := &prometheusExporter{
 		chainConfig,
 		feedConfig,
-		f.log,
-		f.metrics,
+		p.log,
+		p.metrics,
 		prometheusLabels{},
 		sync.Mutex{},
 		new(big.Int),
 		time.Time{},
 		sync.Mutex{},
 	}
-	p.updateLabels(prometheusLabels{
+	exporter.updateLabels(prometheusLabels{
 		networkName:     chainConfig.GetNetworkName(),
 		networkID:       chainConfig.GetNetworkID(),
 		chainID:         chainConfig.GetChainID(),
@@ -61,7 +61,7 @@ func (f *prometheusExporterFactory) NewExporter(
 		contractAddress: feedConfig.GetID(),
 		feedID:          feedConfig.GetID(),
 	})
-	return p, nil
+	return exporter, nil
 }
 
 type prometheusExporter struct {
@@ -92,8 +92,12 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 	p.updateLabels(prometheusLabels{
 		sender: string(envelope.Transmitter),
 	})
+	var multiply float64 = 1
+	if p.feedConfig.GetMultiply().Uint64() != 0 {
+		multiply = float64(p.feedConfig.GetMultiply().Uint64())
+	}
 	p.metrics.SetFeedContractLinkBalance(
-		envelope.LinkBalance,
+		float64(envelope.LinkBalance.Uint64()),
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -112,38 +116,34 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		string(envelope.Transmitter), // sender
 	)
 	p.metrics.SetHeadTrackerCurrentHead(
-		envelope.BlockNumber,
+		float64(envelope.BlockNumber),
 		p.chainConfig.GetNetworkName(),
 		p.chainConfig.GetChainID(),
 		p.chainConfig.GetNetworkID(),
 	)
-
-	isLateAnswer := time.Since(envelope.LatestTimestamp).Seconds() > float64(p.feedConfig.GetHeartbeatSec())
-	p.metrics.SetOffchainAggregatorAnswerStalled(
-		isLateAnswer,
-		p.feedConfig.GetID(),
-		p.feedConfig.GetID(),
-		p.chainConfig.GetChainID(),
-		p.feedConfig.GetContractStatus(),
-		p.feedConfig.GetContractType(),
-		p.feedConfig.GetName(),
-		p.feedConfig.GetPath(),
-		p.chainConfig.GetNetworkID(),
-		p.chainConfig.GetNetworkName(),
-	)
-
+	if p.feedConfig.GetHeartbeatSec() != 0 {
+		isLateAnswer := time.Since(envelope.LatestTimestamp).Seconds() > float64(p.feedConfig.GetHeartbeatSec())
+		p.metrics.SetOffchainAggregatorAnswerStalled(
+			isLateAnswer,
+			p.feedConfig.GetID(),
+			p.feedConfig.GetID(),
+			p.chainConfig.GetChainID(),
+			p.feedConfig.GetContractStatus(),
+			p.feedConfig.GetContractType(),
+			p.feedConfig.GetName(),
+			p.feedConfig.GetPath(),
+			p.chainConfig.GetNetworkID(),
+			p.chainConfig.GetNetworkName(),
+		)
+	}
 	if !p.isNewTransmission(envelope.LatestAnswer, envelope.LatestTimestamp) {
 		return
 	}
 	// All the metrics below are only updated if there was a fresh
 	// transmission since the last chain read.
 
-	humanizedValue := new(big.Float).SetInt(envelope.LatestAnswer)
-	if p.feedConfig.GetMultiply() != 0 {
-		humanizedValue = new(big.Float).Quo(humanizedValue, big.NewFloat(float64(p.feedConfig.GetMultiply())))
-	}
 	p.metrics.SetOffchainAggregatorAnswers(
-		humanizedValue,
+		float64(envelope.LatestAnswer.Uint64())/multiply,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -155,7 +155,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorAnswersRaw(
-		envelope.LatestAnswer,
+		float64(envelope.LatestAnswer.Uint64()),
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -178,7 +178,19 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorJuelsPerFeeCoinRaw(
-		envelope.JuelsPerFeeCoin,
+		float64(envelope.JuelsPerFeeCoin.Uint64()),
+		p.feedConfig.GetID(),
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
+	p.metrics.SetOffchainAggregatorJuelsPerFeeCoin(
+		float64(envelope.JuelsPerFeeCoin.Uint64())/multiply,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -190,7 +202,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorSubmissionReceivedValues(
-		humanizedValue,
+		float64(envelope.LatestAnswer.Uint64())/multiply,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		string(envelope.Transmitter),
@@ -203,7 +215,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorRoundID(
-		envelope.AggregatorRoundID,
+		float64(envelope.AggregatorRoundID),
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -218,7 +230,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 
 func (p *prometheusExporter) exportTxResults(res TxResults) {
 	p.metrics.SetFeedContractTransmissionsSucceeded(
-		res.NumSucceeded,
+		float64(res.NumSucceeded),
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -230,7 +242,7 @@ func (p *prometheusExporter) exportTxResults(res TxResults) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetFeedContractTransmissionsFailed(
-		res.NumFailed,
+		float64(res.NumFailed),
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
