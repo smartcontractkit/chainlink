@@ -51,6 +51,7 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 		err      error
 	}{
 		{"string", "foo bar baz", pipeline.BytesParam("foo bar baz"), nil},
+		{"string", "0x11AAFF", pipeline.BytesParam([]byte{0x11, 0xAA, 0xFF}), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.BytesParam("foo bar baz"), nil},
 		{"int", 12345, pipeline.BytesParam(nil), pipeline.ErrBadInput},
 	}
@@ -66,6 +67,15 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 			require.Equal(t, test.expected, p)
 		})
 	}
+}
+
+func TestBytesParam_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	bp := pipeline.BytesParam([]byte{0x11, 0xAA, 0xFF})
+	json, err := bp.MarshalJSON()
+	require.NoError(t, err)
+	require.Equal(t, `"0x11aaff"`, string(json))
 }
 
 func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {

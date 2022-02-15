@@ -229,23 +229,31 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 
 type BytesParam []byte
 
+// MarshalJSON serializes BytesParam as hex encoded bytes string
+func (b BytesParam) MarshalJSON() ([]byte, error) {
+	return json.Marshal("0x" + hex.EncodeToString(b))
+}
+
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
-		if len(v) >= 2 && v[:2] == "0x" {
-			bs, err := hex.DecodeString(v[2:])
-			if err != nil {
-				return err
+		// []byte serialized as string is expected to be a hex encoded bytes string
+		if utils.HasHexPrefix(v) {
+			bs, err := hex.DecodeString(utils.RemoveHexPrefix(v))
+			if err == nil {
+				*b = BytesParam(bs)
+				return nil
 			}
-			*b = BytesParam(bs)
-			return nil
 		}
-		// try decoding as base64 first, in case this is a string from the database
+		// For backward compatibility: this may be a base64 string (in case this is a string from the database).
+		// This may result in corrupted data if a user string is a valid base64 string.
+		// Ideally we should return error here if we failed to parse HEX.
 		bs, err := base64.StdEncoding.DecodeString(v)
-		if err != nil {
-			bs = []byte(v)
+		if err == nil {
+			*b = BytesParam(bs)
+		} else {
+			*b = BytesParam(v)
 		}
-		*b = BytesParam(bs)
 	case []byte:
 		*b = BytesParam(v)
 	case nil:
