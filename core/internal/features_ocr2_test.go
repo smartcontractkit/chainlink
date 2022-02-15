@@ -177,7 +177,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		}
 	}()
 
-	lggr.Debugw("Setting Payees on Oracle Contract", "transmitters", transmitters)
+	lggr.Debugw("Setting Payees on OraclePlugin Contract", "transmitters", transmitters)
 	_, err := ocrContract.SetPayees(
 		owner,
 		transmitters,
@@ -190,7 +190,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		1000000000/100, // threshold PPB
 	)
 	require.NoError(t, err)
-	lggr.Debugw("Setting Config on Oracle Contract",
+	lggr.Debugw("Setting Config on OraclePlugin Contract",
 		"signers", signers,
 		"transmitters", transmitters,
 		"threshold", threshold,
@@ -274,15 +274,16 @@ chainID 			= 1337
 
 		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
-relay = "evm"
+relay              = "evm"
 schemaVersion      = 1
+pluginType         = "median"
 name               = "web oracle spec"
-contractID = "%s"
-ocrKeyBundleID        = "%s"
-transmitterID = "%s"
+contractID         = "%s"
+ocrKeyBundleID     = "%s"
+transmitterID      = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
-observationSource = """
+observationSource  = """
     // data source 1
     ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
@@ -298,6 +299,9 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
+[pluginConfig]
 juelsPerFeeCoinSource = """
 		// data source 1
 		ds1          [type=bridge name="%s"];
@@ -314,8 +318,6 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-[relayConfig]
-chainID = 1337
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)

@@ -72,7 +72,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	})
 
 	t.Run("spec with latest round requested can be deleted", func(t *testing.T) {
-		_, err := sqlDB.Exec(`DELETE FROM offchainreporting2_oracle_specs`)
+		_, err := sqlDB.Exec(`DELETE FROM ocr2_oracle_specs`)
 		assert.NoError(t, err)
 	})
 }

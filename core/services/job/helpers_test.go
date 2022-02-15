@@ -139,10 +139,10 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 	}
 	err := toml.Unmarshal([]byte(jobSpecText), &dbSpec)
 	require.NoError(t, err)
-	var ocrspec job.OffchainReportingOracleSpec
+	var ocrspec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
-	dbSpec.OffchainreportingOracleSpec = &ocrspec
+	dbSpec.OCROracleSpec = &ocrspec
 
 	return &dbSpec
 }
@@ -152,21 +152,21 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 stri
 //
 // https://github.com/stretchr/testify/issues/984
 func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
-	require.NotNil(t, expected.OffchainreportingOracleSpec)
-	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
-	require.Equal(t, expected.OffchainreportingOracleSpec.P2PBootstrapPeers, actual.OffchainreportingOracleSpec.P2PBootstrapPeers)
-	require.Equal(t, expected.OffchainreportingOracleSpec.IsBootstrapPeer, actual.OffchainreportingOracleSpec.IsBootstrapPeer)
-	require.Equal(t, expected.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, actual.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	require.Equal(t, expected.OffchainreportingOracleSpec.TransmitterAddress, actual.OffchainreportingOracleSpec.TransmitterAddress)
-	require.Equal(t, expected.OffchainreportingOracleSpec.ObservationTimeout, actual.OffchainreportingOracleSpec.ObservationTimeout)
-	require.Equal(t, expected.OffchainreportingOracleSpec.BlockchainTimeout, actual.OffchainreportingOracleSpec.BlockchainTimeout)
-	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, actual.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval, actual.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval)
-	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
+	require.NotNil(t, expected.OCROracleSpec)
+	require.Equal(t, expected.OCROracleSpec.ContractAddress, actual.OCROracleSpec.ContractAddress)
+	require.Equal(t, expected.OCROracleSpec.P2PBootstrapPeers, actual.OCROracleSpec.P2PBootstrapPeers)
+	require.Equal(t, expected.OCROracleSpec.IsBootstrapPeer, actual.OCROracleSpec.IsBootstrapPeer)
+	require.Equal(t, expected.OCROracleSpec.EncryptedOCRKeyBundleID, actual.OCROracleSpec.EncryptedOCRKeyBundleID)
+	require.Equal(t, expected.OCROracleSpec.TransmitterAddress, actual.OCROracleSpec.TransmitterAddress)
+	require.Equal(t, expected.OCROracleSpec.ObservationTimeout, actual.OCROracleSpec.ObservationTimeout)
+	require.Equal(t, expected.OCROracleSpec.BlockchainTimeout, actual.OCROracleSpec.BlockchainTimeout)
+	require.Equal(t, expected.OCROracleSpec.ContractConfigTrackerSubscribeInterval, actual.OCROracleSpec.ContractConfigTrackerSubscribeInterval)
+	require.Equal(t, expected.OCROracleSpec.ContractConfigTrackerPollInterval, actual.OCROracleSpec.ContractConfigTrackerPollInterval)
+	require.Equal(t, expected.OCROracleSpec.ContractConfigConfirmations, actual.OCROracleSpec.ContractConfigConfirmations)
 }
 
 func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg config.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
-	var ocrSpec = job.OffchainReportingOracleSpec{
+	var ocrSpec = job.OCROracleSpec{
 		P2PBootstrapPeers:                      pq.StringArray{},
 		ObservationTimeout:                     models.Interval(10 * time.Second),
 		BlockchainTimeout:                      models.Interval(20 * time.Second),
@@ -188,7 +188,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg config.GeneralConf
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &ocrSpec)
 	require.NoError(t, err)
-	os.OffchainreportingOracleSpec = &ocrSpec
+	os.OCROracleSpec = &ocrSpec
 	return &os
 }
 
@@ -223,10 +223,10 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	}
 	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
 	require.NoError(t, err)
-	var ocrspec job.OffchainReportingOracleSpec
+	var ocrspec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
 	require.NoError(t, err)
-	jb.OffchainreportingOracleSpec = &ocrspec
+	jb.OCROracleSpec = &ocrspec
 
 	return &jb
 }

@@ -4,18 +4,17 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) {
 	var jb = job.Job{}
-	var spec job.OffchainReporting2OracleSpec
+	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return jb, errors.Wrap(err, "toml error on load")
@@ -30,10 +29,10 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 	if err != nil {
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
-	jb.Offchainreporting2OracleSpec = &spec
-	if jb.Offchainreporting2OracleSpec.P2PBootstrapPeers == nil {
+	jb.OCR2OracleSpec = &spec
+	if jb.OCR2OracleSpec.P2PBootstrapPeers == nil {
 		// Empty but non-null, field is non-nullable.
-		jb.Offchainreporting2OracleSpec.P2PBootstrapPeers = pq.StringArray{}
+		jb.OCR2OracleSpec.P2PBootstrapPeers = pq.StringArray{}
 	}
 
 	if jb.Type != job.OffchainReporting2 {
@@ -60,22 +59,23 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 
 // Parameters that must be explicitly set by the operator.
 var (
-	// Common to both bootstrap and non-boostrap
 	params = map[string]struct{}{
-		"type":                  {},
-		"schemaVersion":         {},
-		"contractID":            {},
-		"relay":                 {},
-		"relayConfig":           {},
-		"observationSource":     {},
-		"juelsPerFeeCoinSource": {},
+		"type":              {},
+		"schemaVersion":     {},
+		"contractID":        {},
+		"observationSource": {},
+		"relay":             {},
+		"relayConfig":       {},
+		"pluginType":        {},
+		"pluginConfig":      {},
 	}
 	notExpectedParams = map[string]struct{}{
-		"isBootstrapPeer": {},
+		"isBootstrapPeer":       {},
+		"juelsPerFeeCoinSource": {},
 	}
 )
 
-func validateTimingParameters(config Config, spec job.OffchainReporting2OracleSpec) error {
+func validateTimingParameters(config Config, spec job.OCR2OracleSpec) error {
 	lc := ToLocalConfig(config, spec)
 	return libocr2.SanityCheckLocalConfig(lc)
 }
@@ -88,9 +88,13 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	if spec.Pipeline.Source == "" {
 		return errors.New("no pipeline specified")
 	}
-	// validate that the JuelsPerFeeCoinPipeline is valid (not checked later because it's not a normal pipeline)
-	if _, err := pipeline.Parse(spec.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline); err != nil {
-		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
+
+	switch spec.OCR2OracleSpec.PluginType {
+	case job.Median:
+	case "":
+		return errors.New("no plugin specified")
+	default:
+		return errors.Errorf("invalid pluginType %s", spec.OCR2OracleSpec.PluginType)
 	}
 
 	return nil

@@ -16,7 +16,7 @@ type Config interface {
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
-func ToLocalConfig(config Config, spec job.OffchainReporting2OracleSpec) types.LocalConfig {
+func ToLocalConfig(config Config, spec job.OCR2OracleSpec) types.LocalConfig {
 	var (
 		blockchainTimeout     = time.Duration(spec.BlockchainTimeout)
 		ccConfirmations       = spec.ContractConfigConfirmations

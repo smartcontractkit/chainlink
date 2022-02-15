@@ -650,7 +650,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
+	isBootstrap := jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil && jb.OCROracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
 		var vars map[string]interface{}
 		var saveTasks bool

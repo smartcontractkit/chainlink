@@ -55,13 +55,13 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 
 		var returnedSpec job.Job
-		var OCROracleSpec job.OffchainReportingOracleSpec
+		var OCROracleSpec job.OCROracleSpec
 
 		err = db.Get(&returnedSpec, "SELECT * FROM jobs WHERE jobs.id = $1", jb.ID)
 		require.NoError(t, err)
-		err = db.Get(&OCROracleSpec, "SELECT * FROM offchainreporting_oracle_specs WHERE offchainreporting_oracle_specs.id = $1", jb.OffchainreportingOracleSpecID)
+		err = db.Get(&OCROracleSpec, "SELECT * FROM ocr_oracle_specs WHERE ocr_oracle_specs.id = $1", jb.OCROracleSpecID)
 		require.NoError(t, err)
-		returnedSpec.OffchainreportingOracleSpec = &OCROracleSpec
+		returnedSpec.OCROracleSpec = &OCROracleSpec
 		compareOCRJobSpecs(t, *jb, returnedSpec)
 	})
 
@@ -120,12 +120,12 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
 		assert.True(t, specErrors[1].CreatedAt.After(specErrors[0].UpdatedAt))
 		var j2 job.Job
-		var OCROracleSpec job.OffchainReportingOracleSpec
+		var OCROracleSpec job.OCROracleSpec
 		var jobSpecErrors []job.SpecError
 
 		err = db.Get(&j2, "SELECT * FROM jobs WHERE jobs.id = $1", jobSpec.ID)
 		require.NoError(t, err)
-		err = db.Get(&OCROracleSpec, "SELECT * FROM offchainreporting_oracle_specs WHERE offchainreporting_oracle_specs.id = $1", j2.OffchainreportingOracleSpecID)
+		err = db.Get(&OCROracleSpec, "SELECT * FROM ocr_oracle_specs WHERE ocr_oracle_specs.id = $1", j2.OCROracleSpecID)
 		require.NoError(t, err)
 		err = db.Select(&jobSpecErrors, "SELECT * FROM job_spec_errors WHERE job_spec_errors.job_id = $1", j2.ID)
 		require.NoError(t, err)
@@ -254,12 +254,12 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 
-		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 1)
+		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
 		cltest.AssertCount(t, db, "pipeline_specs", 1)
 
 		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 0)
+		cltest.AssertCount(t, db, "ocr_oracle_specs", 0)
 		cltest.AssertCount(t, db, "pipeline_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
@@ -499,8 +499,8 @@ func Test_FindJob(t *testing.T) {
 
 		require.Greater(t, jb.PipelineSpecID, int32(0))
 		require.NotNil(t, jb.PipelineSpec)
-		require.NotNil(t, jb.OffchainreportingOracleSpecID)
-		require.NotNil(t, jb.OffchainreportingOracleSpec)
+		require.NotNil(t, jb.OCROracleSpecID)
+		require.NotNil(t, jb.OCROracleSpec)
 	})
 
 	t.Run("by external job id", func(t *testing.T) {
@@ -512,12 +512,12 @@ func Test_FindJob(t *testing.T) {
 
 		require.Greater(t, jb.PipelineSpecID, int32(0))
 		require.NotNil(t, jb.PipelineSpec)
-		require.NotNil(t, jb.OffchainreportingOracleSpecID)
-		require.NotNil(t, jb.OffchainreportingOracleSpec)
+		require.NotNil(t, jb.OCROracleSpecID)
+		require.NotNil(t, jb.OCROracleSpec)
 	})
 
 	t.Run("by address", func(t *testing.T) {
-		jbID, err := orm.FindJobIDByAddress(job.OffchainreportingOracleSpec.ContractAddress)
+		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress)
 		require.NoError(t, err)
 
 		assert.Equal(t, job.ID, jbID)

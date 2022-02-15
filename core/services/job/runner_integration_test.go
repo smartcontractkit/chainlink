@@ -410,9 +410,9 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 		// Assert the override
-		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
+		assert.Equal(t, jb.OCROracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
 		// Assert that this is default
-		assert.Equal(t, models.Interval(20000000000), jb.OffchainreportingOracleSpec.BlockchainTimeout)
+		assert.Equal(t, models.Interval(20000000000), jb.OCROracleSpec.BlockchainTimeout)
 		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
 
 		// Required to create job spawner delegate.

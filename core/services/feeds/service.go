@@ -483,7 +483,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	var address ethkey.EIP55Address
 	switch j.Type {
 	case job.OffchainReporting:
-		address = j.OffchainreportingOracleSpec.ContractAddress
+		address = j.OCROracleSpec.ContractAddress
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
 	default:

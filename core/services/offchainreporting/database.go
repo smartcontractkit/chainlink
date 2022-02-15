@@ -37,8 +37,8 @@ func NewDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *db {
 func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
 	q := d.QueryRowContext(ctx, `
 SELECT epoch, highest_sent_epoch, highest_received_epoch
-FROM offchainreporting_persistent_states
-WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
+FROM ocr_persistent_states
+WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 LIMIT 1`, d.oracleSpecID, cd)
 
 	ps = new(ocrtypes.PersistentState)
@@ -65,9 +65,9 @@ func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocr
 		highestReceivedEpoch = append(highestReceivedEpoch, int64(v))
 	}
 	_, err := d.ExecContext(ctx, `
-INSERT INTO offchainreporting_persistent_states (offchainreporting_oracle_spec_id, config_digest, epoch, highest_sent_epoch, highest_received_epoch, created_at, updated_at)
+INSERT INTO ocr_persistent_states (ocr_oracle_spec_id, config_digest, epoch, highest_sent_epoch, highest_received_epoch, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-ON CONFLICT (offchainreporting_oracle_spec_id, config_digest) DO UPDATE SET
+ON CONFLICT (ocr_oracle_spec_id, config_digest) DO UPDATE SET
 	(epoch, highest_sent_epoch, highest_received_epoch, updated_at)
 	=
 	(
@@ -84,8 +84,8 @@ ON CONFLICT (offchainreporting_oracle_spec_id, config_digest) DO UPDATE SET
 func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
 	q := d.QueryRowContext(ctx, `
 	SELECT config_digest, signers, transmitters, threshold, encoded_config_version, encoded
-	FROM offchainreporting_contract_configs
-	WHERE offchainreporting_oracle_spec_id = $1
+	FROM ocr_contract_configs
+	WHERE ocr_oracle_spec_id = $1
 	LIMIT 1`, d.oracleSpecID)
 
 	c = new(ocrtypes.ContractConfig)
@@ -120,9 +120,9 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		transmitters = append(transmitters, t.Bytes())
 	}
 	_, err := d.ExecContext(ctx, `
-INSERT INTO offchainreporting_contract_configs (offchainreporting_oracle_spec_id, config_digest, signers, transmitters, threshold, encoded_config_version, encoded, created_at, updated_at)
+INSERT INTO ocr_contract_configs (ocr_oracle_spec_id, config_digest, signers, transmitters, threshold, encoded_config_version, encoded, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-ON CONFLICT (offchainreporting_oracle_spec_id) DO UPDATE SET
+ON CONFLICT (ocr_oracle_spec_id) DO UPDATE SET
 	config_digest = EXCLUDED.config_digest,
 	signers = EXCLUDED.signers,
 	transmitters = EXCLUDED.transmitters,
@@ -151,8 +151,8 @@ func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTra
 	}
 
 	_, err := d.ExecContext(ctx, `
-INSERT INTO offchainreporting_pending_transmissions (
-	offchainreporting_oracle_spec_id,
+INSERT INTO ocr_pending_transmissions (
+	ocr_oracle_spec_id,
 	config_digest,
 	epoch,
 	round,
@@ -166,7 +166,7 @@ INSERT INTO offchainreporting_pending_transmissions (
 	updated_at
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW())
-ON CONFLICT (offchainreporting_oracle_spec_id, config_digest, epoch, round) DO UPDATE SET
+ON CONFLICT (ocr_oracle_spec_id, config_digest, epoch, round) DO UPDATE SET
 	time = EXCLUDED.time,
 	median = EXCLUDED.median,
 	serialized_report = EXCLUDED.serialized_report,
@@ -191,13 +191,13 @@ SELECT
 	rs,
 	ss,
 	vs
-FROM offchainreporting_pending_transmissions
-WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
+FROM ocr_pending_transmissions
+WHERE ocr_oracle_spec_id = $1 AND config_digest = $2
 `, d.oracleSpecID, cd)
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
-	defer d.lggr.ErrorIfClosing(rows, "offchainreporting_pending_transmissions rows")
+	defer d.lggr.ErrorIfClosing(rows, "ocr_pending_transmissions rows")
 
 	m := make(map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission)
 
@@ -242,8 +242,8 @@ WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
 
 func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey) (err error) {
 	_, err = d.ExecContext(ctx, `
-DELETE FROM offchainreporting_pending_transmissions
-WHERE offchainreporting_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4
+DELETE FROM ocr_pending_transmissions
+WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4
 `, d.oracleSpecID, k.ConfigDigest, k.Epoch, k.Round)
 
 	err = errors.Wrap(err, "DeletePendingTransmission failed")
@@ -253,8 +253,8 @@ WHERE offchainreporting_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = 
 
 func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
 	_, err = d.ExecContext(ctx, `
-DELETE FROM offchainreporting_pending_transmissions
-WHERE offchainreporting_oracle_spec_id = $1 AND time < $2
+DELETE FROM ocr_pending_transmissions
+WHERE ocr_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
@@ -268,8 +268,8 @@ func (d *db) SaveLatestRoundRequested(tx pg.Queryer, rr offchainaggregator.Offch
 		return errors.Wrap(err, "could not marshal log as JSON")
 	}
 	_, err = tx.Exec(`
-INSERT INTO offchainreporting_latest_round_requested (offchainreporting_oracle_spec_id, requester, config_digest, epoch, round, raw)
-VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (offchainreporting_oracle_spec_id) DO UPDATE SET
+INSERT INTO ocr_latest_round_requested (ocr_oracle_spec_id, requester, config_digest, epoch, round, raw)
+VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (ocr_oracle_spec_id) DO UPDATE SET
 	requester = EXCLUDED.requester,
 	config_digest = EXCLUDED.config_digest,
 	epoch = EXCLUDED.epoch,
@@ -283,8 +283,8 @@ VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (offchainreporting_oracle_spec_id) DO UPD
 func (d *db) LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error) {
 	rows, err := d.Query(`
 SELECT requester, config_digest, epoch, round, raw
-FROM offchainreporting_latest_round_requested
-WHERE offchainreporting_oracle_spec_id = $1
+FROM ocr_latest_round_requested
+WHERE ocr_oracle_spec_id = $1
 LIMIT 1
 `, d.oracleSpecID)
 	if err != nil {

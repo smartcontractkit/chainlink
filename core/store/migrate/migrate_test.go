@@ -2,15 +2,20 @@ package migrate_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
@@ -31,22 +36,40 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.NoError(t, err)
 	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	jobORM := job.NewORM(db, nil, pipelineORM, nil, lggr, cfg)
+
+	type OffchainReporting2OracleSpec99 struct {
+		ID                                int32              `toml:"-"`
+		ContractID                        string             `toml:"contractID"`
+		Relay                             relaytypes.Network `toml:"relay"`
+		RelayConfig                       job.JSONConfig     `toml:"relayConfig"`
+		P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
+		OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
+		MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
+		TransmitterID                     null.String        `toml:"transmitterID"`
+		BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
+		ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
+		ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
+		JuelsPerFeeCoinPipeline           string             `toml:"juelsPerFeeCoinSource"`
+		CreatedAt                         time.Time          `toml:"-"`
+		UpdatedAt                         time.Time          `toml:"-"`
+	}
 
 	// OCR2 struct at migration v0099
 	type OffchainReporting2OracleSpec struct {
-		job.OffchainReporting2OracleSpec
+		OffchainReporting2OracleSpec99
 		IsBootstrapPeer bool
 	}
 
 	// Job struct at migration v0099
 	type Job struct {
 		job.Job
-		Offchainreporting2OracleSpec *OffchainReporting2OracleSpec
+		OffchainreportingOracleSpecID  *int32
+		Offchainreporting2OracleSpecID *int32
+		Offchainreporting2OracleSpec   *OffchainReporting2OracleSpec
 	}
 
 	spec := OffchainReporting2OracleSpec{
-		OffchainReporting2OracleSpec: job.OffchainReporting2OracleSpec{
+		OffchainReporting2OracleSpec99: OffchainReporting2OracleSpec99{
 			ID:                                100,
 			ContractID:                        "terra_187246hr3781h9fd198fh391g8f924",
 			Relay:                             "terra",
@@ -63,11 +86,11 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 		IsBootstrapPeer: true,
 	}
 	spec2 := OffchainReporting2OracleSpec{
-		OffchainReporting2OracleSpec: job.OffchainReporting2OracleSpec{
+		OffchainReporting2OracleSpec99: OffchainReporting2OracleSpec99{
 			ID:                                200,
 			ContractID:                        "sol_187246hr3781h9fd198fh391g8f924",
 			Relay:                             "sol",
-			RelayConfig:                       job.RelayConfig{},
+			RelayConfig:                       job.JSONConfig{},
 			P2PBootstrapPeers:                 pq.StringArray{""},
 			OCRKeyBundleID:                    null.String{},
 			MonitoringEndpoint:                null.StringFrom("endpoint:chain.link.monitor"),
@@ -82,30 +105,30 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 
 	jb := Job{
 		Job: job.Job{
-			ID:                             10,
-			ExternalJobID:                  uuid.NewV4(),
-			Type:                           job.OffchainReporting2,
-			SchemaVersion:                  1,
-			PipelineSpecID:                 pipelineID,
-			Offchainreporting2OracleSpecID: &spec.ID,
+			ID:             10,
+			ExternalJobID:  uuid.NewV4(),
+			Type:           job.OffchainReporting2,
+			SchemaVersion:  1,
+			PipelineSpecID: pipelineID,
 		},
-		Offchainreporting2OracleSpec: &spec,
+		Offchainreporting2OracleSpec:   &spec,
+		Offchainreporting2OracleSpecID: &spec.ID,
 	}
 
 	jb2 := Job{
 		Job: job.Job{
-			ID:                             20,
-			ExternalJobID:                  uuid.NewV4(),
-			Type:                           job.OffchainReporting2,
-			SchemaVersion:                  1,
-			PipelineSpecID:                 pipelineID2,
-			Offchainreporting2OracleSpecID: &spec2.ID,
+			ID:             20,
+			ExternalJobID:  uuid.NewV4(),
+			Type:           job.OffchainReporting2,
+			SchemaVersion:  1,
+			PipelineSpecID: pipelineID2,
 		},
-		Offchainreporting2OracleSpec: &spec2,
+		Offchainreporting2OracleSpec:   &spec2,
+		Offchainreporting2OracleSpecID: &spec2.ID,
 	}
 
 	nonBootstrapSpec := OffchainReporting2OracleSpec{
-		OffchainReporting2OracleSpec: job.OffchainReporting2OracleSpec{
+		OffchainReporting2OracleSpec99: OffchainReporting2OracleSpec99{
 			ID:                101,
 			P2PBootstrapPeers: pq.StringArray{""},
 			ContractID:        "empty",
@@ -114,21 +137,21 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	}
 	nonBootstrapJob := Job{
 		Job: job.Job{
-			ID:                             11,
-			ExternalJobID:                  uuid.NewV4(),
-			Type:                           job.OffchainReporting2,
-			SchemaVersion:                  1,
-			PipelineSpecID:                 nonBootstrapPipelineID,
-			Offchainreporting2OracleSpecID: &nonBootstrapSpec.ID,
+			ID:             11,
+			ExternalJobID:  uuid.NewV4(),
+			Type:           job.OffchainReporting2,
+			SchemaVersion:  1,
+			PipelineSpecID: nonBootstrapPipelineID,
 		},
-		Offchainreporting2OracleSpec: &nonBootstrapSpec,
+		Offchainreporting2OracleSpec:   &nonBootstrapSpec,
+		Offchainreporting2OracleSpecID: &nonBootstrapSpec.ID,
 	}
 
 	newFormatBoostrapSpec := job.BootstrapSpec{
 		ID:                                1,
 		ContractID:                        "evm_187246hr3781h9fd198fh391g8f924",
 		Relay:                             "evm",
-		RelayConfig:                       job.RelayConfig{},
+		RelayConfig:                       job.JSONConfig{},
 		MonitoringEndpoint:                null.StringFrom("new:chain.link.monitor"),
 		BlockchainTimeout:                 2448,
 		ContractConfigTrackerPollInterval: 18,
@@ -198,10 +221,12 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 		t.Logf("bootstrap id: %d\n", bootstrapSpec.ID)
 	}
 
-	var jobs []job.Job
-	jobs, count, err := jobORM.FindJobs(0, 1000)
+	var jobs []Job
+	sql = `SELECT * FROM jobs ORDER BY created_at DESC, id DESC;`
+	err = db.Select(&jobs, sql)
+
 	require.NoError(t, err)
-	require.Equal(t, 4, count)
+	require.Len(t, jobs, 4)
 	t.Logf("jobs count %d\n", len(jobs))
 	for _, jb := range jobs {
 		t.Logf("job id: %d with BootstrapSpecID: %d\n", jb.ID, jb.BootstrapSpecID)
@@ -211,6 +236,12 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	migratedJob := jobs[3]
 	require.Nil(t, migratedJob.Offchainreporting2OracleSpecID)
 	require.NotNil(t, migratedJob.BootstrapSpecID)
+
+	var resultingBootstrapSpec job.BootstrapSpec
+	err = db.Get(&resultingBootstrapSpec, `SELECT * FROM bootstrap_specs WHERE id = $1`, *migratedJob.BootstrapSpecID)
+	migratedJob.BootstrapSpec = &resultingBootstrapSpec
+	require.NoError(t, err)
+
 	require.Equal(t, &job.BootstrapSpec{
 		ID:                                2,
 		ContractID:                        spec.ContractID,
@@ -226,6 +257,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.Equal(t, job.Bootstrap, migratedJob.Type)
 
 	sql = `SELECT COUNT(*) FROM offchainreporting2_oracle_specs;`
+	var count int
 	err = db.Get(&count, sql)
 	require.NoError(t, err)
 	require.Equal(t, 1, count)

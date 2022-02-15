@@ -1,11 +1,10 @@
 package offchainreporting2
 
 import (
-	"time"
+	"fmt"
 
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -13,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
@@ -71,9 +72,9 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
-	spec := jobSpec.Offchainreporting2OracleSpec
+	spec := jobSpec.OCR2OracleSpec
 	if spec == nil {
-		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
+		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
 	}
 
 	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
@@ -138,33 +139,30 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, err
 	}
-
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
 
-	// These are populated here because when the pipeline spec is
-	// run it uses them to create identifiable prometheus metrics.
-	// TODO SC-30421 Move pipeline population to job spawner
+	var pluginOracle plugins.OraclePlugin
+	switch spec.PluginType {
+	case job.Median:
+		pluginOracle, err = median.NewMedian(jobSpec, ocr2Provider, d.pipelineRunner, runResults, loggerWith, ocrLogger)
+	default:
+		return nil, fmt.Errorf("plugin type %s not supported", spec.PluginType)
+	}
+	if err != nil {
+		return nil, err
+	}
+	pluginFactory, err := pluginOracle.GetPluginFactory()
+	if err != nil {
+		return nil, err
+	}
+	pluginServices, err := pluginOracle.GetServices()
+	if err != nil {
+		return nil, err
+	}
+	services = append(services, pluginServices...)
+
 	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
-
-	juelsPerFeeCoinPipelineSpec := pipeline.Spec{
-		ID:           jobSpec.ID,
-		DotDagSource: spec.JuelsPerFeeCoinPipeline,
-		CreatedAt:    time.Now(),
-	}
-	numericalMedianFactory := median.NumericalMedianFactory{
-		ContractTransmitter: ocr2Provider.MedianContract(),
-		DataSource: ocrcommon.NewDataSourceV2(d.pipelineRunner,
-			jobSpec,
-			*jobSpec.PipelineSpec,
-			loggerWith,
-			runResults,
-		),
-		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(d.pipelineRunner, jobSpec, juelsPerFeeCoinPipelineSpec, loggerWith),
-		ReportCodec:               ocr2Provider.ReportCodec(),
-		Logger:                    ocrLogger,
-	}
-
 	oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
 		BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -177,7 +175,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		OffchainConfigDigester:       offchainConfigDigester,
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
-		ReportingPluginFactory:       numericalMedianFactory,
+		ReportingPluginFactory:       pluginFactory,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewOracle")
@@ -185,7 +183,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	services = append(services, oracle)
 
 	// RunResultSaver needs to be started first so its available
-	// to read odb writes. It is stopped last after the Oracle is shut down
+	// to read odb writes. It is stopped last after the OraclePlugin is shut down
 	// so no further runs are enqueued and we can drain the queue.
 	services = append([]job.Service{ocrcommon.NewResultRunSaver(
 		runResults,

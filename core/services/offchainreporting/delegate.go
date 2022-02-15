@@ -72,14 +72,14 @@ func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the OCR services that need to run for this job
 func (d Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error) {
-	if jb.OffchainreportingOracleSpec == nil {
+	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
+	chain, err := d.chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jb.OffchainreportingOracleSpec)
+	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jb.OCROracleSpec)
 	if err != nil {
 		return nil, err
 	}
