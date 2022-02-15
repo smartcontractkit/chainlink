@@ -21,7 +21,7 @@ var (
 	// LogToDisk reprents a parseable version of the `LOG_TO_DISK`env var.
 	LogToDisk = New("LogToDisk", parse.Bool)
 	// LogFileMaxSize reprents a parseable version of the `LOG_FILE_MAX_SIZE`env var.
-	LogFileMaxSize = New("LogFileMaxSize", parse.Int64)
+	LogFileMaxSize = New("LogFileMaxSize", parse.FileSize)
 	// LogFileMaxAge reprents a parseable version of the `LOG_FILE_MAX_AGE`env var.
 	LogFileMaxAge = New("LogFileMaxAge", parse.Int64)
 	// LogFileMaxBackups reprents a parseable version of the `LOG_FILE_MAX_BACKUPS`env var.
