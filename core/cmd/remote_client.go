@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
@@ -194,6 +198,64 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	default:
 		return cli.printResponseBody(resp)
 	}
+	return nil
+}
+
+// Status will display the health of various services
+func (cli *Client) Profile(c *clipkg.Context) error {
+	seconds := c.Uint("seconds")
+	if seconds >= uint(cli.Config.HTTPServerWriteTimeout()) {
+		return cli.errorOut(errors.New("profile duration should be less than server write timeout."))
+	}
+	genDir := fmt.Sprintf("debuginfo-%d", time.Now().Unix())
+	err := os.Mkdir(genDir, 0755)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	cli.Logger.Infof("writing pprof to %s", genDir)
+	var wgPprof sync.WaitGroup
+	vitals := []string{
+		"allocs",       // A sampling of all past memory allocations
+		"block",        // Stack traces that led to blocking on synchronization primitives
+		"cmdline",      // The command line invocation of the current program
+		"goroutine",    // Stack traces of all current goroutines
+		"heap",         // A sampling of memory allocations of live objects.
+		"mutex",        // Stack traces of holders of contended mutexes
+		"profile",      // CPU profile.
+		"threadcreate", // Stack traces that led to the creation of new OS threads
+		"trace",        // A trace of execution of the current program.
+	}
+	wgPprof.Add(len(vitals))
+	for _, vt := range vitals {
+		go func(vt string) {
+			defer wgPprof.Done()
+			uri := fmt.Sprintf("/v2/debug/pprof/%s?seconds=%d", vt, seconds)
+			cli.Logger.Infof("Collecting %s ", uri)
+			resp, err := cli.HTTP.Get(uri)
+			if err != nil {
+				cli.Logger.Criticalf("error collecting vt %s: %s", vt, err.Error())
+				return
+			}
+			defer resp.Body.Close()
+
+			// write to file
+			f, err := os.Create(filepath.Join(genDir, vt))
+			if err != nil {
+				cli.Logger.Criticalf("error creating file for %s: %s", vt, err.Error())
+				return
+			}
+			defer f.Close()
+
+			_, err = io.Copy(f, resp.Body)
+			if err != nil {
+				cli.Logger.Criticalf("error writing to file for %s: %s", vt, err.Error())
+				return
+			}
+			cli.Logger.Infof("Collected %s", vt)
+		}(vt)
+	}
+	wgPprof.Wait()
+
 	return nil
 }
 
