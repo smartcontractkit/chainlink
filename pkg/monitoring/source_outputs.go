@@ -21,8 +21,9 @@ type Envelope struct {
 	// extra
 	BlockNumber uint64
 	Transmitter types.Account
-	LinkBalance uint64
+	LinkBalance *big.Int
 
+	// The "fee coin" is different for each chain.
 	JuelsPerFeeCoin   *big.Int
 	AggregatorRoundID uint32
 }

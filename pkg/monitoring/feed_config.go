@@ -1,6 +1,9 @@
 package monitoring
 
-import "io"
+import (
+	"io"
+	"math/big"
+)
 
 type FeedParser func(buf io.ReadCloser) ([]FeedConfig, error)
 
@@ -16,7 +19,11 @@ type FeedConfig interface {
 	GetContractStatus() string
 	GetContractAddress() string
 	GetContractAddressBytes() []byte
-	GetMultiply() uint64
-	// Useful for mapping to kafka messages.
+	// GetMultiply() returns the multiply parameter of a feed.
+	// This is a misnomer kept for historical reasons. Multiply is used as divisor
+	// for the big integers read from on-chain - think balances, observations,
+	// etc. - into prometheus-friendly float64s.
+	GetMultiply() *big.Int
+	// ToMapping() is useful when encoding kafka messages.
 	ToMapping() map[string]interface{}
 }

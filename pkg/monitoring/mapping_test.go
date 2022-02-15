@@ -72,7 +72,7 @@ func TestMapping(t *testing.T) {
 		require.True(t, ok)
 		linkBalance, ok := linkBalanceUnion["bytes"].([]byte)
 		require.True(t, ok)
-		require.Equal(t, linkBalance, uint64ToBeBytes(envelope.LinkBalance))
+		require.Equal(t, linkBalance, envelope.LinkBalance.Bytes())
 	})
 
 	t.Run("MakeSimplifiedConfigSetMapping", func(t *testing.T) {
