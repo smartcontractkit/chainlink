@@ -97,13 +97,6 @@ func (e *EnvVar) ParseBool() (v bool, invalid string) {
 	return i.(bool), invalid
 }
 
-// ParseInt parses value into `int`
-func (e *EnvVar) ParseInt() (v int, invalid string) {
-	var i interface{}
-	i, invalid = e.Parse()
-	return i.(int), invalid
-}
-
 // ParseInt64 parses value into `int64`
 func (e *EnvVar) ParseInt64() (v int64, invalid string) {
 	var i interface{}
