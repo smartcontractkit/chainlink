@@ -39,7 +39,7 @@ type Query {
 }
 
 type Mutation {
-    approveJobProposalSpec(id: ID!): ApproveJobProposalSpecPayload!
+    approveJobProposalSpec(id: ID!, force: Boolean): ApproveJobProposalSpecPayload!
     cancelJobProposalSpec(id: ID!): CancelJobProposalSpecPayload!
     createAPIToken(input: CreateAPITokenInput!): CreateAPITokenPayload!
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
