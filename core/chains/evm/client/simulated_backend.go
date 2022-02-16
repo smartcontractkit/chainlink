@@ -32,6 +32,7 @@ type SimulatedBackendClient struct {
 	chainId *big.Int
 }
 
+// NewSimulatedBackendClient creates an eth client backed by a simulated backend.
 func NewSimulatedBackendClient(t testing.TB, b *backends.SimulatedBackend, chainId *big.Int) *SimulatedBackendClient {
 	return &SimulatedBackendClient{
 		b:       b,
@@ -40,6 +41,7 @@ func NewSimulatedBackendClient(t testing.TB, b *backends.SimulatedBackend, chain
 	}
 }
 
+// Dial noop for the sim.
 func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
 }
@@ -69,7 +71,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 	return &callArgs, blockNumber, nil
 }
 
-// Call mocks the ethereum client RPC calls used by chainlink, copying the
+// CallContext mocks the ethereum client RPC calls used by chainlink, copying the
 // return value into result.
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	switch method {
@@ -108,12 +110,13 @@ func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.Filt
 	return c.b.FilterLogs(ctx, q)
 }
 
-// SubscribeToLogs registers a subscription for push notifications of logs
+// SubscribeFilterLogs registers a subscription for push notifications of logs
 // from a given address.
 func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, channel chan<- types.Log) (ethereum.Subscription, error) {
 	return c.b.SubscribeFilterLogs(ctx, q, channel)
 }
 
+// GetEthBalance helper to get eth balance
 func (c *SimulatedBackendClient) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
 	panic("not implemented")
 }
@@ -177,6 +180,7 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contrac
 	return balance, nil
 }
 
+// GetLINKBalance get link balance.
 func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	panic("not implemented")
 }
@@ -214,6 +218,7 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 	panic("can never reach here")
 }
 
+// HeadByNumber returns our own header type.
 func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	if n == nil {
 		n = c.currentBlockNumber()
@@ -232,23 +237,27 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	}, nil
 }
 
+// BlockByNumber returns a geth block type.
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
 	return c.b.BlockByNumber(ctx, n)
 }
 
-// GetChainID returns the ethereum ChainID.
+// ChainID returns the ethereum ChainID.
 func (c *SimulatedBackendClient) ChainID() *big.Int {
 	return c.chainId
 }
 
+// PendingNonceAt gets pending nonce i.e. mempool nonce.
 func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	return c.b.PendingNonceAt(ctx, account)
 }
 
+// NonceAt gets nonce as of a specified block.
 func (c *SimulatedBackendClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	return c.b.NonceAt(ctx, account, blockNumber)
 }
 
+// BalanceAt gets balance as of a specified block.
 func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return c.b.BalanceAt(ctx, account, blockNumber)
 }
@@ -266,6 +275,7 @@ func (h *headSubscription) Unsubscribe() {
 	<-done
 }
 
+// Err returns err channel
 func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 
 // SubscribeNewHead registers a subscription for push notifications of new blocks.
@@ -312,10 +322,12 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	return subscription, err
 }
 
+// HeaderByNumber returns the geth header type.
 func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
 	return c.b.HeaderByNumber(ctx, n)
 }
 
+// SendTransaction sends a transaction.
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	sender, err := types.Sender(types.NewLondonSigner(c.chainId), tx)
 	if err != nil {
@@ -336,30 +348,37 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	return err
 }
 
+// Call makes a call.
 func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{}) error {
 	return c.CallContext(context.Background(), result, method, args)
 }
 
+// CallContract calls a contract.
 func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
 	return c.b.CallContract(ctx, msg, blockNumber)
 }
 
+// CodeAt gets the code associated with an account as of a specified block.
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	return c.b.CodeAt(ctx, account, blockNumber)
 }
 
+// PendingCodeAt gets the latest code.
 func (c *SimulatedBackendClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
 	return c.b.PendingCodeAt(ctx, account)
 }
 
+// EstimateGas estimates gas for a msg.
 func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
 	return c.b.EstimateGas(ctx, call)
 }
 
+// SuggestGasPrice recommends a gas price.
 func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	panic("unimplemented")
 }
 
+// BatchCallContext makes a batch rpc call.
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	for i, elem := range b {
 		if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
@@ -381,6 +400,7 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 	return nil
 }
 
+// SuggestGasTipCap suggests a gas tip cap.
 func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return nil, nil
 }
