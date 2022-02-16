@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
@@ -250,10 +249,11 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 }
 
 // createKeeperJob creates a keeper job in the chainlink node by the given address
-func (k *Keeper) createKeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
+func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
-		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-			ContractAddress:          contractAddr,
+		TOML: GenerateKeeperSpec(KeeperSpecParams{
+			Name:                     fmt.Sprintf("keeper job - registry %s", registryAddr),
+			ContractAddress:          registryAddr,
 			FromAddress:              nodeAddr,
 			EvmChainID:               int(k.cfg.ChainID),
 			MinIncomingConfirmations: 1,
@@ -277,9 +277,7 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr s
 
 		return fmt.Errorf("unable to create keeper job: '%v' [%d]", string(body), resp.StatusCode)
 	}
-
-	log.Println("Keeper job has been successfully created")
-
+	log.Println("Keeper job has been successfully created in the Chainlink node with address: ", nodeAddr)
 	return nil
 }
 

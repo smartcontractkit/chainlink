@@ -1,7 +1,7 @@
 pragma solidity ^0.7.6;
 
 contract UpkeepCounter {
-  event PerformingUpkeep(address from, uint256 initialBlock, uint256 lastBlock, uint256 counter);
+  event PerformingUpkeep(address indexed from, uint256 initialBlock, uint256 lastBlock, uint256 counter);
 
   uint256 public testRange;
   uint256 public interval;
@@ -22,6 +22,7 @@ contract UpkeepCounter {
   }
 
   function performUpkeep(bytes calldata performData) external {
+    require(eligible(), "no longer eligible");
     if (initialBlock == 0) {
       initialBlock = block.number;
     }
