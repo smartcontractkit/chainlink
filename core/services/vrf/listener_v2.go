@@ -20,7 +20,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v2v3_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -91,7 +91,7 @@ type listenerV2 struct {
 	wg *sync.WaitGroup
 
 	// aggregator client to get link/eth feed prices from chain.
-	aggregator *aggregator_v2v3_interface.AggregatorV2V3Interface
+	aggregator *aggregator_v3_interface.AggregatorV3Interface
 }
 
 func (lsn *listenerV2) Start() error {
@@ -420,7 +420,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 	// Don't use up too much time to get this info, it's not critical for operating vrf.
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	weiPerUnitLink, err := lsn.aggregator.LatestAnswer(&bind.CallOpts{Context: ctx})
+	roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, errors.Wrap(err, "get aggregator latestAnswer")
 	}
@@ -430,7 +430,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 	juelsNeeded := EstimateFeeJuels(
 		req.CallbackGasLimit,
 		maxGasPriceWei,
-		weiPerUnitLink,
+		roundData.Answer,
 	)
 	return juelsNeeded, nil
 }
