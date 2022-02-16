@@ -512,7 +512,8 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 
 // ApproveJobProposalSpec approves the job proposal spec.
 func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
-	ID graphql.ID
+	ID    graphql.ID
+	Force *bool
 }) (*ApproveJobProposalSpecPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -523,12 +524,16 @@ func (r *Resolver) ApproveJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
+	forceApprove := false
+	if args.Force != nil {
+		forceApprove = *args.Force
+	}
+
 	feedsSvc := r.App.GetFeedsService()
-	if err = feedsSvc.ApproveSpec(ctx, id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	if err = feedsSvc.ApproveSpec(ctx, id, forceApprove); err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, feeds.ErrJobAlreadyExists) {
 			return NewApproveJobProposalSpecPayload(nil, err), nil
 		}
-
 		return nil, err
 	}
 
