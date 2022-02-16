@@ -14,13 +14,13 @@ type Service struct {
 	mock.Mock
 }
 
-// ApproveSpec provides a mock function with given fields: ctx, id
-func (_m *Service) ApproveSpec(ctx context.Context, id int64) error {
-	ret := _m.Called(ctx, id)
+// ApproveSpec provides a mock function with given fields: ctx, id, force
+func (_m *Service) ApproveSpec(ctx context.Context, id int64, force bool) error {
+	ret := _m.Called(ctx, id, force)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
-		r0 = rf(ctx, id)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, bool) error); ok {
+		r0 = rf(ctx, id, force)
 	} else {
 		r0 = ret.Error(0)
 	}
