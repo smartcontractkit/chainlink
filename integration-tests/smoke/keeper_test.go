@@ -180,7 +180,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 			networks.Default.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(env, networks, utils.ProjectRoot)
+			err = actions.TeardownSuite(env, networks, utils.ProjectRoot, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
