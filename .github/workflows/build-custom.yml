@@ -104,10 +104,6 @@ jobs:
           file: core/chainlink.Dockerfile
           build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:custom.${{ github.sha }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new
+          cache-from: type=gha,src=/tmp/.buildx-cache
+          cache-to: type=gha,dest=/tmp/.buildx-cache-new
           push: true
-      - name: Move cache
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
