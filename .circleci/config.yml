@@ -3,7 +3,7 @@ jobs:
   build-publish-chainlink:
     resource_class: 2xlarge
     machine:
-      image: circleci/classic:201808-01
+      image: ubuntu-2004:202201-02
       docker_layer_caching: true
     steps:
       - checkout
