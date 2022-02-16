@@ -208,7 +208,9 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
 		return cli.errorOut(errors.New("profile duration should be less than server write timeout."))
 	}
-	genDir := fmt.Sprintf("%sdebuginfo-%d", baseDir, time.Now().Unix())
+
+	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
+
 	err := os.Mkdir(genDir, 0755)
 	if err != nil {
 		return cli.errorOut(err)
@@ -235,7 +237,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 			cli.Logger.Infof("Collecting %s ", uri)
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
-				cli.Logger.Criticalf("error collecting vt %s: %s", vt, err.Error())
+				cli.Logger.Errorf("error collecting vt %s: %s", vt, err.Error())
 				errs <- err
 				return
 			}
@@ -244,7 +246,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 			// write to file
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
-				cli.Logger.Criticalf("error creating file for %s: %s", vt, err.Error())
+				cli.Logger.Errorf("error creating file for %s: %s", vt, err.Error())
 				errs <- err
 				return
 			}
@@ -252,7 +254,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 
 			_, err = io.Copy(f, resp.Body)
 			if err != nil {
-				cli.Logger.Criticalf("error writing to file for %s: %s", vt, err.Error())
+				cli.Logger.Errorf("error writing to file for %s: %s", vt, err.Error())
 				errs <- err
 				return
 			}

@@ -135,24 +135,37 @@ type GeneralConfigOverrides struct {
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
+// SetTriggerFallbackDBPollInterval sets test override value for TriggerFallbackDBPollInterval
 func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duration) {
 	o.TriggerFallbackDBPollInterval = &d
 }
+
+// SetOCRBootstrapCheckInterval sets test override value for P2PBootstrapCheckInterval
 func (o *GeneralConfigOverrides) SetOCRBootstrapCheckInterval(d time.Duration) {
 	o.P2PBootstrapCheckInterval = &d
 }
+
+// SetOCRObservationTimeout sets test override value for OCRObservationTimeout
 func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 	o.OCRObservationTimeout = &d
 }
+
+// SetDefaultHTTPTimeout sets test override value for DefaultHTTPTimeout
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
 }
+
+// SetHTTPServerWriteTimeout sets test override value for HTTPServerWriteTimeout
 func (o *GeneralConfigOverrides) SetHTTPServerWriteTimeout(d time.Duration) {
 	o.HTTPServerWriteTimeout = &d
 }
+
+// SetP2PV2DeltaDial sets test override value for P2PV2DeltaDial
 func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 	o.P2PV2DeltaDial = &d
 }
+
+// SetP2PV2DeltaReconcile sets test override value for P2PV2DeltaReconcile
 func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
 	o.P2PV2DeltaReconcile = &d
 }
