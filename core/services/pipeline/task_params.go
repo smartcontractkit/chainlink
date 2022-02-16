@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -229,15 +229,9 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 
 type BytesParam []byte
 
-// MarshalJSON serializes BytesParam as hex encoded bytes string
-func (b BytesParam) MarshalJSON() ([]byte, error) {
-	return json.Marshal("0x" + hex.EncodeToString(b))
-}
-
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
-		// []byte serialized as string is expected to be a hex encoded bytes string
 		if utils.HasHexPrefix(v) {
 			bs, err := hex.DecodeString(utils.RemoveHexPrefix(v))
 			if err == nil {
@@ -245,19 +239,15 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 				return nil
 			}
 		}
-		// For backward compatibility: this may be a base64 string (in case this is a string from the database).
-		// This may result in corrupted data if a user string is a valid base64 string.
-		// Ideally we should return error here if we failed to parse HEX.
-		bs, err := base64.StdEncoding.DecodeString(v)
-		if err == nil {
-			*b = BytesParam(bs)
-		} else {
-			*b = BytesParam(v)
-		}
+		*b = BytesParam(v)
 	case []byte:
 		*b = BytesParam(v)
 	case nil:
 		*b = BytesParam(nil)
+	case common.Hash:
+		*b = v.Bytes()
+	case secp256k1.PublicKey:
+		*b = v[:]
 	default:
 		return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
 	}

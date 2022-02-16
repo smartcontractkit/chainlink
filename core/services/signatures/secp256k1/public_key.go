@@ -3,11 +3,11 @@ package secp256k1
 import (
 	"database/sql/driver"
 	"fmt"
-
-	"github.com/pkg/errors"
+	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 	"go.dedis.ch/kyber/v3"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -19,6 +19,8 @@ type PublicKey [CompressedPublicKeyLength]byte
 // CompressedPublicKeyLength is the length of a secp256k1 public key's x
 // coordinate as a uint256, concatenated with 00 if y is even, 01 if odd.
 const CompressedPublicKeyLength = 33
+
+var publicKeyT = reflect.TypeOf(PublicKey{})
 
 func init() {
 	if CompressedPublicKeyLength != (&Secp256k1{}).Point().MarshalSize() {
@@ -125,6 +127,11 @@ func (k *PublicKey) UnmarshalText(text []byte) error {
 		return errors.Wrapf(err, "while parsing %s as public key", text)
 	}
 	return nil
+}
+
+// UnmarshalJSON parses a hash in hex syntax.
+func (k *PublicKey) UnmarshalJSON(input []byte) error {
+	return hexutil.UnmarshalFixedJSON(publicKeyT, input, k[:])
 }
 
 // Value marshals PublicKey to be saved in the DB

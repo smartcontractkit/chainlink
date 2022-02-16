@@ -458,17 +458,18 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPriceWei *big.Int, req pen
 			"databaseID":    lsn.job.ID,
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
-			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
+			"publicKey":     lsn.job.VRFSpec.PublicKey,
 			"maxGasPrice":   maxGasPriceWei.String(),
 		},
 		"jobRun": map[string]interface{}{
-			"logBlockHash":   req.req.Raw.BlockHash[:],
+			"logBlockHash":   req.req.Raw.BlockHash,
 			"logBlockNumber": req.req.Raw.BlockNumber,
 			"logTxHash":      req.req.Raw.TxHash,
 			"logTopics":      req.req.Raw.Topics,
-			"logData":        req.req.Raw.Data,
+			"logData":        hexutil.Encode(req.req.Raw.Data),
 		},
 	})
+
 	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
 	if err != nil {
 		lsn.l.Errorw("Failed executing run", "err", err)

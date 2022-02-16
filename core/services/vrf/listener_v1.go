@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
@@ -358,14 +359,14 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 			"databaseID":    lsn.job.ID,
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
-			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
+			"publicKey":     lsn.job.VRFSpec.PublicKey,
 		},
 		"jobRun": map[string]interface{}{
-			"logBlockHash":   req.Raw.BlockHash[:],
+			"logBlockHash":   req.Raw.BlockHash,
 			"logBlockNumber": req.Raw.BlockNumber,
 			"logTxHash":      req.Raw.TxHash,
 			"logTopics":      req.Raw.Topics,
-			"logData":        req.Raw.Data,
+			"logData":        hexutil.Encode(req.Raw.Data),
 		},
 	})
 

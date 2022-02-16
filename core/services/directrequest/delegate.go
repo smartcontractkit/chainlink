@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -340,7 +341,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"logTxHash":      request.Raw.TxHash,
 			"logAddress":     request.Raw.Address,
 			"logTopics":      request.Raw.Topics,
-			"logData":        request.Raw.Data,
+			"logData":        hexutil.Encode(request.Raw.Data),
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)

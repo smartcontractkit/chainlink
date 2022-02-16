@@ -1,13 +1,10 @@
 package pipeline_test
 
 import (
-	"encoding/base64"
 	"net/url"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
@@ -56,14 +53,7 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 		{"string", "0x11AAFF", pipeline.BytesParam([]byte{0x11, 0xAA, 0xFF}), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.BytesParam("foo bar baz"), nil},
 		{"int", 12345, pipeline.BytesParam(nil), pipeline.ErrBadInput},
-
-		// The base64 encoding for the binary 0b110100110001 is '0x', so we must not error when hex fails, since it might actually be b64.
-		{"hex-invalid", "0xh",
-			pipeline.BytesParam("0xh"), nil},
-		{"b64-hex-prefix", base64.StdEncoding.EncodeToString([]byte{0b11010011, 0b00011000, 0b01001101}),
-			pipeline.BytesParam([]byte{0b11010011, 0b00011000, 0b01001101}), nil},
-		{"b64-hex-prefix-2", base64.StdEncoding.EncodeToString(hexutil.MustDecode("0xd3184d")),
-			pipeline.BytesParam(hexutil.MustDecode("0xd3184d")), nil},
+		{"hex-invalid", "0xh", pipeline.BytesParam("0xh"), nil},
 	}
 
 	for _, test := range tests {
@@ -77,15 +67,6 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 			require.Equal(t, test.expected, p)
 		})
 	}
-}
-
-func TestBytesParam_MarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	bp := pipeline.BytesParam([]byte{0x11, 0xAA, 0xFF})
-	json, err := bp.MarshalJSON()
-	require.NoError(t, err)
-	require.Equal(t, `"0x11aaff"`, string(json))
 }
 
 func TestAddressParam_UnmarshalPipelineParam(t *testing.T) {

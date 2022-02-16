@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
@@ -663,15 +664,15 @@ func (app *ChainlinkApplication) RunJobV2(
 					"databaseID":    jb.ID,
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
-					"publicKey":     jb.VRFSpec.PublicKey[:],
+					"publicKey":     jb.VRFSpec.PublicKey,
 				},
 				"jobRun": map[string]interface{}{
 					"meta":           meta,
-					"logBlockHash":   testLog.BlockHash[:],
+					"logBlockHash":   testLog.BlockHash,
 					"logBlockNumber": testLog.BlockNumber,
 					"logTxHash":      testLog.TxHash,
 					"logTopics":      testLog.Topics,
-					"logData":        testLog.Data,
+					"logData":        hexutil.Encode(testLog.Data),
 				},
 			}
 		} else {
