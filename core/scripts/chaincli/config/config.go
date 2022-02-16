@@ -8,14 +8,18 @@ import (
 
 // Config represents configuration fields
 type Config struct {
-	NodeURL        string   `mapstructure:"NODE_URL"`
-	ChainID        int64    `mapstructure:"CHAIN_ID"`
-	PrivateKey     string   `mapstructure:"PRIVATE_KEY"`
-	LinkTokenAddr  string   `mapstructure:"LINK_TOKEN_ADDR"`
-	Keepers        []string `mapstructure:"KEEPERS"`
-	ApproveAmount  string   `mapstructure:"APPROVE_AMOUNT"`
-	GasLimit       uint64   `mapstructure:"GAS_LIMIT"`
-	FundNodeAmount int      `mapstructure:"FUND_CHAINLINK_NODE"`
+	NodeURL         string   `mapstructure:"NODE_URL"`
+	ChainID         int64    `mapstructure:"CHAIN_ID"`
+	PrivateKey      string   `mapstructure:"PRIVATE_KEY"`
+	LinkTokenAddr   string   `mapstructure:"LINK_TOKEN_ADDR"`
+	Keepers         []string `mapstructure:"KEEPERS"`
+	KeeperURLs      []string `mapstructure:"KEEPER_URLS"`
+	KeeperEmails    []string `mapstructure:"KEEPER_EMAILS"`
+	KeeperPasswords []string `mapstructure:"KEEPER_PASSWORDS"`
+	ApproveAmount   string   `mapstructure:"APPROVE_AMOUNT"`
+	GasLimit        uint64   `mapstructure:"GAS_LIMIT"`
+	FundNodeAmount  int      `mapstructure:"FUND_CHAINLINK_NODE"`
+	MustTakeTurns   bool     `mapstructure:"MUST_TAKE_TURNS"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
@@ -35,6 +39,7 @@ type Config struct {
 	KeepersCount                    int    `mapstructure:"KEEPERS_COUNT"`
 	UpkeepTestRange                 int64  `mapstructure:"UPKEEP_TEST_RANGE"`
 	UpkeepAverageEligibilityCadence int64  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
+	UpkeepInterval                  int64  `mapstructure:"UPKEEP_INTERVAL"`
 	UpkeepCheckData                 string `mapstructure:"UPKEEP_CHECK_DATA"`
 	UpkeepGasLimit                  uint32 `mapstructure:"UPKEEP_GAS_LIMIT"`
 	UpkeepCount                     int64  `mapstructure:"UPKEEP_COUNT"`
@@ -84,11 +89,12 @@ func init() {
 	// Represented in WEI, which is 100 Ether
 	viper.SetDefault("UPKEEP_ADD_FUNDS_AMOUNT", "100000000000000000000")
 	viper.SetDefault("UPKEEP_TEST_RANGE", 1)
-	viper.SetDefault("UPKEEP_AVERAGE_ELIGIBILITY_CADENCE", 1)
+	viper.SetDefault("UPKEEP_INTERVAL", 10)
 	viper.SetDefault("UPKEEP_CHECK_DATA", "0x00")
 	viper.SetDefault("UPKEEP_GAS_LIMIT", 500000)
 	viper.SetDefault("UPKEEP_COUNT", 5)
 	viper.SetDefault("KEEPERS_COUNT", 2)
 
 	viper.SetDefault("FEED_DECIMALS", 18)
+	viper.SetDefault("MUST_TAKE_TURNS", true)
 }

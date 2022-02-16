@@ -18,3 +18,16 @@ var updateRegistryCmd = &cobra.Command{
 		hdlr.GetRegistry(cmd.Context())
 	},
 }
+
+var withdrawFromRegistryCmd = &cobra.Command{
+	Use:   "withdraw",
+	Short: "cancel upkeeps and withdraw funds from registry",
+	Long:  `This command will cancel all registered upkeeps and withdraw the funds left. args = Registry address`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		cfg := config.New()
+		hdlr := handler.NewKeeper(cfg)
+
+		hdlr.Withdraw(cmd.Context(), args[0])
+	},
+}
