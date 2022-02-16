@@ -49,6 +49,7 @@ type GeneralConfigOverrides struct {
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
+	HTTPServerWriteTimeout                    *time.Duration
 	Dev                                       null.Bool
 	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
@@ -145,6 +146,9 @@ func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 }
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
+}
+func (o *GeneralConfigOverrides) SetHTTPServerWriteTimeout(d time.Duration) {
+	o.HTTPServerWriteTimeout = &d
 }
 func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 	o.P2PV2DeltaDial = &d
