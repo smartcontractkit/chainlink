@@ -48,7 +48,7 @@ func MakeTransmissionMapping(
 		},
 		"feed_config": feedConfig.ToMapping(),
 		"link_balance": map[string]interface{}{
-			"bytes": uint64ToBeBytes(envelope.LinkBalance),
+			"bytes": envelope.LinkBalance.Bytes(),
 		},
 	}
 	return out, nil
