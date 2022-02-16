@@ -201,13 +201,14 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	return nil
 }
 
-// Status will display the health of various services
+// Profile will collect pprof metrics and store them in a folder.
 func (cli *Client) Profile(c *clipkg.Context) error {
 	seconds := c.Uint("seconds")
-	if seconds >= uint(cli.Config.HTTPServerWriteTimeout()) {
+	baseDir := c.String("output_dir")
+	if seconds >= uint(cli.Config.HTTPServerWriteTimeout().Seconds()) {
 		return cli.errorOut(errors.New("profile duration should be less than server write timeout."))
 	}
-	genDir := fmt.Sprintf("debuginfo-%d", time.Now().Unix())
+	genDir := fmt.Sprintf("%sdebuginfo-%d", baseDir, time.Now().Unix())
 	err := os.Mkdir(genDir, 0755)
 	if err != nil {
 		return cli.errorOut(err)
@@ -226,6 +227,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 		"trace",        // A trace of execution of the current program.
 	}
 	wgPprof.Add(len(vitals))
+	errs := make(chan error)
 	for _, vt := range vitals {
 		go func(vt string) {
 			defer wgPprof.Done()
@@ -234,6 +236,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 			resp, err := cli.HTTP.Get(uri)
 			if err != nil {
 				cli.Logger.Criticalf("error collecting vt %s: %s", vt, err.Error())
+				errs <- err
 				return
 			}
 			defer resp.Body.Close()
@@ -242,6 +245,7 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 			f, err := os.Create(filepath.Join(genDir, vt))
 			if err != nil {
 				cli.Logger.Criticalf("error creating file for %s: %s", vt, err.Error())
+				errs <- err
 				return
 			}
 			defer f.Close()
@@ -249,13 +253,16 @@ func (cli *Client) Profile(c *clipkg.Context) error {
 			_, err = io.Copy(f, resp.Body)
 			if err != nil {
 				cli.Logger.Criticalf("error writing to file for %s: %s", vt, err.Error())
+				errs <- err
 				return
 			}
 			cli.Logger.Infof("Collected %s", vt)
 		}(vt)
 	}
 	wgPprof.Wait()
-
+	if len(errs) > 0 {
+		return cli.errorOut(errors.New("One or more profile collections failed %s"))
+	}
 	return nil
 }
 
