@@ -3,19 +3,18 @@ package relay
 import (
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
 	solanaGo "github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 var (
@@ -86,9 +85,18 @@ func (d delegate) Healthy() error {
 	return err
 }
 
+type OCR2ProviderArgs struct {
+	ID              int32
+	ContractID      string
+	TransmitterID   null.String
+	Relay           types.Network
+	RelayConfig     job.RelayConfig
+	IsBootstrapPeer bool
+}
+
 func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2Provider, error) {
 	// We expect trusted input
-	spec := s.(*job.OffchainReporting2OracleSpec)
+	spec := s.(*OCR2ProviderArgs)
 	choice := spec.Relay
 	switch choice {
 	case types.EVM:

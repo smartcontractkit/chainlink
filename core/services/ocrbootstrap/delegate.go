@@ -2,14 +2,17 @@ package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
+	"github.com/smartcontractkit/sqlx"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // Delegate creates Bootstrap jobs
@@ -54,8 +57,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
 
-	ocr2Spec := spec.AsOCR2Spec()
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &ocr2Spec)
+	OCR2ProviderArgs := relay.OCR2ProviderArgs{
+		ID:              spec.ID,
+		ContractID:      spec.ContractID,
+		TransmitterID:   null.String{},
+		Relay:           spec.Relay,
+		RelayConfig:     spec.RelayConfig,
+		IsBootstrapPeer: true,
+	}
+	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &OCR2ProviderArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
@@ -79,6 +89,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 
+	ocr2Spec := spec.AsOCR2Spec()
 	lc := offchainreporting2.ToLocalConfig(d.cfg, ocr2Spec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err

@@ -347,7 +347,6 @@ observationTimeout = "10s"
         juelsPerFeeCoinSource: '1000000000',
         ocrKeyBundleID:
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
-        isBootstrapPeer: false,
         monitoringEndpoint: 'https://monitoring.endpoint',
         p2pBootstrapPeers: [
           '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
@@ -377,7 +376,6 @@ blockchainTimeout = "20s"
 contractID = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
 contractConfigConfirmations = 3
 contractConfigTrackerPollInterval = "1m0s"
-isBootstrapPeer = false
 juelsPerFeeCoinSource = "1000000000"
 ocrKeyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
 monitoringEndpoint = "https://monitoring.endpoint"

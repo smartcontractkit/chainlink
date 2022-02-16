@@ -21,6 +21,10 @@ ALTER TABLE ONLY bootstrap_contract_configs
         FOREIGN KEY (bootstrap_spec_id)
             REFERENCES bootstrap_specs (id)
             ON DELETE CASCADE;
+
+ALTER TABLE offchainreporting2_oracle_specs
+    DROP COLUMN is_bootstrap_peer;
+
 -- +goose StatementEnd
 
 -- +goose Down
