@@ -408,30 +408,31 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		l := lggr.With(
-			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID, "err", err,
+			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID,
+			"ethTxID", attempt.EthTxID, "err", err, "nonce", attempt.EthTx.Nonce,
 		)
 
 		if err != nil {
-			l.Errorw("FetchReceipt failed")
+			l.Error("FetchReceipt failed")
 			continue
 		}
 
 		if receipt == nil {
 			// NOTE: This should never possibly happen, but it seems safer to
 			// check regardless to avoid a potential panic
-			l.Errorw("Invariant violation, got nil receipt")
+			l.Error("Invariant violation, got nil receipt")
 			continue
 		}
 
 		if receipt.IsZero() {
-			l.Debugw("Still waiting for receipt")
+			l.Debug("Still waiting for receipt")
 			continue
 		}
 
 		l = l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex)
 
 		if receipt.IsUnmined() {
-			l.Debugw("Got receipt for transaction but it's still in the mempool and not included in a block yet")
+			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
 			continue
 		}
 
