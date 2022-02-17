@@ -3,7 +3,7 @@ jobs:
   build-publish-chainlink:
     resource_class: 2xlarge
     machine:
-      image: circleci/classic:201808-01
+      image: ubuntu-2004:202201-02
       docker_layer_caching: true
     steps:
       - checkout
@@ -49,18 +49,6 @@ commands:
   setup-aws-ecr:
     description: 'Install aws cli and login to public and private ECR'
     steps:
-      - run:
-          name: Install AWS CLI
-          command: |
-            if [[ -z "$BUILDER" ]]; then
-              exit 0
-            fi
-
-            curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-            rm awscliv2.zip
-            aws --version
       - run:
           name: Docker login for ECR using temporary creds
           command: |
