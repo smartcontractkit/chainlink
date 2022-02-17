@@ -2306,8 +2306,6 @@ github.com/smartcontractkit/helmenv v1.0.36/go.mod h1:pkScfFRZM9UhMAqeG+Bfxyy7Yj
 github.com/smartcontractkit/integrations-framework v1.0.48 h1:yeGBbu+AXlkR4kT4tKound3dItFMDMTczIirdX48lJ4=
 github.com/smartcontractkit/integrations-framework v1.0.48/go.mod h1:tWnoNol2k1yDW8ybOqK7QXFp6Xl2wnI6ASn398JPMJA=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
-github.com/smartcontractkit/libocr v0.0.0-20220125200954-5b957c834276 h1:sE+0R3qyCnZRiDoEoWT8St+Pmb1ZdRDhyq7xZPrwoZ0=
-github.com/smartcontractkit/libocr v0.0.0-20220125200954-5b957c834276/go.mod h1:nq3crM3wVqnyMlM/4ZydTuJ/WyCapAsOt7P94oRgSPg=
 github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec h1:vkTYAihTA8qQ30LKd0272NWLzOCWWCw78qk0LtIej0A=
 github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec/go.mod h1:nq3crM3wVqnyMlM/4ZydTuJ/WyCapAsOt7P94oRgSPg=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
