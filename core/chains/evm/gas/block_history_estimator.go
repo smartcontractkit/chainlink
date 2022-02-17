@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -417,10 +418,18 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		return err
 	}
 
-	for i, req := range reqs {
+	for _, req := range reqs {
 		result, err := req.Result, req.Error
 		if err != nil {
-			lggr.Warnw("Error while fetching block", "err", err, "blockNum", int(lowestBlockToFetch)+i, "headNum", head.Number)
+			if strings.Contains(err.Error(), "failed to decode block number while unmarshalling block") {
+				lggr.Errorw(
+					fmt.Sprintf("Failed to fetch block: RPC node returned an empty block on query for block number %d even though the WS subscription already sent us this block. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
+						HexToInt64(req.Args[0]), blockDelay,
+					),
+					"err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+			} else {
+				lggr.Warnw("Error while fetching block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+			}
 			continue
 		}
 
