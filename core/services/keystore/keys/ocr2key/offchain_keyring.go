@@ -62,7 +62,9 @@ func (ok *OffchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte)
 }
 
 func (ok *OffchainKeyring) OffchainPublicKey() ocrtypes.OffchainPublicKey {
-	return ocrtypes.OffchainPublicKey(ed25519.PrivateKey(ok.signingKey).Public().(ed25519.PublicKey))
+	var offchainPubKey [ed25519.PublicKeySize]byte
+	copy(offchainPubKey[:], ok.signingKey.Public().(ed25519.PublicKey)[:])
+	return offchainPubKey
 }
 
 func (ok *OffchainKeyring) ConfigEncryptionPublicKey() ocrtypes.ConfigEncryptionPublicKey {

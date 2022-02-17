@@ -57,12 +57,13 @@ func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptPa
 		return nil, errors.Wrapf(err, "could not encrypt Eth key")
 	}
 	pubKeyConfig := key.ConfigEncryptionPublicKey()
+	pubKey := key.OffchainPublicKey()
 	encryptedOCRKExport := EncryptedOCRKeyExport{
 		KeyType:           keyTypeIdentifier,
 		ChainType:         key.ChainType(),
 		ID:                key.ID(),
 		OnchainPublicKey:  key.OnChainPublicKey(),
-		OffChainPublicKey: hex.EncodeToString(key.OffchainPublicKey()),
+		OffChainPublicKey: hex.EncodeToString(pubKey[:]),
 		ConfigPublicKey:   hex.EncodeToString(pubKeyConfig[:]),
 		Crypto:            cryptoJSON,
 	}
