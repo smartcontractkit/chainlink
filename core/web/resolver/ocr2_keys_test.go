@@ -44,13 +44,13 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		configPublic := k.ConfigEncryptionPublicKey()
 		ct, err := ToOCR2ChainType(string(k.ChainType()))
 		require.NoError(t, err)
-
+		pubKey := k.OffchainPublicKey()
 		expectedBundles = append(expectedBundles, map[string]interface{}{
 			"id":                k.ID(),
 			"chainType":         ct,
 			"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", k.ChainType(), k.OnChainPublicKey()),
 			"configPublicKey":   fmt.Sprintf("ocr2cfg_%s_%s", k.ChainType(), hex.EncodeToString(configPublic[:])),
-			"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", k.ChainType(), hex.EncodeToString(k.OffchainPublicKey())),
+			"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", k.ChainType(), hex.EncodeToString(pubKey[:])),
 		})
 	}
 
@@ -124,6 +124,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 	require.NoError(t, err)
 
 	configPublic := fakeKey.ConfigEncryptionPublicKey()
+	pubKey := fakeKey.PublicKey()
 	d, err := json.Marshal(map[string]interface{}{
 		"createOCR2KeyBundle": map[string]interface{}{
 			"bundle": map[string]interface{}{
@@ -131,7 +132,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 				"chainType":         ct,
 				"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", fakeKey.ChainType(), fakeKey.OnChainPublicKey()),
 				"configPublicKey":   fmt.Sprintf("ocr2cfg_%s_%s", fakeKey.ChainType(), hex.EncodeToString(configPublic[:])),
-				"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", fakeKey.ChainType(), hex.EncodeToString(fakeKey.OffchainPublicKey())),
+				"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", fakeKey.ChainType(), hex.EncodeToString(pubKey[:])),
 			},
 		},
 	})
@@ -213,6 +214,7 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 	require.NoError(t, err)
 
 	configPublic := fakeKey.ConfigEncryptionPublicKey()
+	pubKey := fakeKey.OffchainPublicKey()
 	d, err := json.Marshal(map[string]interface{}{
 		"deleteOCR2KeyBundle": map[string]interface{}{
 			"bundle": map[string]interface{}{
@@ -220,7 +222,7 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 				"chainType":         ct,
 				"onChainPublicKey":  fmt.Sprintf("ocr2on_%s_%s", fakeKey.ChainType(), fakeKey.OnChainPublicKey()),
 				"configPublicKey":   fmt.Sprintf("ocr2cfg_%s_%s", fakeKey.ChainType(), hex.EncodeToString(configPublic[:])),
-				"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", fakeKey.ChainType(), hex.EncodeToString(fakeKey.OffchainPublicKey())),
+				"offChainPublicKey": fmt.Sprintf("ocr2off_%s_%s", fakeKey.ChainType(), hex.EncodeToString(pubKey[:])),
 			},
 		},
 	})
