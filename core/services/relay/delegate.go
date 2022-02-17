@@ -165,6 +165,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			TransmissionSigner: transmissionSigner,
 			UsePreflight:       config.UsePreflight,
 			Commitment:         config.Commitment,
+			TxTimeout:          config.TxTimeout,
 			PollingInterval:    config.PollingInterval,
 			PollingCtxTimeout:  config.PollingCtxTimeout,
 			StaleTimeout:       config.StaleTimeout,
