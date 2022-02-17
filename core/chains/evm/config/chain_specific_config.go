@@ -200,14 +200,14 @@ func setChainSpecificConfigDefaultSets() {
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
 	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
-	polygonMainnet.finalityDepth = 200           // A sprint is 64 blocks long and doesn't guarantee finality. To be safe we take three sprints (192 blocks) plus a safety margin
+	polygonMainnet.finalityDepth = 500           // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
 	polygonMainnet.gasBumpThreshold = 5          // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.gasBumpWei = *assets.GWei(20)
 	polygonMainnet.gasPriceDefault = *assets.GWei(1)
-	polygonMainnet.headTrackerHistoryDepth = 1000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
+	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	polygonMainnet.maxQueuedTransactions = 2000         // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+	polygonMainnet.maxQueuedTransactions = 5000         // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
 	polygonMainnet.maxGasPriceWei = *assets.UEther(200) // 200,000 GWei
 	polygonMainnet.minGasPriceWei = *assets.GWei(1)
 	polygonMainnet.ethTxResendAfterThreshold = 1 * time.Minute // Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
