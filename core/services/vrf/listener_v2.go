@@ -20,7 +20,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v2v3_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -91,7 +91,7 @@ type listenerV2 struct {
 	wg *sync.WaitGroup
 
 	// aggregator client to get link/eth feed prices from chain.
-	aggregator *aggregator_v2v3_interface.AggregatorV2V3Interface
+	aggregator *aggregator_v3_interface.AggregatorV3Interface
 }
 
 func (lsn *listenerV2) Start() error {
@@ -420,18 +420,21 @@ func (lsn *listenerV2) estimateFeeJuels(
 	// Don't use up too much time to get this info, it's not critical for operating vrf.
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	weiPerUnitLink, err := lsn.aggregator.LatestAnswer(&bind.CallOpts{Context: ctx})
+	roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, errors.Wrap(err, "get aggregator latestAnswer")
 	}
 	// NOTE: no need to sanity check this as this is for logging purposes only
 	// and should not be used to determine whether a user has enough funds in actuality,
 	// we should always simulate for that.
-	juelsNeeded := EstimateFeeJuels(
+	juelsNeeded, err := EstimateFeeJuels(
 		req.CallbackGasLimit,
 		maxGasPriceWei,
-		weiPerUnitLink,
+		roundData.Answer,
 	)
+	if err != nil {
+		return nil, errors.Wrap(err, "estimate fee juels")
+	}
 	return juelsNeeded, nil
 }
 
@@ -663,12 +666,16 @@ const GasProofVerification uint32 = 200_000
 
 // EstimateFeeJuels estimates the amount of link needed to fulfill a request
 // given the callback gas limit, the gas price, and the wei per unit link.
-func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *big.Int) *big.Int {
+// An error is returned if the wei per unit link provided is zero.
+func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *big.Int) (*big.Int, error) {
+	if weiPerUnitLink.Cmp(big.NewInt(0)) == 0 {
+		return nil, errors.New("wei per unit link is zero")
+	}
 	maxGasUsed := big.NewInt(int64(callbackGasLimit + GasProofVerification))
 	costWei := maxGasUsed.Mul(maxGasUsed, maxGasPriceWei)
 	// Multiply by 1e18 first so that we don't lose a ton of digits due to truncation when we divide
 	// by weiPerUnitLink
 	numerator := costWei.Mul(costWei, big.NewInt(1e18))
 	costJuels := numerator.Quo(numerator, weiPerUnitLink)
-	return costJuels
+	return costJuels, nil
 }
