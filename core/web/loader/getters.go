@@ -158,6 +158,7 @@ func GetJobProposalsByFeedsManagerID(ctx context.Context, id string) ([]feeds.Jo
 	return jbRuns, nil
 }
 
+// GetJobByExternalJobID fetches the job proposals by external job ID
 func GetJobByExternalJobID(ctx context.Context, id string) (*job.Job, error) {
 	ldr := For(ctx)
 

@@ -37,7 +37,7 @@ func New(app chainlink.Application) *Dataloader {
 
 	return &Dataloader{
 		app: app,
-		
+
 		ChainsByIDLoader:                dataloader.NewBatchedLoader(chains.loadByIDs),
 		EthTxAttemptsByEthTxIDLoader:    dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
 		FeedsManagersByIDLoader:         dataloader.NewBatchedLoader(mgrs.loadByIDs),

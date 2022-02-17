@@ -39,7 +39,7 @@ func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
 
 // JobProposalResolver resolves the Job Proposal type
 type JobProposalResolver struct {
-	jp  *feeds.JobProposal
+	jp *feeds.JobProposal
 }
 
 // NewJobProposal creates a new JobProposalResolver
@@ -80,6 +80,7 @@ func (r *JobProposalResolver) ExternalJobID() *string {
 	return nil
 }
 
+// JobID resolves to the job proposal JobID if it has an ExternalJobID
 func (r *JobProposalResolver) JobID(ctx context.Context) (*string, error) {
 	if !r.jp.ExternalJobID.Valid {
 		return nil, nil
