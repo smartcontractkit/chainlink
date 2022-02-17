@@ -70,6 +70,9 @@ var (
 		"observationSource":     {},
 		"juelsPerFeeCoinSource": {},
 	}
+	notExpectedParams = map[string]struct{}{
+		"isBootstrapPeer": {},
+	}
 )
 
 func validateTimingParameters(config Config, spec job.OffchainReporting2OracleSpec) error {
@@ -78,7 +81,7 @@ func validateTimingParameters(config Config, spec job.OffchainReporting2OracleSp
 }
 
 func validateSpec(tree *toml.Tree, spec job.Job) error {
-	expected, notExpected := ocrcommon.CloneSet(params), map[string]struct{}{}
+	expected, notExpected := ocrcommon.CloneSet(params), ocrcommon.CloneSet(notExpectedParams)
 	if err := ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "ocr2"); err != nil {
 		return err
 	}

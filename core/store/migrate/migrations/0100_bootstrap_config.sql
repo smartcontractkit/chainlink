@@ -22,7 +22,7 @@ ALTER TABLE ONLY bootstrap_contract_configs
             REFERENCES bootstrap_specs (id)
             ON DELETE CASCADE;
 
--- add missing unique constraint to bootstrap specs
+-- add missing unique constraint for bootstrap specs
 CREATE UNIQUE INDEX idx_jobs_unique_bootstrap_spec_id ON jobs USING btree (bootstrap_spec_id);
 
 -- migrate existing OCR2 bootstrap jobs to the new bootstrap spec
@@ -44,22 +44,22 @@ SELECT ocr2.contract_id,
        ocr2.created_at,
        ocr2.updated_at,
        jobs.id
-from jobs
-         INNER JOIN offchainreporting2_oracle_specs as ocr2 ON jobs.offchainreporting2_oracle_spec_id = ocr2.id
-WHERE ocr2.is_bootstrap_peer is true;
+FROM jobs
+         INNER JOIN offchainreporting2_oracle_specs AS ocr2 ON jobs.offchainreporting2_oracle_spec_id = ocr2.id
+WHERE ocr2.is_bootstrap_peer IS true;
 
 -- point jobs to new bootstrap specs
 UPDATE jobs
 SET type                              = 'bootstrap',
     offchainreporting2_oracle_spec_id = null,
     bootstrap_spec_id                 = (SELECT id FROM bootstrap_specs WHERE jobs.id = bootstrap_specs.job_id)
-where (SELECT COUNT(*) FROM bootstrap_specs WHERE jobs.id = bootstrap_specs.job_id) > 0;
+WHERE (SELECT COUNT(*) FROM bootstrap_specs WHERE jobs.id = bootstrap_specs.job_id) > 0;
 
 -- cleanup
 -- delete old ocr2 bootstrap specs
 DELETE
 FROM offchainreporting2_oracle_specs
-WHERE is_bootstrap_peer is true;
+WHERE is_bootstrap_peer IS true;
 
 ALTER TABLE offchainreporting2_oracle_specs
     DROP COLUMN is_bootstrap_peer;
@@ -82,7 +82,7 @@ INSERT INTO offchainreporting2_oracle_specs (contract_id, is_bootstrap_peer, ocr
                                              transmitter_id, blockchain_timeout, contract_config_tracker_poll_interval,
                                              contract_config_confirmations, juels_per_fee_coin_pipeline, created_at,
                                              updated_at, relay, job_id)
-select bootstrap_specs.contract_id,
+SELECT bootstrap_specs.contract_id,
        true,
        null,
        bootstrap_specs.monitoring_endpoint,
@@ -95,7 +95,7 @@ select bootstrap_specs.contract_id,
        bootstrap_specs.updated_at,
        bootstrap_specs.relay,
        jobs.id
-from jobs
+FROM jobs
          INNER JOIN bootstrap_specs ON jobs.bootstrap_spec_id = bootstrap_specs.id
 WHERE jobs.bootstrap_spec_id is not null;
 
@@ -106,7 +106,7 @@ SET type                              = 'offchainreporting2',
     offchainreporting2_oracle_spec_id = (SELECT id
                                          FROM offchainreporting2_oracle_specs
                                          WHERE jobs.id = offchainreporting2_oracle_specs.job_id)
-where (SELECT COUNT(*) FROM offchainreporting2_oracle_specs WHERE jobs.id = offchainreporting2_oracle_specs.job_id) > 0;
+WHERE (SELECT COUNT(*) FROM offchainreporting2_oracle_specs WHERE jobs.id = offchainreporting2_oracle_specs.job_id) > 0;
 
 -- cleanup
 DELETE
