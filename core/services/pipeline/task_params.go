@@ -229,23 +229,19 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 
 type BytesParam []byte
 
-func (b BytesParam) MarshalJSON() ([]byte, error) {
-	panic("must never marshal []byte to JSON, please use specific types")
-}
-
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		if utils.HasHexPrefix(v) {
 			bs, err := hex.DecodeString(utils.RemoveHexPrefix(v))
 			if err == nil {
-				*b = BytesParam(bs)
+				*b = bs
 				return nil
 			}
 		}
 		*b = BytesParam(v)
 	case []byte:
-		*b = BytesParam(v)
+		*b = v
 	case nil:
 		*b = BytesParam(nil)
 	case common.Hash:

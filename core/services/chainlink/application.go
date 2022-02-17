@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"reflect"
 	"sync"
-
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
