@@ -124,7 +124,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 	require.NoError(t, err)
 
 	configPublic := fakeKey.ConfigEncryptionPublicKey()
-	pubKey := fakeKey.PublicKey()
+	pubKey := fakeKey.OffchainPublicKey()
 	d, err := json.Marshal(map[string]interface{}{
 		"createOCR2KeyBundle": map[string]interface{}{
 			"bundle": map[string]interface{}{
