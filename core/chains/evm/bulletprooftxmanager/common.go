@@ -34,8 +34,10 @@ func batchSendTransactions(
 
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
+	hashes := make([]common.Hash, len(attempts))
 	for i, attempt := range attempts {
 		ethTxIDs[i] = attempt.EthTxID
+		hashes[i] = attempt.Hash
 		req := rpc.BatchElem{
 			Method: "eth_sendRawTransaction",
 			Args:   []interface{}{hexutil.Encode(attempt.SignedRawTx)},
@@ -43,6 +45,8 @@ func batchSendTransactions(
 		}
 		reqs[i] = req
 	}
+
+	logger.Debugw(fmt.Sprintf("Batch sending %d unconfirmed transactions.", len(attempts)), "n", len(attempts), "ethTxIDs", ethTxIDs, "hashes", hashes)
 
 	now := time.Now()
 	if batchSize == 0 {
@@ -56,7 +60,7 @@ func batchSendTransactions(
 
 		logger.Debugw(fmt.Sprintf("Batch sending transactions %v thru %v", i, j))
 
-		if err := ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
+		if err := ethClient.BatchCallContextAll(ctx, reqs[i:j]); err != nil {
 			return reqs, errors.Wrap(err, "failed to batch send transactions")
 		}
 

@@ -227,6 +227,41 @@ func (p *Pool) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return p.getRoundRobin().BatchCallContext(ctx, b)
 }
 
+// BatchCallContextAll calls BatchCallContext for every single node including
+// sendonlys.
+// CAUTION: This should only be used for mass re-transmitting transactions, it
+// might have unexpected effects to use it for anything else.
+func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	main := p.getRoundRobin()
+	var all []SendOnlyNode
+	for _, n := range p.nodes {
+		all = append(all, n)
+	}
+	all = append(all, p.sendonlys...)
+	for _, n := range all {
+		if n == main {
+			// main node is used at the end for the return value
+			continue
+		}
+		// Parallel call made to all other nodes with ignored return value
+		wg.Add(1)
+		go func(n SendOnlyNode) {
+			defer wg.Done()
+			err := n.BatchCallContext(ctx, b)
+			if err != nil {
+				p.logger.Debugw("Secondary node BatchCallContext failed", "err", err)
+			} else {
+				p.logger.Trace("Secondary node BatchCallContext success")
+			}
+		}(n)
+	}
+
+	return main.BatchCallContext(ctx, b)
+}
+
 // Wrapped Geth client methods
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	main := p.getRoundRobin()

@@ -21,7 +21,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
+func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -34,7 +34,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 10, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 10, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
@@ -43,6 +43,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, time.Unix(1616509100, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, time.Unix(1616509200, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress, time.Unix(1616509300, 0)),
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, borm, 3, fromAddress, time.Unix(1616509400, 0)),
 	}
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etxs[0].ID)
 	attempt1_2.GasPrice = utils.NewBig(big.NewInt(10))
@@ -52,18 +53,42 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	attempt3_2.GasPrice = utils.NewBig(big.NewInt(10))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt3_2))
 
+	attempt4_2 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
+	attempt4_2.GasTipCap = utils.NewBig(big.NewInt(10))
+	attempt4_2.GasFeeCap = utils.NewBig(big.NewInt(20))
+	attempt4_2.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_2))
+	attempt4_4 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
+	attempt4_4.GasTipCap = utils.NewBig(big.NewInt(30))
+	attempt4_4.GasFeeCap = utils.NewBig(big.NewInt(40))
+	attempt4_4.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_4))
+	attempt4_3 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
+	attempt4_3.GasTipCap = utils.NewBig(big.NewInt(20))
+	attempt4_3.GasFeeCap = utils.NewBig(big.NewInt(30))
+	attempt4_3.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_3))
+
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
 		assert.Equal(t, etxs[1].EthTxAttempts[0].ID, attempts[1].ID)
 	})
 
+	t.Run("returns the highest price attempt for EIP-1559 transactions", func(t *testing.T) {
+		olderThan := time.Unix(1616509400, 0)
+		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
+		require.NoError(t, err)
+		assert.Len(t, attempts, 4)
+		assert.Equal(t, attempt4_4.ID, attempts[3].ID)
+	})
+
 	t.Run("applies limit", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 1, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 1, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -97,12 +122,12 @@ func Test_EthResender_Start(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress, time.Now().Add(1*time.Hour))
 
 		// First batch of 1
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
 				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx)
 		})).Return(nil)
 		// Second batch of 1
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
 				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx2.EthTxAttempts[0].SignedRawTx)
 		})).Return(nil).Run(func(args mock.Arguments) {

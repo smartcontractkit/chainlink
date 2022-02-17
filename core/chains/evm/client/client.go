@@ -41,10 +41,15 @@ type Client interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	// BatchCallContextAll calls BatchCallContext for every single node including
+	// sendonlys.
+	// CAUTION: This should only be used for mass re-transmitting transactions, it
+	// might have unexpected effects to use it for anything else.
+	BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 
 	// HeadByNumber is a reimplemented version of HeaderByNumber due to a
 	// difference in how block header hashes are calculated by Parity nodes
-	// running on Kovan.  We have to return our own wrapper type to capture the
+	// running on Kovan. We have to return our own wrapper type to capture the
 	// correct hash from the RPC response.
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
@@ -212,6 +217,12 @@ func (client *client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (g
 	return client.pool.EstimateGas(ctx, call)
 }
 
+// SuggestGasPrice calls the RPC node to get a suggested gas price.
+// WARNING: It is not recommended to ever use this result for anything
+// important. There are a number of issues with asking the RPC node to provide a
+// gas estimate; it is not reliable. Unless you really have a good reason to
+// use this, you should probably use core node's internal gas estimator
+// instead.
 func (client *client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	return client.pool.SuggestGasPrice(ctx)
 }
@@ -291,6 +302,16 @@ func (client *client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 	return client.pool.BatchCallContext(ctx, b)
 }
 
+func (client *client) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	return client.pool.BatchCallContextAll(ctx, b)
+}
+
+// SuggestGasTipCap calls the RPC node to get a suggested gas tip cap.
+// WARNING: It is not recommended to ever use this result for anything
+// important. There are a number of issues with asking the RPC node to provide a
+// gas estimate; it is not reliable. Unless you really have a good reason to
+// use this, you should probably use core node's internal gas estimator
+// instead.
 func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return client.pool.SuggestGasTipCap(ctx)
 }
