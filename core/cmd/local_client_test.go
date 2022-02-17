@@ -72,6 +72,10 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 		Dir:      t.TempDir(),
 	}
 
+	tmpFile, err := os.CreateTemp(lcfg.Dir, "*")
+	assert.NoError(t, err)
+	defer tmpFile.Close()
+
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
@@ -151,7 +155,7 @@ LOG_SQL: false
 LOG_TO_DISK: false
 LOG_FILE_MAX_SIZE: 5.12gb
 LOG_FILE_MAX_AGE: 0
-LOG_FILE_MAX_BACKUPS: 0
+LOG_FILE_MAX_BACKUPS: 1 
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 

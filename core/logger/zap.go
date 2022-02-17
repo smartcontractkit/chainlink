@@ -1,11 +1,13 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -32,21 +34,27 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 	cores := []zapcore.Core{
 		newConsoleCore(cfg),
 	}
-	cores = append(cores, newCores(cfg)...)
+	newCores, err := newCores(cfg)
+	cores = append(cores, newCores...)
 
 	core := zapcore.NewTee(cores...)
 
 	return &zapLogger{
 		config:        cfg,
 		SugaredLogger: zap.New(core).Sugar(),
-	}, nil
+	}, err
 }
 
-func newCores(cfg ZapLoggerConfig) []zapcore.Core {
+func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
+	var err error
 	var cores []zapcore.Core
 
 	if cfg.local.ToDisk {
-		cores = append(cores, newDiskCore(cfg.local))
+		core, diskErr := newDiskCore(cfg.local)
+		if diskErr == nil {
+			cores = append(cores, core)
+		}
+		err = diskErr
 	}
 
 	for _, sink := range cfg.sinks {
@@ -60,10 +68,24 @@ func newCores(cfg ZapLoggerConfig) []zapcore.Core {
 		)
 	}
 
-	return cores
+	return cores, err
 }
 
-func newDiskCore(cfg Config) zapcore.Core {
+func newDiskCore(cfg Config) (zapcore.Core, error) {
+	diskUsage, err := disk.Usage(cfg.Dir)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting disk space available for logging")
+	}
+	diskSpaceAvailable := utils.FileSize(diskUsage.Free)
+	requiredDiskSpace := utils.FileSize(cfg.DiskMaxSizeBeforeRotate * (cfg.DiskMaxBackupsBeforeDelete + 1))
+	if diskSpaceAvailable < requiredDiskSpace {
+		return nil, fmt.Errorf(
+			"disk space is not enough to log into disk, Required disk space: %s, Available disk space: %s",
+			requiredDiskSpace,
+			diskSpaceAvailable,
+		)
+	}
+
 	var (
 		encoder = zapcore.NewConsoleEncoder(makeEncoderConfig(cfg))
 		sink    = zapcore.AddSync(&lumberjack.Logger{
@@ -75,7 +97,8 @@ func newDiskCore(cfg Config) zapcore.Core {
 		})
 		allLogLevels = zap.LevelEnablerFunc(zap.DebugLevel.Enabled)
 	)
-	return zapcore.NewCore(encoder, sink, allLogLevels)
+
+	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }
 
 func newConsoleCore(cfg ZapLoggerConfig) zapcore.Core {
@@ -151,12 +174,13 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 		// The console core is what we want to be unique per root, so we spin a new one here
 		newConsoleCore(newLogger.config),
 	}
-	cores = append(cores, newCores(newLogger.config)...)
+	extraCores, err := newCores(newLogger.config)
+	cores = append(cores, extraCores...)
 	core := zap.New(zapcore.NewTee(cores...)).WithOptions(zap.AddCallerSkip(l.callerSkip))
 
 	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
 
-	return &newLogger, nil
+	return &newLogger, err
 }
 
 func (l *zapLogger) Helper(skip int) Logger {

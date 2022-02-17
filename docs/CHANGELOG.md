@@ -20,7 +20,7 @@ New ENV vars:
 - `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
 - `LOG_FILE_MAX_SIZE` (default: 5120mb) - if `LOG_TO_DISK` is enabled, this env var allows you to override the log file's max size (in megabytes) before file rotation.
 - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_TO_DISK` is enabled, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
-- `LOG_FILE_MAX_BACKUPS` (default: 0) - if `LOG_TO_DISK` is enabled, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain all old log files (though `LOG_FILE_MAX_AGE` may still cause them to get deleted).
+- `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_TO_DISK` is enabled, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted).
 - `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed.
 - `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
 - `TERRA_ENABLED` (default: false) - set to true to enable Terra support
