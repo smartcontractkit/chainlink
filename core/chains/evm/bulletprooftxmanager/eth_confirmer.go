@@ -307,10 +307,10 @@ func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address,
 		return attempts
 	}
 
-	firstAttemptNonce := fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
-	lastAttemptNonce := fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
-	ec.lggr.Debugw(fmt.Sprintf("There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
-		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "latestBlockNonce", latestBlockNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
+	firstAttemptNonce := *attempts[len(attempts)-1].EthTx.Nonce
+	lastAttemptNonce := *attempts[0].EthTx.Nonce
+	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, latest nonce for it is %d and for the attempts' nonces: first = %d, last = %d",
+		len(attempts), from.Hex(), latestBlockNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "latestBlockNonce", latestBlockNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
 	for i := 0; i < len(attempts); i++ {

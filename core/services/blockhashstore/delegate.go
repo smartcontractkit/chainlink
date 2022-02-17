@@ -150,16 +150,16 @@ type service struct {
 func (s *service) Start() error {
 	return s.StartOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Starting BHS feeder")
-		ticker := time.NewTicker(s.pollPeriod)
+		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
 		go func() {
 			defer close(s.done)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-ticker.C:
 					s.runFeeder()
 				case <-s.stop:
-					ticker.Stop()
 					return
 				}
 			}

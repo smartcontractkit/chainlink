@@ -143,7 +143,7 @@ func (r *runner) runReaperLoop() {
 		return
 	}
 
-	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
+	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 	defer runReaperTicker.Stop()
 	for {
 		select {
@@ -151,6 +151,7 @@ func (r *runner) runReaperLoop() {
 			return
 		case <-runReaperTicker.C:
 			r.runReaperWorker.WakeUp()
+			runReaperTicker.Reset(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 		}
 	}
 }
