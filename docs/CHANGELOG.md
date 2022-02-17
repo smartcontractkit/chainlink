@@ -18,7 +18,7 @@ New ENV vars:
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
 - `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
 - `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
-- `LOG_FILE_MAX_SIZE` (default: 1024mb) - if `LOG_TO_DISK` is enabled, this env var allows you to override the log file's max size (in megabytes) before file rotation.
+- `LOG_FILE_MAX_SIZE` (default: 5120mb) - if `LOG_TO_DISK` is enabled, this env var allows you to override the log file's max size (in megabytes) before file rotation.
 - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_TO_DISK` is enabled, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
 - `LOG_FILE_MAX_BACKUPS` (default: 0) - if `LOG_TO_DISK` is enabled, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain all old log files (though `LOG_FILE_MAX_AGE` may still cause them to get deleted).
 - `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed.

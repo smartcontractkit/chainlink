@@ -68,7 +68,7 @@ type ConfigSchema struct {
 	LogLevel          zapcore.Level  `env:"LOG_LEVEL"`
 	LogSQL            bool           `env:"LOG_SQL" default:"false"`
 	LogToDisk         bool           `env:"LOG_TO_DISK" default:"false"`
-	LogFileMaxSize    utils.FileSize `env:"LOG_FILE_MAX_SIZE" default:"1024mb"`
+	LogFileMaxSize    utils.FileSize `env:"LOG_FILE_MAX_SIZE" default:"5120mb"`
 	LogFileMaxAge     int64          `env:"LOG_FILE_MAX_AGE" default:"0"`
 	LogFileMaxBackups int64          `env:"LOG_FILE_MAX_BACKUPS" default:"0"`
 	LogUnixTS         bool           `env:"LOG_UNIX_TS" default:"false"`
