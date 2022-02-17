@@ -22,12 +22,99 @@ ALTER TABLE ONLY bootstrap_contract_configs
             REFERENCES bootstrap_specs (id)
             ON DELETE CASCADE;
 
+-- add missing unique constraint to bootstrap specs
+CREATE UNIQUE INDEX idx_jobs_unique_bootstrap_spec_id ON jobs USING btree (bootstrap_spec_id);
+
+-- migrate existing OCR2 bootstrap jobs to the new bootstrap spec
+-- create helper column
+ALTER TABLE bootstrap_specs
+    ADD COLUMN job_id INTEGER;
+
+-- insert bootstrap specs
+INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint, blockchain_timeout,
+                             contract_config_tracker_poll_interval, contract_config_confirmations, created_at,
+                             updated_at, job_id)
+SELECT ocr2.contract_id,
+       ocr2.relay,
+       ocr2.relay_config,
+       ocr2.monitoring_endpoint,
+       ocr2.blockchain_timeout,
+       ocr2.contract_config_tracker_poll_interval,
+       ocr2.contract_config_confirmations,
+       ocr2.created_at,
+       ocr2.updated_at,
+       jobs.id
+from jobs
+         INNER JOIN offchainreporting2_oracle_specs as ocr2 ON jobs.offchainreporting2_oracle_spec_id = ocr2.id
+WHERE jobs.offchainreporting2_oracle_spec_id is not null
+  AND ocr2.is_bootstrap_peer is true;
+
+
+-- point jobs to new bootstrap specs
+update jobs
+set offchainreporting2_oracle_spec_id = null,
+    bootstrap_spec_id                 = bootstrap_specs.id,
+    type                              = 'bootstrap'
+from jobs as j
+         INNER JOIN bootstrap_specs ON j.id = bootstrap_specs.job_id;
+
+-- cleanup
+-- delete old ocr2 bootstrap specs
+DELETE
+FROM offchainreporting2_oracle_specs
+WHERE is_bootstrap_peer is true;
+
 ALTER TABLE offchainreporting2_oracle_specs
     DROP COLUMN is_bootstrap_peer;
-
+ALTER TABLE bootstrap_specs
+    DROP COLUMN job_id;
 -- +goose StatementEnd
+
 
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE bootstrap_contract_configs;
+
+-- create helper column
+ALTER TABLE offchainreporting2_oracle_specs
+    ADD COLUMN is_bootstrap_peer bool not null default false,
+    ADD COLUMN job_id            INTEGER;
+
+-- insert ocr2 specs
+INSERT INTO offchainreporting2_oracle_specs (contract_id, is_bootstrap_peer, ocr_key_bundle_id, monitoring_endpoint,
+                                             transmitter_id, blockchain_timeout, contract_config_tracker_poll_interval,
+                                             contract_config_confirmations, juels_per_fee_coin_pipeline, created_at,
+                                             updated_at, relay, job_id)
+select bootstrap_specs.contract_id,
+       true,
+       null,
+       bootstrap_specs.monitoring_endpoint,
+       '',
+       bootstrap_specs.blockchain_timeout,
+       bootstrap_specs.contract_config_tracker_poll_interval,
+       bootstrap_specs.contract_config_confirmations,
+       '',
+       bootstrap_specs.created_at,
+       bootstrap_specs.updated_at,
+       bootstrap_specs.relay,
+       jobs.id
+from jobs
+         INNER JOIN bootstrap_specs ON jobs.bootstrap_spec_id = bootstrap_specs.id
+WHERE jobs.bootstrap_spec_id is not null;
+
+-- point jobs to new ocr2 specs
+update jobs
+set bootstrap_spec_id                 = null,
+    offchainreporting2_oracle_spec_id = ocr2.id,
+    type                              = 'offchainreporting2'
+from jobs as j
+         INNER JOIN offchainreporting2_oracle_specs ocr2 ON j.id = ocr2.job_id
+where ocr2.job_id is not null;
+
+-- cleanup
+DELETE
+FROM bootstrap_specs;
+
+ALTER TABLE offchainreporting2_oracle_specs
+    DROP COLUMN job_id;
 -- +goose StatementEnd
