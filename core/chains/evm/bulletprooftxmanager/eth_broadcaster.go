@@ -422,7 +422,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	etx.BroadcastAt = &initialBroadcastAt
 
 	if sendError.IsNonceTooLowError() || sendError.IsReplacementUnderpriced() {
-		// There are three scenarios that this can happen:
+		// There are four scenarios that this can happen:
 		//
 		// SCENARIO 1
 		//

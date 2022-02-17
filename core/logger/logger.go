@@ -141,8 +141,20 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 	return config
 }
 
-func baseLoggerName() string {
-	return fmt.Sprintf("%s@%s", static.Version, static.Sha[:7])
+func verShaNameStatic() string {
+	return verShaName(static.Version, static.Sha)
+}
+
+func verShaName(ver, sha string) string {
+	if sha == "" {
+		sha = "unset"
+	} else if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	if ver == "" {
+		ver = "unset"
+	}
+	return fmt.Sprintf("%s@%s", ver, sha)
 }
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
@@ -185,7 +197,7 @@ func NewLogger() Logger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l.Named(baseLoggerName())
+	return l.Named(verShaNameStatic())
 }
 
 type Config struct {

@@ -1,5 +1,6 @@
-GETH_VERSION: 1.10.11
+GETH_VERSION: 1.10.15
 aggregator_v2v3_interface: ../../../contracts/solc/v0.8/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8/AggregatorV2V3Interface.bin ec03a11bfb3d34b3e9a8d25ad58751aa3e3e160144f1979d2b023a0e4582b964
+aggregator_v3_interface: ../../../contracts/solc/v0.8/AggregatorV3Interface.abi ../../../contracts/solc/v0.8/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
 blockhash_store: ../../../contracts/solc/v0.6/BlockhashStore.abi ../../../contracts/solc/v0.6/BlockhashStore.bin 6b3da771f033b3a5e53bf112396d0698debf65a8dcd81370f07d72948c8b14d9
 consumer_wrapper: ../../../contracts/solc/v0.7/Consumer.abi ../../../contracts/solc/v0.7/Consumer.bin 894d1cbd920dccbd36d92918c1037c6ded34f66f417ccb18ec3f33c64ef83ec5
 derived_price_feed_wrapper: ../../../contracts/solc/v0.7/DerivedPriceFeed.abi ../../../contracts/solc/v0.7/DerivedPriceFeed.bin 754190a4e868d35913f7f4ab3fbc605afdbc1b64d68ea53d8de89fd6b036fe06

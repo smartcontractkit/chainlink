@@ -14,7 +14,7 @@ import (
 var Version = "unset"
 
 // Sha string "unset"
-var Sha = "unsetSHA"
+var Sha = "unset"
 
 var InitTime time.Time
 
