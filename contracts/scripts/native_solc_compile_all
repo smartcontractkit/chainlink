@@ -36,9 +36,6 @@ $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
 # Aggregators
 $SCRIPTPATH/native_solc8_compile interfaces/AggregatorV2V3Interface.sol
 
-# Feeds
-$SCRIPTPATH/native_solc7_compile tests/DerivedPriceFeed.sol
-
 $SCRIPTPATH/native_solc8_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_compile ChainlinkClient.sol
 $SCRIPTPATH/native_solc8_compile VRFRequestIDBase.sol
@@ -61,3 +58,6 @@ $SCRIPTPATH/native_solc8_compile tests/VRFOwnerlessConsumerExample.sol
 
 $SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol
+
+# Feeds
+$SCRIPTPATH/native_solc8_compile dev/DerivedPriceFeed.sol
