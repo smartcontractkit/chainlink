@@ -18,9 +18,7 @@ type db struct {
 	lggr         logger.Logger
 }
 
-var (
-	_ ocrtypes.Database = &db{}
-)
+var _ ocrtypes.Database = &db{}
 
 // NewDB returns a new DB scoped to this oracleSpecID
 func NewDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *db {

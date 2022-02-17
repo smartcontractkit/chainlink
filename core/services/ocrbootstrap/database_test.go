@@ -69,8 +69,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest: testhelpers.MakeConfigDigest(t),
-			Signers:      []ocrtypes.OnchainPublicKey{},
-			Transmitters: []ocrtypes.Account{},
+			Signers:      []ocrtypes.OnchainPublicKey{{0x03}},
+			Transmitters: []ocrtypes.Account{"test"},
 		}
 
 		err := db.WriteConfig(ctx, newConfig)

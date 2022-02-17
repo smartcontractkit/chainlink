@@ -76,15 +76,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
 	}
 
-	OCR2ProviderArgs := relay.OCR2ProviderArgs{
+	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
 		ID:              spec.ID,
 		ContractID:      spec.ContractID,
 		TransmitterID:   spec.TransmitterID,
 		Relay:           spec.Relay,
 		RelayConfig:     spec.RelayConfig,
 		IsBootstrapPeer: false,
-	}
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &OCR2ProviderArgs)
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}

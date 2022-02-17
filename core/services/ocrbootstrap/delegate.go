@@ -57,15 +57,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
 
-	OCR2ProviderArgs := relay.OCR2ProviderArgs{
+	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
 		ID:              spec.ID,
 		ContractID:      spec.ContractID,
 		TransmitterID:   null.String{},
 		Relay:           spec.Relay,
 		RelayConfig:     spec.RelayConfig,
 		IsBootstrapPeer: true,
-	}
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &OCR2ProviderArgs)
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
