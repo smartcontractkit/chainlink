@@ -229,6 +229,10 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 
 type BytesParam []byte
 
+func (b BytesParam) MarshalJSON() ([]byte, error) {
+	panic("must never marshal []byte to JSON, please use specific types")
+}
+
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:

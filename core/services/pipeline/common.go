@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	"net/url"
 	"reflect"
@@ -248,8 +249,12 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 		}
 
 		// Don't need to HEX encode if it is already HEX encoded value
-		if utils.IsHexBytes(x) {
-			return json.Marshal(string(x))
+		xStr := string(x)
+		if utils.HasHexPrefix(xStr) {
+			_, err := hexutil.Decode(xStr)
+			if err == nil {
+				return json.Marshal(xStr)
+			}
 		}
 
 		return json.Marshal(hex.EncodeToString(x))

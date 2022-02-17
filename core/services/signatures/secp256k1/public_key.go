@@ -129,7 +129,7 @@ func (k *PublicKey) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// UnmarshalJSON parses a hash in hex syntax.
+// UnmarshalJSON parses a PublicKey from hex syntax
 func (k *PublicKey) UnmarshalJSON(input []byte) error {
 	return hexutil.UnmarshalFixedJSON(publicKeyT, input, k[:])
 }
