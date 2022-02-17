@@ -158,6 +158,23 @@ func GetJobProposalsByFeedsManagerID(ctx context.Context, id string) ([]feeds.Jo
 	return jbRuns, nil
 }
 
+func GetJobByExternalJobID(ctx context.Context, id string) (*job.Job, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.JobsByExternalJobIDs.Load(ctx, dataloader.StringKey(id))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	job, ok := result.(job.Job)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	return &job, nil
+}
+
 // GetJobByPipelineSpecID fetches the job by pipeline spec ID.
 func GetJobByPipelineSpecID(ctx context.Context, id string) (*job.Job, error) {
 	ldr := For(ctx)

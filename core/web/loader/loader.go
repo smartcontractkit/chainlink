@@ -14,14 +14,15 @@ type loadersKey struct{}
 type Dataloader struct {
 	app chainlink.Application
 
-	NodesByChainIDLoader            *dataloader.Loader
 	ChainsByIDLoader                *dataloader.Loader
+	EthTxAttemptsByEthTxIDLoader    *dataloader.Loader
 	FeedsManagersByIDLoader         *dataloader.Loader
-	JobRunsByIDLoader               *dataloader.Loader
-	JobsByPipelineSpecIDLoader      *dataloader.Loader
 	JobProposalsByManagerIDLoader   *dataloader.Loader
 	JobProposalSpecsByJobProposalID *dataloader.Loader
-	EthTxAttemptsByEthTxIDLoader    *dataloader.Loader
+	JobRunsByIDLoader               *dataloader.Loader
+	JobsByExternalJobIDs            *dataloader.Loader
+	JobsByPipelineSpecIDLoader      *dataloader.Loader
+	NodesByChainIDLoader            *dataloader.Loader
 }
 
 func New(app chainlink.Application) *Dataloader {
@@ -36,15 +37,16 @@ func New(app chainlink.Application) *Dataloader {
 
 	return &Dataloader{
 		app: app,
-
-		NodesByChainIDLoader:            dataloader.NewBatchedLoader(nodes.loadByChainIDs),
+		
 		ChainsByIDLoader:                dataloader.NewBatchedLoader(chains.loadByIDs),
+		EthTxAttemptsByEthTxIDLoader:    dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
 		FeedsManagersByIDLoader:         dataloader.NewBatchedLoader(mgrs.loadByIDs),
-		JobRunsByIDLoader:               dataloader.NewBatchedLoader(jobRuns.loadByIDs),
-		JobsByPipelineSpecIDLoader:      dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
 		JobProposalsByManagerIDLoader:   dataloader.NewBatchedLoader(jps.loadByManagersIDs),
 		JobProposalSpecsByJobProposalID: dataloader.NewBatchedLoader(jpSpecs.loadByJobProposalsIDs),
-		EthTxAttemptsByEthTxIDLoader:    dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
+		JobRunsByIDLoader:               dataloader.NewBatchedLoader(jobRuns.loadByIDs),
+		JobsByExternalJobIDs:            dataloader.NewBatchedLoader(jbs.loadByExternalJobIDs),
+		JobsByPipelineSpecIDLoader:      dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
+		NodesByChainIDLoader:            dataloader.NewBatchedLoader(nodes.loadByChainIDs),
 	}
 }
 

@@ -17,6 +17,7 @@ export const JOB_PROPOSAL_PAYLOAD_FIELDS = gql`
     id
     externalJobID
     remoteUUID
+    jobID
     specs {
       ...JobProposal_SpecsFields
     }
