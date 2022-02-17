@@ -204,13 +204,13 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.gasBumpThreshold = 5          // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.gasBumpWei = *assets.GWei(20)
 	polygonMainnet.gasPriceDefault = *assets.GWei(1)
-	polygonMainnet.headTrackerHistoryDepth = 250 // FinalityDepth + safety margin
+	polygonMainnet.headTrackerHistoryDepth = 1000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	polygonMainnet.maxQueuedTransactions = 2000        // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
-	polygonMainnet.maxGasPriceWei = *assets.UEther(50) // 50,000 GWei
+	polygonMainnet.maxQueuedTransactions = 2000         // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+	polygonMainnet.maxGasPriceWei = *assets.UEther(200) // 200,000 GWei
 	polygonMainnet.minGasPriceWei = *assets.GWei(1)
-	polygonMainnet.ethTxResendAfterThreshold = 5 * time.Minute // 5 minutes is roughly 300 blocks on Polygon. Since re-orgs occur often and can be deep we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
+	polygonMainnet.ethTxResendAfterThreshold = 1 * time.Minute // Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
 	polygonMainnet.blockHistoryEstimatorBlockDelay = 10        // Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
 	polygonMainnet.blockHistoryEstimatorBlockHistorySize = 24
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
