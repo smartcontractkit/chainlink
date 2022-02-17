@@ -85,6 +85,7 @@ func (d delegate) Healthy() error {
 	return err
 }
 
+// OCR2ProviderArgs contains the minimal parameters to create a OCR2 Provider.
 type OCR2ProviderArgs struct {
 	ID              int32
 	ContractID      string

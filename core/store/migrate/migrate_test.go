@@ -18,11 +18,11 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func TestMigrate_0099_BootstrapConfigs(t *testing.T) {
+func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	_, db := heavyweight.FullTestDB(t, "migrations", false, false)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	err := goose.UpTo(db.DB, "migrations", 98)
+	err := goose.UpTo(db.DB, "migrations", 99)
 	require.NoError(t, err)
 
 	pipelineORM := pipeline.NewORM(db, lggr, cfg)
