@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -28,9 +29,11 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, cfg)
 	pipelineID, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
+	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
+	require.NoError(t, err)
 	jobORM := job.NewORM(db, nil, pipelineORM, nil, lggr, cfg)
 
-	// OCR2 struct at migration v0098
+	// OCR2 struct at migration v0099
 	type OffchainReporting2OracleSpec struct {
 		ID                                int32              `toml:"-"`
 		ContractID                        string             `toml:"contractID"`
@@ -49,10 +52,10 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 		UpdatedAt                         time.Time `toml:"-"`
 	}
 
-	// Job struct at migration v0098
+	// Job struct at migration v0099
 	type Job struct {
-		ID                             int32     `toml:"-"`
-		ExternalJobID                  uuid.UUID `toml:"externalJobID"`
+		ID                             int32
+		ExternalJobID                  uuid.UUID
 		OffchainreportingOracleSpecID  *int32
 		OffchainreportingOracleSpec    *job.OffchainReportingOracleSpec
 		Offchainreporting2OracleSpecID *int32
@@ -80,7 +83,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 		SchemaVersion                  uint32
 		Name                           null.String
 		MaxTaskDuration                models.Interval
-		Pipeline                       pipeline.Pipeline `toml:"observationSource"`
+		Pipeline                       pipeline.Pipeline
 		CreatedAt                      time.Time
 	}
 
@@ -111,6 +114,22 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 		BootstrapSpecID:                nil,
 	}
 
+	nonBootstrapSpec := OffchainReporting2OracleSpec{
+		ID:                101,
+		IsBootstrapPeer:   false,
+		P2PBootstrapPeers: pq.StringArray{""},
+		ContractID:        "empty",
+	}
+	nonBootstrapJob := Job{
+		ID:                             11,
+		ExternalJobID:                  uuid.NewV4(),
+		Type:                           job.OffchainReporting2,
+		SchemaVersion:                  1,
+		PipelineSpecID:                 nonBootstrapPipelineID,
+		Offchainreporting2OracleSpecID: &nonBootstrapSpec.ID,
+		Offchainreporting2OracleSpec:   &nonBootstrapSpec,
+	}
+
 	sql := `INSERT INTO offchainreporting2_oracle_specs (id, contract_id, relay, relay_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline, is_bootstrap_peer,
 					monitoring_endpoint, created_at, updated_at)
@@ -120,23 +139,43 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 			RETURNING id;`
 	_, err = db.NamedExec(sql, jb.Offchainreporting2OracleSpec)
 	require.NoError(t, err)
+	_, err = db.NamedExec(sql, nonBootstrapJob.Offchainreporting2OracleSpec)
+	require.NoError(t, err)
 
-	jobInsert := `INSERT INTO jobs (id, pipeline_spec_id, external_job_id, schema_version, type, offchainreporting2_oracle_spec_id, bootstrap_spec_id, created_at)
+	sql = `INSERT INTO jobs (id, pipeline_spec_id, external_job_id, schema_version, type, offchainreporting2_oracle_spec_id, bootstrap_spec_id, created_at)
 		VALUES (:id, :pipeline_spec_id, :external_job_id, :schema_version, :type, :offchainreporting2_oracle_spec_id, :bootstrap_spec_id, NOW())
 		RETURNING *;`
-
-	_, err = db.NamedExec(jobInsert, jb)
+	_, err = db.NamedExec(sql, jb)
+	require.NoError(t, err)
+	_, err = db.NamedExec(sql, nonBootstrapJob)
 	require.NoError(t, err)
 
 	// Migrate up
 	err = goose.UpByOne(db.DB, "migrations")
 	require.NoError(t, err)
 
+	type bootplus struct {
+		job.BootstrapSpec
+		JobID int
+	}
+
+	var bootstrapSpecs []bootplus
+	sql = `SELECT * FROM bootstrap_specs;`
+	err = db.Select(&bootstrapSpecs, sql)
+	require.NoError(t, err)
+	require.Len(t, bootstrapSpecs, 1)
+	fmt.Printf("bootstrap count %d\n", len(bootstrapSpecs))
+	for _, bootstrapSpec := range bootstrapSpecs {
+		fmt.Printf("bootstrap id: %d with job_id: %d\n", bootstrapSpec.ID, bootstrapSpec.JobID)
+	}
+
+	var jobs []job.Job
 	jobs, count, err := jobORM.FindJobs(0, 1000)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.Equal(t, 2, count)
+	require.Nil(t, jobs[0].BootstrapSpecID)
 
-	migratedJob := jobs[0]
+	migratedJob := jobs[1]
 	require.Nil(t, migratedJob.Offchainreporting2OracleSpecID)
 	require.NotNil(t, migratedJob.BootstrapSpecID)
 	require.Equal(t, &job.BootstrapSpec{
@@ -156,7 +195,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	sql = `SELECT COUNT(*) FROM offchainreporting2_oracle_specs;`
 	err = db.Get(&count, sql)
 	require.NoError(t, err)
-	require.Equal(t, 0, count)
+	require.Equal(t, 1, count)
 
 	// Migrate down
 	err = goose.Down(db.DB, "migrations")
@@ -166,8 +205,8 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	sql = `SELECT * FROM jobs;`
 	err = db.Select(&oldJobs, sql)
 	require.NoError(t, err)
+	require.Len(t, oldJobs, 2)
 
-	require.Len(t, oldJobs, 1)
 	revertedJob := oldJobs[0]
 	require.NotNil(t, revertedJob.Offchainreporting2OracleSpecID)
 	require.Nil(t, revertedJob.BootstrapSpecID)
@@ -179,17 +218,17 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 		FROM offchainreporting2_oracle_specs;`
 	err = db.Select(&oldOCR2Spec, sql)
 	require.NoError(t, err)
-	require.Len(t, oldOCR2Spec, 1)
+	require.Len(t, oldOCR2Spec, 2)
+	bootSpec := oldOCR2Spec[1]
 
-	require.Equal(t, spec.Relay, oldOCR2Spec[0].Relay)
-	require.Equal(t, spec.ContractID, oldOCR2Spec[0].ContractID)
-	require.Equal(t, spec.RelayConfig, oldOCR2Spec[0].RelayConfig)
-	require.Equal(t, spec.ContractConfigConfirmations, oldOCR2Spec[0].ContractConfigConfirmations)
-	require.Equal(t, spec.ContractConfigTrackerPollInterval, oldOCR2Spec[0].ContractConfigTrackerPollInterval)
-	require.Equal(t, spec.BlockchainTimeout, oldOCR2Spec[0].BlockchainTimeout)
-	require.True(t, oldOCR2Spec[0].IsBootstrapPeer)
+	require.Equal(t, spec.Relay, bootSpec.Relay)
+	require.Equal(t, spec.ContractID, bootSpec.ContractID)
+	require.Equal(t, spec.RelayConfig, bootSpec.RelayConfig)
+	require.Equal(t, spec.ContractConfigConfirmations, bootSpec.ContractConfigConfirmations)
+	require.Equal(t, spec.ContractConfigTrackerPollInterval, bootSpec.ContractConfigTrackerPollInterval)
+	require.Equal(t, spec.BlockchainTimeout, bootSpec.BlockchainTimeout)
+	require.True(t, bootSpec.IsBootstrapPeer)
 
-	count = -1
 	sql = `SELECT COUNT(*) FROM bootstrap_specs;`
 	err = db.Get(&count, sql)
 	require.NoError(t, err)

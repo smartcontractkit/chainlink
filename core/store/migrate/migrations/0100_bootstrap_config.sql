@@ -46,17 +46,14 @@ SELECT ocr2.contract_id,
        jobs.id
 from jobs
          INNER JOIN offchainreporting2_oracle_specs as ocr2 ON jobs.offchainreporting2_oracle_spec_id = ocr2.id
-WHERE jobs.offchainreporting2_oracle_spec_id is not null
-  AND ocr2.is_bootstrap_peer is true;
-
+WHERE ocr2.is_bootstrap_peer is true;
 
 -- point jobs to new bootstrap specs
-update jobs
-set offchainreporting2_oracle_spec_id = null,
-    bootstrap_spec_id                 = bootstrap_specs.id,
-    type                              = 'bootstrap'
-from jobs as j
-         INNER JOIN bootstrap_specs ON j.id = bootstrap_specs.job_id;
+UPDATE jobs
+SET type                              = 'bootstrap',
+    offchainreporting2_oracle_spec_id = null,
+    bootstrap_spec_id                 = (SELECT id FROM bootstrap_specs WHERE jobs.id = bootstrap_specs.job_id)
+where (SELECT COUNT(*) FROM bootstrap_specs WHERE jobs.id = bootstrap_specs.job_id) > 0;
 
 -- cleanup
 -- delete old ocr2 bootstrap specs
@@ -103,13 +100,13 @@ from jobs
 WHERE jobs.bootstrap_spec_id is not null;
 
 -- point jobs to new ocr2 specs
-update jobs
-set bootstrap_spec_id                 = null,
-    offchainreporting2_oracle_spec_id = ocr2.id,
-    type                              = 'offchainreporting2'
-from jobs as j
-         INNER JOIN offchainreporting2_oracle_specs ocr2 ON j.id = ocr2.job_id
-where ocr2.job_id is not null;
+UPDATE jobs
+SET type                              = 'offchainreporting2',
+    bootstrap_spec_id                 = null,
+    offchainreporting2_oracle_spec_id = (SELECT id
+                                         FROM offchainreporting2_oracle_specs
+                                         WHERE jobs.id = offchainreporting2_oracle_specs.job_id)
+where (SELECT COUNT(*) FROM offchainreporting2_oracle_specs WHERE jobs.id = offchainreporting2_oracle_specs.job_id) > 0;
 
 -- cleanup
 DELETE
