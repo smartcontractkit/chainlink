@@ -53,6 +53,10 @@ chainID	        = 4
 
 Log colorization is now disabled by default because it causes issues when piped to text files. To re-enable log colorization, set `LOG_COLOR=true`.
 
+#### Polygon/matic defaults changed
+
+Due to increasingly hostile network conditions on Polygon we have had to increase a number of default limits. This is to work around numerous and very deep re-orgs, high mempool pressure and a failure by the network to propagate transactions properly. These new limits are likely to increase load on both your Chainlink node and database, so please be sure to monitor CPU and memory usage on both and make sure they are adequately specced to handle the additional load.
+
 ## [1.1.1] - 2022-02-14
 
 ### Added
