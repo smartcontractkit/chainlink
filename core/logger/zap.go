@@ -17,10 +17,12 @@ var _ Logger = &zapLogger{}
 // ZapLoggerConfig defines the struct that serves as config when spinning up a the zap logger
 type ZapLoggerConfig struct {
 	zap.Config
-	local        Config
-	diskLogLevel zap.AtomicLevel
-	sinks        []zapcore.WriteSyncer
-	diskStats    utils.DiskStatsProvider
+	local          Config
+	diskLogLevel   zap.AtomicLevel
+	sinks          []zapcore.WriteSyncer
+	diskStats      utils.DiskStatsProvider
+	diskPollConfig zapDiskPollConfig
+	diskLogLvlChan chan zapcore.Level
 }
 
 type zapLogger struct {
@@ -33,6 +35,8 @@ type zapLogger struct {
 }
 
 func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
+	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+
 	cores := []zapcore.Core{
 		newConsoleCore(cfg),
 	}
@@ -40,7 +44,6 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 	cores = append(cores, newCores...)
 
 	core := zapcore.NewTee(cores...)
-
 	lggr := &zapLogger{
 		config:            cfg,
 		closeDiskPollChan: make(chan struct{}),

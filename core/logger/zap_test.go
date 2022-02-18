@@ -2,8 +2,12 @@ package logger
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,6 +34,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	assert.NoError(t, err)
 	defer tmpFile.Close()
 
+	pollCfg := newDiskPollConfig(1 * time.Second)
 	zapCfg := ZapLoggerConfig{
 		Config: cfg,
 		local: Config{
@@ -39,7 +44,8 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			DiskMaxAgeBeforeDelete:     0,
 			DiskMaxBackupsBeforeDelete: 1,
 		},
-		diskLogLevel: zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		diskPollConfig: pollCfg,
+		diskLogLevel:   zap.NewAtomicLevelAt(zapcore.DebugLevel),
 	}
 
 	t.Run("on logger creation", func(t *testing.T) {
@@ -52,7 +58,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr, err := newZapLogger(zapCfg)
 		expectedError := fmt.Sprintf(
-			"disk space is not enough to log into disk, Required disk space: %s, Available disk space: %s",
+			"disk space is not enough to log into disk. Required disk space: %s, Available disk space: %s",
 			zapCfg.local.RequiredDiskSpace,
 			maxSize,
 		)
@@ -77,5 +83,55 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		require.Error(t, err)
 		require.Equal(t, expectedError, err.Error())
+	})
+
+	t.Run("after logger is created", func(t *testing.T) {
+		diskMock := &utilsmocks.DiskStatsProvider{}
+		diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil).Once()
+		defer diskMock.AssertExpectations(t)
+
+		pollChan := make(chan time.Time)
+		stop := func() {
+			close(pollChan)
+		}
+
+		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.diskStats = diskMock
+		zapCfg.diskPollConfig = zapDiskPollConfig{
+			stop:     stop,
+			pollChan: pollChan,
+		}
+		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
+
+		lggr, err := newZapLogger(zapCfg)
+		assert.NoError(t, err)
+		defer lggr.Sync()
+
+		lggr.Debug("test")
+
+		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
+
+		pollChan <- time.Now()
+		<-zapCfg.diskLogLvlChan
+
+		lggr.SetLogLevel(zapcore.WarnLevel)
+		lggr.Debug("test again")
+		lggr.Warn("test again")
+
+		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		b, err := ioutil.ReadFile(logFile)
+		assert.NoError(t, err)
+
+		logs := string(b)
+		lines := strings.Split(logs, "\n")
+		// the last line is a blank line, hence why using len(lines) - 2 makes sense
+		actualMessage := lines[len(lines)-2]
+		expectedMessage := fmt.Sprintf(
+			"disk space is not enough to log into disk any longer. Required disk space: %s, Available disk space: %s",
+			zapCfg.local.RequiredDiskSpace,
+			maxSize,
+		)
+
+		require.Contains(t, actualMessage, expectedMessage)
 	})
 }
