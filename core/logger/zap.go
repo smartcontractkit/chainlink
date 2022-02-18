@@ -183,7 +183,10 @@ func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 }
 
 func (l *zapLogger) Sync() error {
-	l.closeDiskPollChan <- struct{}{}
+	if l.config.local.ToDisk {
+		l.closeDiskPollChan <- struct{}{}
+	}
+
 	err := l.SugaredLogger.Sync()
 	if err == nil {
 		return nil
