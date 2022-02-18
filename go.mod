@@ -89,7 +89,11 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require github.com/shirou/gopsutil/v3 v3.22.1 // indirect
+require (
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
+	github.com/shirou/gopsutil/v3 v3.22.1
+	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+)
 
 require (
 	cloud.google.com/go v0.99.0 // indirect
@@ -114,7 +118,6 @@ require (
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
