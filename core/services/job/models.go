@@ -271,7 +271,6 @@ type OffchainReporting2OracleSpec struct {
 	Relay                             relaytypes.Network `toml:"relay"`
 	RelayConfig                       RelayConfig        `toml:"relayConfig"`
 	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
-	IsBootstrapPeer                   bool               `toml:"isBootstrapPeer"`
 	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
 	TransmitterID                     null.String        `toml:"transmitterID"`
@@ -491,7 +490,5 @@ func (s BootstrapSpec) AsOCR2Spec() OffchainReporting2OracleSpec {
 		ContractConfigConfirmations:       s.ContractConfigConfirmations,
 		CreatedAt:                         s.CreatedAt,
 		UpdatedAt:                         s.UpdatedAt,
-
-		IsBootstrapPeer: true,
 	}
 }
