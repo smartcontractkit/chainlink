@@ -151,6 +151,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		}
 
 		runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
+
+		// These are populated here because when the pipeline spec is
+		// run it uses them to create identifiable prometheus metrics.
+		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
+		jobSpec.PipelineSpec.JobID = jobSpec.ID
+
 		juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 			ID:           jobSpec.ID,
 			DotDagSource: spec.JuelsPerFeeCoinPipeline,
@@ -169,8 +175,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Logger:                    ocrLogger,
 		}
 
-		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
-		jobSpec.PipelineSpec.JobID = jobSpec.ID
 		oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
