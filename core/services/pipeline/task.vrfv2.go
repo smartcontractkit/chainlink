@@ -10,9 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-	"go.uber.org/multierr"
 
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -94,7 +95,7 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid sender")}, runInfo
 	}
-	pk, err := secp256k1.NewPublicKeyFromHex(hexutil.Encode(pubKey))
+	pk, err := secp256k1.NewPublicKeyFromBytes(pubKey)
 	if err != nil {
 		return Result{Error: fmt.Errorf("failed to create PublicKey from bytes %v", err)}, runInfo
 	}

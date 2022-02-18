@@ -77,7 +77,7 @@ func (t *VRFTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid requestJobID")}, runInfo
 	}
-	pk, err := secp256k1.NewPublicKeyFromHex(hexutil.Encode(pubKey))
+	pk, err := secp256k1.NewPublicKeyFromBytes(pubKey)
 	if err != nil {
 		return Result{Error: fmt.Errorf("failed to create PublicKey from bytes %v", err)}, runInfo
 	}
