@@ -389,6 +389,14 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 	b.logger.Debug("Starting the event loop")
 	for {
+		// Replay requests take priority.
+		select {
+		case blockNumber := <-b.replayChannel:
+			b.onReplayRequest(blockNumber)
+			return true, nil
+		default:
+		}
+
 		select {
 		case rawLog := <-chRawLogs:
 			b.logger.Debugw("Received a log",
@@ -417,11 +425,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			needsResubscribe = b.onChangeSubscriberStatus() || needsResubscribe
 
 		case blockNumber := <-b.replayChannel:
-			// NOTE: This ignores r.highestNumConfirmations, but it is
-			// generally assumed that this will only be performed rarely and
-			// manually by someone who knows what he is doing
-			b.backfillBlockNumber.SetValid(blockNumber)
-			b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
+			b.onReplayRequest(blockNumber)
 			return true, nil
 
 		case <-debounceResubscribe.C:
@@ -442,6 +446,15 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			}
 		}
 	}
+}
+
+func (b *broadcaster) onReplayRequest(blockNumber int64) {
+	// NOTE: This ignores r.highestNumConfirmations, but it is
+	// generally assumed that this will only be performed rarely and
+	// manually by someone who knows what he is doing
+	b.backfillBlockNumber.SetValid(blockNumber)
+	b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
+	return
 }
 
 func (b *broadcaster) onNewLog(log types.Log) {
