@@ -2,14 +2,17 @@ package ocrbootstrap
 
 import (
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
+	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
+	"github.com/smartcontractkit/sqlx"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-	"github.com/smartcontractkit/libocr/commontypes"
-	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // Delegate creates Bootstrap jobs
@@ -54,14 +57,20 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
 	}
 
-	ocr2Spec := spec.AsOCR2Spec()
-	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &ocr2Spec)
+	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, &relay.OCR2ProviderArgs{
+		ID:              spec.ID,
+		ContractID:      spec.ContractID,
+		TransmitterID:   null.String{},
+		Relay:           spec.Relay,
+		RelayConfig:     spec.RelayConfig,
+		IsBootstrapPeer: true,
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
 	services = append(services, ocr2Provider)
 
-	ocrDB := offchainreporting2.NewDB(d.db.DB, spec.ID, d.lggr)
+	configDB := NewDB(d.db.DB, spec.ID, d.lggr)
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -79,6 +88,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 
+	ocr2Spec := spec.AsOCR2Spec()
 	lc := offchainreporting2.ToLocalConfig(d.cfg, ocr2Spec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
@@ -96,7 +106,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	bootstrapNodeArgs := ocr.BootstrapperArgs{
 		BootstrapperFactory:    peerWrapper.Peer2,
 		ContractConfigTracker:  tracker,
-		Database:               ocrDB,
+		Database:               configDB,
 		LocalConfig:            lc,
 		Logger:                 ocrLogger,
 		OffchainConfigDigester: offchainConfigDigester,

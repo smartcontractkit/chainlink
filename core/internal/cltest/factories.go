@@ -329,7 +329,7 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) bulletprooftxmanager.E
 func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
 	transactionIndex := uint(NewRandomInt64())
 
-	receipt := bulletprooftxmanager.Receipt{
+	receipt := evmtypes.Receipt{
 		BlockNumber:      big.NewInt(blockNumber),
 		BlockHash:        blockHash,
 		TxHash:           txHash,

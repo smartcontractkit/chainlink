@@ -108,18 +108,25 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewBulletproofTxManager creates a new BulletproofTxManager with the given configuration.
-func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *BulletproofTxManager {
+func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
+	lggr.Infow("Initializing EVM transaction manager",
+		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
+		"maxInFlightTransactions", cfg.EvmMaxInFlightTransactions(),
+		"maxQueuedTransactions", cfg.EvmMaxQueuedTransactions(),
+		"nonceAutoSync", cfg.EvmNonceAutoSync(),
+		"gasLimitDefault", cfg.EvmGasLimitDefault(),
+	)
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		db:               db,
-		q:                pg.NewQ(db, lggr, config),
+		q:                pg.NewQ(db, lggr, cfg),
 		ethClient:        ethClient,
-		config:           config,
+		config:           cfg,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
-		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
+		gasEstimator:     gas.NewEstimator(lggr, ethClient, cfg),
 		chainID:          *ethClient.ChainID(),
 		checkerFactory:   checkerFactory,
 		chHeads:          make(chan *evmtypes.Head),
@@ -127,13 +134,13 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, config Con
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
 	}
-	if config.EthTxResendAfterThreshold() > 0 {
-		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, config)
+	if cfg.EthTxResendAfterThreshold() > 0 {
+		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, cfg)
 	} else {
 		b.logger.Info("EthResender: Disabled")
 	}
-	if config.EthTxReaperThreshold() > 0 && config.EthTxReaperInterval() > 0 {
-		b.reaper = NewReaper(lggr, db, config, *ethClient.ChainID())
+	if cfg.EthTxReaperThreshold() > 0 && cfg.EthTxReaperInterval() > 0 {
+		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
 	}

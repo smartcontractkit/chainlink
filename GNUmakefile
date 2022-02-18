@@ -1,20 +1,11 @@
 .DEFAULT_GOAL := build
 
-ENVIRONMENT ?= release
-
 GOPATH ?= $(HOME)/go
-REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
 GOBIN ?= $(GOPATH)/bin
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
-DOCKERFILE := core/chainlink.Dockerfile
-DOCKER_TAG ?= latest
-CHAINLINK_USER ?= root
-
-TAGGED_REPO := $(REPO):$(DOCKER_TAG)
-ECR_REPO := "$(AWS_ECR_URL)/chainlink:$(DOCKER_TAG)"
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -85,21 +76,6 @@ presubmit:
 	goimports -w ./core
 	gofmt -w ./core
 	go mod tidy
-
-.PHONY: docker
-docker: ## Build the docker image.
-	docker build \
-		-f $(DOCKERFILE) \
-		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
-		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-		--build-arg CHAINLINK_USER=$(CHAINLINK_USER) \
-		-t $(TAGGED_REPO) \
-		.
-
-.PHONY: dockerpush
-dockerpush: ## Push the docker image to ecr
-	docker push $(ECR_REPO)
-	docker push $(ECR_REPO)-nonroot
 
 .PHONY: mockery
 mockery: $(mockery)
