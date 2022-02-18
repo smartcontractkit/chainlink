@@ -61,7 +61,7 @@ interface KeeperRegistryBaseInterface {
 /**
  * @dev The view methods are not actually marked as view in the implementation
  * but we want them to be easily queried off-chain. Solidity will not compile
- * if we actually inherrit from this interface, so we document it here.
+ * if we actually inherit from this interface, so we document it here.
  */
 interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
   function checkUpkeep(uint256 upkeepId, address from)

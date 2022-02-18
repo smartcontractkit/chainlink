@@ -16,7 +16,7 @@ type GQLSession struct {
 }
 
 // AuthenticateGQL middleware checks the session cookie for a user and sets it
-// on the request context if it exists. It is the responsiblity of each resolver
+// on the request context if it exists. It is the responsibility of each resolver
 // to validate whether it requires an authenticated user.
 //
 // We currently only support GQL authentication by session cookie.

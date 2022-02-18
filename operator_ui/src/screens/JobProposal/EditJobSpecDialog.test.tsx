@@ -15,7 +15,7 @@ describe('EditJobSpecDialog', () => {
       <EditJobSpecDialog
         open={true}
         onClose={() => null}
-        initialValues={{ spec: 'name=test' }}
+        initialValues={{ definition: 'name=test', id: '1' }}
         onSubmit={handleSubmit}
       />,
     )
@@ -32,7 +32,7 @@ describe('EditJobSpecDialog', () => {
       <EditJobSpecDialog
         open={false}
         onClose={() => null}
-        initialValues={{ spec: 'name=test' }}
+        initialValues={{ definition: 'name=test', id: '1' }}
         onSubmit={handleSubmit}
       />,
     )
@@ -47,7 +47,7 @@ describe('EditJobSpecDialog', () => {
       <EditJobSpecDialog
         open={true}
         onClose={() => null}
-        initialValues={{ spec: '' }}
+        initialValues={{ definition: '', id: '1' }}
         onSubmit={handleSubmit}
       />,
     )
@@ -64,7 +64,7 @@ describe('EditJobSpecDialog', () => {
       <EditJobSpecDialog
         open={true}
         onClose={() => null}
-        initialValues={{ spec: 'test' }}
+        initialValues={{ definition: 'test', id: '1' }}
         onSubmit={handleSubmit}
       />,
     )
@@ -73,7 +73,7 @@ describe('EditJobSpecDialog', () => {
 
     await waitFor(() =>
       expect(handleSubmit).toHaveBeenCalledWith(
-        { spec: 'test' },
+        { definition: 'test', id: '1' },
         expect.anything(),
       ),
     )
@@ -87,7 +87,7 @@ describe('EditJobSpecDialog', () => {
       <EditJobSpecDialog
         open={true}
         onClose={handleClose}
-        initialValues={{ spec: 'test' }}
+        initialValues={{ definition: 'test', id: '1' }}
         onSubmit={handleSubmit}
       />,
     )

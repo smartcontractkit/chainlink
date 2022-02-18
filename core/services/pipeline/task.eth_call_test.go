@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	keystoremocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -33,7 +33,7 @@ func TestETHCallTask(t *testing.T) {
 		evmChainID            string
 		vars                  pipeline.Vars
 		inputs                []pipeline.Result
-		setupClientMocks      func(ethClient *ethmocks.Client, config *pipelinemocks.Config)
+		setupClientMocks      func(ethClient *evmmocks.Client, config *pipelinemocks.Config)
 		expected              interface{}
 		expectedErrorCause    error
 		expectedErrorContains string
@@ -47,7 +47,7 @@ func TestETHCallTask(t *testing.T) {
 				"foo": []byte("foo bar"),
 			}),
 			nil,
-			func(ethClient *ethmocks.Client, config *pipelinemocks.Config) {
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
 					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
@@ -64,7 +64,7 @@ func TestETHCallTask(t *testing.T) {
 				"foo": []byte("foo bar"),
 			}),
 			nil,
-			func(ethClient *ethmocks.Client, config *pipelinemocks.Config) {},
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {},
 			nil, pipeline.ErrBadInput, "contract",
 		},
 		{
@@ -76,7 +76,7 @@ func TestETHCallTask(t *testing.T) {
 				"zork": []byte("foo bar"),
 			}),
 			nil,
-			func(ethClient *ethmocks.Client, config *pipelinemocks.Config) {},
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {},
 			nil, pipeline.ErrKeypathNotFound, "data",
 		},
 		{
@@ -88,7 +88,7 @@ func TestETHCallTask(t *testing.T) {
 				"foo": []byte(nil),
 			}),
 			nil,
-			func(ethClient *ethmocks.Client, config *pipelinemocks.Config) {},
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {},
 			nil, pipeline.ErrBadInput, "data",
 		},
 		{
@@ -100,7 +100,7 @@ func TestETHCallTask(t *testing.T) {
 				"foo": []byte("foo bar"),
 			}),
 			[]pipeline.Result{{Error: errors.New("uh oh")}},
-			func(ethClient *ethmocks.Client, config *pipelinemocks.Config) {},
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {},
 			nil, pipeline.ErrTooManyErrors, "task inputs",
 		},
 		{
@@ -113,7 +113,7 @@ func TestETHCallTask(t *testing.T) {
 				"evmChainID": "123",
 			}),
 			nil,
-			func(ethClient *ethmocks.Client, config *pipelinemocks.Config) {
+			func(ethClient *evmmocks.Client, config *pipelinemocks.Config) {
 				contractAddr := common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF")
 				ethClient.
 					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
@@ -133,7 +133,7 @@ func TestETHCallTask(t *testing.T) {
 				EVMChainID: test.evmChainID,
 			}
 
-			ethClient := new(ethmocks.Client)
+			ethClient := new(evmmocks.Client)
 			config := new(pipelinemocks.Config)
 			test.setupClientMocks(ethClient, config)
 

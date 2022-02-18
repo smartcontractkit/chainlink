@@ -244,3 +244,12 @@ func TestCron_UnmarshalJSON_Invalid(t *testing.T) {
 		})
 	}
 }
+
+func TestNewInterval(t *testing.T) {
+	t.Parallel()
+
+	duration := 33 * time.Second
+	interval := models.NewInterval(duration)
+
+	require.Equal(t, duration, interval.Duration())
+}

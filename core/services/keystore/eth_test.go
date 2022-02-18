@@ -9,16 +9,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
+
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_EthKeyStore(t *testing.T) {
@@ -102,23 +104,21 @@ func Test_EthKeyStore(t *testing.T) {
 
 	t.Run("EnsureKeys / SendingKeys", func(t *testing.T) {
 		defer reset()
-		sKey, sDidExist, fKey, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
-		require.NoError(t, err)
-		require.False(t, sDidExist)
-		require.False(t, fDidExist)
-		sendingKeys, err := ethKeyStore.SendingKeys()
-		require.NoError(t, err)
-		require.Equal(t, 1, len(sendingKeys))
-		require.Equal(t, sKey.Address, sendingKeys[0].Address)
-		require.NoError(t, err)
+		err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
+		assert.NoError(t, err)
+		sendingKeys1, err := ethKeyStore.SendingKeys()
+		assert.NoError(t, err)
+
+		require.Equal(t, 1, len(sendingKeys1))
 		cltest.AssertCount(t, db, statesTableName, 2)
-		require.NotEqual(t, sKey.Address, fKey.Address)
-		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
-		require.NoError(t, err)
-		require.True(t, sDidExist)
-		require.True(t, fDidExist)
-		require.Equal(t, sKey, sKey2)
-		require.Equal(t, fKey, fKey2)
+
+		err = ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
+		assert.NoError(t, err)
+		sendingKeys2, err := ethKeyStore.SendingKeys()
+		assert.NoError(t, err)
+
+		require.Equal(t, 1, len(sendingKeys2))
+		require.Equal(t, sendingKeys1, sendingKeys2)
 	})
 }
 
@@ -137,14 +137,23 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	// create 4 keys - 1 funding and 3 sending
-	k1, _, kf, _, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
+	err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
+	sendingKeys, err := ethKeyStore.SendingKeys()
+	assert.NoError(t, err)
+
+	k1 := sendingKeys[0]
+
 	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	keys, err := ethKeyStore.SendingKeys()
-	require.NoError(t, err)
-	require.Equal(t, 3, len(keys))
+	sendingKeys, err = ethKeyStore.SendingKeys()
+	assert.NoError(t, err)
+	require.Equal(t, 3, len(sendingKeys))
+
+	fundingKeys, err := ethKeyStore.FundingKeys()
+	assert.NoError(t, err)
+	require.Equal(t, 1, len(fundingKeys))
 
 	t.Run("with no address filter, rotates between all sending addresses", func(t *testing.T) {
 		address1, err := ethKeyStore.GetRoundRobinAddress()
@@ -169,8 +178,8 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	t.Run("with address filter, rotates between given addresses that match sending keys", func(t *testing.T) {
-		// kf is a funding address so even though it's whitelisted, it will be ignored
-		addresses := []common.Address{kf.Address.Address(), k1.Address.Address(), k2.Address.Address(), cltest.NewAddress()}
+		// fundingKeys[0] is a funding address so even though it's whitelisted, it will be ignored
+		addresses := []common.Address{fundingKeys[0].Address.Address(), k1.Address.Address(), k2.Address.Address(), testutils.NewAddress()}
 
 		address1, err := ethKeyStore.GetRoundRobinAddress(addresses...)
 		require.NoError(t, err)
@@ -189,7 +198,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	t.Run("with address filter when no address matches", func(t *testing.T) {
-		_, err := ethKeyStore.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
+		_, err := ethKeyStore.GetRoundRobinAddress([]common.Address{testutils.NewAddress()}...)
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
@@ -203,10 +212,10 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 
 	k, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	chainID := big.NewInt(eth.NullClientChainID)
-	tx := types.NewTransaction(0, cltest.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
+	chainID := big.NewInt(evmclient.NullClientChainID)
+	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
 
-	randomAddress := cltest.NewAddress()
+	randomAddress := testutils.NewAddress()
 	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
 	require.EqualError(t, err, fmt.Sprintf("unable to find eth key with id %s", randomAddress.Hex()))
 
@@ -333,7 +342,7 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 		}
 	}()
 
-	_, _, _, _, err := ks.EnsureKeys(&cltest.FixtureChainID)
+	err := ks.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	assertCount(1)
 	_, err = ks.Create(&cltest.FixtureChainID)

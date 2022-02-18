@@ -4,15 +4,16 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 //go:generate mockery --name ContractSubmitter --output ./mocks/ --case=underscore
 
 // FluxAggregatorABI initializes the Flux Aggregator ABI
-var FluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+var FluxAggregatorABI = evmtypes.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 
 // ContractSubmitter defines an interface to submit an eth tx.
 type ContractSubmitter interface {

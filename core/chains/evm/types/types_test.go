@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -18,7 +18,7 @@ func Test_PersistsReadsChain(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	val := utils.NewBigI(rand.Int63())
-	addr := cltest.NewAddress()
+	addr := testutils.NewAddress()
 	ks := make(map[string]types.ChainCfg)
 	ks[addr.Hex()] = types.ChainCfg{EvmMaxGasPriceWei: val}
 	chain := types.Chain{

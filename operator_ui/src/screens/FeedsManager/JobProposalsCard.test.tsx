@@ -3,10 +3,15 @@ import * as React from 'react'
 import userEvent from '@testing-library/user-event'
 import { renderWithRouter, screen } from 'support/test-utils'
 
-import { buildJobProposals } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import {
+  buildJobProposals,
+  buildApprovedJobProposal,
+  buildCancelledJobProposal,
+  buildRejectedJobProposal,
+} from 'support/factories/gql/fetchFeedsManagersWithProposals'
 import { JobProposalsCard } from './JobProposalsCard'
 
-const { findAllByRole, getByRole } = screen
+const { findAllByRole, getByRole, getByTestId } = screen
 
 describe('JobProposalsCard', () => {
   it('renders the pending job proposals ', async () => {
@@ -17,9 +22,27 @@ describe('JobProposalsCard', () => {
     const rows = await findAllByRole('row')
     expect(rows).toHaveLength(2)
 
-    expect(rows[1]).toHaveTextContent('1')
-    expect(rows[1]).toHaveTextContent('N/A')
-    expect(rows[1]).toHaveTextContent('1 minute ago')
+    expect(getByTestId('pending-badge')).toHaveTextContent('1')
+  })
+
+  it('renders the updates job proposals ', async () => {
+    const proposals = [
+      buildApprovedJobProposal({ pendingUpdate: true }),
+      buildRejectedJobProposal({ pendingUpdate: true }),
+      buildCancelledJobProposal({ pendingUpdate: true }),
+    ]
+
+    renderWithRouter(<JobProposalsCard proposals={proposals} />)
+
+    expect(getByTestId('updates-badge')).toHaveTextContent('3')
+    expect(getByTestId('approved-badge')).toHaveTextContent('1')
+    expect(getByTestId('rejected-badge')).toHaveTextContent('1')
+    expect(getByTestId('cancelled-badge')).toHaveTextContent('1')
+
+    userEvent.click(getByRole('tab', { name: /updates/i }))
+
+    const rows = await findAllByRole('row')
+    expect(rows).toHaveLength(4)
   })
 
   it('renders the approved job proposals', async () => {
@@ -31,10 +54,6 @@ describe('JobProposalsCard', () => {
 
     const rows = await findAllByRole('row')
     expect(rows).toHaveLength(2)
-
-    expect(rows[1]).toHaveTextContent('2')
-    expect(rows[1]).toHaveTextContent('00000000-0000-0000-0000-000000000002')
-    expect(rows[1]).toHaveTextContent('1 minute ago')
   })
 
   it('renders the rejected job proposals', async () => {
@@ -46,13 +65,9 @@ describe('JobProposalsCard', () => {
 
     const rows = await findAllByRole('row')
     expect(rows).toHaveLength(2)
-
-    expect(rows[1]).toHaveTextContent('3')
-    expect(rows[1]).toHaveTextContent('N/A')
-    expect(rows[1]).toHaveTextContent('1 minute ago')
   })
 
-  it('renders the rejected job proposals', async () => {
+  it('renders the cancelled job proposals', async () => {
     const proposals = buildJobProposals()
 
     renderWithRouter(<JobProposalsCard proposals={proposals} />)
@@ -61,9 +76,5 @@ describe('JobProposalsCard', () => {
 
     const rows = await findAllByRole('row')
     expect(rows).toHaveLength(2)
-
-    expect(rows[1]).toHaveTextContent('4')
-    expect(rows[1]).toHaveTextContent('N/A')
-    expect(rows[1]).toHaveTextContent('1 minute ago')
   })
 })

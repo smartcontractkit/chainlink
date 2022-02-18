@@ -9,7 +9,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 import "./VRF.sol";
 import "../ConfirmedOwner.sol";
-import "./VRFConsumerBaseV2.sol";
+import "../VRFConsumerBaseV2.sol";
 
 contract VRFCoordinatorV2 is
   VRF,
@@ -129,7 +129,7 @@ contract VRFCoordinatorV2 is
   struct Config {
     uint16 minimumRequestConfirmations;
     uint32 maxGasLimit;
-    // Re-entrancy protection.
+    // Reentrancy protection.
     bool reentrancyLock;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
@@ -564,7 +564,7 @@ contract VRFCoordinatorV2 is
 
     delete s_requestCommitments[requestId];
     VRFConsumerBaseV2 v;
-    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, proof.seed, randomWords);
+    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called

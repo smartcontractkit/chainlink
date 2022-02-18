@@ -226,7 +226,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   }
 
   /**
-   * @notice Transfer the ownership of ownable contracts. This is primarilly
+   * @notice Transfer the ownership of ownable contracts. This is primarily
    * intended for Authorized Forwarders but could possibly be extended to work
    * with future contracts.
    * @param ownable list of addresses to transfer
@@ -240,7 +240,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   }
 
   /**
-   * @notice Accept the ownership of an ownable contract. This is primarilly
+   * @notice Accept the ownership of an ownable contract. This is primarily
    * intended for Authorized Forwarders but could possibly be extended to work
    * with future contracts.
    * @dev Must be the pending owner on the contract
@@ -273,7 +273,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   /**
    * @notice Accepts ownership of ownable contracts and then immediately sets
    * the authorized sender list on each of the newly owned contracts. This is
-   * primarilly intended for Authorized Forwarders but could possibly be
+   * primarily intended for Authorized Forwarders but could possibly be
    * extended to work with future contracts.
    * @param targets The addresses to set permissions on
    * @param senders The addresses that are allowed to send updates

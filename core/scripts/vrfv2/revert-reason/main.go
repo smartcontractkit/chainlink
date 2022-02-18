@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 )
 
 func panicErr(err error) {
@@ -35,6 +35,6 @@ func main() {
 	}
 	r, err := ec.CallContract(context.Background(), call, re.BlockNumber)
 	fmt.Println("call contract", "r", r, "err", err)
-	reason, err := eth.ExtractRevertReasonFromRPCError(err)
+	reason, err := evmclient.ExtractRevertReasonFromRPCError(err)
 	fmt.Println("extracting revert reason", "reason", reason, "err", err)
 }

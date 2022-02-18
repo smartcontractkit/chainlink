@@ -6,17 +6,17 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,7 +27,7 @@ type (
 		logger         logger.Logger
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
-		chHeads        chan *eth.Head
+		chHeads        chan *evmtypes.Head
 		chainSet       evm.ChainSet
 	}
 
@@ -49,7 +49,7 @@ func NewDelegate(
 		logger.Named("DirectRequest"),
 		pipelineRunner,
 		pipelineORM,
-		make(chan *eth.Head, 1),
+		make(chan *evmtypes.Head, 1),
 		chainSet,
 	}
 }

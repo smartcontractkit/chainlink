@@ -47,7 +47,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 
 	url := cltest.MustParseURL(t, server.URL)
 	url.Scheme = "ws"
-	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret", false, logger.TestLogger(t))
+	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret", logger.TestLogger(t))
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -174,15 +174,14 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	defer explorerClient.Close()
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
-	})
+	}, 5*time.Second)
+
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return explorerClient.Status()
 	}).Should(gomega.Equal(synchronization.ConnectionStatusConnected))
 
 	wsserver.WriteCloseMessage()
 	wsserver.Close()
-
-	time.Sleep(synchronization.CloseTimeout + (100 * time.Millisecond))
 
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return explorerClient.Status()
@@ -203,5 +202,5 @@ func TestWebSocketClient_Status_ConnectError(t *testing.T) {
 }
 
 func newTestExplorerClient(t *testing.T, wsURL *url.URL) synchronization.ExplorerClient {
-	return synchronization.NewExplorerClient(wsURL, "", "", false, logger.TestLogger(t))
+	return synchronization.NewExplorerClient(wsURL, "", "", logger.TestLogger(t))
 }

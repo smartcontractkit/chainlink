@@ -9,16 +9,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
+	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
-	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
-	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	ocrmocks "github.com/smartcontractkit/chainlink/core/services/offchainreporting/mocks"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -35,7 +36,7 @@ func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggrega
 }
 
 func mustNewFilterer(t *testing.T, address gethCommon.Address) *offchainaggregator.OffchainAggregatorFilterer {
-	filterer, err := offchainaggregator.NewOffchainAggregatorFilterer(cltest.NewAddress(), nil)
+	filterer, err := offchainaggregator.NewOffchainAggregatorFilterer(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 	return filterer
 }
@@ -44,7 +45,7 @@ type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
 	hb      *htmocks.HeadBroadcaster
-	ec      *ethmocks.Client
+	ec      *evmmocks.Client
 	tracker *offchainreporting.OCRContractTracker
 }
 
@@ -68,10 +69,10 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		cfg = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
 	}
 	if filterer == nil {
-		filterer = mustNewFilterer(t, cltest.NewAddress())
+		filterer = mustNewFilterer(t, testutils.NewAddress())
 	}
 	if contract == nil {
-		contract = mustNewContract(t, cltest.NewAddress())
+		contract = mustNewContract(t, testutils.NewAddress())
 	}
 	uni.db = new(ocrmocks.OCRContractTrackerDB)
 	uni.lb = new(logmocks.Broadcaster)
@@ -116,7 +117,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
-		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&eth.Head{Number: 42}, nil)
+		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&evmtypes.Head{Number: 42}, nil)
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
@@ -142,7 +143,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Run("after first head incoming, uses cached value", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
 
-		uni.tracker.OnNewLongestChain(context.Background(), &eth.Head{Number: 42})
+		uni.tracker.OnNewLongestChain(context.Background(), &evmtypes.Head{Number: 42})
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
@@ -153,7 +154,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Run("if headbroadcaster has it, uses the given value on start", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
 
-		uni.hb.On("Subscribe", uni.tracker).Return(&eth.Head{Number: 42}, func() {})
+		uni.hb.On("Subscribe", uni.tracker).Return(&evmtypes.Head{Number: 42}, func() {})
 		uni.db.On("LoadLatestRoundRequested").Return(offchainaggregator.OffchainAggregatorRoundRequested{}, nil)
 		uni.lb.On("Register", uni.tracker, mock.Anything).Return(func() {})
 
@@ -346,7 +347,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		rr := offchainaggregator.OffchainAggregatorRoundRequested{
-			Requester:    cltest.NewAddress(),
+			Requester:    testutils.NewAddress(),
 			ConfigDigest: cltest.MakeConfigDigest(t),
 			Epoch:        42,
 			Round:        9,

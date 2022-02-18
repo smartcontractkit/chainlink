@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,21 +27,25 @@ func TestBigFloatMarshal(t *testing.T) {
 
 func TestBigFloatUnmarshalFloat64(t *testing.T) {
 	tests := []struct {
-		payload float64
+		payload string
 		exp     *big.Float
 	}{
-		{-1, big.NewFloat(-1)},
-		{100, big.NewFloat(100)},
-		{3.146, big.NewFloat(3.146)},
+		{"-1", big.NewFloat(-1)},
+		{`"-1"`, big.NewFloat(-1)},
+		{"100", big.NewFloat(100)},
+		{`"100"`, big.NewFloat(100)},
+		{"3.146", big.NewFloat(3.146)},
+		{`"3.146"`, big.NewFloat(3.146)},
 	}
 
 	for _, tc := range tests {
-		var b BigFloat
-		buf, err := json.Marshal(tc.payload)
-		require.NoError(t, err)
-		err = json.Unmarshal([]byte(buf), &b)
-		require.NoError(t, err)
-		assert.Equal(t, tc.exp.String(), b.Value().String())
+		tc := tc
+		t.Run(tc.payload, func(t *testing.T) {
+			var b BigFloat
+			err := json.Unmarshal([]byte(tc.payload), &b)
+			require.NoError(t, err)
+			assert.Equal(t, tc.exp.String(), b.Value().String())
+		})
 	}
 }
 
@@ -52,15 +57,19 @@ func TestBigFloatUnmarshalString(t *testing.T) {
 		{"-1", big.NewFloat(-1)},
 		{"100", big.NewFloat(100)},
 		{"3.146", big.NewFloat(3.146)},
+		{"1.000000000000000001", decimal.RequireFromString("1.000000000000000001").BigFloat()},
+		{"1000000.000000000000000001", decimal.RequireFromString("1000000.000000000000000001").BigFloat()},
+		{"1000000000.000000000000000001", decimal.RequireFromString("1000000000.000000000000000001").BigFloat()},
 	}
 
 	for _, tc := range tests {
-		var b BigFloat
-		buf, err := json.Marshal(tc.payload)
-		require.NoError(t, err)
-		err = json.Unmarshal([]byte(buf), &b)
-		require.NoError(t, err)
-		assert.Equal(t, tc.exp.String(), b.Value().String())
+		tc := tc
+		t.Run(tc.payload, func(t *testing.T) {
+			var b BigFloat
+			err := json.Unmarshal([]byte(tc.payload), &b)
+			require.NoError(t, err)
+			assert.Equal(t, tc.exp.String(), b.Value().String())
+		})
 	}
 }
 

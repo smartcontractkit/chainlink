@@ -146,12 +146,6 @@ describe('JobsView', () => {
     expect(getAllByRole('row')).toHaveLength(2)
     expect(getByText('OCR')).toBeInTheDocument()
 
-    // p2p peer id search
-    userEvent.clear(searchInput)
-    userEvent.paste(searchInput, 'p2ppeerid')
-    expect(getAllByRole('row')).toHaveLength(2)
-    expect(getByText('OCR')).toBeInTheDocument()
-
     // transmitter search
     userEvent.clear(searchInput)
     userEvent.paste(searchInput, 'transmitteraddress')
