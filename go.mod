@@ -59,7 +59,7 @@ require (
 	github.com/smartcontractkit/chainlink-terra v0.0.8-0.20220216122320-59318dd4d684
 	github.com/smartcontractkit/helmenv v1.0.36
 	github.com/smartcontractkit/integrations-framework v1.0.48
-	github.com/smartcontractkit/libocr v0.0.0-20220125200954-5b957c834276
+	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
 	github.com/smartcontractkit/wsrpc v0.3.5
