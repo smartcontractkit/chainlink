@@ -410,12 +410,8 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 			// The eth node connection was terminated so we need to backfill after resubscribing.
 			lggr := b.logger
 			// Do we have logs in the pool?
-			if min := b.logPool.heap.FindMin(); min != nil {
-				// They are are invalid, since we may have missed 'removed' logs.
-				b.logPool = newLogPool()
-				// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
-				blockNum := int64(min.(Uint64))
-				b.backfillBlockNumber.SetValid(blockNum)
+			// They are are invalid, since we may have missed 'removed' logs.
+			if blockNum := b.invalidatePool(); blockNum > 0 {
 				lggr = lggr.With("blockNumber", blockNum)
 			}
 			lggr.Debugw("Subscription terminated. Backfilling after resubscribing")
@@ -448,13 +444,25 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	}
 }
 
+// onReplayRequest clears the pool and sets the block backfill number.
 func (b *broadcaster) onReplayRequest(blockNumber int64) {
+	_ = b.invalidatePool()
 	// NOTE: This ignores r.highestNumConfirmations, but it is
 	// generally assumed that this will only be performed rarely and
 	// manually by someone who knows what he is doing
 	b.backfillBlockNumber.SetValid(blockNumber)
 	b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
-	return
+}
+
+func (b *broadcaster) invalidatePool() int64 {
+	if min := b.logPool.heap.FindMin(); min != nil {
+		b.logPool = newLogPool()
+		// Note: even if we crash right now, PendingMinBlock is preserved in the database and we will backfill the same.
+		blockNum := int64(min.(Uint64))
+		b.backfillBlockNumber.SetValid(blockNum)
+		return blockNum
+	}
+	return -1
 }
 
 func (b *broadcaster) onNewLog(log types.Log) {
