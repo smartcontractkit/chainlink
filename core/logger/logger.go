@@ -259,8 +259,9 @@ func (c *Config) New() Logger {
 	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, err := newZapLogger(ZapLoggerConfig{
-		local:  *c,
-		Config: cfg,
+		local:     *c,
+		Config:    cfg,
+		diskStats: utils.NewDiskStatsProvider(),
 	})
 	if err != nil {
 		log.Fatal(err)
