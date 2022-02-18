@@ -58,7 +58,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 
 		lggr, err := newZapLogger(zapCfg)
 		expectedError := fmt.Sprintf(
-			"disk space is not enough to log into disk. Required disk space: %s, Available disk space: %s",
+			"disk space is not enough to log into disk, required disk space: %s, Available disk space: %s",
 			zapCfg.local.RequiredDiskSpace,
 			maxSize,
 		)
@@ -127,11 +127,65 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		// the last line is a blank line, hence why using len(lines) - 2 makes sense
 		actualMessage := lines[len(lines)-2]
 		expectedMessage := fmt.Sprintf(
-			"disk space is not enough to log into disk any longer. Required disk space: %s, Available disk space: %s",
+			"disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
 			zapCfg.local.RequiredDiskSpace,
 			maxSize,
 		)
 
 		require.Contains(t, actualMessage, expectedMessage)
+	})
+
+	t.Run("after logger is created, recovers disk space", func(t *testing.T) {
+		diskMock := &utilsmocks.DiskStatsProvider{}
+		diskMock.On("AvailableSpace", logsDir).Return(maxSize*10, nil).Once()
+		defer diskMock.AssertExpectations(t)
+
+		pollChan := make(chan time.Time)
+		stop := func() {
+			close(pollChan)
+		}
+
+		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.diskStats = diskMock
+		zapCfg.diskPollConfig = zapDiskPollConfig{
+			stop:     stop,
+			pollChan: pollChan,
+		}
+		zapCfg.local.RequiredDiskSpace = utils.FileSize(maxSize * 2)
+
+		lggr, err := newZapLogger(zapCfg)
+		assert.NoError(t, err)
+		defer lggr.Sync()
+
+		lggr.Debug("test")
+
+		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil).Once()
+
+		pollChan <- time.Now()
+		<-zapCfg.diskLogLvlChan
+
+		diskMock.On("AvailableSpace", logsDir).Return(maxSize*12, nil).Once()
+
+		pollChan <- time.Now()
+		<-zapCfg.diskLogLvlChan
+
+		lggr.Debug("test again")
+
+		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		b, err := ioutil.ReadFile(logFile)
+		assert.NoError(t, err)
+
+		logs := string(b)
+		lines := strings.Split(logs, "\n")
+		expectedMessage := fmt.Sprintf(
+			"disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
+			zapCfg.local.RequiredDiskSpace,
+			maxSize,
+		)
+
+		// the last line is a blank line, hence why using len(lines) - N makes sense
+		require.Contains(t, lines[len(lines)-4], expectedMessage)
+		require.Contains(t, lines[len(lines)-3], "resuming disk logs, disk has enough space")
+		require.Contains(t, lines[len(lines)-2], "test again")
 	})
 }
