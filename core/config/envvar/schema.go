@@ -130,23 +130,19 @@ type ConfigSchema struct {
 	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
 	// EVM Gas Controls
-	EvmEIP1559DynamicFees      bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
-	EvmGasBumpPercent          uint16   `env:"ETH_GAS_BUMP_PERCENT"`
-	EvmGasBumpThreshold        uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
-	EvmGasBumpTxDepth          uint16   `env:"ETH_GAS_BUMP_TX_DEPTH"`
-	EvmGasBumpWei              *big.Int `env:"ETH_GAS_BUMP_WEI"`
-	EvmGasFeeCapDefault        *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
-	EvmGasLimitDefault         uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
-	EvmGasLimitMultiplier      float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
-	EvmGasLimitTransfer        uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
-	EvmGasPriceDefault         *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
-	EvmGasTipCapDefault        *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
-	EvmGasTipCapMinimum        *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
-	EvmMaxGasPriceWei          *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EvmMaxInFlightTransactions uint32   `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
-	EvmMaxQueuedTransactions   uint64   `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
-	EvmMinGasPriceWei          *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
-	EvmNonceAutoSync           bool     `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
+	EvmGasBumpPercent     uint16   `env:"ETH_GAS_BUMP_PERCENT"`
+	EvmGasBumpThreshold   uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
+	EvmGasBumpWei         *big.Int `env:"ETH_GAS_BUMP_WEI"`
+	EvmGasFeeCapDefault   *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
+	EvmGasLimitDefault    uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitMultiplier float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
+	EvmGasLimitTransfer   uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
+	EvmGasPriceDefault    *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
+	EvmGasTipCapDefault   *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
+	EvmGasTipCapMinimum   *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
+	EvmMaxGasPriceWei     *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
+	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
 	// Gas Estimation
 	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
 	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
@@ -154,6 +150,11 @@ type ConfigSchema struct {
 	BlockHistoryEstimatorBlockHistorySize          uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16 `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
 	BlockHistoryEstimatorTransactionPercentile     uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
+	// BPTXM
+	EvmGasBumpTxDepth          uint16 `env:"ETH_GAS_BUMP_TX_DEPTH"`
+	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
+	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
+	EvmNonceAutoSync           bool   `env:"ETH_NONCE_AUTO_SYNC"`
 
 	// Job Pipeline and tasks
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`

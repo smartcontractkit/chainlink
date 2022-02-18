@@ -29,7 +29,7 @@ New ENV vars:
 #### Bootstrap job
 
 Added a new `bootstrap` job type. This job removes the need for every job to implement their own bootstrapping logic.
-It makes OCR2 jobs that currently use `isBootstrapPeer=true` deprecated but still supported.
+OCR2 jobs with `isBootstrapPeer=true` are automatically migrated to the new format.
 The spec parameters are similar to a basic OCR2 job, an example would be:
 
 ```

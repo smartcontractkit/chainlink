@@ -80,7 +80,6 @@ type OCR2Spec {
     contractConfigConfirmations: Int
     contractConfigTrackerPollInterval: String
     createdAt: Time!
-    isBootstrapPeer: Boolean!
     juelsPerFeeCoinSource: String
     ocrKeyBundleID: String
     monitoringEndpoint: String
