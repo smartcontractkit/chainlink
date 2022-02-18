@@ -50,7 +50,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 			ID:                                100,
 			ContractID:                        "terra_187246hr3781h9fd198fh391g8f924",
 			Relay:                             "terra",
-			RelayConfig:                       job.RelayConfig{},
+			RelayConfig:                       map[string]interface{}{"chainID": float64(1337)},
 			P2PBootstrapPeers:                 pq.StringArray{""},
 			OCRKeyBundleID:                    null.String{},
 			MonitoringEndpoint:                null.StringFrom("endpoint:chainlink.monitor"),

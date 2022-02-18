@@ -81,7 +81,7 @@ ALTER TABLE offchainreporting2_oracle_specs
 INSERT INTO offchainreporting2_oracle_specs (contract_id, is_bootstrap_peer, ocr_key_bundle_id, monitoring_endpoint,
                                              transmitter_id, blockchain_timeout, contract_config_tracker_poll_interval,
                                              contract_config_confirmations, juels_per_fee_coin_pipeline, created_at,
-                                             updated_at, relay, job_id)
+                                             updated_at, relay, relay_config, job_id)
 SELECT bootstrap_specs.contract_id,
        true,
        null,
@@ -94,6 +94,7 @@ SELECT bootstrap_specs.contract_id,
        bootstrap_specs.created_at,
        bootstrap_specs.updated_at,
        bootstrap_specs.relay,
+       bootstrap_specs.relay_config,
        jobs.id
 FROM jobs
          INNER JOIN bootstrap_specs ON jobs.bootstrap_spec_id = bootstrap_specs.id
