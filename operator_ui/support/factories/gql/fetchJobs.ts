@@ -38,7 +38,6 @@ export function buildJobs(): ReadonlyArray<JobsPayload_ResultsFields> {
         __typename: 'OCRSpec',
         contractAddress: '0x0000000000000000000000000000000000000001',
         keyBundleID: 'keybundleid',
-        p2pPeerID: 'p2ppeerid',
         transmitterAddress: 'transmitteraddress',
       },
     }),

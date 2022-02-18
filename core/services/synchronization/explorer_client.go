@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -47,7 +47,7 @@ const (
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
-	service.Service
+	services.Service
 	Url() url.URL
 	Status() ConnectionStatus
 	Send(context.Context, []byte, ...int)
@@ -77,7 +77,6 @@ type explorerClient struct {
 	url              *url.URL
 	accessKey        string
 	secret           string
-	logging          bool
 	lggr             logger.Logger
 
 	chStop        chan struct{}
@@ -89,7 +88,7 @@ type explorerClient struct {
 
 // NewExplorerClient returns a stats pusher using a websocket for
 // delivery.
-func NewExplorerClient(url *url.URL, accessKey, secret string, statsPusherLogging bool, lggr logger.Logger) ExplorerClient {
+func NewExplorerClient(url *url.URL, accessKey, secret string, lggr logger.Logger) ExplorerClient {
 	return &explorerClient{
 		url:       url,
 		receive:   make(chan []byte),
@@ -97,7 +96,6 @@ func NewExplorerClient(url *url.URL, accessKey, secret string, statsPusherLoggin
 		status:    ConnectionStatusDisconnected,
 		accessKey: accessKey,
 		secret:    secret,
-		logging:   statsPusherLogging,
 		lggr:      lggr.Named("ExplorerClient"),
 
 		sendText:   make(chan []byte, SendBufferSize),
@@ -307,9 +305,7 @@ func (ec *explorerClient) writeMessage(message []byte, messageType int) error {
 	if _, err := writer.Write(message); err != nil {
 		return err
 	}
-	if ec.logging {
-		ec.lggr.Debugw("websocketStatsPusher successfully wrote message", "messageType", messageType, "message", message)
-	}
+	ec.lggr.Tracew("websocketStatsPusher successfully wrote message", "messageType", messageType, "message", message)
 
 	return writer.Close()
 }

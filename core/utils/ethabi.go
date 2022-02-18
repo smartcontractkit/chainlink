@@ -3,16 +3,13 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-
-	"github.com/pkg/errors"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/tidwall/gjson"
 )
 
@@ -49,31 +46,6 @@ func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
 // ConcatBytes appends a bunch of byte arrays into a single byte array
 func ConcatBytes(bufs ...[]byte) []byte {
 	return bytes.Join(bufs, []byte{})
-}
-
-// EVMTranscodeBytes converts a json input to an EVM bytes array
-func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
-	switch value.Type {
-	case gjson.String:
-		return EVMEncodeBytes([]byte(value.Str)), nil
-
-	case gjson.False:
-		return EVMEncodeBytes(EVMWordUint64(0)), nil
-
-	case gjson.True:
-		return EVMEncodeBytes(EVMWordUint64(1)), nil
-
-	case gjson.Number:
-		v := big.NewFloat(value.Num)
-		vInt, _ := v.Int(nil)
-		word, err := EVMWordSignedBigInt(vInt)
-		if err != nil {
-			return nil, errors.Wrap(err, "while converting float to int256")
-		}
-		return EVMEncodeBytes(word), nil
-	default:
-		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
-	}
 }
 
 func roundToEVMWordBorder(length int) int {
@@ -127,15 +99,8 @@ func EVMTranscodeBool(value gjson.Result) ([]byte, error) {
 }
 
 func parseDecimalString(input string) (*big.Int, error) {
-	parseValue, err := strconv.ParseFloat(input, 64)
-	if err != nil {
-		return nil, err
-	}
-	output, ok := big.NewInt(0).SetString(fmt.Sprintf("%.f", parseValue), 10)
-	if !ok {
-		return nil, fmt.Errorf("error parsing decimal %s", input)
-	}
-	return output, nil
+	d, err := decimal.NewFromString(input)
+	return d.BigInt(), err
 }
 
 func parseNumericString(input string) (*big.Int, error) {
@@ -199,40 +164,6 @@ func EVMTranscodeInt256(value gjson.Result) ([]byte, error) {
 	}
 
 	return EVMWordSignedBigInt(output)
-}
-
-// EVMTranscodeJSONWithFormat given a JSON input and a format specifier, encode the
-// value for use by the EVM
-func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, error) {
-	switch format {
-	case FormatBytes:
-		return EVMTranscodeBytes(value)
-	case FormatPreformatted:
-		return hex.DecodeString(RemoveHexPrefix(value.Str))
-	case FormatUint256:
-		data, err := EVMTranscodeUint256(value)
-		if err != nil {
-			return []byte{}, err
-		}
-		return EVMEncodeBytes(data), nil
-
-	case FormatInt256:
-		data, err := EVMTranscodeInt256(value)
-		if err != nil {
-			return []byte{}, err
-		}
-		return EVMEncodeBytes(data), nil
-
-	case FormatBool:
-		data, err := EVMTranscodeBool(value)
-		if err != nil {
-			return []byte{}, err
-		}
-		return EVMEncodeBytes(data), nil
-
-	default:
-		return []byte{}, fmt.Errorf("unsupported format: %s", format)
-	}
 }
 
 func EVMWordAddress(val common.Address) []byte {

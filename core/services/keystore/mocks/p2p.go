@@ -69,31 +69,17 @@ func (_m *P2P) Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 }
 
 // EnsureKey provides a mock function with given fields:
-func (_m *P2P) EnsureKey() (p2pkey.KeyV2, bool, error) {
+func (_m *P2P) EnsureKey() error {
 	ret := _m.Called()
 
-	var r0 p2pkey.KeyV2
-	if rf, ok := ret.Get(0).(func() p2pkey.KeyV2); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(p2pkey.KeyV2)
+		r0 = ret.Error(0)
 	}
 
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	var r2 error
-	if rf, ok := ret.Get(2).(func() error); ok {
-		r2 = rf()
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0
 }
 
 // Export provides a mock function with given fields: id, password

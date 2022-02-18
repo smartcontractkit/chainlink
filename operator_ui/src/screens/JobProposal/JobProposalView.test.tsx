@@ -1,7 +1,11 @@
-import userEvent from '@testing-library/user-event'
 import * as React from 'react'
-import { buildJobProposal } from 'support/factories/gql/fetchJobProposal'
 import { render, screen, waitFor } from 'support/test-utils'
+import userEvent from '@testing-library/user-event'
+
+import {
+  buildJobProposal,
+  buildJobProposalSpec,
+} from 'support/factories/gql/fetchJobProposal'
 
 import { JobProposalView } from './JobProposalView'
 
@@ -42,15 +46,16 @@ describe('JobProposalView', () => {
     it('renders a pending job proposal', async () => {
       renderComponent(proposal)
 
-      expect(queryByText('Job proposal #1')).toBeInTheDocument()
-      expect(queryByText('Status: Pending')).toBeInTheDocument()
+      expect(queryByText('Job Proposal #1')).toBeInTheDocument()
+      expect(queryByText('Pending')).toBeInTheDocument()
 
-      const codeblock = getByTestId('codeblock')
-      expect(codeblock).toHaveTextContent(proposal.spec)
-      expect(queryByText(/edit job spec/i)).toBeInTheDocument()
+      expect(getByTestId('codeblock')).toHaveTextContent(
+        proposal.specs[0].definition,
+      )
+      expect(queryByText(/edit/i)).toBeInTheDocument()
     })
 
-    it('approves the propoosal', async () => {
+    it('approves the proposal', async () => {
       renderComponent(proposal)
 
       userEvent.click(getByRole('button', { name: /approve/i }))
@@ -66,12 +71,16 @@ describe('JobProposalView', () => {
       await waitFor(() => expect(handleReject).toHaveBeenCalled())
     })
 
-    it('opens the edit modal', async () => {
+    it('updates the spec', async () => {
       renderComponent(proposal)
 
-      userEvent.click(getByRole('button', { name: /edit job spec/i }))
+      userEvent.click(getByRole('button', { name: /edit/i }))
 
       expect(await findByRole('heading', { name: /edit job spec/i }))
+
+      userEvent.click(getByRole('button', { name: /submit/i }))
+
+      await waitFor(() => expect(handleUpdateSpec).toHaveBeenCalled())
     })
   })
 
@@ -79,18 +88,21 @@ describe('JobProposalView', () => {
     let proposal: JobProposalPayloadFields
 
     beforeEach(() => {
-      proposal = buildJobProposal({ status: 'APPROVED' })
+      proposal = buildJobProposal({
+        status: 'APPROVED',
+        specs: [buildJobProposalSpec({ status: 'APPROVED' })],
+      })
     })
 
     it('renders an approved job proposal', async () => {
       renderComponent(proposal)
 
-      expect(queryByText('Job proposal #1')).toBeInTheDocument()
-      expect(queryByText('Status: Approved')).toBeInTheDocument()
+      expect(queryByText('Approved')).toBeInTheDocument()
 
-      const codeblock = getByTestId('codeblock')
-      expect(codeblock).toHaveTextContent(proposal.spec)
-      expect(queryByText(/edit job spec/i)).toBeNull()
+      expect(getByTestId('codeblock')).toHaveTextContent(
+        proposal.specs[0].definition,
+      )
+      expect(queryByText(/edit/i)).toBeNull()
     })
 
     it('cancels the proposal', async () => {
@@ -106,18 +118,21 @@ describe('JobProposalView', () => {
     let proposal: JobProposalPayloadFields
 
     beforeEach(() => {
-      proposal = buildJobProposal({ status: 'CANCELLED' })
+      proposal = buildJobProposal({
+        status: 'CANCELLED',
+        specs: [buildJobProposalSpec({ status: 'CANCELLED' })],
+      })
     })
 
     it('renders a cancelled job proposal', async () => {
       renderComponent(proposal)
 
-      expect(queryByText('Job proposal #1')).toBeInTheDocument()
-      expect(queryByText('Status: Cancelled')).toBeInTheDocument()
+      expect(queryByText('Cancelled')).toBeInTheDocument()
 
-      const codeblock = getByTestId('codeblock')
-      expect(codeblock).toHaveTextContent(proposal.spec)
-      expect(queryByText(/edit job spec/i)).toBeInTheDocument()
+      expect(getByTestId('codeblock')).toHaveTextContent(
+        proposal.specs[0].definition,
+      )
+      expect(queryByText(/edit/i)).toBeInTheDocument()
     })
 
     it('approves the proposal', async () => {
@@ -128,12 +143,16 @@ describe('JobProposalView', () => {
       await waitFor(() => expect(handleApprove).toHaveBeenCalled())
     })
 
-    it('opens the edit modal', async () => {
+    it('updates the spec', async () => {
       renderComponent(proposal)
 
-      userEvent.click(getByRole('button', { name: /edit job spec/i }))
+      userEvent.click(getByRole('button', { name: /edit/i }))
 
       expect(await findByRole('heading', { name: /edit job spec/i }))
+
+      userEvent.click(getByRole('button', { name: /submit/i }))
+
+      await waitFor(() => expect(handleUpdateSpec).toHaveBeenCalled())
     })
   })
 
@@ -141,18 +160,21 @@ describe('JobProposalView', () => {
     let proposal: JobProposalPayloadFields
 
     beforeEach(() => {
-      proposal = buildJobProposal({ status: 'REJECTED' })
+      proposal = buildJobProposal({
+        status: 'REJECTED',
+        specs: [buildJobProposalSpec({ status: 'REJECTED' })],
+      })
     })
 
     it('renders a rejected job proposal', async () => {
       renderComponent(proposal)
 
-      expect(queryByText('Job proposal #1')).toBeInTheDocument()
-      expect(queryByText('Status: Rejected')).toBeInTheDocument()
+      expect(queryByText('Rejected')).toBeInTheDocument()
 
-      const codeblock = getByTestId('codeblock')
-      expect(codeblock).toHaveTextContent(proposal.spec)
-      expect(queryByText(/edit job spec/i)).toBeNull()
+      expect(getByTestId('codeblock')).toHaveTextContent(
+        proposal.specs[0].definition,
+      )
+      expect(queryByText(/edit/i)).toBeNull()
     })
   })
 })

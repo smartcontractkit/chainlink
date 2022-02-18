@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //
@@ -81,9 +80,12 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
 	)
 
-	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(ctx, lggr, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
+	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
+	defer cancel()
+
+	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, requestData, allowUnrestrictedNetworkAccess, t.config.DefaultHTTPLimit())
 	if err != nil {
-		if errors.Cause(err) == utils.ErrDisallowedIP {
+		if errors.Cause(err) == ErrDisallowedIP {
 			err = errors.Wrap(err, "connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess=true in the pipeline task spec")
 		}
 		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}

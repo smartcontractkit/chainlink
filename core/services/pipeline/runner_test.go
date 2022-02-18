@@ -745,3 +745,48 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// There are three tasks in the erroring pipeline
 	require.Len(t, errorResults, 3)
 }
+
+func Test_PipelineRunner_LowercaseOutputs(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+	input := map[string]interface{}{
+		"first":  "camelCase",
+		"second": "UPPERCASE",
+	}
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=lowercase input="$(first)"]
+`,
+	}, pipeline.NewVarsFrom(input), lggr)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+
+	result, err := trrs.FinalResult(lggr).SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, "camelcase", result.Value.(string))
+}
+
+func Test_PipelineRunner_UppercaseOutputs(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+	input := map[string]interface{}{
+		"first": "somerAnDomTEST",
+	}
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: `
+a [type=uppercase input="$(first)"]
+`,
+	}, pipeline.NewVarsFrom(input), lggr)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(trrs))
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
+
+	result, err := trrs.FinalResult(lggr).SingularResult()
+	require.NoError(t, err)
+	assert.Equal(t, "SOMERANDOMTEST", result.Value.(string))
+}

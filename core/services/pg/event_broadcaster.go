@@ -13,7 +13,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -24,7 +24,7 @@ import (
 // EventBroadcaster opaquely manages a collection of Postgres event listeners
 // and broadcasts events to subscribers (with an optional payload filter).
 type EventBroadcaster interface {
-	service.Service
+	services.Service
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
 }

@@ -17,10 +17,6 @@ type State struct {
 	lastUsed   time.Time
 }
 
-func (State) TableName() string {
-	return "eth_key_states"
-}
-
 func (s State) KeyID() string {
 	return s.Address.Hex()
 }

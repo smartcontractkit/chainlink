@@ -8,13 +8,11 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 )
@@ -27,7 +25,7 @@ const SendIngressBufferSize = 100
 // TelemetryIngressClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressClient interface {
-	service.Service
+	services.Service
 	Start() error
 	Close() error
 	Send(TelemPayload)
@@ -58,9 +56,9 @@ type telemetryIngressClient struct {
 }
 
 type TelemPayload struct {
-	Ctx             context.Context
-	Telemetry       []byte
-	ContractAddress common.Address
+	Ctx        context.Context
+	Telemetry  []byte
+	ContractID string
 }
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
@@ -136,14 +134,14 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 			select {
 			case p := <-tc.chTelemetry:
 				// Send telemetry to the ingress server, log any errors
-				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractAddress.String()}
+				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractID}
 				_, err := tc.telemClient.Telem(p.Ctx, telemReq)
 				if err != nil {
 					tc.lggr.Errorf("Could not send telemetry: %v", err)
 					continue
 				}
 				if tc.logging {
-					tc.lggr.Debugw("successfully sent telemetry to ingress server", "contractAddress", p.ContractAddress.String(), "telemetry", p.Telemetry)
+					tc.lggr.Debugw("successfully sent telemetry to ingress server", "contractID", p.ContractID, "telemetry", p.Telemetry)
 				}
 			case <-tc.chDone:
 				return

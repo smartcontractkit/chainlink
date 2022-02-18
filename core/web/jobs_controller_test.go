@@ -13,23 +13,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
-	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
@@ -39,10 +41,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
-	nonExistentP2PPeerID, err := p2ppeer.Decode("12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9")
-	require.NoError(t, err)
-	randomBytes := cltest.Random32Byte()
-	oCRKeyBundleID := "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
+	randomBytes := testutils.Random32Byte()
 
 	var tt = []struct {
 		name        string
@@ -59,18 +58,11 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			expectedErr: job.ErrNoSuchKeyBundle,
 		},
 		{
-			name:        "invalid peerID",
-			pid:         p2pkey.PeerID(nonExistentP2PPeerID),
-			kb:          oCRKeyBundleID,
-			taExists:    true,
-			expectedErr: keystore.KeyNotFoundError{ID: p2pkey.PeerID(nonExistentP2PPeerID).String(), KeyType: "P2P"},
-		},
-		{
 			name:        "invalid transmitter address",
 			pid:         p2pkey.PeerID(peerID),
 			kb:          cltest.DefaultOCRKeyBundleID,
 			taExists:    false,
-			expectedErr: job.ErrNoSuchTransmitterAddress,
+			expectedErr: job.ErrNoSuchTransmitterKey,
 		},
 	}
 	for _, tc := range tt {
@@ -139,10 +131,13 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
+	k, err := app.KeyStore.P2P().GetAll()
+	require.NoError(t, err)
+	require.Len(t, k, 1)
 
 	jorm := app.JobORM()
 	var tt = []struct {
@@ -169,8 +164,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NotNil(t, resource.OffChainReportingSpec)
 
 				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
-				assert.NotEmpty(t, resource.OffChainReportingSpec.P2PPeerID)
-				assert.True(t, resource.OffChainReportingSpec.P2PPeerIDEnv)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
@@ -388,8 +381,8 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 
 	require.Len(t, resources, 2)
 
-	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[1])
 	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[0])
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[1])
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
@@ -456,7 +449,6 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobSpecFromServer presenters.JobResource) {
 	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OffchainreportingOracleSpec
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffChainReportingSpec.ContractAddress)
-	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffChainReportingSpec.P2PPeerID)
 	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffChainReportingSpec.P2PBootstrapPeers)
 	assert.Equal(t, ocrJobSpecFromFile.IsBootstrapPeer, ocrJobSpecFromServer.OffChainReportingSpec.IsBootstrapPeer)
 	assert.Equal(t, ocrJobSpecFromFile.EncryptedOCRKeyBundleID, ocrJobSpecFromServer.OffChainReportingSpec.EncryptedOCRKeyBundleID)
@@ -492,7 +484,9 @@ func setupBridges(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) (b1, b2 string) {
 }
 
 func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
-	app := cltest.NewApplicationWithKey(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -503,10 +497,11 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
-	app := cltest.NewApplicationWithKey(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	require.NoError(t, app.Start())
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())

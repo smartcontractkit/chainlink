@@ -77,7 +77,7 @@ type Session struct {
 }
 
 // NewSession returns a session instance with ID set to a random ID and
-// LastUsed to to now.
+// LastUsed to now.
 func NewSession() Session {
 	return Session{
 		ID:       utils.NewBytes32ID(),

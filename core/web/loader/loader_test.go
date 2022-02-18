@@ -2,6 +2,7 @@ package loader
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/graph-gophers/dataloader"
@@ -9,11 +10,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -144,7 +148,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 		Name: "manager 3",
 	}
 
-	fsvc.On("GetManagers", []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
+	fsvc.On("ListManagersByIDs", []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
 		mgr1, mgr2, mgr3,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)
@@ -190,7 +194,7 @@ func TestLoader_JobProposals(t *testing.T) {
 		Status:         feeds.JobProposalStatusRejected,
 	}
 
-	fsvc.On("GetJobProposalsByManagersIDs", []int64{3, 1, 2}).Return([]feeds.JobProposal{
+	fsvc.On("ListJobProposalsByManagersIDs", []int64{3, 1, 2}).Return([]feeds.JobProposal{
 		jp1, jp3, jp2,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)
@@ -217,31 +221,119 @@ func TestLoader_JobRuns(t *testing.T) {
 		mock.AssertExpectationsForObjects(t, app, jobsORM)
 	})
 
-	run1 := pipeline.Run{
-		ID:             int64(1),
-		PipelineSpecID: int32(2),
-	}
-	run2 := pipeline.Run{
-		ID:             int64(2),
-		PipelineSpecID: int32(2),
-	}
-	run3 := pipeline.Run{
-		ID:             int64(3),
-		PipelineSpecID: int32(1),
-	}
+	run1 := pipeline.Run{ID: int64(1)}
+	run2 := pipeline.Run{ID: int64(2)}
+	run3 := pipeline.Run{ID: int64(3)}
 
-	jobsORM.On("PipelineRunsByJobsIDs", []int32{3, 1, 2}).Return([]pipeline.Run{
-		run1, run2, run3,
+	jobsORM.On("FindPipelineRunsByIDs", []int64{3, 1, 2}).Return([]pipeline.Run{
+		run3, run1, run2,
 	}, nil)
 	app.On("JobORM").Return(jobsORM)
 
 	batcher := jobRunBatcher{app}
 
 	keys := dataloader.NewKeysFromStrings([]string{"3", "1", "2"})
-	found := batcher.loadByPipelineSpecIDs(ctx, keys)
+	found := batcher.loadByIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []pipeline.Run{}, found[0].Data)
-	assert.Equal(t, []pipeline.Run{run3}, found[1].Data)
-	assert.Equal(t, []pipeline.Run{run1, run2}, found[2].Data)
+	assert.Equal(t, run3, found[0].Data)
+	assert.Equal(t, run1, found[1].Data)
+	assert.Equal(t, run2, found[2].Data)
+}
+
+func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("with out errors", func(t *testing.T) {
+		t.Parallel()
+
+		jobsORM := &jobORMMocks.ORM{}
+		app := &coremocks.Application{}
+		ctx := InjectDataloader(context.Background(), app)
+
+		defer t.Cleanup(func() {
+			mock.AssertExpectationsForObjects(t, app, jobsORM)
+		})
+
+		job1 := job.Job{ID: int32(2), PipelineSpecID: int32(1)}
+		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)}
+		job3 := job.Job{ID: int32(4), PipelineSpecID: int32(3)}
+
+		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{
+			job1, job2, job3,
+		}, nil)
+		app.On("JobORM").Return(jobsORM)
+
+		batcher := jobBatcher{app}
+
+		keys := dataloader.NewKeysFromStrings([]string{"3", "1", "2"})
+		found := batcher.loadByPipelineSpecIDs(ctx, keys)
+
+		require.Len(t, found, 3)
+		assert.Equal(t, job3, found[0].Data)
+		assert.Equal(t, job1, found[1].Data)
+		assert.Equal(t, job2, found[2].Data)
+	})
+
+	t.Run("with errors", func(t *testing.T) {
+		t.Parallel()
+
+		jobsORM := &jobORMMocks.ORM{}
+		app := &coremocks.Application{}
+		ctx := InjectDataloader(context.Background(), app)
+
+		defer t.Cleanup(func() {
+			mock.AssertExpectationsForObjects(t, app, jobsORM)
+		})
+
+		jobsORM.On("FindJobsByPipelineSpecIDs", []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
+		app.On("JobORM").Return(jobsORM)
+
+		batcher := jobBatcher{app}
+
+		keys := dataloader.NewKeysFromStrings([]string{"3", "1", "2"})
+		found := batcher.loadByPipelineSpecIDs(ctx, keys)
+
+		require.Len(t, found, 1)
+		assert.Nil(t, found[0].Data)
+		assert.ErrorIs(t, found[0].Error, sql.ErrNoRows)
+	})
+}
+
+func TestLoader_EthTransactionsAttempts(t *testing.T) {
+	t.Parallel()
+
+	bptxmORM := &bulletprooftxmanagerMocks.ORM{}
+	app := &coremocks.Application{}
+	ctx := InjectDataloader(context.Background(), app)
+
+	defer t.Cleanup(func() {
+		mock.AssertExpectationsForObjects(t, app, bptxmORM)
+	})
+
+	ethTxIDs := []int64{1, 2, 3}
+
+	attempt1 := bulletprooftxmanager.EthTxAttempt{
+		ID:      int64(1),
+		EthTxID: ethTxIDs[0],
+	}
+	attempt2 := bulletprooftxmanager.EthTxAttempt{
+		ID:      int64(1),
+		EthTxID: ethTxIDs[1],
+	}
+
+	bptxmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]bulletprooftxmanager.EthTxAttempt{
+		attempt1, attempt2,
+	}, nil)
+	app.On("BPTXMORM").Return(bptxmORM)
+
+	batcher := ethTransactionAttemptBatcher{app}
+
+	keys := dataloader.NewKeysFromStrings([]string{"3", "2", "1"})
+	found := batcher.loadByEthTransactionIDs(ctx, keys)
+
+	require.Len(t, found, 3)
+	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{}, found[0].Data)
+	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{attempt1}, found[2].Data)
 }

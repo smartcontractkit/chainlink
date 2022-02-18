@@ -1,5 +1,4 @@
 import * as jsonapi from 'utils/json-api-client'
-import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
@@ -453,21 +452,6 @@ function request<
 }
 
 /**
- * requestFetch calls the request action creator, specifying 'UPSERT' as the action prefix
- *
- * @param type The action type field to be dispatched
- * @param requestData A function that outputs the data to be normalized and dispatched
- * @param normalizeData A function that normalizes the data returned by the requester function to be dispatched into an upsert action
- */
-function requestFetch(
-  type: Parameters<typeof request>[0],
-  requestData: Parameters<typeof request>[2],
-  normalizeData: Parameters<typeof request>[3],
-): ReturnType<typeof request> {
-  return request(type, 'UPSERT', requestData, normalizeData)
-}
-
-/**
  * requestDelete calls the request action creator, specifying 'DELETE' as the action prefix
  *
  * @param type The action type field to be dispatched
@@ -482,47 +466,9 @@ function requestDelete(
   return request(type, 'DELETE', requestData, normalizeData)
 }
 
-export const fetchAccountBalance = requestFetch(
-  'ACCOUNT_BALANCE',
-  api.v2.user.balances.getAccountBalances,
-  (json) =>
-    normalize<{
-      accountBalances: presenters.AccountBalance[]
-    }>(json),
-)
-
-export type NormalizedAccountBalance = GetNormalizedData<
-  typeof fetchAccountBalance
->
-
-export const fetchConfiguration = requestFetch(
-  'CONFIGURATION',
-  api.v2.config.getConfiguration,
-  (json) => normalize(json, { camelizeKeys: false }),
-)
-
-export const deleteCompletedJobRuns = (updatedBefore: string) =>
-  requestDelete(
-    'COMPLETED_JOB_RUNS',
-    api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
-    normalize,
-  )({ status: [RunStatus.COMPLETED], updatedBefore })
-
 export const deleteErroredJobRuns = (updatedBefore: string) =>
   requestDelete(
     'ERRORED_JOB_RUNS',
     api.v2.bulkDeleteRuns.bulkDeleteJobRuns,
     normalize,
   )({ status: [RunStatus.ERRORED], updatedBefore })
-
-export const fetchTransactions = requestFetch(
-  'TRANSACTIONS',
-  api.v2.transactions.getTransactions,
-  (json) => normalize(json, { endpoint: 'currentPageTransactions' }),
-)
-
-export const fetchTransaction = requestFetch(
-  'TRANSACTION',
-  api.v2.transactions.getTransaction,
-  (json) => normalize(json),
-)

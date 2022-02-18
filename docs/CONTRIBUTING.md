@@ -8,8 +8,8 @@ Please dive in. Feel free to ask questions on [our Gitter](https://gitter.im/sma
 
 We follow an [agile development process](http://agilemanifesto.org/).
 You can view our current priorities for development listed on [Pivotal Tracker](https://www.pivotaltracker.com/n/projects/2129823).
-If you run into a bug or have a problem, the best action is to open an issue on Github (please search for related closed issues first).
-The Github issue will be migrated to Tracker and prioritized. We'll keep you updated as the issue progresses.
+If you run into a bug or have a problem, the best action is to open an issue on GitHub (please search for related closed issues first).
+The GitHub issue will be migrated to Tracker and prioritized. We'll keep you updated as the issue progresses.
 
 If you're interested in helping out with the development cycle, feel free to tackle open issues. We've even set aside a few that are [good introductory issues](https://github.com/smartcontractkit/chainlink/issues?q=is%3Aissue+label%3A%22good+first+issue%22).
 If you see something you'd like to help with [on Tracker](https://www.pivotaltracker.com/n/projects/2129823),

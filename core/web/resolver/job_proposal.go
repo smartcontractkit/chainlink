@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
-var notFoundErrorMessage = "job proposal not found"
+var notFoundErrorMessage = "spec not found"
 
 type JobProposalStatus string
 
@@ -62,11 +62,6 @@ func (r *JobProposalResolver) ID() graphql.ID {
 	return int64GQLID(r.jp.ID)
 }
 
-// Spec resolves to the job proposal Spec
-func (r *JobProposalResolver) Spec() string {
-	return r.jp.Spec
-}
-
 // Status resolves to the job proposal Status
 func (r *JobProposalResolver) Status() JobProposalStatus {
 	if status, err := ToJobProposalStatus(r.jp.Status); err == nil {
@@ -100,9 +95,34 @@ func (r *JobProposalResolver) MultiAddrs() []string {
 	return r.jp.Multiaddrs
 }
 
-// ProposedAt resolves to the job proposal ProposedAt date
-func (r *JobProposalResolver) ProposedAt() graphql.Time {
-	return graphql.Time{Time: r.jp.ProposedAt}
+// PendingUpdate resolves to whether the job proposal has a pending update.
+func (r *JobProposalResolver) PendingUpdate() bool {
+	return r.jp.PendingUpdate
+}
+
+// Specs returns all spec proposals associated with the proposal.
+func (r *JobProposalResolver) Specs(ctx context.Context) ([]*JobProposalSpecResolver, error) {
+	specs, err := loader.GetSpecsByJobProposalID(ctx, strconv.FormatInt(r.jp.ID, 10))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobProposalSpecs(specs), nil
+}
+
+// LatestSpec returns the spec with the highest version number.
+func (r *JobProposalResolver) LatestSpec(ctx context.Context) (*JobProposalSpecResolver, error) {
+	spec, err := loader.GetLatestSpecByJobProposalID(ctx, strconv.FormatInt(r.jp.ID, 10))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobProposalSpec(spec), nil
+}
+
+// RemoteUUID returns the remote FMS UUID of the proposal.
+func (r *JobProposalResolver) RemoteUUID(ctx context.Context) string {
+	return r.jp.RemoteUUID.String()
 }
 
 // -- GetJobProposal Query --
@@ -115,7 +135,7 @@ type JobProposalPayloadResolver struct {
 
 // NewJobProposalPayload creates a new job proposal payload
 func NewJobProposalPayload(jp *feeds.JobProposal, err error) *JobProposalPayloadResolver {
-	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
+	e := NotFoundErrorUnionType{err: err, message: "job proposal not found"}
 
 	return &JobProposalPayloadResolver{jp: jp, NotFoundErrorUnionType: e}
 }
@@ -127,150 +147,4 @@ func (r *JobProposalPayloadResolver) ToJobProposal() (*JobProposalResolver, bool
 	}
 
 	return nil, false
-}
-
-// -- Mutations shared types --
-
-type JobProposalAction string
-
-const (
-	approve JobProposalAction = "approve"
-	cancel  JobProposalAction = "cancel"
-	reject  JobProposalAction = "reject"
-)
-
-// -- ApproveJobProposal Mutation --
-
-type ApproveJobProposalPayloadResolver struct {
-	jp *feeds.JobProposal
-	NotFoundErrorUnionType
-}
-
-func NewApproveJobProposalPayload(jp *feeds.JobProposal, err error) *ApproveJobProposalPayloadResolver {
-	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
-
-	return &ApproveJobProposalPayloadResolver{jp: jp, NotFoundErrorUnionType: e}
-}
-
-// ToApproveJobProposalSuccess resolves to the approval job proposal success resolver
-func (r *ApproveJobProposalPayloadResolver) ToApproveJobProposalSuccess() (*ApproveJobProposalSuccessResolver, bool) {
-	if r.jp != nil {
-		return NewApproveJobProposalSuccess(r.jp), true
-	}
-
-	return nil, false
-}
-
-type ApproveJobProposalSuccessResolver struct {
-	jp *feeds.JobProposal
-}
-
-func NewApproveJobProposalSuccess(jp *feeds.JobProposal) *ApproveJobProposalSuccessResolver {
-	return &ApproveJobProposalSuccessResolver{jp: jp}
-}
-
-func (r *ApproveJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
-	return NewJobProposal(r.jp)
-}
-
-// -- CancelJobProposal Mutation --
-
-type CancelJobProposalPayloadResolver struct {
-	jp *feeds.JobProposal
-	NotFoundErrorUnionType
-}
-
-func NewCancelJobProposalPayload(jp *feeds.JobProposal, err error) *CancelJobProposalPayloadResolver {
-	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
-
-	return &CancelJobProposalPayloadResolver{jp: jp, NotFoundErrorUnionType: e}
-}
-
-// ToCancelJobProposalSuccess resolves to the approval job proposal success resolver
-func (r *CancelJobProposalPayloadResolver) ToCancelJobProposalSuccess() (*CancelJobProposalSuccessResolver, bool) {
-	if r.jp != nil {
-		return NewCancelJobProposalSuccess(r.jp), true
-	}
-
-	return nil, false
-}
-
-type CancelJobProposalSuccessResolver struct {
-	jp *feeds.JobProposal
-}
-
-func NewCancelJobProposalSuccess(jp *feeds.JobProposal) *CancelJobProposalSuccessResolver {
-	return &CancelJobProposalSuccessResolver{jp: jp}
-}
-
-func (r *CancelJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
-	return NewJobProposal(r.jp)
-}
-
-// -- RejectJobProposal Mutation --
-
-type RejectJobProposalPayloadResolver struct {
-	jp *feeds.JobProposal
-	NotFoundErrorUnionType
-}
-
-func NewRejectJobProposalPayload(jp *feeds.JobProposal, err error) *RejectJobProposalPayloadResolver {
-	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
-
-	return &RejectJobProposalPayloadResolver{jp: jp, NotFoundErrorUnionType: e}
-}
-
-// ToRejectJobProposalSuccess resolves to the approval job proposal success resolver
-func (r *RejectJobProposalPayloadResolver) ToRejectJobProposalSuccess() (*RejectJobProposalSuccessResolver, bool) {
-	if r.jp != nil {
-		return NewRejectJobProposalSuccess(r.jp), true
-	}
-
-	return nil, false
-}
-
-type RejectJobProposalSuccessResolver struct {
-	jp *feeds.JobProposal
-}
-
-func NewRejectJobProposalSuccess(jp *feeds.JobProposal) *RejectJobProposalSuccessResolver {
-	return &RejectJobProposalSuccessResolver{jp: jp}
-}
-
-func (r *RejectJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
-	return NewJobProposal(r.jp)
-}
-
-// -- UpdateJobProposalSpec Mutation --
-
-type UpdateJobProposalSpecPayloadResolver struct {
-	jp *feeds.JobProposal
-	NotFoundErrorUnionType
-}
-
-func NewUpdateJobProposalSpecPayload(jp *feeds.JobProposal, err error) *UpdateJobProposalSpecPayloadResolver {
-	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
-
-	return &UpdateJobProposalSpecPayloadResolver{jp: jp, NotFoundErrorUnionType: e}
-}
-
-// ToUpdateJobProposalSpecSuccess resolves to the approval job proposal success resolver
-func (r *UpdateJobProposalSpecPayloadResolver) ToUpdateJobProposalSpecSuccess() (*UpdateJobProposalSpecSuccessResolver, bool) {
-	if r.jp != nil {
-		return NewUpdateJobProposalSpecSuccess(r.jp), true
-	}
-
-	return nil, false
-}
-
-type UpdateJobProposalSpecSuccessResolver struct {
-	jp *feeds.JobProposal
-}
-
-func NewUpdateJobProposalSpecSuccess(jp *feeds.JobProposal) *UpdateJobProposalSpecSuccessResolver {
-	return &UpdateJobProposalSpecSuccessResolver{jp: jp}
-}
-
-func (r *UpdateJobProposalSpecSuccessResolver) JobProposal() *JobProposalResolver {
-	return NewJobProposal(r.jp)
 }

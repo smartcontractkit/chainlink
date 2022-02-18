@@ -16,20 +16,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// ApproveJobProposal provides a mock function with given fields: id, externalJobID, status, qopts
-func (_m *ORM) ApproveJobProposal(id int64, externalJobID uuid.UUID, status feeds.JobProposalStatus, qopts ...pg.QOpt) error {
+// ApproveSpec provides a mock function with given fields: id, externalJobID, qopts
+func (_m *ORM) ApproveSpec(id int64, externalJobID uuid.UUID, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, id, externalJobID, status)
+	_ca = append(_ca, id, externalJobID)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int64, uuid.UUID, feeds.JobProposalStatus, ...pg.QOpt) error); ok {
-		r0 = rf(id, externalJobID, status, qopts...)
+	if rf, ok := ret.Get(0).(func(int64, uuid.UUID, ...pg.QOpt) error); ok {
+		r0 = rf(id, externalJobID, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -37,8 +37,8 @@ func (_m *ORM) ApproveJobProposal(id int64, externalJobID uuid.UUID, status feed
 	return r0
 }
 
-// CancelJobProposal provides a mock function with given fields: id, qopts
-func (_m *ORM) CancelJobProposal(id int64, qopts ...pg.QOpt) error {
+// CancelSpec provides a mock function with given fields: id, qopts
+func (_m *ORM) CancelSpec(id int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -142,6 +142,62 @@ func (_m *ORM) CreateManager(ms *feeds.FeedsManager) (int64, error) {
 	return r0, r1
 }
 
+// CreateSpec provides a mock function with given fields: spec, qopts
+func (_m *ORM) CreateSpec(spec feeds.JobProposalSpec, qopts ...pg.QOpt) (int64, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, spec)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(feeds.JobProposalSpec, ...pg.QOpt) int64); ok {
+		r0 = rf(spec, qopts...)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(feeds.JobProposalSpec, ...pg.QOpt) error); ok {
+		r1 = rf(spec, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ExistsSpecByJobProposalIDAndVersion provides a mock function with given fields: jpID, version, qopts
+func (_m *ORM) ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (bool, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jpID, version)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(int64, int32, ...pg.QOpt) bool); ok {
+		r0 = rf(jpID, version, qopts...)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, int32, ...pg.QOpt) error); ok {
+		r1 = rf(jpID, version, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetJobProposal provides a mock function with given fields: id, qopts
 func (_m *ORM) GetJobProposal(id int64, qopts ...pg.QOpt) (*feeds.JobProposal, error) {
 	_va := make([]interface{}, len(qopts))
@@ -195,36 +251,6 @@ func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, er
 	return r0, r1
 }
 
-// GetJobProposalsByManagersIDs provides a mock function with given fields: ids, qopts
-func (_m *ORM) GetJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]feeds.JobProposal, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, ids)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 []feeds.JobProposal
-	if rf, ok := ret.Get(0).(func([]int64, ...pg.QOpt) []feeds.JobProposal); ok {
-		r0 = rf(ids, qopts...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.JobProposal)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func([]int64, ...pg.QOpt) error); ok {
-		r1 = rf(ids, qopts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetManager provides a mock function with given fields: id
 func (_m *ORM) GetManager(id int64) (*feeds.FeedsManager, error) {
 	ret := _m.Called(id)
@@ -248,22 +274,29 @@ func (_m *ORM) GetManager(id int64) (*feeds.FeedsManager, error) {
 	return r0, r1
 }
 
-// GetManagers provides a mock function with given fields: ids
-func (_m *ORM) GetManagers(ids []int64) ([]feeds.FeedsManager, error) {
-	ret := _m.Called(ids)
+// GetSpec provides a mock function with given fields: id, qopts
+func (_m *ORM) GetSpec(id int64, qopts ...pg.QOpt) (*feeds.JobProposalSpec, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
-	var r0 []feeds.FeedsManager
-	if rf, ok := ret.Get(0).(func([]int64) []feeds.FeedsManager); ok {
-		r0 = rf(ids)
+	var r0 *feeds.JobProposalSpec
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) *feeds.JobProposalSpec); ok {
+		r0 = rf(id, qopts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.FeedsManager)
+			r0 = ret.Get(0).(*feeds.JobProposalSpec)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]int64) error); ok {
-		r1 = rf(ids)
+	if rf, ok := ret.Get(1).(func(int64, ...pg.QOpt) error); ok {
+		r1 = rf(id, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -322,6 +355,36 @@ func (_m *ORM) ListJobProposals() ([]feeds.JobProposal, error) {
 	return r0, r1
 }
 
+// ListJobProposalsByManagersIDs provides a mock function with given fields: ids, qopts
+func (_m *ORM) ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]feeds.JobProposal, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ids)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []feeds.JobProposal
+	if rf, ok := ret.Get(0).(func([]int64, ...pg.QOpt) []feeds.JobProposal); ok {
+		r0 = rf(ids, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64, ...pg.QOpt) error); ok {
+		r1 = rf(ids, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListManagers provides a mock function with given fields:
 func (_m *ORM) ListManagers() ([]feeds.FeedsManager, error) {
 	ret := _m.Called()
@@ -345,20 +408,73 @@ func (_m *ORM) ListManagers() ([]feeds.FeedsManager, error) {
 	return r0, r1
 }
 
-// UpdateJobProposalSpec provides a mock function with given fields: id, spec, qopts
-func (_m *ORM) UpdateJobProposalSpec(id int64, spec string, qopts ...pg.QOpt) error {
+// ListManagersByIDs provides a mock function with given fields: ids
+func (_m *ORM) ListManagersByIDs(ids []int64) ([]feeds.FeedsManager, error) {
+	ret := _m.Called(ids)
+
+	var r0 []feeds.FeedsManager
+	if rf, ok := ret.Get(0).(func([]int64) []feeds.FeedsManager); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.FeedsManager)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListSpecsByJobProposalIDs provides a mock function with given fields: ids, qopts
+func (_m *ORM) ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]feeds.JobProposalSpec, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, id, spec)
+	_ca = append(_ca, ids)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []feeds.JobProposalSpec
+	if rf, ok := ret.Get(0).(func([]int64, ...pg.QOpt) []feeds.JobProposalSpec); ok {
+		r0 = rf(ids, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.JobProposalSpec)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64, ...pg.QOpt) error); ok {
+		r1 = rf(ids, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RejectSpec provides a mock function with given fields: id, qopts
+func (_m *ORM) RejectSpec(id int64, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int64, string, ...pg.QOpt) error); ok {
-		r0 = rf(id, spec, qopts...)
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) error); ok {
+		r0 = rf(id, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -408,20 +524,48 @@ func (_m *ORM) UpdateManager(mgr feeds.FeedsManager, qopts ...pg.QOpt) error {
 	return r0
 }
 
-// UpsertJobProposal provides a mock function with given fields: jp
-func (_m *ORM) UpsertJobProposal(jp *feeds.JobProposal) (int64, error) {
-	ret := _m.Called(jp)
+// UpdateSpecDefinition provides a mock function with given fields: id, spec, qopts
+func (_m *ORM) UpdateSpecDefinition(id int64, spec string, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id, spec)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int64, string, ...pg.QOpt) error); ok {
+		r0 = rf(id, spec, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpsertJobProposal provides a mock function with given fields: jp, qopts
+func (_m *ORM) UpsertJobProposal(jp *feeds.JobProposal, qopts ...pg.QOpt) (int64, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jp)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(*feeds.JobProposal) int64); ok {
-		r0 = rf(jp)
+	if rf, ok := ret.Get(0).(func(*feeds.JobProposal, ...pg.QOpt) int64); ok {
+		r0 = rf(jp, qopts...)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*feeds.JobProposal) error); ok {
-		r1 = rf(jp)
+	if rf, ok := ret.Get(1).(func(*feeds.JobProposal, ...pg.QOpt) error); ok {
+		r1 = rf(jp, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
