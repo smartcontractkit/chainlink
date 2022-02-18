@@ -225,6 +225,8 @@ func NewLogger() Logger {
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
+
+		c.RequiredDiskSpace = utils.FileSize(c.DiskMaxSizeBeforeRotate * (c.DiskMaxBackupsBeforeDelete + 1))
 	}
 
 	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
@@ -248,6 +250,7 @@ type Config struct {
 	DiskMaxSizeBeforeRotate    int  // megabytes
 	DiskMaxAgeBeforeDelete     int  // days
 	DiskMaxBackupsBeforeDelete int  // files
+	RequiredDiskSpace          utils.FileSize
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.

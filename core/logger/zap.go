@@ -6,11 +6,8 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/v3/disk"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var _ Logger = &zapLogger{}
@@ -18,16 +15,18 @@ var _ Logger = &zapLogger{}
 // ZapLoggerConfig defines the struct that serves as config when spinning up a the zap logger
 type ZapLoggerConfig struct {
 	zap.Config
-	local Config
-	sinks []zapcore.WriteSyncer
+	local        Config
+	diskLogLevel zap.AtomicLevel
+	sinks        []zapcore.WriteSyncer
 }
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	config     ZapLoggerConfig
-	name       string
-	fields     []interface{}
-	callerSkip int
+	config            ZapLoggerConfig
+	name              string
+	fields            []interface{}
+	callerSkip        int
+	closeDiskPollChan chan struct{}
 }
 
 func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
@@ -39,10 +38,17 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 
 	core := zapcore.NewTee(cores...)
 
-	return &zapLogger{
-		config:        cfg,
-		SugaredLogger: zap.New(core).Sugar(),
-	}, err
+	lggr := &zapLogger{
+		config:            cfg,
+		closeDiskPollChan: make(chan struct{}),
+		SugaredLogger:     zap.New(core).Sugar(),
+	}
+
+	if cfg.local.ToDisk {
+		go lggr.pollDiskSpace()
+	}
+
+	return lggr, err
 }
 
 func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
@@ -50,7 +56,7 @@ func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
 	var cores []zapcore.Core
 
 	if cfg.local.ToDisk {
-		core, diskErr := newDiskCore(cfg.local)
+		core, diskErr := newDiskCore(cfg)
 		if diskErr == nil {
 			cores = append(cores, core)
 		}
@@ -69,36 +75,6 @@ func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
 	}
 
 	return cores, err
-}
-
-func newDiskCore(cfg Config) (zapcore.Core, error) {
-	diskUsage, err := disk.Usage(cfg.Dir)
-	if err != nil {
-		return nil, errors.Wrap(err, "error getting disk space available for logging")
-	}
-	diskSpaceAvailable := utils.FileSize(diskUsage.Free)
-	requiredDiskSpace := utils.FileSize(cfg.DiskMaxSizeBeforeRotate * (cfg.DiskMaxBackupsBeforeDelete + 1))
-	if diskSpaceAvailable < requiredDiskSpace {
-		return nil, fmt.Errorf(
-			"disk space is not enough to log into disk, Required disk space: %s, Available disk space: %s",
-			requiredDiskSpace,
-			diskSpaceAvailable,
-		)
-	}
-
-	var (
-		encoder = zapcore.NewConsoleEncoder(makeEncoderConfig(cfg))
-		sink    = zapcore.AddSync(&lumberjack.Logger{
-			Filename:   logFileURI(cfg.Dir),
-			MaxSize:    cfg.DiskMaxSizeBeforeRotate,
-			MaxAge:     cfg.DiskMaxAgeBeforeDelete,
-			MaxBackups: cfg.DiskMaxBackupsBeforeDelete,
-			Compress:   true,
-		})
-		allLogLevels = zap.LevelEnablerFunc(zap.DebugLevel.Enabled)
-	)
-
-	return zapcore.NewCore(encoder, sink, allLogLevels), nil
 }
 
 func newConsoleCore(cfg ZapLoggerConfig) zapcore.Core {
@@ -207,6 +183,7 @@ func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 }
 
 func (l *zapLogger) Sync() error {
+	l.closeDiskPollChan <- struct{}{}
 	err := l.SugaredLogger.Sync()
 	if err == nil {
 		return nil
