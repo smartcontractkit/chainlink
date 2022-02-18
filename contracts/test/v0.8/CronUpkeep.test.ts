@@ -32,6 +32,7 @@ let handler1Sig: string
 let handler2Sig: string
 let revertHandlerSig: string
 let basicSpec: string
+let basicCronString = '0 * * * *'
 
 async function assertJobIDsEqual(expected: number[]) {
   const ids = (await cron.getActiveCronJobIDs()).map((n) => n.toNumber())
@@ -99,7 +100,7 @@ describe('CronUpkeep', () => {
       'CronInternalTestHelper',
     )
     cronTestHelper = await cronTHFactory.deploy()
-    basicSpec = await cron.cronStringToEncodedSpec('0 * * * *')
+    basicSpec = await cron.cronStringToEncodedSpec(basicCronString)
   })
 
   afterEach(async () => {
@@ -113,6 +114,7 @@ describe('CronUpkeep', () => {
     h.publicAbi(cron as unknown as Contract, [
       'performUpkeep',
       'createCronJobFromEncodedSpec',
+      'updateCronJob',
       'deleteCronJob',
       'checkUpkeep',
       'getActiveCronJobIDs',
@@ -338,6 +340,49 @@ describe('CronUpkeep', () => {
             encodedSpec,
           ),
       ).to.be.revertedWith(OWNABLE_ERR)
+    })
+  })
+
+  describe('updateCronJob()', () => {
+    beforeEach(async () => {
+      await createBasicCron()
+    })
+
+    it('updates a job', async () => {
+      let cron1 = await cron.getCronJob(1)
+      assert.equal(cron1.target, cronReceiver1.address)
+      assert.equal(cron1.handler, handler1Sig)
+      assert.equal(cron1.cronString, basicCronString)
+      const newCronString = '1 1 1 1 1'
+      const spec2 = await cron.cronStringToEncodedSpec(newCronString)
+      await cron.updateCronJob(1, cronReceiver2.address, handler2Sig, spec2)
+      cron1 = await cron.getCronJob(1)
+      assert.equal(cron1.target, cronReceiver2.address)
+      assert.equal(cron1.handler, handler2Sig)
+      assert.equal(cron1.cronString, newCronString)
+    })
+
+    it('emits an event', async () => {
+      await expect(
+        cron.updateCronJob(1, cronReceiver2.address, handler2Sig, basicSpec),
+      )
+        .to.emit(cron, 'CronJobUpdated')
+        .withArgs(1, cronReceiver2.address, handler2Sig)
+    })
+
+    it('is only callable by the owner', async () => {
+      await expect(
+        cron
+          .connect(stranger)
+          .updateCronJob(1, cronReceiver1.address, handler1Sig, basicSpec),
+      ).to.be.revertedWith(OWNABLE_ERR)
+    })
+
+    it('is only callable with valid cron IDs', async () => {
+      await cron.updateCronJob(1, cronReceiver1.address, handler1Sig, basicSpec)
+      await expect(
+        cron.updateCronJob(2, cronReceiver1.address, handler1Sig, basicSpec),
+      ).to.be.revertedWith(CRON_NOT_FOUND_ERR)
     })
   })
 

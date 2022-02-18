@@ -40,6 +40,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
 
   event CronJobExecuted(uint256 indexed id, uint256 timestamp);
   event CronJobCreated(uint256 indexed id, address target, bytes handler);
+  event CronJobUpdated(uint256 indexed id, address newTarget, bytes newHandler);
   event CronJobDeleted(uint256 indexed id);
 
   error CallFailed(uint256 id, string reason);
@@ -98,6 +99,27 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
   ) external {
     Spec memory spec = abi.decode(encodedCronSpec, (Spec));
     createCronJobFromSpec(target, handler, spec);
+  }
+
+  /**
+   * @notice Updates a cron job
+   * @param id the id of the cron job to update
+   * @param target the destination contract of a cron job
+   * @param handler the function signature on the target contract to call
+   * @param encodedCronSpec abi encoding of a cron spec
+   */
+  function updateCronJob(
+    uint256 id,
+    address target,
+    bytes memory handler,
+    bytes memory encodedCronSpec
+  ) external onlyOwner onlyValidCronID(id) {
+    s_targets[id] = target;
+    s_handlers[id] = handler;
+    s_specs[id] = abi.decode(encodedCronSpec, (Spec));
+    s_lastRuns[id] = block.timestamp;
+    s_handlerSignatures[id] = handlerSig(target, handler);
+    emit CronJobUpdated(id, target, handler);
   }
 
   /**
