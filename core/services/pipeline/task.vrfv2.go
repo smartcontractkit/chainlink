@@ -94,8 +94,10 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid sender")}, runInfo
 	}
-	var pk secp256k1.PublicKey
-	copy(pk[:], pubKey[:])
+	pk, err := secp256k1.NewPublicKeyFromHex(hexutil.Encode(pubKey))
+	if err != nil {
+		return Result{Error: fmt.Errorf("failed to create PublicKey from bytes %v", err)}, runInfo
+	}
 	pkh := pk.MustHash()
 	// Validate the key against the spec
 	if !bytes.Equal(requestKeyHash[:], pkh[:]) {
@@ -104,6 +106,9 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	preSeed, err := proof.BigToSeed(requestPreSeed)
 	if err != nil {
 		return Result{Error: fmt.Errorf("unable to parse preseed %v", preSeed)}, runInfo
+	}
+	if len(requestBlockHash) != common.HashLength {
+		return Result{Error: fmt.Errorf("invalid BlockHash length %d expected %v", len(requestBlockHash), common.HashLength)}, runInfo
 	}
 	preSeedData := proof.PreSeedDataV2{
 		PreSeed:          preSeed,

@@ -433,3 +433,91 @@ func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 		})
 	}
 }
+
+func TestVarExpr(t *testing.T) {
+	t.Parallel()
+
+	vars := createTestVars()
+
+	tests := []struct {
+		expr   string
+		result interface{}
+		err    error
+	}{
+		// no errors
+		{" $(  foo.bar  ) ", "value", nil},
+		{" $(  zet)", 123, nil},
+		{"$(arr.1  ) ", 200, nil},
+		// errors
+		{" $(  missing)", nil, pipeline.ErrBadInput},
+		{" $$(  zet)", nil, pipeline.ErrBadInput},
+		{"  ", nil, pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.expr, func(t *testing.T) {
+			t.Parallel()
+
+			getter := pipeline.VarExpr(test.expr, vars)
+			v, err := getter()
+			if test.err == nil {
+				require.NoError(t, err)
+				require.Equal(t, test.result, v)
+			} else {
+				require.Error(t, test.err)
+			}
+		})
+	}
+}
+
+func TestJSONWithVarExprs(t *testing.T) {
+	t.Parallel()
+
+	vars := createTestVars()
+
+	tests := []struct {
+		json   string
+		field  string
+		result interface{}
+		err    error
+	}{
+		// no errors
+		{`{ "x": $(zet) }`, "x", 123, nil},
+		{`{ "x": { "y": $(zet) } }`, "x", map[string]interface{}{"y": 123}, nil},
+		{`{ "z": "foo" }`, "z", "foo", nil},
+		// errors
+		{`{ "x": $(missing) }`, "x", nil, pipeline.ErrBadInput},
+		{`{ "x": "$(zet)" }`, "x", "$(zet)", pipeline.ErrBadInput},
+		{`{ "$(foo.bar)": $(zet) }`, "value", 123, pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.json, func(t *testing.T) {
+			t.Parallel()
+
+			getter := pipeline.JSONWithVarExprs(test.json, vars, false)
+			v, err := getter()
+			if test.err != nil {
+				require.Error(t, test.err)
+			} else {
+				require.NoError(t, err)
+				m := v.(map[string]interface{})
+				require.Equal(t, test.result, m[test.field])
+			}
+		})
+	}
+}
+
+func createTestVars() pipeline.Vars {
+	return pipeline.NewVarsFrom(map[string]interface{}{
+		"foo": map[string]interface{}{
+			"bar": "value",
+		},
+		"zet": 123,
+		"arr": []interface{}{
+			100, 200, 300,
+		},
+	})
+}
