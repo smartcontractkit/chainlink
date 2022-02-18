@@ -266,4 +266,24 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	err = db.Get(&count, sql)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
+
+	type jobIdAndContractId struct {
+		ID         int32
+		ContractID string
+	}
+
+	var jobsAndContracts []jobIdAndContractId
+	sql = `SELECT jobs.id, ocr2.contract_id
+FROM jobs 
+INNER JOIN offchainreporting2_oracle_specs as ocr2 
+ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
+	err = db.Select(&jobsAndContracts, sql)
+	require.NoError(t, err)
+
+	require.Len(t, jobsAndContracts, 4)
+	require.Equal(t, jobIdAndContractId{ID: 11, ContractID: "empty"}, jobsAndContracts[0])
+	require.Equal(t, jobIdAndContractId{ID: 30, ContractID: "evm_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[1])
+	require.Equal(t, jobIdAndContractId{ID: 10, ContractID: "terra_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[2])
+	require.Equal(t, jobIdAndContractId{ID: 20, ContractID: "sol_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[3])
+
 }
