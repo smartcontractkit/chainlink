@@ -30,16 +30,15 @@ export const JobProposalCard = ({ proposal }: Props) => {
         </Grid>
         <Grid item xs={12} sm={4} md={4}>
           <DetailsCardItemTitle title="External Job ID" />
-
-          <DetailsCardItemValue>
-            {proposal.jobID ? (
+          {proposal.jobID && proposal.externalJobID ? (
+            <DetailsCardItemValue>
               <Link color="primary" href={`/jobs/${proposal.jobID}`}>
                 {proposal.externalJobID}
               </Link>
-            ) : (
-              '--'
-            )}
-          </DetailsCardItemValue>
+            </DetailsCardItemValue>
+          ) : (
+            <DetailsCardItemValue value={proposal.externalJobID || '--'} />
+          )}
         </Grid>
         <Grid item xs={12} sm={4} md={2}>
           <DetailsCardItemTitle title="Approved Version" />
