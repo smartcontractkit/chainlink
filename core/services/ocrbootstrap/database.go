@@ -3,7 +3,6 @@ package ocrbootstrap
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
@@ -18,41 +17,11 @@ type db struct {
 	lggr         logger.Logger
 }
 
-var _ ocrtypes.Database = &db{}
+var _ ocrtypes.ConfigDatabase = &db{}
 
 // NewDB returns a new DB scoped to this oracleSpecID
 func NewDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *db {
 	return &db{sqldb, oracleSpecID, lggr}
-}
-
-func (d *db) ReadState(ctx context.Context, configDigest ocrtypes.ConfigDigest) (*ocrtypes.PersistentState, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (d *db) WriteState(ctx context.Context, configDigest ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (d *db) StorePendingTransmission(ctx context.Context, timestamp ocrtypes.ReportTimestamp, transmission ocrtypes.PendingTransmission) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, digest ocrtypes.ConfigDigest) (map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (d *db) DeletePendingTransmission(ctx context.Context, timestamp ocrtypes.ReportTimestamp) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) error {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
