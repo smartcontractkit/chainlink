@@ -20,8 +20,8 @@ type db struct {
 var _ ocrtypes.ConfigDatabase = &db{}
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *db {
-	return &db{sqldb, oracleSpecID, lggr}
+func NewDB(sqldb *sql.DB, bootstrapSpecID int32, lggr logger.Logger) *db {
+	return &db{sqldb, bootstrapSpecID, lggr}
 }
 
 func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {

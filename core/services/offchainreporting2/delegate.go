@@ -4,6 +4,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -14,9 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type Delegate struct {
@@ -143,6 +143,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 	// These are populated here because when the pipeline spec is
 	// run it uses them to create identifiable prometheus metrics.
+	// TODO SC-30421 Move pipeline population to job spawner
 	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 	jobSpec.PipelineSpec.JobID = jobSpec.ID
 
