@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -32,6 +33,25 @@ func IsBumpErr(err error) bool {
 // NewEstimator returns the estimator for a given config
 func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Estimator {
 	s := cfg.GasEstimatorMode()
+	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
+		"estimatorMode", s,
+		"batchSize", cfg.BlockHistoryEstimatorBatchSize(),
+		"blockDelay", cfg.BlockHistoryEstimatorBlockDelay(),
+		"blockHistorySize", cfg.BlockHistoryEstimatorBlockHistorySize(),
+		"eip1559FeeCapBufferBlocks", cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks(),
+		"transactionPercentile", cfg.BlockHistoryEstimatorTransactionPercentile(),
+		"eip1559DynamicFees", cfg.EvmEIP1559DynamicFees(),
+		"gasBumpPercent", cfg.EvmGasBumpPercent(),
+		"gasBumpThreshold", cfg.EvmGasBumpThreshold(),
+		"gasBumpWei", cfg.EvmGasBumpWei(),
+		"feeCapDefault", cfg.EvmGasFeeCapDefault(),
+		"gasLimitMultiplier", cfg.EvmGasLimitMultiplier(),
+		"gasPriceDefault", cfg.EvmGasPriceDefault(),
+		"gasTipCapDefault", cfg.EvmGasTipCapDefault(),
+		"gasTipCapMinimum", cfg.EvmGasTipCapMinimum(),
+		"maxGasPriceWei", cfg.EvmMaxGasPriceWei(),
+		"minGasPriceWei", cfg.EvmMinGasPriceWei(),
+	)
 	switch s {
 	case "BlockHistory":
 		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
