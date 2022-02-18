@@ -108,7 +108,7 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 		return Result{Error: fmt.Errorf("unable to parse preseed %v", preSeed)}, runInfo
 	}
 	if len(requestBlockHash) != common.HashLength {
-		return Result{Error: fmt.Errorf("invalid BlockHash length %d expected %v", len(requestBlockHash), common.HashLength)}, runInfo
+		return Result{Error: fmt.Errorf("invalid BlockHash length %d expected %d", len(requestBlockHash), common.HashLength)}, runInfo
 	}
 	preSeedData := proof.PreSeedDataV2{
 		PreSeed:          preSeed,

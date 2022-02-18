@@ -94,7 +94,7 @@ func (t *VRFTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 		return Result{Error: fmt.Errorf("request jobID %v doesn't match expected %v or %v", requestJobID[:], topics[0][:], topics[1][:])}, runInfo
 	}
 	if len(requestBlockHash) != common.HashLength {
-		return Result{Error: fmt.Errorf("invalid BlockHash length %d expected %v", len(requestBlockHash), common.HashLength)}, runInfo
+		return Result{Error: fmt.Errorf("invalid BlockHash length %d expected %d", len(requestBlockHash), common.HashLength)}, runInfo
 	}
 	preSeedData := proof.PreSeedData{
 		PreSeed:   preSeed,
