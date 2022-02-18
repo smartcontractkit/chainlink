@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
@@ -251,7 +252,7 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 // createKeeperJob creates a keeper job in the chainlink node by the given address
 func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
-		TOML: GenerateKeeperSpec(KeeperSpecParams{
+		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
 			Name:                     fmt.Sprintf("keeper job - registry %s", registryAddr),
 			ContractAddress:          registryAddr,
 			FromAddress:              nodeAddr,
