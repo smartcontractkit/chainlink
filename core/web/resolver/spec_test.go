@@ -504,7 +504,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						ContractConfigConfirmations:       1,
 						ContractConfigTrackerPollInterval: models.Interval(1 * time.Minute),
 						CreatedAt:                         f.Timestamp(),
-						IsBootstrapPeer:                   false,
 						JuelsPerFeeCoinPipeline:           "100000000",
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
@@ -527,7 +526,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									contractConfigConfirmations
 									contractConfigTrackerPollInterval
 									createdAt
-									isBootstrapPeer
 									juelsPerFeeCoinSource
 									ocrKeyBundleID
 									monitoringEndpoint
@@ -551,7 +549,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"contractConfigConfirmations": 1,
 							"contractConfigTrackerPollInterval": "1m0s",
 							"createdAt": "2021-01-01T00:00:00Z",
-							"isBootstrapPeer": false,
 							"juelsPerFeeCoinSource": "100000000",
 							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",

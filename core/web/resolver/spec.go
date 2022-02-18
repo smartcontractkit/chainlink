@@ -525,11 +525,6 @@ func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
-// IsBootstrapPeer resolves whether spec is a bootstrap peer.
-func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
-	return r.spec.IsBootstrapPeer
-}
-
 // JuelsPerFeeCoinSource resolves the spec's juels per fee coin source
 func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() *string {
 	if r.spec.JuelsPerFeeCoinPipeline == "" {
