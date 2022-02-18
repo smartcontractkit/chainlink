@@ -60,7 +60,7 @@ func (l *zapLogger) pollDiskSpace() {
 			if err != nil {
 				l.Fatalw("error getting disk space available for logging", "error", err)
 				// Will no longer log to disk
-				l.config.diskLogLevel.SetLevel(zap.FatalLevel + 1)
+				l.config.diskLogLevel.SetLevel(zapcore.FatalLevel + 1)
 			}
 
 			diskSpaceAvailable := utils.FileSize(diskUsage.Free)
@@ -71,10 +71,10 @@ func (l *zapLogger) pollDiskSpace() {
 					diskSpaceAvailable,
 				)
 				// Will no longer log to disk
-				l.config.diskLogLevel.SetLevel(zap.FatalLevel + 1)
+				l.config.diskLogLevel.SetLevel(zapcore.FatalLevel + 1)
 			} else {
 				// Will resume disk logs
-				l.config.diskLogLevel.SetLevel(zap.DebugLevel)
+				l.config.diskLogLevel.SetLevel(zapcore.DebugLevel)
 			}
 		}
 	}
