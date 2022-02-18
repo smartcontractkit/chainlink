@@ -30,34 +30,52 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	assert.NoError(t, err)
 	defer tmpFile.Close()
 
-	diskMock := &utilsmocks.DiskStatsProvider{}
+	zapCfg := ZapLoggerConfig{
+		Config: cfg,
+		local: Config{
+			Dir:                        logsDir,
+			ToDisk:                     true,
+			DiskMaxSizeBeforeRotate:    1,
+			DiskMaxAgeBeforeDelete:     0,
+			DiskMaxBackupsBeforeDelete: 1,
+		},
+		diskLogLevel: zap.NewAtomicLevelAt(zapcore.DebugLevel),
+	}
 
 	t.Run("on logger creation", func(t *testing.T) {
+		diskMock := &utilsmocks.DiskStatsProvider{}
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
 		defer diskMock.AssertExpectations(t)
 
-		requiredDiskSpace := utils.FileSize(int(maxSize) * 2)
-		_, err = newZapLogger(ZapLoggerConfig{
-			Config: cfg,
-			local: Config{
-				Dir:                        logsDir,
-				ToDisk:                     true,
-				DiskMaxSizeBeforeRotate:    1,
-				DiskMaxAgeBeforeDelete:     0,
-				DiskMaxBackupsBeforeDelete: 1,
-				RequiredDiskSpace:          requiredDiskSpace,
-			},
-			diskStats:    diskMock,
-			diskLogLevel: zap.NewAtomicLevelAt(zapcore.DebugLevel),
-		})
+		zapCfg.diskStats = diskMock
+		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
 
+		lggr, err := newZapLogger(zapCfg)
 		expectedError := fmt.Sprintf(
 			"disk space is not enough to log into disk, Required disk space: %s, Available disk space: %s",
-			requiredDiskSpace,
+			zapCfg.local.RequiredDiskSpace,
 			maxSize,
 		)
+		defer lggr.Sync()
 
 		require.Error(t, err)
-		require.Equal(t, err.Error(), expectedError)
+		require.Equal(t, expectedError, err.Error())
+	})
+
+	t.Run("on logger creation generic error", func(t *testing.T) {
+		diskMock := &utilsmocks.DiskStatsProvider{}
+		diskMock.On("AvailableSpace", logsDir).Return(utils.FileSize(0), fmt.Errorf("custom error"))
+		defer diskMock.AssertExpectations(t)
+
+		zapCfg.diskStats = diskMock
+		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
+
+		lggr, err := newZapLogger(zapCfg)
+		defer lggr.Sync()
+
+		expectedError := "error getting disk space available for logging: custom error"
+
+		require.Error(t, err)
+		require.Equal(t, expectedError, err.Error())
 	})
 }

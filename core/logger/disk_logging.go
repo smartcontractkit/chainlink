@@ -16,6 +16,7 @@ var diskPollInterval = 1 * time.Minute
 
 func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
 	availableSpace, err := cfg.diskStats.AvailableSpace(cfg.local.Dir)
+	fmt.Printf("space: %s, err: %v\n", availableSpace, err)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting disk space available for logging")
 	}
