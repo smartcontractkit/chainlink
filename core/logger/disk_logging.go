@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -15,16 +15,15 @@ import (
 var diskPollInterval = 1 * time.Minute
 
 func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
-	diskUsage, err := disk.Usage(cfg.local.Dir)
+	availableSpace, err := cfg.diskStats.AvailableSpace(cfg.local.Dir)
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting disk space available for logging")
 	}
-	diskSpaceAvailable := utils.FileSize(diskUsage.Free)
-	if diskSpaceAvailable < cfg.local.RequiredDiskSpace {
+	if availableSpace < cfg.local.RequiredDiskSpace {
 		return nil, fmt.Errorf(
 			"disk space is not enough to log into disk, Required disk space: %s, Available disk space: %s",
 			cfg.local.RequiredDiskSpace,
-			diskSpaceAvailable,
+			availableSpace,
 		)
 	}
 
@@ -56,19 +55,18 @@ func (l *zapLogger) pollDiskSpace() {
 		case <-l.closeDiskPollChan:
 			return
 		case <-ticker.C:
-			diskUsage, err := disk.Usage(l.config.local.Dir)
+			diskUsage, err := l.config.diskStats.AvailableSpace(l.config.local.Dir)
 			if err != nil {
 				l.Fatalw("error getting disk space available for logging", "error", err)
 				// Will no longer log to disk
 				l.config.diskLogLevel.SetLevel(zapcore.FatalLevel + 1)
 			}
 
-			diskSpaceAvailable := utils.FileSize(diskUsage.Free)
-			if diskSpaceAvailable < l.config.local.RequiredDiskSpace {
+			if diskUsage < l.config.local.RequiredDiskSpace {
 				l.Fatalf(
 					"disk space is not enough to log into disk, Required disk space: %s, Available disk space: %s",
 					l.config.local.RequiredDiskSpace,
-					diskSpaceAvailable,
+					diskUsage,
 				)
 				// Will no longer log to disk
 				l.config.diskLogLevel.SetLevel(zapcore.FatalLevel + 1)

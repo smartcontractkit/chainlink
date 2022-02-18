@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -18,6 +20,7 @@ type ZapLoggerConfig struct {
 	local        Config
 	diskLogLevel zap.AtomicLevel
 	sinks        []zapcore.WriteSyncer
+	diskStats    utils.DiskStatsProvider
 }
 
 type zapLogger struct {
