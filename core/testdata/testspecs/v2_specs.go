@@ -113,6 +113,7 @@ storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 usePreflight       = true
 commitment         = "processed"
+txTimeout          = "1m"
 pollingInterval    = "2s"
 pollingCtxTimeout  = "4s"
 staleTimeout       = "30s"`

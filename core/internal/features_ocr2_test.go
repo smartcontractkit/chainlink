@@ -278,7 +278,6 @@ relay = "evm"
 schemaVersion      = 1
 name               = "web oracle spec"
 contractID = "%s"
-isBootstrapPeer    = false
 ocrKeyBundleID        = "%s"
 transmitterID = "%s"
 contractConfigConfirmations = 1

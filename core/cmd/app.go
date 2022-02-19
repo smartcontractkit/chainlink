@@ -803,6 +803,23 @@ func NewApp(client *Client) *cli.App {
 					Flags:  []cli.Flag{},
 				},
 				{
+					Name:   "profile",
+					Usage:  "Collects profile metrics from the node.",
+					Action: client.Profile,
+					Flags: []cli.Flag{
+						cli.Uint64Flag{
+							Name:  "seconds, s",
+							Usage: "duration of profile capture",
+							Value: 8,
+						},
+						cli.StringFlag{
+							Name:  "output_dir, o",
+							Usage: "output directory of the captured profile",
+							Value: "/tmp/",
+						},
+					},
+				},
+				{
 					Name:        "db",
 					Usage:       "Commands for managing the database.",
 					Description: "Potentially destructive commands for managing the database.",

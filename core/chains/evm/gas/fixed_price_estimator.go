@@ -17,8 +17,10 @@ type fixedPriceEstimator struct {
 	lggr   logger.Logger
 }
 
-func NewFixedPriceEstimator(config Config, lggr logger.Logger) Estimator {
-	return &fixedPriceEstimator{config, lggr.Named("FixedPriceEstimator")}
+// NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
+// always use the config default values for gas prices and limits
+func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) Estimator {
+	return &fixedPriceEstimator{cfg, lggr.Named("FixedPriceEstimator")}
 }
 
 func (f *fixedPriceEstimator) Start() error                                          { return nil }
