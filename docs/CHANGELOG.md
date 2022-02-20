@@ -29,7 +29,7 @@ New ENV vars:
 #### Bootstrap job
 
 Added a new `bootstrap` job type. This job removes the need for every job to implement their own bootstrapping logic.
-It makes OCR2 jobs that currently use `isBootstrapPeer=true` deprecated but still supported.
+OCR2 jobs with `isBootstrapPeer=true` are automatically migrated to the new format.
 The spec parameters are similar to a basic OCR2 job, an example would be:
 
 ```
@@ -52,6 +52,10 @@ chainID	        = 4
 `ETH_DISABLED` has been deprecated and replaced by `EVM_RPC_ENABLED` for consistency, and because this was confusingly named. In most cases you want to set `EVM_ENABLED=false` and not `EVM_RPC_ENABLED=false`.
 
 Log colorization is now disabled by default because it causes issues when piped to text files. To re-enable log colorization, set `LOG_COLOR=true`.
+
+#### Polygon/matic defaults changed
+
+Due to increasingly hostile network conditions on Polygon we have had to increase a number of default limits. This is to work around numerous and very deep re-orgs, high mempool pressure and a failure by the network to propagate transactions properly. These new limits are likely to increase load on both your Chainlink node and database, so please be sure to monitor CPU and memory usage on both and make sure they are adequately specced to handle the additional load.
 
 ## [1.1.1] - 2022-02-14
 

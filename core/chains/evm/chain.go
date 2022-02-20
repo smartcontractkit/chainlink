@@ -104,7 +104,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		headSaver = headtracker.NewHeadSaver(headTrackerLogger, orm, cfg)
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, headBroadcaster, headSaver)
 	} else {
-		headTracker = opts.GenHeadTracker(dbchain)
+		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
 	var txm bulletprooftxmanager.TxManager

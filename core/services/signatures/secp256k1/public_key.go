@@ -45,6 +45,11 @@ func NewPublicKeyFromHex(hex string) (PublicKey, error) {
 	if err != nil {
 		return PublicKey{}, err
 	}
+	return NewPublicKeyFromBytes(rawKey)
+}
+
+// NewPublicKeyFromBytes returns the PublicKey built from the given bytes, or errors
+func NewPublicKeyFromBytes(rawKey []byte) (PublicKey, error) {
 	if l := len(rawKey); l != CompressedPublicKeyLength {
 		return PublicKey{}, fmt.Errorf(
 			"wrong length for public key: %s of length %d", rawKey, l)
@@ -53,7 +58,7 @@ func NewPublicKeyFromHex(hex string) (PublicKey, error) {
 	if c := copy(k[:], rawKey); c != CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy entire key to return value"))
 	}
-	return k, err
+	return k, nil
 }
 
 // SetFromHex sets k to the public key represented by hex, which must represent

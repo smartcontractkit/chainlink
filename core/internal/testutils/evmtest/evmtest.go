@@ -59,7 +59,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(evmtypes.Chain) httypes.HeadTracker {
+		opts.GenHeadTracker = func(evmtypes.Chain, httypes.HeadBroadcaster) httypes.HeadTracker {
 			return testopts.HeadTracker
 		}
 	}
