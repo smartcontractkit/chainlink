@@ -147,6 +147,22 @@ func (f *fakeSourceWithError) Fetch(ctx context.Context) (interface{}, error) {
 	}
 }
 
+type fakeSourceWithPanic struct {
+	updates chan interface{}
+	panics  chan error
+}
+
+func (f *fakeSourceWithPanic) Fetch(ctx context.Context) (interface{}, error) {
+	select {
+	case update := <-f.updates:
+		return update, nil
+	case err := <-f.panics:
+		panic(err)
+	case <-ctx.Done():
+		return nil, nil
+	}
+}
+
 // Exporters
 
 type fakeExporterFactory struct {
@@ -601,4 +617,5 @@ var (
 	_ = fakeExporterFactory{}
 	_ = fakeSourceWithWait{}
 	_ = fakeSourceFactoryWithError{}
+	_ = fakeSourceWithPanic{}
 )

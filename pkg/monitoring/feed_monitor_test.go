@@ -166,4 +166,39 @@ func TestFeedMonitor(t *testing.T) {
 		mock.AssertExpectationsForObjects(t, exporter1)
 		mock.AssertExpectationsForObjects(t, exporter2)
 	})
+	t.Run("panics during Export() or Cleanup() get reported but don't crash the monitor", func(t *testing.T) {
+		poller := &fakePoller{0, make(chan interface{})}
+		exporter := new(mocks.Exporter)
+
+		monitor := NewFeedMonitor(
+			newNullLogger(),
+			[]Poller{poller},
+			[]Exporter{exporter},
+		)
+
+		wg := &sync.WaitGroup{}
+		ctx, cancel := context.WithCancel(context.Background())
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			monitor.Run(ctx)
+		}()
+
+		exporter.On("Export", mock.Anything, mock.Anything).Once()
+		exporter.On("Export", mock.Anything, mock.Anything).Panic("some error during Export()").Once()
+		exporter.On("Export", mock.Anything, mock.Anything).Once()
+		exporter.On("Cleanup", mock.Anything).Panic("some error during Cleanup()").Once()
+
+		poller.ch <- "update-before-panic"
+		<-time.After(100 * time.Millisecond)
+		poller.ch <- "update-causes-panic"
+		<-time.After(100 * time.Millisecond)
+		poller.ch <- "update-after-panic"
+		<-time.After(100 * time.Millisecond)
+		cancel()
+		wg.Wait()
+
+		mock.AssertExpectationsForObjects(t, exporter)
+	})
 }

@@ -25,6 +25,7 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 
 	cfg := config.Config{}
 	chainCfg := fakeChainConfig{}
+	chainCfg.ReadTimeout = 1 * time.Second
 	chainCfg.PollInterval = 5 * time.Second
 	feeds := make([]FeedConfig, numFeeds)
 	for i := 0; i < numFeeds; i++ {
@@ -108,6 +109,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 
 	cfg := config.Config{}
 	chainCfg := fakeChainConfig{}
+	chainCfg.ReadTimeout = 1 * time.Second
 	chainCfg.PollInterval = 5 * time.Second
 	feeds := []FeedConfig{}
 	for i := 0; i < numFeeds; i++ {

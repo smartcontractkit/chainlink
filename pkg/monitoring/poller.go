@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -44,7 +45,7 @@ func (s *sourcePoller) Run(ctx context.Context) {
 	s.log.Debugw("poller started")
 	defer s.log.Debugw("poller closed")
 	// Initial fetch.
-	data, err := s.source.Fetch(ctx)
+	data, err := s.executeFetch(ctx)
 	if err != nil {
 		if errors.Is(err, ErrNoUpdate) {
 			s.log.Debugw("no update found on initial fetch")
@@ -65,13 +66,7 @@ func (s *sourcePoller) Run(ctx context.Context) {
 	for {
 		select {
 		case <-reusedTimer.C:
-			var data interface{}
-			var err error
-			func() {
-				ctx, cancel := context.WithTimeout(ctx, s.fetchTimeout)
-				defer cancel()
-				data, err = s.source.Fetch(ctx)
-			}()
+			data, err := s.executeFetch(ctx)
 			if err != nil {
 				if errors.Is(err, ErrNoUpdate) {
 					s.log.Debugw("no update found")
@@ -102,4 +97,18 @@ func (s *sourcePoller) Run(ctx context.Context) {
 
 func (s *sourcePoller) Updates() <-chan interface{} {
 	return s.updates
+}
+
+// executeFetch runs Source#Fetch() with a timeout.
+// It also captures the error if Fetch() panics and returns it.
+func (s *sourcePoller) executeFetch(ctx context.Context) (data interface{}, err error) {
+	ctx, cancel := context.WithTimeout(ctx, s.fetchTimeout)
+	defer cancel()
+	defer func() {
+		if recoveredErr := recover(); recoveredErr != nil {
+			err = fmt.Errorf("Fetch() panicked: %v", recoveredErr)
+		}
+	}()
+	data, err = s.source.Fetch(ctx)
+	return data, err
 }
