@@ -14,6 +14,7 @@ import (
 	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // Config encompasses config used by bulletprooftxmanager package
@@ -409,7 +409,7 @@ func (c *ChainKeyStore) SignTx(address common.Address, tx *gethTypes.Transaction
 
 func signedTxHash(signedTx *gethTypes.Transaction, chainType chains.ChainType) (hash common.Hash, err error) {
 	if chainType == chains.ExChain {
-		hash, err = exchainutils.Hash(signedTx)
+		hash, err = exchainutils.LegacyHash(signedTx)
 		if err != nil {
 			return hash, errors.Wrap(err, "error getting signed tx hash from exchain")
 		}
