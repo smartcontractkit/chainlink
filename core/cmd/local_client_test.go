@@ -45,11 +45,14 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.Empty(t, invalid)
 	require.Equal(t, zapcore.InfoLevel, ll)
 
-	cfg := config.NewGeneralConfig(logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	defer lggr.Close()
+
+	cfg := config.NewGeneralConfig(lggr)
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
 
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	sessionORM := sessions.NewORM(db, time.Minute, lggr)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -76,10 +79,13 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.NoError(t, err)
 	defer tmpFile.Close()
 
+	newLogger, close := lcfg.New()
+	defer close()
+
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 lcfg.New(),
+		Logger:                 logger.CloseableLogger{Logger: newLogger, Close: close},
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -101,7 +107,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	}
 
 	awaiter.AwaitOrFail(t)
-	require.NoError(t, client.Logger.Sync())
+	require.NoError(t, client.Logger.Close())
 
 	expected := fmt.Sprintf(`Environment variables
 ADVISORY_LOCK_CHECK_INTERVAL: 1s
@@ -211,10 +217,13 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			lggr := logger.TestLogger(t)
+			defer lggr.Close()
+
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			sessionORM := sessions.NewORM(db, time.Minute, lggr)
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
@@ -260,9 +269,12 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	t.Parallel()
 
+	lggr := logger.TestLogger(t)
+	defer lggr.Close()
+
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	sessionORM := sessions.NewORM(db, time.Minute, lggr)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -319,9 +331,12 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			lggr := logger.TestLogger(t)
+			defer lggr.Close()
+
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+			sessionORM := sessions.NewORM(db, time.Minute, lggr)
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
@@ -392,7 +407,10 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			}
 			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
-			cfg.New().Debug("test")
+			lggr, close := cfg.New()
+			defer close()
+
+			lggr.Debug("test")
 
 			filepath := filepath.Join(cfg.Dir, logger.LogsFile)
 			_, err := os.Stat(filepath)

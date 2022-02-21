@@ -34,7 +34,7 @@ type zapLogger struct {
 	closeDiskPollChan chan struct{}
 }
 
-func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
+func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 
 	cores := []zapcore.Core{
@@ -54,7 +54,15 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, error) {
 		go lggr.pollDiskSpace()
 	}
 
-	return lggr, err
+	close := func() error {
+		if cfg.local.ToDisk {
+			close(lggr.closeDiskPollChan)
+		}
+
+		return lggr.Sync()
+	}
+
+	return lggr, close, err
 }
 
 func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
@@ -189,10 +197,6 @@ func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 }
 
 func (l *zapLogger) Sync() error {
-	if l.config.local.ToDisk {
-		close(l.closeDiskPollChan)
-	}
-
 	err := l.SugaredLogger.Sync()
 	if err == nil {
 		return nil

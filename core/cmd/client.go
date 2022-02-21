@@ -62,7 +62,7 @@ var (
 type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
-	Logger                         logger.Logger
+	Logger                         logger.CloseableLogger
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer

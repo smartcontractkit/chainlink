@@ -56,15 +56,16 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		zapCfg.diskStats = diskMock
 		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
 
-		lggr, err := newZapLogger(zapCfg)
+		_, close, err := newZapLogger(zapCfg)
+		assert.Error(t, err)
+		defer close()
+
 		expectedError := fmt.Sprintf(
 			"disk space is not enough to log into disk, required disk space: %s, Available disk space: %s",
 			zapCfg.local.RequiredDiskSpace,
 			maxSize,
 		)
-		defer lggr.Sync()
 
-		require.Error(t, err)
 		require.Equal(t, expectedError, err.Error())
 	})
 
@@ -76,8 +77,9 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		zapCfg.diskStats = diskMock
 		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
 
-		lggr, err := newZapLogger(zapCfg)
-		defer lggr.Sync()
+		_, close, err := newZapLogger(zapCfg)
+		assert.Error(t, err)
+		defer close()
 
 		expectedError := "error getting disk space available for logging: custom error"
 
@@ -103,9 +105,9 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
 
-		lggr, err := newZapLogger(zapCfg)
+		lggr, close, err := newZapLogger(zapCfg)
 		assert.NoError(t, err)
-		defer lggr.Sync()
+		defer close()
 
 		lggr.Debug("test")
 
@@ -153,9 +155,9 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.RequiredDiskSpace = utils.FileSize(maxSize * 2)
 
-		lggr, err := newZapLogger(zapCfg)
+		lggr, close, err := newZapLogger(zapCfg)
 		assert.NoError(t, err)
-		defer lggr.Sync()
+		defer close()
 
 		lggr.Debug("test")
 

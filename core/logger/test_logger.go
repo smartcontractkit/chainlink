@@ -66,11 +66,11 @@ func MemoryLogTestingOnly() *MemorySink {
 // TestLogger creates a logger that directs output to PrettyConsole configured
 // for test output, and to the buffer testMemoryLog. t is optional.
 // Log level is derived from the LOG_LEVEL env var.
-func TestLogger(t T) Logger {
+func TestLogger(t T) CloseableLogger {
 	cfg := newTestConfig()
 	ll, invalid := envvar.LogLevel.ParseLogLevel()
 	cfg.Level.SetLevel(ll)
-	l, err := newZapLogger(ZapLoggerConfig{
+	l, close, err := newZapLogger(ZapLoggerConfig{
 		Config: cfg,
 		sinks:  []zapcore.WriteSyncer{PrettyConsole{Sink: &testMemoryLog}},
 	})
@@ -84,9 +84,9 @@ func TestLogger(t T) Logger {
 		l.Error(invalid)
 	}
 	if t == nil {
-		return l
+		return CloseableLogger{Logger: l, Close: close}
 	}
-	return l.Named(verShaNameStatic()).Named(t.Name())
+	return CloseableLogger{Logger: l.Named(verShaNameStatic()).Named(t.Name()), Close: close}
 }
 
 func newTestConfig() zap.Config {

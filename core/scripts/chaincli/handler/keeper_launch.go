@@ -119,6 +119,9 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
+	lggr := logger.NewLogger()
+	defer lggr.Close()
+
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
 	var owners []common.Address
@@ -132,7 +135,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		c := cfg{nodeURL: startedNode.url}
 		sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
 		store := &cmd.MemoryCookieStore{}
-		tca := cmd.NewSessionCookieAuthenticator(c, store, logger.NewLogger())
+		tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
 		if _, err = tca.Authenticate(sr); err != nil {
 			log.Println("failed to authenticate: ", err)
 			continue

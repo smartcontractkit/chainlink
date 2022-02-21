@@ -117,6 +117,13 @@ type Logger interface {
 	Recover(panicErr interface{})
 }
 
+// CloseableLogger bundles together a logger interface and a close function
+// calling `close()` will call `sync()`, and it will shutdown the logger's ability to check disk space when `LOG_TO_DISK` is enabled
+type CloseableLogger struct {
+	Logger
+	Close func() error
+}
+
 // Constants for service names for package specific logging configuration
 const (
 	HeadTracker                 = "HeadTracker"
@@ -172,7 +179,7 @@ func verShaName(ver, sha string) string {
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
-func NewLogger() Logger {
+func NewLogger() CloseableLogger {
 	var c Config
 	var parseErrs []string
 
@@ -234,11 +241,11 @@ func NewLogger() Logger {
 		parseErrs = append(parseErrs, invalid)
 	}
 
-	l := c.New()
+	l, close := c.New()
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l.Named(verShaNameStatic())
+	return CloseableLogger{Logger: l.Named(verShaNameStatic()), Close: close}
 }
 
 type Config struct {
@@ -255,10 +262,10 @@ type Config struct {
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
-func (c *Config) New() Logger {
+func (c *Config) New() (Logger, func() error) {
 	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, err := newZapLogger(ZapLoggerConfig{
+	l, close, err := newZapLogger(ZapLoggerConfig{
 		local:          *c,
 		Config:         cfg,
 		diskStats:      utils.NewDiskStatsProvider(),
@@ -268,7 +275,7 @@ func (c *Config) New() Logger {
 		log.Fatal(err)
 	}
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l)
+	return newPrometheusLogger(l), close
 }
 
 // InitColor explicitly sets the global color.NoColor option.
