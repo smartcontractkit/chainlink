@@ -57,7 +57,6 @@ func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
 }
 
 func (l *zapLogger) pollDiskSpace() {
-	defer close(l.closeDiskPollChan)
 	defer l.config.diskPollConfig.stop()
 
 	for {
