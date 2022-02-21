@@ -14,7 +14,7 @@ require (
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
 	github.com/ethereum/go-ethereum v1.10.15
 	github.com/fatih/color v1.13.0
-	github.com/fxamacker/cbor/v2 v2.3.0
+	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/gagliardetto/solana-go v1.0.4
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/gin-contrib/cors v1.3.1
