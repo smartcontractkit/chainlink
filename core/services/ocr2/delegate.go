@@ -1,4 +1,4 @@
-package offchainreporting2
+package ocr2
 
 import (
 	"fmt"
@@ -11,9 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/plugins"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
@@ -140,6 +140,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, err
 	}
 	runResults := make(chan pipeline.Run, d.cfg.JobPipelineResultWriteQueueDepth())
+
+	// These are populated here because when the pipeline spec is
+	// run it uses them to create identifiable prometheus metrics.
+	// TODO SC-30421 Move pipeline population to job spawner
+	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
+	jobSpec.PipelineSpec.JobID = jobSpec.ID
 
 	var pluginOracle plugins.OraclePlugin
 	switch spec.PluginType {

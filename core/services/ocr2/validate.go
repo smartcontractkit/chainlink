@@ -1,4 +1,4 @@
-package offchainreporting2
+package ocr2
 
 import (
 	"github.com/lib/pq"

@@ -1,4 +1,4 @@
-package offchainreporting
+package ocr
 
 import (
 	"github.com/ethereum/go-ethereum/common"

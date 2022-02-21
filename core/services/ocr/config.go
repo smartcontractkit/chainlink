@@ -1,4 +1,4 @@
-package offchainreporting
+package ocr
 
 import (
 	"github.com/smartcontractkit/chainlink/core/services/job"

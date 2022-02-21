@@ -1,11 +1,12 @@
-package offchainreporting2
+package ocr2
 
 import (
 	"time"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 // Config contains OCR2 configurations for a job.

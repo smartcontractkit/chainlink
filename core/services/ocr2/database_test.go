@@ -1,4 +1,4 @@
-package offchainreporting2_test
+package ocr2_test
 
 import (
 	"context"
@@ -6,22 +6,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/plugins/median"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
-
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-
-	"github.com/smartcontractkit/chainlink/core/logger"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	offchainreporting "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
 )
 
 var ctx = context.Background()
@@ -67,7 +65,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
 			HighestSentEpoch:     2,
@@ -84,7 +82,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
 			HighestSentEpoch:     3,
@@ -101,7 +99,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
 			HighestSentEpoch:     4,
@@ -112,7 +110,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		require.NoError(t, err)
 
 		// odb with different spec
-		db = offchainreporting.NewDB(sqlDB.DB, -1, lggr)
+		db = ocr2.NewDB(sqlDB.DB, -1, lggr)
 
 		readState, err := db.ReadState(ctx, configDigest)
 		require.NoError(t, err)
@@ -121,7 +119,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
 			HighestSentEpoch:     5,
@@ -158,7 +156,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
@@ -170,7 +168,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest: testhelpers.MakeConfigDigest(t),
@@ -188,12 +186,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
 
-		db = offchainreporting.NewDB(sqlDB.DB, -1, lggr)
+		db = ocr2.NewDB(sqlDB.DB, -1, lggr)
 
 		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
@@ -221,8 +219,8 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	spec := MustInsertOCROracleSpec(t, sqlDB, key.Address)
 	spec2 := MustInsertOCROracleSpec(t, sqlDB, key.Address)
-	db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
-	db2 := offchainreporting.NewDB(sqlDB.DB, spec2.ID, lggr)
+	db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+	db2 := ocr2.NewDB(sqlDB.DB, spec2.ID, lggr)
 	configDigest := testhelpers.MakeConfigDigest(t)
 
 	k := ocrtypes.ReportTimestamp{
@@ -412,7 +410,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
-		db = offchainreporting.NewDB(sqlDB.DB, spec2.ID, lggr)
+		db = ocr2.NewDB(sqlDB.DB, spec2.ID, lggr)
 		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)

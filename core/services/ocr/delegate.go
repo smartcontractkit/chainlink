@@ -1,4 +1,4 @@
-package offchainreporting
+package ocr
 
 import (
 	"fmt"
