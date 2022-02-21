@@ -107,7 +107,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	}
 
 	awaiter.AwaitOrFail(t)
-	require.NoError(t, client.Logger.Close())
 
 	expected := fmt.Sprintf(`Environment variables
 ADVISORY_LOCK_CHECK_INTERVAL: 1s
