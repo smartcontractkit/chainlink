@@ -12,12 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -51,7 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
@@ -463,6 +465,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 
 		// Eventually all services will migrate to ServiceCtx interface and this switch will be removed.
+		// TODO: https://app.shortcut.com/chainlinklabs/story/30692/migrate-services-to-become-servicectx
 		switch ss := subservice.(type) {
 		case services.Service:
 			if err := ss.Start(); err != nil {
@@ -660,7 +663,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					utils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      utils.NewHash(),
