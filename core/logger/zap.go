@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -54,10 +55,13 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 		go lggr.pollDiskSpace()
 	}
 
+	var once sync.Once
 	close := func() error {
-		if cfg.local.ToDisk {
-			close(lggr.closeDiskPollChan)
-		}
+		once.Do(func() {
+			if cfg.local.ToDisk {
+				close(lggr.closeDiskPollChan)
+			}
+		})
 
 		return lggr.Sync()
 	}
