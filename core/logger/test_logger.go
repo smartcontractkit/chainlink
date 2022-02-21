@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/stretchr/testify/assert"
 )
 
 // MemorySink implements zap.Sink by writing all messages to a buffer.
@@ -85,7 +86,7 @@ func TestLogger(t T) Logger {
 	}
 	if t != nil {
 		t.Cleanup(func() {
-			close()
+			assert.NoError(t, close())
 		})
 	}
 	if t == nil {
@@ -105,4 +106,5 @@ type T interface {
 	Name() string
 	Cleanup(f func())
 	Fatal(...interface{})
+	Errorf(format string, args ...interface{})
 }
