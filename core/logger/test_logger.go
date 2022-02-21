@@ -83,10 +83,19 @@ func TestLogger(t T) CloseableLogger {
 	if invalid != "" {
 		l.Error(invalid)
 	}
-	if t == nil {
-		return CloseableLogger{Logger: l, Close: close}
+	if t != nil {
+		t.Cleanup(func() {
+			close()
+		})
 	}
-	return CloseableLogger{Logger: l.Named(verShaNameStatic()).Named(t.Name()), Close: close}
+	noopClose := func() error { return nil }
+	if t == nil {
+		return CloseableLogger{Logger: l, Close: noopClose}
+	}
+	return CloseableLogger{
+		Close:  noopClose,
+		Logger: l.Named(verShaNameStatic()).Named(t.Name()),
+	}
 }
 
 func newTestConfig() zap.Config {
@@ -98,5 +107,6 @@ func newTestConfig() zap.Config {
 
 type T interface {
 	Name() string
+	Cleanup(f func())
 	Fatal(...interface{})
 }

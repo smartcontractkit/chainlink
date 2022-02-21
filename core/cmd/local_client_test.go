@@ -46,7 +46,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.Equal(t, zapcore.InfoLevel, ll)
 
 	lggr := logger.TestLogger(t)
-	defer lggr.Close()
 
 	cfg := config.NewGeneralConfig(lggr)
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
@@ -216,13 +215,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			lggr := logger.TestLogger(t)
-			defer lggr.Close()
-
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg)
-			sessionORM := sessions.NewORM(db, time.Minute, lggr)
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
@@ -269,8 +265,6 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	defer lggr.Close()
-
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, lggr)
@@ -330,12 +324,9 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			lggr := logger.TestLogger(t)
-			defer lggr.Close()
-
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, lggr)
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
