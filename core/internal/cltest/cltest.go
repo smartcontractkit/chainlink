@@ -455,7 +455,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		Chains:                   chains,
-		Logger:                   lggr,
+		Logger:                   logger.CloseableLogger{Logger: lggr, Close: func() error { return nil }},
 		ExternalInitiatorManager: externalInitiatorManager,
 	})
 	require.NoError(t, err)
@@ -650,7 +650,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	client := &cmd.Client{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
-		Logger:                         logger.TestLogger(ta.t),
+		Logger:                         logger.CloseableLogger{Logger: logger.TestLogger(ta.t), Close: func() error { return nil }},
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -669,7 +669,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
-		Logger:                         lggr,
+		Logger:                         logger.CloseableLogger{Logger: lggr, Close: func() error { return nil }},
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},

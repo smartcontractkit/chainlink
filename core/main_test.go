@@ -27,7 +27,7 @@ func run(args ...string) {
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,
-		Logger:                 logger.TestLogger(t),
+		Logger:                 logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},

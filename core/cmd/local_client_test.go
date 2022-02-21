@@ -240,10 +240,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
-				Logger:                 logger.TestLogger(t),
-				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				Logger:                 logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
 			}
 
 			set := flag.NewFlagSet("test", 0)
@@ -289,10 +289,10 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	apiPrompt := cltest.NewMockAPIInitializer(t)
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 logger.TestLogger(t),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: apiPrompt,
 		Runner:                 cltest.EmptyRunner{},
+		Logger:                 logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
 	}
 
 	var keyState = ethkey.State{}
@@ -352,11 +352,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
-				Logger:                 logger.TestLogger(t),
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{prompter},
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
+				Logger:                 logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
 			}
 
 			set := flag.NewFlagSet("test", 0)
@@ -446,10 +446,10 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 
 	client := cmd.Client{
 		Config:                 config,
-		Logger:                 logger.TestLogger(t),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cltest.EmptyRunner{},
+		Logger:                 logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
 	}
 
 	config.Overrides.Dialect = dialects.TransactionWrappedPostgres
@@ -518,10 +518,10 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 			client := cmd.Client{
 				Config:                 config,
-				Logger:                 logger.TestLogger(t),
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 				Runner:                 cltest.EmptyRunner{},
+				Logger:                 logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
 			}
 
 			config.Overrides.Dialect = dialects.TransactionWrappedPostgres
@@ -549,8 +549,8 @@ func TestClient_SetNextNonce(t *testing.T) {
 
 	client := cmd.Client{
 		Config: config,
-		Logger: logger.TestLogger(t),
 		Runner: cltest.EmptyRunner{},
+		Logger: logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
 	}
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
