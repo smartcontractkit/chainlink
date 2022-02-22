@@ -32,10 +32,6 @@ type fakeRddSource struct {
 	minFeeds, maxFeeds uint8
 }
 
-func (f *fakeRddSource) Name() string {
-	return "fake-rdd"
-}
-
 func (f *fakeRddSource) Fetch(_ context.Context) (interface{}, error) {
 	numFeeds := int(f.minFeeds) + rand.Intn(int(f.maxFeeds-f.minFeeds))
 	feeds := make([]FeedConfig, numFeeds)
@@ -495,22 +491,6 @@ func (d *devnullMetrics) HTTPHandler() http.Handler {
 	return promhttp.Handler()
 }
 
-type keepLatestMetrics struct {
-	*devnullMetrics
-
-	latestTransmission float64
-	latestTransmitter  string
-}
-
-func (k *keepLatestMetrics) SetOffchainAggregatorAnswers(answer float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	k.latestTransmission = answer
-}
-
-func (k *keepLatestMetrics) SetOffchainAggregatorSubmissionReceivedValues(value float64, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	k.latestTransmission = value
-	k.latestTransmitter = sender
-}
-
 // Producer
 
 type producerMessage struct {
@@ -611,7 +591,6 @@ var (
 	_ = generateFeedConfig
 	_ = fakeProducer{}
 	_ = fakeSchema{}
-	_ = keepLatestMetrics{}
 	_ = fakePoller{}
 	_ = newNullLogger()
 	_ = fakeExporterFactory{}

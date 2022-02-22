@@ -11,6 +11,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
 
 const testEntrypointDurationSec = 15
@@ -19,6 +20,7 @@ func TestEntrypoint(t *testing.T) {
 	if _, isPresent := os.LookupEnv("FEATURE_TEST_ONLY_ENV_RUNNING"); !isPresent {
 		t.Skip()
 	}
+	defer goleak.VerifyNone(t)
 
 	// Configuration for the process via env vars.
 	os.Setenv("KAFKA_BROKERS", "localhost:29092")
