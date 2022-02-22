@@ -917,9 +917,9 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	return nil
 }
 
-// LogToDisk configures disk preservation of logs.
+// LogToDisk resolves to whether the nodes preserves logs on disk.
 func (c *generalConfig) LogToDisk() bool {
-	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
+	return c.LogFileMaxSize() > 0
 }
 
 // LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.

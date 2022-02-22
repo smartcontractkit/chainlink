@@ -84,7 +84,6 @@ func TestResolver_Config(t *testing.T) {
 					DefaultLogLevel:                           nil,
 					LogFileDir:                                null.StringFrom("foo"),
 					LogSQL:                                    null.BoolFrom(true),
-					LogToDisk:                                 null.BoolFrom(true),
 					LogFileMaxSize:                            null.StringFrom("100mb"),
 					LogFileMaxAge:                             null.IntFrom(3),
 					LogFileMaxBackups:                         null.IntFrom(12),
@@ -293,10 +292,6 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "LOG_SQL",
-        "value": "true"
-      },
-      {
-        "key": "LOG_TO_DISK",
         "value": "true"
       },
       {

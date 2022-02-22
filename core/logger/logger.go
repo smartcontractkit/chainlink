@@ -196,26 +196,23 @@ func NewLogger() (Logger, func() error) {
 		parseErrs = append(parseErrs, invalid)
 	}
 
-	c.ToDisk, invalid = envvar.LogToDisk.ParseBool()
+	var fileMaxSize utils.FileSize
+	fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
+	c.DiskMaxSizeBeforeRotate = int(fileMaxSize)
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
+	} else {
+		c.ToDisk = c.DiskMaxSizeBeforeRotate > 0
 	}
 
 	if c.ToDisk {
 		var (
-			fileMaxAge  int64
-			maxBackups  int64
-			fileMaxSize utils.FileSize
+			fileMaxAge int64
+			maxBackups int64
 		)
 
 		fileMaxAge, invalid = envvar.LogFileMaxAge.ParseInt64()
 		c.DiskMaxAgeBeforeDelete = int(fileMaxAge)
-		if invalid != "" {
-			parseErrs = append(parseErrs, invalid)
-		}
-
-		fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
-		c.DiskMaxSizeBeforeRotate = int(fileMaxSize)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}

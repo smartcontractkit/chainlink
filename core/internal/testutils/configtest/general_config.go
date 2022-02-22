@@ -362,7 +362,7 @@ func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	return c.GeneralConfig.TriggerFallbackDBPollInterval()
 }
 
-// LogToDisk returns the LOG_TO_DISK value
+// LogToDisk returns the LogToDisk value
 func (c *TestGeneralConfig) LogToDisk() bool {
 	if c.Overrides.LogToDisk.Valid {
 		return c.Overrides.LogToDisk.Bool

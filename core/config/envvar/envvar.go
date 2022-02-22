@@ -19,8 +19,6 @@ var (
 	RootDir = New("RootDir", parse.HomeDir)
 	// JSONConsole reprents a parseable version of the `JSON_CONSOLE`env var.
 	JSONConsole = New("JSONConsole", parse.Bool)
-	// LogToDisk reprents a parseable version of the `LOG_TO_DISK`env var.
-	LogToDisk = New("LogToDisk", parse.Bool)
 	// LogFileMaxSize reprents a parseable version of the `LOG_FILE_MAX_SIZE`env var.
 	LogFileMaxSize = New("LogFileMaxSize", parse.FileSize)
 	// LogFileMaxAge reprents a parseable version of the `LOG_FILE_MAX_AGE`env var.

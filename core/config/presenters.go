@@ -76,7 +76,6 @@ type EnvPrinter struct {
 	LogFileDir                                 string          `json:"LOG_FILE_DIR"`
 	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
-	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
 	LogFileMaxSize                             utils.FileSize  `json:"LOG_FILE_MAX_SIZE"`
 	LogFileMaxAge                              int64           `json:"LOG_FILE_MAX_AGE"`
 	LogFileMaxBackups                          int64           `json:"LOG_FILE_MAX_BACKUPS"`
@@ -179,7 +178,6 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			LogFileMaxBackups:                  cfg.LogFileMaxBackups(),
 			LogLevel:                           cfg.LogLevel(),
 			LogSQL:                             cfg.LogSQL(),
-			LogToDisk:                          cfg.LogToDisk(),
 
 			// OCRV1
 			OCRContractTransmitterTransmitTimeout: ocrTransmitTimeout,
