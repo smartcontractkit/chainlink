@@ -24,6 +24,10 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 					message
 					code
 				}
+				... on JobAlreadyExistsError {
+					message
+					code
+				}
 			}
 		}`
 
@@ -47,7 +51,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID).Return(nil)
+				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(nil)
 				f.Mocks.feedsSvc.On("GetSpec", specID).Return(&feeds.JobProposalSpec{
 					ID: specID,
 				}, nil)
@@ -61,7 +65,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID).Return(sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -78,7 +82,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID).Return(nil)
+				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(nil)
 				f.Mocks.feedsSvc.On("GetSpec", specID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
@@ -88,6 +92,23 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 				"approveJobProposalSpec": {
 					"message": "spec not found",
 					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+		{
+			name:          "unprocessable error on approval if job already exists",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(feeds.ErrJobAlreadyExists)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"approveJobProposalSpec": {
+					"message": "a job for this contract address already exists - please use the 'force' option to replace it",
+					"code": "UNPROCESSABLE"
 				}
 			}`,
 		},

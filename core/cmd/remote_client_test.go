@@ -59,6 +59,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// Setup config
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
+	config.Overrides.SetHTTPServerWriteTimeout(10 * time.Second)
 
 	// Generally speaking, most tests that use startNewApplication don't
 	// actually need ChainSets loaded. We can greatly reduce test
@@ -319,6 +320,50 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.Contains(t, err.Error(), "Unauthorized")
 }
 
+func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+
+	client := app.NewAuthenticatingClient(prompter)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "../internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	require.NoError(t, err)
+
+	set.Uint("seconds", 10, "")
+
+	err = client.Profile(cli.NewContext(nil, set, nil))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout.")
+
+}
+
+func TestClient_Profile(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+
+	client := app.NewAuthenticatingClient(prompter)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "../internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	require.NoError(t, err)
+
+	set.Uint("seconds", 8, "")
+	set.String("output_dir", t.TempDir(), "")
+
+	err = client.Profile(cli.NewContext(nil, set, nil))
+	require.NoError(t, err)
+}
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 

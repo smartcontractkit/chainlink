@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
-	run := &memoryTaskRun{task: task, vars: s.vars.Copy()}
+func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
+	run := &memoryTaskRun{task: task, vars: vars}
 
 	propagatableInputs := 0
 	for _, i := range task.Inputs() {
@@ -107,7 +107,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 			continue
 		}
 
-		run := s.newMemoryTaskRun(task)
+		run := s.newMemoryTaskRun(task, s.vars.Copy())
 
 		lggr.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
@@ -228,7 +228,7 @@ func (s *scheduler) Run() {
 				Max:    result.Task.TaskMaxBackoff(),
 			}
 
-			go func() {
+			go func(vars Vars) {
 				select {
 				case <-s.ctx.Done():
 					// report back so the waiting counter gets decreased
@@ -241,12 +241,12 @@ func (s *scheduler) Run() {
 					})
 				case <-time.After(backoff.ForAttempt(float64(result.Attempts - 1))): // we subtract 1 because backoff 0-indexes
 					// schedule a new attempt
-					run := s.newMemoryTaskRun(result.Task)
+					run := s.newMemoryTaskRun(result.Task, vars)
 					run.attempts = result.Attempts
 					s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 					s.taskCh <- run
 				}
-			}()
+			}(s.vars.Copy()) // must Copy() from current goroutine
 
 			// skip scheduling dependencies since it's the task is not complete yet
 			continue
@@ -259,7 +259,7 @@ func (s *scheduler) Run() {
 			// if all dependencies are done, schedule task run
 			if s.dependencies[id] == 0 {
 				task := s.pipeline.Tasks[id]
-				run := s.newMemoryTaskRun(task)
+				run := s.newMemoryTaskRun(task, s.vars.Copy())
 
 				s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 				s.taskCh <- run

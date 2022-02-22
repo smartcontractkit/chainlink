@@ -830,6 +830,7 @@ answer1 [type=median index=0];
 		name    string
 		before  func(svc *TestService)
 		id      int64
+		force   bool
 		wantErr string
 	}{
 		{
@@ -865,7 +866,8 @@ answer1 [type=median index=0];
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
 			},
-			id: spec.ID,
+			id:    spec.ID,
+			force: false,
 		},
 		{
 			name: "cancelled job success",
@@ -900,10 +902,26 @@ answer1 [type=median index=0];
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
 			},
-			id: cancelledSpec.ID,
+			id:    cancelledSpec.ID,
+			force: false,
 		},
 		{
-			name: "already existing job replacement success",
+			name: "already existing job replacement error",
+			before: func(svc *TestService) {
+				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
+
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
+
+				svc.jobORM.On("FindJobIDByAddress", address, mock.Anything).Return(j.ID, nil)
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
+		},
+		{
+			name: "already existing job replacement success if forced",
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
 
@@ -936,7 +954,8 @@ answer1 [type=median index=0];
 					},
 				).Return(&proto.ApprovedJobResponse{}, nil)
 			},
-			id: spec.ID,
+			id:    spec.ID,
+			force: true,
 		},
 		{
 			name: "spec does not exist",
@@ -944,6 +963,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(nil, errors.New("Not Found"))
 			},
 			id:      spec.ID,
+			force:   false,
 			wantErr: "orm: job proposal spec: Not Found",
 		},
 		{
@@ -956,6 +976,7 @@ answer1 [type=median index=0];
 				svc.orm.On("GetSpec", spec.ID, mock.Anything).Return(spec, nil)
 			},
 			id:      spec.ID,
+			force:   false,
 			wantErr: "must be a pending or cancelled job proposal",
 		},
 		{
@@ -975,6 +996,7 @@ answer1 [type=median index=0];
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(nil, errors.New("Not Connected"))
 			},
 			id:      spec.ID,
+			force:   false,
 			wantErr: "fms rpc client: Not Connected",
 		},
 		{
@@ -998,6 +1020,7 @@ answer1 [type=median index=0];
 					Return(errors.New("could not save"))
 			},
 			id:      spec.ID,
+			force:   false,
 			wantErr: "could not approve job proposal: could not save",
 		},
 		{
@@ -1027,6 +1050,7 @@ answer1 [type=median index=0];
 				).Return(errors.New("failure"))
 			},
 			id:      spec.ID,
+			force:   false,
 			wantErr: "could not approve job proposal: failure",
 		},
 		{
@@ -1063,6 +1087,7 @@ answer1 [type=median index=0];
 				).Return(nil, errors.New("failure"))
 			},
 			id:      spec.ID,
+			force:   false,
 			wantErr: "could not approve job proposal: failure",
 		},
 	}
@@ -1076,7 +1101,7 @@ answer1 [type=median index=0];
 				tc.before(svc)
 			}
 
-			err := svc.ApproveSpec(ctx, tc.id)
+			err := svc.ApproveSpec(ctx, tc.id, tc.force)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)

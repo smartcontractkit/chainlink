@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
@@ -58,7 +59,9 @@ func TestTxm(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
 	require.NoError(t, err)
-	cfg := terra.NewConfig(terradb.ChainCfg{}, lggr)
+	cfg := terra.NewConfig(terradb.ChainCfg{
+		MaxMsgsPerBatch: null.IntFrom(2),
+	}, lggr)
 	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
 		terraclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
 			"uluna": cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")),
@@ -191,8 +194,10 @@ func TestTxm(t *testing.T) {
 	})
 
 	t.Run("confirm any unconfirmed", func(t *testing.T) {
+		require.Equal(t, int64(2), cfg.MaxMsgsPerBatch())
 		txHash1 := "0x1234"
 		txHash2 := "0x1235"
+		txHash3 := "0xabcd"
 		tc := new(tcmocks.ReaderWriter)
 		tc.On("Tx", txHash1).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash1},
@@ -200,27 +205,34 @@ func TestTxm(t *testing.T) {
 		tc.On("Tx", txHash2).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash2},
 		}, nil).Once()
+		tc.On("Tx", txHash3).Return(&txtypes.GetTxResponse{
+			TxResponse: &cosmostypes.TxResponse{TxHash: txHash3},
+		}, nil).Once()
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
-		// Insert and broadcast 2 msgs with different txhashes.
+		// Insert and broadcast 3 msgs with different txhashes.
 		id1, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		id2, err := txm.orm.InsertMsg("blah", []byte{0x02})
+		require.NoError(t, err)
+		id3, err := txm.orm.InsertMsg("blah", []byte{0x03})
 		require.NoError(t, err)
 		err = txm.orm.UpdateMsgsWithState([]int64{id1}, Broadcasted, &txHash1)
 		require.NoError(t, err)
 		err = txm.orm.UpdateMsgsWithState([]int64{id2}, Broadcasted, &txHash2)
 		require.NoError(t, err)
+		err = txm.orm.UpdateMsgsWithState([]int64{id3}, Broadcasted, &txHash3)
+		require.NoError(t, err)
 
 		// Confirm them as in a restart while confirming scenario
 		txm.confirmAnyUnconfirmed(testutils.Context(t))
+		msgs, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2, id3})
 		require.NoError(t, err)
-		confirmed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
-		require.NoError(t, err)
-		require.Equal(t, 2, len(confirmed))
-		assert.Equal(t, Confirmed, confirmed[0].State)
-		assert.Equal(t, Confirmed, confirmed[1].State)
+		require.Equal(t, 3, len(msgs))
+		assert.Equal(t, Confirmed, msgs[0].State)
+		assert.Equal(t, Confirmed, msgs[1].State)
+		assert.Equal(t, Confirmed, msgs[2].State)
 		tc.AssertExpectations(t)
 	})
 }

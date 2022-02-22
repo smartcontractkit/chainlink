@@ -136,7 +136,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
 			nets.Default.GasStats().PrintStats()
-			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

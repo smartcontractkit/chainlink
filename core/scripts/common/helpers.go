@@ -40,7 +40,7 @@ func ExplorerLink(chainID int64, txHash common.Hash) string {
 	case 42: // Kovan
 		fmtURL = "https://kovan.etherscan.io/tx/%s"
 	case 56: // BSC mainnet
-		fmtURL = "https://bscscan.com/%s"
+		fmtURL = "https://bscscan.com/tx/%s"
 	case 97: // BSC testnet
 		fmtURL = "https://testnet.bscscan.com/tx/%s"
 	case 137: // Polygon mainnet
