@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testEntrypointE2eDurationSec = 10
+const testEntrypointDurationSec = 15
 
-func TestEntrypointE2e(t *testing.T) {
+func TestEntrypoint(t *testing.T) {
 	if _, isPresent := os.LookupEnv("FEATURE_TEST_ONLY_ENV_RUNNING"); !isPresent {
 		t.Skip()
 	}
@@ -53,10 +53,13 @@ func TestEntrypointE2e(t *testing.T) {
 	defer os.Unsetenv("FEATURE_TEST_ONLY_FAKE_READERS")
 	defer os.Unsetenv("FEATURE_TEST_ONLY_FAKE_RDD")
 
-	ctx, cancel := context.WithTimeout(context.Background(), testEntrypointE2eDurationSec*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testEntrypointDurationSec*time.Second)
 	defer cancel()
 
-	chainConfig := generateChainConfig()
+	chainConfig := fakeChainConfig{
+		ReadTimeout:  100 * time.Millisecond,
+		PollInterval: 100 * time.Millisecond,
+	}
 
 	entrypoint, err := NewEntrypoint(
 		ctx,
@@ -69,55 +72,80 @@ func TestEntrypointE2e(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	entrypointWg := &sync.WaitGroup{}
+	entrypointWg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer entrypointWg.Done()
 		entrypoint.Run()
 	}()
+	// Wait for the entrypoint to start.
+	<-time.After(5 * time.Second)
 
-	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
+	kafkaConfig := &kafka.ConfigMap{
 		"bootstrap.servers": "localhost:29092",
 		"client.id":         "test-entrypoint",
 		"group.id":          "test-entrypoint",
 		"security.protocol": "PLAINTEXT",
 		"sasl.mechanisms":   "PLAIN",
 		"auto.offset.reset": "earliest",
-	})
+	}
+	consumerConfig, err := kafka.NewConsumer(kafkaConfig)
 	require.NoError(t, err)
-	err = consumer.SubscribeTopics(
-		[]string{"config_set_simplified", "transmission"},
-		func(*kafka.Consumer, kafka.Event) error { return nil }, // kafka.RebalanceCb
-	)
+	err = consumerConfig.Subscribe("config_set_simplified", nil)
 	require.NoError(t, err)
 
-	events := []string{}
-	i := 0
-	for i < 10 {
-		select {
-		case <-ctx.Done():
-			break
-		default:
-			if event := consumer.Poll(1000); event != nil {
-				events = append(events, event.String())
-				i += 1
+	consumerTransmission, err := kafka.NewConsumer(kafkaConfig)
+	require.NoError(t, err)
+	err = consumerTransmission.Subscribe("transmission", nil)
+	require.NoError(t, err)
+
+	// Wait for the subscriptions to start.
+	<-time.After(2 * time.Second)
+
+	var transmissionsCounter uint64 = 0
+	var configsCounter uint64 = 0
+	countersWg := &sync.WaitGroup{}
+	countersWg.Add(2)
+	go func() {
+		defer countersWg.Done()
+		for i := 0; i < 10; {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				event := consumerTransmission.Poll(500)
+				if event != nil {
+					atomic.AddUint64(&transmissionsCounter, 1)
+					i++
+				}
 			}
 		}
-	}
-
-	err = consumer.Unsubscribe()
-	require.NoError(t, err)
-	cancel()
-	wg.Wait()
-
-	require.NotEqual(t, 0, len(events))
-	foundConfig, foundTransmission := false, false
-	for _, event := range events {
-		if strings.HasPrefix("transmission", event) {
-			foundConfig = true
-		} else if strings.HasPrefix("config_set_simplified", event) {
-			foundTransmission = true
+	}()
+	go func() {
+		defer countersWg.Done()
+		for i := 0; i < 10; {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				event := consumerConfig.Poll(500)
+				if event != nil {
+					atomic.AddUint64(&configsCounter, 1)
+					i++
+				}
+			}
 		}
-	}
-	require.True(t, foundConfig && foundTransmission, "both transmission and config messages")
+	}()
+	countersWg.Wait()
+
+	cancel()
+	entrypointWg.Wait()
+
+	err = consumerConfig.Unsubscribe()
+	require.NoError(t, err)
+	err = consumerTransmission.Unsubscribe()
+	require.NoError(t, err)
+
+	require.Equal(t, uint64(10), configsCounter)
+	require.Equal(t, uint64(10), transmissionsCounter)
 }
