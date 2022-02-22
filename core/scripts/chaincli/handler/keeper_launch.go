@@ -27,7 +27,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_vb_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -86,7 +86,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	wg.Wait()
 
 	// Deploy keeper registry or get an existing one
-	var registry *keeper.KeeperRegistry
+	var registry *keeper.KeeperRegistryVB
 	var registryAddr common.Address
 	var upkeepCount int64
 	if k.cfg.RegistryAddress != "" {
@@ -198,7 +198,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 }
 
 // cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
-func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistry) error {
+func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistryVB) error {
 	count, err := registryInstance.GetUpkeepCount(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get upkeeps count: %s", err)

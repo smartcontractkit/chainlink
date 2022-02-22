@@ -6,6 +6,7 @@ consumer_wrapper: ../../../contracts/solc/v0.7/Consumer.abi ../../../contracts/s
 derived_price_feed_wrapper: ../../../contracts/solc/v0.7/DerivedPriceFeed.abi ../../../contracts/solc/v0.7/DerivedPriceFeed.bin 754190a4e868d35913f7f4ab3fbc605afdbc1b64d68ea53d8de89fd6b036fe06
 flags_wrapper: ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
+keeper_registry_vb_wrapper: ../../../contracts/solc/v0.7/KeeperRegistryVB.abi ../../../contracts/solc/v0.7/KeeperRegistryVB.bin fa5dbe3799f7a6645d655eb595ba8ff6aaad7575b5461a62174b973c7bd1b582
 keeper_registry_wrapper: ../../../contracts/solc/v0.7/KeeperRegistry.abi ../../../contracts/solc/v0.7/KeeperRegistry.bin f5c76c6fc35e775da0a4737beea8ebcb6f37ca78db3c21811f17b6f3d5623379
 multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
