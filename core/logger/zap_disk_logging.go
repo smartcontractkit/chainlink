@@ -1,12 +1,10 @@
 package logger
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -30,15 +28,9 @@ func newDiskPollConfig(interval time.Duration) zapDiskPollConfig {
 
 func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
 	availableSpace, err := cfg.diskStats.AvailableSpace(cfg.local.Dir)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("error getting disk space available for logging for directory: %s", cfg.local.Dir))
-	}
-	if availableSpace < cfg.local.RequiredDiskSpace {
-		return nil, errors.Errorf(
-			"disk space is not enough to log into disk, required disk space: %s, Available disk space: %s",
-			cfg.local.RequiredDiskSpace,
-			availableSpace,
-		)
+	if err != nil || availableSpace < cfg.local.RequiredDiskSpace {
+		// Won't log to disk if the directory is not found or there's not enough disk space
+		cfg.diskLogLevel.SetLevel(zapcore.FatalLevel + 1)
 	}
 
 	var (

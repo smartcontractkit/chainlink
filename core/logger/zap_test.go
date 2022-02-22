@@ -53,20 +53,33 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
 		defer diskMock.AssertExpectations(t)
 
+		pollChan := make(chan time.Time)
+		stop := func() {
+			close(pollChan)
+		}
+
 		zapCfg.diskStats = diskMock
+		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.diskPollConfig = zapDiskPollConfig{
+			stop:     stop,
+			pollChan: pollChan,
+		}
 		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
 
-		_, close, err := newZapLogger(zapCfg)
-		assert.Error(t, err)
+		lggr, close, err := newZapLogger(zapCfg)
+		assert.NoError(t, err)
 		defer close()
 
-		expectedError := fmt.Sprintf(
-			"disk space is not enough to log into disk, required disk space: %s, Available disk space: %s",
-			zapCfg.local.RequiredDiskSpace,
-			maxSize,
-		)
+		pollChan <- time.Now()
+		<-zapCfg.diskLogLvlChan
 
-		require.Equal(t, expectedError, err.Error())
+		lggr.Debug("trying to write to disk when the disk logs should not be created")
+
+		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		_, err = ioutil.ReadFile(logFile)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no such file or directory")
 	})
 
 	t.Run("on logger creation generic error", func(t *testing.T) {
@@ -74,17 +87,33 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		diskMock.On("AvailableSpace", logsDir).Return(utils.FileSize(0), fmt.Errorf("custom error"))
 		defer diskMock.AssertExpectations(t)
 
+		pollChan := make(chan time.Time)
+		stop := func() {
+			close(pollChan)
+		}
+
 		zapCfg.diskStats = diskMock
+		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.diskPollConfig = zapDiskPollConfig{
+			stop:     stop,
+			pollChan: pollChan,
+		}
 		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
 
-		_, close, err := newZapLogger(zapCfg)
-		assert.Error(t, err)
+		lggr, close, err := newZapLogger(zapCfg)
+		assert.NoError(t, err)
 		defer close()
 
-		expectedError := "error getting disk space available for logging: custom error"
+		pollChan <- time.Now()
+		<-zapCfg.diskLogLvlChan
+
+		lggr.Debug("trying to write to disk when the disk logs should not be created - generic error")
+
+		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
+		_, err = ioutil.ReadFile(logFile)
 
 		require.Error(t, err)
-		require.Equal(t, expectedError, err.Error())
+		require.Contains(t, err.Error(), "no such file or directory")
 	})
 
 	t.Run("after logger is created", func(t *testing.T) {
@@ -109,7 +138,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		assert.NoError(t, err)
 		defer close()
 
-		lggr.Debug("test")
+		lggr.Debug("writing to disk on test")
 
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
 
@@ -117,8 +146,8 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		<-zapCfg.diskLogLvlChan
 
 		lggr.SetLogLevel(zapcore.WarnLevel)
-		lggr.Debug("test again")
-		lggr.Warn("test again")
+		lggr.Debug("writing to disk on test again")
+		lggr.Warn("writing to disk on test again")
 
 		logFile := filepath.Join(zapCfg.local.Dir, LogsFile)
 		b, err := ioutil.ReadFile(logFile)
