@@ -233,7 +233,7 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
 		// try hex first
-		if len(v) >= 2 && v[:2] == "0x" {
+		if utils.HasHexPrefix(v) {
 			bs, err := hex.DecodeString(v[2:])
 			if err == nil {
 				*b = BytesParam(bs)

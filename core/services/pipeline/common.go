@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"net/url"
@@ -242,20 +241,11 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	}
 	switch x := js.Val.(type) {
 	case []byte:
-		// Don't need to HEX encode if it is a valid JSON string
 		if json.Valid(x) {
 			return json.Marshal(string(x))
 		}
-
-		// Don't need to HEX encode if it is already HEX encoded value
-		if utils.IsHexBytes(x) {
-			return json.Marshal(string(x))
-		}
-
-		return json.Marshal(hex.EncodeToString(x))
-	default:
-		return json.Marshal(js.Val)
 	}
+	return json.Marshal(js.Val)
 }
 
 func (js *JSONSerializable) Scan(value interface{}) error {
