@@ -44,6 +44,8 @@ cl_backup_*.tar.gz
 
 # Test artifacts
 core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
+output.txt
+race.*
 
 # DB state
 db/
