@@ -13,7 +13,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
-      LOG_FILE_MAX_SIZE: 0
     services:
       postgres:
         image: postgres:14
