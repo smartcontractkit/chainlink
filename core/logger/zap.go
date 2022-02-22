@@ -32,7 +32,8 @@ type zapLogger struct {
 	name              string
 	fields            []interface{}
 	callerSkip        int
-	closeDiskPollChan chan struct{}
+	pollDiskSpaceStop chan struct{}
+	pollDiskSpaceDone chan struct{}
 }
 
 func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
@@ -47,7 +48,8 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	core := zapcore.NewTee(cores...)
 	lggr := &zapLogger{
 		config:            cfg,
-		closeDiskPollChan: make(chan struct{}),
+		pollDiskSpaceStop: make(chan struct{}),
+		pollDiskSpaceDone: make(chan struct{}),
 		SugaredLogger:     zap.New(core).Sugar(),
 	}
 
@@ -59,7 +61,8 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	close := func() error {
 		once.Do(func() {
 			if cfg.local.ToDisk {
-				close(lggr.closeDiskPollChan)
+				close(lggr.pollDiskSpaceStop)
+				<-lggr.pollDiskSpaceDone
 			}
 		})
 

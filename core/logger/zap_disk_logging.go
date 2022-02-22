@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -34,7 +33,7 @@ func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
 		return nil, errors.Wrap(err, "error getting disk space available for logging")
 	}
 	if availableSpace < cfg.local.RequiredDiskSpace {
-		return nil, fmt.Errorf(
+		return nil, errors.Errorf(
 			"disk space is not enough to log into disk, required disk space: %s, Available disk space: %s",
 			cfg.local.RequiredDiskSpace,
 			availableSpace,
@@ -58,10 +57,11 @@ func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
 
 func (l *zapLogger) pollDiskSpace() {
 	defer l.config.diskPollConfig.stop()
+	defer close(l.pollDiskSpaceDone)
 
 	for {
 		select {
-		case <-l.closeDiskPollChan:
+		case <-l.pollDiskSpaceStop:
 			return
 		case <-l.config.diskPollConfig.pollChan:
 			lvl := zapcore.DebugLevel
