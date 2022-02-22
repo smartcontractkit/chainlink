@@ -41,8 +41,8 @@ func TestPoller(t *testing.T) {
 			10 * time.Millisecond,
 			0,
 			0,
-			28,
-			35,
+			20,
+			50,
 		},
 		{
 			"fast fetch, fast polling, insufficient buffering, tons of backpressure",
@@ -111,6 +111,33 @@ func TestPoller(t *testing.T) {
 		source.updates <- "update3"
 		require.Equal(t, "update3", <-poller.Updates())
 		source.errors <- fmt.Errorf("error3")
+		source.updates <- "update4"
+		require.Equal(t, "update4", <-poller.Updates())
+	})
+	t.Run("resumes after a source panics", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		source := &fakeSourceWithPanic{make(chan interface{}), make(chan error)}
+		poller := NewSourcePoller(
+			source,
+			newNullLogger(),
+			10*time.Millisecond, // poll interval
+			10*time.Millisecond, // read timeout
+			0,                   // buffer capacity
+		)
+		go poller.Run(ctx)
+
+		source.panics <- fmt.Errorf("panic0")
+		source.updates <- "update1"
+		require.Equal(t, "update1", <-poller.Updates())
+		source.panics <- fmt.Errorf("panic1")
+		source.updates <- "update2"
+		require.Equal(t, "update2", <-poller.Updates())
+		source.panics <- fmt.Errorf("panic2")
+		source.updates <- "update3"
+		require.Equal(t, "update3", <-poller.Updates())
+		source.panics <- fmt.Errorf("panic3")
 		source.updates <- "update4"
 		require.Equal(t, "update4", <-poller.Updates())
 	})

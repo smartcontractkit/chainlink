@@ -66,11 +66,16 @@ CONSUME_LOOP:
 		}
 		// TODO (dru) do we need a worker pool here?
 		wg.Add(len(f.exporters))
-		for _, exp := range f.exporters {
-			go func(exp Exporter) {
+		for index, exp := range f.exporters {
+			go func(index int, exp Exporter) {
 				defer wg.Done()
+				defer func() {
+					if err := recover(); err != nil {
+						f.log.Errorw("failed Export", "error", err, "index", index)
+					}
+				}()
 				exp.Export(ctx, update)
-			}(exp)
+			}(index, exp)
 		}
 	}
 
@@ -81,10 +86,15 @@ CONSUME_LOOP:
 	cleanupContext, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 	wg.Add(len(f.exporters))
-	for _, exp := range f.exporters {
-		go func(exp Exporter) {
+	for index, exp := range f.exporters {
+		go func(index int, exp Exporter) {
 			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					f.log.Errorw("failed Cleanup", "error", err, "index", index)
+				}
+			}()
 			exp.Cleanup(cleanupContext)
-		}(exp)
+		}(index, exp)
 	}
 }
