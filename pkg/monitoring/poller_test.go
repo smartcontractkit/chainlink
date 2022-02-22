@@ -175,7 +175,7 @@ func TestPoller(t *testing.T) {
 		source.updates <- "update2"
 		require.Equal(t, "update2", <-poller.Updates())
 	})
-	t.Run("context.Cancelled stops the poller", func(t *testing.T) {
+	t.Run("context.Cancelled on initial fetch stops the poller", func(t *testing.T) {
 		defer goleak.VerifyNone(t)
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
@@ -188,6 +188,36 @@ func TestPoller(t *testing.T) {
 			0,                   // buffer capacity
 		)
 		go poller.Run(ctx)
+
+		source.errors <- context.Canceled
+		select {
+		case <-poller.Updates():
+			t.Fatalf("unexpected update when the source's Context is canceled")
+		default:
+		}
+
+		select {
+		case source.updates <- "update1":
+			t.Fatalf("poller is still Fetch()ing from the source even after the context has canceled")
+		default:
+		}
+	})
+	t.Run("context.Cancelled on loop fetch stops the poller", func(t *testing.T) {
+		defer goleak.VerifyNone(t)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		source := &fakeSourceWithError{make(chan interface{}), make(chan error)}
+		poller := NewSourcePoller(
+			source,
+			newNullLogger(),
+			10*time.Millisecond, // poll interval
+			10*time.Millisecond, // read timeout
+			0,                   // buffer capacity
+		)
+		go poller.Run(ctx)
+
+		source.updates <- "initial update"
+		require.Equal(t, "initial update", <-poller.Updates())
 
 		source.errors <- context.Canceled
 		select {
