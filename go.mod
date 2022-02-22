@@ -44,8 +44,8 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/okex/exchain-ethereum-compatible v1.1.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/ginkgo/v2 v2.0.0
-	github.com/onsi/gomega v1.17.0
+	github.com/onsi/ginkgo/v2 v2.1.2
+	github.com/onsi/gomega v1.18.1
 	github.com/pelletier/go-toml v1.9.4
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.4.1
@@ -56,9 +56,9 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-solana v0.2.12-0.20220217150457-281a05e940f1
-	github.com/smartcontractkit/chainlink-terra v0.0.8-0.20220216122320-59318dd4d684
+	github.com/smartcontractkit/chainlink-terra v0.0.8-0.20220222145923-77cd6baf7b57
 	github.com/smartcontractkit/helmenv v1.0.36
-	github.com/smartcontractkit/integrations-framework v1.0.48
+	github.com/smartcontractkit/integrations-framework v1.0.49
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
