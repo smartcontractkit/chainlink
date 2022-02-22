@@ -18,7 +18,7 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 	contractAddress := common.HexToAddress(hexAddr)
 	upkeepCounter, err := upkeep_counter_wrapper.NewUpkeepCounter(contractAddress, k.client)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln("Failed to create a new upkeep counter", err)
 	}
 	filterOpts := bind.FilterOpts{
 		Start:   fromBlock,
@@ -27,14 +27,14 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 	}
 	upkeepIterator, err := upkeepCounter.FilterPerformingUpkeep(&filterOpts, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln("Failed to get upkeep iterator", err)
 	}
 	filename := fmt.Sprintf("%s.csv", hexAddr)
 	file, err := os.Create(filename)
-	defer func(file *os.File) { _ = file.Close() }(file)
 	if err != nil {
 		log.Fatalln("failed to open file", err)
 	}
+	defer file.Close()
 	w := csv.NewWriter(file)
 	defer w.Flush()
 

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 )
 
