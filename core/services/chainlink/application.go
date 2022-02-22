@@ -400,6 +400,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		closeLogger:              opts.CloseLogger,
 
 		sqlxDB: opts.SqlxDB,
 
