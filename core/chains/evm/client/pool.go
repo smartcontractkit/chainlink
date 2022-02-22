@@ -165,9 +165,6 @@ func (p *Pool) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 
 // Wrapped Geth client methods
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	var wg sync.WaitGroup
-	defer wg.Wait()
-
 	main := p.getRoundRobin()
 	var all []SendOnlyNode
 	for _, n := range p.nodes {
@@ -180,10 +177,12 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			continue
 		}
 		// Parallel send to all other nodes with ignored return value
-		wg.Add(1)
-		go func(n SendOnlyNode) {
-			defer wg.Done()
-			err := NewSendError(n.SendTransaction(ctx, tx))
+		// Async - we do not want to block the main thread with secondary nodes
+		// in case they are unreliable/slow.
+		// It is purely a "best effort" send.
+		// Resource is not unbounded because the default context has a timeout.
+		go func(n SendOnlyNode, txCp types.Transaction) {
+			err := NewSendError(n.SendTransaction(context.Background(), &txCp))
 			p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
 				// Nonce too low or transaction known errors are expected since
@@ -192,7 +191,7 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			}
 
 			p.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
-		}(n)
+		}(n, *tx) // copy tx here in case it is mutated after the function returns
 	}
 
 	return main.SendTransaction(ctx, tx)

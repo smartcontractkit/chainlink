@@ -19,6 +19,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const queryTimeout = 10 * time.Second
+
 //go:generate mockery --name Client --output ../mocks/ --case=underscore
 //go:generate mockery --name Subscription --output ../mocks/ --case=underscore
 
@@ -81,7 +83,7 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 	} else {
 		ctx = context.Background()
 	}
-	return context.WithTimeout(ctx, 15*time.Second)
+	return context.WithTimeout(ctx, queryTimeout)
 }
 
 // client represents an abstract client that manages connections to
