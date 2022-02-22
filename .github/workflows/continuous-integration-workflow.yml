@@ -7,12 +7,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: ['go_core_tests', 'go_core_race_tests']
+        cmd: ["go_core_tests", "go_core_race_tests"]
     name: Core Tests
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       LOG_LEVEL: debug
+      LOG_FILE_MAX_SIZE: 0
     services:
       postgres:
         image: postgres:14
