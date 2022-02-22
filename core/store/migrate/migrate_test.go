@@ -7,6 +7,8 @@ import (
 	"github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -15,16 +17,53 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
+var migrationDir = "migrations"
+
+type OffchainReporting2OracleSpec100 struct {
+	ID                                int32              `toml:"-"`
+	ContractID                        string             `toml:"contractID"`
+	Relay                             relaytypes.Network `toml:"relay"`
+	RelayConfig                       job.JSONConfig     `toml:"relayConfig"`
+	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
+	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String        `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
+	JuelsPerFeeCoinPipeline           string             `toml:"juelsPerFeeCoinSource"`
+	CreatedAt                         time.Time          `toml:"-"`
+	UpdatedAt                         time.Time          `toml:"-"`
+}
+
+func getOCR2Spec100() OffchainReporting2OracleSpec100 {
+	return OffchainReporting2OracleSpec100{
+		ID:                                100,
+		ContractID:                        "terra_187246hr3781h9fd198fh391g8f924",
+		Relay:                             "terra",
+		RelayConfig:                       map[string]interface{}{"chainID": float64(1337)},
+		P2PBootstrapPeers:                 pq.StringArray{""},
+		OCRKeyBundleID:                    null.String{},
+		MonitoringEndpoint:                null.StringFrom("endpoint:chainlink.monitor"),
+		TransmitterID:                     null.String{},
+		BlockchainTimeout:                 1337,
+		ContractConfigTrackerPollInterval: 16,
+		ContractConfigConfirmations:       32,
+		JuelsPerFeeCoinPipeline: `ds1          [type=bridge name=voter_turnout];
+	ds1_parse    [type=jsonparse path="one,two"];
+	ds1_multiply [type=multiply times=1.23];
+	ds1 -> ds1_parse -> ds1_multiply -> answer1;
+	answer1      [type=median index=0];`,
+	}
+}
+
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
-	_, db := heavyweight.FullTestDB(t, "migrations", false, false)
+	_, db := heavyweight.FullTestDB(t, migrationDir, false, false)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	err := goose.UpTo(db.DB, "migrations", 99)
+	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
 
 	pipelineORM := pipeline.NewORM(db, lggr, cfg)
@@ -37,26 +76,9 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
 
-	type OffchainReporting2OracleSpec99 struct {
-		ID                                int32              `toml:"-"`
-		ContractID                        string             `toml:"contractID"`
-		Relay                             relaytypes.Network `toml:"relay"`
-		RelayConfig                       job.JSONConfig     `toml:"relayConfig"`
-		P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
-		OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
-		MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
-		TransmitterID                     null.String        `toml:"transmitterID"`
-		BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
-		ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
-		ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-		JuelsPerFeeCoinPipeline           string             `toml:"juelsPerFeeCoinSource"`
-		CreatedAt                         time.Time          `toml:"-"`
-		UpdatedAt                         time.Time          `toml:"-"`
-	}
-
 	// OCR2 struct at migration v0099
 	type OffchainReporting2OracleSpec struct {
-		OffchainReporting2OracleSpec99
+		OffchainReporting2OracleSpec100
 		IsBootstrapPeer bool
 	}
 
@@ -69,24 +91,11 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	}
 
 	spec := OffchainReporting2OracleSpec{
-		OffchainReporting2OracleSpec99: OffchainReporting2OracleSpec99{
-			ID:                                100,
-			ContractID:                        "terra_187246hr3781h9fd198fh391g8f924",
-			Relay:                             "terra",
-			RelayConfig:                       map[string]interface{}{"chainID": float64(1337)},
-			P2PBootstrapPeers:                 pq.StringArray{""},
-			OCRKeyBundleID:                    null.String{},
-			MonitoringEndpoint:                null.StringFrom("endpoint:chainlink.monitor"),
-			TransmitterID:                     null.String{},
-			BlockchainTimeout:                 1337,
-			ContractConfigTrackerPollInterval: 16,
-			ContractConfigConfirmations:       32,
-			JuelsPerFeeCoinPipeline:           "",
-		},
-		IsBootstrapPeer: true,
+		OffchainReporting2OracleSpec100: getOCR2Spec100(),
+		IsBootstrapPeer:                 true,
 	}
 	spec2 := OffchainReporting2OracleSpec{
-		OffchainReporting2OracleSpec99: OffchainReporting2OracleSpec99{
+		OffchainReporting2OracleSpec100: OffchainReporting2OracleSpec100{
 			ID:                                200,
 			ContractID:                        "sol_187246hr3781h9fd198fh391g8f924",
 			Relay:                             "sol",
@@ -128,7 +137,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	}
 
 	nonBootstrapSpec := OffchainReporting2OracleSpec{
-		OffchainReporting2OracleSpec99: OffchainReporting2OracleSpec99{
+		OffchainReporting2OracleSpec100: OffchainReporting2OracleSpec100{
 			ID:                101,
 			P2PBootstrapPeers: pq.StringArray{""},
 			ContractID:        "empty",
@@ -208,7 +217,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.NoError(t, err)
 
 	// Migrate up
-	err = goose.UpByOne(db.DB, "migrations")
+	err = goose.UpByOne(db.DB, migrationDir)
 	require.NoError(t, err)
 
 	var bootstrapSpecs []job.BootstrapSpec
@@ -263,7 +272,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.Equal(t, 1, count)
 
 	// Migrate down
-	err = goose.Down(db.DB, "migrations")
+	err = goose.Down(db.DB, migrationDir)
 	require.NoError(t, err)
 
 	var oldJobs []Job
@@ -318,4 +327,52 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 	require.Equal(t, jobIdAndContractId{ID: 10, ContractID: "terra_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[2])
 	require.Equal(t, jobIdAndContractId{ID: 20, ContractID: "sol_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[3])
 
+}
+
+func TestMigrate_101_GenericOCR2(t *testing.T) {
+	_, db := heavyweight.FullTestDB(t, migrationDir, false, false)
+	err := goose.UpTo(db.DB, migrationDir, 100)
+	require.NoError(t, err)
+
+	sql := `INSERT INTO offchainreporting2_oracle_specs (id, contract_id, relay, relay_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
+					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline,
+					monitoring_endpoint, created_at, updated_at)
+			VALUES (:id, :contract_id, :relay, :relay_config, :p2p_bootstrap_peers, :ocr_key_bundle_id, :transmitter_id,
+					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations, :juels_per_fee_coin_pipeline,
+					:monitoring_endpoint, NOW(), NOW())
+			RETURNING id;`
+
+	spec := getOCR2Spec100()
+
+	_, err = db.NamedExec(sql, spec)
+	require.NoError(t, err)
+
+	err = goose.UpByOne(db.DB, migrationDir)
+	require.NoError(t, err)
+
+	type PluginValues struct {
+		PluginType   job.OCR2PluginType
+		PluginConfig job.JSONConfig
+	}
+
+	var pluginValues PluginValues
+
+	sql = `SELECT plugin_type, plugin_config FROM ocr2_oracle_specs`
+	err = db.Get(&pluginValues, sql)
+	require.NoError(t, err)
+
+	require.Equal(t, job.Median, pluginValues.PluginType)
+	require.Equal(t, job.JSONConfig{"juelsPerFeeCoinSource": spec.JuelsPerFeeCoinPipeline}, pluginValues.PluginConfig)
+
+	err = goose.Down(db.DB, migrationDir)
+
+	sql = `SELECT plugin_type, plugin_config FROM offchainreporting2_oracle_specs`
+	err = db.Get(&pluginValues, sql)
+	require.Error(t, err)
+
+	var juels string
+	sql = `SELECT juels_per_fee_coin_pipeline FROM offchainreporting2_oracle_specs`
+	err = db.Get(&juels, sql)
+	require.NoError(t, err)
+	require.Equal(t, spec.JuelsPerFeeCoinPipeline, juels)
 }

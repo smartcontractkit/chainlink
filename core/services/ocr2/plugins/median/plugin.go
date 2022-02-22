@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
+// The Median struct holds parameters needed to run a Median plugin.
 type Median struct {
 	jobSpec        job.Job
 	ocr2Provider   types.OCR2Provider
@@ -29,6 +30,7 @@ type Median struct {
 
 var _ plugins.OraclePlugin = Median{}
 
+// NewMedian parses the arguments and returns a new Median struct.
 func NewMedian(jobSpec job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (Median, error) {
 	var config PluginConfig
 	err := json.Unmarshal(jobSpec.OCR2OracleSpec.PluginConfig.Bytes(), &config)
@@ -51,6 +53,7 @@ func NewMedian(jobSpec job.Job, ocr2Provider types.OCR2Provider, pipelineRunner 
 	}, nil
 }
 
+// GetPluginFactory return a median.NumericalMedianFactory.
 func (m Median) GetPluginFactory() (plugin ocr2types.ReportingPluginFactory, err error) {
 	juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 		ID:           m.jobSpec.ID,
@@ -72,6 +75,8 @@ func (m Median) GetPluginFactory() (plugin ocr2types.ReportingPluginFactory, err
 	return numericalMedianFactory, nil
 }
 
+// GetServices return an empty Service slice because Median does not need any services besides the generic OCR2 ones
+// supplied in the OCR2 delegate. This method exists to satisfy the plugins.OraclePlugin interface.
 func (m Median) GetServices() (services []job.Service, err error) {
 	return []job.Service{}, nil
 }

@@ -80,7 +80,7 @@ ALTER TABLE ocr2_oracle_specs
     ADD COLUMN juels_per_fee_coin_pipeline text NOT NULL default '';
 
 UPDATE ocr2_oracle_specs
-SET juels_per_fee_coin_pipeline = plugin_config -> 'juelsPerFeeCoinSource';
+SET juels_per_fee_coin_pipeline = plugin_config ->> 'juelsPerFeeCoinSource';
 
 ALTER TABLE ocr2_oracle_specs
     DROP COLUMN plugin_config,

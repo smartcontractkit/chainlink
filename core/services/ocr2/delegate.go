@@ -167,8 +167,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	services = append(services, pluginServices...)
 
-	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
-	jobSpec.PipelineSpec.JobID = jobSpec.ID
 	oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
 		BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -188,9 +186,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	services = append(services, oracle)
 
-	// RunResultSaver needs to be started first so its available
+	// RunResultSaver needs to be started first, so it's available
 	// to read odb writes. It is stopped last after the OraclePlugin is shut down
-	// so no further runs are enqueued and we can drain the queue.
+	// so no further runs are enqueued, and we can drain the queue.
 	services = append([]job.Service{ocrcommon.NewResultRunSaver(
 		runResults,
 		d.pipelineRunner,
