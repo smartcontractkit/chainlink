@@ -119,8 +119,8 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
-	lggr := logger.NewLogger()
-	defer lggr.Close()
+	lggr, closeLggr := logger.NewLogger()
+	defer closeLggr()
 
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
