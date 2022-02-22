@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added support for the Nethermind Ethereum client.
 - Added support for batch sending telemetry to the ingress server to improve performance.
-- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one file. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set.
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one file. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set. How many disk space is required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logs will not go to disk until there's enough space.
 
 New ENV vars:
 
