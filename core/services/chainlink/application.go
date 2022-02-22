@@ -127,7 +127,7 @@ type ChainlinkApplication struct {
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
-	closeLogger              func() error // May be nil
+	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 
 	started     bool

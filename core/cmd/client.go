@@ -63,7 +63,7 @@ type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
 	Logger                         logger.Logger
-	CloseLogger                    func() error // May be nil
+	CloseLogger                    func() error
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
