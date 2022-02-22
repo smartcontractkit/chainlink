@@ -117,13 +117,6 @@ type Logger interface {
 	Recover(panicErr interface{})
 }
 
-// CloseableLogger bundles together a logger interface and a close function
-// calling `close()` will call `sync()`, and it will shutdown the logger's ability to check disk space when `LOG_TO_DISK` is enabled
-type CloseableLogger struct {
-	Logger
-	Close func() error
-}
-
 // Constants for service names for package specific logging configuration
 const (
 	HeadTracker                 = "HeadTracker"
@@ -179,7 +172,7 @@ func verShaName(ver, sha string) string {
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
-func NewLogger() CloseableLogger {
+func NewLogger() (Logger, func() error) {
 	var c Config
 	var parseErrs []string
 
@@ -245,7 +238,7 @@ func NewLogger() CloseableLogger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return CloseableLogger{Logger: l.Named(verShaNameStatic()), Close: close}
+	return l.Named(verShaNameStatic()), close
 }
 
 type Config struct {

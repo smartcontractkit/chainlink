@@ -455,7 +455,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		Chains:                   chains,
-		Logger:                   logger.CloseableLogger{Logger: lggr, Close: func() error { return nil }},
+		Logger:                   lggr,
+		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
 	})
 	require.NoError(t, err)
@@ -647,10 +648,12 @@ func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
+	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Client{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
-		Logger:                         logger.CloseableLogger{Logger: logger.TestLogger(ta.t), Close: func() error { return nil }},
+		Logger:                         lggr,
+		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -669,7 +672,8 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
-		Logger:                         logger.CloseableLogger{Logger: lggr, Close: func() error { return nil }},
+		Logger:                         lggr,
+		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},

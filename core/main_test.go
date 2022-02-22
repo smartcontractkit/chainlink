@@ -24,10 +24,12 @@ func run(args ...string) {
 	t := &testing.T{}
 	tc := cltest.NewTestGeneralConfig(t)
 	tc.Overrides.Dev = null.BoolFrom(false)
+	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,
-		Logger:                 logger.CloseableLogger{Logger: logger.TestLogger(t), Close: func() error { return nil }},
+		Logger:                 lggr,
+		CloseLogger:            lggr.Sync,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
