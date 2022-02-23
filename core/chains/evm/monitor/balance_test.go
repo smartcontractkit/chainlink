@@ -1,4 +1,4 @@
-package balancemonitor_test
+package monitor_test
 
 import (
 	"math/big"
@@ -13,8 +13,8 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/balancemonitor"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -43,7 +43,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 
 		k0bal := big.NewInt(42)
@@ -73,7 +73,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 		k0bal := big.NewInt(42)
 
@@ -95,7 +95,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
@@ -123,7 +123,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
@@ -183,7 +183,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	ethClient := newEthClientMock(t)
 
-	bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+	bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		Once().
 		Return(big.NewInt(1), nil)
@@ -242,7 +242,7 @@ func Test_ApproximateFloat64(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			eth := assets.NewEth(0)
 			eth.SetString(test.input, 10)
-			float, err := balancemonitor.ApproximateFloat64(eth)
+			float, err := monitor.ApproximateFloat64(eth)
 			require.NoError(t, err)
 			require.Equal(t, test.want, float)
 		})
