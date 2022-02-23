@@ -388,7 +388,7 @@ EVM_ENABLED=false
 	}
 
 	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.DebugLogsToDisk() {
-		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
+		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
 	return nil
