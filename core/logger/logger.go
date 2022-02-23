@@ -262,10 +262,12 @@ func (c *Config) New() (Logger, func() error) {
 	return newPrometheusLogger(l), close
 }
 
+// DebugLogsToDisk returns whether debug logs should be stored in disk
 func (c Config) DebugLogsToDisk() bool {
 	return c.DiskMaxSizeBeforeRotate > 0
 }
 
+// RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
 	return utils.FileSize(c.DiskMaxSizeBeforeRotate * (c.DiskMaxBackupsBeforeDelete + 1))
 }
