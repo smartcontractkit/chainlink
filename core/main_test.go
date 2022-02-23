@@ -377,6 +377,7 @@ func ExampleRun_node() {
 	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
 	//    status                    Displays the health of various services running inside the node.
+	//    profile                   Collects profile metrics from the node.
 	//    db                        Commands for managing the database.
 	//
 	// OPTIONS:
@@ -416,6 +417,21 @@ func ExampleRun_node_db() {
 	//
 	// OPTIONS:
 	//    --help, -h  show help
+}
+
+func ExampleRun_node_profile() {
+	run("node", "profile", "--help")
+	// Output:
+	// NAME:
+	//    core.test node profile - Collects profile metrics from the node.
+	//
+	// USAGE:
+	//    core.test node profile [command options] [arguments...]
+	//
+	// OPTIONS:
+	//    --seconds value, -s value     duration of profile capture (default: 8)
+	//    --output_dir value, -o value  output directory of the captured profile (default: "/tmp/")
+
 }
 
 func ExampleRun_txs() {
