@@ -106,20 +106,21 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		// Deploy keeper registry
 		registryAddr, registry = k.deployRegistry(ctx)
 		upkeepCount = 0
-	}
 
-	// Approve keeper registry
-	approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
-	if err != nil {
-		log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
+		// Approve keeper registry
+		approveRegistryTx, err := k.linkToken.Approve(k.buildTxOpts(ctx), registryAddr, k.approveAmount)
+		if err != nil {
+			log.Fatal(registryAddr.Hex(), ": Approve failed - ", err)
+		}
+		k.waitTx(ctx, approveRegistryTx)
+		log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
 	}
-	k.waitTx(ctx, approveRegistryTx)
-	log.Println(registryAddr.Hex(), ": KeeperRegistry approved - ", helpers.ExplorerLink(k.cfg.ChainID, approveRegistryTx.Hash()))
 
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
 	// Prepare keeper addresses and owners
+	var err error
 	var keepers []common.Address
 	var owners []common.Address
 	for _, startedNode := range startedNodes {

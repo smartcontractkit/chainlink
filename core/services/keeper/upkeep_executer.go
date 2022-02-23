@@ -161,18 +161,18 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 	for _, reg := range activeUpkeeps {
 		ex.executionQueue <- struct{}{}
-		go ex.execute(reg, head.Number, done)
+		go ex.execute(reg, head, done)
 	}
 
 	wg.Wait()
 }
 
 // execute triggers the pipeline run
-func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
+func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head, done func()) {
 	defer done()
 
 	start := time.Now()
-	svcLogger := ex.logger.With("blockNum", headNumber, "upkeepID", upkeep.UpkeepID)
+	svcLogger := ex.logger.With("blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
 	svcLogger.Debug("checking upkeep")
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
@@ -187,10 +187,19 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	if ex.config.KeeperCheckUpkeepGasPriceFeatureEnabled() {
 		price, fee, err := ex.estimateGasPrice(upkeep)
 		if err != nil {
-			svcLogger.Error(errors.Wrap(err, "estimating gas price"))
+			svcLogger.With("error", err).Error("estimating gas price")
 			return
 		}
 		gasPrice, gasTipCap, gasFeeCap = price, fee.TipCap, fee.FeeCap
+
+		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
+		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
+		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
+			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), 20)
+			if gasPrice.Cmp(baseFee) < 0 {
+				gasPrice = baseFee
+			}
+		}
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -217,7 +226,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, headNumber, pg.WithParentCtx(ctxService))
+		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, pg.WithParentCtx(ctxService))
 		if err != nil {
 			svcLogger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}
@@ -239,6 +248,7 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 	if err != nil {
 		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
+
 	if ex.config.EvmEIP1559DynamicFees() {
 		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
 		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasTipCapBufferPercent())
@@ -249,6 +259,7 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 	if err != nil {
 		return nil, fee, errors.Wrap(err, "unable to estimate gas")
 	}
+
 	return gasPrice, fee, nil
 }
 
