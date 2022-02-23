@@ -141,13 +141,13 @@ func (b *BlockHistoryEstimator) getCurrentBaseFee() *big.Int {
 	return b.latestBaseFee
 }
 
-func (b *BlockHistoryEstimator) Start() error {
+func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Trace("Starting")
 
-		ctx, cancel := context.WithTimeout(b.ctx, maxStartTime)
+		cctx, cancel := context.WithTimeout(ctx, maxStartTime)
 		defer cancel()
-		latestHead, err := b.ethClient.HeadByNumber(ctx, nil)
+		latestHead, err := b.ethClient.HeadByNumber(cctx, nil)
 		if err != nil {
 			b.logger.Warnw("Initial check for latest head failed", "err", err)
 		} else if latestHead == nil {
@@ -155,7 +155,7 @@ func (b *BlockHistoryEstimator) Start() error {
 		} else {
 			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
 			b.setLatestBaseFee(latestHead.BaseFeePerGas)
-			b.FetchBlocksAndRecalculate(ctx, latestHead)
+			b.FetchBlocksAndRecalculate(cctx, latestHead)
 		}
 		b.wg.Add(1)
 		go b.runLoop()
