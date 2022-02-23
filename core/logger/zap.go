@@ -23,7 +23,9 @@ type ZapLoggerConfig struct {
 	sinks          []zapcore.WriteSyncer
 	diskStats      utils.DiskStatsProvider
 	diskPollConfig zapDiskPollConfig
-	diskLogLvlChan chan zapcore.Level
+
+	// This is for tests only
+	testDiskLogLvlChan chan zapcore.Level
 }
 
 type zapLogger struct {

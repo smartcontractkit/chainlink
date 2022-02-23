@@ -82,8 +82,8 @@ func (l *zapLogger) pollDiskSpace() {
 				l.Info("Resuming disk logs, disk has enough space")
 			}
 
-			if l.config.diskLogLvlChan != nil {
-				l.config.diskLogLvlChan <- lvl
+			if l.config.testDiskLogLvlChan != nil {
+				l.config.testDiskLogLvlChan <- lvl
 			}
 		}
 	}

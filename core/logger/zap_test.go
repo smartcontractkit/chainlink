@@ -59,7 +59,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 
 		zapCfg.diskStats = diskMock
-		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
 			pollChan: pollChan,
@@ -71,7 +71,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		defer close()
 
 		pollChan <- time.Now()
-		<-zapCfg.diskLogLvlChan
+		<-zapCfg.testDiskLogLvlChan
 
 		lggr.Debug("trying to write to disk when the disk logs should not be created")
 
@@ -93,7 +93,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 
 		zapCfg.diskStats = diskMock
-		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
 			pollChan: pollChan,
@@ -105,7 +105,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		defer close()
 
 		pollChan <- time.Now()
-		<-zapCfg.diskLogLvlChan
+		<-zapCfg.testDiskLogLvlChan
 
 		lggr.Debug("trying to write to disk when the disk logs should not be created - generic error")
 
@@ -126,7 +126,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			close(pollChan)
 		}
 
-		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
 		zapCfg.diskStats = diskMock
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
@@ -143,7 +143,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil)
 
 		pollChan <- time.Now()
-		<-zapCfg.diskLogLvlChan
+		<-zapCfg.testDiskLogLvlChan
 
 		lggr.SetLogLevel(zapcore.WarnLevel)
 		lggr.Debug("writing to disk on test again")
@@ -176,7 +176,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			close(pollChan)
 		}
 
-		zapCfg.diskLogLvlChan = make(chan zapcore.Level)
+		zapCfg.testDiskLogLvlChan = make(chan zapcore.Level)
 		zapCfg.diskStats = diskMock
 		zapCfg.diskPollConfig = zapDiskPollConfig{
 			stop:     stop,
@@ -193,12 +193,12 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize, nil).Once()
 
 		pollChan <- time.Now()
-		<-zapCfg.diskLogLvlChan
+		<-zapCfg.testDiskLogLvlChan
 
 		diskMock.On("AvailableSpace", logsDir).Return(maxSize*12, nil).Once()
 
 		pollChan <- time.Now()
-		<-zapCfg.diskLogLvlChan
+		<-zapCfg.testDiskLogLvlChan
 
 		lggr.Debug("test again")
 
