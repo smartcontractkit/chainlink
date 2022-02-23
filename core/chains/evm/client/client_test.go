@@ -312,7 +312,9 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	err = ethClient.SendTransaction(context.Background(), tx)
 	require.NoError(t, err)
 
-	require.Equal(t, int32(2), service.sentCount.Load())
+	// Unfortunately it's a bit tricky to test this, since there is no
+	// synchronization. We have to rely on timing instead.
+	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, cltest.WaitTimeout(t), 500*time.Millisecond)
 }
 
 type sendTxService struct {

@@ -1,4 +1,4 @@
-package balancemonitor
+package monitor
 
 import (
 	"context"

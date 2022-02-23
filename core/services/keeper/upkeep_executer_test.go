@@ -23,6 +23,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -259,7 +260,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	})
 
 	head := newHead()
-	executer.OnNewLongestChain(context.TODO(), &head)
+	executer.OnNewLongestChain(testutils.Context(t), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 	cltest.AssertCountStays(t, db, "eth_txes", 0)

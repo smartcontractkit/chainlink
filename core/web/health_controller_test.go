@@ -6,6 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +38,7 @@ func TestHealthController_Readyz(t *testing.T) {
 			healthChecker.On("Close").Return(nil).Once()
 
 			app.HealthChecker = healthChecker
-			require.NoError(t, app.Start())
+			require.NoError(t, app.Start(testutils.Context(t)))
 
 			client := app.NewHTTPClient()
 			resp, cleanup := client.Get("/readyz")

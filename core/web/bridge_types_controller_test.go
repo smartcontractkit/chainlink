@@ -5,15 +5,17 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,7 +151,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 
 	bt, err := setupBridgeControllerIndex(t, app.BridgeORM())
@@ -215,7 +217,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
@@ -243,7 +245,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 
 	bt := &bridges.BridgeType{
@@ -266,7 +268,7 @@ func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 
@@ -296,7 +298,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 
@@ -312,7 +314,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 
@@ -328,7 +330,7 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 
