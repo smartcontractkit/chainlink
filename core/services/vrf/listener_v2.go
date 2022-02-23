@@ -108,7 +108,10 @@ func (lsn *listenerV2) Start() error {
 					},
 				},
 			},
-			// Do not specify min confirmations, as it varies from request to request.
+			// Specify a min incoming confirmations of 1 so that we can receive a request log
+			// right away. We set the real number of confirmations on a per-request basis in
+			// the getConfirmedAt method.
+			MinIncomingConfirmations: 1,
 		})
 
 		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)

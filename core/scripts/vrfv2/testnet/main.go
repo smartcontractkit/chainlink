@@ -414,6 +414,19 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Println("Funding sub", *subID, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 		helpers.PanicErr(err)
+	case "eoa-read":
+		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer", "", "consumer address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer")
+		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(common.HexToAddress(*consumerAddress), ec)
+		helpers.PanicErr(err)
+		word, err := consumer.SRandomWords(nil, big.NewInt(0))
+		if err != nil {
+			fmt.Println("no words (yet?)")
+		}
+		reqID, err := consumer.SRequestId(nil)
+		helpers.PanicErr(err)
+		fmt.Println("request id:", reqID.String(), "1st random word:", word)
 	case "owner-cancel-sub":
 		cancel := flag.NewFlagSet("owner-cancel-sub", flag.ExitOnError)
 		coordinatorAddress := cancel.String("coordinator-address", "", "coordinator address")
