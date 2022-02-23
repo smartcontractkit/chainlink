@@ -245,6 +245,10 @@ func TestResolver_Config(t *testing.T) {
         "value": "20"
       },
       {
+        "key": "KEEPER_BASE_FEE_BUFFER_PERCENT",
+        "value": "20"
+      },
+      {
         "key": "KEEPER_MAXIMUM_GRACE_PERIOD",
         "value": "0"
       },
