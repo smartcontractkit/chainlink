@@ -22,6 +22,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -37,12 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *ocr2aggregator.OCR2Aggregator) {
@@ -190,7 +190,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		1000000000/100, // threshold PPB
 	)
 	require.NoError(t, err)
-	lggr.Debugw("Setting Config on OraclePlugin Contract",
+	lggr.Debugw("Setting Config on Oracle Contract",
 		"signers", signers,
 		"transmitters", transmitters,
 		"threshold", threshold,

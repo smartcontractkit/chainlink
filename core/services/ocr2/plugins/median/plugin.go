@@ -18,7 +18,7 @@ import (
 
 // The Median struct holds parameters needed to run a Median plugin.
 type Median struct {
-	jobSpec        job.Job
+	jb             job.Job
 	ocr2Provider   types.OCR2Provider
 	pipelineRunner pipeline.Runner
 	runResults     chan pipeline.Run
@@ -31,9 +31,9 @@ type Median struct {
 var _ plugins.OraclePlugin = Median{}
 
 // NewMedian parses the arguments and returns a new Median struct.
-func NewMedian(jobSpec job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (Median, error) {
+func NewMedian(jb job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (Median, error) {
 	var config PluginConfig
-	err := json.Unmarshal(jobSpec.OCR2OracleSpec.PluginConfig.Bytes(), &config)
+	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &config)
 	if err != nil {
 		return Median{}, err
 	}
@@ -43,7 +43,7 @@ func NewMedian(jobSpec job.Job, ocr2Provider types.OCR2Provider, pipelineRunner 
 	}
 
 	return Median{
-		jobSpec:        jobSpec,
+		jb:             jb,
 		ocr2Provider:   ocr2Provider,
 		pipelineRunner: pipelineRunner,
 		runResults:     runResults,
@@ -54,29 +54,28 @@ func NewMedian(jobSpec job.Job, ocr2Provider types.OCR2Provider, pipelineRunner 
 }
 
 // GetPluginFactory return a median.NumericalMedianFactory.
-func (m Median) GetPluginFactory() (plugin ocr2types.ReportingPluginFactory, err error) {
+func (m Median) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
 	juelsPerFeeCoinPipelineSpec := pipeline.Spec{
-		ID:           m.jobSpec.ID,
+		ID:           m.jb.ID,
 		DotDagSource: m.config.JuelsPerFeeCoinPipeline,
 		CreatedAt:    time.Now(),
 	}
-	numericalMedianFactory := median.NumericalMedianFactory{
+	return median.NumericalMedianFactory{
 		ContractTransmitter: m.ocr2Provider.MedianContract(),
 		DataSource: ocrcommon.NewDataSourceV2(m.pipelineRunner,
-			m.jobSpec,
-			*m.jobSpec.PipelineSpec,
+			m.jb,
+			*m.jb.PipelineSpec,
 			m.lggr,
 			m.runResults,
 		),
-		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(m.pipelineRunner, m.jobSpec, juelsPerFeeCoinPipelineSpec, m.lggr),
+		JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(m.pipelineRunner, m.jb, juelsPerFeeCoinPipelineSpec, m.lggr),
 		ReportCodec:               m.ocr2Provider.ReportCodec(),
 		Logger:                    m.ocrLogger,
-	}
-	return numericalMedianFactory, nil
+	}, nil
 }
 
 // GetServices return an empty Service slice because Median does not need any services besides the generic OCR2 ones
 // supplied in the OCR2 delegate. This method exists to satisfy the plugins.OraclePlugin interface.
-func (m Median) GetServices() (services []job.Service, err error) {
+func (m Median) GetServices() ([]job.Service, error) {
 	return []job.Service{}, nil
 }

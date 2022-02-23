@@ -1,8 +1,6 @@
 package ocr2
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/sqlx"
@@ -71,7 +69,7 @@ func (Delegate) OnJobDeleted(spec job.Job) {}
 func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
-func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
+func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.Service, error) {
 	spec := jobSpec.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
@@ -88,7 +86,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
-	services = append(services, ocr2Provider)
 
 	ocrDB := NewDB(d.db.DB, spec.ID, d.lggr)
 	peerWrapper := d.peerWrapper
@@ -152,20 +149,19 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	case job.Median:
 		pluginOracle, err = median.NewMedian(jobSpec, ocr2Provider, d.pipelineRunner, runResults, loggerWith, ocrLogger)
 	default:
-		return nil, fmt.Errorf("plugin type %s not supported", spec.PluginType)
+		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to initialise plugin")
 	}
 	pluginFactory, err := pluginOracle.GetPluginFactory()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get plugin factory")
 	}
 	pluginServices, err := pluginOracle.GetServices()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get plugin services")
 	}
-	services = append(services, pluginServices...)
 
 	oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
 		BinaryNetworkEndpointFactory: peerWrapper.Peer2,
@@ -184,17 +180,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewOracle")
 	}
-	services = append(services, oracle)
 
 	// RunResultSaver needs to be started first, so it's available
 	// to read odb writes. It is stopped last after the OraclePlugin is shut down
 	// so no further runs are enqueued, and we can drain the queue.
-	services = append([]job.Service{ocrcommon.NewResultRunSaver(
+	runResultSaver := ocrcommon.NewResultRunSaver(
 		runResults,
 		d.pipelineRunner,
 		make(chan struct{}),
-		loggerWith,
-	)}, services...)
+		loggerWith)
 
-	return services, nil
+	return append([]job.Service{runResultSaver, ocr2Provider, oracle}, pluginServices...), nil
 }
