@@ -3,11 +3,12 @@ package headtracker_test
 import (
 	"context"
 	"errors"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"

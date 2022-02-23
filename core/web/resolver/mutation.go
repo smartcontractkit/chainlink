@@ -75,7 +75,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	}
 
 	btr := &bridges.BridgeTypeRequest{
-		Name:                   bridges.TaskType(args.Input.Name),
+		Name:                   bridges.BridgeName(args.Input.Name),
 		URL:                    webURL,
 		Confirmations:          uint32(args.Input.Confirmations),
 		MinimumContractPayment: minContractPayment,
@@ -224,13 +224,13 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	}
 
 	btr := &bridges.BridgeTypeRequest{
-		Name:                   bridges.TaskType(args.Input.Name),
+		Name:                   bridges.BridgeName(args.Input.Name),
 		URL:                    webURL,
 		Confirmations:          uint32(args.Input.Confirmations),
 		MinimumContractPayment: minContractPayment,
 	}
 
-	taskType, err := bridges.NewTaskType(string(args.ID))
+	taskType, err := bridges.ParseBridgeName(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +413,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	taskType, err := bridges.NewTaskType(string(args.ID))
+	taskType, err := bridges.ParseBridgeName(string(args.ID))
 	if err != nil {
 		return NewDeleteBridgePayload(nil, err), nil
 	}

@@ -230,3 +230,21 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 
 	return &jb
 }
+
+func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
+	t.Helper()
+
+	id := uuid.NewV4()
+	var jb = job.Job{
+		Name:          null.StringFrom(id.String()),
+		ExternalJobID: id,
+	}
+	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
+	require.NoError(t, err)
+	var ocrspec job.OffchainReporting2OracleSpec
+	err = toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
+	require.NoError(t, err)
+	jb.Offchainreporting2OracleSpec = &ocrspec
+
+	return &jb
+}

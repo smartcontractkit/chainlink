@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
+
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	"go.uber.org/multierr"
@@ -69,6 +71,7 @@ type orm struct {
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
 	lggr        logger.Logger
+	bridgeORM   bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
@@ -87,10 +90,33 @@ func NewORM(
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
+		bridgeORM:   bridges.NewORM(db, lggr, cfg),
 		lggr:        namedLogger,
 	}
 }
 func (o *orm) Close() error {
+	return nil
+}
+
+func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
+	var bridgeNames []bridges.BridgeName
+	for _, task := range p.Tasks {
+		if task.Type() == pipeline.TaskTypeBridge {
+			// Bridge must exist
+			name := task.(*pipeline.BridgeTask).Name
+			bridge, err := bridges.ParseBridgeName(name)
+			if err != nil {
+				return err
+			}
+			bridgeNames = append(bridgeNames, bridge)
+		}
+	}
+	if len(bridgeNames) != 0 {
+		_, err := o.bridgeORM.FindBridges(bridgeNames)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -100,21 +126,8 @@ func (o *orm) Close() error {
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
-	for _, task := range p.Tasks {
-		if task.Type() == pipeline.TaskTypeBridge {
-			// Bridge must exist
-			name := task.(*pipeline.BridgeTask).Name
-
-			sql := `SELECT EXISTS(SELECT 1 FROM bridge_types WHERE name = $1);`
-			var exists bool
-			err := q.Get(&exists, sql, name)
-			if err != nil {
-				return errors.Wrap(err, "CreateJob failed to check bridge")
-			}
-			if !exists {
-				return errors.Wrap(pipeline.ErrNoSuchBridge, name)
-			}
-		}
+	if err := o.assertBridgesExist(p); err != nil {
+		return err
 	}
 
 	var jobID int32
@@ -199,7 +212,13 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					}
 				}
 			}
-
+			feePipeline, err := pipeline.Parse(jb.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline)
+			if err != nil {
+				return err
+			}
+			if err := o.assertBridgesExist(*feePipeline); err != nil {
+				return err
+			}
 			sql := `INSERT INTO offchainreporting2_oracle_specs (contract_id, relay, relay_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline,
 					created_at, updated_at)
@@ -207,7 +226,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations, :juels_per_fee_coin_pipeline,
 					NOW(), NOW())
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.Offchainreporting2OracleSpec)
+			err = pg.PrepareQueryRowx(tx, sql, &specID, jb.Offchainreporting2OracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
 			}

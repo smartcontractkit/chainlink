@@ -162,18 +162,35 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+		// Create a random bridge name
+		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+		// Reference a different one
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			observationSource = """
-				ds1          [type=bridge name="%s"];
+				ds1          [type=bridge name="blah"];
 			"""
-		`, bridge.Name.String()))
+		`))
+		// Should error creating it
 		err := jobORM.CreateJob(jb)
-		require.Error(t,
-			pipeline.ErrNoSuchBridge,
-			errors.Cause(err))
+		require.Error(t, err)
+
+		jb2 := makeOCR2JobSpecFromToml(t, fmt.Sprintf(`
+		type               = "offchainreporting2"
+		schemaVersion      = 1
+        juelsPerFeeCoinSource = """
+		ds1          [type=bridge name="blah"];
+        """
+		observationSource = """
+		ds1          [type=bridge name="%s"];
+		"""
+		`, b.Name))
+
+		// Should error creating it because of the juels per fee coin non-existent bridge
+		err = jobORM.CreateJob(jb2)
+		t.Log(err)
+		require.Error(t, err)
 	})
 
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)

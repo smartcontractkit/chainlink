@@ -72,9 +72,9 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 	rnd := uuid.NewV4().String()
 
 	if opts.Name != "" {
-		btr.Name = bridges.MustNewTaskType(opts.Name)
+		btr.Name = bridges.MustParseBridgeName(opts.Name)
 	} else {
-		btr.Name = bridges.MustNewTaskType(fmt.Sprintf("test_bridge_%s", rnd))
+		btr.Name = bridges.MustParseBridgeName(fmt.Sprintf("test_bridge_%s", rnd))
 	}
 
 	if opts.URL != "" {

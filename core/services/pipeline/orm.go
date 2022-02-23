@@ -14,10 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-var (
-	ErrNoSuchBridge = errors.New("no such bridge exists")
-)
-
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {

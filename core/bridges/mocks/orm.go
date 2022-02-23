@@ -131,18 +131,18 @@ func (_m *ORM) ExternalInitiators(offset int, limit int) ([]bridges.ExternalInit
 }
 
 // FindBridge provides a mock function with given fields: name
-func (_m *ORM) FindBridge(name bridges.TaskType) (bridges.BridgeType, error) {
+func (_m *ORM) FindBridge(name bridges.BridgeName) (bridges.BridgeType, error) {
 	ret := _m.Called(name)
 
 	var r0 bridges.BridgeType
-	if rf, ok := ret.Get(0).(func(bridges.TaskType) bridges.BridgeType); ok {
+	if rf, ok := ret.Get(0).(func(bridges.BridgeName) bridges.BridgeType); ok {
 		r0 = rf(name)
 	} else {
 		r0 = ret.Get(0).(bridges.BridgeType)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(bridges.TaskType) error); ok {
+	if rf, ok := ret.Get(1).(func(bridges.BridgeName) error); ok {
 		r1 = rf(name)
 	} else {
 		r1 = ret.Error(1)

@@ -13,7 +13,8 @@ import (
 //go:generate mockery --name ORM --output ./mocks --case=underscore
 
 type ORM interface {
-	FindBridge(name TaskType) (bt BridgeType, err error)
+	FindBridge(name BridgeName) (bt BridgeType, err error)
+	FindBridges(name []BridgeName) (bts []BridgeType, err error)
 	DeleteBridgeType(bt *BridgeType) error
 	BridgeTypes(offset int, limit int) ([]BridgeType, int, error)
 	CreateBridgeType(bt *BridgeType) error
@@ -38,9 +39,28 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 }
 
 // FindBridge looks up a Bridge by its Name.
-func (o *orm) FindBridge(name TaskType) (bt BridgeType, err error) {
+// Returns sql.ErrNoRows if name not present
+func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
 	sql := "SELECT * FROM bridge_types WHERE name = $1"
 	err = o.q.Get(&bt, sql, name.String())
+	return
+}
+
+// FindBridges looks up multiple bridges in a single query.
+// Errors unless all bridges successfully found.
+func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
+	sql := "SELECT * FROM bridge_types WHERE name IN (?)"
+	query, args, err := sqlx.In(sql, names)
+	if err != nil {
+		return nil, err
+	}
+	err = o.q.Select(&bts, o.q.Rebind(query), args...)
+	if err != nil {
+		return nil, err
+	}
+	if len(bts) != len(names) {
+		return nil, errors.Errorf("not all bridges exits, asked for %v, exists %v", names, bts)
+	}
 	return
 }
 
