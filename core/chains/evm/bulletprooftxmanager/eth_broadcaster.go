@@ -122,6 +122,8 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 	}
 }
 
+// Start starts EthBroadcaster service.
+// The provided context can be used to terminate Start sequence.
 func (eb *EthBroadcaster) Start(ctx context.Context) error {
 	return eb.StartOnce("EthBroadcaster", func() (err error) {
 		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
