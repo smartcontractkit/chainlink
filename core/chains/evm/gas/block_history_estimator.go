@@ -141,12 +141,15 @@ func (b *BlockHistoryEstimator) getCurrentBaseFee() *big.Int {
 	return b.latestBaseFee
 }
 
+// Start starts BlockHistoryEstimator service.
+// The provided context can be used to terminate Start sequence.
 func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Trace("Starting")
 
 		cctx, cancel := context.WithTimeout(ctx, maxStartTime)
 		defer cancel()
+
 		latestHead, err := b.ethClient.HeadByNumber(cctx, nil)
 		if err != nil {
 			b.logger.Warnw("Initial check for latest head failed", "err", err)
@@ -157,8 +160,14 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 			b.setLatestBaseFee(latestHead.BaseFeePerGas)
 			b.FetchBlocksAndRecalculate(cctx, latestHead)
 		}
+
+		if cctx.Err() != nil {
+			return errors.Wrap(cctx.Err(), "failed to start BlockHistoryEstimator due to context error")
+		}
+
 		b.wg.Add(1)
 		go b.runLoop()
+
 		b.logger.Trace("Started")
 		return nil
 	})
@@ -301,7 +310,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 	b.Recalculate(head)
 }
 
-// FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
+// Recalculate adds the given heads to the history and recalculates gas price
 func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	enableEIP1559 := b.config.EvmEIP1559DynamicFees()
 

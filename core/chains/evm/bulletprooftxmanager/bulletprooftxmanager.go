@@ -148,6 +148,8 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, cfg Config
 	return &b
 }
 
+// Start starts BulletproofTxManager service.
+// The provided context can be used to terminate Start sequence.
 func (b *BulletproofTxManager) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("BulletproofTxManager", func() error {
 		keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
@@ -540,9 +542,11 @@ type NullTxManager struct {
 }
 
 func (n *NullTxManager) OnNewLongestChain(context.Context, *evmtypes.Head) {}
-func (n *NullTxManager) Start(context.Context) error                       { return nil }
-func (n *NullTxManager) Close() error                                      { return nil }
-func (n *NullTxManager) Trigger(common.Address)                            { panic(n.ErrMsg) }
+
+// Start does noop for NullTxManager.
+func (n *NullTxManager) Start(context.Context) error { return nil }
+func (n *NullTxManager) Close() error                { return nil }
+func (n *NullTxManager) Trigger(common.Address)      { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }

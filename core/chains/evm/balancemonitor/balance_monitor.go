@@ -208,6 +208,8 @@ func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
+
+// Start does noop for NullBalanceMonitor.
 func (*NullBalanceMonitor) Start(context.Context) error                                { return nil }
 func (*NullBalanceMonitor) Close() error                                               { return nil }
 func (*NullBalanceMonitor) Ready() error                                               { return nil }
