@@ -10,10 +10,12 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var diskPollInterval = 1 * time.Minute
+const (
+	// `Fatal` is the max log level allowed, so log levels like `Panic` or `Critical` won't be logged to disk if this is set.
+	disabledLevel = zapcore.FatalLevel + 1
 
-// `Fatal` is the max log level allowed, so log levels like `Panic` or `Critical` won't be logged to disk if this is set.
-const disabledLevel = zapcore.FatalLevel + 1
+	diskPollInterval = 1 * time.Minute
+)
 
 type zapDiskPollConfig struct {
 	stop     func()
