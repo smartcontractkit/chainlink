@@ -681,6 +681,8 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	close(ch)
 	return ch
 }
+
+// DependentReady does noop for NullBroadcaster.
 func (n *NullBroadcaster) DependentReady() {}
 
 // Start does noop for NullBroadcaster.

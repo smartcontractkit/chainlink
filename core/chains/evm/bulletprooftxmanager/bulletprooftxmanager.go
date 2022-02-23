@@ -545,8 +545,12 @@ func (n *NullTxManager) OnNewLongestChain(context.Context, *evmtypes.Head) {}
 
 // Start does noop for NullTxManager.
 func (n *NullTxManager) Start(context.Context) error { return nil }
-func (n *NullTxManager) Close() error                { return nil }
-func (n *NullTxManager) Trigger(common.Address)      { panic(n.ErrMsg) }
+
+// Close does noop for NullTxManager.
+func (n *NullTxManager) Close() error { return nil }
+
+// Trigger does noop for NullTxManager.
+func (n *NullTxManager) Trigger(common.Address) { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
