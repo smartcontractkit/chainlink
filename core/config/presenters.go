@@ -63,6 +63,7 @@ type EnvPrinter struct {
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	KeeperGasPriceBufferPercent                uint32          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
 	KeeperGasTipCapBufferPercent               uint32          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
+	KeeperBaseFeeBufferPercent                 uint32          `json:"KEEPER_BASE_FEE_BUFFER_PERCENT"`
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
 	KeeperRegistryCheckGasOverhead             uint64          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
@@ -168,6 +169,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperDefaultTransactionQueueDepth: cfg.KeeperDefaultTransactionQueueDepth(),
 			KeeperGasPriceBufferPercent:        cfg.KeeperGasPriceBufferPercent(),
 			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
+			KeeperBaseFeeBufferPercent:         cfg.KeeperBaseFeeBufferPercent(),
 			LeaseLockDuration:                  cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
 			LogFileDir:                         cfg.LogFileDir(),
