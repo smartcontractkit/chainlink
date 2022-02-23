@@ -158,7 +158,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		// the last line is a blank line, hence why using len(lines) - 2 makes sense
 		actualMessage := lines[len(lines)-2]
 		expectedMessage := fmt.Sprintf(
-			"disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
+			"Disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
 			zapCfg.local.RequiredDiskSpace,
 			maxSize,
 		)
@@ -209,14 +209,14 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		logs := string(b)
 		lines := strings.Split(logs, "\n")
 		expectedMessage := fmt.Sprintf(
-			"disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
+			"Disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
 			zapCfg.local.RequiredDiskSpace,
 			maxSize,
 		)
 
 		// the last line is a blank line, hence why using len(lines) - N makes sense
 		require.Contains(t, lines[len(lines)-4], expectedMessage)
-		require.Contains(t, lines[len(lines)-3], "resuming disk logs, disk has enough space")
+		require.Contains(t, lines[len(lines)-3], "Resuming disk logs, disk has enough space")
 		require.Contains(t, lines[len(lines)-2], "test again")
 	})
 }
