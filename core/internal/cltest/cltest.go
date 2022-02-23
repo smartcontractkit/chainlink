@@ -583,7 +583,7 @@ func newServer(app chainlink.Application) *httptest.Server {
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.
-func (ta *TestApplication) Start() error {
+func (ta *TestApplication) Start(ctx context.Context) error {
 	ta.t.Helper()
 	ta.Started = true
 	err := ta.ChainlinkApplication.KeyStore.Unlock(Password)
@@ -591,7 +591,7 @@ func (ta *TestApplication) Start() error {
 		return err
 	}
 
-	err = ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start(ctx)
 	if err != nil {
 		return err
 	}

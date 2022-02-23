@@ -1,7 +1,7 @@
 package headtracker_test
 
 import (
-	"context"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,18 +24,18 @@ func TestORM_IdempotentInsertHead(t *testing.T) {
 
 	// Returns nil when inserting first head
 	head := cltest.Head(0)
-	require.NoError(t, orm.IdempotentInsertHead(context.TODO(), head))
+	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), head))
 
 	// Head is inserted
-	foundHead, err := orm.LatestHead(context.TODO())
+	foundHead, err := orm.LatestHead(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, foundHead.Hash)
 
 	// Returns nil when inserting same head again
-	require.NoError(t, orm.IdempotentInsertHead(context.TODO(), head))
+	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), head))
 
 	// Head is still inserted
-	foundHead, err = orm.LatestHead(context.TODO())
+	foundHead, err = orm.LatestHead(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, foundHead.Hash)
 }
@@ -50,13 +50,13 @@ func TestORM_TrimOldHeads(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		head := cltest.Head(i)
-		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), head))
+		require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), head))
 	}
 
-	err := orm.TrimOldHeads(context.TODO(), 5)
+	err := orm.TrimOldHeads(testutils.Context(t), 5)
 	require.NoError(t, err)
 
-	heads, err := orm.LatestHeads(context.TODO(), 10)
+	heads, err := orm.LatestHeads(testutils.Context(t), 10)
 	require.NoError(t, err)
 
 	require.Equal(t, 5, len(heads))
@@ -79,10 +79,10 @@ func TestORM_HeadByHash(t *testing.T) {
 		if i == 5 {
 			hash = head.Hash
 		}
-		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), head))
+		require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), head))
 	}
 
-	head, err := orm.HeadByHash(context.TODO(), hash)
+	head, err := orm.HeadByHash(testutils.Context(t), hash)
 	require.NoError(t, err)
 	require.Equal(t, hash, head.Hash)
 	require.Equal(t, int64(5), head.Number)
@@ -97,7 +97,7 @@ func TestORM_HeadByHash_NotFound(t *testing.T) {
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
 	hash := cltest.Head(123).Hash
-	head, err := orm.HeadByHash(context.TODO(), hash)
+	head, err := orm.HeadByHash(testutils.Context(t), hash)
 
 	require.Nil(t, head)
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestORM_LatestHeads_NoRows(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 
-	heads, err := orm.LatestHeads(context.TODO(), 100)
+	heads, err := orm.LatestHeads(testutils.Context(t), 100)
 
 	require.Zero(t, len(heads))
 	require.NoError(t, err)

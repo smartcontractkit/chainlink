@@ -1,12 +1,9 @@
 package balancemonitor_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
 	"time"
-
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -17,7 +14,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/balancemonitor"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -144,7 +143,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
 
 		// Do the thing
-		bm.OnNewLongestChain(context.TODO(), head)
+		bm.OnNewLongestChain(testutils.Context(t), head)
 
 		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
@@ -162,7 +161,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal2, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal2, nil)
 
-		bm.OnNewLongestChain(context.TODO(), head)
+		bm.OnNewLongestChain(testutils.Context(t), head)
 
 		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
@@ -209,7 +208,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	// Do the thing multiple times
 	for i := 0; i < 10; i++ {
-		bm.OnNewLongestChain(context.TODO(), head)
+		bm.OnNewLongestChain(testutils.Context(t), head)
 	}
 
 	// Unblock the first mock
