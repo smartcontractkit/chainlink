@@ -138,7 +138,7 @@ func GetLogServices() []string {
 }
 
 // newProductionConfig returns a new production zap.Config.
-func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
+func newProductionConfig(dir string, jsonConsole bool, debugLogsToDisk bool, unixTS bool) zap.Config {
 	config := newBaseConfig()
 	if !unixTS {
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -146,7 +146,7 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
-	if toDisk {
+	if debugLogsToDisk {
 		destination := logFileURI(dir)
 		config.OutputPaths = append(config.OutputPaths, destination)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
@@ -202,10 +202,10 @@ func NewLogger() (Logger, func() error) {
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	} else {
-		c.ToDisk = c.DiskMaxSizeBeforeRotate > 0
+		c.DebugLogsToDisk = c.DiskMaxSizeBeforeRotate > 0
 	}
 
-	if c.ToDisk {
+	if c.DebugLogsToDisk {
 		var (
 			fileMaxAge int64
 			maxBackups int64
@@ -243,7 +243,7 @@ type Config struct {
 	Dir                        string
 	JsonConsole                bool
 	UnixTS                     bool
-	ToDisk                     bool // if false, the Logger will only log to stdout.
+	DebugLogsToDisk            bool // if false, the Logger will only log to stdout.
 	DiskMaxSizeBeforeRotate    int  // megabytes
 	DiskMaxAgeBeforeDelete     int  // days
 	DiskMaxBackupsBeforeDelete int  // files
@@ -253,7 +253,7 @@ type Config struct {
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
-	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
+	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.DebugLogsToDisk, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, close, err := newZapLogger(ZapLoggerConfig{
 		local:          *c,

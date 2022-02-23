@@ -39,7 +39,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		Config: cfg,
 		local: Config{
 			Dir:                        logsDir,
-			ToDisk:                     true,
+			DebugLogsToDisk:            true,
 			DiskMaxSizeBeforeRotate:    1,
 			DiskMaxAgeBeforeDelete:     0,
 			DiskMaxBackupsBeforeDelete: 1,

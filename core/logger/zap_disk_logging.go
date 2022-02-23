@@ -12,6 +12,7 @@ import (
 
 var diskPollInterval = 1 * time.Minute
 
+// `Fatal` is the max log level allowed, so log levels like `Panic` or `Critical` won't be logged to disk if this is set.
 const disabledLevel = zapcore.FatalLevel + 1
 
 type zapDiskPollConfig struct {

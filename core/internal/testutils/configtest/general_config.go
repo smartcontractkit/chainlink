@@ -98,7 +98,7 @@ type GeneralConfigOverrides struct {
 	LogLevel                                  *zapcore.Level
 	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
-	LogToDisk                                 null.Bool
+	DebugLogsToDisk                           null.Bool
 	LogFileMaxSize                            null.String
 	LogFileMaxAge                             null.Int
 	LogFileMaxBackups                         null.Int
@@ -362,12 +362,12 @@ func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	return c.GeneralConfig.TriggerFallbackDBPollInterval()
 }
 
-// LogToDisk returns the LogToDisk value
-func (c *TestGeneralConfig) LogToDisk() bool {
-	if c.Overrides.LogToDisk.Valid {
-		return c.Overrides.LogToDisk.Bool
+// DebugLogsToDisk returns the DebugLogsToDisk value
+func (c *TestGeneralConfig) DebugLogsToDisk() bool {
+	if c.Overrides.DebugLogsToDisk.Valid {
+		return c.Overrides.DebugLogsToDisk.Bool
 	}
-	return c.GeneralConfig.LogToDisk()
+	return c.GeneralConfig.DebugLogsToDisk()
 }
 
 // LogFileMaxSize allows to override the log file's max size before file rotation.

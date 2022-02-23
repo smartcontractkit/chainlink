@@ -69,9 +69,9 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app.On("ID").Return(uuid.NewV4())
 
 	lcfg := logger.Config{
-		LogLevel: zapcore.DebugLevel,
-		ToDisk:   true,
-		Dir:      t.TempDir(),
+		LogLevel:        zapcore.DebugLevel,
+		DebugLogsToDisk: true,
+		Dir:             t.TempDir(),
 	}
 
 	tmpFile, err := os.CreateTemp(lcfg.Dir, "*")
@@ -388,20 +388,20 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	}
 }
 
-func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
+func TestClient_DebugLogsToDiskOptionDisablesAsExpected(t *testing.T) {
 	tests := []struct {
-		name            string
-		logToDiskValue  bool
-		fileShouldExist bool
+		name                 string
+		debugLogsToDiskValue bool
+		fileShouldExist      bool
 	}{
-		{"LogToDisk = false => no log on disk", false, false},
-		{"LogToDisk = true => log on disk (positive control)", true, true},
+		{"DebugLogsToDisk = false => no log on disk", false, false},
+		{"DebugLogsToDisk = true => log on disk (positive control)", true, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
-				ToDisk: tt.logToDiskValue,
-				Dir:    t.TempDir(),
+				DebugLogsToDisk: tt.debugLogsToDiskValue,
+				Dir:             t.TempDir(),
 			}
 			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
