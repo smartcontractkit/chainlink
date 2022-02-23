@@ -198,7 +198,7 @@ func NewLogger() (Logger, func() error) {
 
 	var fileMaxSize utils.FileSize
 	fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
-	c.DiskFileMaxSize = int(fileMaxSize)
+	c.FileMaxSize = int(fileMaxSize)
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
@@ -210,13 +210,13 @@ func NewLogger() (Logger, func() error) {
 		)
 
 		fileMaxAge, invalid = envvar.LogFileMaxAge.ParseInt64()
-		c.DiskFileMaxAge = int(fileMaxAge)
+		c.FileMaxAge = int(fileMaxAge)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 
 		maxBackups, invalid = envvar.LogFileMaxBackups.ParseInt64()
-		c.DiskFileMaxBackups = int(maxBackups)
+		c.FileMaxBackups = int(maxBackups)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
@@ -235,13 +235,13 @@ func NewLogger() (Logger, func() error) {
 }
 
 type Config struct {
-	LogLevel           zapcore.Level
-	Dir                string
-	JsonConsole        bool
-	UnixTS             bool
-	DiskFileMaxSize    int // megabytes
-	DiskFileMaxAge     int // days
-	DiskFileMaxBackups int // files
+	LogLevel       zapcore.Level
+	Dir            string
+	JsonConsole    bool
+	UnixTS         bool
+	FileMaxSize    int // megabytes
+	FileMaxAge     int // days
+	FileMaxBackups int // files
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
@@ -264,12 +264,12 @@ func (c *Config) New() (Logger, func() error) {
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
 func (c Config) DebugLogsToDisk() bool {
-	return c.DiskFileMaxSize > 0
+	return c.FileMaxSize > 0
 }
 
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
-	return utils.FileSize(c.DiskFileMaxSize * (c.DiskFileMaxBackups + 1))
+	return utils.FileSize(c.FileMaxSize * (c.FileMaxBackups + 1))
 }
 
 // InitColor explicitly sets the global color.NoColor option.

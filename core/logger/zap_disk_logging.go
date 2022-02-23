@@ -42,9 +42,9 @@ func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
 		encoder = zapcore.NewConsoleEncoder(makeEncoderConfig(cfg.local))
 		sink    = zapcore.AddSync(&lumberjack.Logger{
 			Filename:   logFileURI(cfg.local.Dir),
-			MaxSize:    cfg.local.DiskFileMaxSize,
-			MaxAge:     cfg.local.DiskFileMaxAge,
-			MaxBackups: cfg.local.DiskFileMaxBackups,
+			MaxSize:    cfg.local.FileMaxSize,
+			MaxAge:     cfg.local.FileMaxAge,
+			MaxBackups: cfg.local.FileMaxBackups,
 			Compress:   true,
 		})
 		allLogLevels = zap.LevelEnablerFunc(cfg.diskLogLevel.Enabled)
