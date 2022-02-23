@@ -13,6 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -23,14 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/ethereum/go-ethereum/common"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
@@ -180,6 +180,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "keeper",
 			toml: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
+				Name:            "example keeper spec",
 				ContractAddress: "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
 				FromAddress:     "0xa8037A20989AFcBC51798de9762b351D63ff462e",
 			}).Toml(),
