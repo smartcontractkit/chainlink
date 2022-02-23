@@ -3,11 +3,12 @@ package headtracker_test
 import (
 	"context"
 	"errors"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -17,6 +18,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -31,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
@@ -995,8 +997,9 @@ func (u *headTrackerUniverse) Backfill(ctx context.Context, head *evmtypes.Head,
 func (u *headTrackerUniverse) Start(t *testing.T) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	require.NoError(t, u.headBroadcaster.Start())
-	require.NoError(t, u.headTracker.Start(testutils.Context(t)))
+	ctx := testutils.Context(t)
+	require.NoError(t, u.headBroadcaster.Start(ctx))
+	require.NoError(t, u.headTracker.Start(ctx))
 	t.Cleanup(func() {
 		u.Stop(t)
 	})
