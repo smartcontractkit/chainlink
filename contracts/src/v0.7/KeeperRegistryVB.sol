@@ -56,7 +56,6 @@ contract KeeperRegistryVB is
   uint256 private s_fallbackGasPrice; // not in config object for gas savings
   uint256 private s_fallbackLinkPrice; // not in config object for gas savings
   uint256 private s_expectedLinkBalance;
-  bool private mustTakeTurns = true;
 
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
@@ -770,7 +769,7 @@ contract KeeperRegistryVB is
   ) private view {
     require(s_keeperInfo[from].active, "only active keepers");
     require(upkeep.balance >= maxLinkPayment, "insufficient funds");
-    if (mustTakeTurns) {
+    if (s_config.mustTakeTurns) {
       require(upkeep.lastKeeper != from, "keepers must take turns");
     }
   }
