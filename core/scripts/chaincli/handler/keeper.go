@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
+	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
@@ -146,7 +146,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
 		fmt.Println()
 		// Deploy
-		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
+		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
 			big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 		)
 		if err != nil {
