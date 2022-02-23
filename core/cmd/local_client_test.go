@@ -408,7 +408,8 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			lggr, close := cfg.New()
 			defer close()
 
-			lggr.Debug("test")
+			// Tries to create a log file by logging. The log file won't be created if there's no logging happening.
+			lggr.Debug("Trying to create a log file by logging.")
 
 			filepath := filepath.Join(cfg.Dir, logger.LogsFile)
 			_, err := os.Stat(filepath)

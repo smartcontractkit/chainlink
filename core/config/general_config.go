@@ -933,6 +933,7 @@ func (c *generalConfig) LogFileMaxAge() int64 {
 }
 
 // LogFileMaxBackups configures disk preservation of the max amount of old log files to retain.
+// If this is set to 0, the node will retain all old log files instead.
 func (c *generalConfig) LogFileMaxBackups() int64 {
 	return c.getWithFallback("LogFileMaxBackups", parse.Int64).(int64)
 }
