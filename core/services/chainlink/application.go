@@ -5,10 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,8 +15,12 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -45,21 +47,20 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
-	Start() error
+	Start(ctx context.Context) error
 	Stop() error
 	GetLogger() logger.Logger
 	GetHealthChecker() services.Checker
@@ -105,7 +106,6 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter                   func(int)
 	Chains                   Chains
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
@@ -122,9 +122,8 @@ type ChainlinkApplication struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
-	shutdownSignal           shutdown.Signal
 	explorerClient           synchronization.ExplorerClient
-	subservices              []services.Service
+	subservices              []interface{} // services.Service or services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
@@ -137,7 +136,6 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	EventBroadcaster         pg.EventBroadcaster
-	ShutdownSignal           shutdown.Signal
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	Chains                   Chains
@@ -158,10 +156,9 @@ type Chains struct {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []services.Service
+	var subservices []interface{}
 	db := opts.SqlxDB
 	cfg := opts.Config
-	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
 	chains := opts.Chains
 	globalLogger := opts.Logger
@@ -183,8 +180,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	healthChecker := services.NewChecker()
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
+	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
+
+	if cfg.ExplorerURL() != nil && cfg.TelemetryIngressURL() != nil {
+		globalLogger.Warn("Both EXPLORER_URL and TELEMETRY_INGRESS_URL are set, defaulting to Explorer")
+	}
 
 	if cfg.ExplorerURL() != nil {
 		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), globalLogger)
@@ -193,16 +195,26 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// Use Explorer over TelemetryIngress if both URLs are set
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
-		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
-			cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
-		monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
+		if cfg.TelemetryIngressUseBatchSend() {
+			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval())
+			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
+
+		} else {
+			telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
+			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
+		}
 	}
-	subservices = append(subservices, explorerClient, telemetryIngressClient)
+	subservices = append(subservices, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
+		}
 		subservices = append(subservices, databaseBackup)
 	} else {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
@@ -263,7 +275,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
 	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
@@ -277,17 +289,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	}
 
-	// We need p2p networking if either ocr1 or ocr2 is enabled
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
-	if ((cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting()) || cfg.FeatureOffchainReporting2() {
+	if cfg.P2PEnabled() {
 		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
 			return nil, err
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
 		subservices = append(subservices, peerWrapper)
+	} else {
+		globalLogger.Debug("P2P stack disabled")
 	}
 
-	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
+	if cfg.FeatureOffchainReporting() {
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
@@ -304,12 +317,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
 		// master/delegate relay is started once, on app start, as root subservice
-		relay := relay.NewDelegate(
-			keyStore,
-			evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM")),
-			solana.NewRelayer(globalLogger.Named("Solana.Relayer")),
-			pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra),
-		)
+		relay := relay.NewDelegate(keyStore)
+		if cfg.EVMEnabled() {
+			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, globalLogger.Named("EVM"))
+			relay.AddRelayer(relaytypes.EVM, evmRelayer)
+		}
+		if cfg.SolanaEnabled() {
+			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
+			relay.AddRelayer(relaytypes.Solana, solanaRelayer)
+		}
+		if cfg.TerraEnabled() {
+			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
+			relay.AddRelayer(relaytypes.Terra, terraRelayer)
+		}
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
 			db,
@@ -321,6 +341,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg,
 			keyStore.OCR2(),
+			relay,
+		)
+		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
+			db,
+			jobORM,
+			peerWrapper,
+			globalLogger,
+			cfg,
 			relay,
 		)
 	} else {
@@ -365,9 +393,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
 		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
-		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
-		shutdownSignal:           shutdownSignal,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
@@ -381,7 +407,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	for _, service := range app.subservices {
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), service); err != nil {
+		checkable := service.(services.Checkable)
+		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
 			return nil, err
 		}
 	}
@@ -415,21 +442,14 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 	return logger.NewORM(app.GetSqlxDB(), app.GetLogger()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
-// Start all necessary services. If successful, nil will be returned.  Also
-// listens for interrupt signals from the operating system so that the
-// application can be properly closed before the application exits.
-func (app *ChainlinkApplication) Start() error {
+// Start all necessary services. If successful, nil will be returned.
+// Start sequence is terminated if the context gets cancelled.
+func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	app.startStopMu.Lock()
 	defer app.startStopMu.Unlock()
 	if app.started {
 		panic("application is already started")
 	}
-
-	go func() {
-		<-app.shutdownSignal.Wait()
-		app.logger.ErrorIf(app.Stop(), "Error stopping application")
-		app.Exiter(0)
-	}()
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(); err != nil {
@@ -438,9 +458,25 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	for _, subservice := range app.subservices {
+		if ctx.Err() != nil {
+			return errors.Wrap(ctx.Err(), "aborting start")
+		}
+
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
-		if err := subservice.Start(); err != nil {
-			return err
+
+		// Eventually all services will migrate to ServiceCtx interface and this switch will be removed.
+		// TODO: https://app.shortcut.com/chainlinklabs/story/30692/migrate-services-to-become-servicectx
+		switch ss := subservice.(type) {
+		case services.Service:
+			if err := ss.Start(); err != nil {
+				return err
+			}
+		case services.ServiceCtx:
+			if err := ss.Start(ctx); err != nil {
+				return err
+			}
+		default:
+			panic("unknown service type")
 		}
 	}
 
@@ -477,47 +513,43 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
-		done := make(chan error)
-		go func() {
-			var merr error
-			defer func() {
-				if lerr := app.logger.Sync(); lerr != nil {
-					merr = multierr.Append(merr, lerr)
-				}
-			}()
-			app.logger.Info("Gracefully exiting...")
-
-			// Stop services in the reverse order from which they were started
-			for i := len(app.subservices) - 1; i >= 0; i-- {
-				service := app.subservices[i]
-				app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
-				merr = multierr.Append(merr, service.Close())
+		defer func() {
+			if lerr := app.logger.Sync(); lerr != nil {
+				err = multierr.Append(err, lerr)
 			}
-
-			app.logger.Debug("Stopping SessionReaper...")
-			merr = multierr.Append(merr, app.SessionReaper.Stop())
-			app.logger.Debug("Closing HealthChecker...")
-			merr = multierr.Append(merr, app.HealthChecker.Close())
-			if app.FeedsService != nil {
-				app.logger.Debug("Closing Feeds Service...")
-				merr = multierr.Append(merr, app.FeedsService.Close())
-			}
-
-			if app.Nurse != nil {
-				merr = multierr.Append(merr, app.Nurse.Close())
-			}
-
-			app.logger.Info("Exited all services")
-
-			app.started = false
-			done <- err
 		}()
-		select {
-		case merr := <-done:
-			err = merr
-		case <-time.After(15 * time.Second):
-			err = errors.New("application timed out shutting down")
+		app.logger.Info("Gracefully exiting...")
+
+		// Stop services in the reverse order from which they were started
+		for i := len(app.subservices) - 1; i >= 0; i-- {
+			service := app.subservices[i]
+			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			switch ss := service.(type) {
+			case services.Service:
+				err = multierr.Append(err, ss.Close())
+			case services.ServiceCtx:
+				err = multierr.Append(err, ss.Close())
+			default:
+				panic("unknown service type")
+			}
 		}
+
+		app.logger.Debug("Stopping SessionReaper...")
+		err = multierr.Append(err, app.SessionReaper.Stop())
+		app.logger.Debug("Closing HealthChecker...")
+		err = multierr.Append(err, app.HealthChecker.Close())
+		if app.FeedsService != nil {
+			app.logger.Debug("Closing Feeds Service...")
+			err = multierr.Append(err, app.FeedsService.Close())
+		}
+
+		if app.Nurse != nil {
+			err = multierr.Append(err, app.Nurse.Close())
+		}
+
+		app.logger.Info("Exited all services")
+
+		app.started = false
 	})
 	return err
 }

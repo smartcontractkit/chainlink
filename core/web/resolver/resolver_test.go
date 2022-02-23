@@ -13,7 +13,6 @@ import (
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
-	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -48,9 +47,9 @@ type mocks struct {
 	solana      *keystoreMocks.Solana
 	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
-	ethClient   *evmMocks.Client
+	ethClient   *evmORMMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
-	balM        *evmMocks.BalanceMonitor
+	balM        *evmORMMocks.BalanceMonitor
 	bptxmORM    *bulletprooftxmanagerMocks.ORM
 }
 
@@ -105,9 +104,9 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		solana:      &keystoreMocks.Solana{},
 		chain:       &evmORMMocks.Chain{},
 		chainSet:    &evmORMMocks.ChainSet{},
-		ethClient:   &evmMocks.Client{},
+		ethClient:   &evmORMMocks.Client{},
 		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
-		balM:        &evmMocks.BalanceMonitor{},
+		balM:        &evmORMMocks.BalanceMonitor{},
 		bptxmORM:    &bulletprooftxmanagerMocks.ORM{},
 	}
 

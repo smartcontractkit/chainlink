@@ -1,3 +1,19 @@
 #!/usr/bin/env bash
 set -ex
-go test -race -timeout 1800s -v -p 4 -parallel 4 ./...
+
+GO_LDFLAGS=$(bash tools/bin/ldflags)
+# remove -short for complete coverage
+GORACE="log_path=$PWD/race" LOG_LEVEL=panic go test -race -ldflags "$GO_LDFLAGS" -short -shuffle on -timeout 30s -count 10 -p 4 ./core/... | tee ./output.txt
+EXITCODE=${PIPESTATUS[0]}
+# Fail if any race logs are present.
+if ls race.* &>/dev/null
+then
+  echo "Race(s) detected"
+  exit 1
+fi
+if test $EXITCODE -gt 1
+then
+  exit $EXITCODE
+else
+  exit 0
+fi

@@ -1,5 +1,7 @@
 package services
 
+import "context"
+
 type (
 	// Service represents a long running service inside the
 	// Application.
@@ -74,6 +76,20 @@ type (
 	Service interface {
 		// Start the service.
 		Start() error
+		// Close stops the Service.
+		// Invariants: Usually after this call the Service cannot be started
+		// again, you need to build a new Service to do so.
+		Close() error
+
+		Checkable
+	}
+
+	// ServiceCtx is the same Service interface, but Start function receives a context.
+	// This is needed for services that make HTTP calls or DB queries in Start.
+	ServiceCtx interface {
+		// Start the service. Must quit immediately if the context is cancelled.
+		// The given context applies to Start function only and must not be retained.
+		Start(context.Context) error
 		// Close stops the Service.
 		// Invariants: Usually after this call the Service cannot be started
 		// again, you need to build a new Service to do so.

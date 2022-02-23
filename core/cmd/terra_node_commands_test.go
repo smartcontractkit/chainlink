@@ -40,7 +40,6 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 		Name:          "second",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/bombay-12",
-		FCDURL:        "http://fcd.test/bombay-12",
 	}
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
@@ -54,7 +53,6 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	assert.Equal(t, params.Name, n.Name)
 	assert.Equal(t, params.TerraChainID, n.TerraChainID)
 	assert.Equal(t, params.TendermintURL, n.TendermintURL)
-	assert.Equal(t, params.FCDURL, n.FCDURL)
 	assertTableRenders(t, r)
 }
 
@@ -98,14 +96,12 @@ func TestClient_CreateTerraNode(t *testing.T) {
 		Name:          "first",
 		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
-		FCDURL:        "http://fcd.test/columbus-5",
 	}, n)
 	n = nodes[initialNodesCount+1]
 	assertEqual(t, types.NewNode{
 		Name:          "second",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
-		FCDURL:        "http://fcd.test/bombay-12",
 	}, n)
 
 	assertTableRenders(t, r)
@@ -127,7 +123,6 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 		Name:          "first",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/columbus-5",
-		FCDURL:        "http://fcd.test/columbus-5",
 	}
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
@@ -154,5 +149,4 @@ func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	assert.Equal(t, newNode.Name, gotNode.Name)
 	assert.Equal(t, newNode.TerraChainID, gotNode.TerraChainID)
 	assert.Equal(t, newNode.TendermintURL, gotNode.TendermintURL)
-	assert.Equal(t, newNode.FCDURL, gotNode.FCDURL)
 }

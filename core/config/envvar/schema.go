@@ -36,6 +36,11 @@ type ConfigSchema struct {
 	TelemetryIngressLogging      bool            `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
 	TelemetryIngressServerPubKey string          `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
 	TelemetryIngressURL          *url.URL        `env:"TELEMETRY_INGRESS_URL"`
+	TelemetryIngressBufferSize   uint            `env:"TELEMETRY_INGRESS_BUFFER_SIZE" default:"100"`
+	TelemetryIngressMaxBatchSize uint            `env:"TELEMETRY_INGRESS_MAX_BATCH_SIZE" default:"50"`
+	TelemetryIngressSendInterval time.Duration   `env:"TELEMETRY_INGRESS_SEND_INTERVAL" default:"500ms"`
+	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
+	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
 	// Database
 	DatabaseListenerMaxReconnectDuration time.Duration `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"` //nodoc
@@ -47,7 +52,7 @@ type ConfigSchema struct {
 	// Database Global Lock
 	AdvisoryLockCheckInterval time.Duration `env:"ADVISORY_LOCK_CHECK_INTERVAL" default:"1s"`
 	AdvisoryLockID            int64         `env:"ADVISORY_LOCK_ID" default:"1027321974924625846"`
-	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"dual"`
+	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"advisorylock"`
 	LeaseLockDuration         time.Duration `env:"LEASE_LOCK_DURATION" default:"10s"`
 	LeaseLockRefreshInterval  time.Duration `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
 	// Database Autobackups
@@ -89,9 +94,14 @@ type ConfigSchema struct {
 	TLSRedirect bool   `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 
 	// Feeds manager
-	FeatureFeedsManager   bool `env:"FEATURE_FEEDS_MANAGER" default:"false"`    //nodoc
-	FeatureUICSAKeys      bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`      //nodoc
-	FeatureUIFeedsManager bool `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
+
+	// General chains/RPC
+	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
+	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
@@ -100,9 +110,7 @@ type ConfigSchema struct {
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
 	// Global
-	DefaultChainID   *big.Int `env:"ETH_CHAIN_ID"`
-	EVMDisabled      bool     `env:"EVM_DISABLED" default:"false"`
-	EthereumDisabled bool     `env:"ETH_DISABLED" default:"false"`
+	DefaultChainID *big.Int `env:"ETH_CHAIN_ID"`
 	// Per-chain overrides
 	BalanceMonitorEnabled             bool          `env:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                uint64        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
@@ -122,28 +130,31 @@ type ConfigSchema struct {
 	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
 	// EVM Gas Controls
-	EvmEIP1559DynamicFees      bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
-	EvmGasBumpPercent          uint16   `env:"ETH_GAS_BUMP_PERCENT"`
-	EvmGasBumpThreshold        uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
-	EvmGasBumpTxDepth          uint16   `env:"ETH_GAS_BUMP_TX_DEPTH"`
-	EvmGasBumpWei              *big.Int `env:"ETH_GAS_BUMP_WEI"`
-	EvmGasLimitDefault         uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
-	EvmGasLimitMultiplier      float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
-	EvmGasLimitTransfer        uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
-	EvmGasPriceDefault         *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
-	EvmGasTipCapDefault        *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
-	EvmGasTipCapMinimum        *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
-	EvmMaxGasPriceWei          *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EvmMaxInFlightTransactions uint32   `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
-	EvmMaxQueuedTransactions   uint64   `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
-	EvmMinGasPriceWei          *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
-	EvmNonceAutoSync           bool     `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
+	EvmGasBumpPercent     uint16   `env:"ETH_GAS_BUMP_PERCENT"`
+	EvmGasBumpThreshold   uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
+	EvmGasBumpWei         *big.Int `env:"ETH_GAS_BUMP_WEI"`
+	EvmGasFeeCapDefault   *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
+	EvmGasLimitDefault    uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitMultiplier float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
+	EvmGasLimitTransfer   uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
+	EvmGasPriceDefault    *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
+	EvmGasTipCapDefault   *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
+	EvmGasTipCapMinimum   *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
+	EvmMaxGasPriceWei     *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
+	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
 	// Gas Estimation
-	GasEstimatorMode                           string `env:"GAS_ESTIMATOR_MODE"`
-	BlockHistoryEstimatorBatchSize             uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
-	BlockHistoryEstimatorBlockDelay            uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"`
-	BlockHistoryEstimatorBlockHistorySize      uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
-	BlockHistoryEstimatorTransactionPercentile uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
+	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
+	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
+	BlockHistoryEstimatorBlockDelay                uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"`
+	BlockHistoryEstimatorBlockHistorySize          uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
+	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16 `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
+	BlockHistoryEstimatorTransactionPercentile     uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
+	// BPTXM
+	EvmGasBumpTxDepth          uint16 `env:"ETH_GAS_BUMP_TX_DEPTH"`
+	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
+	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
+	EvmNonceAutoSync           bool   `env:"ETH_NONCE_AUTO_SYNC"`
 
 	// Job Pipeline and tasks
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`

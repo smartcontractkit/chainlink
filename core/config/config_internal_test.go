@@ -21,7 +21,10 @@ func TestGeneralConfig_Defaults(t *testing.T) {
 	assert.Equal(t, uint64(10), config.BlockBackfillDepth())
 	assert.Equal(t, new(url.URL), config.BridgeResponseURL())
 	assert.Nil(t, config.DefaultChainID())
-	assert.Equal(t, false, config.EthereumDisabled())
+	assert.True(t, config.EVMRPCEnabled())
+	assert.True(t, config.EVMEnabled())
+	assert.False(t, config.TerraEnabled())
+	assert.False(t, config.SolanaEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 }

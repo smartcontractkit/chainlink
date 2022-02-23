@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func init() {
@@ -21,19 +23,31 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
+	if os.Getenv("LOG_COLOR") != "true" {
+		InitColor(false)
+	}
 }
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
 //
-// The package-level helper functions are being phased out. Loggers should be injected
-// instead (and usually Named as well): e.g. lggr.Named("<service name>")
+// Loggers should be injected (and usually Named as well): e.g. lggr.Named("<service name>")
 //
-// Tips
+// Tests
 //  - Tests should use a TestLogger, with NewLogger being reserved for actual
 //    runtime and limited direct testing.
-//  - Critical level logs should only be used when user intervention is required.
-//  - Trace level logs are omitted unless compiled with the trace tag. For example: go test -tags trace ...
+//
+// Levels
+//  - Fatal: Logs and then calls os.Exit(1). Be careful about using this since it does NOT unwind the stack and may exit uncleanly.
+//  - Panic: Unrecoverable error. Example: invariant violation, programmer error
+//  - Critical: Requires quick action from the node op, obviously these should happen extremely rarely. Example: failed to listen on TCP port
+//  - Error: Something bad happened, and it was clearly on the node op side. No need for immediate action though. Example: database write timed out
+//  - Warn: Something bad happened, not clear who/what is at fault. Node ops should have a rough look at these once in a while to see whether anything stands out. Example: connection to peer was closed unexpectedly. observation timed out.
+//  - Info: High level information. First level we’d expect node ops to look at. Example: entered new epoch with leader, made an observation with value, etc.
+//  - Debug: Useful for forensic debugging, but we don't expect nops to look at this. Example: Got a message, dropped a message, ...
+//  - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
+//
+// Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
@@ -57,6 +71,9 @@ type Logger interface {
 	Error(args ...interface{})
 	Critical(args ...interface{})
 	Panic(args ...interface{})
+	// Fatal logs and then calls os.Exit(1)
+	// Be careful about using this since it does NOT unwind the stack and may
+	// exit uncleanly
 	Fatal(args ...interface{})
 
 	Tracef(format string, values ...interface{})
@@ -73,7 +90,7 @@ type Logger interface {
 	Infow(msg string, keysAndValues ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
 	Errorw(msg string, keysAndValues ...interface{})
-	CriticalW(msg string, keysAndValues ...interface{})
+	Criticalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
 	Fatalw(msg string, keysAndValues ...interface{})
 
@@ -98,12 +115,14 @@ type Logger interface {
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker     = "HeadTracker"
-	HeadListener    = "HeadListener"
-	HeadSaver       = "HeadSaver"
-	HeadBroadcaster = "HeadBroadcaster"
-	FluxMonitor     = "FluxMonitor"
-	Keeper          = "Keeper"
+	HeadTracker                 = "HeadTracker"
+	HeadListener                = "HeadListener"
+	HeadSaver                   = "HeadSaver"
+	HeadBroadcaster             = "HeadBroadcaster"
+	FluxMonitor                 = "FluxMonitor"
+	Keeper                      = "Keeper"
+	TelemetryIngressBatchClient = "TelemetryIngressBatchClient"
+	TelemetryIngressBatchWorker = "TelemetryIngressBatchWorker"
 )
 
 func GetLogServices() []string {
@@ -129,6 +148,22 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
 	return config
+}
+
+func verShaNameStatic() string {
+	return verShaName(static.Version, static.Sha)
+}
+
+func verShaName(ver, sha string) string {
+	if sha == "" {
+		sha = "unset"
+	} else if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	if ver == "" {
+		ver = "unset"
+	}
+	return fmt.Sprintf("%s@%s", ver, sha)
 }
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
@@ -171,7 +206,7 @@ func NewLogger() Logger {
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l
+	return l.Named(verShaNameStatic())
 }
 
 type Config struct {

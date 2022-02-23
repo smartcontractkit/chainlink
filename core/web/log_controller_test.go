@@ -14,6 +14,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -36,7 +37,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 	logLevel := zapcore.WarnLevel
 	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
@@ -45,7 +46,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
 
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()
 
@@ -179,7 +180,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 		tc := tc
 		t.Run(tc.Description, func(t *testing.T) {
 			app := cltest.NewApplicationEVMDisabled(t)
-			require.NoError(t, app.Start())
+			require.NoError(t, app.Start(testutils.Context(t)))
 			client := app.NewHTTPClient()
 
 			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}

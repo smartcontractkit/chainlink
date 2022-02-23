@@ -1,3 +1,5 @@
+//go:build integration
+
 package terratxm_test
 
 import (
@@ -31,7 +33,6 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	t.Skip() // Local only unless we want to add terrad to CI env
 	cfg, db := heavyweight.FullTestDB(t, "terra_txm", true, false)
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
@@ -47,7 +48,7 @@ func TestTxm_Integration(t *testing.T) {
 		GasLimitMultiplier:    null.FloatFrom(1.5),
 	})
 	require.NoError(t, err)
-	chainCfg := pkgterra.NewConfig(dbChain.Cfg, pkgterra.DefaultConfigSet, lggr)
+	chainCfg := pkgterra.NewConfig(dbChain.Cfg, lggr)
 	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
 	require.NoError(t, eb.Start())
@@ -77,9 +78,9 @@ func TestTxm_Integration(t *testing.T) {
 		Address:    transmitterID,
 	}, tc, testdir, "../../../testdata/terra/my_first_contract.wasm")
 
+	tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 	// Start txm
-	txm, err := terratxm.NewTxm(db, tc, *gpe, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
-	require.NoError(t, err)
+	txm := terratxm.NewTxm(db, tcFn, *gpe, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
 	require.NoError(t, txm.Start())
 
 	// Change the contract state
@@ -98,7 +99,7 @@ func TestTxm_Integration(t *testing.T) {
 	}, 10*time.Second, time.Second).Should(gomega.BeTrue())
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		msgs, err := orm.SelectMsgsWithState(Confirmed)
+		msgs, err := orm.SelectMsgsWithState(Confirmed, 5)
 		require.NoError(t, err)
 		return 1 == len(msgs)
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
@@ -114,9 +115,9 @@ func TestTxm_Integration(t *testing.T) {
 
 	// Ensure messages are completed
 	gomega.NewWithT(t).Eventually(func() bool {
-		succeeded, err := orm.SelectMsgsWithState(Confirmed)
+		succeeded, err := orm.SelectMsgsWithState(Confirmed, 5)
 		require.NoError(t, err)
-		errored, err := orm.SelectMsgsWithState(Errored)
+		errored, err := orm.SelectMsgsWithState(Errored, 5)
 		require.NoError(t, err)
 		t.Log("errored", len(errored), "succeeded", len(succeeded))
 		return 2 == len(succeeded) && 2 == len(errored)

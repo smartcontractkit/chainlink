@@ -61,7 +61,7 @@ type (
 )
 
 // NewDatabaseBackup instantiates a *databaseBackup
-func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
+func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error) {
 	lggr = lggr.Named("DatabaseBackup")
 	dbUrl := config.DatabaseURL()
 	dbBackupUrl := config.DatabaseBackupURL()
@@ -73,7 +73,7 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
 	if config.DatabaseBackupDir() != "" {
 		dir, err := filepath.Abs(config.DatabaseBackupDir())
 		if err != nil {
-			lggr.Fatalf("Failed to get path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+			return nil, errors.Errorf("failed to get path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
 		}
 		outputParentDir = dir
 	}
@@ -86,7 +86,7 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
 		outputParentDir,
 		make(chan bool),
 		utils.StartStopOnce{},
-	}
+	}, nil
 }
 
 func (backup *databaseBackup) Start() error {

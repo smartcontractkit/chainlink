@@ -11,6 +11,7 @@ import (
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 
@@ -39,7 +40,7 @@ func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggrega
 }
 
 func mustNewFilterer(t *testing.T, address gethCommon.Address) *ocr2aggregator.OCR2AggregatorFilterer {
-	filterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(cltest.NewAddress(), nil)
+	filterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(testutils.NewAddress(), nil)
 	require.NoError(t, err)
 	return filterer
 }
@@ -72,10 +73,10 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		chain = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
 	}
 	if filterer == nil {
-		filterer = mustNewFilterer(t, cltest.NewAddress())
+		filterer = mustNewFilterer(t, testutils.NewAddress())
 	}
 	if contract == nil {
-		contract = mustNewContract(t, cltest.NewAddress())
+		contract = mustNewContract(t, testutils.NewAddress())
 	}
 	uni.db = new(ocrmocks.OCRContractTrackerDB)
 	uni.lb = new(logmocks.Broadcaster)
@@ -352,7 +353,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		rawLog := cltest.LogFromFixture(t, "../../../testdata/jsonrpc/ocr2_round_requested_log_1_1.json")
 		rr := ocr2aggregator.OCR2AggregatorRoundRequested{
-			Requester:    cltest.NewAddress(),
+			Requester:    testutils.NewAddress(),
 			ConfigDigest: testhelpers.MakeConfigDigest(t),
 			Epoch:        42,
 			Round:        9,

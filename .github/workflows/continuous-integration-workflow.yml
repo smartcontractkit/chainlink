@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: ['go_core_tests']
+        cmd: ['go_core_tests', 'go_core_race_tests']
     name: Core Tests
     runs-on: ubuntu-latest
     env:
@@ -43,8 +43,12 @@ jobs:
           key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
           restore-keys: |
             go-mod-${{ env.CACHE_VERSION }}
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
+      - name: Install terrad
+        run: ./tools/ci/install_terrad
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
@@ -54,7 +58,9 @@ jobs:
         uses: actions/upload-artifact@v2.3.0
         with:
           name: ${{ matrix.cmd }}_logs
-          path: ./output.txt
+          path: |
+            ./output.txt
+            ./race.*
       - name: Print postgres logs
         if: always()
         uses: docker://docker:latest
@@ -70,7 +76,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: "16"
       - name: Yarn cache
         uses: actions/cache@v2
         env:

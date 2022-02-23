@@ -9,7 +9,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 import "./VRF.sol";
 import "../ConfirmedOwner.sol";
-import "./VRFConsumerBaseV2.sol";
+import "../VRFConsumerBaseV2.sol";
 
 contract VRFCoordinatorV2 is
   VRF,

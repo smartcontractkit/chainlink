@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -37,7 +38,7 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1)
 
-	config := new(bptxmmocks.Config)
+	config := newMockConfig(t)
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
@@ -198,11 +199,11 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
-	toAddress := cltest.NewAddress()
+	toAddress := testutils.NewAddress()
 	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
-	config := new(bptxmmocks.Config)
+	config := newMockConfig(t)
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
@@ -257,7 +258,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		_, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 			FromAddress:    fromAddress,
-			ToAddress:      cltest.NewAddress(),
+			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			GasLimit:       21000,
 			Meta:           nil,
@@ -271,7 +272,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		id := uuid.NewV4()
 		tx1, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 			FromAddress:       fromAddress,
-			ToAddress:         cltest.NewAddress(),
+			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
 			GasLimit:          21000,
 			PipelineTaskRunID: &id,
@@ -282,7 +283,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Once()
 		tx2, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 			FromAddress:       fromAddress,
-			ToAddress:         cltest.NewAddress(),
+			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
 			GasLimit:          21000,
 			PipelineTaskRunID: &id,
@@ -295,10 +296,10 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Twice()
-		rndAddr := cltest.NewAddress()
+		rndAddr := testutils.NewAddress()
 		_, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 			FromAddress:    rndAddr,
-			ToAddress:      cltest.NewAddress(),
+			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			GasLimit:       21000,
 			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
@@ -310,7 +311,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 		_, err = bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 			FromAddress:    otherAddress,
-			ToAddress:      cltest.NewAddress(),
+			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
 			GasLimit:       21000,
 			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
@@ -361,7 +362,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		checker := bulletprooftxmanager.TransmitCheckerSpec{
 			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
-			VRFCoordinatorAddress: cltest.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddress(),
 		}
 		etx, err := bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 			FromAddress:    fromAddress,
@@ -394,6 +395,36 @@ func newMockTxStrategy(t *testing.T) *bptxmmocks.TxStrategy {
 	return strategy
 }
 
+func newMockConfig(t *testing.T) *bptxmmocks.Config {
+	// These are only used for logging, the exact value doesn't matter
+	// It can be overridden in the test that uses it
+	cfg := new(bptxmmocks.Config)
+	cfg.Test(t)
+	cfg.On("EvmGasBumpTxDepth").Return(uint16(42)).Maybe().Once()
+	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe().Once()
+	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
+	cfg.On("EvmNonceAutoSync").Return(true).Maybe().Once()
+	cfg.On("EvmGasLimitDefault").Return(uint64(42)).Maybe().Once()
+	cfg.On("BlockHistoryEstimatorBatchSize").Return(uint32(42)).Maybe().Once()
+	cfg.On("BlockHistoryEstimatorBlockDelay").Return(uint16(42)).Maybe().Once()
+	cfg.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(42)).Maybe().Once()
+	cfg.On("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks").Return(uint16(42)).Maybe().Once()
+	cfg.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(42)).Maybe().Once()
+	cfg.On("EvmEIP1559DynamicFees").Return(false).Maybe().Once()
+	cfg.On("EvmGasBumpPercent").Return(uint16(42)).Maybe().Once()
+	cfg.On("EvmGasBumpThreshold").Return(uint64(42)).Maybe().Once()
+	cfg.On("EvmGasBumpWei").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasFeeCapDefault").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasLimitMultiplier").Return(float32(42)).Maybe().Once()
+	cfg.On("EvmGasPriceDefault").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasTipCapDefault").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
+	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
+
+	return cfg
+}
+
 func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
@@ -405,13 +436,14 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	fromAddress := thisKey.Address.Address()
 	gasLimit := uint64(1000)
-	toAddress := cltest.NewAddress()
+	toAddress := testutils.NewAddress()
 
-	config := new(bptxmmocks.Config)
+	config := newMockConfig(t)
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false)
+
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr, &testCheckerFactory{})
@@ -491,8 +523,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	config := new(bptxmmocks.Config)
-	config.Test(t)
+	config := newMockConfig(t)
 	kst := new(ksmocks.Eth)
 	kst.Test(t)
 	eventBroadcaster := new(pgmocks.EventBroadcaster)

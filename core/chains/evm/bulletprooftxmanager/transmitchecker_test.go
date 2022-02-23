@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 )
@@ -32,10 +34,19 @@ func TestFactory(t *testing.T) {
 		require.Equal(t, bulletprooftxmanager.NoChecker, c)
 	})
 
-	t.Run("vrf checker", func(t *testing.T) {
+	t.Run("vrf v1 checker", func(t *testing.T) {
+		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
+			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV1,
+			VRFCoordinatorAddress: testutils.NewAddress(),
+		})
+		require.NoError(t, err)
+		require.IsType(t, &bulletprooftxmanager.VRFV1Checker{}, c)
+	})
+
+	t.Run("vrf v2 checker", func(t *testing.T) {
 		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
 			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
-			VRFCoordinatorAddress: cltest.NewAddress(),
+			VRFCoordinatorAddress: testutils.NewAddress(),
 		})
 		require.NoError(t, err)
 		require.IsType(t, &bulletprooftxmanager.VRFV2Checker{}, c)
@@ -129,6 +140,74 @@ func TestTransmitCheckers(t *testing.T) {
 		})
 	})
 
+	t.Run("VRF V1", func(t *testing.T) {
+
+		newTx := func(t *testing.T, vrfReqID [32]byte) (bulletprooftxmanager.EthTx, bulletprooftxmanager.EthTxAttempt) {
+			meta := bulletprooftxmanager.EthTxMeta{
+				RequestID: common.BytesToHash(vrfReqID[:]),
+				MaxLink:   "1000000000000000000", // 1 LINK
+				SubID:     2,
+			}
+
+			b, err := json.Marshal(meta)
+			require.NoError(t, err)
+			metaJson := datatypes.JSON(b)
+
+			tx := bulletprooftxmanager.EthTx{
+				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
+				ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
+				EncodedPayload: []byte{42, 0, 0},
+				Value:          assets.NewEthValue(642),
+				GasLimit:       1e9,
+				CreatedAt:      time.Unix(0, 0),
+				State:          bulletprooftxmanager.EthTxUnstarted,
+				Meta:           &metaJson,
+			}
+			return tx, bulletprooftxmanager.EthTxAttempt{
+				EthTx:     tx,
+				Hash:      common.Hash{},
+				CreatedAt: tx.CreatedAt,
+				State:     bulletprooftxmanager.EthTxAttemptInProgress,
+			}
+		}
+
+		r1 := [32]byte{1}
+		r2 := [32]byte{2}
+		r3 := [32]byte{3}
+
+		checker := bulletprooftxmanager.VRFV1Checker{Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
+			if reqID == r1 {
+				// Request 1 is already fulfilled
+				return v1.Callbacks{
+					SeedAndBlockNum: [32]byte{},
+				}, nil
+			} else if reqID == r2 {
+				// Request 2 errors
+				return v1.Callbacks{}, errors.New("error getting commitment")
+			} else {
+				return v1.Callbacks{
+					SeedAndBlockNum: [32]byte{1},
+				}, nil
+			}
+		}}
+
+		t.Run("already fulfilled", func(t *testing.T) {
+			tx, attempt := newTx(t, r1)
+			err := checker.Check(ctx, log, tx, attempt)
+			require.Error(t, err, "request already fulfilled")
+		})
+
+		t.Run("not fulfilled", func(t *testing.T) {
+			tx, attempt := newTx(t, r3)
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
+			tx, attempt := newTx(t, r2)
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+	})
+
 	t.Run("VRF V2", func(t *testing.T) {
 
 		newTx := func(t *testing.T, vrfReqID *big.Int) (bulletprooftxmanager.EthTx, bulletprooftxmanager.EthTxAttempt) {
@@ -161,7 +240,6 @@ func TestTransmitCheckers(t *testing.T) {
 		}
 
 		checker := bulletprooftxmanager.VRFV2Checker{GetCommitment: func(_ *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
-			fmt.Printf("requestID: %v\n", requestID.String())
 			if requestID.String() == "1" {
 				// Request 1 is already fulfilled
 				return [32]byte{}, nil

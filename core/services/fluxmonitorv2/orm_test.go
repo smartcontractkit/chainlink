@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -27,7 +28,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	orm := newORM(t, db, cfg, nil)
 
-	address := cltest.NewAddress()
+	address := testutils.NewAddress()
 
 	// Setup the rounds
 	for round := uint32(0); round < 10; round++ {
@@ -50,7 +51,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 10, count)
 
-	roundID, err := orm.MostRecentFluxMonitorRoundID(cltest.NewAddress())
+	roundID, err := orm.MostRecentFluxMonitorRoundID(testutils.NewAddress())
 	require.Error(t, err)
 	require.Equal(t, uint32(0), roundID)
 
@@ -59,7 +60,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	require.Equal(t, uint32(9), roundID)
 
 	// Deleting rounds against a new address should incur no changes
-	err = orm.DeleteFluxMonitorRoundsBackThrough(cltest.NewAddress(), 5)
+	err = orm.DeleteFluxMonitorRoundsBackThrough(testutils.NewAddress(), 5)
 	require.NoError(t, err)
 
 	count, err = orm.CountFluxMonitorRoundStats()
@@ -94,7 +95,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr, cfg)
 	orm := newORM(t, db, cfg, nil)
 
-	address := cltest.NewAddress()
+	address := testutils.NewAddress()
 	var roundID uint32 = 1
 
 	jb := makeJob(t)
@@ -173,7 +174,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, bulletprooftxmanager.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-		to       = cltest.NewAddress()
+		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint64(21000)
 	)

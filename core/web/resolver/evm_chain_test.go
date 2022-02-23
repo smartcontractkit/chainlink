@@ -1,12 +1,16 @@
 package resolver
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"github.com/stretchr/testify/mock"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -41,6 +45,7 @@ func TestResolver_Chains(t *testing.T) {
 							evmGasLimitMultiplier
 							chainType
 							gasEstimatorMode
+							linkContractAddress
 							keySpecificConfigs {
 								address
 								config {
@@ -56,6 +61,7 @@ func TestResolver_Chains(t *testing.T) {
 				}
 			}`
 	)
+	linkContractAddress := newRandomAddress().String()
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "chains"),
@@ -80,6 +86,7 @@ func TestResolver_Chains(t *testing.T) {
 							EvmGasLimitMultiplier:           null.FloatFrom(1.23),
 							GasEstimatorMode:                null.StringFrom("BlockHistory"),
 							ChainType:                       null.StringFrom("optimism"),
+							LinkContractAddress:             null.StringFrom(linkContractAddress),
 							KeySpecific: map[string]types.ChainCfg{
 								"test-address": {
 									BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
@@ -98,7 +105,7 @@ func TestResolver_Chains(t *testing.T) {
 					}, nil)
 			},
 			query: query,
-			result: `
+			result: fmt.Sprintf(`
 			{
 				"chains": {
 					"results": [{
@@ -113,6 +120,7 @@ func TestResolver_Chains(t *testing.T) {
 							"evmGasLimitMultiplier": 1.23,
 							"chainType": "OPTIMISM",
 							"gasEstimatorMode": "BLOCK_HISTORY",
+							"linkContractAddress": "%s",
 							"keySpecificConfigs": [{
 								"address": "test-address",
 								"config": {
@@ -129,7 +137,7 @@ func TestResolver_Chains(t *testing.T) {
 						"total": 1
 					}
 				}
-			}`,
+			}`, linkContractAddress),
 		},
 	}
 
@@ -280,6 +288,7 @@ func TestResolver_CreateChain(t *testing.T) {
 							ethTxReaperThreshold
 							chainType
 							gasEstimatorMode
+							linkContractAddress
 							keySpecificConfigs {
 								address
 								config {
@@ -319,6 +328,8 @@ func TestResolver_CreateChain(t *testing.T) {
 	err = json.Unmarshal(data, &keySpecificConfig)
 	require.NoError(t, err)
 
+	linkContractAddress := newRandomAddress().String()
+
 	input := map[string]interface{}{
 		"input": map[string]interface{}{
 			"id": "1233",
@@ -327,6 +338,7 @@ func TestResolver_CreateChain(t *testing.T) {
 				"ethTxReaperThreshold":            "1m0s",
 				"chainType":                       "OPTIMISM",
 				"gasEstimatorMode":                "BLOCK_HISTORY",
+				"linkContractAddress":             linkContractAddress,
 			},
 			"keySpecificConfigs": []interface{}{
 				keySpecificConfig,
@@ -361,6 +373,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(linkContractAddress),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
@@ -371,7 +384,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, big.NewInt(1233), cfg).Return(types.Chain{
 					ID:        *utils.NewBigI(1),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -381,7 +394,7 @@ func TestResolver_CreateChain(t *testing.T) {
 			},
 			query:     mutation,
 			variables: input,
-			result: `
+			result: fmt.Sprintf(`
 				{
 					"createChain": {
 						"chain": {
@@ -393,6 +406,7 @@ func TestResolver_CreateChain(t *testing.T) {
 								"ethTxReaperThreshold": "1m0s",
 								"chainType": "OPTIMISM",
 								"gasEstimatorMode": "BLOCK_HISTORY",
+								"linkContractAddress": "%v",
 								"keySpecificConfigs": [
 									{
 										"address": "some-address",
@@ -407,7 +421,7 @@ func TestResolver_CreateChain(t *testing.T) {
 							}
 						}
 					}
-				}`,
+				}`, linkContractAddress),
 		},
 		{
 			name:          "input errors",
@@ -434,6 +448,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(linkContractAddress),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
@@ -444,7 +459,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, big.NewInt(1233), cfg).Return(types.Chain{
 					ID:        *utils.NewBigI(1),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -577,6 +592,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 							ethTxReaperThreshold
 							chainType
 							gasEstimatorMode
+							linkContractAddress
 							keySpecificConfigs {
 								address
 								config {
@@ -618,6 +634,8 @@ func TestResolver_UpdateChain(t *testing.T) {
 	err = json.Unmarshal(data, &keySpecificConfig)
 	require.NoError(t, err)
 
+	linkContractAddress := newRandomAddress().String()
+
 	input := map[string]interface{}{
 		"id": "1233",
 		"input": map[string]interface{}{
@@ -627,6 +645,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 				"ethTxReaperThreshold":            "1m0s",
 				"chainType":                       "OPTIMISM",
 				"gasEstimatorMode":                "BLOCK_HISTORY",
+				"linkContractAddress":             linkContractAddress,
 			},
 			"keySpecificConfigs": []interface{}{
 				keySpecificConfig,
@@ -662,6 +681,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(linkContractAddress),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
@@ -672,7 +692,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -682,7 +702,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 			},
 			query:     mutation,
 			variables: input,
-			result: `
+			result: fmt.Sprintf(`
 				{
 					"updateChain": {
 						"chain": {
@@ -694,6 +714,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 								"ethTxReaperThreshold": "1m0s",
 								"chainType": "OPTIMISM",
 								"gasEstimatorMode": "BLOCK_HISTORY",
+								"linkContractAddress": "%s",
 								"keySpecificConfigs": [
 									{
 										"address": "some-address",
@@ -708,7 +729,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 							}
 						}
 					}
-				}`,
+				}`, linkContractAddress),
 		},
 		{
 			name:          "input errors",
@@ -735,6 +756,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(linkContractAddress),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
@@ -745,7 +767,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
@@ -767,6 +789,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					EthTxReaperThreshold:            &threshold,
 					GasEstimatorMode:                null.StringFrom("BlockHistory"),
 					ChainType:                       null.StringFrom("optimism"),
+					LinkContractAddress:             null.StringFrom(linkContractAddress),
 					KeySpecific: map[string]types.ChainCfg{
 						"some-address": {
 							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
@@ -777,7 +800,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
@@ -795,4 +818,12 @@ func TestResolver_UpdateChain(t *testing.T) {
 	}
 
 	RunGQLTests(t, testCases)
+}
+
+// Using a local version, since there would be an import cycle if `newRandomAddress()` were to be called in this context.
+func newRandomAddress() common.Address {
+	b := make([]byte, 20)
+	_, _ = rand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.
+
+	return common.BytesToAddress(b)
 }

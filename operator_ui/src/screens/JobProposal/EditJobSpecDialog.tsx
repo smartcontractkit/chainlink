@@ -20,7 +20,8 @@ const styles = () => {
 }
 
 export type FormValues = {
-  spec: string
+  id: string
+  definition: string
 }
 
 export interface Props extends WithStyles<typeof styles> {
@@ -34,7 +35,7 @@ export interface Props extends WithStyles<typeof styles> {
 }
 
 const ValidationSchema = Yup.object().shape({
-  spec: Yup.string().required('Required'),
+  definition: Yup.string().required('Required'),
 })
 
 export const EditJobSpecDialog = withStyles(styles)(
@@ -62,8 +63,8 @@ export const EditJobSpecDialog = withStyles(styles)(
               <DialogContent>
                 <Field
                   component={TextField}
-                  id="spec"
-                  name="spec"
+                  id="definition"
+                  name="definition"
                   label="Job Spec"
                   variant="outlined"
                   multiline

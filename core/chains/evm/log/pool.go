@@ -9,12 +9,44 @@ import (
 	pairingHeap "github.com/theodesp/go-heaps/pairing"
 )
 
+//go:generate mockery --name iLogPool --output ./ --inpackage --testonly
+
+// The Log Pool interface.
+type iLogPool interface {
+
+	// AddLog adds log to the pool and returns true if its block number is a new minimum.
+	addLog(log types.Log) bool
+
+	// GetAndDeleteAll purges the pool completely, returns all logs, and also the minimum and
+	// maximum block numbers retrieved.
+	getAndDeleteAll() ([]logsOnBlock, int64, int64)
+
+	// GetLogsToSend returns all logs upto the block number specified in latestBlockNum.
+	// Also returns the minimum block number in the result.
+	// In case the pool is empty, returns empty results, and min block number=0
+	getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64)
+
+	// DeleteOlderLogs deletes all logs in blocks that are less than specific block number keptDepth.
+	// Also returns the remaining minimum block number in pool after these deletions.
+	// Returns nil if this ends up emptying the pool.
+	deleteOlderLogs(keptDepth int64) *int64
+
+	// RemoveBlock removes all logs for the block identified by provided Block hash and number.
+	removeBlock(hash common.Hash, number uint64)
+
+	// TestOnly_getNumLogsForBlock FOR TESTING USE ONLY.
+	// Returns all logs for the provided block hash.
+	testOnly_getNumLogsForBlock(bh common.Hash) int
+}
+
 type logPool struct {
 	// A mapping of block numbers to a set of block hashes for all
 	// the logs in the pool.
 	hashesByBlockNumbers map[uint64]map[common.Hash]struct{}
-	// A mapping of blockhashes to logs
+
+	// A mapping of block hashes, to log index within block, to logs
 	logsByBlockHash map[common.Hash]map[uint]types.Log
+
 	// This min-heap maintains block numbers of logs in the pool.
 	// it helps us easily determine the minimum log block number
 	// in the pool (while the set of log block numbers is dynamically changing).
@@ -29,7 +61,6 @@ func newLogPool() *logPool {
 	}
 }
 
-// addLog adds log to the pool and returns true if its block number is a new minimum.
 func (pool *logPool) addLog(log types.Log) bool {
 	_, exists := pool.hashesByBlockNumbers[log.BlockNumber]
 	if !exists {
@@ -96,7 +127,6 @@ func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) 
 	return logsToReturn, minBlockNumToSend
 }
 
-// deleteOlderLogs - deleting all logs for block numbers under 'keptDepth'
 func (pool *logPool) deleteOlderLogs(keptDepth int64) *int64 {
 	min := pool.heap.FindMin
 	for item := min(); item != nil; item = min() {
@@ -114,13 +144,17 @@ func (pool *logPool) deleteOlderLogs(keptDepth int64) *int64 {
 	return nil
 }
 
-func (pool *logPool) removeLog(log types.Log) {
+func (pool *logPool) removeBlock(hash common.Hash, number uint64) {
 	// deleting all logs for this log's block hash
-	delete(pool.logsByBlockHash, log.BlockHash)
-	delete(pool.hashesByBlockNumbers[log.BlockNumber], log.BlockHash)
-	if len(pool.hashesByBlockNumbers[log.BlockNumber]) == 0 {
-		delete(pool.hashesByBlockNumbers, log.BlockNumber)
+	delete(pool.logsByBlockHash, hash)
+	delete(pool.hashesByBlockNumbers[number], hash)
+	if len(pool.hashesByBlockNumbers[number]) == 0 {
+		delete(pool.hashesByBlockNumbers, number)
 	}
+}
+
+func (pool *logPool) testOnly_getNumLogsForBlock(bh common.Hash) int {
+	return len(pool.logsByBlockHash[bh])
 }
 
 type Uint64 uint64

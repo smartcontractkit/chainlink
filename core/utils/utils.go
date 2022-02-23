@@ -22,7 +22,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
-	"github.com/shopspring/decimal"
 	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
@@ -389,48 +388,6 @@ func Uint256ToBytes32(n *big.Int) []byte {
 		panic("vrf.uint256ToBytes32: too big to marshal to uint256")
 	}
 	return common.LeftPadBytes(n.Bytes(), 32)
-}
-
-// ToDecimal converts an input to a decimal
-func ToDecimal(input interface{}) (decimal.Decimal, error) {
-	switch v := input.(type) {
-	case string:
-		return decimal.NewFromString(v)
-	case int:
-		return decimal.New(int64(v), 0), nil
-	case int8:
-		return decimal.New(int64(v), 0), nil
-	case int16:
-		return decimal.New(int64(v), 0), nil
-	case int32:
-		return decimal.New(int64(v), 0), nil
-	case int64:
-		return decimal.New(v, 0), nil
-	case uint:
-		return decimal.New(int64(v), 0), nil
-	case uint8:
-		return decimal.New(int64(v), 0), nil
-	case uint16:
-		return decimal.New(int64(v), 0), nil
-	case uint32:
-		return decimal.New(int64(v), 0), nil
-	case uint64:
-		return decimal.New(int64(v), 0), nil
-	case float64:
-		return decimal.NewFromFloat(v), nil
-	case float32:
-		return decimal.NewFromFloat32(v), nil
-	case big.Int:
-		return decimal.NewFromBigInt(&v, 0), nil
-	case *big.Int:
-		return decimal.NewFromBigInt(v, 0), nil
-	case decimal.Decimal:
-		return v, nil
-	case *decimal.Decimal:
-		return *v, nil
-	default:
-		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal (%v)", input, input)
-	}
 }
 
 // WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
@@ -942,6 +899,20 @@ func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
 		return true
 	}
 	return false
+}
+
+// IfNotStopped runs the func and returns true if in any state other than Stopped
+func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
+	once.RLock()
+	defer once.RUnlock()
+
+	state := once.state.Load()
+
+	if StartStopOnceState(state) == StartStopOnce_Stopped {
+		return false
+	}
+	f()
+	return true
 }
 
 func (once *StartStopOnce) Ready() error {

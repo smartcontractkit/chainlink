@@ -28,7 +28,7 @@ import (
 
 //go:generate mockery --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	services.Service
+	services.ServiceCtx
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
@@ -74,7 +74,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		}
 	}
 	var client evmclient.Client
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
@@ -89,7 +89,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
 		var ll zapcore.Level
@@ -104,11 +104,11 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		headSaver = headtracker.NewHeadSaver(headTrackerLogger, orm, cfg)
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, headBroadcaster, headSaver)
 	} else {
-		headTracker = opts.GenHeadTracker(dbchain)
+		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
 	var txm bulletprooftxmanager.TxManager
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		txm = &bulletprooftxmanager.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
 		checker := &bulletprooftxmanager.CheckerFactory{Client: client}
@@ -126,13 +126,13 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	}
 
 	var balanceMonitor balancemonitor.BalanceMonitor
-	if !cfg.EthereumDisabled() && cfg.BalanceMonitorEnabled() {
+	if cfg.EVMRPCEnabled() && cfg.BalanceMonitorEnabled() {
 		balanceMonitor = balancemonitor.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
 	var logBroadcaster log.Broadcaster
-	if cfg.EthereumDisabled() {
+	if !cfg.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(db, l, cfg, *chainID)
@@ -164,10 +164,8 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	return &c, nil
 }
 
-func (c *chain) Start() error {
+func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() (merr error) {
-		ctx := context.Background()
-
 		c.logger.Debugf("Chain: starting with ID %s", c.ID().String())
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
@@ -177,7 +175,7 @@ func (c *chain) Start() error {
 		merr = multierr.Combine(
 			c.txm.Start(),
 			c.headBroadcaster.Start(),
-			c.headTracker.Start(),
+			c.headTracker.Start(ctx),
 			c.logBroadcaster.Start(),
 		)
 		if c.balanceMonitor != nil {

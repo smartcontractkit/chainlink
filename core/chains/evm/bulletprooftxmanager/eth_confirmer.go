@@ -380,13 +380,13 @@ func (ec *EthConfirmer) getNonceForLatestBlock(ctx context.Context, from gethCom
 
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
-func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt) (receipts []Receipt, err error) {
+func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt) (receipts []evmtypes.Receipt, err error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{attempt.Hash},
-			Result: &Receipt{},
+			Result: &evmtypes.Receipt{},
 		}
 		reqs = append(reqs, req)
 	}
@@ -402,9 +402,9 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		attempt := attempts[i]
 		result, err := req.Result, req.Error
 
-		receipt, is := result.(*Receipt)
+		receipt, is := result.(*evmtypes.Receipt)
 		if !is {
-			return nil, errors.Errorf("expected result to be a %T, got %T", (*Receipt)(nil), result)
+			return nil, errors.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
 		}
 
 		l := lggr.With(
@@ -461,7 +461,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	return
 }
 
-func (ec *EthConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {
+func (ec *EthConfirmer) saveFetchedReceipts(receipts []evmtypes.Receipt) (err error) {
 	if len(receipts) == 0 {
 		return nil
 	}
@@ -630,7 +630,7 @@ RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff, ec.c
 			return errors.Wrap(err, "error scanning row")
 		}
 
-		ec.lggr.CriticalW(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+		ec.lggr.Criticalw(fmt.Sprintf("eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 			"Current block height is %v. This transaction may not have not been sent and will be marked as fatally errored. "+
 			"This can happen if there is another instance of chainlink running that is using the same private key, or if "+
 			"an external wallet has been used to send a transaction from account %s with nonce %v."+
@@ -941,7 +941,7 @@ func (ec *EthConfirmer) logFieldsPreviousAttempt(attempt EthTxAttempt) []interfa
 func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt EthTxAttempt, err error) {
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 	switch previousAttempt.TxType {
-	case 0x0:
+	case 0x0: // Legacy
 		var bumpedGasPrice *big.Int
 		var bumpedGasLimit uint64
 		bumpedGasPrice, bumpedGasLimit, err = ec.estimator.BumpLegacyGas(previousAttempt.GasPrice.ToInt(), previousAttempt.EthTx.GasLimit)
@@ -950,8 +950,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 			ec.lggr.Debugw("Rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
 			return ec.NewLegacyAttempt(previousAttempt.EthTx, bumpedGasPrice, bumpedGasLimit)
 		}
-	case 0x2:
-		// BumpDynamicFee(original DynamicFee, gasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error)
+	case 0x2: // EIP1559
 		var bumpedFee gas.DynamicFee
 		var bumpedGasLimit uint64
 		original := previousAttempt.DynamicFee()
@@ -1068,7 +1067,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		//
 		// The only scenario imaginable where this might take place is if
 		// geth/parity have been updated between broadcasting and confirming steps.
-		ec.lggr.CriticalW("Invariant violation: fatal error while re-attempting transaction",
+		ec.lggr.Criticalw("Invariant violation: fatal error while re-attempting transaction",
 			"ethTxID", etx.ID,
 			"err", sendError,
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),

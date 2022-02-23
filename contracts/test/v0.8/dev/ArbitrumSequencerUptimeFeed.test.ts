@@ -3,8 +3,6 @@ import { Contract, BigNumber } from 'ethers'
 import { expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
-const now = () => BigNumber.from(Date.now()).div(1000)
-
 describe('ArbitrumSequencerUptimeFeed', () => {
   let flags: Contract
   let arbitrumSequencerUptimeFeed: Contract
@@ -87,8 +85,8 @@ describe('ArbitrumSequencerUptimeFeed', () => {
   })
 
   describe('#updateStatus', () => {
-    it('should only update status when status has changed', async () => {
-      let timestamp = now()
+    it(`should update status when status has changed and incoming timestamp is newer than the latest`, async () => {
+      let timestamp = await arbitrumSequencerUptimeFeed.latestTimestamp()
       let tx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
         .updateStatus(true, timestamp)
@@ -97,17 +95,18 @@ describe('ArbitrumSequencerUptimeFeed', () => {
         .withArgs(1, 2 /** roundId */, timestamp)
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
 
-      // Submit another status update, same status, should ignore
+      // Submit another status update, same status, newer timestamp, should ignore
       tx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
         .updateStatus(true, timestamp.add(1000))
       await expect(tx).not.to.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
+      await expect(tx).to.emit(arbitrumSequencerUptimeFeed, 'UpdateIgnored')
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal('1')
       expect(await arbitrumSequencerUptimeFeed.latestTimestamp()).to.equal(
         timestamp,
       )
 
-      // Submit another status update, different status, should update
+      // Submit another status update, different status, newer timestamp should update
       timestamp = timestamp.add(2000)
       tx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
@@ -120,19 +119,77 @@ describe('ArbitrumSequencerUptimeFeed', () => {
         timestamp,
       )
     })
+
+    it(`should update status when status has changed and incoming timestamp is the same as latest`, async () => {
+      const timestamp = await arbitrumSequencerUptimeFeed.latestTimestamp()
+      let tx = await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, timestamp)
+      await expect(tx)
+        .to.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
+        .withArgs(1, 2 /** roundId */, timestamp)
+      expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
+
+      // Submit another status update, same status, same timestamp, should ignore
+      tx = await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, timestamp)
+      await expect(tx).not.to.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
+      await expect(tx).to.emit(arbitrumSequencerUptimeFeed, 'UpdateIgnored')
+      expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal('1')
+      expect(await arbitrumSequencerUptimeFeed.latestTimestamp()).to.equal(
+        timestamp,
+      )
+
+      // Submit another status update, different status, same timestamp should update
+      tx = await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(false, timestamp)
+      await expect(tx)
+        .to.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
+        .withArgs(0, 3 /** roundId */, timestamp)
+      expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(0)
+      expect(await arbitrumSequencerUptimeFeed.latestTimestamp()).to.equal(
+        timestamp,
+      )
+    })
+
+    it('should ignore out-of-order updates', async () => {
+      const timestamp = (
+        await arbitrumSequencerUptimeFeed.latestTimestamp()
+      ).add(10_000)
+      // Update status
+      let tx = await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(true, timestamp)
+      await expect(tx)
+        .to.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
+        .withArgs(1, 2 /** roundId */, timestamp)
+      expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
+
+      // Update with different status, but stale timestamp, should be ignored
+      const staleTimestamp = timestamp.sub(1000)
+      tx = await arbitrumSequencerUptimeFeed
+        .connect(l2Messenger)
+        .updateStatus(false, staleTimestamp)
+      await expect(tx)
+        .to.not.emit(arbitrumSequencerUptimeFeed, 'AnswerUpdated')
+        .withArgs(1, 2 /** roundId */, timestamp)
+      await expect(tx).to.emit(arbitrumSequencerUptimeFeed, 'UpdateIgnored')
+    })
   })
 
   describe('AggregatorV3Interface', () => {
     it('should return valid answer from getRoundData and latestRoundData', async () => {
       let [roundId, answer, startedAt, updatedAt, answeredInRound] =
-        await arbitrumSequencerUptimeFeed.getRoundData(1)
+        await arbitrumSequencerUptimeFeed.latestRoundData()
       expect(roundId).to.equal(1)
       expect(answer).to.equal(0)
       expect(answeredInRound).to.equal(roundId)
-      expect(startedAt).to.equal(updatedAt)
+      expect(startedAt).to.equal(updatedAt) // startedAt = updatedAt = timestamp
 
-      // Submit status update with different status, should update
-      const timestamp = now()
+      // Submit status update with different status and newer timestamp, should update
+      const timestamp = (startedAt as BigNumber).add(1000)
       await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
         .updateStatus(true, timestamp)
@@ -213,129 +270,109 @@ describe('ArbitrumSequencerUptimeFeed', () => {
     it('should consume a known amount of gas for updates @skip-coverage', async () => {
       // Sanity - start at flag = 0 (`false`)
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(0)
+      let timestamp = await arbitrumSequencerUptimeFeed.latestTimestamp()
 
       // Gas for no update
+      timestamp = timestamp.add(1000)
       const _noUpdateTx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
-        .updateStatus(false, now())
+        .updateStatus(false, timestamp)
       const noUpdateTx = await _noUpdateTx.wait(1)
       // Assert no update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(0)
-      expect(noUpdateTx.cumulativeGasUsed).to.equal(26329)
+      expect(noUpdateTx.cumulativeGasUsed).to.equal(28300)
 
       // Gas for update
+      timestamp = timestamp.add(1000)
       const _updateTx = await arbitrumSequencerUptimeFeed
         .connect(l2Messenger)
-        .updateStatus(true, now())
+        .updateStatus(true, timestamp)
       const updateTx = await _updateTx.wait(1)
       // Assert update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
-      expect(updateTx.cumulativeGasUsed).to.equal(93088)
+      expect(updateTx.cumulativeGasUsed).to.equal(93137)
     })
 
-    it('should consume a known amount of gas for getRoundData(uint80) @skip-coverage', async () => {
-      // Initialise a round
-      await arbitrumSequencerUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, now())
-
-      const _tx = await l2Messenger.sendTransaction(
+    describe('Aggregator interface', () => {
+      beforeEach(async () => {
+        const timestamp = (
+          await arbitrumSequencerUptimeFeed.latestTimestamp()
+        ).add(1000)
+        // Initialise a round
         await arbitrumSequencerUptimeFeed
           .connect(l2Messenger)
-          .populateTransaction.getRoundData(1),
-      )
-      const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(31157)
-    })
+          .updateStatus(true, timestamp)
+      })
 
-    it('should consume a known amount of gas for latestRoundData() @skip-coverage', async () => {
-      // Initialise a round
-      await arbitrumSequencerUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, now())
+      it('should consume a known amount of gas for getRoundData(uint80) @skip-coverage', async () => {
+        const _tx = await l2Messenger.sendTransaction(
+          await arbitrumSequencerUptimeFeed
+            .connect(l2Messenger)
+            .populateTransaction.getRoundData(1),
+        )
+        const tx = await _tx.wait(1)
+        expect(tx.cumulativeGasUsed).to.equal(31157)
+      })
 
-      const _tx = await l2Messenger.sendTransaction(
-        await arbitrumSequencerUptimeFeed
-          .connect(l2Messenger)
-          .populateTransaction.latestRoundData(),
-      )
-      const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28523)
-    })
+      it('should consume a known amount of gas for latestRoundData() @skip-coverage', async () => {
+        const _tx = await l2Messenger.sendTransaction(
+          await arbitrumSequencerUptimeFeed
+            .connect(l2Messenger)
+            .populateTransaction.latestRoundData(),
+        )
+        const tx = await _tx.wait(1)
+        expect(tx.cumulativeGasUsed).to.equal(28523)
+      })
 
-    it('should consume a known amount of gas for latestAnswer() @skip-coverage', async () => {
-      // Initialise a round
-      await arbitrumSequencerUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, now())
+      it('should consume a known amount of gas for latestAnswer() @skip-coverage', async () => {
+        const _tx = await l2Messenger.sendTransaction(
+          await arbitrumSequencerUptimeFeed
+            .connect(l2Messenger)
+            .populateTransaction.latestAnswer(),
+        )
+        const tx = await _tx.wait(1)
+        expect(tx.cumulativeGasUsed).to.equal(28329)
+      })
 
-      const _tx = await l2Messenger.sendTransaction(
-        await arbitrumSequencerUptimeFeed
-          .connect(l2Messenger)
-          .populateTransaction.latestAnswer(),
-      )
-      const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28329)
-    })
+      it('should consume a known amount of gas for latestTimestamp() @skip-coverage', async () => {
+        const _tx = await l2Messenger.sendTransaction(
+          await arbitrumSequencerUptimeFeed
+            .connect(l2Messenger)
+            .populateTransaction.latestTimestamp(),
+        )
+        const tx = await _tx.wait(1)
+        expect(tx.cumulativeGasUsed).to.equal(28229)
+      })
 
-    it('should consume a known amount of gas for latestTimestamp() @skip-coverage', async () => {
-      // Initialise a round
-      await arbitrumSequencerUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, now())
+      it('should consume a known amount of gas for latestRound() @skip-coverage', async () => {
+        const _tx = await l2Messenger.sendTransaction(
+          await arbitrumSequencerUptimeFeed
+            .connect(l2Messenger)
+            .populateTransaction.latestRound(),
+        )
+        const tx = await _tx.wait(1)
+        expect(tx.cumulativeGasUsed).to.equal(28245)
+      })
 
-      const _tx = await l2Messenger.sendTransaction(
-        await arbitrumSequencerUptimeFeed
-          .connect(l2Messenger)
-          .populateTransaction.latestTimestamp(),
-      )
-      const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28229)
-    })
+      it('should consume a known amount of gas for getAnswer(roundId) @skip-coverage', async () => {
+        const _tx = await l2Messenger.sendTransaction(
+          await arbitrumSequencerUptimeFeed
+            .connect(l2Messenger)
+            .populateTransaction.getAnswer(1),
+        )
+        const tx = await _tx.wait(1)
+        expect(tx.cumulativeGasUsed).to.equal(30799)
+      })
 
-    it('should consume a known amount of gas for latestRound() @skip-coverage', async () => {
-      // Initialise a round
-      await arbitrumSequencerUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, now())
-
-      const _tx = await l2Messenger.sendTransaction(
-        await arbitrumSequencerUptimeFeed
-          .connect(l2Messenger)
-          .populateTransaction.latestRound(),
-      )
-      const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(28245)
-    })
-
-    it('should consume a known amount of gas for getAnswer(roundId) @skip-coverage', async () => {
-      // Initialise a round
-      await arbitrumSequencerUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, now())
-
-      const _tx = await l2Messenger.sendTransaction(
-        await arbitrumSequencerUptimeFeed
-          .connect(l2Messenger)
-          .populateTransaction.getAnswer(1),
-      )
-      const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(30799)
-    })
-
-    it('should consume a known amount of gas for getTimestamp(roundId) @skip-coverage', async () => {
-      // Initialise a round
-      await arbitrumSequencerUptimeFeed
-        .connect(l2Messenger)
-        .updateStatus(true, now())
-
-      const _tx = await l2Messenger.sendTransaction(
-        await arbitrumSequencerUptimeFeed
-          .connect(l2Messenger)
-          .populateTransaction.getTimestamp(1),
-      )
-      const tx = await _tx.wait(1)
-      expect(tx.cumulativeGasUsed).to.equal(30753)
+      it('should consume a known amount of gas for getTimestamp(roundId) @skip-coverage', async () => {
+        const _tx = await l2Messenger.sendTransaction(
+          await arbitrumSequencerUptimeFeed
+            .connect(l2Messenger)
+            .populateTransaction.getTimestamp(1),
+        )
+        const tx = await _tx.wait(1)
+        expect(tx.cumulativeGasUsed).to.equal(30753)
+      })
     })
   })
 })

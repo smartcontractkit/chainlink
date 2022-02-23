@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
@@ -22,6 +23,7 @@ import (
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
 	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -57,7 +59,9 @@ func TestTxm(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
 	require.NoError(t, err)
-	cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
+	cfg := terra.NewConfig(terradb.ChainCfg{
+		MaxMsgsPerBatch: null.IntFrom(2),
+	}, lggr)
 	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
 		terraclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
 			"uluna": cosmostypes.NewDecCoinFromDec("uluna", cosmostypes.MustNewDecFromStr("0.01")),
@@ -66,8 +70,8 @@ func TestTxm(t *testing.T) {
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
-
-		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
+		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, logCfg, nil)
 
 		// Enqueue a single msg, then send it in a batch
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
@@ -94,7 +98,7 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, nil)
-		txm.sendMsgBatch()
+		txm.sendMsgBatch(testutils.Context(t))
 
 		// Should be in completed state
 		completed, err := txm.orm.SelectMsgsWithIDs([]int64{id1})
@@ -106,8 +110,8 @@ func TestTxm(t *testing.T) {
 
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
-
-		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
@@ -156,7 +160,7 @@ func TestTxm(t *testing.T) {
 				TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 			}, nil).Once()
 		}
-		txm.sendMsgBatch()
+		txm.sendMsgBatch(testutils.Context(t))
 
 		// Should be in completed state
 		completed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
@@ -173,13 +177,14 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		cfg := terra.NewConfig(terradb.ChainCfg{}, terra.DefaultConfigSet, lggr)
-		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		cfg := terra.NewConfig(terradb.ChainCfg{}, lggr)
+		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
 		require.NoError(t, txm.orm.UpdateMsgsWithState([]int64{i}, Broadcasted, &txh))
-		err = txm.confirmTx(txh, []int64{i}, 2, 1*time.Millisecond)
+		err = txm.confirmTx(testutils.Context(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
 		m, err := txm.orm.SelectMsgsWithIDs([]int64{i})
 		require.NoError(t, err)
@@ -189,8 +194,10 @@ func TestTxm(t *testing.T) {
 	})
 
 	t.Run("confirm any unconfirmed", func(t *testing.T) {
+		require.Equal(t, int64(2), cfg.MaxMsgsPerBatch())
 		txHash1 := "0x1234"
 		txHash2 := "0x1235"
+		txHash3 := "0xabcd"
 		tc := new(tcmocks.ReaderWriter)
 		tc.On("Tx", txHash1).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash1},
@@ -198,26 +205,34 @@ func TestTxm(t *testing.T) {
 		tc.On("Tx", txHash2).Return(&txtypes.GetTxResponse{
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash2},
 		}, nil).Once()
-		txm, _ := NewTxm(db, tc, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+		tc.On("Tx", txHash3).Return(&txtypes.GetTxResponse{
+			TxResponse: &cosmostypes.TxResponse{TxHash: txHash3},
+		}, nil).Once()
+		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 
-		// Insert and broadcast 2 msgs with different txhashes.
+		// Insert and broadcast 3 msgs with different txhashes.
 		id1, err := txm.orm.InsertMsg("blah", []byte{0x01})
 		require.NoError(t, err)
 		id2, err := txm.orm.InsertMsg("blah", []byte{0x02})
+		require.NoError(t, err)
+		id3, err := txm.orm.InsertMsg("blah", []byte{0x03})
 		require.NoError(t, err)
 		err = txm.orm.UpdateMsgsWithState([]int64{id1}, Broadcasted, &txHash1)
 		require.NoError(t, err)
 		err = txm.orm.UpdateMsgsWithState([]int64{id2}, Broadcasted, &txHash2)
 		require.NoError(t, err)
+		err = txm.orm.UpdateMsgsWithState([]int64{id3}, Broadcasted, &txHash3)
+		require.NoError(t, err)
 
 		// Confirm them as in a restart while confirming scenario
-		txm.confirmAnyUnconfirmed()
+		txm.confirmAnyUnconfirmed(testutils.Context(t))
+		msgs, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2, id3})
 		require.NoError(t, err)
-		confirmed, err := txm.orm.SelectMsgsWithIDs([]int64{id1, id2})
-		require.NoError(t, err)
-		require.Equal(t, 2, len(confirmed))
-		assert.Equal(t, Confirmed, confirmed[0].State)
-		assert.Equal(t, Confirmed, confirmed[1].State)
+		require.Equal(t, 3, len(msgs))
+		assert.Equal(t, Confirmed, msgs[0].State)
+		assert.Equal(t, Confirmed, msgs[1].State)
+		assert.Equal(t, Confirmed, msgs[2].State)
 		tc.AssertExpectations(t)
 	})
 }

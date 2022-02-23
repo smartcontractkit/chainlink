@@ -26,14 +26,13 @@ func (p *TerraNodePresenter) ToRow() []string {
 		p.Name,
 		p.TerraChainID,
 		p.TendermintURL,
-		p.FCDURL,
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
 	}
 	return row
 }
 
-var terraNodeHeaders = []string{"ID", "Name", "Chain ID", "Tendermint URL", "FCD URL", "Created", "Updated"}
+var terraNodeHeaders = []string{"ID", "Name", "Chain ID", "Tendermint URL", "Created", "Updated"}
 
 // RenderTable implements TableRenderer
 func (p TerraNodePresenter) RenderTable(rt RendererTable) error {
@@ -70,7 +69,6 @@ func (cli *Client) CreateTerraNode(c *cli.Context) (err error) {
 	name := c.String("name")
 	chainID := c.String("chain-id")
 	tendermintURL := c.String("tendermint-url")
-	fcdURL := c.String("fcd-url")
 
 	if name == "" {
 		return cli.errorOut(errors.New("missing --name"))
@@ -82,15 +80,11 @@ func (cli *Client) CreateTerraNode(c *cli.Context) (err error) {
 	if _, err2 := url.Parse(tendermintURL); err2 != nil {
 		return cli.errorOut(fmt.Errorf("invalid tendermint-url: %v", err2))
 	}
-	if _, err2 := url.Parse(fcdURL); err2 != nil {
-		return cli.errorOut(fmt.Errorf("invalid fcd-url: %v", err2))
-	}
 
 	params := terratypes.NewNode{
 		Name:          name,
 		TerraChainID:  chainID,
 		TendermintURL: tendermintURL,
-		FCDURL:        fcdURL,
 	}
 
 	body, err := json.Marshal(params)

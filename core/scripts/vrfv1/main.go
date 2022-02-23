@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+
 	linktoken "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	vrfoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_ownerless_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -81,7 +82,8 @@ func main() {
 			common.HexToAddress(*coordAddr),
 			common.HexToAddress(*linkAddr))
 		helpers.PanicErr(err)
-		fmt.Printf("Ownerless Consumer: %s TX Hash: %s\n", consumerAddr, tx.Hash())
+		fmt.Printf("Ownerless Consumer: %s TX: %s\n",
+			consumerAddr, helpers.ExplorerLink(chainID, tx.Hash()))
 	case "ownerless-consumer-request":
 		cmd := flag.NewFlagSet("ownerless-consumer-request", flag.ExitOnError)
 		linkAddr := cmd.String("link-address", "", "address of link token")
@@ -99,6 +101,6 @@ func main() {
 		helpers.PanicErr(err)
 		tx, err := link.TransferAndCall(account, common.HexToAddress(*consumerAddr), payment, data)
 		helpers.PanicErr(err)
-		fmt.Printf("TX Hash: %s\n", tx.Hash())
+		fmt.Printf("TX: %s\n", helpers.ExplorerLink(chainID, tx.Hash()))
 	}
 }

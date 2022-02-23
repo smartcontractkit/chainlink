@@ -1,10 +1,12 @@
 package pipeline_test
 
 import (
+	"encoding/base64"
 	"net/url"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -53,6 +55,14 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 		{"string", "foo bar baz", pipeline.BytesParam("foo bar baz"), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.BytesParam("foo bar baz"), nil},
 		{"int", 12345, pipeline.BytesParam(nil), pipeline.ErrBadInput},
+
+		// The base64 encoding for the binary 0b110100110001 is '0x', so we must not error when hex fails, since it might actually be b64.
+		{"hex-invalid", "0xh",
+			pipeline.BytesParam("0xh"), nil},
+		{"b64-hex-prefix", base64.StdEncoding.EncodeToString([]byte{0b11010011, 0b00011000, 0b01001101}),
+			pipeline.BytesParam([]byte{0b11010011, 0b00011000, 0b01001101}), nil},
+		{"b64-hex-prefix-2", base64.StdEncoding.EncodeToString(hexutil.MustDecode("0xd3184d")),
+			pipeline.BytesParam(hexutil.MustDecode("0xd3184d")), nil},
 	}
 
 	for _, test := range tests {
@@ -422,4 +432,92 @@ func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 			require.Equal(t, test.expected, p)
 		})
 	}
+}
+
+func TestVarExpr(t *testing.T) {
+	t.Parallel()
+
+	vars := createTestVars()
+
+	tests := []struct {
+		expr   string
+		result interface{}
+		err    error
+	}{
+		// no errors
+		{" $(  foo.bar  ) ", "value", nil},
+		{" $(  zet)", 123, nil},
+		{"$(arr.1  ) ", 200, nil},
+		// errors
+		{" $(  missing)", nil, pipeline.ErrKeypathNotFound},
+		{" $$(  zet)", nil, pipeline.ErrParameterEmpty},
+		{"  ", nil, pipeline.ErrParameterEmpty},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.expr, func(t *testing.T) {
+			t.Parallel()
+
+			getter := pipeline.VarExpr(test.expr, vars)
+			v, err := getter()
+			if test.err == nil {
+				require.NoError(t, err)
+				require.Equal(t, test.result, v)
+			} else {
+				require.ErrorIs(t, err, test.err)
+			}
+		})
+	}
+}
+
+func TestJSONWithVarExprs(t *testing.T) {
+	t.Parallel()
+
+	vars := createTestVars()
+
+	tests := []struct {
+		json   string
+		field  string
+		result interface{}
+		err    error
+	}{
+		// no errors
+		{`{ "x": $(zet) }`, "x", 123, nil},
+		{`{ "x": { "y": $(zet) } }`, "x", map[string]interface{}{"y": 123}, nil},
+		{`{ "z": "foo" }`, "z", "foo", nil},
+		// errors
+		{`{ "x": $(missing) }`, "x", nil, pipeline.ErrKeypathNotFound},
+		{`{ "x": "$(zet)" }`, "x", "$(zet)", pipeline.ErrBadInput},
+		{`{ "$(foo.bar)": $(zet) }`, "value", 123, pipeline.ErrBadInput},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.json, func(t *testing.T) {
+			t.Parallel()
+
+			getter := pipeline.JSONWithVarExprs(test.json, vars, false)
+			v, err := getter()
+			if test.err != nil {
+				require.ErrorIs(t, err, test.err)
+			} else {
+				require.NoError(t, err)
+				m := v.(map[string]interface{})
+				require.Equal(t, test.result, m[test.field])
+			}
+		})
+	}
+}
+
+func createTestVars() pipeline.Vars {
+	return pipeline.NewVarsFrom(map[string]interface{}{
+		"foo": map[string]interface{}{
+			"bar": "value",
+		},
+		"zet": 123,
+		"arr": []interface{}{
+			100, 200, 300,
+		},
+	})
 }

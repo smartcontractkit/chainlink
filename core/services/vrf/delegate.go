@@ -11,6 +11,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -99,6 +100,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+			if err != nil {
+				return nil, err
+			}
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			if err != nil {
+				return nil, err
+			}
 			return []job.Service{&listenerV2{
 				cfg:                chain.Config(),
 				l:                  lV2,
@@ -106,6 +115,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				logBroadcaster:     chain.LogBroadcaster(),
 				q:                  d.q,
 				coordinator:        coordinatorV2,
+				aggregator:         aggregator,
 				txm:                chain.TxManager(),
 				pipelineRunner:     d.pr,
 				gethks:             d.ks.Eth(),

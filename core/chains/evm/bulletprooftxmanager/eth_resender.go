@@ -114,8 +114,6 @@ func (er *EthResender) resendUnconfirmed() error {
 		return nil
 	}
 
-	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
-
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
 	for i, attempt := range attempts {
@@ -127,6 +125,8 @@ func (er *EthResender) resendUnconfirmed() error {
 		}
 		reqs[i] = req
 	}
+
+	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts), "ethTxIDs", ethTxIDs)
 
 	now := time.Now()
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())

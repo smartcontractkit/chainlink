@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
@@ -69,7 +70,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -105,7 +105,7 @@ const (
 
 var (
 	DefaultP2PPeerID p2pkey.PeerID
-	FixtureChainID   = *big.NewInt(0)
+	FixtureChainID   = *testutils.FixtureChainID
 	source           rand.Source
 
 	DefaultCSAKey    = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
@@ -120,7 +120,7 @@ var (
 func init() {
 	gin.SetMode(gin.TestMode)
 
-	gomega.SetDefaultEventuallyTimeout(defaultWaitTimeout)
+	gomega.SetDefaultEventuallyTimeout(testutils.DefaultWaitTimeout)
 	gomega.SetDefaultEventuallyPollingInterval(DBPollingInterval)
 	gomega.SetDefaultConsistentlyDuration(time.Second)
 	gomega.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
@@ -297,21 +297,23 @@ func NewWSServer(t *testing.T, chainID *big.Int, callback jsonrpcHandler) string
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
+	shutdownGracePeriod := testutils.DefaultWaitTimeout
 	overrides := configtest.GeneralConfigOverrides{
-		SecretGenerator: MockSecretGenerator{},
-		Dialect:         dialects.TransactionWrappedPostgres,
-		AdvisoryLockID:  null.IntFrom(NewRandomInt64()),
+		SecretGenerator:     MockSecretGenerator{},
+		Dialect:             dialects.TransactionWrappedPostgres,
+		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 }
 
-// NewApplicationEVMDisabled creates a new application with default config but ethereum disabled
+// NewApplicationEVMDisabled creates a new application with default config but EVM disabled
 // Useful for testing controllers
 func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
-	c.Overrides.EVMDisabled = null.BoolFrom(true)
+	c.Overrides.EVMEnabled = null.BoolFrom(false)
 
 	return NewApplicationWithConfig(t, c)
 }
@@ -372,7 +374,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	lggr := logger.TestLogger(t)
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
-	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
 	db, err := pg.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), pg.Config{
@@ -451,7 +452,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
-		ShutdownSignal:           shutdownSignal,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		Chains:                   chains,
@@ -583,7 +583,7 @@ func newServer(app chainlink.Application) *httptest.Server {
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.
-func (ta *TestApplication) Start() error {
+func (ta *TestApplication) Start(ctx context.Context) error {
 	ta.t.Helper()
 	ta.Started = true
 	err := ta.ChainlinkApplication.KeyStore.Unlock(Password)
@@ -591,7 +591,7 @@ func (ta *TestApplication) Start() error {
 		return err
 	}
 
-	err = ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start(ctx)
 	if err != nil {
 		return err
 	}
@@ -930,20 +930,11 @@ const (
 	DBPollingInterval = 100 * time.Millisecond
 	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
 	AssertNoActionTimeout = 3 * time.Second
-
-	defaultWaitTimeout = 30 * time.Second
 )
 
-// WaitTimeout returns a timeout based on the test's Deadline, if available.
-// Especially important to use in parallel tests, as their individual execution
-// can get paused for arbitrary amounts of time.
-func WaitTimeout(t *testing.T) time.Duration {
-	if d, ok := t.Deadline(); ok {
-		// 10% buffer for cleanup and scheduling delay
-		return time.Until(d) * 9 / 10
-	}
-	return defaultWaitTimeout
-}
+// WaitTimeout is just preserved for compatabilty. Use testutils.WaitTimeout directly instead.
+// Deprecated
+var WaitTimeout = testutils.WaitTimeout
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
@@ -1648,4 +1639,18 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 
 func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bulletprooftxmanager.ORM {
 	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t), cfg)
+}
+
+// ClearDBTables deletes all rows from the given tables
+func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
+	tx, err := db.Beginx()
+	require.NoError(t, err)
+
+	for _, table := range tables {
+		_, err = tx.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		require.NoError(t, err)
+	}
+
+	err = tx.Commit()
+	require.NoError(t, err)
 }

@@ -12,7 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
+
+func init() {
+	static.Version = "0.0.0"
+	static.Sha = "exampleSHA"
+}
 
 func run(args ...string) {
 	t := &testing.T{}
@@ -43,7 +49,7 @@ func ExampleRun() {
 	//    core.test [global options] command [command options] [arguments...]
 	//
 	// VERSION:
-	//    unset@unset
+	//    0.0.0@exampleSHA
 	//
 	// COMMANDS:
 	//    admin           Commands for remotely taking admin related actions
@@ -63,7 +69,7 @@ func ExampleRun() {
 	//    --json, -j     json output as opposed to table
 	//    --help, -h     show help
 	//    --version, -v  print the version
-	// core.test version unset@unset
+	// core.test version 0.0.0@exampleSHA
 }
 
 func ExampleRun_admin() {
@@ -367,11 +373,11 @@ func ExampleRun_node() {
 	//    core.test node command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    deleteuser                Erase the *local node's* user and corresponding session to force recreation on next node launch.
 	//    setnextnonce              Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.
 	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
 	//    status                    Displays the health of various services running inside the node.
+	//    profile                   Collects profile metrics from the node.
 	//    db                        Commands for managing the database.
 	//
 	// OPTIONS:
@@ -411,6 +417,21 @@ func ExampleRun_node_db() {
 	//
 	// OPTIONS:
 	//    --help, -h  show help
+}
+
+func ExampleRun_node_profile() {
+	run("node", "profile", "--help")
+	// Output:
+	// NAME:
+	//    core.test node profile - Collects profile metrics from the node.
+	//
+	// USAGE:
+	//    core.test node profile [command options] [arguments...]
+	//
+	// OPTIONS:
+	//    --seconds value, -s value     duration of profile capture (default: 8)
+	//    --output_dir value, -o value  output directory of the captured profile (default: "/tmp/")
+
 }
 
 func ExampleRun_txs() {

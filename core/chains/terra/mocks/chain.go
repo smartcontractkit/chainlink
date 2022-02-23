@@ -88,20 +88,27 @@ func (_m *Chain) MsgEnqueuer() terra.MsgEnqueuer {
 	return r0
 }
 
-// Reader provides a mock function with given fields:
-func (_m *Chain) Reader() client.Reader {
-	ret := _m.Called()
+// Reader provides a mock function with given fields: nodeName
+func (_m *Chain) Reader(nodeName string) (client.Reader, error) {
+	ret := _m.Called(nodeName)
 
 	var r0 client.Reader
-	if rf, ok := ret.Get(0).(func() client.Reader); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(string) client.Reader); ok {
+		r0 = rf(nodeName)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(client.Reader)
 		}
 	}
 
-	return r0
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(nodeName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Ready provides a mock function with given fields:

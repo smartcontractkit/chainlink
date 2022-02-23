@@ -2,7 +2,6 @@ package terra
 
 import (
 	"fmt"
-	"math"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -56,7 +55,10 @@ func (o ChainSetOpts) validate() (err error) {
 }
 
 func (o ChainSetOpts) newChain(dbchain db.Chain) (*chain, error) {
-	return NewChain(o.DB, o.KeyStore, o.Config, o.EventBroadcaster, dbchain, o.Logger)
+	if !dbchain.Enabled {
+		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
+	}
+	return NewChain(o.DB, o.KeyStore, o.Config, o.EventBroadcaster, dbchain, o.ORM, o.Logger)
 }
 
 // ChainSet extends terra.ChainSet with mutability and exposes the underlying ORM.
@@ -86,7 +88,7 @@ func NewChainSet(opts ChainSetOpts) (*chainSet, error) {
 	if err := opts.validate(); err != nil {
 		return nil, err
 	}
-	dbchains, err := opts.ORM.EnabledChainsWithNodes()
+	dbchains, err := opts.ORM.EnabledChains()
 	if err != nil {
 		return nil, errors.Wrap(err, "error loading chains")
 	}
@@ -168,17 +170,6 @@ func (c *chainSet) Add(id string, config db.ChainCfg) (db.Chain, error) {
 
 // Requires a lock on chainsMu
 func (c *chainSet) initializeChain(dbchain *db.Chain) error {
-	// preload nodes
-	nodes, cnt, err := c.opts.ORM.NodesForChain(dbchain.ID, 0, math.MaxInt)
-	if err != nil {
-		return err
-	}
-	if cnt == 0 {
-		// Can't start without nodes
-		return nil
-	}
-	dbchain.Nodes = nodes
-
 	// Start it
 	cid := dbchain.ID
 	chain, err := c.opts.newChain(*dbchain)

@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"runtime/debug"
 	"sync"
 	"testing"
 	"time"
@@ -23,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/atomic"
@@ -104,7 +102,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB, shutdown.Signal) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -112,7 +110,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB, shutdown.Signal) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(config.GeneralConfig, *sqlx.DB) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -131,7 +129,7 @@ type BlockedRunner struct {
 }
 
 // Run runs the blocked runner, doesn't return until the channel is signalled
-func (r BlockedRunner) Run(app chainlink.Application) error {
+func (r BlockedRunner) Run(context.Context, chainlink.Application) error {
 	<-r.Done
 	return nil
 }
@@ -140,7 +138,7 @@ func (r BlockedRunner) Run(app chainlink.Application) error {
 type EmptyRunner struct{}
 
 // Run runs the empty runner
-func (r EmptyRunner) Run(app chainlink.Application) error {
+func (r EmptyRunner) Run(context.Context, chainlink.Application) error {
 	return nil
 }
 
@@ -410,21 +408,6 @@ type MockPasswordPrompter struct {
 
 func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
-}
-
-var _ shutdown.Signal = &testShutdownSignal{}
-
-type testShutdownSignal struct {
-	t testing.TB
-}
-
-func (tss *testShutdownSignal) Panic() {
-	tss.t.Errorf("panic: %s", debug.Stack())
-	panic("panic")
-}
-
-func (tss *testShutdownSignal) Wait() <-chan struct{} {
-	return make(chan struct{})
 }
 
 func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {

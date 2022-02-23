@@ -51,19 +51,24 @@ func Up56(tx *sql.Tx) error {
 	if _, err := tx.Exec(up56); err != nil {
 		return err
 	}
-	dbURL := os.Getenv("DATABASE_URL")
-	if !strings.Contains(dbURL, "_test") {
-		chainIDStr := os.Getenv("ETH_CHAIN_ID")
-		if chainIDStr == "" {
-			log.Println("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
-			chainIDStr = "1"
+	evmDisabled := os.Getenv("EVM_ENABLED") == "false"
+	if evmDisabled {
+		dbURL := os.Getenv("DATABASE_URL")
+		if strings.Contains(dbURL, "_test") {
+			log.Println("Running on a database ending in _test; assume we are running in a test suite and skip creation of the default chain")
+		} else {
+			chainIDStr := os.Getenv("ETH_CHAIN_ID")
+			if chainIDStr == "" {
+				log.Println("ETH_CHAIN_ID was not specified, auto-creating chain with id 1")
+				chainIDStr = "1"
+			}
+			chainID, ok := new(big.Int).SetString(chainIDStr, 10)
+			if !ok {
+				panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
+			}
+			_, err := tx.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
+			return err
 		}
-		chainID, ok := new(big.Int).SetString(chainIDStr, 10)
-		if !ok {
-			panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
-		}
-		_, err := tx.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
-		return err
 	}
 	return nil
 }

@@ -16,9 +16,6 @@ import (
 	"testing"
 	"time"
 
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,6 +26,11 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -41,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -55,14 +58,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
@@ -78,7 +79,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
 		eiName    = "substrate-ei"
@@ -249,7 +250,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMockCalls()
 	app := cltest.NewApplication(t, ethClient)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// set up user
 	mockUser := cltest.MustRandomUser(t)
@@ -369,7 +370,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			require.NoError(t, err)
 			b.Commit()
 
-			err = app.Start()
+			err = app.Start(testutils.Context(t))
 			require.NoError(t, err)
 
 			mockServerUSD := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
@@ -494,6 +495,9 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
 	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1), true, true)
+	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
+	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
+	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -504,7 +508,6 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	peerID := p2pIDs[0].PeerID()
 
 	config.Overrides.P2PPeerID = peerID
-	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.P2PNetworkingStack = ns
 	// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
 	// we'll flood it with messages and slow things down. 5s is about how long it takes the
@@ -638,7 +641,7 @@ func TestIntegration_OCR(t *testing.T) {
 			require.NoError(t, err)
 			b.Commit()
 
-			err = appBootstrap.Start()
+			err = appBootstrap.Start(testutils.Context(t))
 			require.NoError(t, err)
 
 			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
@@ -674,7 +677,7 @@ isBootstrapPeer    = true
 				"0": {}, "10": {}, "20": {}, "30": {},
 			}
 			for i := 0; i < numOracles; i++ {
-				err = apps[i].Start()
+				err = apps[i].Start(testutils.Context(t))
 				require.NoError(t, err)
 
 				// Since this API speed is > ObservationTimeout we should ignore it and still produce values.
@@ -855,7 +858,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	require.NoError(t, cc.Start())
+	require.NoError(t, cc.Start(testutils.Context(t)))
 	var newHeads chan<- *evmtypes.Head
 	select {
 	case newHeads = <-chchNewHeads:

@@ -19,6 +19,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -39,12 +40,12 @@ var registryConfig = keeper_registry_wrapper.GetConfig{
 }
 
 var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
-	Target:              cltest.NewAddress(),
+	Target:              testutils.NewAddress(),
 	ExecuteGas:          2_000_000,
 	CheckData:           common.Hex2Bytes("1234"),
 	Balance:             big.NewInt(1000000000000000000),
-	LastKeeper:          cltest.NewAddress(),
-	Admin:               cltest.NewAddress(),
+	LastKeeper:          testutils.NewAddress(),
+	Admin:               testutils.NewAddress(),
 	MaxValidBlocknumber: 1_000_000_000,
 }
 
@@ -246,7 +247,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
 
-	addresses := []common.Address{fromAddress, cltest.NewAddress()} // change from default
+	addresses := []common.Address{fromAddress, testutils.NewAddress()} // change from default
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", addresses).Once()
 
