@@ -3,10 +3,10 @@
 package types
 
 import (
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services"
 )
 
@@ -28,6 +28,10 @@ type OCR2Provider interface {
 	ContractTransmitter() types.ContractTransmitter
 	ContractConfigTracker() types.ContractConfigTracker
 	OffchainConfigDigester() types.OffchainConfigDigester
+	OCR2MedianProvider
+}
+
+type OCR2MedianProvider interface {
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
 }
