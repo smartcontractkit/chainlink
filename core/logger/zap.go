@@ -55,14 +55,14 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 		SugaredLogger:     zap.New(core).Sugar(),
 	}
 
-	if cfg.local.DebugLogsToDisk {
+	if cfg.local.DebugLogsToDisk() {
 		go lggr.pollDiskSpace()
 	}
 
 	var once sync.Once
 	close := func() error {
 		once.Do(func() {
-			if cfg.local.DebugLogsToDisk {
+			if cfg.local.DebugLogsToDisk() {
 				close(lggr.pollDiskSpaceStop)
 				<-lggr.pollDiskSpaceDone
 			}
@@ -78,7 +78,7 @@ func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
 	var err error
 	var cores []zapcore.Core
 
-	if cfg.local.DebugLogsToDisk {
+	if cfg.local.DebugLogsToDisk() {
 		core, diskErr := newDiskCore(cfg)
 		if diskErr == nil {
 			cores = append(cores, core)

@@ -511,20 +511,6 @@ func (_m *GeneralConfig) DatabaseURL() url.URL {
 	return r0
 }
 
-// DebugLogsToDisk provides a mock function with given fields:
-func (_m *GeneralConfig) DebugLogsToDisk() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // DefaultChainID provides a mock function with given fields:
 func (_m *GeneralConfig) DefaultChainID() *big.Int {
 	ret := _m.Called()

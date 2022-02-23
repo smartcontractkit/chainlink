@@ -137,7 +137,6 @@ type GeneralOnlyConfig interface {
 	LogFileDir() string
 	LogLevel() zapcore.Level
 	LogSQL() bool
-	DebugLogsToDisk() bool
 	LogFileMaxSize() utils.FileSize
 	LogFileMaxAge() int64
 	LogFileMaxBackups() int64
@@ -387,7 +386,7 @@ EVM_ENABLED=false
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
 	}
 
-	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.DebugLogsToDisk() {
+	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && c.LogFileMaxSize() <= 0 {
 		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
@@ -915,11 +914,6 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	defer c.logMutex.Unlock()
 	c.logLevel = lvl
 	return nil
-}
-
-// DebugLogsToDisk resolves to whether the nodes preserves logs on disk.
-func (c *generalConfig) DebugLogsToDisk() bool {
-	return c.LogFileMaxSize() > 0
 }
 
 // LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.

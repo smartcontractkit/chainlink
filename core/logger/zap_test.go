@@ -34,15 +34,18 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	assert.NoError(t, err)
 	defer tmpFile.Close()
 
+	var logFileSize utils.FileSize
+	err = logFileSize.UnmarshalText([]byte("100mb"))
+	assert.NoError(t, err)
+
 	pollCfg := newDiskPollConfig(1 * time.Second)
 	zapCfg := ZapLoggerConfig{
 		Config: cfg,
 		local: Config{
 			Dir:                        logsDir,
-			DebugLogsToDisk:            true,
-			DiskMaxSizeBeforeRotate:    1,
 			DiskMaxAgeBeforeDelete:     0,
 			DiskMaxBackupsBeforeDelete: 1,
+			DiskMaxSizeBeforeRotate:    int(logFileSize),
 		},
 		diskPollConfig: pollCfg,
 		diskLogLevel:   zap.NewAtomicLevelAt(zapcore.DebugLevel),
@@ -64,7 +67,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
+		zapCfg.local.DiskMaxSizeBeforeRotate = int(maxSize) * 2
 
 		lggr, close, err := newZapLogger(zapCfg)
 		assert.NoError(t, err)
@@ -98,7 +101,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
+		zapCfg.local.DiskMaxSizeBeforeRotate = int(maxSize) * 2
 
 		lggr, close, err := newZapLogger(zapCfg)
 		assert.NoError(t, err)
@@ -132,7 +135,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		zapCfg.local.RequiredDiskSpace = utils.FileSize(int(maxSize) * 2)
+		zapCfg.local.DiskMaxSizeBeforeRotate = int(maxSize) * 2
 
 		lggr, close, err := newZapLogger(zapCfg)
 		assert.NoError(t, err)
@@ -159,7 +162,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		actualMessage := lines[len(lines)-2]
 		expectedMessage := fmt.Sprintf(
 			"Disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
-			zapCfg.local.RequiredDiskSpace,
+			zapCfg.local.RequiredDiskSpace(),
 			maxSize,
 		)
 
@@ -182,7 +185,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		zapCfg.local.RequiredDiskSpace = utils.FileSize(maxSize * 2)
+		zapCfg.local.DiskMaxSizeBeforeRotate = int(maxSize) * 2
 
 		lggr, close, err := newZapLogger(zapCfg)
 		assert.NoError(t, err)
@@ -210,7 +213,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		lines := strings.Split(logs, "\n")
 		expectedMessage := fmt.Sprintf(
 			"Disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
-			zapCfg.local.RequiredDiskSpace,
+			zapCfg.local.RequiredDiskSpace(),
 			maxSize,
 		)
 

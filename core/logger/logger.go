@@ -201,11 +201,9 @@ func NewLogger() (Logger, func() error) {
 	c.DiskMaxSizeBeforeRotate = int(fileMaxSize)
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
-	} else {
-		c.DebugLogsToDisk = c.DiskMaxSizeBeforeRotate > 0
 	}
 
-	if c.DebugLogsToDisk {
+	if c.DebugLogsToDisk() {
 		var (
 			fileMaxAge int64
 			maxBackups int64
@@ -222,8 +220,6 @@ func NewLogger() (Logger, func() error) {
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
-
-		c.RequiredDiskSpace = utils.FileSize(c.DiskMaxSizeBeforeRotate * (c.DiskMaxBackupsBeforeDelete + 1))
 	}
 
 	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
@@ -243,17 +239,15 @@ type Config struct {
 	Dir                        string
 	JsonConsole                bool
 	UnixTS                     bool
-	DebugLogsToDisk            bool // if false, the Logger will only log to stdout.
-	DiskMaxSizeBeforeRotate    int  // megabytes
-	DiskMaxAgeBeforeDelete     int  // days
-	DiskMaxBackupsBeforeDelete int  // files
-	RequiredDiskSpace          utils.FileSize
+	DiskMaxSizeBeforeRotate    int // megabytes
+	DiskMaxAgeBeforeDelete     int // days
+	DiskMaxBackupsBeforeDelete int // files
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
-	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.DebugLogsToDisk, c.UnixTS)
+	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.DebugLogsToDisk(), c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, close, err := newZapLogger(ZapLoggerConfig{
 		local:          *c,
@@ -266,6 +260,14 @@ func (c *Config) New() (Logger, func() error) {
 	}
 	l = newSentryLogger(l)
 	return newPrometheusLogger(l), close
+}
+
+func (c Config) DebugLogsToDisk() bool {
+	return c.DiskMaxSizeBeforeRotate > 0
+}
+
+func (c Config) RequiredDiskSpace() utils.FileSize {
+	return utils.FileSize(c.DiskMaxSizeBeforeRotate * (c.DiskMaxBackupsBeforeDelete + 1))
 }
 
 // InitColor explicitly sets the global color.NoColor option.

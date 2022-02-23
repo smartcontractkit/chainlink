@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/kylelemons/godebug/diff"
@@ -68,10 +69,14 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app.On("Stop").Return(nil)
 	app.On("ID").Return(uuid.NewV4())
 
+	var logFileSize utils.FileSize
+	err = logFileSize.UnmarshalText([]byte("100mb"))
+	assert.NoError(t, err)
+
 	lcfg := logger.Config{
-		LogLevel:        zapcore.DebugLevel,
-		DebugLogsToDisk: true,
-		Dir:             t.TempDir(),
+		LogLevel:                zapcore.DebugLevel,
+		DiskMaxSizeBeforeRotate: int(logFileSize),
+		Dir:                     t.TempDir(),
 	}
 
 	tmpFile, err := os.CreateTemp(lcfg.Dir, "*")
@@ -388,22 +393,30 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	}
 }
 
-func TestClient_DebugLogsToDiskOptionDisablesAsExpected(t *testing.T) {
+func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	tests := []struct {
-		name                 string
-		debugLogsToDiskValue bool
-		fileShouldExist      bool
+		name            string
+		logFileSize     func(t *testing.T) utils.FileSize
+		fileShouldExist bool
 	}{
-		{"DebugLogsToDisk = false => no log on disk", false, false},
-		{"DebugLogsToDisk = true => log on disk (positive control)", true, true},
+		{"DiskMaxSizeBeforeRotate = 0 => no log on disk", func(t *testing.T) utils.FileSize {
+			return 0
+		}, false},
+		{"DiskMaxSizeBeforeRotate > 0 => log on disk (positive control)", func(t *testing.T) utils.FileSize {
+			var logFileSize utils.FileSize
+			err := logFileSize.UnmarshalText([]byte("100mb"))
+			assert.NoError(t, err)
+
+			return logFileSize
+		}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
-				DebugLogsToDisk: tt.debugLogsToDiskValue,
-				Dir:             t.TempDir(),
+				Dir:                     t.TempDir(),
+				DiskMaxSizeBeforeRotate: int(tt.logFileSize(t)),
 			}
-			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
+			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
 			lggr, close := cfg.New()
 			defer close()
@@ -413,7 +426,7 @@ func TestClient_DebugLogsToDiskOptionDisablesAsExpected(t *testing.T) {
 
 			filepath := filepath.Join(cfg.Dir, logger.LogsFile)
 			_, err := os.Stat(filepath)
-			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
+			require.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
 	}
 }

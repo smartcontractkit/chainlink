@@ -31,7 +31,7 @@ func newDiskPollConfig(interval time.Duration) zapDiskPollConfig {
 
 func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
 	availableSpace, err := cfg.diskStats.AvailableSpace(cfg.local.Dir)
-	if err != nil || availableSpace < cfg.local.RequiredDiskSpace {
+	if err != nil || availableSpace < cfg.local.RequiredDiskSpace() {
 		// Won't log to disk if the directory is not found or there's not enough disk space
 		cfg.diskLogLevel.SetLevel(disabledLevel)
 	}
@@ -67,12 +67,12 @@ func (l *zapLogger) pollDiskSpace() {
 				// Will no longer log to disk
 				lvl = disabledLevel
 				l.Warnw("Error getting disk space available for logging", "err", err)
-			} else if diskUsage < l.config.local.RequiredDiskSpace {
+			} else if diskUsage < l.config.local.RequiredDiskSpace() {
 				// Will no longer log to disk
 				lvl = disabledLevel
 				l.Warnf(
 					"Disk space is not enough to log into disk any longer, required disk space: %s, Available disk space: %s",
-					l.config.local.RequiredDiskSpace,
+					l.config.local.RequiredDiskSpace(),
 					diskUsage,
 				)
 			}
