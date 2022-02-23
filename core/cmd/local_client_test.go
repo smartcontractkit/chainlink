@@ -74,9 +74,9 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.NoError(t, err)
 
 	lcfg := logger.Config{
-		LogLevel:                zapcore.DebugLevel,
-		DiskMaxSizeBeforeRotate: int(logFileSize),
-		Dir:                     t.TempDir(),
+		LogLevel:        zapcore.DebugLevel,
+		DiskFileMaxSize: int(logFileSize),
+		Dir:             t.TempDir(),
 	}
 
 	tmpFile, err := os.CreateTemp(lcfg.Dir, "*")
@@ -413,8 +413,8 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
-				Dir:                     t.TempDir(),
-				DiskMaxSizeBeforeRotate: int(tt.logFileSize(t)),
+				Dir:             t.TempDir(),
+				DiskFileMaxSize: int(tt.logFileSize(t)),
 			}
 			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
