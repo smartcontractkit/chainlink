@@ -30,7 +30,6 @@ contract UpkeepCounter {
   }
 
   function performUpkeep(bytes calldata performData) external {
-    require(eligible(), "no longer eligible");
     if (initialBlock == 0) {
       initialBlock = block.number;
     }
