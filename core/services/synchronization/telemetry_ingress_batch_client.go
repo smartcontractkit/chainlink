@@ -1,19 +1,21 @@
 package synchronization
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 )
 
 //go:generate mockery --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
@@ -21,7 +23,7 @@ import (
 // TelemetryIngressBatchClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressBatchClient interface {
-	services.Service
+	services.ServiceCtx
 	Send(TelemPayload)
 }
 
@@ -29,7 +31,7 @@ type TelemetryIngressBatchClient interface {
 type NoopTelemetryIngressBatchClient struct{}
 
 // Start is a no-op
-func (NoopTelemetryIngressBatchClient) Start() error { return nil }
+func (NoopTelemetryIngressBatchClient) Start(context.Context) error { return nil }
 
 // Close is a no-op
 func (NoopTelemetryIngressBatchClient) Close() error { return nil }
@@ -89,7 +91,7 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 // an error and wsrpc will continue to retry the connection. Eventually when the ingress
 // server does come back up, wsrpc will establish the connection without any interaction
 // on behalf of the node operator.
-func (tc *telemetryIngressBatchClient) Start() error {
+func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 	return tc.StartOnce("TelemetryIngressBatchClient", func() error {
 		clientPrivKey, err := tc.getCSAPrivateKey()
 		if err != nil {
@@ -98,7 +100,7 @@ func (tc *telemetryIngressBatchClient) Start() error {
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 		if err != nil {
 			return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
 		}
