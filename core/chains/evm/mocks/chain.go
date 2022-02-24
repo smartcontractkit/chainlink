@@ -5,10 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	balancemonitor "github.com/smartcontractkit/chainlink/core/chains/evm/balancemonitor"
-
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-
 	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
 	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -21,6 +18,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	monitor "github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
+
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 )
 
@@ -30,15 +29,15 @@ type Chain struct {
 }
 
 // BalanceMonitor provides a mock function with given fields:
-func (_m *Chain) BalanceMonitor() balancemonitor.BalanceMonitor {
+func (_m *Chain) BalanceMonitor() monitor.BalanceMonitor {
 	ret := _m.Called()
 
-	var r0 balancemonitor.BalanceMonitor
-	if rf, ok := ret.Get(0).(func() balancemonitor.BalanceMonitor); ok {
+	var r0 monitor.BalanceMonitor
+	if rf, ok := ret.Get(0).(func() monitor.BalanceMonitor); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(balancemonitor.BalanceMonitor)
+			r0 = ret.Get(0).(monitor.BalanceMonitor)
 		}
 	}
 

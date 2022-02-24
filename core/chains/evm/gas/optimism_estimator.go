@@ -63,7 +63,7 @@ func NewOptimismEstimator(lggr logger.Logger, config Config, client optimismRPCC
 	}
 }
 
-func (o *optimismEstimator) Start() error {
+func (o *optimismEstimator) Start(context.Context) error {
 	return o.StartOnce("OptimismEstimator", func() error {
 		go o.run()
 		<-o.chInitialised
@@ -244,7 +244,7 @@ func NewOptimism2Estimator(lggr logger.Logger, config Config, client optimismRPC
 	}
 }
 
-func (o *optimism2Estimator) Start() error {
+func (o *optimism2Estimator) Start(context.Context) error {
 	return o.StartOnce("Optimism2Estimator", func() error {
 		go o.run()
 		<-o.chInitialised

@@ -69,15 +69,15 @@ func TestResolver_Jobs(t *testing.T) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobs", 0, 50).Return([]job.Job{
 					{
-						ID:                          1,
-						Name:                        null.StringFrom("job1"),
-						SchemaVersion:               1,
-						MaxTaskDuration:             models.Interval(1 * time.Second),
-						ExternalJobID:               externalJobID,
-						CreatedAt:                   f.Timestamp(),
-						Type:                        job.OffchainReporting,
-						PipelineSpecID:              plnSpecID,
-						OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{},
+						ID:              1,
+						Name:            null.StringFrom("job1"),
+						SchemaVersion:   1,
+						MaxTaskDuration: models.Interval(1 * time.Second),
+						ExternalJobID:   externalJobID,
+						CreatedAt:       f.Timestamp(),
+						Type:            job.OffchainReporting,
+						PipelineSpecID:  plnSpecID,
+						OCROracleSpec:   &job.OCROracleSpec{},
 						PipelineSpec: &pipeline.Spec{
 							DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 						},
@@ -175,14 +175,14 @@ func TestResolver_Job(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
-					ID:                          1,
-					Name:                        null.StringFrom("job1"),
-					SchemaVersion:               1,
-					MaxTaskDuration:             models.Interval(1 * time.Second),
-					ExternalJobID:               externalJobID,
-					CreatedAt:                   f.Timestamp(),
-					Type:                        job.OffchainReporting,
-					OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{},
+					ID:              1,
+					Name:            null.StringFrom("job1"),
+					SchemaVersion:   1,
+					MaxTaskDuration: models.Interval(1 * time.Second),
+					ExternalJobID:   externalJobID,
+					CreatedAt:       f.Timestamp(),
+					Type:            job.OffchainReporting,
+					OCROracleSpec:   &job.OCROracleSpec{},
 					PipelineSpec: &pipeline.Spec{
 						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 					},

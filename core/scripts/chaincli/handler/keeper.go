@@ -8,11 +8,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_vb_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 // Keeper is the keepers commands handler
@@ -40,7 +45,7 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 }
 
 func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, owners []common.Address) common.Address {
-	var registry *keeper.KeeperRegistry
+	var registry *keeper.KeeperRegistryVB
 	var registryAddr common.Address
 	var upkeepCount int64
 	if k.cfg.RegistryAddress != "" {
@@ -60,6 +65,18 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 		// Deploy keeper registry
 		registryAddr, registry = k.deployRegistry(ctx)
 		upkeepCount = 0
+	}
+
+	// Create Keeper Jobs on Nodes for Registry
+	for i, keeperAddr := range k.cfg.Keepers {
+		url := k.cfg.KeeperURLs[i]
+		email := k.cfg.KeeperEmails[i]
+		pwd := k.cfg.KeeperPasswords[i]
+		err := k.createKeeperJobOnExistingNode(url, email, pwd, registryAddr.Hex(), keeperAddr)
+		if err != nil {
+			log.Printf("Keeper Job not created for keeper %d: %s %s\n", i, url, keeperAddr)
+			log.Println("Please create it manually")
+		}
 	}
 
 	// Approve keeper registry
@@ -85,8 +102,8 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 	return registryAddr
 }
 
-func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
-	registryAddr, deployKeeperRegistryTx, registryInstance, err := keeper.DeployKeeperRegistry(k.buildTxOpts(ctx), k.client,
+func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistryVB) {
+	registryAddr, deployKeeperRegistryTx, registryInstance, err := keeper.DeployKeeperRegistryVB(k.buildTxOpts(ctx), k.client,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -98,6 +115,7 @@ func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.Ke
 		k.cfg.GasCeilingMultiplier,
 		big.NewInt(k.cfg.FallbackGasPrice),
 		big.NewInt(k.cfg.FallbackLinkPrice),
+		k.cfg.MustTakeTurns,
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
@@ -108,9 +126,9 @@ func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.Ke
 }
 
 // GetRegistry is used to attach to an existing registry
-func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
+func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistryVB) {
 	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
-	registryInstance, err := keeper.NewKeeperRegistry(
+	registryInstance, err := keeper.NewKeeperRegistryVB(
 		registryAddr,
 		k.client,
 	)
@@ -127,7 +145,8 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 			big.NewInt(k.cfg.StalenessSeconds),
 			k.cfg.GasCeilingMultiplier,
 			big.NewInt(k.cfg.FallbackGasPrice),
-			big.NewInt(k.cfg.FallbackLinkPrice))
+			big.NewInt(k.cfg.FallbackLinkPrice),
+			k.cfg.MustTakeTurns)
 		if err != nil {
 			log.Fatal("Registry config update: ", err)
 		}
@@ -140,17 +159,26 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 }
 
 // deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
-func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistry, existingCount int64) {
+func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistryVB, existingCount int64) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
 		fmt.Println()
 		// Deploy
-		upkeepAddr, deployUpkeepTx, _, err := upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
-			big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
-		)
+		var upkeepAddr common.Address
+		var deployUpkeepTx *types.Transaction
+		var err error
+		if k.cfg.UpkeepAverageEligibilityCadence > 0 {
+			upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(k.buildTxOpts(ctx), k.client,
+				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
+			)
+		} else {
+			upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(k.buildTxOpts(ctx), k.client,
+				big.NewInt(k.cfg.UpkeepTestRange), big.NewInt(k.cfg.UpkeepInterval),
+			)
+		}
 		if err != nil {
-			log.Fatal(i, ": DeployAbi failed - ", err)
+			log.Fatal(i, ": Deploy Upkeep failed - ", err)
 		}
 		k.waitDeployment(ctx, deployUpkeepTx)
 		log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
@@ -192,4 +220,25 @@ func (k *Keeper) keepers() ([]common.Address, []common.Address) {
 		fromAddrs = append(fromAddrs, k.fromAddr)
 	}
 	return addrs, fromAddrs
+}
+
+// createKeeperJobOnExistingNode connect to existing node to create keeper job
+func (k *Keeper) createKeeperJobOnExistingNode(url, email, password, registryAddr, nodeAddr string) error {
+	c := cfg{nodeURL: url}
+	sr := sessions.SessionRequest{Email: email, Password: password}
+	store := &cmd.MemoryCookieStore{}
+	lggr, close := logger.NewLogger()
+	defer close()
+	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
+	if _, err := tca.Authenticate(sr); err != nil {
+		log.Println("failed to authenticate: ", err)
+		return err
+	}
+	cl := cmd.NewAuthenticatedHTTPClient(c, tca, sr)
+
+	if err := k.createKeeperJob(cl, registryAddr, nodeAddr); err != nil {
+		log.Println("Failed to create keeper job: ", err)
+		return err
+	}
+	return nil
 }
