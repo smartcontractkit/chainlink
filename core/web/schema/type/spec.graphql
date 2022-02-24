@@ -80,14 +80,13 @@ type OCR2Spec {
     contractConfigConfirmations: Int
     contractConfigTrackerPollInterval: String
     createdAt: Time!
+    juelsPerFeeCoinSource: String
     ocrKeyBundleID: String
     monitoringEndpoint: String
     p2pBootstrapPeers: [String!]
     relay: String!
     relayConfig: Map!
     transmitterID: String
-    pluginType: String!
-    pluginConfig: Map!
 }
 
 type VRFSpec {

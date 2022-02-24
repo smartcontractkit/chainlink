@@ -477,12 +477,12 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
-	var ocrSpec job.OCROracleSpec
+	var ocrSpec job.OffchainReportingOracleSpec
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
 	require.NoError(t, err)
-	jb.OCROracleSpec = &ocrSpec
+	jb.OffchainreportingOracleSpec = &ocrSpec
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
-	jb.OCROracleSpec.TransmitterAddress = &key.Address
+	jb.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
 
 	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)

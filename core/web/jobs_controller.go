@@ -6,11 +6,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -18,9 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
@@ -108,13 +109,13 @@ func (jc *JobsController) Create(c *gin.Context) {
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, request.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetChains().EVM, request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
 		}
 	case job.OffchainReporting2:
-		jb, err = ocr2.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
+		jb, err = offchainreporting2.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting2() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
 			return

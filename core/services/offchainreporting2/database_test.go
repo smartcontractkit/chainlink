@@ -1,48 +1,41 @@
-package ocr2_test
+package offchainreporting2_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	offchainreporting "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/stretchr/testify/require"
 )
 
 var ctx = context.Background()
 
-func MustInsertOCROracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OCR2OracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OffchainReporting2OracleSpec {
 	t.Helper()
 
-	spec := job.OCR2OracleSpec{}
+	spec := job.OffchainReporting2OracleSpec{}
 	mockJuelsPerFeeCoinSource := `ds1          [type=bridge name=voter_turnout];
 	ds1_parse    [type=jsonparse path="one,two"];
 	ds1_multiply [type=multiply times=1.23];
 	ds1 -> ds1_parse -> ds1_multiply -> answer1;
 	answer1      [type=median index=0];`
-	config := median.PluginConfig{JuelsPerFeeCoinPipeline: mockJuelsPerFeeCoinSource}
-	jsonConfig, err := json.Marshal(config)
-	require.NoError(t, err)
-
-	require.NoError(t, db.Get(&spec, `INSERT INTO ocr2_oracle_specs (
-relay, relay_config, contract_id, p2p_bootstrap_peers, ocr_key_bundle_id, monitoring_endpoint, transmitter_id, 
-blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, plugin_type, plugin_config, created_at, updated_at) VALUES (
-'ethereum', '{}', $1, '{}', $2, $3, $4,
-0, 0, 0, 'median', $5, NOW(), NOW()
-) RETURNING *`, cltest.NewEIP55Address().String(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", transmitterAddress.String(), jsonConfig))
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting2_oracle_specs (created_at, updated_at, relay, relay_config, contract_id, p2p_bootstrap_peers, ocr_key_bundle_id, monitoring_endpoint, transmitter_id, blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline) VALUES (
+NOW(),NOW(), 'ethereum', '{}', $1,'{}',$2,$3,$4,0,0,0,$5
+) RETURNING *`, cltest.NewEIP55Address().String(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", transmitterAddress.String(), mockJuelsPerFeeCoinSource))
 	return spec
 }
 
@@ -61,11 +54,11 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.Address)
+	spec := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
 			HighestSentEpoch:     2,
@@ -82,7 +75,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
 			HighestSentEpoch:     3,
@@ -99,7 +92,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
 			HighestSentEpoch:     4,
@@ -110,7 +103,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		require.NoError(t, err)
 
 		// odb with different spec
-		db = ocr2.NewDB(sqlDB.DB, -1, lggr)
+		db = offchainreporting.NewDB(sqlDB.DB, -1, lggr)
 
 		readState, err := db.ReadState(ctx, configDigest)
 		require.NoError(t, err)
@@ -119,7 +112,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
 			HighestSentEpoch:     5,
@@ -152,11 +145,11 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.Address)
+	spec := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
 	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
@@ -168,7 +161,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest: testhelpers.MakeConfigDigest(t),
@@ -186,12 +179,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
 
-		db = ocr2.NewDB(sqlDB.DB, -1, lggr)
+		db = offchainreporting.NewDB(sqlDB.DB, -1, lggr)
 
 		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
@@ -217,10 +210,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	lggr := logger.TestLogger(t)
-	spec := MustInsertOCROracleSpec(t, sqlDB, key.Address)
-	spec2 := MustInsertOCROracleSpec(t, sqlDB, key.Address)
-	db := ocr2.NewDB(sqlDB.DB, spec.ID, lggr)
-	db2 := ocr2.NewDB(sqlDB.DB, spec2.ID, lggr)
+	spec := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
+	spec2 := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
+	db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+	db2 := offchainreporting.NewDB(sqlDB.DB, spec2.ID, lggr)
 	configDigest := testhelpers.MakeConfigDigest(t)
 
 	k := ocrtypes.ReportTimestamp{
@@ -410,7 +403,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
-		db = ocr2.NewDB(sqlDB.DB, spec2.ID, lggr)
+		db = offchainreporting.NewDB(sqlDB.DB, spec2.ID, lggr)
 		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)

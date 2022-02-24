@@ -1,4 +1,4 @@
-package ocr
+package offchainreporting
 
 import (
 	"testing"
@@ -40,9 +40,9 @@ answer1      [type=median index=0];
 				require.NoError(t, err)
 				// Should be able to jsonapi marshal/unmarshal the minimum spec.
 				// This ensures the UnmarshalJSON's defined on the fields handle a min spec correctly.
-				b, err := jsonapi.Marshal(os.OCROracleSpec)
+				b, err := jsonapi.Marshal(os.OffchainreportingOracleSpec)
 				require.NoError(t, err)
-				var r job.OCROracleSpec
+				var r job.OffchainReportingOracleSpec
 				err = jsonapi.Unmarshal(b, &r)
 				require.NoError(t, err)
 			},
@@ -76,7 +76,7 @@ answer1      [type=median index=0];
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, int(os.SchemaVersion))
-				assert.False(t, os.OCROracleSpec.IsBootstrapPeer)
+				assert.False(t, os.OffchainreportingOracleSpec.IsBootstrapPeer)
 			},
 		},
 		{
@@ -92,7 +92,7 @@ isBootstrapPeer    = true
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, int(os.SchemaVersion))
-				assert.True(t, os.OCROracleSpec.IsBootstrapPeer)
+				assert.True(t, os.OffchainreportingOracleSpec.IsBootstrapPeer)
 			},
 		},
 		{

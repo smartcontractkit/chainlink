@@ -24,7 +24,7 @@ func NewTestORM(t *testing.T, db *sqlx.DB, chainSet evm.ChainSet, pipelineORM pi
 func TestLoadEnvConfigVarsLocalOCR(t *testing.T) {
 	config := configtest.NewTestGeneralConfig(t)
 	chainConfig := evmtest.NewChainScopedConfig(t, config)
-	jobSpec := &OCROracleSpec{}
+	jobSpec := &OffchainReportingOracleSpec{}
 
 	jobSpec = LoadEnvConfigVarsLocalOCR(chainConfig, *jobSpec)
 

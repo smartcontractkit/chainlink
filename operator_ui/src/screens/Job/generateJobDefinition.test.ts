@@ -344,6 +344,7 @@ observationTimeout = "10s"
         contractID: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
         contractConfigConfirmations: 3,
         contractConfigTrackerPollInterval: '1m0s',
+        juelsPerFeeCoinSource: '1000000000',
         ocrKeyBundleID:
           '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
         monitoringEndpoint: 'https://monitoring.endpoint',
@@ -353,10 +354,6 @@ observationTimeout = "10s"
         relay: 'evm',
         relayConfig: {
           chainID: 1337,
-        },
-        pluginType: 'median',
-        pluginConfig: {
-          juelsPerFeeCoinSource: '1000000000',
         },
         transmitterID: '0x01010CaB43e77116c95745D219af1069fE050d7A',
       },
@@ -379,13 +376,13 @@ blockchainTimeout = "20s"
 contractID = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
 contractConfigConfirmations = 3
 contractConfigTrackerPollInterval = "1m0s"
+juelsPerFeeCoinSource = "1000000000"
 ocrKeyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
 monitoringEndpoint = "https://monitoring.endpoint"
 p2pBootstrapPeers = [
   "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
 ]
 relay = "evm"
-pluginType = "median"
 transmitterID = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
@@ -396,9 +393,6 @@ observationSource = """
 
 [relayConfig]
 chainID = 1_337
-
-[pluginConfig]
-juelsPerFeeCoinSource = "1000000000"
 `
 
     const output = generateJobDefinition(job)

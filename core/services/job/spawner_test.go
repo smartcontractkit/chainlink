@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -97,7 +97,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2 := new(mocks.Service)
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
-		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		dA := offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
 		delegateA := &delegate{jobA.Type, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), dA}
 		eventuallyB := cltest.NewAwaiter()
 		serviceB1 := new(mocks.Service)
@@ -105,7 +105,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB1.On("Start").Return(nil).Once()
 		serviceB2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
-		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		dB := offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
 		delegateB := &delegate{jobB.Type, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), dB}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
@@ -160,7 +160,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		d := offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
 		delegateA := &delegate{jobA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
@@ -196,7 +196,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		d := offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
 		delegateA := &delegate{jobA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,

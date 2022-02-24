@@ -23,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
@@ -323,7 +323,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -332,7 +332,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		sd := ocr.NewDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -355,7 +355,7 @@ ds1 -> ds1_parse;
 		isBootstrapPeer    = true
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -368,7 +368,7 @@ ds1 -> ds1_parse;
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
-		sd := ocr.NewDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -402,7 +402,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
 		config.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
 		config.Overrides.OCRTransmitterAddress = &tAddress
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -410,9 +410,9 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 		// Assert the override
-		assert.Equal(t, jb.OCROracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
+		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
 		// Assert that this is default
-		assert.Equal(t, models.Interval(20000000000), jb.OCROracleSpec.BlockchainTimeout)
+		assert.Equal(t, models.Interval(20000000000), jb.OffchainreportingOracleSpec.BlockchainTimeout)
 		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
 
 		// Required to create job spawner delegate.
@@ -420,7 +420,7 @@ ds1 -> ds1_parse;
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
-		sd := ocr.NewDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -439,7 +439,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -454,7 +454,7 @@ ds1 -> ds1_parse;
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
-		sd := ocr.NewDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -470,7 +470,7 @@ ds1 -> ds1_parse;
 
 	t.Run("test min bootstrap", func(t *testing.T) {
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -482,7 +482,7 @@ ds1 -> ds1_parse;
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
-		sd := ocr.NewDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -513,7 +513,7 @@ ds1 -> ds1_parse;
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 
-		sd := ocr.NewDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,

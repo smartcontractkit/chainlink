@@ -1,4 +1,4 @@
-package ocr
+package offchainreporting
 
 import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"

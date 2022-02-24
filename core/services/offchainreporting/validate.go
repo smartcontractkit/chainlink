@@ -1,4 +1,4 @@
-package ocr
+package offchainreporting
 
 import (
 	"time"
@@ -34,7 +34,7 @@ type ValidationConfig interface {
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job, error) {
 	var jb = job.Job{}
-	var spec job.OCROracleSpec
+	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return jb, errors.Wrap(err, "toml error on load")
@@ -49,7 +49,7 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 	if err != nil {
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
-	jb.OCROracleSpec = &spec
+	jb.OffchainreportingOracleSpec = &spec
 
 	if jb.Type != job.OffchainReporting {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", jb.Type)
@@ -63,7 +63,7 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		}
 	}
 
-	chain, err := chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+	chain, err := chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
 	if err != nil {
 		return jb, err
 	}
@@ -98,7 +98,7 @@ var (
 	}
 )
 
-func validateTimingParameters(cfg ValidationConfig, spec job.OCROracleSpec) error {
+func validateTimingParameters(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) error {
 	lc := toLocalConfig(cfg, spec)
 	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
@@ -123,8 +123,8 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 		return errors.New("no pipeline specified")
 	}
 	var observationTimeout time.Duration
-	if spec.OCROracleSpec.ObservationTimeout != 0 {
-		observationTimeout = spec.OCROracleSpec.ObservationTimeout.Duration()
+	if spec.OffchainreportingOracleSpec.ObservationTimeout != 0 {
+		observationTimeout = spec.OffchainreportingOracleSpec.ObservationTimeout.Duration()
 	} else {
 		observationTimeout = config.OCRObservationTimeout()
 	}

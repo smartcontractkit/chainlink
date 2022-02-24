@@ -29,7 +29,7 @@ func NewDiscovererDatabase(db *sql.DB, peerID p2ppeer.ID) *DiscovererDatabase {
 // announcement (value).
 func (d *DiscovererDatabase) StoreAnnouncement(ctx context.Context, peerID string, ann []byte) error {
 	_, err := d.db.ExecContext(ctx, `
-INSERT INTO ocr_discoverer_announcements (local_peer_id, remote_peer_id, ann, created_at, updated_at)
+INSERT INTO offchainreporting_discoverer_announcements (local_peer_id, remote_peer_id, ann, created_at, updated_at)
 VALUES ($1,$2,$3,NOW(),NOW()) ON CONFLICT (local_peer_id, remote_peer_id) DO UPDATE SET 
 ann = EXCLUDED.ann,
 updated_at = EXCLUDED.updated_at
@@ -41,7 +41,7 @@ updated_at = EXCLUDED.updated_at
 // keyed by each announcement's corresponding peer ID.
 func (d *DiscovererDatabase) ReadAnnouncements(ctx context.Context, peerIDs []string) (map[string][]byte, error) {
 	rows, err := d.db.QueryContext(ctx, `
-SELECT remote_peer_id, ann FROM ocr_discoverer_announcements WHERE remote_peer_id = ANY($1) AND local_peer_id = $2`, pq.Array(peerIDs), d.peerID)
+SELECT remote_peer_id, ann FROM offchainreporting_discoverer_announcements WHERE remote_peer_id = ANY($1) AND local_peer_id = $2`, pq.Array(peerIDs), d.peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "DiscovererDatabase failed to ReadAnnouncements")
 	}

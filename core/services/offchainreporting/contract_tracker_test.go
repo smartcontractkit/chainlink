@@ -1,4 +1,4 @@
-package ocr_test
+package offchainreporting_test
 
 import (
 	"context"
@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	ocrmocks "github.com/smartcontractkit/chainlink/core/services/ocr/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	ocrmocks "github.com/smartcontractkit/chainlink/core/services/offchainreporting/mocks"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +46,7 @@ type contractTrackerUni struct {
 	lb      *logmocks.Broadcaster
 	hb      *htmocks.HeadBroadcaster
 	ec      *evmmocks.Client
-	tracker *ocr.OCRContractTracker
+	tracker *offchainreporting.OCRContractTracker
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
@@ -80,7 +80,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.ec = cltest.NewEthClientMock(t)
 
 	db := pgtest.NewSqlxDB(t)
-	uni.tracker = ocr.NewOCRContractTracker(
+	uni.tracker = offchainreporting.NewOCRContractTracker(
 		contract,
 		filterer,
 		nil,
@@ -437,7 +437,7 @@ func Test_OCRContractTracker_IsLaterThan(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res := ocr.IsLaterThan(test.incoming, test.existing)
+			res := offchainreporting.IsLaterThan(test.incoming, test.existing)
 			assert.Equal(t, test.expected, res)
 		})
 	}

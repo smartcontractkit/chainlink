@@ -8,9 +8,12 @@ import (
 	"strings"
 	"time"
 
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+
+	"github.com/pkg/errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
 
@@ -19,7 +22,6 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -98,37 +100,37 @@ var (
 )
 
 type Job struct {
-	ID                   int32     `toml:"-"`
-	ExternalJobID        uuid.UUID `toml:"externalJobID"`
-	OCROracleSpecID      *int32
-	OCROracleSpec        *OCROracleSpec
-	OCR2OracleSpecID     *int32
-	OCR2OracleSpec       *OCR2OracleSpec
-	CronSpecID           *int32
-	CronSpec             *CronSpec
-	DirectRequestSpecID  *int32
-	DirectRequestSpec    *DirectRequestSpec
-	FluxMonitorSpecID    *int32
-	FluxMonitorSpec      *FluxMonitorSpec
-	KeeperSpecID         *int32
-	KeeperSpec           *KeeperSpec
-	VRFSpecID            *int32
-	VRFSpec              *VRFSpec
-	WebhookSpecID        *int32
-	WebhookSpec          *WebhookSpec
-	BlockhashStoreSpecID *int32
-	BlockhashStoreSpec   *BlockhashStoreSpec
-	BootstrapSpec        *BootstrapSpec
-	BootstrapSpecID      *int32
-	PipelineSpecID       int32
-	PipelineSpec         *pipeline.Spec
-	JobSpecErrors        []SpecError
-	Type                 Type
-	SchemaVersion        uint32
-	Name                 null.String
-	MaxTaskDuration      models.Interval
-	Pipeline             pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt            time.Time
+	ID                             int32     `toml:"-"`
+	ExternalJobID                  uuid.UUID `toml:"externalJobID"`
+	OffchainreportingOracleSpecID  *int32
+	OffchainreportingOracleSpec    *OffchainReportingOracleSpec
+	Offchainreporting2OracleSpecID *int32
+	Offchainreporting2OracleSpec   *OffchainReporting2OracleSpec
+	CronSpecID                     *int32
+	CronSpec                       *CronSpec
+	DirectRequestSpecID            *int32
+	DirectRequestSpec              *DirectRequestSpec
+	FluxMonitorSpecID              *int32
+	FluxMonitorSpec                *FluxMonitorSpec
+	KeeperSpecID                   *int32
+	KeeperSpec                     *KeeperSpec
+	VRFSpecID                      *int32
+	VRFSpec                        *VRFSpec
+	WebhookSpecID                  *int32
+	WebhookSpec                    *WebhookSpec
+	BlockhashStoreSpecID           *int32
+	BlockhashStoreSpec             *BlockhashStoreSpec
+	BootstrapSpec                  *BootstrapSpec
+	BootstrapSpecID                *int32
+	PipelineSpecID                 int32
+	PipelineSpec                   *pipeline.Spec
+	JobSpecErrors                  []SpecError
+	Type                           Type
+	SchemaVersion                  uint32
+	Name                           null.String
+	MaxTaskDuration                models.Interval
+	Pipeline                       pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt                      time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -200,8 +202,7 @@ func (pr *PipelineRun) SetID(value string) error {
 	return nil
 }
 
-// OCROracleSpec defines the job spec for OCR jobs.
-type OCROracleSpec struct {
+type OffchainReportingOracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
 	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
@@ -231,13 +232,11 @@ type OCROracleSpec struct {
 	UpdatedAt                                 time.Time `toml:"-"`
 }
 
-// GetID is a getter function that returns the ID of the spec.
-func (s OCROracleSpec) GetID() string {
+func (s OffchainReportingOracleSpec) GetID() string {
 	return fmt.Sprintf("%v", s.ID)
 }
 
-// SetID is a setter function that sets the ID of the spec.
-func (s *OCROracleSpec) SetID(value string) error {
+func (s *OffchainReportingOracleSpec) SetID(value string) error {
 	ID, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		return err
@@ -246,22 +245,18 @@ func (s *OCROracleSpec) SetID(value string) error {
 	return nil
 }
 
-// JSONConfig is a Go mapping for JSON based database properties.
-type JSONConfig map[string]interface{}
+type RelayConfig map[string]interface{}
 
-// Bytes returns the raw bytes
-func (r JSONConfig) Bytes() []byte {
+func (r RelayConfig) Bytes() []byte {
 	b, _ := json.Marshal(r)
 	return b
 }
 
-// Value returns this instance serialized for database storage.
-func (r JSONConfig) Value() (driver.Value, error) {
+func (r RelayConfig) Value() (driver.Value, error) {
 	return json.Marshal(r)
 }
 
-// Scan reads the database value and returns an instance.
-func (r *JSONConfig) Scan(value interface{}) error {
+func (r *RelayConfig) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("expected bytes got %T", b)
@@ -269,21 +264,12 @@ func (r *JSONConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
-// OCR2PluginType defines supported OCR2 plugin types.
-type OCR2PluginType string
-
-const (
-	// Median refers to the median.Median type
-	Median OCR2PluginType = "median"
-)
-
-// OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
-type OCR2OracleSpec struct {
+type OffchainReporting2OracleSpec struct {
 	ID                                int32              `toml:"-"`
 	ContractID                        string             `toml:"contractID"`
 	Relay                             relaytypes.Network `toml:"relay"`
-	RelayConfig                       JSONConfig         `toml:"relayConfig"`
+	RelayConfig                       RelayConfig        `toml:"relayConfig"`
 	P2PBootstrapPeers                 pq.StringArray     `toml:"p2pBootstrapPeers"`
 	OCRKeyBundleID                    null.String        `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String        `toml:"monitoringEndpoint"`
@@ -291,19 +277,16 @@ type OCR2OracleSpec struct {
 	BlockchainTimeout                 models.Interval    `toml:"blockchainTimeout"`
 	ContractConfigTrackerPollInterval models.Interval    `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16             `toml:"contractConfigConfirmations"`
-	PluginConfig                      JSONConfig         `toml:"pluginConfig"`
-	PluginType                        OCR2PluginType     `toml:"pluginType"`
+	JuelsPerFeeCoinPipeline           string             `toml:"juelsPerFeeCoinSource"`
 	CreatedAt                         time.Time          `toml:"-"`
 	UpdatedAt                         time.Time          `toml:"-"`
 }
 
-// GetID is a getter function that returns the ID of the spec.
-func (s OCR2OracleSpec) GetID() string {
+func (s OffchainReporting2OracleSpec) GetID() string {
 	return fmt.Sprintf("%v", s.ID)
 }
 
-// SetID is a setter function that sets the ID of the spec.
-func (s *OCR2OracleSpec) SetID(value string) error {
+func (s *OffchainReporting2OracleSpec) SetID(value string) error {
 	ID, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		return err
@@ -485,7 +468,7 @@ type BootstrapSpec struct {
 	ID                                int32              `toml:"-"`
 	ContractID                        string             `toml:"contractID"`
 	Relay                             relaytypes.Network `toml:"relay"`
-	RelayConfig                       JSONConfig
+	RelayConfig                       RelayConfig
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
 	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
 	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
@@ -495,8 +478,8 @@ type BootstrapSpec struct {
 }
 
 // AsOCR2Spec transforms the bootstrap spec into a generic OCR2 format to enable code sharing between specs.
-func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
-	return OCR2OracleSpec{
+func (s BootstrapSpec) AsOCR2Spec() OffchainReporting2OracleSpec {
+	return OffchainReporting2OracleSpec{
 		ID:                                s.ID,
 		ContractID:                        s.ContractID,
 		Relay:                             s.Relay,

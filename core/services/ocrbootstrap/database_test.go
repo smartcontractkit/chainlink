@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
 )
 
 var ctx = context.Background()

@@ -7,10 +7,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jackc/pgconn"
-	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -22,8 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/jackc/pgconn"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 )
 
 var (
@@ -145,71 +147,71 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.FluxMonitorSpecID = &specID
 		case OffchainReporting:
 			var specID int32
-			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
-				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
+			if jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID != nil {
+				_, err := o.keyStore.OCR().Get(jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
-			if jb.OCROracleSpec.TransmitterAddress != nil {
-				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
+			if jb.OffchainreportingOracleSpec.TransmitterAddress != nil {
+				_, err := o.keyStore.Eth().Get(jb.OffchainreportingOracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCROracleSpec.TransmitterAddress)
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OffchainreportingOracleSpec.TransmitterAddress)
 				}
 			}
 
-			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
+			sql := `INSERT INTO offchainreporting_oracle_specs (contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
 					observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id,
 					created_at, updated_at, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout)
 			VALUES (:contract_address, :p2p_bootstrap_peers, :is_bootstrap_peer, :encrypted_ocr_key_bundle_id, :transmitter_address,
 					:observation_timeout, :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id,
 					NOW(), NOW(), :database_timeout, :observation_grace_period, :contract_transmitter_transmit_timeout)
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCROracleSpec)
+			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OffchainreportingOracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec")
 			}
-			jb.OCROracleSpecID = &specID
+			jb.OffchainreportingOracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
-			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
-				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
+			if jb.Offchainreporting2OracleSpec.OCRKeyBundleID.Valid {
+				_, err := o.keyStore.OCR2().Get(jb.Offchainreporting2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.Offchainreporting2OracleSpec.OCRKeyBundleID)
 				}
 			}
-			if jb.OCR2OracleSpec.TransmitterID.Valid {
-				switch jb.OCR2OracleSpec.Relay {
+			if jb.Offchainreporting2OracleSpec.TransmitterID.Valid {
+				switch jb.Offchainreporting2OracleSpec.Relay {
 				case relaytypes.EVM:
-					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
 					}
 				case relaytypes.Solana:
-					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					_, err := o.keyStore.Solana().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
 					}
 				case relaytypes.Terra:
-					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
+					_, err := o.keyStore.Terra().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
 					}
 				}
 			}
 
-			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
-					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
+			sql := `INSERT INTO offchainreporting2_oracle_specs (contract_id, relay, relay_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
+					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline,
 					created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2p_bootstrap_peers, :ocr_key_bundle_id, :transmitter_id,
-					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
+			VALUES (:contract_id, :relay, :relay_config, :p2p_bootstrap_peers, :ocr_key_bundle_id, :transmitter_id,
+					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations, :juels_per_fee_coin_pipeline,
 					NOW(), NOW())
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCR2OracleSpec)
+			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.Offchainreporting2OracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
 			}
-			jb.OCR2OracleSpecID = &specID
+			jb.Offchainreporting2OracleSpecID = &specID
 		case Keeper:
 			var specID int32
 			sql := `INSERT INTO keeper_specs (contract_address, from_address, evm_chain_id, created_at, updated_at)
@@ -318,9 +320,9 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, offchainreporting_oracle_spec_id, offchainreporting2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, created_at)
-		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :offchainreporting_oracle_spec_id, :offchainreporting2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, NOW())
 		RETURNING *;`
 	return q.GetNamed(query, job, job)
@@ -334,8 +336,8 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
 				pipeline_spec_id,
-				ocr_oracle_spec_id,
-				ocr2_oracle_spec_id,
+				offchainreporting_oracle_spec_id,
+				offchainreporting2_oracle_spec_id,
 				keeper_spec_id,
 				cron_spec_id,
 				flux_monitor_spec_id,
@@ -346,10 +348,10 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 				bootstrap_spec_id
 		),
 		deleted_oracle_specs AS (
-			DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)
+			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
 		),
 		deleted_oracle2_specs AS (
-			DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)
+			DELETE FROM offchainreporting2_oracle_specs WHERE id IN (SELECT offchainreporting2_oracle_spec_id FROM deleted_jobs)
 		),
 		deleted_keeper_specs AS (
 			DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
@@ -470,16 +472,16 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 }
 
 func (o *orm) LoadEnvConfigVars(jb *Job) error {
-	if jb.OCROracleSpec != nil {
-		ch, err := o.chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+	if jb.OffchainreportingOracleSpec != nil {
+		ch, err := o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
 		if err != nil {
 			return err
 		}
-		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), o.keyStore.P2P(), *jb.OCROracleSpec)
+		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), o.keyStore.P2P(), *jb.OffchainreportingOracleSpec)
 		if err != nil {
 			return err
 		}
-		jb.OCROracleSpec = newSpec
+		jb.OffchainreportingOracleSpec = newSpec
 	} else if jb.VRFSpec != nil {
 		ch, err := o.chainSet.Get(jb.VRFSpec.EVMChainID.ToInt())
 		if err != nil {
@@ -542,8 +544,7 @@ type OCRSpecConfig interface {
 	OCRKeyBundleID() (string, error)
 }
 
-// LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSpec {
+func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeoutEnv = true
 		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
@@ -579,8 +580,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 	return &os
 }
 
-// LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
-func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
+func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OffchainReportingOracleSpec) (*OffchainReportingOracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := cfg.OCRTransmitterAddress()
 		if errors.Cause(err) != config.ErrUnset {
@@ -632,7 +632,7 @@ func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) 
 		stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.id = jobs.ocr_oracle_spec_id
+LEFT JOIN offchainreporting_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.id = jobs.offchainreporting_oracle_spec_id
 LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.id = jobs.flux_monitor_spec_id
 WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
 `
@@ -936,8 +936,8 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "PipelineSpec", "pipeline_specs", &job.PipelineSpecID),
 		loadJobType(tx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
 		loadJobType(tx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),
-		loadJobType(tx, job, "OCROracleSpec", "ocr_oracle_specs", job.OCROracleSpecID),
-		loadJobType(tx, job, "OCR2OracleSpec", "ocr2_oracle_specs", job.OCR2OracleSpecID),
+		loadJobType(tx, job, "OffchainreportingOracleSpec", "offchainreporting_oracle_specs", job.OffchainreportingOracleSpecID),
+		loadJobType(tx, job, "Offchainreporting2OracleSpec", "offchainreporting2_oracle_specs", job.Offchainreporting2OracleSpecID),
 		loadJobType(tx, job, "KeeperSpec", "keeper_specs", job.KeeperSpecID),
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),

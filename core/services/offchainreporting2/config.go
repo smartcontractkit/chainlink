@@ -1,12 +1,11 @@
-package ocr2
+package offchainreporting2
 
 import (
 	"time"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 // Config contains OCR2 configurations for a job.
@@ -17,7 +16,7 @@ type Config interface {
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
-func ToLocalConfig(config Config, spec job.OCR2OracleSpec) types.LocalConfig {
+func ToLocalConfig(config Config, spec job.OffchainReporting2OracleSpec) types.LocalConfig {
 	var (
 		blockchainTimeout     = time.Duration(spec.BlockchainTimeout)
 		ccConfirmations       = spec.ContractConfigConfirmations

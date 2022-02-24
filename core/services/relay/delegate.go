@@ -91,7 +91,7 @@ type OCR2ProviderArgs struct {
 	ContractID      string
 	TransmitterID   null.String
 	Relay           types.Network
-	RelayConfig     job.JSONConfig
+	RelayConfig     job.RelayConfig
 	IsBootstrapPeer bool
 }
 
