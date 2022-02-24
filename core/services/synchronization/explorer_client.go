@@ -56,7 +56,10 @@ type ExplorerClient interface {
 
 type NoopExplorerClient struct{}
 
-func (NoopExplorerClient) Url() url.URL             { return url.URL{} }
+// Url always returns underlying url.
+func (NoopExplorerClient) Url() url.URL { return url.URL{} }
+
+// Status always returns ConnectionStatusDisconnected.
 func (NoopExplorerClient) Status() ConnectionStatus { return ConnectionStatusDisconnected }
 
 // Start is a no-op
