@@ -186,7 +186,7 @@ func TestJob(t *testing.T) {
 			name: "ocr spec",
 			job: job.Job{
 				ID: 1,
-				OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{
+				OCROracleSpec: &job.OCROracleSpec{
 					ContractAddress:                        contractAddress,
 					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					IsBootstrapPeer:                        true,
