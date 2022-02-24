@@ -3,8 +3,9 @@
 package mocks
 
 import (
-	offchainaggregator "github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	mock "github.com/stretchr/testify/mock"
+
+	offchainaggregator "github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 )

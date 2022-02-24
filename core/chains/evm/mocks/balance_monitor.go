@@ -3,9 +3,8 @@
 package mocks
 
 import (
-	assets "github.com/smartcontractkit/chainlink/core/assets"
-
 	common "github.com/ethereum/go-ethereum/common"
+	assets "github.com/smartcontractkit/chainlink/core/assets"
 
 	context "context"
 
