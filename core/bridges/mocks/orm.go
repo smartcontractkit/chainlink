@@ -151,6 +151,29 @@ func (_m *ORM) FindBridge(name bridges.BridgeName) (bridges.BridgeType, error) {
 	return r0, r1
 }
 
+// FindBridges provides a mock function with given fields: name
+func (_m *ORM) FindBridges(name []bridges.BridgeName) ([]bridges.BridgeType, error) {
+	ret := _m.Called(name)
+
+	var r0 []bridges.BridgeType
+	if rf, ok := ret.Get(0).(func([]bridges.BridgeName) []bridges.BridgeType); ok {
+		r0 = rf(name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]bridges.BridgeType)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]bridges.BridgeName) error); ok {
+		r1 = rf(name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindExternalInitiator provides a mock function with given fields: eia
 func (_m *ORM) FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error) {
 	ret := _m.Called(eia)
