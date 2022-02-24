@@ -292,10 +292,10 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)
-	var os job.OffchainReportingOracleSpec
+	var os job.OCROracleSpec
 	err = toml.Unmarshal([]byte(sp), &os)
 	require.NoError(t, err)
-	jb.OffchainreportingOracleSpec = &os
+	jb.OCROracleSpec = &os
 
 	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
