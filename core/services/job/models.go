@@ -200,6 +200,7 @@ func (pr *PipelineRun) SetID(value string) error {
 	return nil
 }
 
+// OCROracleSpec defines the job spec for OCR jobs.
 type OCROracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
@@ -230,10 +231,12 @@ type OCROracleSpec struct {
 	UpdatedAt                                 time.Time `toml:"-"`
 }
 
+// GetID is a getter function that returns the ID of the spec.
 func (s OCROracleSpec) GetID() string {
 	return fmt.Sprintf("%v", s.ID)
 }
 
+// SetID is a setter function that sets the ID of the spec.
 func (s *OCROracleSpec) SetID(value string) error {
 	ID, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
@@ -243,17 +246,21 @@ func (s *OCROracleSpec) SetID(value string) error {
 	return nil
 }
 
+// JSONConfig is a Go mapping for JSON based database properties.
 type JSONConfig map[string]interface{}
 
+// Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
 	b, _ := json.Marshal(r)
 	return b
 }
 
+// Value returns this instance serialized for database storage.
 func (r JSONConfig) Value() (driver.Value, error) {
 	return json.Marshal(r)
 }
 
+// Scan reads the database value and returns an instance.
 func (r *JSONConfig) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
@@ -262,12 +269,15 @@ func (r *JSONConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
+// OCR2PluginType defines supported OCR2 plugin types.
 type OCR2PluginType string
 
 const (
+	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
 )
 
+// OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
 	ID                                int32              `toml:"-"`
@@ -287,10 +297,12 @@ type OCR2OracleSpec struct {
 	UpdatedAt                         time.Time          `toml:"-"`
 }
 
+// GetID is a getter function that returns the ID of the spec.
 func (s OCR2OracleSpec) GetID() string {
 	return fmt.Sprintf("%v", s.ID)
 }
 
+// SetID is a setter function that sets the ID of the spec.
 func (s *OCR2OracleSpec) SetID(value string) error {
 	ID, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {

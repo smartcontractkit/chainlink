@@ -542,6 +542,7 @@ type OCRSpecConfig interface {
 	OCRKeyBundleID() (string, error)
 }
 
+// LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
 func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeoutEnv = true
@@ -578,6 +579,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 	return &os
 }
 
+// LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := cfg.OCRTransmitterAddress()

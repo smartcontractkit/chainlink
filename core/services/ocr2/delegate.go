@@ -69,6 +69,7 @@ func (Delegate) OnJobDeleted(spec job.Job) {}
 func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
+// ServicesForSpec returns the OCR2 services that need to run for this job
 func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.Service, error) {
 	spec := jobSpec.OCR2OracleSpec
 	if spec == nil {
