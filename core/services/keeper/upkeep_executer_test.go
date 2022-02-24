@@ -165,12 +165,12 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
 				expectedGasPrice := bigmath.Div(
-					bigmath.Mul(baseFeePerGas, 100+config.KeeperBaseFeeBufferPercent()),
+					bigmath.Mul(baseFeePerGas.ToInt(), 100+config.KeeperBaseFeeBufferPercent()),
 					100,
 				)
-				assert.True(t, bigmath.Equal(callArgs.GasPrice, expectedGasPrice))
-				assert.Equal(t, 650_000, callArgs.Gas)
-				return true
+
+				return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
+					650_000 == callArgs.Gas
 			},
 			checkUpkeepResponse,
 		)
