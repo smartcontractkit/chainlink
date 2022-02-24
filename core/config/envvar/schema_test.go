@@ -116,6 +116,7 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperDefaultTransactionQueueDepth":             "KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"KeeperGasPriceBufferPercent":                    "KEEPER_GAS_PRICE_BUFFER_PERCENT",
 		"KeeperGasTipCapBufferPercent":                   "KEEPER_GAS_TIP_CAP_BUFFER_PERCENT",
+		"KeeperBaseFeeBufferPercent":                     "KEEPER_BASE_FEE_BUFFER_PERCENT",
 		"KeeperMaximumGracePeriod":                       "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperRegistryCheckGasOverhead":                 "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
 		"KeeperRegistryPerformGasOverhead":               "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
