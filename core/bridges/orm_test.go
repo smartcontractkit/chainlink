@@ -47,9 +47,17 @@ func TestORM_FindBridges(t *testing.T) {
 	require.Equal(t, 1, len(bts))
 	require.Equal(t, "bridge1", bts[0].Name.String())
 
+	// One invalid bridge errors
 	bts, err = orm.FindBridges([]bridges.BridgeName{"bridge1", "bridgeX"})
-	require.Error(t, err)
-	t.Log(bts, err)
+	require.Error(t, err, bts)
+
+	// All invalid bridges error
+	bts, err = orm.FindBridges([]bridges.BridgeName{"bridgeY", "bridgeX"})
+	require.Error(t, err, bts)
+
+	// Requires at least one bridge
+	bts, err = orm.FindBridges([]bridges.BridgeName{})
+	require.Error(t, err, bts)
 }
 
 func TestORM_FindBridge(t *testing.T) {
