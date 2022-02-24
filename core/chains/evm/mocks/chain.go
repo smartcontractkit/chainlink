@@ -5,10 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	monitor "github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
-
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-
 	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
 	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -20,6 +17,8 @@ import (
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
+
+	monitor "github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 )

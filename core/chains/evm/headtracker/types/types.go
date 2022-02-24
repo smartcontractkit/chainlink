@@ -51,7 +51,7 @@ type HeadBroadcasterRegistry interface {
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 //go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
-	services.Service
+	services.ServiceCtx
 	BroadcastNewLongestChain(head *evmtypes.Head)
 	HeadBroadcasterRegistry
 }

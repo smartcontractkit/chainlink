@@ -652,7 +652,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, errors.New("something exploded")).Once()
 
-		err = eb.Start()
+		err = eb.Start(testutils.Context(t))
 		require.Error(t, err)
 		defer eb.Close()
 		require.Contains(t, err.Error(), "something exploded")
@@ -683,7 +683,7 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, nil).Once()
 
-		require.NoError(t, eb.Start())
+		require.NoError(t, eb.Start(testutils.Context(t)))
 		defer eb.Close()
 
 		// Check keyState to make sure it has correct nonce assigned

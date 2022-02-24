@@ -30,7 +30,7 @@ type (
 	BalanceMonitor interface {
 		httypes.HeadTrackable
 		GetEthBalance(gethCommon.Address) *assets.Eth
-		services.Service
+		services.ServiceCtx
 	}
 
 	balanceMonitor struct {
@@ -63,10 +63,10 @@ func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, log
 	return bm
 }
 
-func (bm *balanceMonitor) Start() error {
+func (bm *balanceMonitor) Start(ctx context.Context) error {
 	return bm.StartOnce("BalanceMonitor", func() error {
 		// Always query latest balance on start
-		(&worker{bm}).Work()
+		(&worker{bm}).WorkCtx(ctx)
 		return nil
 	})
 }
@@ -159,6 +159,11 @@ func (*worker) Name() string {
 }
 
 func (w *worker) Work() {
+	// Used with SleeperTask
+	w.WorkCtx(context.Background())
+}
+
+func (w *worker) WorkCtx(ctx context.Context) {
 	keys, err := w.bm.ethKeyStore.SendingKeys()
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
@@ -170,7 +175,7 @@ func (w *worker) Work() {
 	for _, key := range keys {
 		go func(k ethkey.KeyV2) {
 			defer wg.Done()
-			w.checkAccountBalance(k)
+			w.checkAccountBalance(ctx, k)
 		}(key)
 	}
 	wg.Wait()
@@ -179,8 +184,8 @@ func (w *worker) Work() {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
-	ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
+func (w *worker) checkAccountBalance(ctx context.Context, k ethkey.KeyV2) {
+	ctx, cancel := context.WithTimeout(ctx, ethFetchTimeout)
 	defer cancel()
 
 	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address.Address(), nil)
@@ -203,7 +208,9 @@ func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error                                               { return nil }
+
+// Start does noop for NullBalanceMonitor.
+func (*NullBalanceMonitor) Start(context.Context) error                                { return nil }
 func (*NullBalanceMonitor) Close() error                                               { return nil }
 func (*NullBalanceMonitor) Ready() error                                               { return nil }
 func (*NullBalanceMonitor) Healthy() error                                             { return nil }

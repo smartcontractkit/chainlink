@@ -7,12 +7,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func Test_OptimismEstimator(t *testing.T) {
@@ -37,7 +39,7 @@ func Test_OptimismEstimator(t *testing.T) {
 			res.L2GasPrice = big.NewInt(142)
 		})
 
-		require.NoError(t, o.Start())
+		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { require.NoError(t, o.Close()) })
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit)
 		require.NoError(t, err)
@@ -57,7 +59,7 @@ func Test_OptimismEstimator(t *testing.T) {
 
 		client.On("Call", mock.Anything, "rollup_gasPrices").Return(errors.New("kaboom"))
 
-		require.NoError(t, o.Start())
+		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { require.NoError(t, o.Close()) })
 
 		_, _, err := o.GetLegacyGas(calldata, gasLimit)
@@ -96,7 +98,7 @@ func Test_Optimism2Estimator(t *testing.T) {
 			(*big.Int)(res).SetInt64(42)
 		})
 
-		require.NoError(t, o.Start())
+		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { require.NoError(t, o.Close()) })
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit)
 		require.NoError(t, err)
@@ -116,7 +118,7 @@ func Test_Optimism2Estimator(t *testing.T) {
 
 		client.On("Call", mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
 
-		require.NoError(t, o.Start())
+		require.NoError(t, o.Start(testutils.Context(t)))
 		t.Cleanup(func() { require.NoError(t, o.Close()) })
 
 		_, _, err := o.GetLegacyGas(calldata, gasLimit)
