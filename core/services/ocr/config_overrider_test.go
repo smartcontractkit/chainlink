@@ -1,4 +1,4 @@
-package offchainreporting_test
+package ocr_test
 
 import (
 	"math"
@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/mock"
@@ -20,7 +20,7 @@ import (
 )
 
 type configOverriderUni struct {
-	overrider       *offchainreporting.ConfigOverriderImpl
+	overrider       *ocr.ConfigOverriderImpl
 	contractAddress ethkey.EIP55Address
 }
 
@@ -28,9 +28,9 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 	var testLogger = logger.TestLogger(t)
 	contractAddress := cltest.NewEIP55Address()
 
-	flags := &offchainreporting.ContractFlags{FlagsInterface: flagsContract}
+	flags := &ocr.ContractFlags{FlagsInterface: flagsContract}
 	var err error
-	uni.overrider, err = offchainreporting.NewConfigOverriderImpl(
+	uni.overrider, err = ocr.NewConfigOverriderImpl(
 		testLogger,
 		contractAddress,
 		flags,
@@ -142,8 +142,8 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	t.Run("Errors if flags contract is missing", func(t *testing.T) {
 		var testLogger = logger.TestLogger(t)
 		contractAddress := cltest.NewEIP55Address()
-		flags := &offchainreporting.ContractFlags{FlagsInterface: nil}
-		_, err := offchainreporting.NewConfigOverriderImpl(
+		flags := &ocr.ContractFlags{FlagsInterface: nil}
+		_, err := ocr.NewConfigOverriderImpl(
 			testLogger,
 			contractAddress,
 			flags,
@@ -159,7 +159,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		flagsContract.Test(t)
 		flagsContract.On("GetFlags", mock.Anything, mock.Anything).
 			Return([]bool{true, true}, nil)
-		flags := &offchainreporting.ContractFlags{FlagsInterface: flagsContract}
+		flags := &ocr.ContractFlags{FlagsInterface: flagsContract}
 
 		address1, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(10000)).Hex())
 		require.NoError(t, err)
@@ -167,13 +167,13 @@ func Test_OCRConfigOverrider(t *testing.T) {
 		address2, err := ethkey.NewEIP55Address(common.BigToAddress(big.NewInt(1234567890)).Hex())
 		require.NoError(t, err)
 
-		overrider1a, err := offchainreporting.NewConfigOverriderImpl(testLogger, address1, flags, nil)
+		overrider1a, err := ocr.NewConfigOverriderImpl(testLogger, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider1b, err := offchainreporting.NewConfigOverriderImpl(testLogger, address1, flags, nil)
+		overrider1b, err := ocr.NewConfigOverriderImpl(testLogger, address1, flags, nil)
 		require.NoError(t, err)
 
-		overrider2, err := offchainreporting.NewConfigOverriderImpl(testLogger, address2, flags, nil)
+		overrider2, err := ocr.NewConfigOverriderImpl(testLogger, address2, flags, nil)
 		require.NoError(t, err)
 
 		require.Equal(t, overrider1a.DeltaCFromAddress, time.Duration(85600000000000))

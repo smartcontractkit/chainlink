@@ -1,4 +1,4 @@
-package offchainreporting_test
+package ocr_test
 
 import (
 	"testing"
