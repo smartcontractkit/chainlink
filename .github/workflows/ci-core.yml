@@ -1,6 +1,6 @@
-name: CI
+name: CI Core
 
-on: [push]
+on: push
 
 jobs:
   core:
@@ -67,30 +67,3 @@ jobs:
         with:
           args: logs ${{ job.services.postgres.id }}
 
-  prepublish_npm:
-    name: Prepublish NPM
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Setup node
-        uses: actions/setup-node@v2
-        with:
-          node-version: "16"
-      - name: Yarn cache
-        uses: actions/cache@v2
-        env:
-          cache-name: yarn-cache
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-            **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - name: Run prepublish NPM test
-        run: ./tools/ci/prepublish_npm_test
