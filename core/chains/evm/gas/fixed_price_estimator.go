@@ -23,7 +23,7 @@ func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) Estimator {
 	return &fixedPriceEstimator{cfg, lggr.Named("FixedPriceEstimator")}
 }
 
-func (f *fixedPriceEstimator) Start() error                                          { return nil }
+func (f *fixedPriceEstimator) Start(context.Context) error                           { return nil }
 func (f *fixedPriceEstimator) Close() error                                          { return nil }
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
