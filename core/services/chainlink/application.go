@@ -12,14 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -38,9 +35,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -301,7 +299,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	if cfg.FeatureOffchainReporting() {
-		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
+		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -331,7 +329,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relay.AddRelayer(relaytypes.Terra, terraRelayer)
 		}
 		subservices = append(subservices, relay)
-		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
+		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
 			pipelineRunner,
@@ -650,7 +648,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
+	isBootstrap := jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil && jb.OCROracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
 		var vars map[string]interface{}
 		var saveTasks bool
