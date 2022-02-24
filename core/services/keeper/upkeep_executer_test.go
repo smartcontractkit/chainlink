@@ -168,9 +168,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 					bigmath.Mul(baseFeePerGas, 100+config.KeeperBaseFeeBufferPercent()),
 					100,
 				)
-
-				return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
-					callArgs.Gas == 650_000
+				assert.True(t, bigmath.Equal(callArgs.GasPrice, expectedGasPrice))
+				assert.Equal(t, 650_000, callArgs.Gas)
+				return true
 			},
 			checkUpkeepResponse,
 		)
