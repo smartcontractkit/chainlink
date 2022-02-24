@@ -2468,6 +2468,20 @@ func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return r0
 }
 
+// KeeperBaseFeeBufferPercent provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperBaseFeeBufferPercent() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // KeeperCheckUpkeepGasPriceFeatureEnabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	ret := _m.Called()

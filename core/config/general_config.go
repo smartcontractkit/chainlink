@@ -126,6 +126,7 @@ type GeneralOnlyConfig interface {
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
+	KeeperBaseFeeBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
@@ -792,6 +793,12 @@ func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
 // used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
 func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
 	return c.viper.GetUint32(envvar.Name("KeeperGasTipCapBufferPercent"))
+}
+
+// KeeperBaseFeeBufferPercent adds the specified percentage to the base fee
+// used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
+func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
+	return c.viper.GetUint32(envvar.Name("KeeperBaseFeeBufferPercent"))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full

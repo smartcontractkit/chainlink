@@ -1,11 +1,11 @@
-package offchainreporting
+package ocr
 
 import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-func toLocalConfig(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) ocrtypes.LocalConfig {
+func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalConfig {
 	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec)
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      concreteSpec.BlockchainTimeout.Duration(),

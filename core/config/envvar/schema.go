@@ -239,6 +239,7 @@ type ConfigSchema struct {
 	KeeperDefaultTransactionQueueDepth      uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`            //nodoc
 	KeeperGasPriceBufferPercent             uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
 	KeeperGasTipCapBufferPercent            uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
+	KeeperBaseFeeBufferPercent              uint32        `env:"KEEPER_BASE_FEE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
