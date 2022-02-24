@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -190,7 +191,46 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 }
 
 func TestMultiFeedMonitorErroringFactories(t *testing.T) {
-	t.Run("a SourceFactory and an ExporterFactory fail", func(t *testing.T) {
+	t.Run("all sources fail for one feed and all exporters fail for the other", func(t *testing.T) {
+		sourceFactory1 := new(SourceFactoryMock)
+		sourceFactory2 := new(SourceFactoryMock)
+		source1 := new(SourceMock)
+		source2 := new(SourceMock)
+
+		exporterFactory1 := new(ExporterFactoryMock)
+		exporterFactory2 := new(ExporterFactoryMock)
+		exporter1 := new(ExporterMock)
+		exporter2 := new(ExporterMock)
+
+		chainConfig := generateChainConfig()
+		feeds := []FeedConfig{
+			generateFeedConfig(),
+			generateFeedConfig(),
+		}
+
+		monitor := NewMultiFeedMonitor(
+			chainConfig,
+			newNullLogger(),
+			[]SourceFactory{sourceFactory1, sourceFactory2},
+			[]ExporterFactory{exporterFactory1, exporterFactory2},
+			10, // bufferCapacity for source pollers
+		)
+
+		sourceFactory1.On("NewSource", chainConfig, feeds[0]).Return(nil, fmt.Errorf("source_factory1/feed1 failed"))
+		sourceFactory2.On("NewSource", chainConfig, feeds[0]).Return(nil, fmt.Errorf("source_factory2/feed1 failed"))
+		sourceFactory1.On("NewSource", chainConfig, feeds[1]).Return(source1, nil)
+		sourceFactory2.On("NewSource", chainConfig, feeds[1]).Return(source2, nil)
+
+		exporterFactory1.On("NewExporter", chainConfig, feeds[0]).Return(exporter1, nil)
+		exporterFactory2.On("NewExporter", chainConfig, feeds[0]).Return(exporter2, nil)
+		exporterFactory1.On("NewExporter", chainConfig, feeds[1]).Return(nil, fmt.Errorf("exporter_factory1/feed2 failed"))
+		exporterFactory2.On("NewExporter", chainConfig, feeds[1]).Return(nil, fmt.Errorf("exporter_factory2/feed2 failed"))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		monitor.Run(ctx, feeds)
+	})
+	t.Run("one SourceFactory and an ExporterFactory fail for one feed", func(t *testing.T) {
 		feeds := []FeedConfig{generateFeedConfig()}
 
 		wg := &sync.WaitGroup{}

@@ -66,6 +66,45 @@ func TestManager(t *testing.T) {
 		require.Equal(t, int64(0), goRoutineCounter, "all child goroutines are gone")
 	})
 
+	t.Run("should not restart the monitor if the feeds are the same", func(t *testing.T) {
+		feeds := []FeedConfig{
+			generateFeedConfig(),
+			generateFeedConfig(),
+		}
+		rddPoller := &fakePoller{0, make(chan interface{})}
+		manager := NewManager(
+			newNullLogger(),
+			rddPoller,
+		)
+
+		var countManagedFuncExecutions uint64 = 0
+		var managedFunc = func(_ context.Context, _ []FeedConfig) {
+			atomic.AddUint64(&countManagedFuncExecutions, 1)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			manager.Run(ctx, managedFunc)
+		}()
+
+		// The rdd poller returns the same feed configs three times!
+		for i := 0; i < 3; i++ {
+			select {
+			case rddPoller.ch <- feeds:
+			case <-ctx.Done():
+			}
+		}
+
+		cancel()
+		wg.Wait()
+
+		require.Equal(t, countManagedFuncExecutions, uint64(1))
+	})
+
 	t.Run("should expose the current feeds to http", func(t *testing.T) {
 		feeds := []FeedConfig{generateFeedConfig()}
 		manager := &managerImpl{
