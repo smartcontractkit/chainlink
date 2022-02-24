@@ -96,7 +96,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := balancemonitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 		ctxCancelledAwaiter := cltest.NewAwaiter()
 
