@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
@@ -134,8 +133,8 @@ func TestFeedMonitor(t *testing.T) {
 		// put timers on exports of 100ms + keep a counter of all the running exporters.
 		// check how many running exporters still execute when Cleanup happens.
 		poller := &fakePoller{0, make(chan interface{})}
-		exporter1 := new(mocks.Exporter)
-		exporter2 := new(mocks.Exporter)
+		exporter1 := new(ExporterMock)
+		exporter2 := new(ExporterMock)
 
 		monitor := NewFeedMonitor(
 			newNullLogger(),
@@ -168,7 +167,7 @@ func TestFeedMonitor(t *testing.T) {
 	})
 	t.Run("panics during Export() or Cleanup() get reported but don't crash the monitor", func(t *testing.T) {
 		poller := &fakePoller{0, make(chan interface{})}
-		exporter := new(mocks.Exporter)
+		exporter := new(ExporterMock)
 
 		monitor := NewFeedMonitor(
 			newNullLogger(),

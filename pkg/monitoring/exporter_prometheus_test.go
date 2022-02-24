@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/mocks"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,7 @@ func TestPrometheusExporter(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		log := newNullLogger()
-		metrics := new(mocks.Metrics)
+		metrics := new(MetricsMock)
 		metrics.Test(t)
 		factory := NewPrometheusExporterFactory(log, metrics)
 
@@ -336,7 +335,7 @@ func TestPrometheusExporter(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		log := newNullLogger()
-		metrics := new(mocks.Metrics)
+		metrics := new(MetricsMock)
 		metrics.Test(t)
 		factory := NewPrometheusExporterFactory(log, metrics)
 
@@ -556,7 +555,7 @@ func TestPrometheusExporter(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		log := newNullLogger()
-		metrics := new(mocks.Metrics)
+		metrics := new(MetricsMock)
 		metrics.Test(t)
 		factory := NewPrometheusExporterFactory(log, metrics)
 
