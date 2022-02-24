@@ -227,7 +227,9 @@ func (k *Keeper) createKeeperJobOnExistingNode(url, email, password, registryAdd
 	c := cfg{nodeURL: url}
 	sr := sessions.SessionRequest{Email: email, Password: password}
 	store := &cmd.MemoryCookieStore{}
-	tca := cmd.NewSessionCookieAuthenticator(c, store, logger.NewLogger())
+	lggr, close := logger.NewLogger()
+	defer close()
+	tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
 	if _, err := tca.Authenticate(sr); err != nil {
 		log.Println("failed to authenticate: ", err)
 		return err

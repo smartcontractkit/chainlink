@@ -125,6 +125,7 @@ type ChainlinkApplication struct {
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
+	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 
 	started     bool
@@ -138,6 +139,7 @@ type ApplicationOpts struct {
 	KeyStore                 keystore.Master
 	Chains                   Chains
 	Logger                   logger.Logger
+	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
 }
@@ -396,6 +398,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		closeLogger:              opts.CloseLogger,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -512,7 +515,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 	}
 	app.shutdownOnce.Do(func() {
 		defer func() {
-			if lerr := app.logger.Sync(); lerr != nil {
+			if lerr := app.closeLogger(); lerr != nil {
 				err = multierr.Append(err, lerr)
 			}
 		}()

@@ -84,7 +84,9 @@ func TestResolver_Config(t *testing.T) {
 					DefaultLogLevel:                           nil,
 					LogFileDir:                                null.StringFrom("foo"),
 					LogSQL:                                    null.BoolFrom(true),
-					LogToDisk:                                 null.BoolFrom(true),
+					LogFileMaxSize:                            null.StringFrom("100mb"),
+					LogFileMaxAge:                             null.IntFrom(3),
+					LogFileMaxBackups:                         null.IntFrom(12),
 					OCRKeyBundleID:                            null.StringFrom("test"),
 					OCRObservationTimeout:                     nil,
 					OCRTransmitterAddress:                     nil,
@@ -297,8 +299,16 @@ func TestResolver_Config(t *testing.T) {
         "value": "true"
       },
       {
-        "key": "LOG_TO_DISK",
-        "value": "true"
+        "key": "LOG_FILE_MAX_SIZE",
+        "value": "100.00mb"
+      },
+      {
+        "key": "LOG_FILE_MAX_AGE",
+        "value": "3"
+      },
+      {
+        "key": "LOG_FILE_MAX_BACKUPS",
+        "value": "12"
       },
       {
         "key": "TRIGGER_FALLBACK_DB_POLL_INTERVAL",

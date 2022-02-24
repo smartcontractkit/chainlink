@@ -15,7 +15,7 @@ integration/node_modules
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt
-tools/clroot/*.jsonl
+tools/clroot/*.log
 tools/clroot/tempkeys
 
 core/sgx/target/

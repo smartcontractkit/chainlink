@@ -138,7 +138,9 @@ type GeneralOnlyConfig interface {
 	LogFileDir() string
 	LogLevel() zapcore.Level
 	LogSQL() bool
-	LogToDisk() bool
+	LogFileMaxSize() utils.FileSize
+	LogFileMaxAge() int64
+	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
@@ -385,8 +387,8 @@ EVM_ENABLED=false
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
 	}
 
-	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.LogToDisk() {
-		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
+	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && c.LogFileMaxSize() <= 0 {
+		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
 	return nil
@@ -921,9 +923,20 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	return nil
 }
 
-// LogToDisk configures disk preservation of logs.
-func (c *generalConfig) LogToDisk() bool {
-	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
+// LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.
+func (c *generalConfig) LogFileMaxSize() utils.FileSize {
+	return c.getWithFallback("LogFileMaxSize", parse.FileSize).(utils.FileSize)
+}
+
+// LogFileMaxAge configures disk preservation of logs max age (in days) before file rotation.
+func (c *generalConfig) LogFileMaxAge() int64 {
+	return c.getWithFallback("LogFileMaxAge", parse.Int64).(int64)
+}
+
+// LogFileMaxBackups configures disk preservation of the max amount of old log files to retain.
+// If this is set to 0, the node will retain all old log files instead.
+func (c *generalConfig) LogFileMaxBackups() int64 {
+	return c.getWithFallback("LogFileMaxBackups", parse.Int64).(int64)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger
