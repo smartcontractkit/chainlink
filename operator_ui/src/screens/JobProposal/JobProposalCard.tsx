@@ -7,6 +7,7 @@ import {
   DetailsCardItemTitle,
   DetailsCardItemValue,
 } from 'src/components/Cards/DetailsCard'
+import Link from 'src/components/Link'
 import titleize from 'src/utils/titleize'
 
 interface Props {
@@ -29,7 +30,15 @@ export const JobProposalCard = ({ proposal }: Props) => {
         </Grid>
         <Grid item xs={12} sm={4} md={4}>
           <DetailsCardItemTitle title="External Job ID" />
-          <DetailsCardItemValue value={proposal.externalJobID || '--'} />
+          {proposal.jobID && proposal.externalJobID ? (
+            <DetailsCardItemValue>
+              <Link color="primary" href={`/jobs/${proposal.jobID}`}>
+                {proposal.externalJobID}
+              </Link>
+            </DetailsCardItemValue>
+          ) : (
+            <DetailsCardItemValue value={proposal.externalJobID || '--'} />
+          )}
         </Grid>
         <Grid item xs={12} sm={4} md={2}>
           <DetailsCardItemTitle title="Approved Version" />

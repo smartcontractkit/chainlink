@@ -80,6 +80,22 @@ func (r *JobProposalResolver) ExternalJobID() *string {
 	return nil
 }
 
+// JobID resolves to the job proposal JobID if it has an ExternalJobID
+func (r *JobProposalResolver) JobID(ctx context.Context) (*string, error) {
+	if !r.jp.ExternalJobID.Valid {
+		return nil, nil
+	}
+
+	job, err := loader.GetJobByExternalJobID(ctx, r.jp.ExternalJobID.UUID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	id := strconv.FormatInt(int64(job.ID), 10)
+
+	return &id, err
+}
+
 // FeedsManager resolves the job proposal's feeds manager object field.
 func (r *JobProposalResolver) FeedsManager(ctx context.Context) (*FeedsManagerResolver, error) {
 	mgr, err := loader.GetFeedsManagerByID(ctx, strconv.FormatInt(r.jp.FeedsManagerID, 10))
