@@ -11,13 +11,13 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/balancemonitor"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -37,7 +37,7 @@ type Chain interface {
 	TxManager() bulletprooftxmanager.TxManager
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
-	BalanceMonitor() monitor.BalanceMonitor
+	BalanceMonitor() balancemonitor.BalanceMonitor
 }
 
 var _ Chain = &chain{}
@@ -52,7 +52,7 @@ type chain struct {
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
 	logBroadcaster  log.Broadcaster
-	balanceMonitor  monitor.BalanceMonitor
+	balanceMonitor  balancemonitor.BalanceMonitor
 	keyStore        keystore.Eth
 }
 
@@ -125,9 +125,9 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		return nil, err
 	}
 
-	var balanceMonitor monitor.BalanceMonitor
+	var balanceMonitor balancemonitor.BalanceMonitor
 	if cfg.EVMRPCEnabled() && cfg.BalanceMonitorEnabled() {
-		balanceMonitor = monitor.NewBalanceMonitor(client, opts.KeyStore, l)
+		balanceMonitor = balancemonitor.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
@@ -173,13 +173,13 @@ func (c *chain) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to dial ethclient")
 		}
 		merr = multierr.Combine(
-			c.txm.Start(ctx),
-			c.headBroadcaster.Start(ctx),
+			c.txm.Start(),
+			c.headBroadcaster.Start(),
 			c.headTracker.Start(ctx),
-			c.logBroadcaster.Start(ctx),
+			c.logBroadcaster.Start(),
 		)
 		if c.balanceMonitor != nil {
-			merr = multierr.Combine(merr, c.balanceMonitor.Start(ctx))
+			merr = multierr.Combine(merr, c.balanceMonitor.Start())
 		}
 
 		if merr != nil {
@@ -271,15 +271,15 @@ func (c *chain) Healthy() (merr error) {
 	return
 }
 
-func (c *chain) ID() *big.Int                              { return c.id }
-func (c *chain) Client() evmclient.Client                  { return c.client }
-func (c *chain) Config() evmconfig.ChainScopedConfig       { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster           { return c.logBroadcaster }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadcaster }
-func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
-func (c *chain) HeadTracker() httypes.HeadTracker          { return c.headTracker }
-func (c *chain) Logger() logger.Logger                     { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor    { return c.balanceMonitor }
+func (c *chain) ID() *big.Int                                  { return c.id }
+func (c *chain) Client() evmclient.Client                      { return c.client }
+func (c *chain) Config() evmconfig.ChainScopedConfig           { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster               { return c.logBroadcaster }
+func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster      { return c.headBroadcaster }
+func (c *chain) TxManager() bulletprooftxmanager.TxManager     { return c.txm }
+func (c *chain) HeadTracker() httypes.HeadTracker              { return c.headTracker }
+func (c *chain) Logger() logger.Logger                         { return c.logger }
+func (c *chain) BalanceMonitor() balancemonitor.BalanceMonitor { return c.balanceMonitor }
 
 func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
 	nodes := chain.Nodes

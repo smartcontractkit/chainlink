@@ -50,7 +50,7 @@ type headBroadcaster struct {
 	lastCallbackID int
 }
 
-func (hb *headBroadcaster) Start(context.Context) error {
+func (hb *headBroadcaster) Start() error {
 	return hb.StartOnce("HeadBroadcaster", func() error {
 		hb.wgDone.Add(1)
 		go hb.run()
@@ -132,16 +132,13 @@ func (hb *headBroadcaster) executeCallbacks() {
 	wg := sync.WaitGroup{}
 	wg.Add(len(callbacks))
 
-	ctx, cancel := utils.ContextFromChan(hb.chClose)
-	defer cancel()
-
 	for _, callback := range callbacks {
 		go func(trackable httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
-			cctx, cancel := context.WithTimeout(ctx, TrackableCallbackTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), TrackableCallbackTimeout)
 			defer cancel()
-			trackable.OnNewLongestChain(cctx, head)
+			trackable.OnNewLongestChain(ctx, head)
 			elapsed := time.Since(start)
 			hb.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
 				"callbackType", reflect.TypeOf(trackable), "blockNumber", head.Number, "time", elapsed)

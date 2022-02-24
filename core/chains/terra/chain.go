@@ -16,11 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/terra/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -40,12 +38,11 @@ var _ terra.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id             string
-	cfg            terra.Config
-	txm            *terratxm.Txm
-	balanceMonitor services.Service
-	orm            types.ORM
-	lggr           logger.Logger
+	id   string
+	cfg  terra.Config
+	txm  *terratxm.Txm
+	orm  types.ORM
+	lggr logger.Logger
 }
 
 // NewChain returns a new chain backed by node.
@@ -70,8 +67,7 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 			}, nil
 		}),
 	}, lggr)
-	ch.txm = terratxm.NewTxm(db, tc, *gpe, ch.id, cfg, ks, lggr, logCfg, eb)
-	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
+	ch.txm = terratxm.NewTxm(db, tc, *gpe, dbchain.ID, cfg, ks, lggr, logCfg, eb)
 
 	return &ch, nil
 }
@@ -134,10 +130,7 @@ func (c *chain) Start() error {
 		//TODO dial client?
 
 		c.lggr.Debug("Starting txm")
-		c.lggr.Debug("Starting balance monitor")
-		return multierr.Combine(
-			c.txm.Start(),
-			c.balanceMonitor.Start())
+		return c.txm.Start()
 	})
 }
 
@@ -145,9 +138,7 @@ func (c *chain) Close() error {
 	return c.StopOnce("Chain", func() error {
 		c.lggr.Debug("Stopping")
 		c.lggr.Debug("Stopping txm")
-		c.lggr.Debug("Stopping balance monitor")
-		return multierr.Combine(c.txm.Close(),
-			c.balanceMonitor.Close())
+		return c.txm.Close()
 	})
 }
 

@@ -18,8 +18,6 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
-
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -37,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type broadcasterHelper struct {
@@ -120,7 +119,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 }
 
 func (helper *broadcasterHelper) start() {
-	err := helper.lb.Start(testutils.Context(helper.t))
+	err := helper.lb.Start()
 	require.NoError(helper.t, err)
 }
 

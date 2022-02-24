@@ -33,7 +33,6 @@ func TestValidatedKeeperSpec(t *testing.T) {
 			name: "valid job spec",
 			args: args{
 				tomlString: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-					Name:            "example keeper spec",
 					ContractAddress: "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
 					FromAddress:     "0xa8037A20989AFcBC51798de9762b351D63ff462e",
 				}).Toml(),

@@ -555,7 +555,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EvmNonceAutoSync").Return(true)
 	config.On("EvmGasBumpThreshold").Return(uint64(1))
 
-	require.NoError(t, bptxm.Start(testutils.Context(t)))
+	require.NoError(t, bptxm.Start())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	t.Cleanup(cancel)

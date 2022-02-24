@@ -77,7 +77,7 @@ type DynamicFee struct {
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
-	Start(context.Context) error
+	Start() error
 	Close() error
 	GetLegacyGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)
 	BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error)

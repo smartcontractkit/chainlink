@@ -6,7 +6,6 @@ consumer_wrapper: ../../../contracts/solc/v0.7/Consumer.abi ../../../contracts/s
 derived_price_feed_wrapper: ../../../contracts/solc/v0.7/DerivedPriceFeed.abi ../../../contracts/solc/v0.7/DerivedPriceFeed.bin 754190a4e868d35913f7f4ab3fbc605afdbc1b64d68ea53d8de89fd6b036fe06
 flags_wrapper: ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
-keeper_registry_vb_wrapper: ../../../contracts/solc/v0.7/KeeperRegistryVB.abi ../../../contracts/solc/v0.7/KeeperRegistryVB.bin af13a53e7350624fab49e259ca484098361d7b72eb8f4e4338b659d766e5bee5
 keeper_registry_wrapper: ../../../contracts/solc/v0.7/KeeperRegistry.abi ../../../contracts/solc/v0.7/KeeperRegistry.bin f5c76c6fc35e775da0a4737beea8ebcb6f37ca78db3c21811f17b6f3d5623379
 multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
@@ -19,7 +18,7 @@ solidity_vrf_request_id: ../../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper
 solidity_vrf_request_id_v08: ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin cae4c8e73f9d64886b0bdc02c40acd8b252b70e9499ce248b2ed0f480ccfda73
 solidity_vrf_v08_verifier_wrapper: ../../../contracts/solc/v0.8/VRFTestHelper.abi ../../../contracts/solc/v0.8/VRFTestHelper.bin c9f113405fc2e57371721c34f112aa3038b18facc25d8124ddeecfa573ea7943
 solidity_vrf_verifier_wrapper: ../../../contracts/solc/v0.6/VRFTestHelper.abi ../../../contracts/solc/v0.6/VRFTestHelper.bin 44c2b67d8d2990ab580453deb29d63508c6147a3dc49908a1db563bef06e6474
-upkeep_counter_wrapper: ../../../contracts/solc/v0.7/UpkeepCounter.abi ../../../contracts/solc/v0.7/UpkeepCounter.bin 901961ebf18906febc1c350f02da85c7ea1c2a68da70cfd94efa27c837a48663
+upkeep_counter_wrapper: ../../../contracts/solc/v0.7/UpkeepCounter.abi ../../../contracts/solc/v0.7/UpkeepCounter.bin 402754b33702d257d00c17a4579ad6dbf15bc6f25648e7a26ce8e09b45b30a93
 upkeep_perform_counter_restrictive_wrapper: ../../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.abi ../../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.bin 0e9c8a89d38491ca7f65e75201a8666c5e548846a1cd85a209e580dad06db386
 vrf_consumer_v2: ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin 268d82a8d816585f8ed870900617bcb9364998d4f0c9620174a2eb0882a10015
 vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin cafe44779884947d02bf511a54aa85c8f87196fc9ebf1a24d1efb97af63fc2a1

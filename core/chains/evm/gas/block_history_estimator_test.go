@@ -13,21 +13,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gumocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
@@ -97,7 +95,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			}
 		})
 
-		err := bhe.Start(testutils.Context(t))
+		err := bhe.Start()
 		require.NoError(t, err)
 
 		assert.Len(t, bhe.RollingBlockHistory(), 2)
@@ -121,7 +119,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			return len(b) == int(historySize)
 		})).Return(nil)
 
-		err := bhe.Start(testutils.Context(t))
+		err := bhe.Start()
 		require.NoError(t, err)
 
 		// non-eip1559 block
@@ -138,7 +136,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("something exploded"))
 
-		err := bhe.Start(testutils.Context(t))
+		err := bhe.Start()
 		require.NoError(t, err)
 
 		assert.Nil(t, gas.GetLatestBaseFee(bhe))
@@ -164,7 +162,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
 
-		err := bhe.Start(testutils.Context(t))
+		err := bhe.Start()
 		require.NoError(t, err)
 
 		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))

@@ -53,7 +53,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, hr, hs)
-	require.NoError(t, hr.Start(testutils.Context(t)))
+	require.NoError(t, hr.Start())
 	require.NoError(t, ht.Start(testutils.Context(t)))
 
 	latest1, unsubscribe1 := hr.Subscribe(checker1)
@@ -86,7 +86,7 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
-	err := broadcaster.Start(testutils.Context(t))
+	err := broadcaster.Start()
 	require.NoError(t, err)
 
 	// no subscribers - shall do nothing
@@ -124,7 +124,7 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
-	err := broadcaster.Start(testutils.Context(t))
+	err := broadcaster.Start()
 	require.NoError(t, err)
 
 	slowAwaiter := cltest.NewAwaiter()
