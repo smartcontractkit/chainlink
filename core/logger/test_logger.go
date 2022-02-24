@@ -9,8 +9,10 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
+	"github.com/stretchr/testify/assert"
 )
 
 // MemorySink implements zap.Sink by writing all messages to a buffer.
@@ -69,7 +71,10 @@ func TestLogger(t T) Logger {
 	cfg := newTestConfig()
 	ll, invalid := envvar.LogLevel.ParseLogLevel()
 	cfg.Level.SetLevel(ll)
-	l, err := newZapLogger(cfg)
+	l, close, err := newZapLogger(ZapLoggerConfig{
+		Config: cfg,
+		sinks:  []zapcore.WriteSyncer{PrettyConsole{Sink: &testMemoryLog}},
+	})
 	if err != nil {
 		if t == nil {
 			log.Fatal(err)
@@ -78,6 +83,11 @@ func TestLogger(t T) Logger {
 	}
 	if invalid != "" {
 		l.Error(invalid)
+	}
+	if t != nil {
+		t.Cleanup(func() {
+			assert.NoError(t, close())
+		})
 	}
 	if t == nil {
 		return l
@@ -94,5 +104,7 @@ func newTestConfig() zap.Config {
 
 type T interface {
 	Name() string
+	Cleanup(f func())
 	Fatal(...interface{})
+	Errorf(format string, args ...interface{})
 }

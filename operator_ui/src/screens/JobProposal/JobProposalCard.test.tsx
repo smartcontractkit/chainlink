@@ -1,6 +1,7 @@
 import * as React from 'react'
 
-import { render, screen } from 'support/test-utils'
+import { Route } from 'react-router-dom'
+import { renderWithRouter, screen } from 'support/test-utils'
 
 import { JobProposalCard } from './JobProposalCard'
 import {
@@ -12,7 +13,21 @@ const { queryAllByText, queryByText } = screen
 
 describe('JobProposalCard', () => {
   function renderComponent(proposal: JobProposalPayloadFields) {
-    render(<JobProposalCard proposal={proposal} />)
+    renderWithRouter(
+      <>
+        <Route exact path="/">
+          <table>
+            <tbody>
+              <JobProposalCard proposal={proposal} />
+            </tbody>
+          </table>
+        </Route>
+
+        <Route exact path="/jobs/:id">
+          Run Page
+        </Route>
+      </>,
+    )
   }
 
   it('renders a pending job proposal card', () => {
@@ -33,6 +48,7 @@ describe('JobProposalCard', () => {
   it('renders a pending job proposal card with an approved spec', () => {
     const proposal = buildJobProposal({
       externalJobID: '10000000-0000-0000-0000-000000000001',
+      jobID: '1',
       specs: [
         buildJobProposalSpec({
           status: 'APPROVED',

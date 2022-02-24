@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -24,7 +25,7 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
 	}, 1*time.Second)
@@ -48,7 +49,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 	url := cltest.MustParseURL(t, server.URL)
 	url.Scheme = "ws"
 	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret", logger.TestLogger(t))
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	defer explorerClient.Close()
 
 	cltest.CallbackOrTimeout(t, "receive authentication headers", func() {
@@ -65,7 +66,7 @@ func TestWebSocketClient_Send_DefaultsToTextMessage(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
@@ -80,7 +81,7 @@ func TestWebSocketClient_Send_TextMessage(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
@@ -95,7 +96,7 @@ func TestWebSocketClient_Send_Binary(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	defer explorerClient.Close()
 
 	address := common.HexToAddress("0xabc123")
@@ -111,7 +112,7 @@ func TestWebSocketClient_Send_Unsupported(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 
 	assert.PanicsWithValue(t, "send on explorer client received unsupported message type -1", func() {
 		explorerClient.Send(context.Background(), []byte(`{"hello": "world"}`), -1)
@@ -124,7 +125,7 @@ func TestWebSocketClient_Send_WithAck(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
@@ -147,7 +148,7 @@ func TestWebSocketClient_Send_WithAckTimeout(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	defer explorerClient.Close()
 
 	expectation := `{"hello": "world"}`
@@ -170,7 +171,7 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	assert.Equal(t, synchronization.ConnectionStatusDisconnected, explorerClient.Status())
 
-	require.NoError(t, explorerClient.Start())
+	require.NoError(t, explorerClient.Start(testutils.Context(t)))
 	defer explorerClient.Close()
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
@@ -193,7 +194,7 @@ func TestWebSocketClient_Status_ConnectError(t *testing.T) {
 	require.NoError(t, err)
 
 	errorexplorerClient := newTestExplorerClient(t, badURL)
-	require.NoError(t, errorexplorerClient.Start())
+	require.NoError(t, errorexplorerClient.Start(testutils.Context(t)))
 	defer errorexplorerClient.Close()
 	time.Sleep(100 * time.Millisecond)
 

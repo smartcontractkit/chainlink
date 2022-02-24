@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -483,7 +483,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	var address ethkey.EIP55Address
 	switch j.Type {
 	case job.OffchainReporting:
-		address = j.OffchainreportingOracleSpec.ContractAddress
+		address = j.OCROracleSpec.ContractAddress
 	case job.FluxMonitor:
 		address = j.FluxMonitorSpec.ContractAddress
 	default:
@@ -715,7 +715,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
+		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:

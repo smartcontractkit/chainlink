@@ -13,6 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -23,14 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/ethereum/go-ethereum/common"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
@@ -163,23 +163,24 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.NotNil(t, resource.OffChainReportingSpec)
 
 				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
-				assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.TransmitterAddress, resource.OffChainReportingSpec.TransmitterAddress)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, resource.OffChainReportingSpec.ObservationTimeout)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, resource.OffChainReportingSpec.BlockchainTimeout)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, resource.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, resource.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
-				assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigConfirmations, resource.OffChainReportingSpec.ContractConfigConfirmations)
+				assert.Equal(t, jb.OCROracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
+				assert.Equal(t, jb.OCROracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
+				assert.Equal(t, jb.OCROracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
+				assert.Equal(t, jb.OCROracleSpec.TransmitterAddress, resource.OffChainReportingSpec.TransmitterAddress)
+				assert.Equal(t, jb.OCROracleSpec.ObservationTimeout, resource.OffChainReportingSpec.ObservationTimeout)
+				assert.Equal(t, jb.OCROracleSpec.BlockchainTimeout, resource.OffChainReportingSpec.BlockchainTimeout)
+				assert.Equal(t, jb.OCROracleSpec.ContractConfigTrackerSubscribeInterval, resource.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
+				assert.Equal(t, jb.OCROracleSpec.ContractConfigTrackerSubscribeInterval, resource.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
+				assert.Equal(t, jb.OCROracleSpec.ContractConfigConfirmations, resource.OffChainReportingSpec.ContractConfigConfirmations)
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OffchainreportingOracleSpec.ContractAddress)
+				require.Equal(t, ethkey.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OCROracleSpec.ContractAddress)
 			},
 		},
 		{
 			name: "keeper",
 			toml: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
+				Name:            "example keeper spec",
 				ContractAddress: "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
 				FromAddress:     "0xa8037A20989AFcBC51798de9762b351D63ff462e",
 			}).Toml(),
@@ -446,7 +447,7 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobSpecFromServer presenters.JobResource) {
-	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OffchainreportingOracleSpec
+	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OCROracleSpec
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffChainReportingSpec.ContractAddress)
 	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffChainReportingSpec.P2PBootstrapPeers)
 	assert.Equal(t, ocrJobSpecFromFile.IsBootstrapPeer, ocrJobSpecFromServer.OffChainReportingSpec.IsBootstrapPeer)
@@ -512,11 +513,11 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
-	var ocrSpec job.OffchainReportingOracleSpec
+	var ocrSpec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
 	require.NoError(t, err)
-	jb.OffchainreportingOracleSpec = &ocrSpec
-	jb.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
+	jb.OCROracleSpec = &ocrSpec
+	jb.OCROracleSpec.TransmitterAddress = &app.Key.Address
 	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
 
