@@ -96,7 +96,7 @@ type Application interface {
 	GetFeedsService() feeds.Service
 
 	// ReplayFromBlock of blocks
-	ReplayFromBlock(chainID *big.Int, number uint64) error
+	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -698,12 +698,12 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
 
-func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64) error {
+func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
 	chain, err := app.Chains.EVM.Get(chainID)
 	if err != nil {
 		return err
 	}
-	chain.LogBroadcaster().ReplayFromBlock(int64(number))
+	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
 	return nil
 }
 

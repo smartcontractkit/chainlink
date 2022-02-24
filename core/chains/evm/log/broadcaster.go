@@ -48,7 +48,11 @@ type (
 		utils.DependentAwaiter
 		services.Service
 		httypes.HeadTrackable
-		ReplayFromBlock(number int64)
+
+		// ReplayFromBlock enqueues a replay from the provided block number.
+		// If forceBroadcast is set to true, the broadcaster will broadcast
+		// blocks that were already marked consumed previously by any subscribers.
+		ReplayFromBlock(number int64, forceBroadcast bool)
 
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
@@ -76,6 +80,11 @@ type (
 		sub       *subscriber
 	}
 
+	replayRequest struct {
+		fromBlock      int64
+		forceBroadcast bool
+	}
+
 	broadcaster struct {
 		orm        ORM
 		config     Config
@@ -84,6 +93,8 @@ type (
 
 		// a block number to start backfill from
 		backfillBlockNumber null.Int64
+		// whether we should forcibly broadcast logs that were previously marked as consumed
+		forceBroadcast bool
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -100,7 +111,7 @@ type (
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
-		replayChannel         chan int64
+		replayChannel         chan replayRequest
 		highestSavedHead      *evmtypes.Head
 		lastSeenHeadNumber    atomic.Int64
 		logger                logger.Logger
@@ -165,7 +176,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,
-		replayChannel:          make(chan int64, 1),
+		replayChannel:          make(chan replayRequest, 1),
 	}
 }
 
@@ -177,10 +188,16 @@ func (b *broadcaster) Start() error {
 	})
 }
 
-func (b *broadcaster) ReplayFromBlock(number int64) {
+// ReplayFromBlock enqueues a replay from the provided block number.
+// If forceBroadcast is set to true, the broadcaster will broadcast
+// blocks that were already marked consumed previously by any subscribers.
+func (b *broadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {
 	b.logger.Infof("Replay requested from block number: %v", number)
 	select {
-	case b.replayChannel <- number:
+	case b.replayChannel <- replayRequest{
+		fromBlock:      number,
+		forceBroadcast: forceBroadcast,
+	}:
 	default:
 	}
 }
@@ -391,8 +408,8 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	for {
 		// Replay requests take priority.
 		select {
-		case blockNumber := <-b.replayChannel:
-			b.onReplayRequest(blockNumber)
+		case req := <-b.replayChannel:
+			b.onReplayRequest(req)
 			return true, nil
 		default:
 		}
@@ -420,8 +437,8 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 		case <-b.changeSubscriberStatus.Notify():
 			needsResubscribe = b.onChangeSubscriberStatus() || needsResubscribe
 
-		case blockNumber := <-b.replayChannel:
-			b.onReplayRequest(blockNumber)
+		case req := <-b.replayChannel:
+			b.onReplayRequest(req)
 			return true, nil
 
 		case <-debounceResubscribe.C:
@@ -445,13 +462,18 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 }
 
 // onReplayRequest clears the pool and sets the block backfill number.
-func (b *broadcaster) onReplayRequest(blockNumber int64) {
+func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	_ = b.invalidatePool()
 	// NOTE: This ignores r.highestNumConfirmations, but it is
 	// generally assumed that this will only be performed rarely and
 	// manually by someone who knows what he is doing
-	b.backfillBlockNumber.SetValid(blockNumber)
-	b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
+	b.backfillBlockNumber.SetValid(replayReq.fromBlock)
+	b.forceBroadcast = replayReq.forceBroadcast
+	b.logger.Debugw(
+		"Returning from the event loop to replay logs from specific block number",
+		"blockNumber", replayReq.fromBlock,
+		"forceBroadcast", replayReq.forceBroadcast,
+	)
 }
 
 func (b *broadcaster) invalidatePool() int64 {
@@ -544,6 +566,10 @@ func (b *broadcaster) onNewHeads() {
 				if err != nil {
 					b.logger.Errorf("Failed to query for log broadcasts, %v", err)
 					return
+				}
+
+				if b.forceBroadcast {
+					// 
 				}
 
 				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
