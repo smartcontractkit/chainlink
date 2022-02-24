@@ -2,7 +2,6 @@ package loader
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
@@ -16,6 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
+// ErrInvalidType indicates that results loaded is not the type expected
+var ErrInvalidType = errors.New("invalid type")
+
 // GetChainByID fetches the chain by it's id.
 func GetChainByID(ctx context.Context, id string) (*types.Chain, error) {
 	ldr := For(ctx)
@@ -28,7 +30,7 @@ func GetChainByID(ctx context.Context, id string) (*types.Chain, error) {
 
 	chain, ok := result.(types.Chain)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return &chain, nil
@@ -46,7 +48,7 @@ func GetNodesByChainID(ctx context.Context, id string) ([]types.Node, error) {
 
 	nodes, ok := result.([]types.Node)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return nodes, nil
@@ -64,7 +66,7 @@ func GetFeedsManagerByID(ctx context.Context, id string) (*feeds.FeedsManager, e
 
 	mgr, ok := result.(feeds.FeedsManager)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return &mgr, nil
@@ -109,7 +111,7 @@ func GetSpecsByJobProposalID(ctx context.Context, jpID string) ([]feeds.JobPropo
 
 	specs, ok := result.([]feeds.JobProposalSpec)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return specs, nil
@@ -127,7 +129,7 @@ func GetLatestSpecByJobProposalID(ctx context.Context, jpID string) (*feeds.JobP
 
 	specs, ok := result.([]feeds.JobProposalSpec)
 	if !ok {
-		return nil, fmt.Errorf("invalid type: %T", result)
+		return nil, errors.Wrapf(ErrInvalidType, "Result : %T", result)
 	}
 
 	max := specs[0]
@@ -152,7 +154,7 @@ func GetJobProposalsByFeedsManagerID(ctx context.Context, id string) ([]feeds.Jo
 
 	jbRuns, ok := result.([]feeds.JobProposal)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return jbRuns, nil
@@ -170,7 +172,7 @@ func GetJobByExternalJobID(ctx context.Context, id string) (*job.Job, error) {
 
 	job, ok := result.(job.Job)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return &job, nil
@@ -188,7 +190,7 @@ func GetJobByPipelineSpecID(ctx context.Context, id string) (*job.Job, error) {
 
 	jb, ok := result.(job.Job)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return &jb, nil
@@ -206,7 +208,7 @@ func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]bulletprooftxm
 
 	attempts, ok := result.([]bulletprooftxmanager.EthTxAttempt)
 	if !ok {
-		return nil, errors.New("invalid type")
+		return nil, ErrInvalidType
 	}
 
 	return attempts, nil
