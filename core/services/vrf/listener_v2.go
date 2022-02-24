@@ -159,6 +159,7 @@ func (lsn *listenerV2) getLatestHead() uint64 {
 func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[uint64][]pendingRequest {
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
+	updateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, uniqueReqs(lsn.reqs))
 	var toProcess = make(map[uint64][]pendingRequest)
 	var toKeep []pendingRequest
 	for i := 0; i < len(lsn.reqs); i++ {
@@ -330,6 +331,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			rlog.Infow("Request too old, dropping it")
 			lsn.markLogAsConsumed(req.lb)
 			processed[vrfRequest.RequestId.String()] = struct{}{}
+			incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, reasonAge)
 			continue
 		}
 
@@ -395,6 +397,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// And loop to attempt to enqueue another fulfillment
 		startBalanceNoReserveLink = startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, maxLink)
 		processed[vrfRequest.RequestId.String()] = struct{}{}
+		incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2)
 	}
 	// Remove all the confirmed logs
 	var toKeep []pendingRequest
@@ -412,7 +415,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		"total reqs", len(reqs),
 		"total processed", len(processed),
 		"total remaining", len(toKeep),
-		"total unique", len(toRequestSet(reqs)),
+		"total unique", uniqueReqs(reqs),
 	)
 }
 
@@ -576,6 +579,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 			"blockHash", req.Raw.BlockHash,
 			"reqID", req.RequestId.String(),
 			"newConfs", newConfs)
+		incDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2)
 	}
 	return req.Raw.BlockNumber + newConfs
 }
@@ -647,6 +651,7 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		lsn.l.Error("Log mailbox is over capacity - dropped the oldest log")
+		incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, reasonMailboxSize)
 	}
 }
 
@@ -655,12 +660,12 @@ func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
 }
 
-func toRequestSet(reqs []pendingRequest) map[string]struct{} {
+func uniqueReqs(reqs []pendingRequest) int {
 	s := map[string]struct{}{}
 	for _, r := range reqs {
 		s[r.req.RequestId.String()] = struct{}{}
 	}
-	return s
+	return len(s)
 }
 
 // GasProofVerification is an upper limit on the gas used for verifying the VRF proof on-chain.
