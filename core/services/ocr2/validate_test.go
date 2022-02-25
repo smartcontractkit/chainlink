@@ -43,7 +43,6 @@ answer1      [type=median index=0];
 [relayConfig]
 chainID = 1337
 [pluginConfig]
-pluginType = "median"
 juelsPerFeeCoinSource = """
 ds1          [type=bridge name=voter_turnout];
 ds1_parse    [type=jsonparse path="one,two"];

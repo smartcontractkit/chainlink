@@ -27,7 +27,7 @@ type Median struct {
 	lggr           logger.Logger
 	ocrLogger      commontypes.Logger
 
-	config config.PluginConfig
+	pluginConfig config.PluginConfig
 }
 
 var _ plugins.OraclePlugin = &Median{}
@@ -51,7 +51,7 @@ func NewMedian(jb job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipel
 		runResults:     runResults,
 		lggr:           lggr,
 		ocrLogger:      ocrLogger,
-		config:         pluginConfig,
+		pluginConfig:   pluginConfig,
 	}, nil
 }
 
@@ -59,7 +59,7 @@ func NewMedian(jb job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipel
 func (m *Median) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
 	juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 		ID:           m.jb.ID,
-		DotDagSource: m.config.JuelsPerFeeCoinPipeline,
+		DotDagSource: m.pluginConfig.JuelsPerFeeCoinPipeline,
 		CreatedAt:    time.Now(),
 	}
 	return median.NumericalMedianFactory{
