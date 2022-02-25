@@ -97,6 +97,7 @@ type OCR2ProviderArgs struct {
 	IsBootstrapPeer bool
 }
 
+// NewOCR2Provider creates a new OCR2 provider instance.
 func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2ProviderCtx, error) {
 	// We expect trusted input
 	spec := s.(*OCR2ProviderArgs)

@@ -26,7 +26,6 @@ type Relayer interface {
 // RelayerCtx is replacing Relayer interface
 type RelayerCtx interface {
 	services.ServiceCtx
-	// NewOCR2Provider creates new OCR2 provider
 	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2ProviderCtx, error)
 }
 

@@ -63,6 +63,7 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
+// NewOCR2Provider creates a new OCR2 provider instance.
 func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (rtypes.OCR2ProviderCtx, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
