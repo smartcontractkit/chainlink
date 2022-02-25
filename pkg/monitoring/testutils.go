@@ -271,6 +271,7 @@ func generateFeedConfig() FeedConfig {
 		ContractStatus:  "status",
 		ContractAddress: contractAddress[:],
 		Multiply:        big.NewInt(10000),
+		MultiplyRaw:     "10000",
 	}
 }
 

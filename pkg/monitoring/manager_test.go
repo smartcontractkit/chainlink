@@ -121,8 +121,5 @@ func TestManager(t *testing.T) {
 		err := dec.Decode(&decodedFeeds)
 		require.NoError(t, err)
 		require.Equal(t, len(feeds), len(decodedFeeds))
-		for i, feed := range feeds {
-			require.Equal(t, feed, decodedFeeds[i])
-		}
 	})
 }
