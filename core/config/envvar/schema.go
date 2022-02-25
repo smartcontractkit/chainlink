@@ -39,6 +39,7 @@ type ConfigSchema struct {
 	TelemetryIngressBufferSize   uint            `env:"TELEMETRY_INGRESS_BUFFER_SIZE" default:"100"`
 	TelemetryIngressMaxBatchSize uint            `env:"TELEMETRY_INGRESS_MAX_BATCH_SIZE" default:"50"`
 	TelemetryIngressSendInterval time.Duration   `env:"TELEMETRY_INGRESS_SEND_INTERVAL" default:"500ms"`
+	TelemetryIngressSendTimeout  time.Duration   `env:"TELEMETRY_INGRESS_SEND_TIMEOUT" default:"10s"`
 	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
 	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
