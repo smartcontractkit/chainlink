@@ -1,4 +1,7 @@
-package median
+// config is a separate package so that we can validate
+// the config in other packages, for example in job at job create time.
+
+package config
 
 import (
 	"github.com/pkg/errors"
@@ -11,8 +14,8 @@ type PluginConfig struct {
 	JuelsPerFeeCoinPipeline string `json:"juelsPerFeeCoinSource"`
 }
 
-// validatePluginConfig validates the arguments for the Median plugin.
-func validatePluginConfig(config PluginConfig) error {
+// ValidatePluginConfig validates the arguments for the Median plugin.
+func ValidatePluginConfig(config PluginConfig) error {
 	if _, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline); err != nil {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}

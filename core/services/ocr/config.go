@@ -13,10 +13,10 @@ func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalC
 		SkipContractConfigConfirmations:        cfg.ChainType().IsL2(),
 		ContractConfigTrackerPollInterval:      concreteSpec.ContractConfigTrackerPollInterval.Duration(),
 		ContractConfigTrackerSubscribeInterval: concreteSpec.ContractConfigTrackerSubscribeInterval.Duration(),
-		ContractTransmitterTransmitTimeout:     cfg.OCRContractTransmitterTransmitTimeout(),
+		ContractTransmitterTransmitTimeout:     concreteSpec.ContractTransmitterTransmitTimeout.Duration(),
 		DatabaseTimeout:                        concreteSpec.DatabaseTimeout.Duration(),
 		DataSourceTimeout:                      concreteSpec.ObservationTimeout.Duration(),
-		DataSourceGracePeriod:                  cfg.OCRObservationGracePeriod(),
+		DataSourceGracePeriod:                  concreteSpec.ObservationGracePeriod.Duration(),
 	}
 	if cfg.Dev() {
 		// Skips config validation so we can use any config parameters we want.

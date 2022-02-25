@@ -164,7 +164,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
 		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.TaskType("substrate-adapter1"),
+			Name: bridges.BridgeName("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
 		require.NoError(t, err)
@@ -703,7 +703,7 @@ isBootstrapPeer    = true
 				defer servers[i].Close()
 				u, _ := url.Parse(servers[i].URL)
 				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
-					Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
+					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				})
 				require.NoError(t, err)
