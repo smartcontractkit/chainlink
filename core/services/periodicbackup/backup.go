@@ -1,6 +1,7 @@
 package periodicbackup
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -36,7 +38,7 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		services.Service
+		services.ServiceCtx
 		RunBackup(version string) error
 	}
 
@@ -89,7 +91,8 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error
 	}, nil
 }
 
-func (backup *databaseBackup) Start() error {
+// Start starts DatabaseBackup.
+func (backup *databaseBackup) Start(context.Context) error {
 	return backup.StartOnce("DatabaseBackup", func() (err error) {
 		ticker := time.NewTicker(backup.frequency)
 		if backup.frequency == 0 {

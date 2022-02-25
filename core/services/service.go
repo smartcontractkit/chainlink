@@ -97,4 +97,41 @@ type (
 
 		Checkable
 	}
+
+	// ServiceAdapter is a helper introduced for transitioning from Service to ServiceCtx.
+	ServiceAdapter interface {
+		ServiceCtx
+	}
 )
+
+type adapter struct {
+	service Service
+}
+
+// NewServiceAdapter creates an adapter instance for the given Service.
+func NewServiceAdapter(service Service) ServiceCtx {
+	return &adapter{
+		service,
+	}
+}
+
+// Start forwards the call to the underlying service.Start().
+// Context is not used in this case.
+func (a adapter) Start(context.Context) error {
+	return a.service.Start()
+}
+
+// Close forwards the call to the underlying service.Close().
+func (a adapter) Close() error {
+	return a.service.Close()
+}
+
+// Ready forwards the call to the underlying service.Ready().
+func (a adapter) Ready() error {
+	return a.service.Ready()
+}
+
+// Healthy forwards the call to the underlying service.Healthy().
+func (a adapter) Healthy() error {
+	return a.service.Healthy()
+}

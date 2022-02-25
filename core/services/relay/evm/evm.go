@@ -1,30 +1,32 @@
 package evm
 
 import (
+	"context"
 	"math/big"
 	"strings"
-
-	types2 "github.com/smartcontractkit/chainlink/core/services/relay/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	txm "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"gopkg.in/guregu/null.v4"
 
+	txm "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	rtypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type Relayer struct {
@@ -42,7 +44,7 @@ func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger) *Relayer
 }
 
 // Start does noop: no subservices started on relay start, but when the first job is started
-func (r *Relayer) Start() error {
+func (r *Relayer) Start(context.Context) error {
 	return nil
 }
 
@@ -61,7 +63,7 @@ func (r *Relayer) Healthy() error {
 	return nil
 }
 
-func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types2.OCR2Provider, error) {
+func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (rtypes.OCR2ProviderCtx, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
 	chain, err := r.chainSet.Get(spec.ChainID)
@@ -159,7 +161,7 @@ type OCR2Spec struct {
 	ChainID       *big.Int
 }
 
-var _ services.Service = (*ocr2Provider)(nil)
+var _ services.ServiceCtx = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
 	tracker                *ContractTracker
@@ -169,8 +171,8 @@ type ocr2Provider struct {
 }
 
 // On start, an ethereum ocr2 provider will start the contract tracker.
-func (p ocr2Provider) Start() error {
-	return p.tracker.Start()
+func (p ocr2Provider) Start(ctx context.Context) error {
+	return p.tracker.Start(ctx)
 }
 
 // On close, an ethereum ocr2 provider will close the contract tracker.

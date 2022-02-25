@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -15,8 +16,8 @@ import (
 
 // RegistrySynchronizer conforms to the Service and Listener interfaces
 var (
-	_ job.Service  = (*RegistrySynchronizer)(nil)
-	_ log.Listener = (*RegistrySynchronizer)(nil)
+	_ job.ServiceCtx = (*RegistrySynchronizer)(nil)
+	_ log.Listener   = (*RegistrySynchronizer)(nil)
 )
 
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
@@ -78,7 +79,8 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 	}
 }
 
-func (rs *RegistrySynchronizer) Start() error {
+// Start starts RegistrySynchronizer.
+func (rs *RegistrySynchronizer) Start(context.Context) error {
 	return rs.StartOnce("RegistrySynchronizer", func() error {
 		rs.wgDone.Add(2)
 		go rs.run()

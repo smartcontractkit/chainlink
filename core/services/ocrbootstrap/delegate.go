@@ -23,7 +23,7 @@ type Delegate struct {
 	peerWrapper   *ocrcommon.SingletonPeerWrapper
 	cfg           ocr2.Config
 	lggr          logger.Logger
-	relayer       types.Relayer
+	relayer       types.RelayerCtx
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -33,7 +33,7 @@ func NewDelegateBootstrap(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
 	cfg ocr2.Config,
-	relayer types.Relayer,
+	relayer types.RelayerCtx,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -51,7 +51,7 @@ func (d Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
+func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, err error) {
 	spec := jobSpec.BootstrapSpec
 	if spec == nil {
 		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
@@ -117,7 +117,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 	}
-	services = append(services, bootstrapper)
+	services = append(services, job.NewServiceAdapter(bootstrapper))
 
 	return services, nil
 }

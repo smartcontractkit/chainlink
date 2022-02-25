@@ -2,13 +2,14 @@ package fluxmonitorv2
 
 import (
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // Delegate represents a Flux Monitor delegate
@@ -54,7 +55,7 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the flux monitor service for the job spec
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", jb)
 	}
@@ -85,5 +86,5 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err erro
 		return nil, err
 	}
 
-	return []job.Service{fm}, nil
+	return []job.ServiceCtx{fm}, nil
 }

@@ -49,7 +49,7 @@ func (Delegate) AfterJobCreated(spec job.Job) {}
 
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
-func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
+func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
 	// TODO: we need to fill these out manually, find a better fix
 	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
 	spec.PipelineSpec.JobID = spec.ID
@@ -106,7 +106,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		chain.Config(),
 	)
 
-	return []job.Service{
+	return []job.ServiceCtx{
 		registrySynchronizer,
 		upkeepExecuter,
 	}, nil

@@ -160,7 +160,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 		uni.db.On("LoadLatestRoundRequested").Return(ocr2aggregator.OCR2AggregatorRoundRequested{}, nil)
 		uni.lb.On("Register", uni.tracker, mock.Anything).Return(func() {})
 
-		require.NoError(t, uni.tracker.Start())
+		require.NoError(t, uni.tracker.Start(testutils.Context(t)))
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
@@ -367,7 +367,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.db.On("LoadLatestRoundRequested").Return(rr, nil)
 
-		require.NoError(t, uni.tracker.Start())
+		require.NoError(t, uni.tracker.Start(testutils.Context(t)))
 
 		configDigest, epoch, round, err := uni.tracker.LatestRoundRequested(context.Background(), 0)
 		require.NoError(t, err)
