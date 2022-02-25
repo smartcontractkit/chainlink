@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -25,19 +27,19 @@ type Median struct {
 	lggr           logger.Logger
 	ocrLogger      commontypes.Logger
 
-	config PluginConfig
+	pluginConfig config.PluginConfig
 }
 
 var _ plugins.OraclePlugin = &Median{}
 
 // NewMedian parses the arguments and returns a new Median struct.
 func NewMedian(jb job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipeline.Runner, runResults chan pipeline.Run, lggr logger.Logger, ocrLogger commontypes.Logger) (*Median, error) {
-	var config PluginConfig
-	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &config)
+	var pluginConfig config.PluginConfig
+	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return &Median{}, err
 	}
-	err = validatePluginConfig(config)
+	err = config.ValidatePluginConfig(pluginConfig)
 	if err != nil {
 		return &Median{}, err
 	}
@@ -49,7 +51,7 @@ func NewMedian(jb job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipel
 		runResults:     runResults,
 		lggr:           lggr,
 		ocrLogger:      ocrLogger,
-		config:         config,
+		pluginConfig:   pluginConfig,
 	}, nil
 }
 
@@ -57,7 +59,7 @@ func NewMedian(jb job.Job, ocr2Provider types.OCR2Provider, pipelineRunner pipel
 func (m *Median) GetPluginFactory() (ocr2types.ReportingPluginFactory, error) {
 	juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 		ID:           m.jb.ID,
-		DotDagSource: m.config.JuelsPerFeeCoinPipeline,
+		DotDagSource: m.pluginConfig.JuelsPerFeeCoinPipeline,
 		CreatedAt:    time.Now(),
 	}
 	return median.NumericalMedianFactory{
