@@ -49,6 +49,7 @@ func (Delegate) AfterJobCreated(spec job.Job) {}
 
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
+// ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err error) {
 	// TODO: we need to fill these out manually, find a better fix
 	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()

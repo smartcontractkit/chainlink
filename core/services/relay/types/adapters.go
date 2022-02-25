@@ -30,8 +30,8 @@ func NewRelayerAdapter(relayer Relayer) RelayerCtx {
 }
 
 // NewOCR2Provider forwards the call to the underlying relayer.NewOCR2Provider().
-func (r relayerAdapter) NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2ProviderCtx, error) {
-	provider, err := r.relayer.NewOCR2Provider(externalJobID, spec)
+func (a relayerAdapter) NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2ProviderCtx, error) {
+	provider, err := a.relayer.NewOCR2Provider(externalJobID, spec)
 	if err != nil {
 		return nil, err
 	}
