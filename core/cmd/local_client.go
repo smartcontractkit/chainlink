@@ -51,7 +51,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err := cli.runNode(c); err != nil {
 		err = errors.Wrap(err, "Cannot boot Chainlink")
 		cli.Logger.Errorw(err.Error(), "err", err)
-		if serr := cli.Logger.Sync(); serr != nil {
+		if serr := cli.CloseLogger(); serr != nil {
 			err = multierr.Combine(serr, err)
 		}
 		return cli.errorOut(err)
@@ -104,8 +104,8 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		if err = ldb.Close(); err != nil {
 			lggr.Criticalf("Failed to close LockedDB: %v", err)
 		}
-		if err = lggr.Sync(); err != nil {
-			log.Printf("Failed to sync Logger: %v", err)
+		if err = cli.CloseLogger(); err != nil {
+			log.Printf("Failed to close Logger: %v", err)
 		}
 
 		os.Exit(-1)

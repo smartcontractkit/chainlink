@@ -22,6 +22,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -34,15 +40,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *ocr2aggregator.OCR2Aggregator) {
@@ -177,7 +177,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		}
 	}()
 
-	lggr.Debugw("Setting Payees on Oracle Contract", "transmitters", transmitters)
+	lggr.Debugw("Setting Payees on OraclePlugin Contract", "transmitters", transmitters)
 	_, err := ocrContract.SetPayees(
 		owner,
 		transmitters,
@@ -272,17 +272,18 @@ chainID 			= 1337
 			URL:  models.WebURL(*u),
 		})
 
-		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
+		ocrJob, err := ocr2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
-relay = "evm"
+relay              = "evm"
 schemaVersion      = 1
+pluginType         = "median"
 name               = "web oracle spec"
-contractID = "%s"
-ocrKeyBundleID        = "%s"
-transmitterID = "%s"
+contractID         = "%s"
+ocrKeyBundleID     = "%s"
+transmitterID      = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
-observationSource = """
+observationSource  = """
     // data source 1
     ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
@@ -298,6 +299,9 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
+[pluginConfig]
 juelsPerFeeCoinSource = """
 		// data source 1
 		ds1          [type=bridge name="%s"];
@@ -314,8 +318,6 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-[relayConfig]
-chainID = 1337
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)

@@ -50,7 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -644,7 +644,7 @@ func TestIntegration_OCR(t *testing.T) {
 			err = appBootstrap.Start(testutils.Context(t))
 			require.NoError(t, err)
 
-			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -710,7 +710,7 @@ isBootstrapPeer    = true
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				jb, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
+				jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"

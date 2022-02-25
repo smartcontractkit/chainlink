@@ -27,10 +27,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 )
 
-func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OffchainReporting2OracleSpec {
+func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OCR2OracleSpec {
 	t.Helper()
 
-	var ocr2spec job.OffchainReporting2OracleSpec
+	var ocr2spec job.OCR2OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecToml), &ocr2spec)
 	require.NoError(t, err)
 

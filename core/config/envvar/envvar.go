@@ -9,14 +9,24 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/parse"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
-	LogLevel    = New("LogLevel", parse.LogLevel)
-	RootDir     = New("RootDir", parse.HomeDir)
+	// LogLevel reprents a parseable version of the `LOG_LEVEL`env var.
+	LogLevel = New("LogLevel", parse.LogLevel)
+	// RootDir reprents a parseable version of the `ROOT`env var.
+	RootDir = New("RootDir", parse.HomeDir)
+	// JSONConsole reprents a parseable version of the `JSON_CONSOLE`env var.
 	JSONConsole = New("JSONConsole", parse.Bool)
-	LogToDisk   = New("LogToDisk", parse.Bool)
-	LogUnixTS   = New("LogUnixTS", parse.Bool)
+	// LogFileMaxSize reprents a parseable version of the `LOG_FILE_MAX_SIZE`env var.
+	LogFileMaxSize = New("LogFileMaxSize", parse.FileSize)
+	// LogFileMaxAge reprents a parseable version of the `LOG_FILE_MAX_AGE`env var.
+	LogFileMaxAge = New("LogFileMaxAge", parse.Int64)
+	// LogFileMaxBackups reprents a parseable version of the `LOG_FILE_MAX_BACKUPS`env var.
+	LogFileMaxBackups = New("LogFileMaxBackups", parse.Int64)
+	// LogUnixTS reprents a parseable version of the `LOG_UNIX_TS`env var.
+	LogUnixTS = New("LogUnixTS", parse.Bool)
 )
 
 // EnvVar is an environment variable which
@@ -83,6 +93,20 @@ func (e *EnvVar) ParseBool() (v bool, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
 	return i.(bool), invalid
+}
+
+// ParseInt64 parses value into `int64`
+func (e *EnvVar) ParseInt64() (v int64, invalid string) {
+	var i interface{}
+	i, invalid = e.Parse()
+	return i.(int64), invalid
+}
+
+// ParseFileSize parses value into `utils.FileSize`
+func (e *EnvVar) ParseFileSize() (v utils.FileSize, invalid string) {
+	var i interface{}
+	i, invalid = e.Parse()
+	return i.(utils.FileSize), invalid
 }
 
 func (e *EnvVar) ParseLogLevel() (v zapcore.Level, invalid string) {
