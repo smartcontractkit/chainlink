@@ -24,6 +24,7 @@ func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
 	worker := synchronization.NewTelemetryIngressBatchWorker(
 		uint(maxTelemBatchSize),
 		time.Millisecond*1,
+		time.Second,
 		new(mocks.TelemClient),
 		&sync.WaitGroup{},
 		make(chan struct{}),
