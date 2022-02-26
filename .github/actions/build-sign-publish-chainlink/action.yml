@@ -117,6 +117,13 @@ runs:
         CHAINLINK_USER:root
         ${{ env.shared-build-args }}
 
+  - name: Save root image name in GITHUB_ENV
+    id: save-root-image-name-env
+    shell: sh
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
+      echo "root_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+
   - name: Generate docker metadata for non-root image
     id: meta-nonroot
     uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
@@ -140,6 +147,13 @@ runs:
         CHAINLINK_USER:chainlink
         ${{ env.shared-build-args }}
 
+  - name: Save non-root image name in GITHUB_ENV
+    id: save-non-root-image-name-env
+    shell: sh
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
+      echo "nonroot_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+
   - if: inputs.sign-images == 'true'
     name: Install cosign
     uses: sigstore/cosign-installer@1e95c1de343b5b0c23352d6417ee3e48d5bcd422 # v1.4.0
@@ -152,10 +166,7 @@ runs:
     env:
       COSIGN_EXPERIMENTAL: 1
     run: |
-      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
-      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
-
-      cosign sign "$IMAGE_NAME"
+      cosign sign "${{ env.root_image_name }}"
 
   - if: inputs.verify-signature == 'true'
     name: Verify the signature of the published root Docker image
@@ -163,10 +174,7 @@ runs:
     env:
       COSIGN_EXPERIMENTAL: 1
     run: |
-      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
-      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
-
-      cosign verify "$IMAGE_NAME"
+      cosign verify "${{ env.root_image_name }}"
 
   - if: inputs.sign-images == 'true'
     name: Sign the published non-root Docker image
@@ -174,10 +182,7 @@ runs:
     env:
       COSIGN_EXPERIMENTAL: 1
     run: |
-      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
-      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
-
-      cosign sign "$IMAGE_NAME"
+      cosign sign "${{ env.nonroot_image_name }}"
 
   - if: inputs.verify-signature == 'true'
     name: Verify the signature of the published non-root Docker image
@@ -185,8 +190,5 @@ runs:
     env:
       COSIGN_EXPERIMENTAL: 1
     run: |
-      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
-      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
-
-      cosign verify "$IMAGE_NAME"
+      cosign verify "${{ env.nonroot_image_name }}"
 
