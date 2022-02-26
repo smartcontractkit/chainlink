@@ -38,13 +38,9 @@ inputs:
     description: When set to the string boolean value of "true", the resulting build image will be signed
     default: "false"
     required: false
-
-  cosign-private-key:
-    description: The private key to be used with cosign to sign the image
-    required: false
-
-  cosign-password:
-    description: The password to decrypt the cosign private key needed to sign the image
+  verify-signature:
+    description: When set to the string boolean value of "true", the resulting build image signature will be verified
+    default: "false"
     required: false
 
 runs:
@@ -151,29 +147,46 @@ runs:
       cosign-release: 'v1.4.0'
 
   - if: inputs.sign-images == 'true'
-    name: Write signing key to disk (only needed for `cosign sign --key`)
-    shell: sh
-    run: echo "${{ inputs.cosign-private-key }}" > cosign.key
-
-  - if: inputs.sign-images == 'true'
     name: Sign the published root Docker image
     shell: sh
     env:
-      COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+      COSIGN_EXPERIMENTAL: 1
     run: |
       IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
       IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
 
-      cosign sign --key cosign.key "$IMAGE_NAME"
+      cosign sign "$IMAGE_NAME"
+
+  - if: inputs.verify-signature == 'true'
+    name: Verify the signature of the published root Docker image
+    shell: sh
+    env:
+      COSIGN_EXPERIMENTAL: 1
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
+      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+
+      cosign verify "$IMAGE_NAME"
 
   - if: inputs.sign-images == 'true'
     name: Sign the published non-root Docker image
     shell: sh
     env:
-      COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+      COSIGN_EXPERIMENTAL: 1
     run: |
       IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
       IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
 
-      cosign sign --key cosign.key "$IMAGE_NAME"
+      cosign sign "$IMAGE_NAME"
+
+  - if: inputs.verify-signature == 'true'
+    name: Verify the signature of the published non-root Docker image
+    shell: sh
+    env:
+      COSIGN_EXPERIMENTAL: 1
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
+      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+
+      cosign verify "$IMAGE_NAME"
 
