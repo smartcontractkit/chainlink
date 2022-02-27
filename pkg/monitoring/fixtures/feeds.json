@@ -1,0 +1,75 @@
+[
+  {
+    "name": "SOL / USD",
+    "path": "sol-usd",
+    "symbol": "",
+    "heartbeat": 0,
+    "contract_type": "numerical_median_feed",
+    "status": "dead",
+    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
+    "transmissions_account_base58": "DgpoPD7MU621ReWr3TWEBociJgUzRSUdDxUGnR8mKHdq",
+    "state_account_base58": "57X5Rq3o7k5z976kAjYTWu5yKfgX1aQxH4bXACpmTPPF",
+    "multiply": "100000000"
+  },
+  {
+    "name": "ETH / USD",
+    "path": "eth-usd",
+    "symbol": "",
+    "heartbeat": 0,
+    "contract_type": "numerical_median_feed",
+    "status": "dead",
+    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
+    "transmissions_account_base58": "4gyCbmS3R6gQA9wK84y7UMFva5KzoKzkMgbGurzyC6Ly",
+    "state_account_base58": "5XvR36Yybeh7wMYfR1i3YDu9pcrpgacDujA84nvuCHgD",
+    "multiply": "100000000"
+  },
+  {
+    "name": "BTC / USD",
+    "path": "btc-usd",
+    "symbol": "",
+    "heartbeat": 0,
+    "contract_type": "numerical_median_feed",
+    "status": "live",
+    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
+    "transmissions_account_base58": "HiY8TjDX44C41GPJYB8REuonLeZEpE4CnLiXL5dRcaEs",
+    "state_account_base58": "7ytfPg43gSnGwe5ahQEtjyFp5qRjqgCQV396YQHFtX6Y",
+    "multiply": "100000000"
+  },
+  {
+    "name": "LINK / USD",
+    "path": "link-usd",
+    "symbol": "",
+    "heartbeat": 0,
+    "contract_type": "numerical_median_feed",
+    "status": "live",
+    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
+    "transmissions_account_base58": "ByXcCDGuJLs8AmFRnQKVbLoGaXMEvUjfqWLKpoHkttfH",
+    "state_account_base58": "8earjafHwUdcsTdVH8zpuU6ozvcxzgYkSjfKS12aag9o",
+    "multiply": "100000000"
+  },
+  {
+    "name": "USDT / USD",
+    "path": "usdt-usd",
+    "symbol": "",
+    "heartbeat": 0,
+    "contract_type": "numerical_median_feed",
+    "status": "live",
+    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
+    "transmissions_account_base58": "dnSJHZHaV6megSd8Dfha3pBm9G9s7FRs2BBxdx1Prmf",
+    "state_account_base58": "9QjW5o4gQhj5JggLh49bmWwiDevXLQoe1SMYwDKGgfDf",
+    "multiply": "100000000"
+  },
+  {
+    "name": "USDC / USD",
+    "path": "usdc-usd",
+    "symbol": "",
+    "heartbeat": 0,
+    "contract_type": "numerical_median_feed",
+    "status": "live",
+    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
+    "transmissions_account_base58": "D2EAsNBcYdxwi6Xtg2tdsxMMuKJ2vimaa3K8ydTu96NA",
+    "state_account_base58": "BXNGDywcpX2zKCKHocB2fMjFfgdrvp8aGY6jWWBZbeF5",
+    "multiply": "100000000"
+  }
+]
+

@@ -7,6 +7,7 @@ import (
 )
 
 // rddSource produces a list of feeds to monitor.
+// Any feed with the "status" field set to "dead" will be ignored and not returned by this source.
 type rddSource struct {
 	rddURL     string
 	httpClient *http.Client
@@ -38,5 +39,16 @@ func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse RDD data into an array of feed configurations: %w", err)
 	}
+	feeds = removeDeadFeeds(feeds)
 	return feeds, nil
+}
+
+func removeDeadFeeds(feeds []FeedConfig) []FeedConfig {
+	out := []FeedConfig{}
+	for _, feed := range feeds {
+		if feed.GetContractStatus() != "dead" {
+			out = append(out, feed)
+		}
+	}
+	return out
 }

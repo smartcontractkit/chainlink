@@ -7,7 +7,9 @@ import (
 	cryptoRand "crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -224,7 +226,8 @@ type fakeFeedConfig struct {
 	ContractStatus string `json:"status,omitempty"`
 	// This functions as a feed identifier.
 	ContractAddress []byte   `json:"contract_address,omitempty"`
-	Multiply        *big.Int `json:"multiply,omitempty"`
+	Multiply        *big.Int `json:"-"`
+	MultiplyRaw     string   `json:"multiply,omitempty"`
 }
 
 func (f fakeFeedConfig) GetID() string             { return f.ID }
@@ -268,7 +271,26 @@ func generateFeedConfig() FeedConfig {
 		ContractStatus:  "status",
 		ContractAddress: contractAddress[:],
 		Multiply:        big.NewInt(10000),
+		MultiplyRaw:     "10000",
 	}
+}
+
+func fakeFeedsParser(buf io.ReadCloser) ([]FeedConfig, error) {
+	rawFeeds := []fakeFeedConfig{}
+	decoder := json.NewDecoder(buf)
+	if err := decoder.Decode(&rawFeeds); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal feeds config data: %w", err)
+	}
+	feeds := make([]FeedConfig, len(rawFeeds))
+	for i, rawFeed := range rawFeeds {
+		multiply, ok := new(big.Int).SetString(rawFeed.MultiplyRaw, 10)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse multiply from '%s'", rawFeed.MultiplyRaw)
+		}
+		rawFeed.Multiply = multiply
+		feeds[i] = FeedConfig(rawFeed)
+	}
+	return feeds, nil
 }
 
 func generateNumericalMedianOffchainConfig() (*pb.NumericalMedianConfigProto, []byte, error) {
@@ -597,4 +619,5 @@ var (
 	_ = fakeSourceWithWait{}
 	_ = fakeSourceFactoryWithError{}
 	_ = fakeSourceWithPanic{}
+	_ = fakeFeedsParser
 )
