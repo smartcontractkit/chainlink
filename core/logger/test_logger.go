@@ -10,8 +10,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 )
 
 // MemorySink implements zap.Sink by writing all messages to a buffer.
@@ -67,12 +68,10 @@ func MemoryLogTestingOnly() *MemorySink {
 // for test output, and to the buffer testMemoryLog. t is optional.
 // Log level is derived from the LOG_LEVEL env var.
 func TestLogger(t T) Logger {
-	cfg := newTestConfig()
+	cfg := newZapConfigTest()
 	ll, invalid := envvar.LogLevel.ParseLogLevel()
 	cfg.Level.SetLevel(ll)
-	l, close, err := newZapLogger(ZapLoggerConfig{
-		Config: cfg,
-	})
+	l, close, err := zapLoggerConfig{Config: cfg}.newLogger()
 	if err != nil {
 		if t == nil {
 			log.Fatal(err)
@@ -93,9 +92,9 @@ func TestLogger(t T) Logger {
 	return l.Named(verShaNameStatic()).Named(t.Name())
 }
 
-func newTestConfig() zap.Config {
+func newZapConfigTest() zap.Config {
 	_ = MemoryLogTestingOnly() // Make sure memory log is created
-	config := newBaseConfig()
+	config := newZapConfigBase()
 	config.OutputPaths = []string{"pretty://console", "memory://"}
 	return config
 }

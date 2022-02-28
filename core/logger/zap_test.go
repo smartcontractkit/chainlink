@@ -12,15 +12,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	utilsmocks "github.com/smartcontractkit/chainlink/core/utils/mocks"
-	"github.com/test-go/testify/require"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/test-go/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 func TestZapLogger_OutOfDiskSpace(t *testing.T) {
-	cfg := newTestConfig()
+	cfg := newZapConfigTest()
 	ll, invalid := envvar.LogLevel.ParseLogLevel()
 	assert.Empty(t, invalid)
 
@@ -39,7 +39,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	assert.NoError(t, err)
 
 	pollCfg := newDiskPollConfig(1 * time.Second)
-	zapCfg := ZapLoggerConfig{
+	zapCfg := zapLoggerConfig{
 		Config: cfg,
 		local: Config{
 			Dir:            logsDir,
@@ -69,7 +69,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSize = int(maxSize) * 2
 
-		lggr, close, err := newZapLogger(zapCfg)
+		lggr, close, err := zapCfg.newLogger()
 		assert.NoError(t, err)
 		defer close()
 
@@ -103,7 +103,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSize = int(maxSize) * 2
 
-		lggr, close, err := newZapLogger(zapCfg)
+		lggr, close, err := zapCfg.newLogger()
 		assert.NoError(t, err)
 		defer close()
 
@@ -137,7 +137,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSize = int(maxSize) * 2
 
-		lggr, close, err := newZapLogger(zapCfg)
+		lggr, close, err := zapCfg.newLogger()
 		assert.NoError(t, err)
 		defer close()
 
@@ -187,7 +187,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 		}
 		zapCfg.local.FileMaxSize = int(maxSize) * 2
 
-		lggr, close, err := newZapLogger(zapCfg)
+		lggr, close, err := zapCfg.newLogger()
 		assert.NoError(t, err)
 		defer close()
 

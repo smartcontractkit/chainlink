@@ -119,14 +119,12 @@ type Logger interface {
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker                 = "HeadTracker"
-	HeadListener                = "HeadListener"
-	HeadSaver                   = "HeadSaver"
-	HeadBroadcaster             = "HeadBroadcaster"
-	FluxMonitor                 = "FluxMonitor"
-	Keeper                      = "Keeper"
-	TelemetryIngressBatchClient = "TelemetryIngressBatchClient"
-	TelemetryIngressBatchWorker = "TelemetryIngressBatchWorker"
+	HeadTracker     = "HeadTracker"
+	HeadListener    = "HeadListener"
+	HeadSaver       = "HeadSaver"
+	HeadBroadcaster = "HeadBroadcaster"
+	FluxMonitor     = "FluxMonitor"
+	Keeper          = "Keeper"
 )
 
 func GetLogServices() []string {
@@ -137,9 +135,9 @@ func GetLogServices() []string {
 	}
 }
 
-// newProductionConfig returns a new production zap.Config.
-func newProductionConfig(dir string, jsonConsole bool, debugLogsToDisk bool, unixTS bool) zap.Config {
-	config := newBaseConfig()
+// newZapConfigProd returns a new production zap.Config.
+func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
+	config := newZapConfigBase()
 	if !unixTS {
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
@@ -242,14 +240,14 @@ type Config struct {
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() (Logger, func() error) {
-	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.DebugLogsToDisk(), c.UnixTS)
+	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, close, err := newZapLogger(ZapLoggerConfig{
+	l, close, err := zapLoggerConfig{
 		local:          *c,
 		Config:         cfg,
 		diskStats:      utils.NewDiskStatsProvider(),
 		diskPollConfig: newDiskPollConfig(diskPollInterval),
-	})
+	}.newLogger()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -273,8 +271,8 @@ func InitColor(c bool) {
 	color.NoColor = !c
 }
 
-// newBaseConfig returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
-func newBaseConfig() zap.Config {
+// newZapConfigBase returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
+func newZapConfigBase() zap.Config {
 	cfg := zap.NewProductionConfig()
 	cfg.Sampling = nil
 	cfg.EncoderConfig.EncodeLevel = encodeLevel
