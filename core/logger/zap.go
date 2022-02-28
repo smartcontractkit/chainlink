@@ -40,12 +40,12 @@ type zapLogger struct {
 func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 
-	consoleCore, errWriter, err := newCore(cfg)
+	newCore, errWriter, err := newCore(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
 	cores := []zapcore.Core{
-		consoleCore,
+		newCore,
 	}
 	if cfg.local.DebugLogsToDisk() {
 		diskCore, diskErr := newDiskCore(cfg)
@@ -160,13 +160,13 @@ func (l *zapLogger) Named(name string) Logger {
 func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	newLogger := *l
 	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
-	consoleCore, errWriter, err := newCore(newLogger.config)
+	newCore, errWriter, err := newCore(newLogger.config)
 	if err != nil {
 		return nil, err
 	}
 	cores := []zapcore.Core{
 		// The console core is what we want to be unique per root, so we spin a new one here
-		consoleCore,
+		newCore,
 	}
 	if newLogger.config.local.DebugLogsToDisk() {
 		diskCore, diskErr := newDiskCore(newLogger.config)
