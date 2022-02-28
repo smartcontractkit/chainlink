@@ -2,10 +2,11 @@ package vrf_test
 
 import (
 	"crypto/ecdsa"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 

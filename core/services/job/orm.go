@@ -3,9 +3,14 @@ package job
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
+
+	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
+
+	"github.com/smartcontractkit/chainlink/core/bridges"
 
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
@@ -67,6 +72,7 @@ type orm struct {
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
 	lggr        logger.Logger
+	bridgeORM   bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
@@ -85,10 +91,33 @@ func NewORM(
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
+		bridgeORM:   bridges.NewORM(db, lggr, cfg),
 		lggr:        namedLogger,
 	}
 }
 func (o *orm) Close() error {
+	return nil
+}
+
+func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
+	var bridgeNames []bridges.BridgeName
+	for _, task := range p.Tasks {
+		if task.Type() == pipeline.TaskTypeBridge {
+			// Bridge must exist
+			name := task.(*pipeline.BridgeTask).Name
+			bridge, err := bridges.ParseBridgeName(name)
+			if err != nil {
+				return err
+			}
+			bridgeNames = append(bridgeNames, bridge)
+		}
+	}
+	if len(bridgeNames) != 0 {
+		_, err := o.bridgeORM.FindBridges(bridgeNames)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -98,21 +127,8 @@ func (o *orm) Close() error {
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
-	for _, task := range p.Tasks {
-		if task.Type() == pipeline.TaskTypeBridge {
-			// Bridge must exist
-			name := task.(*pipeline.BridgeTask).Name
-
-			sql := `SELECT EXISTS(SELECT 1 FROM bridge_types WHERE name = $1);`
-			var exists bool
-			err := q.Get(&exists, sql, name)
-			if err != nil {
-				return errors.Wrap(err, "CreateJob failed to check bridge")
-			}
-			if !exists {
-				return errors.Wrap(pipeline.ErrNoSuchBridge, name)
-			}
-		}
+	if err := o.assertBridgesExist(p); err != nil {
+		return err
 	}
 
 	var jobID int32
@@ -195,6 +211,21 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				}
+			}
+			switch jb.OCR2OracleSpec.PluginType {
+			case Median:
+				var config medianconfig.PluginConfig
+				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &config)
+				if err != nil {
+					return err
+				}
+				feePipeline, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline)
+				if err != nil {
+					return err
+				}
+				if err2 := o.assertBridgesExist(*feePipeline); err2 != nil {
+					return err2
 				}
 			}
 

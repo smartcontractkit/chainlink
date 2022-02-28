@@ -24,19 +24,55 @@ func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	return db, orm
 }
 
+func TestORM_FindBridges(t *testing.T) {
+	t.Parallel()
+	_, orm := setupORM(t)
+
+	bt := bridges.BridgeType{
+		Name: "bridge1",
+		URL:  cltest.WebURL(t, "https://bridge1.com"),
+	}
+	assert.NoError(t, orm.CreateBridgeType(&bt))
+	bt2 := bridges.BridgeType{
+		Name: "bridge2",
+		URL:  cltest.WebURL(t, "https://bridge2.com"),
+	}
+	assert.NoError(t, orm.CreateBridgeType(&bt2))
+	bts, err := orm.FindBridges([]bridges.BridgeName{"bridge2", "bridge1"})
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bts))
+
+	bts, err = orm.FindBridges([]bridges.BridgeName{"bridge1"})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(bts))
+	require.Equal(t, "bridge1", bts[0].Name.String())
+
+	// One invalid bridge errors
+	bts, err = orm.FindBridges([]bridges.BridgeName{"bridge1", "bridgeX"})
+	require.Error(t, err, bts)
+
+	// All invalid bridges error
+	bts, err = orm.FindBridges([]bridges.BridgeName{"bridgeY", "bridgeX"})
+	require.Error(t, err, bts)
+
+	// Requires at least one bridge
+	bts, err = orm.FindBridges([]bridges.BridgeName{})
+	require.Error(t, err, bts)
+}
+
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
 
 	_, orm := setupORM(t)
 
 	bt := bridges.BridgeType{}
-	bt.Name = bridges.MustNewTaskType("solargridreporting")
+	bt.Name = bridges.MustParseBridgeName("solargridreporting")
 	bt.URL = cltest.WebURL(t, "https://denergy.eth")
 	assert.NoError(t, orm.CreateBridgeType(&bt))
 
 	cases := []struct {
 		description string
-		name        bridges.TaskType
+		name        bridges.BridgeName
 		want        bridges.BridgeType
 		errored     bool
 	}{
