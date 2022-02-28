@@ -166,6 +166,7 @@ type GeneralOnlyConfig interface {
 	TelemetryIngressBufferSize() uint
 	TelemetryIngressMaxBatchSize() uint
 	TelemetryIngressSendInterval() time.Duration
+	TelemetryIngressSendTimeout() time.Duration
 	TelemetryIngressUseBatchSend() bool
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
@@ -883,6 +884,11 @@ func (c *generalConfig) TelemetryIngressMaxBatchSize() uint {
 // TelemetryIngressSendInterval is the cadence on which batched telemetry is sent to the ingress server
 func (c *generalConfig) TelemetryIngressSendInterval() time.Duration {
 	return c.getDuration("TelemetryIngressSendInterval")
+}
+
+// TelemetryIngressSendTimeout is the max duration to wait for the request to complete when sending batch telemetry
+func (c *generalConfig) TelemetryIngressSendTimeout() time.Duration {
+	return c.getDuration("TelemetryIngressSendTimeout")
 }
 
 // TelemetryIngressUseBatchSend toggles sending telemetry using the batch client to the ingress server

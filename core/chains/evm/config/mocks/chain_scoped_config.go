@@ -3984,6 +3984,20 @@ func (_m *ChainScopedConfig) TelemetryIngressSendInterval() time.Duration {
 	return r0
 }
 
+// TelemetryIngressSendTimeout provides a mock function with given fields:
+func (_m *ChainScopedConfig) TelemetryIngressSendTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // TelemetryIngressServerPubKey provides a mock function with given fields:
 func (_m *ChainScopedConfig) TelemetryIngressServerPubKey() string {
 	ret := _m.Called()
