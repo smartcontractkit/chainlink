@@ -31,7 +31,7 @@ func newDiskPollConfig(interval time.Duration) zapDiskPollConfig {
 	}
 }
 
-func newDiskCore(cfg ZapLoggerConfig) (zapcore.Core, error) {
+func (cfg zapLoggerConfig) newDiskCore() (zapcore.Core, error) {
 	availableSpace, err := cfg.diskStats.AvailableSpace(cfg.local.Dir)
 	if err != nil || availableSpace < cfg.local.RequiredDiskSpace() {
 		// Won't log to disk if the directory is not found or there's not enough disk space
