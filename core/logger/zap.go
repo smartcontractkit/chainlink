@@ -112,13 +112,7 @@ func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 
-	encoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-		if l == zapcore.DPanicLevel {
-			enc.AppendString("crit")
-		} else {
-			zapcore.LowercaseLevelEncoder(l, enc)
-		}
-	}
+	encoderConfig.EncodeLevel = encodeLevel
 
 	return encoderConfig
 }
