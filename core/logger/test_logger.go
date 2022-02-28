@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/stretchr/testify/assert"
@@ -73,7 +72,6 @@ func TestLogger(t T) Logger {
 	cfg.Level.SetLevel(ll)
 	l, close, err := newZapLogger(ZapLoggerConfig{
 		Config: cfg,
-		sinks:  []zapcore.WriteSyncer{PrettyConsole{Sink: &testMemoryLog}},
 	})
 	if err != nil {
 		if t == nil {

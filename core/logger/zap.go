@@ -20,7 +20,6 @@ type ZapLoggerConfig struct {
 	zap.Config
 	local          Config
 	diskLogLevel   zap.AtomicLevel
-	sinks          []zapcore.WriteSyncer
 	diskStats      utils.DiskStatsProvider
 	diskPollConfig zapDiskPollConfig
 
@@ -41,18 +40,27 @@ type zapLogger struct {
 func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 
-	cores := []zapcore.Core{
-		newConsoleCore(cfg),
+	newCore, errWriter, err := newCore(cfg)
+	if err != nil {
+		return nil, nil, err
 	}
-	newCores, err := newCores(cfg)
-	cores = append(cores, newCores...)
+	cores := []zapcore.Core{
+		newCore,
+	}
+	if cfg.local.DebugLogsToDisk() {
+		diskCore, diskErr := newDiskCore(cfg)
+		if diskErr != nil {
+			return nil, nil, diskErr
+		}
+		cores = append(cores, diskCore)
+	}
 
 	core := zapcore.NewTee(cores...)
 	lggr := &zapLogger{
 		config:            cfg,
 		pollDiskSpaceStop: make(chan struct{}),
 		pollDiskSpaceDone: make(chan struct{}),
-		SugaredLogger:     zap.New(core).Sugar(),
+		SugaredLogger:     zap.New(core, zap.ErrorOutput(errWriter)).Sugar(),
 	}
 
 	if cfg.local.DebugLogsToDisk() {
@@ -74,43 +82,27 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	return lggr, close, err
 }
 
-func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
-	var err error
-	var cores []zapcore.Core
-
-	if cfg.local.DebugLogsToDisk() {
-		core, diskErr := newDiskCore(cfg)
-		if diskErr == nil {
-			cores = append(cores, core)
-		}
-		err = diskErr
-	}
-
-	for _, sink := range cfg.sinks {
-		cores = append(
-			cores,
-			zapcore.NewCore(
-				zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local)),
-				sink,
-				zap.LevelEnablerFunc(cfg.Level.Enabled),
-			),
-		)
-	}
-
-	return cores, err
-}
-
-func newConsoleCore(cfg ZapLoggerConfig) zapcore.Core {
-	filteredLogLevels := zap.LevelEnablerFunc(cfg.Level.Enabled)
-
+func newCore(cfg ZapLoggerConfig) (zapcore.Core, zapcore.WriteSyncer, error) {
 	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local))
 
-	var sink zap.Sink
-	if !cfg.local.JsonConsole {
-		sink = PrettyConsole{os.Stderr}
+	sink, closeOut, err := zap.Open(cfg.OutputPaths...)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return zapcore.NewCore(encoder, sink, filteredLogLevels)
+	errSink, _, err := zap.Open(cfg.ErrorOutputPaths...)
+	if err != nil {
+		closeOut()
+		return nil, nil, err
+	}
+
+	if cfg.Level == (zap.AtomicLevel{}) {
+		return nil, nil, errors.New("missing Level")
+	}
+
+	filteredLogLevels := zap.LevelEnablerFunc(cfg.Level.Enabled)
+
+	return zapcore.NewCore(encoder, sink, filteredLogLevels), errSink, nil
 }
 
 func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
@@ -168,14 +160,22 @@ func (l *zapLogger) Named(name string) Logger {
 func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	newLogger := *l
 	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
-
+	newCore, errWriter, err := newCore(newLogger.config)
+	if err != nil {
+		return nil, err
+	}
 	cores := []zapcore.Core{
 		// The console core is what we want to be unique per root, so we spin a new one here
-		newConsoleCore(newLogger.config),
+		newCore,
 	}
-	extraCores, err := newCores(newLogger.config)
-	cores = append(cores, extraCores...)
-	core := zap.New(zapcore.NewTee(cores...)).WithOptions(zap.AddCallerSkip(l.callerSkip))
+	if newLogger.config.local.DebugLogsToDisk() {
+		diskCore, diskErr := newDiskCore(newLogger.config)
+		if diskErr != nil {
+			return nil, diskErr
+		}
+		cores = append(cores, diskCore)
+	}
+	core := zap.New(zapcore.NewTee(cores...), zap.ErrorOutput(errWriter), zap.AddCallerSkip(l.callerSkip))
 
 	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
 
