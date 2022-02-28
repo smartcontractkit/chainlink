@@ -20,7 +20,6 @@ type ZapLoggerConfig struct {
 	zap.Config
 	local          Config
 	diskLogLevel   zap.AtomicLevel
-	sinks          []zapcore.WriteSyncer
 	diskStats      utils.DiskStatsProvider
 	diskPollConfig zapDiskPollConfig
 
@@ -57,7 +56,7 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 		config:            cfg,
 		pollDiskSpaceStop: make(chan struct{}),
 		pollDiskSpaceDone: make(chan struct{}),
-		SugaredLogger:     zap.New(core, []zap.Option{zap.ErrorOutput(errWriter)}...).Sugar(),
+		SugaredLogger:     zap.New(core, zap.ErrorOutput(errWriter)).Sugar(),
 	}
 
 	if cfg.local.DebugLogsToDisk() {
@@ -89,17 +88,6 @@ func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
 			cores = append(cores, core)
 		}
 		err = diskErr
-	}
-
-	for _, sink := range cfg.sinks {
-		cores = append(
-			cores,
-			zapcore.NewCore(
-				zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local)),
-				sink,
-				zap.LevelEnablerFunc(cfg.Level.Enabled),
-			),
-		)
 	}
 
 	return cores, err
@@ -193,7 +181,7 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	}
 	extraCores, err := newCores(newLogger.config)
 	cores = append(cores, extraCores...)
-	core := zap.New(zapcore.NewTee(cores...), []zap.Option{zap.ErrorOutput(errWriter)}...).WithOptions(zap.AddCallerSkip(l.callerSkip))
+	core := zap.New(zapcore.NewTee(cores...), zap.ErrorOutput(errWriter)).WithOptions(zap.AddCallerSkip(l.callerSkip))
 
 	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
 
