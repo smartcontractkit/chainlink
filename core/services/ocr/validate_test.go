@@ -64,7 +64,7 @@ transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 observationTimeout = "10s"
 databaseTimeout = "2s"
 observationGracePeriod = "2s"
-contractTransmitterTransmitTimeout = "500ms"
+contractTransmitterTransmitTimeout = "1s"
 observationSource = """
 ds1          [type=bridge name=voter_turnout];
 ds1_parse    [type=jsonparse path="one,two"];

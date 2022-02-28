@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
+//go:generate mockery --name Config --output ./mocks/ --case=underscore
+
 // Config contains OCR2 configurations for a job.
 type Config interface {
 	config.OCR2Config

@@ -123,7 +123,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 
 	// Create a duplicate
 	bt := bridges.BridgeType{}
-	bt.Name = bridges.MustNewTaskType("solargridreporting")
+	bt.Name = bridges.MustParseBridgeName("solargridreporting")
 	bt.URL = cltest.WebURL(t, "https://denergy.eth")
 	assert.NoError(t, orm.CreateBridgeType(&bt))
 
@@ -195,7 +195,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.BridgeType, error) {
 	bt1 := &bridges.BridgeType{
-		Name:          bridges.MustNewTaskType("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
@@ -205,7 +205,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 	}
 
 	bt2 := &bridges.BridgeType{
-		Name:          bridges.MustNewTaskType("testingbridges2"),
+		Name:          bridges.MustParseBridgeName("testingbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/tari"),
 		Confirmations: 0,
 	}
@@ -232,7 +232,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
 	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
-	bt, err := app.BridgeORM().FindBridge(bridges.MustNewTaskType(btName))
+	bt, err := app.BridgeORM().FindBridge(bridges.MustParseBridgeName(btName))
 	assert.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint32(10), bt.Confirmations)
@@ -249,7 +249,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &bridges.BridgeType{
-		Name: bridges.MustNewTaskType("BRidgea"),
+		Name: bridges.MustParseBridgeName("BRidgea"),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
 	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
@@ -273,7 +273,7 @@ func TestBridgeController_Show(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	bt := &bridges.BridgeType{
-		Name:          bridges.MustNewTaskType("testingbridges1"),
+		Name:          bridges.MustParseBridgeName("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}

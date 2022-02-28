@@ -1,11 +1,13 @@
 package ocr2
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -58,6 +60,10 @@ answer1      [type=median index=0];
 				var r job.OCR2OracleSpec
 				err = jsonapi.Unmarshal(b, &r)
 				require.NoError(t, err)
+				assert.Equal(t, "median", string(r.PluginType))
+				var pc medianconfig.PluginConfig
+				require.NoError(t, json.Unmarshal(r.PluginConfig.Bytes(), &pc))
+				require.NoError(t, medianconfig.ValidatePluginConfig(pc))
 			},
 		},
 		{
