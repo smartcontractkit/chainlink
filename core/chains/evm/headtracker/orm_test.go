@@ -1,8 +1,9 @@
 package headtracker_test
 
 import (
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 
 	"github.com/ethereum/go-ethereum/common"
 

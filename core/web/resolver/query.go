@@ -25,7 +25,7 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ ID graphql.ID }) (*B
 		return nil, err
 	}
 
-	name, err := bridges.NewTaskType(string(args.ID))
+	name, err := bridges.ParseBridgeName(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
