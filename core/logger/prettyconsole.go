@@ -20,8 +20,9 @@ var levelColors = map[string]func(...interface{}) string{
 	"info":    color.New(color.FgWhite).SprintFunc(),
 	"warn":    color.New(color.FgYellow).SprintFunc(),
 	"error":   color.New(color.FgRed).SprintFunc(),
-	"panic":   color.New(color.FgRed).SprintFunc(),
-	"fatal":   color.New(color.FgRed).SprintFunc(),
+	"panic":   color.New(color.FgHiRed).SprintFunc(),
+	"crit":    color.New(color.FgHiRed).SprintFunc(),
+	"fatal":   color.New(color.FgHiRed).SprintFunc(),
 }
 
 var blue = color.New(color.FgBlue).SprintFunc()

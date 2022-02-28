@@ -3,8 +3,9 @@ package colortest
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func init() {
@@ -19,24 +20,48 @@ func TestPrettyConsole_Write(t *testing.T) {
 		wantError bool
 	}{
 		{
-			"headline",
-			`{"ts":1523537728.7260377, "level":"info", "msg":"top level"}`,
-			"2018-04-12T12:55:28Z \x1b[37m[INFO]  \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
-			false,
-		},
-		{
-			"details",
+			"debug",
 			`{"ts":1523537728, "level":"debug", "msg":"top level", "details":"nuances"}`,
 			"2018-04-12T12:55:28Z \x1b[32m[DEBUG] \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \x1b[32mdetails\x1b[0m=nuances \n",
 			false,
 		},
 		{
-			"blacklist",
+			"info",
+			`{"ts":1523537728.7260377, "level":"info", "msg":"top level"}`,
+			"2018-04-12T12:55:28Z \x1b[37m[INFO]  \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
+			false,
+		},
+		{
+			"warn",
 			`{"ts":1523537728, "level":"warn", "msg":"top level", "hash":"nuances"}`,
 			"2018-04-12T12:55:28Z \x1b[33m[WARN]  \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
 			false,
 		},
-		{"error", `{"broken":}`, `{}`, true},
+		{
+			"error",
+			`{"ts":1523537728, "level":"error", "msg":"top level", "hash":"nuances"}`,
+			"2018-04-12T12:55:28Z \x1b[31m[ERROR] \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
+			false,
+		},
+		{
+			"critical",
+			`{"ts":1523537728, "level":"crit", "msg":"top level", "hash":"nuances"}`,
+			"2018-04-12T12:55:28Z \x1b[91m[CRIT]  \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
+			false,
+		},
+		{
+			"panic",
+			`{"ts":1523537728, "level":"panic", "msg":"top level", "hash":"nuances"}`,
+			"2018-04-12T12:55:28Z \x1b[91m[PANIC] \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
+			false,
+		},
+		{
+			"fatal",
+			`{"ts":1523537728, "level":"fatal", "msg":"top level", "hash":"nuances"}`,
+			"2018-04-12T12:55:28Z \x1b[91m[FATAL] \x1b[0mtop level                                          \x1b[34m\x1b[0m                        \n",
+			false,
+		},
+		{"broken", `{"broken":}`, `{}`, true},
 	}
 
 	for _, tt := range tests {
@@ -48,6 +73,7 @@ func TestPrettyConsole_Write(t *testing.T) {
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
+				t.Log(tr.Written)
 				assert.Equal(t, tt.want, tr.Written)
 			}
 		})
