@@ -8,18 +8,16 @@ import (
 	"reflect"
 	"sync"
 
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -37,9 +35,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -53,14 +52,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
-	Start() error
+	Start(ctx context.Context) error
 	Stop() error
 	GetLogger() logger.Logger
 	GetHealthChecker() services.Checker
@@ -123,10 +121,11 @@ type ChainlinkApplication struct {
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
 	explorerClient           synchronization.ExplorerClient
-	subservices              []services.Service
+	subservices              []interface{} // services.Service or services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
+	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 
 	started     bool
@@ -140,6 +139,7 @@ type ApplicationOpts struct {
 	KeyStore                 keystore.Master
 	Chains                   Chains
 	Logger                   logger.Logger
+	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
 }
@@ -156,7 +156,7 @@ type Chains struct {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []services.Service
+	var subservices []interface{}
 	db := opts.SqlxDB
 	cfg := opts.Config
 	keyStore := opts.KeyStore
@@ -197,7 +197,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
 		if cfg.TelemetryIngressUseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval())
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval(), cfg.TelemetryIngressSendTimeout())
 			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
 
 		} else {
@@ -301,7 +301,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	if cfg.FeatureOffchainReporting() {
-		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
+		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -331,7 +331,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relay.AddRelayer(relaytypes.Terra, terraRelayer)
 		}
 		subservices = append(subservices, relay)
-		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
+		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
 			pipelineRunner,
@@ -398,6 +398,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		closeLogger:              opts.CloseLogger,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -407,7 +408,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	for _, service := range app.subservices {
-		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), service); err != nil {
+		checkable := service.(services.Checkable)
+		if err := app.HealthChecker.Register(reflect.TypeOf(service).String(), checkable); err != nil {
 			return nil, err
 		}
 	}
@@ -441,10 +443,9 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 	return logger.NewORM(app.GetSqlxDB(), app.GetLogger()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
-// Start all necessary services. If successful, nil will be returned.  Also
-// listens for interrupt signals from the operating system so that the
-// application can be properly closed before the application exits.
-func (app *ChainlinkApplication) Start() error {
+// Start all necessary services. If successful, nil will be returned.
+// Start sequence is terminated if the context gets cancelled.
+func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	app.startStopMu.Lock()
 	defer app.startStopMu.Unlock()
 	if app.started {
@@ -458,9 +459,25 @@ func (app *ChainlinkApplication) Start() error {
 	}
 
 	for _, subservice := range app.subservices {
+		if ctx.Err() != nil {
+			return errors.Wrap(ctx.Err(), "aborting start")
+		}
+
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
-		if err := subservice.Start(); err != nil {
-			return err
+
+		// Eventually all services will migrate to ServiceCtx interface and this switch will be removed.
+		// TODO: https://app.shortcut.com/chainlinklabs/story/30692/migrate-services-to-become-servicectx
+		switch ss := subservice.(type) {
+		case services.Service:
+			if err := ss.Start(); err != nil {
+				return err
+			}
+		case services.ServiceCtx:
+			if err := ss.Start(ctx); err != nil {
+				return err
+			}
+		default:
+			panic("unknown service type")
 		}
 	}
 
@@ -497,47 +514,43 @@ func (app *ChainlinkApplication) stop() (err error) {
 		panic("application is already stopped")
 	}
 	app.shutdownOnce.Do(func() {
-		done := make(chan error)
-		go func() {
-			var merr error
-			defer func() {
-				if lerr := app.logger.Sync(); lerr != nil {
-					merr = multierr.Append(merr, lerr)
-				}
-			}()
-			app.logger.Info("Gracefully exiting...")
-
-			// Stop services in the reverse order from which they were started
-			for i := len(app.subservices) - 1; i >= 0; i-- {
-				service := app.subservices[i]
-				app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
-				merr = multierr.Append(merr, service.Close())
+		defer func() {
+			if lerr := app.closeLogger(); lerr != nil {
+				err = multierr.Append(err, lerr)
 			}
-
-			app.logger.Debug("Stopping SessionReaper...")
-			merr = multierr.Append(merr, app.SessionReaper.Stop())
-			app.logger.Debug("Closing HealthChecker...")
-			merr = multierr.Append(merr, app.HealthChecker.Close())
-			if app.FeedsService != nil {
-				app.logger.Debug("Closing Feeds Service...")
-				merr = multierr.Append(merr, app.FeedsService.Close())
-			}
-
-			if app.Nurse != nil {
-				merr = multierr.Append(merr, app.Nurse.Close())
-			}
-
-			app.logger.Info("Exited all services")
-
-			app.started = false
-			done <- err
 		}()
-		select {
-		case merr := <-done:
-			err = merr
-		case <-time.After(15 * time.Second):
-			err = errors.New("application timed out shutting down")
+		app.logger.Info("Gracefully exiting...")
+
+		// Stop services in the reverse order from which they were started
+		for i := len(app.subservices) - 1; i >= 0; i-- {
+			service := app.subservices[i]
+			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
+			switch ss := service.(type) {
+			case services.Service:
+				err = multierr.Append(err, ss.Close())
+			case services.ServiceCtx:
+				err = multierr.Append(err, ss.Close())
+			default:
+				panic("unknown service type")
+			}
 		}
+
+		app.logger.Debug("Stopping SessionReaper...")
+		err = multierr.Append(err, app.SessionReaper.Stop())
+		app.logger.Debug("Closing HealthChecker...")
+		err = multierr.Append(err, app.HealthChecker.Close())
+		if app.FeedsService != nil {
+			app.logger.Debug("Closing Feeds Service...")
+			err = multierr.Append(err, app.FeedsService.Close())
+		}
+
+		if app.Nurse != nil {
+			err = multierr.Append(err, app.Nurse.Close())
+		}
+
+		app.logger.Info("Exited all services")
+
+		app.started = false
 	})
 	return err
 }
@@ -638,7 +651,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
+	isBootstrap := jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil && jb.OCROracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
 		var vars map[string]interface{}
 		var saveTasks bool

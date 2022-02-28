@@ -1,7 +1,6 @@
 package headtracker_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,6 +9,7 @@ import (
 	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -33,10 +33,10 @@ func TestHeadSaver_Save(t *testing.T) {
 	saver, _ := configureSaver(t)
 
 	head := cltest.Head(1)
-	err := saver.Save(context.TODO(), head)
+	err := saver.Save(testutils.Context(t), head)
 	require.NoError(t, err)
 
-	latest, err := saver.LatestHeadFromDB(context.TODO())
+	latest, err := saver.LatestHeadFromDB(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, int64(1), latest.Number)
 
@@ -55,11 +55,11 @@ func TestHeadSaver_LoadFromDB(t *testing.T) {
 	saver, orm := configureSaver(t)
 
 	for i := 0; i < 5; i++ {
-		err := orm.IdempotentInsertHead(context.TODO(), cltest.Head(i))
+		err := orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(i))
 		require.NoError(t, err)
 	}
 
-	latestHead, err := saver.LoadFromDB(context.TODO())
+	latestHead, err := saver.LoadFromDB(testutils.Context(t))
 	require.NoError(t, err)
 	require.NotNil(t, latestHead)
 	require.Equal(t, int64(4), latestHead.Number)

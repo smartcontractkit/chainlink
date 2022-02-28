@@ -46,7 +46,7 @@ type (
 	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
-		services.Service
+		services.ServiceCtx
 		httypes.HeadTrackable
 		ReplayFromBlock(number int64)
 
@@ -169,7 +169,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 	}
 }
 
-func (b *broadcaster) Start() error {
+func (b *broadcaster) Start(context.Context) error {
 	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
 		go b.awaitInitialSubscribers()
@@ -702,8 +702,12 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	close(ch)
 	return ch
 }
-func (n *NullBroadcaster) DependentReady()                                   {}
-func (n *NullBroadcaster) Start() error                                      { return nil }
+
+// DependentReady does noop for NullBroadcaster.
+func (n *NullBroadcaster) DependentReady() {}
+
+// Start does noop for NullBroadcaster.
+func (n *NullBroadcaster) Start(context.Context) error                       { return nil }
 func (n *NullBroadcaster) Close() error                                      { return nil }
 func (n *NullBroadcaster) Healthy() error                                    { return nil }
 func (n *NullBroadcaster) Ready() error                                      { return nil }

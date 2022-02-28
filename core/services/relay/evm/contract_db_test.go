@@ -3,17 +3,17 @@ package evm_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2/testhelpers"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 )
 
 func Test_DB_LatestRoundRequested(t *testing.T) {
@@ -72,7 +72,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	})
 
 	t.Run("spec with latest round requested can be deleted", func(t *testing.T) {
-		_, err := sqlDB.Exec(`DELETE FROM offchainreporting2_oracle_specs`)
+		_, err := sqlDB.Exec(`DELETE FROM ocr2_oracle_specs`)
 		assert.NoError(t, err)
 	})
 }

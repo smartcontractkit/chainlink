@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
@@ -383,7 +385,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, big.NewInt(1233), cfg).Return(types.Chain{
 					ID:        *utils.NewBigI(1),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -458,7 +460,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, big.NewInt(1233), cfg).Return(types.Chain{
 					ID:        *utils.NewBigI(1),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -691,7 +693,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -766,7 +768,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
@@ -799,7 +801,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,

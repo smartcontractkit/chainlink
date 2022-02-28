@@ -23,6 +23,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -130,6 +131,53 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		)
 
 		head := newHead()
+		executer.OnNewLongestChain(context.Background(), &head)
+		ethTxCreated.AwaitOrFail(t)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		require.Len(t, runs, 1)
+		assert.False(t, runs[0].HasErrors())
+		assert.False(t, runs[0].HasFatalErrors())
+		waitLastRunHeight(t, db, upkeep, 20)
+
+		ethMock.AssertExpectations(t)
+		txm.AssertExpectations(t)
+	})
+
+	t.Run("runs upkeep on triggering block number on EIP1559 chain", func(t *testing.T) {
+		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t)
+
+		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
+		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
+		baseFeePerGas := utils.NewBig(big.NewInt(0).Mul(gasPrice, big.NewInt(2)))
+
+		ethTxCreated := cltest.NewAwaiter()
+		txm.On("CreateEthTransaction",
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+		).
+			Once().
+			Return(bulletprooftxmanager.EthTx{
+				ID: 1,
+			}, nil).
+			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
+
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock.MockMatchedResponse(
+			"checkUpkeep",
+			func(callArgs ethereum.CallMsg) bool {
+				expectedGasPrice := bigmath.Div(
+					bigmath.Mul(baseFeePerGas.ToInt(), 100+config.KeeperBaseFeeBufferPercent()),
+					100,
+				)
+
+				return bigmath.Equal(callArgs.GasPrice, expectedGasPrice) &&
+					650_000 == callArgs.Gas
+			},
+			checkUpkeepResponse,
+		)
+
+		head := newHead()
+		head.BaseFeePerGas = baseFeePerGas
+
 		executer.OnNewLongestChain(context.Background(), &head)
 		ethTxCreated.AwaitOrFail(t)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -259,7 +307,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	})
 
 	head := newHead()
-	executer.OnNewLongestChain(context.TODO(), &head)
+	executer.OnNewLongestChain(testutils.Context(t), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 	cltest.AssertCountStays(t, db, "eth_txes", 0)
