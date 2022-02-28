@@ -146,11 +146,6 @@ func newProductionConfig(dir string, jsonConsole bool, debugLogsToDisk bool, uni
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
-	if debugLogsToDisk {
-		destination := logFileURI(dir)
-		config.OutputPaths = append(config.OutputPaths, destination)
-		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
-	}
 	return config
 }
 
