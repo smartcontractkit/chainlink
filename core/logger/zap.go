@@ -181,7 +181,7 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	}
 	extraCores, err := newCores(newLogger.config)
 	cores = append(cores, extraCores...)
-	core := zap.New(zapcore.NewTee(cores...), zap.ErrorOutput(errWriter)).WithOptions(zap.AddCallerSkip(l.callerSkip))
+	core := zap.New(zapcore.NewTee(cores...), zap.ErrorOutput(errWriter), zap.AddCallerSkip(l.callerSkip))
 
 	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
 
