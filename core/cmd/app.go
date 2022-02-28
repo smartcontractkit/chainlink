@@ -92,8 +92,13 @@ func NewApp(client *Client) *cli.App {
 					Action: client.ReplayFromBlock,
 					Flags: []cli.Flag{
 						cli.IntFlag{
-							Name:  "block-number",
-							Usage: "Block number to replay from",
+							Name:     "block-number",
+							Usage:    "Block number to replay from",
+							Required: true,
+						},
+						cli.BoolFlag{
+							Name:  "force-broadcast",
+							Usage: "Whether to broadcast all logs from the provided block number and beyond, ignoring whether they were previously consumed",
 						},
 					},
 				},

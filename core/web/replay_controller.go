@@ -23,6 +23,16 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 		return
 	}
 
+	// check if force_broadcast query string parameter provided
+	var forceBroadcast bool
+	var err error
+	if fb := c.Query("force_broadcast"); fb != "" {
+		forceBroadcast, err = strconv.ParseBool(fb)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "boolean value required for 'force_broadcast' query string param"))
+		}
+	}
+
 	blockNumber, err := strconv.ParseInt(c.Param("number"), 10, 0)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -46,7 +56,7 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 	}
 	chainID := chain.ID()
 
-	if err := bdc.App.ReplayFromBlock(chainID, uint64(blockNumber)); err != nil {
+	if err := bdc.App.ReplayFromBlock(chainID, uint64(blockNumber), forceBroadcast); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

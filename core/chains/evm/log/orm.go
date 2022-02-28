@@ -31,6 +31,9 @@ type ORM interface {
 	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (bool, error)
 	// MarkBroadcastConsumed marks the log broadcast as consumed by jobID.
 	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error
+	// MarkBroadcastsUnconsumed marks all log broadcasts from all jobs on or after fromBlock as
+	// unconsumed.
+	MarkBroadcastsUnconsumed(fromBlock int64, qopts ...pg.QOpt) error
 
 	// SetPendingMinBlock sets the minimum block number for which there are pending broadcasts in the pool, or nil if empty.
 	SetPendingMinBlock(blockNum *int64, qopts ...pg.QOpt) error
@@ -108,6 +111,17 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, l
 		SET consumed = true, updated_at = NOW()
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
 	return errors.Wrap(err, "failed to mark log broadcast as consumed")
+}
+
+// MarkBroadcastsUnconsumed implements the ORM interface.
+func (o *orm) MarkBroadcastsUnconsumed(fromBlock int64, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	err := q.ExecQ(`
+        UPDATE log_broadcasts
+        SET consumed = false
+        WHERE block_number >= $1
+        `, fromBlock)
+	return errors.Wrap(err, "failed to mark broadcasts unconsumed")
 }
 
 func (o *orm) Reinitialize(qopts ...pg.QOpt) (*int64, error) {

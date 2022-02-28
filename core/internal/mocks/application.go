@@ -346,13 +346,13 @@ func (_m *Application) PipelineORM() pipeline.ORM {
 	return r0
 }
 
-// ReplayFromBlock provides a mock function with given fields: chainID, number
-func (_m *Application) ReplayFromBlock(chainID *big.Int, number uint64) error {
-	ret := _m.Called(chainID, number)
+// ReplayFromBlock provides a mock function with given fields: chainID, number, forceBroadcast
+func (_m *Application) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
+	ret := _m.Called(chainID, number, forceBroadcast)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int, uint64) error); ok {
-		r0 = rf(chainID, number)
+	if rf, ok := ret.Get(0).(func(*big.Int, uint64, bool) error); ok {
+		r0 = rf(chainID, number, forceBroadcast)
 	} else {
 		r0 = ret.Error(0)
 	}
