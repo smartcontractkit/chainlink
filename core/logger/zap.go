@@ -40,16 +40,20 @@ type zapLogger struct {
 func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 
-	consoleCore, errWriter, err := newConsoleCore(cfg)
+	consoleCore, errWriter, err := newCore(cfg)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	cores := []zapcore.Core{
 		consoleCore,
 	}
-	newCores, err := newCores(cfg)
-	cores = append(cores, newCores...)
+	if cfg.local.DebugLogsToDisk() {
+		diskCore, diskErr := newDiskCore(cfg)
+		if diskErr != nil {
+			return nil, nil, diskErr
+		}
+		cores = append(cores, diskCore)
+	}
 
 	core := zapcore.NewTee(cores...)
 	lggr := &zapLogger{
@@ -78,22 +82,7 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	return lggr, close, err
 }
 
-func newCores(cfg ZapLoggerConfig) ([]zapcore.Core, error) {
-	var err error
-	var cores []zapcore.Core
-
-	if cfg.local.DebugLogsToDisk() {
-		core, diskErr := newDiskCore(cfg)
-		if diskErr == nil {
-			cores = append(cores, core)
-		}
-		err = diskErr
-	}
-
-	return cores, err
-}
-
-func newConsoleCore(cfg ZapLoggerConfig) (zapcore.Core, zapcore.WriteSyncer, error) {
+func newCore(cfg ZapLoggerConfig) (zapcore.Core, zapcore.WriteSyncer, error) {
 	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local))
 
 	sink, closeOut, err := zap.Open(cfg.OutputPaths...)
@@ -171,7 +160,7 @@ func (l *zapLogger) Named(name string) Logger {
 func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	newLogger := *l
 	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
-	consoleCore, errWriter, err := newConsoleCore(newLogger.config)
+	consoleCore, errWriter, err := newCore(newLogger.config)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +168,13 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 		// The console core is what we want to be unique per root, so we spin a new one here
 		consoleCore,
 	}
-	extraCores, err := newCores(newLogger.config)
-	cores = append(cores, extraCores...)
+	if newLogger.config.local.DebugLogsToDisk() {
+		diskCore, diskErr := newDiskCore(newLogger.config)
+		if diskErr != nil {
+			return nil, diskErr
+		}
+		cores = append(cores, diskCore)
+	}
 	core := zap.New(zapcore.NewTee(cores...), zap.ErrorOutput(errWriter), zap.AddCallerSkip(l.callerSkip))
 
 	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
