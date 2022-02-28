@@ -15,8 +15,8 @@ import (
 
 var _ Logger = &zapLogger{}
 
-// ZapLoggerConfig defines the struct that serves as config when spinning up a the zap logger
-type ZapLoggerConfig struct {
+// zapLoggerConfig defines the struct that serves as config when spinning up a the zap logger
+type zapLoggerConfig struct {
 	zap.Config
 	local          Config
 	diskLogLevel   zap.AtomicLevel
@@ -29,7 +29,7 @@ type ZapLoggerConfig struct {
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	config            ZapLoggerConfig
+	config            zapLoggerConfig
 	name              string
 	fields            []interface{}
 	callerSkip        int
@@ -37,10 +37,10 @@ type zapLogger struct {
 	pollDiskSpaceDone chan struct{}
 }
 
-func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
+func (cfg zapLoggerConfig) newLogger() (Logger, func() error, error) {
 	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 
-	newCore, errWriter, err := newCore(cfg)
+	newCore, errWriter, err := cfg.newCore()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -48,7 +48,7 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 		newCore,
 	}
 	if cfg.local.DebugLogsToDisk() {
-		diskCore, diskErr := newDiskCore(cfg)
+		diskCore, diskErr := cfg.newDiskCore()
 		if diskErr != nil {
 			return nil, nil, diskErr
 		}
@@ -82,7 +82,7 @@ func newZapLogger(cfg ZapLoggerConfig) (Logger, func() error, error) {
 	return lggr, close, err
 }
 
-func newCore(cfg ZapLoggerConfig) (zapcore.Core, zapcore.WriteSyncer, error) {
+func (cfg zapLoggerConfig) newCore() (zapcore.Core, zapcore.WriteSyncer, error) {
 	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local))
 
 	sink, closeOut, err := zap.Open(cfg.OutputPaths...)
@@ -160,7 +160,7 @@ func (l *zapLogger) Named(name string) Logger {
 func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	newLogger := *l
 	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
-	newCore, errWriter, err := newCore(newLogger.config)
+	newCore, errWriter, err := newLogger.config.newCore()
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 		newCore,
 	}
 	if newLogger.config.local.DebugLogsToDisk() {
-		diskCore, diskErr := newDiskCore(newLogger.config)
+		diskCore, diskErr := newLogger.config.newDiskCore()
 		if diskErr != nil {
 			return nil, diskErr
 		}
