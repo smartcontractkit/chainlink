@@ -38,13 +38,9 @@ inputs:
     description: When set to the string boolean value of "true", the resulting build image will be signed
     default: "false"
     required: false
-
-  cosign-private-key:
-    description: The private key to be used with cosign to sign the image
-    required: false
-
-  cosign-password:
-    description: The password to decrypt the cosign private key needed to sign the image
+  verify-signature:
+    description: When set to the string boolean value of "true", the resulting build image signature will be verified
+    default: "false"
     required: false
 
 runs:
@@ -121,6 +117,13 @@ runs:
         CHAINLINK_USER=root
         ${{ env.shared-build-args }}
 
+  - name: Save root image name in GITHUB_ENV
+    id: save-root-image-name-env
+    shell: sh
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
+      echo "root_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+
   - name: Generate docker metadata for non-root image
     id: meta-nonroot
     uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
@@ -144,6 +147,13 @@ runs:
         CHAINLINK_USER:chainlink
         ${{ env.shared-build-args }}
 
+  - name: Save non-root image name in GITHUB_ENV
+    id: save-non-root-image-name-env
+    shell: sh
+    run: |
+      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
+      echo "nonroot_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+
   - if: inputs.sign-images == 'true'
     name: Install cosign
     uses: sigstore/cosign-installer@1e95c1de343b5b0c23352d6417ee3e48d5bcd422 # v1.4.0
@@ -151,29 +161,34 @@ runs:
       cosign-release: 'v1.4.0'
 
   - if: inputs.sign-images == 'true'
-    name: Write signing key to disk (only needed for `cosign sign --key`)
-    shell: sh
-    run: echo "${{ inputs.cosign-private-key }}" > cosign.key
-
-  - if: inputs.sign-images == 'true'
     name: Sign the published root Docker image
     shell: sh
     env:
-      COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+      COSIGN_EXPERIMENTAL: 1
     run: |
-      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
-      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+      cosign sign "${{ env.root_image_name }}"
 
-      cosign sign --key cosign.key "$IMAGE_NAME"
+  - if: inputs.verify-signature == 'true'
+    name: Verify the signature of the published root Docker image
+    shell: sh
+    env:
+      COSIGN_EXPERIMENTAL: 1
+    run: |
+      cosign verify "${{ env.root_image_name }}"
 
   - if: inputs.sign-images == 'true'
     name: Sign the published non-root Docker image
     shell: sh
     env:
-      COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+      COSIGN_EXPERIMENTAL: 1
     run: |
-      IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
-      IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+      cosign sign "${{ env.nonroot_image_name }}"
 
-      cosign sign --key cosign.key "$IMAGE_NAME"
+  - if: inputs.verify-signature == 'true'
+    name: Verify the signature of the published non-root Docker image
+    shell: sh
+    env:
+      COSIGN_EXPERIMENTAL: 1
+    run: |
+      cosign verify "${{ env.nonroot_image_name }}"
 

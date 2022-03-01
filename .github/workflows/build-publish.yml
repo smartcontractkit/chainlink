@@ -29,5 +29,4 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: true
-          cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
-          cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          verify-signature: true
