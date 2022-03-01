@@ -581,6 +581,11 @@ func (FailingAuthenticator) Authenticate(sessionRequest sessions.SessionRequest)
 	return nil, errors.New("no luck")
 }
 
+// Remove a session ID from disk
+func (FailingAuthenticator) Logout() error {
+	return errors.New("no luck")
+}
+
 func TestClient_SetLogConfig(t *testing.T) {
 	t.Parallel()
 

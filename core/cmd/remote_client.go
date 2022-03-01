@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -169,6 +170,10 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	_, err = cli.CookieAuthenticator.Authenticate(sessionRequest)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	err = cli.checkRemoteBuildCompatibility()
 	return cli.errorOut(err)
 }
 
@@ -547,4 +552,29 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		return b, errors.New("Error")
 	}
 	return b, err
+}
+
+func (cli *Client) checkRemoteBuildCompatibility() error {
+	resp, err := cli.HTTP.Get("/v2/build_info")
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	b, err := parseResponse(resp)
+	if err != nil {
+		return errors.Wrap(err, "parseResponse error")
+	}
+
+	var remote_build_info map[string]string
+	if err := json.Unmarshal(b, &remote_build_info); err != nil {
+		return errors.Wrap(err, "parseResponse error")
+	}
+	remote_version, remote_sha := remote_build_info["version"], remote_build_info["commitSHA"]
+	cli_version, cli_sha := static.Version, static.Sha
+
+	if remote_version != cli_version || remote_sha != cli_sha {
+		// Unset the session cookie to prevent further requests
+		cli.CookieAuthenticator.Logout()
+		return errors.New(fmt.Sprintf("Error: CLI build (%s@%s) mismatches remote node build (%s@%s)", remote_version, remote_sha, cli_version, cli_sha))
+	}
+	return nil
 }
