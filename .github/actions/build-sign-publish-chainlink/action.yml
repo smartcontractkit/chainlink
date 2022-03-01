@@ -17,12 +17,6 @@ inputs:
     description: The ECR registry to push to, used in docker/login-action and for tagging images
     default: public.ecr.aws/chainlink
     required: false
-  aws-access-key-id:
-    description: The IAM access key used to authenticate to ECR, used in configuring docker/login-action
-    required: false
-  aws-secret-access-key:
-    description: The IAM access key secret used to authenticate to ECR, used in configuring docker/login-action
-    required: false
   aws-role-to-assume:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
     required: false
@@ -81,8 +75,6 @@ runs:
     name: Configure AWS Credentials
     uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
     with:
-      aws-access-key-id: ${{ inputs.aws-access-key-id }}
-      aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
       role-to-assume: ${{ inputs.aws-role-to-assume }}
       role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
       aws-region: ${{ inputs.aws-region }}
