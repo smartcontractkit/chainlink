@@ -20,6 +20,7 @@ type Entrypoint struct {
 	Log            Logger
 	Producer       Producer
 	Metrics        Metrics
+	ChainMetrics   ChainMetrics
 	SchemaRegistry SchemaRegistry
 
 	SourceFactories   []SourceFactory
@@ -50,14 +51,20 @@ func NewEntrypoint(
 		envelopeSourceFactory = &fakeRandomDataSourceFactory{make(chan interface{})}
 		txResultsSourceFactory = &fakeRandomDataSourceFactory{make(chan interface{})}
 	}
-	sourceFactories := []SourceFactory{envelopeSourceFactory, txResultsSourceFactory}
+
+	metrics := NewMetrics(log.With("component", "metrics"))
+	chainMetrics := NewChainMetrics(chainConfig)
+
+	sourceFactories := []SourceFactory{
+		NewInstrumentedSourceFactory("envelope", envelopeSourceFactory, chainMetrics),
+		NewInstrumentedSourceFactory("txresults", txResultsSourceFactory, chainMetrics),
+	}
 
 	producer, err := NewProducer(ctx, log.With("component", "producer"), cfg.Kafka)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
-
-	metrics := NewMetrics(log.With("component", "metrics"))
+	producer = NewInstrumentedProducer(producer, chainMetrics)
 
 	schemaRegistry := NewSchemaRegistry(cfg.SchemaRegistry, log)
 
@@ -95,6 +102,7 @@ func NewEntrypoint(
 		// Generate between 2 and 10 random feeds every RDDPollInterval.
 		rddSource = NewFakeRDDSource(2, 10)
 	}
+
 	rddPoller := NewSourcePoller(
 		rddSource,
 		log.With("component", "rdd-poller"),
@@ -122,6 +130,7 @@ func NewEntrypoint(
 		log,
 		producer,
 		metrics,
+		chainMetrics,
 		schemaRegistry,
 
 		sourceFactories,
@@ -172,7 +181,10 @@ func (e Entrypoint) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.Manager.Run(ctx, monitor.Run)
+		e.Manager.Run(ctx, func(localCtx context.Context, feeds []FeedConfig) {
+			e.ChainMetrics.SetNewFeedConfigsDetected(float64(len(feeds)))
+			monitor.Run(ctx, feeds)
+		})
 	}()
 
 	wg.Add(1)
