@@ -120,7 +120,8 @@ func (o *orm) MarkBroadcastsUnconsumed(fromBlock int64, qopts ...pg.QOpt) error 
         UPDATE log_broadcasts
         SET consumed = false
         WHERE block_number >= $1
-        `, fromBlock)
+		AND evm_chain_id = $2
+        `, fromBlock, o.evmChainID)
 	return errors.Wrap(err, "failed to mark broadcasts unconsumed")
 }
 

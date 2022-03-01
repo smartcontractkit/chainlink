@@ -50,7 +50,7 @@ type (
 		httypes.HeadTrackable
 
 		// ReplayFromBlock enqueues a replay from the provided block number. If forceBroadcast is
-		// set to true, the broadcaster will broadcast blocks that were already marked consumed
+		// set to true, the broadcaster will broadcast logs that were already marked consumed
 		// previously by any subscribers.
 		ReplayFromBlock(number int64, forceBroadcast bool)
 
