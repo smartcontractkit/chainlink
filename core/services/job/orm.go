@@ -117,7 +117,7 @@ func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
 			uniqueBridges = append(uniqueBridges, bridge)
 		}
 	}
-	if len(bridgeNames) != 0 {
+	if len(uniqueBridges) != 0 {
 		_, err := o.bridgeORM.FindBridges(uniqueBridges)
 		if err != nil {
 			return err

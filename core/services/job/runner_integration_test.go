@@ -206,7 +206,7 @@ func TestRunner(t *testing.T) {
 		// Should error creating it
 		err = jobORM.CreateJob(&jb)
 		require.Error(t, err)
-		t.Log(err)
+		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
 		cfg2 := new(ocr2mocks.Config)
@@ -243,8 +243,8 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb2)
-		t.Log(err)
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
@@ -270,11 +270,11 @@ answer1      [type=median index=0];
 chainID = 1337
 [pluginConfig]
 juelsPerFeeCoinSource = """
-ds1          [type=bridge name=%s];
+ds1          [type=bridge name="%s"];
 ds1_parse    [type=jsonparse path="one,two"];
 ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
-ds2          [type=bridge name=%s];
+ds2          [type=bridge name="%s"];
 ds2_parse    [type=jsonparse path="one,two"];
 ds2_multiply [type=multiply times=1.23];
 ds2 -> ds2_parse -> ds2_multiply -> answer1;
@@ -285,7 +285,7 @@ answer1      [type=median index=0];
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb3)
 		t.Log(err)
-		require.Error(t, err)
+		require.NoError(t, err)
 	})
 
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)

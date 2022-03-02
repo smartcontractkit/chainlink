@@ -60,7 +60,7 @@ func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 		return nil, err
 	}
 	if len(bts) != len(names) {
-		return nil, errors.Errorf("not all bridges exits, asked for %v, exists %v", names, bts)
+		return nil, errors.Errorf("not all bridges exist, asked for %v, exists %v", names, bts)
 	}
 	return
 }
