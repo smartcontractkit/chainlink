@@ -1,4 +1,4 @@
-// Package schema is used to reach schema files
+// Package schema is used to read schema files
 // go:generate go-bindata -ignore=\.go -pkg=schema -o=bindata.go ./...
 package schema
 
