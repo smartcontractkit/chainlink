@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sort"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
@@ -150,37 +149,12 @@ func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
 }
 
+// Cmp compares b and c as big.Ints.
 func (b *Big) Cmp(c *Big) int {
 	return b.ToInt().Cmp(c.ToInt())
 }
 
+// Equal returns true if c is equal according to Cmp.
 func (b *Big) Equal(c *Big) bool {
 	return b.Cmp(c) == 0
-}
-
-// BigIntSlice attaches the methods of sort.Interface to []*big.Int, sorting in increasing order.
-type BigIntSlice []*big.Int
-
-func (s BigIntSlice) Len() int           { return len(s) }
-func (s BigIntSlice) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
-func (s BigIntSlice) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-// Sort destructively sorts the slice
-func (s BigIntSlice) Sort() {
-	sort.Sort(s)
-}
-
-// Max returns the largest element
-func (s BigIntSlice) Max() *big.Int {
-	tmp := make(BigIntSlice, len(s))
-	copy(tmp, s)
-	tmp.Sort()
-	return tmp[len(tmp)-1]
-}
-
-func (s BigIntSlice) Min() *big.Int {
-	tmp := make(BigIntSlice, len(s))
-	copy(tmp, s)
-	tmp.Sort()
-	return tmp[0]
 }
