@@ -176,6 +176,7 @@ runs:
     run: |
       echo "${{ inputs.cosign-private-key }}" > cosign.key
       cosign sign --key cosign.key "${{ env.root_image_name }}"
+      rm -f cosign.key
 
   - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
     name: Verify the signature of the published root Docker image using keypair
@@ -183,6 +184,7 @@ runs:
     run: |
       echo "${{ inputs.cosign-public-key }}" > cosign.key
       cosign verify --key cosign.key "${{ env.root_image_name }}"
+      rm -f cosign.key
 
   - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
     name: Sign the published root Docker image using keyless method
@@ -208,6 +210,7 @@ runs:
     run: |
       echo "${{ inputs.cosign-public-key }}" > cosign.key
       cosign sign "${{ env.nonroot_image_name }}"
+      rm -f cosign.key
 
   - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
     name: Verify the signature of the published non-root Docker image using keypair
@@ -215,6 +218,7 @@ runs:
     run: |
       echo "${{ inputs.cosign-public-key }}" > cosign.key
       cosign verify --key cosign.key "${{ env.nonroot_image_name }}"
+      rm -f cosign.key
 
   - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
     name: Sign the published non-root Docker image using keyless method
