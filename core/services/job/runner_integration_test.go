@@ -206,8 +206,9 @@ func TestRunner(t *testing.T) {
 		// Should error creating it
 		err = jobORM.CreateJob(&jb)
 		require.Error(t, err)
-		t.Log(err)
+		assert.Contains(t, err.Error(), "not all bridges exist")
 
+		// Same for ocr2
 		cfg2 := new(ocr2mocks.Config)
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
@@ -242,8 +243,48 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb2)
-		t.Log(err)
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not all bridges exist")
+
+		// Duplicate bridge names that exist is ok
+		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
+		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
+		cfg2.On("Dev").Return(true)
+		jb3, err := ocr2.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+type               = "offchainreporting2"
+pluginType         = "median"
+schemaVersion      = 1
+relay              = "evm"
+contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+blockchainTimeout = "1s"
+contractConfigTrackerPollInterval = "2s"
+contractConfigConfirmations = 1
+observationSource  = """
+ds1          [type=bridge name="%s"];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+[relayConfig]
+chainID = 1337
+[pluginConfig]
+juelsPerFeeCoinSource = """
+ds1          [type=bridge name="%s"];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+ds2          [type=bridge name="%s"];
+ds2_parse    [type=jsonparse path="one,two"];
+ds2_multiply [type=multiply times=1.23];
+ds2 -> ds2_parse -> ds2_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`, b.Name.String(), b.Name.String(), b.Name.String()))
+		require.NoError(t, err)
+		// Should not error with duplicate bridges
+		err = jobORM.CreateJob(&jb3)
+		require.NoError(t, err)
 	})
 
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)
