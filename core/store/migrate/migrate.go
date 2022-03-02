@@ -87,7 +87,7 @@ func ensureMigrated(db *sql.DB, lggr logger.Logger) {
 				}
 			}
 
-			if _, err = db.Exec(`INSERT INTO $1 (version_id, is_applied) VALUES ($2, true)`, goose.TableName(), id); err != nil {
+			if _, err = db.Exec(`INSERT INTO ? (version_id, is_applied) VALUES ($1, true)`, goose.TableName()); err != nil {
 				return err
 			}
 		}
