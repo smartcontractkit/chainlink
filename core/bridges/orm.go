@@ -48,6 +48,7 @@ func (o *orm) FindBridge(name BridgeName) (bt BridgeType, err error) {
 
 // FindBridges looks up multiple bridges in a single query.
 // Errors unless all bridges successfully found. Requires at least one bridge.
+// Expects all bridges to be unique
 func (o *orm) FindBridges(names []BridgeName) (bts []BridgeType, err error) {
 	sql := "SELECT * FROM bridge_types WHERE name IN (?)"
 	query, args, err := sqlx.In(sql, names)

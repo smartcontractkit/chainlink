@@ -100,7 +100,8 @@ func (o *orm) Close() error {
 }
 
 func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
-	var bridgeNames []bridges.BridgeName
+	var bridgeNames = make(map[bridges.BridgeName]struct{})
+	var uniqueBridges []bridges.BridgeName
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeBridge {
 			// Bridge must exist
@@ -109,11 +110,15 @@ func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
 			if err != nil {
 				return err
 			}
-			bridgeNames = append(bridgeNames, bridge)
+			if _, have := bridgeNames[bridge]; have {
+				continue
+			}
+			bridgeNames[bridge] = struct{}{}
+			uniqueBridges = append(uniqueBridges, bridge)
 		}
 	}
 	if len(bridgeNames) != 0 {
-		_, err := o.bridgeORM.FindBridges(bridgeNames)
+		_, err := o.bridgeORM.FindBridges(uniqueBridges)
 		if err != nil {
 			return err
 		}
