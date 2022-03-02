@@ -282,9 +282,8 @@ answer1      [type=median index=0];
 """
 `, b.Name.String(), b.Name.String(), b.Name.String()))
 		require.NoError(t, err)
-		// Should error creating it because of the juels per fee coin non-existent bridge
+		// Should not error with duplicate bridges
 		err = jobORM.CreateJob(&jb3)
-		t.Log(err)
 		require.NoError(t, err)
 	})
 
