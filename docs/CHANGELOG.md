@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## [1.2.0] - 2022-03-01
+## [1.2.0] - 2022-03-02
 
 ### Added
 
 - Added support for the Nethermind Ethereum client.
 - Added support for batch sending telemetry to the ingress server to improve performance.
+- Added v2 P2P networking support (alpha)
 
 New ENV vars:
 
