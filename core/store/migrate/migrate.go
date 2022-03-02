@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -67,8 +66,8 @@ func ensureMigrated(db *sql.DB, lggr logger.Logger) {
 	if _, err = goose.GetDBVersion(db); err != nil {
 		panic(err)
 	}
+
 	// insert records for existing migrations
-	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
 	err = pg.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
 		for _, name := range names {
 			var id int64
@@ -88,7 +87,7 @@ func ensureMigrated(db *sql.DB, lggr logger.Logger) {
 				}
 			}
 
-			if _, err = db.Exec(sql, id); err != nil {
+			if _, err = db.Exec(`INSERT INTO $1 (version_id, is_applied) VALUES ($2, true)`, goose.TableName(), id); err != nil {
 				return err
 			}
 		}
