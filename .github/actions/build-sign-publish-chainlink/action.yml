@@ -209,7 +209,7 @@ runs:
       COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
     run: |
       echo "${{ inputs.cosign-public-key }}" > cosign.key
-      cosign sign "${{ env.nonroot_image_name }}"
+      cosign sign --key cosign.key "${{ env.nonroot_image_name }}"
       rm -f cosign.key
 
   - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
