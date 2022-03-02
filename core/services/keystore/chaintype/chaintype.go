@@ -16,7 +16,7 @@ const (
 	// Solana for the Solana chain
 	Solana ChainType = "solana"
 	// Terra for the Terra chain
-	Terra  ChainType = "terra"
+	Terra ChainType = "terra"
 )
 
 // SupportedChainTypes contain all chains that are supported
