@@ -12,11 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -93,8 +94,9 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
-	// ReplayFromBlock of blocks
-	ReplayFromBlock(chainID *big.Int, number uint64) error
+	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
+	// set to true, consumers will reprocess data even if it has already been processed.
+	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -711,12 +713,13 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
 
-func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64) error {
+// ReplayFromBlock implements the Application interface.
+func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
 	chain, err := app.Chains.EVM.Get(chainID)
 	if err != nil {
 		return err
 	}
-	chain.LogBroadcaster().ReplayFromBlock(int64(number))
+	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
 	return nil
 }
 

@@ -48,7 +48,11 @@ type (
 		utils.DependentAwaiter
 		services.ServiceCtx
 		httypes.HeadTrackable
-		ReplayFromBlock(number int64)
+
+		// ReplayFromBlock enqueues a replay from the provided block number. If forceBroadcast is
+		// set to true, the broadcaster will broadcast logs that were already marked consumed
+		// previously by any subscribers.
+		ReplayFromBlock(number int64, forceBroadcast bool)
 
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
@@ -76,6 +80,11 @@ type (
 		sub       *subscriber
 	}
 
+	replayRequest struct {
+		fromBlock      int64
+		forceBroadcast bool
+	}
+
 	broadcaster struct {
 		orm        ORM
 		config     Config
@@ -100,7 +109,7 @@ type (
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
-		replayChannel         chan int64
+		replayChannel         chan replayRequest
 		highestSavedHead      *evmtypes.Head
 		lastSeenHeadNumber    atomic.Int64
 		logger                logger.Logger
@@ -165,7 +174,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,
-		replayChannel:          make(chan int64, 1),
+		replayChannel:          make(chan replayRequest, 1),
 	}
 }
 
@@ -177,10 +186,14 @@ func (b *broadcaster) Start(context.Context) error {
 	})
 }
 
-func (b *broadcaster) ReplayFromBlock(number int64) {
+// ReplayFromBlock implements the Broadcaster interface.
+func (b *broadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {
 	b.logger.Infof("Replay requested from block number: %v", number)
 	select {
-	case b.replayChannel <- number:
+	case b.replayChannel <- replayRequest{
+		fromBlock:      number,
+		forceBroadcast: forceBroadcast,
+	}:
 	default:
 	}
 }
@@ -391,8 +404,8 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	for {
 		// Replay requests take priority.
 		select {
-		case blockNumber := <-b.replayChannel:
-			b.onReplayRequest(blockNumber)
+		case req := <-b.replayChannel:
+			b.onReplayRequest(req)
 			return true, nil
 		default:
 		}
@@ -420,8 +433,8 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 		case <-b.changeSubscriberStatus.Notify():
 			needsResubscribe = b.onChangeSubscriberStatus() || needsResubscribe
 
-		case blockNumber := <-b.replayChannel:
-			b.onReplayRequest(blockNumber)
+		case req := <-b.replayChannel:
+			b.onReplayRequest(req)
 			return true, nil
 
 		case <-debounceResubscribe.C:
@@ -445,13 +458,26 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 }
 
 // onReplayRequest clears the pool and sets the block backfill number.
-func (b *broadcaster) onReplayRequest(blockNumber int64) {
+func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 	_ = b.invalidatePool()
 	// NOTE: This ignores r.highestNumConfirmations, but it is
 	// generally assumed that this will only be performed rarely and
 	// manually by someone who knows what he is doing
-	b.backfillBlockNumber.SetValid(blockNumber)
-	b.logger.Debugw("Returning from the event loop to replay logs from specific block number", "blockNumber", blockNumber)
+	b.backfillBlockNumber.SetValid(replayReq.fromBlock)
+	if replayReq.forceBroadcast {
+		ctx, cancel := utils.ContextFromChan(b.chStop)
+		defer cancel()
+		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx))
+		if err != nil {
+			b.logger.Errorw("Error marking broadcasts as unconsumed",
+				"error", err, "fromBlock", replayReq.fromBlock)
+		}
+	}
+	b.logger.Debugw(
+		"Returning from the event loop to replay logs from specific block number",
+		"fromBlock", replayReq.fromBlock,
+		"forceBroadcast", replayReq.forceBroadcast,
+	)
 }
 
 func (b *broadcaster) invalidatePool() int64 {
@@ -681,7 +707,8 @@ func (n *NullBroadcaster) Register(listener Listener, opts ListenerOpts) (unsubs
 	return func() {}
 }
 
-func (n *NullBroadcaster) ReplayFromBlock(number int64) {}
+// ReplayFromBlock implements the Broadcaster interface.
+func (n *NullBroadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {}
 
 func (n *NullBroadcaster) BackfillBlockNumber() null.Int64 {
 	return null.NewInt64(0, false)
