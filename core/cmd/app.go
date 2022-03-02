@@ -97,8 +97,8 @@ func NewApp(client *Client) *cli.App {
 							Required: true,
 						},
 						cli.BoolFlag{
-							Name:  "force-broadcast",
-							Usage: "Whether to broadcast all logs from the provided block number and beyond, ignoring whether they were previously consumed",
+							Name:  "force",
+							Usage: "Whether to force broadcasting logs which were already consumed and that would otherwise be skipped",
 						},
 					},
 				},
