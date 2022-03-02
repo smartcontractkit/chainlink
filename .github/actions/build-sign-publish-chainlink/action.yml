@@ -208,7 +208,7 @@ runs:
     env:
       COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
     run: |
-      echo "${{ inputs.cosign-public-key }}" > cosign.key
+      echo "${{ inputs.cosign-private-key }}" > cosign.key
       cosign sign --key cosign.key "${{ env.nonroot_image_name }}"
       rm -f cosign.key
 
