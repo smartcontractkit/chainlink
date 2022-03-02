@@ -66,8 +66,8 @@ func ensureMigrated(db *sql.DB, lggr logger.Logger) {
 	if _, err = goose.GetDBVersion(db); err != nil {
 		panic(err)
 	}
-	// insert records for existing migrations
 
+	// insert records for existing migrations
 	err = pg.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
 		for _, name := range names {
 			var id int64
