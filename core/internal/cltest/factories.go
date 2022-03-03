@@ -280,21 +280,21 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, borm bulletprooftxm
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, bOrm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
 	etx.State = bulletprooftxmanager.EthTxInProgress
-	require.NoError(t, bOrm.InsertEthTx(&etx))
+	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 	attempt.State = bulletprooftxmanager.EthTxAttemptInProgress
-	require.NoError(t, bOrm.InsertEthTxAttempt(&attempt))
-	etx, err := bOrm.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
