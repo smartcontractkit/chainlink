@@ -6,7 +6,6 @@ import {
   ResourceActionType,
   RequestCreateAction,
   ReceiveCreateSuccessAction,
-  ResponseAccountBalanceAction,
 } from '../../src/reducers/actions'
 
 describe('connectors/reducers/fetching', () => {
@@ -15,9 +14,6 @@ describe('connectors/reducers/fetching', () => {
   }
   const receiveDecrementAction: ReceiveCreateSuccessAction = {
     type: ResourceActionType.RECEIVE_CREATE_SUCCESS,
-  }
-  const responseDecrementAction: ResponseAccountBalanceAction = {
-    type: ResourceActionType.RESPONSE_ACCOUNT_BALANCE,
   }
 
   it('increments count when type starts with REQUEST_ & decrements with RECEIVE_ or RESPONSE_', () => {
@@ -28,16 +24,10 @@ describe('connectors/reducers/fetching', () => {
 
     state = reducer(state, receiveDecrementAction)
     expect(state.fetching.count).toEqual(1)
-
-    state = reducer(state, responseDecrementAction)
-    expect(state.fetching.count).toEqual(0)
   })
 
   it('does not negatively decrement count on RECEIVE_ or RESPONSE_', () => {
-    let state = reducer(INITIAL_STATE, receiveDecrementAction)
-    expect(state.fetching.count).toEqual(0)
-
-    state = reducer(state, responseDecrementAction)
+    const state = reducer(INITIAL_STATE, receiveDecrementAction)
     expect(state.fetching.count).toEqual(0)
   })
 

@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"bytes"
+	"time"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -51,6 +52,10 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	}
 	if spec.RequestedConfsDelay < 0 {
 		return jb, errors.Wrap(ErrKeyNotSet, "requestedConfsDelay must be >= 0")
+	}
+	// If a request timeout is not provided set it to a reasonable default.
+	if spec.RequestTimeout == 0 {
+		spec.RequestTimeout = 24 * time.Hour
 	}
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {

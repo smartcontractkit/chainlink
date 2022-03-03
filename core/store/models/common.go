@@ -286,6 +286,13 @@ func (d Duration) Value() (driver.Value, error) {
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
 
+// NewInterval creates Interval for specified duration
+func NewInterval(d time.Duration) *Interval {
+	i := new(Interval)
+	*i = Interval(d)
+	return i
+}
+
 func (i Interval) Duration() time.Duration {
 	return time.Duration(i)
 }
@@ -332,6 +339,7 @@ type SendEtherRequest struct {
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
 	EVMChainID         *utils.Big     `json:"evmChainID"`
+	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
 }
 
 // AddressCollection is an array of common.Address

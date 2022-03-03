@@ -29,6 +29,7 @@ tools/clroot/db.sqlite3-wal
 .env*
 .direnv
 .idea
+.vscode/
 
 # codeship
 *.aes
@@ -43,6 +44,8 @@ cl_backup_*.tar.gz
 
 # Test artifacts
 core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
+output.txt
+race.*
 
 # DB state
 db/
@@ -53,3 +56,8 @@ core/cmd/vrfkey1
 
 # left behind by webpack - compiled frontend assets
 core/web/assets
+
+# Integration Tests
+integration-tests/logs/
+tests-*.xml
+*.test

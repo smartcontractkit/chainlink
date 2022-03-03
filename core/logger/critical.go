@@ -20,6 +20,6 @@ func (l *zapLogger) Criticalf(format string, values ...interface{}) {
 	l.sugaredHelper(1).DPanicf(format, values...)
 }
 
-func (l *zapLogger) CriticalW(msg string, keysAndValues ...interface{}) {
+func (l *zapLogger) Criticalw(msg string, keysAndValues ...interface{}) {
 	l.sugaredHelper(1).DPanicw(msg, keysAndValues...)
 }

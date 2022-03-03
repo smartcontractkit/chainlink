@@ -63,15 +63,15 @@ func (_m *Task) ID() int {
 }
 
 // Inputs provides a mock function with given fields:
-func (_m *Task) Inputs() []pipeline.Task {
+func (_m *Task) Inputs() []pipeline.TaskDependency {
 	ret := _m.Called()
 
-	var r0 []pipeline.Task
-	if rf, ok := ret.Get(0).(func() []pipeline.Task); ok {
+	var r0 []pipeline.TaskDependency
+	if rf, ok := ret.Get(0).(func() []pipeline.TaskDependency); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]pipeline.Task)
+			r0 = ret.Get(0).([]pipeline.TaskDependency)
 		}
 	}
 

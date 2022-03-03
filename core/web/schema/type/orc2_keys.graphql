@@ -1,0 +1,30 @@
+enum OCR2ChainType {
+    EVM
+    TERRA
+	SOLANA
+}
+
+
+type OCR2KeyBundle {
+	id: ID!
+	chainType: OCR2ChainType
+	configPublicKey: String!
+	onChainPublicKey: String!
+	offChainPublicKey: String!
+}
+
+type OCR2KeyBundlesPayload {
+    results: [OCR2KeyBundle!]!
+}
+
+type CreateOCR2KeyBundleSuccess {
+    bundle: OCR2KeyBundle!
+}
+
+union CreateOCR2KeyBundlePayload = CreateOCR2KeyBundleSuccess
+
+type DeleteOCR2KeyBundleSuccess {
+    bundle: OCR2KeyBundle!
+}
+
+union DeleteOCR2KeyBundlePayload = DeleteOCR2KeyBundleSuccess | NotFoundError

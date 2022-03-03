@@ -13,17 +13,18 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/log"
-	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -39,19 +40,19 @@ var registryConfig = keeper_registry_wrapper.GetConfig{
 }
 
 var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
-	Target:              cltest.NewAddress(),
+	Target:              testutils.NewAddress(),
 	ExecuteGas:          2_000_000,
 	CheckData:           common.Hex2Bytes("1234"),
 	Balance:             big.NewInt(1000000000000000000),
-	LastKeeper:          cltest.NewAddress(),
-	Admin:               cltest.NewAddress(),
+	LastKeeper:          testutils.NewAddress(),
+	Admin:               testutils.NewAddress(),
 	MaxValidBlocknumber: 1_000_000_000,
 }
 
 func setupRegistrySync(t *testing.T) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*ethmocks.Client,
+	*evmmocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
@@ -246,7 +247,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
 
-	addresses := []common.Address{fromAddress, cltest.NewAddress()} // change from default
+	addresses := []common.Address{fromAddress, testutils.NewAddress()} // change from default
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", addresses).Once()
 

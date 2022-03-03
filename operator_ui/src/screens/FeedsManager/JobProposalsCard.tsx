@@ -2,67 +2,55 @@ import React from 'react'
 
 import { gql } from '@apollo/client'
 
+import Badge from '@material-ui/core/Badge'
 import Card from '@material-ui/core/Card'
-import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
+import {
+  createStyles,
+  Theme,
+  WithStyles,
+  withStyles,
+} from '@material-ui/core/styles'
 import Tab from '@material-ui/core/Tab'
 import Tabs from '@material-ui/core/Tabs'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
-import TableHead from '@material-ui/core/TableHead'
-import TableRow from '@material-ui/core/TableRow'
-import { TimeAgo } from 'src/components/TimeAgo'
 
-import Link from 'components/Link'
+import { ApprovedTable } from './ApprovedTable'
+import { InactiveTable } from './InactiveTable'
+import { PendingTable } from './PendingTable'
+import { UpdatesTable } from './UpdatesTable'
 import { SearchTextField } from 'src/components/Search/SearchTextField'
-import { tableStyles } from 'components/Table'
 
 export const FEEDS_MANAGER__JOB_PROPOSAL_FIELDS = gql`
   fragment FeedsManager_JobProposalsFields on JobProposal {
     id
     externalJobID
-    proposedAt
+    remoteUUID
     status
+    pendingUpdate
+    latestSpec {
+      createdAt
+      version
+    }
   }
 `
 
 const tabToStatus: { [key: number]: string } = {
   0: 'PENDING',
-  1: 'APPROVED',
-  2: 'REJECTED',
-  3: 'CANCELLED',
+  1: 'UPDATES',
+  2: 'APPROVED',
+  3: 'REJECTED',
+  4: 'CANCELLED',
 }
 
-const styles = () => {
+const styles = (theme: Theme) => {
   return createStyles({
     tabsRoot: {
       borderBottom: '1px solid #e8e8e8',
     },
+    badge: {
+      padding: `0 ${theme.spacing.unit * 2}px`,
+    },
   })
 }
-
-interface JobProposalRowProps extends WithStyles<typeof tableStyles> {
-  proposal: FeedsManager_JobProposalsFields
-}
-
-const JobProposalRow = withStyles(tableStyles)(
-  ({ proposal, classes }: JobProposalRowProps) => {
-    return (
-      <TableRow className={classes.row} hover>
-        <TableCell className={classes.cell} component="th" scope="row">
-          <Link className={classes.link} href={`/job_proposals/${proposal.id}`}>
-            {proposal.id}
-          </Link>
-        </TableCell>
-
-        <TableCell>{proposal.externalJobID || 'N/A'}</TableCell>
-        <TableCell>
-          <TimeAgo tooltip>{proposal.proposedAt}</TimeAgo>
-        </TableCell>
-      </TableRow>
-    )
-  },
-)
 
 const searchIncludes = (searchParam: string) => {
   const lowerCaseSearchParam = searchParam.toLowerCase()
@@ -85,7 +73,7 @@ export const search =
 function matchSimple(proposal: FeedsManager_JobProposalsFields, term: string) {
   const match = searchIncludes(term)
 
-  const dataset: string[] = [proposal.id]
+  const dataset: string[] = [proposal.id, proposal.remoteUUID]
   if (proposal.externalJobID) {
     dataset.push(proposal.externalJobID)
   }
@@ -102,16 +90,90 @@ export const JobProposalsCard = withStyles(styles)(
     const [tabValue, setTabValue] = React.useState(0)
     const [searchTerm, setSearchTerm] = React.useState('')
 
+    const tabBadgeCounts: {
+      PENDING: number
+      UPDATES: number
+      APPROVED: number
+      REJECTED: number
+      CANCELLED: number
+    } = React.useMemo(() => {
+      const tabBadgeCounts = {
+        PENDING: 0,
+        UPDATES: 0,
+        APPROVED: 0,
+        REJECTED: 0,
+        CANCELLED: 0,
+      }
+
+      proposals.forEach((p) => {
+        if (p.pendingUpdate) {
+          // Always display any pending update in the updates tab counter
+          tabBadgeCounts['UPDATES']++
+
+          // Support other tabs with pending updates
+          switch (p.status) {
+            case 'APPROVED':
+              tabBadgeCounts['APPROVED']++
+
+              break
+            case 'CANCELLED':
+              tabBadgeCounts['CANCELLED']++
+
+              break
+            case 'REJECTED':
+              tabBadgeCounts['REJECTED']++
+
+              break
+            default:
+              break
+          }
+        }
+
+        if (p.status === 'PENDING') {
+          tabBadgeCounts['PENDING']++
+        }
+      })
+
+      return tabBadgeCounts
+    }, [proposals])
+
     const filteredProposals: FeedsManager_JobProposalsFields[] =
       React.useMemo(() => {
         if (!proposals) {
           return []
         }
 
-        return proposals.filter(
-          (p) => p.status === tabToStatus[tabValue] && search(searchTerm)(p),
-        )
+        const activeTab = tabToStatus[tabValue]
+
+        if (activeTab === 'UPDATES') {
+          return proposals
+            .filter((p) => p.pendingUpdate && search(searchTerm)(p))
+            .sort((a, b) => b.latestSpec.createdAt - a.latestSpec.createdAt)
+        } else {
+          return proposals
+            .filter(
+              (p) =>
+                p.status === tabToStatus[tabValue] && search(searchTerm)(p),
+            )
+            .sort((a, b) => b.latestSpec.createdAt - a.latestSpec.createdAt)
+        }
       }, [tabValue, proposals, searchTerm])
+
+    const renderTable = (proposals: FeedsManager_JobProposalsFields[]) => {
+      switch (tabToStatus[tabValue]) {
+        case 'PENDING':
+          return <PendingTable proposals={proposals} />
+        case 'UPDATES':
+          return <UpdatesTable proposals={proposals} />
+        case 'REJECTED':
+        case 'CANCELLED':
+          return <InactiveTable proposals={proposals} />
+        case 'APPROVED':
+          return <ApprovedTable proposals={proposals} />
+        default:
+          return null
+      }
+    }
 
     return (
       <>
@@ -129,27 +191,69 @@ export const JobProposalsCard = withStyles(styles)(
               setTabValue(value)
             }}
           >
-            <Tab label="Pending" />
-            <Tab label="Approved" />
-            <Tab label="Rejected" />
-            <Tab label="Cancelled" />
+            <Tab
+              label={
+                <Badge
+                  color="primary"
+                  badgeContent={tabBadgeCounts.PENDING}
+                  className={classes.badge}
+                  data-testid="pending-badge"
+                >
+                  New
+                </Badge>
+              }
+            />
+            <Tab
+              label={
+                <Badge
+                  color="primary"
+                  badgeContent={tabBadgeCounts.UPDATES}
+                  className={classes.badge}
+                  data-testid="updates-badge"
+                >
+                  Updates
+                </Badge>
+              }
+            />
+            <Tab
+              label={
+                <Badge
+                  color="primary"
+                  badgeContent={tabBadgeCounts.APPROVED}
+                  className={classes.badge}
+                  data-testid="approved-badge"
+                >
+                  Approved
+                </Badge>
+              }
+            />
+            <Tab
+              label={
+                <Badge
+                  color="primary"
+                  badgeContent={tabBadgeCounts.REJECTED}
+                  className={classes.badge}
+                  data-testid="rejected-badge"
+                >
+                  Rejected
+                </Badge>
+              }
+            />
+            <Tab
+              label={
+                <Badge
+                  color="primary"
+                  badgeContent={tabBadgeCounts.CANCELLED}
+                  className={classes.badge}
+                  data-testid="cancelled-badge"
+                >
+                  Cancelled
+                </Badge>
+              }
+            />
           </Tabs>
 
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>External Job ID</TableCell>
-                <TableCell>Proposed At</TableCell>
-              </TableRow>
-            </TableHead>
-
-            <TableBody>
-              {filteredProposals?.map((proposal) => (
-                <JobProposalRow key={proposal.id} proposal={proposal} />
-              ))}
-            </TableBody>
-          </Table>
+          {renderTable(filteredProposals)}
         </Card>
       </>
     )

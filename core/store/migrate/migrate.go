@@ -67,7 +67,9 @@ func ensureMigrated(db *sql.DB, lggr logger.Logger) {
 	if _, err = goose.GetDBVersion(db); err != nil {
 		panic(err)
 	}
+
 	// insert records for existing migrations
+	//nolint
 	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
 	err = pg.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
 		for _, name := range names {
@@ -103,7 +105,9 @@ func ensureMigrated(db *sql.DB, lggr logger.Logger) {
 
 func Migrate(db *sql.DB, lggr logger.Logger) error {
 	ensureMigrated(db, lggr)
-	return goose.Up(db, MIGRATIONS_DIR)
+	// WithAllowMissing is necessary when upgrading from 0.10.14 since it
+	// includes out-of-order migrations
+	return goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
 }
 
 func Rollback(db *sql.DB, lggr logger.Logger, version null.Int) error {

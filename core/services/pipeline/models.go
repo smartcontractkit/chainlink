@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -25,10 +26,6 @@ type Spec struct {
 
 	JobID   int32  `json:"-"`
 	JobName string `json:"-"`
-}
-
-func (Spec) TableName() string {
-	return "pipeline_specs"
 }
 
 func (s Spec) Pipeline() (*Pipeline, error) {
@@ -55,10 +52,6 @@ type Run struct {
 
 	Pending   bool
 	FailEarly bool
-}
-
-func (Run) TableName() string {
-	return "pipeline_runs"
 }
 
 func (r Run) GetID() string {
@@ -212,6 +205,22 @@ func (re RunErrors) HasError() bool {
 	return false
 }
 
+// ToError coalesces all non-nil errors into a single error object.
+// This is useful for logging.
+func (re RunErrors) ToError() error {
+	toErr := func(ns null.String) error {
+		if !ns.IsZero() {
+			return errors.New(ns.String)
+		}
+		return nil
+	}
+	errs := []error{}
+	for _, e := range re {
+		errs = append(errs, toErr(e))
+	}
+	return multierr.Combine(errs...)
+}
+
 type ResumeRequest struct {
 	Error null.String     `json:"error"`
 	Value json.RawMessage `json:"value"`
@@ -244,10 +253,6 @@ type TaskRun struct {
 
 	// Used internally for sorting completed results
 	task Task
-}
-
-func (TaskRun) TableName() string {
-	return "pipeline_task_runs"
 }
 
 func (tr TaskRun) GetID() string {

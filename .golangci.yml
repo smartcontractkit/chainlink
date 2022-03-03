@@ -5,6 +5,7 @@ linters:
     - revive
     - goimports
     - gosec
+    - misspell
     - rowserrcheck
   disable:
     # These are all considered deprecated: https://github.com/golangci/golangci-lint/issues/1841
@@ -37,7 +38,6 @@ linters-settings:
       - name: error-return
       - name: error-strings
       - name: error-naming
-      # - name: exported
       - name: if-return
       - name: increment-decrement
       # - name: var-naming

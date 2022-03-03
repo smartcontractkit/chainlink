@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`JSONCard renders the run as json 1`] = `"{  \\"__typename\\": \\"JobRun\\",  \\"id\\": \\"1\\",  \\"allErrors\\": [  ],  \\"createdAt\\": \\"2020-01-03T22:45:00.166261Z\\",  \\"fatalErrors\\": [  ],  \\"finishedAt\\": \\"2020-01-03T22:46:00.166261Z\\",  \\"job\\": {    \\"id\\": \\"10\\",    \\"name\\": \\"job 1\\",    \\"observationSource\\": \\"\\"  },  \\"status\\": \\"COMPLETED\\",  \\"inputs\\": {  },  \\"outputs\\": [  ],  \\"taskRuns\\": [  ]}"`;

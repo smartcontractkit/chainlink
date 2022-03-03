@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -106,7 +108,7 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 
 func (rt RendererTable) renderConfiguration(cp config.ConfigPrinter) error {
 	table := rt.newTable([]string{"Key", "Value"})
-	schemaT := reflect.TypeOf(config.ConfigSchema{})
+	schemaT := reflect.TypeOf(envvar.ConfigSchema{})
 	cpT := reflect.TypeOf(cp.EnvPrinter)
 	cpV := reflect.ValueOf(cp.EnvPrinter)
 

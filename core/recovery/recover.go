@@ -1,8 +1,6 @@
 package recovery
 
 import (
-	"runtime/debug"
-
 	"github.com/getsentry/sentry-go"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -22,10 +20,7 @@ func ReportPanics(fn func()) {
 func WrapRecover(lggr logger.Logger, fn func()) {
 	defer func() {
 		if err := recover(); err != nil {
-			sentry.CurrentHub().Recover(err)
-			sentry.Flush(logger.SentryFlushDeadline)
-
-			lggr.CriticalW("Recovered goroutine panic", "panic", err, "stacktrace", string(debug.Stack()))
+			lggr.Recover(err)
 		}
 	}()
 	fn()
@@ -34,10 +29,7 @@ func WrapRecover(lggr logger.Logger, fn func()) {
 func WrapRecoverHandle(lggr logger.Logger, fn func(), onPanic func(interface{})) {
 	defer func() {
 		if err := recover(); err != nil {
-			sentry.CurrentHub().Recover(err)
-			sentry.Flush(logger.SentryFlushDeadline)
-
-			lggr.CriticalW("Recovered goroutine panic", "panic", err, "stacktrace", string(debug.Stack()))
+			lggr.Recover(err)
 
 			if onPanic != nil {
 				onPanic(err)

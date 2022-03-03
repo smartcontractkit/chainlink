@@ -1,7 +1,8 @@
-import { Contract, ContractTransaction, BigNumberish } from 'ethers'
+import { BigNumber, BigNumberish, Contract, ContractTransaction } from 'ethers'
 import { providers } from 'ethers'
 import { assert, expect } from 'chai'
-import { ethers, network } from 'hardhat'
+import hre, { ethers, network } from 'hardhat'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import cbor from 'cbor'
 
 /**
@@ -234,6 +235,42 @@ export function publicAbi(contract: Contract, expectedPublic: string[]) {
     const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is expected to be public`)
   }
+}
+
+/**
+ * Converts an L1 address to an Arbitrum L2 address
+ *
+ * @param l1Address Address on L1
+ */
+export function toArbitrumL2AliasAddress(l1Address: string): string {
+  return ethers.utils.getAddress(
+    BigNumber.from(l1Address)
+      .add('0x1111000000000000000000000000000000001111')
+      .toHexString()
+      .replace('0x01', '0x'),
+  )
+}
+
+/**
+ * Lets you impersonate and sign transactions from any account.
+ *
+ * @param address Address to impersonate
+ */
+export async function impersonateAs(
+  address: string,
+): Promise<SignerWithAddress> {
+  await hre.network.provider.request({
+    method: 'hardhat_impersonateAccount',
+    params: [address],
+  })
+  return await ethers.getSigner(address)
+}
+
+export async function stopImpersonateAs(address: string): Promise<void> {
+  await hre.network.provider.request({
+    method: 'hardhat_stopImpersonatingAccount',
+    params: [address],
+  })
 }
 
 export async function assertBalance(

@@ -12,8 +12,8 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 //
@@ -90,6 +90,11 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		GasFeeCap: gasFeeCap.BigInt(),
 	}
 
+	lggr = lggr.With("gas", call.Gas).
+		With("gasPrice", call.GasPrice).
+		With("gasTipCap", call.GasTipCap).
+		With("gasFeeCap", call.GasFeeCap)
+
 	chain, err := getChainByString(t.chainSet, string(chainID))
 	if err != nil {
 		lggr.Errorf("Invalid chain ID %s", chainID)
@@ -113,7 +118,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 }
 
 func (t *ETHCallTask) retrieveRevertReason(baseErr error, lggr logger.Logger) error {
-	reason, err := eth.ExtractRevertReasonFromRPCError(baseErr)
+	reason, err := evmclient.ExtractRevertReasonFromRPCError(baseErr)
 	if err != nil {
 		lggr.Errorw("failed to extract revert reason", "baseErr", baseErr, "error", err)
 		return baseErr

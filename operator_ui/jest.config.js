@@ -24,4 +24,5 @@ module.exports = {
   transformIgnorePatterns: ['/node_modules/(?!(react-syntax-highlighter)/)'],
   testEnvironment: 'jsdom',
   testTimeout: 20000,
+  collectCoverage: true,
 }

@@ -9,9 +9,11 @@ type OCRKeyBundlesPayload {
     results: [OCRKeyBundle!]!
 }
 
-type CreateOCRKeyBundlePayload {
+type CreateOCRKeyBundleSuccess {
     bundle: OCRKeyBundle!
 }
+
+union CreateOCRKeyBundlePayload = CreateOCRKeyBundleSuccess
 
 type DeleteOCRKeyBundleSuccess {
     bundle: OCRKeyBundle!

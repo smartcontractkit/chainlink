@@ -29,6 +29,15 @@ const styles = (theme: Theme) =>
         marginRight: -theme.spacing.unit * 1.5,
       },
     },
+    itemBlock: {
+      border: '1px solid rgba(224, 224, 224, 1)',
+      borderRadius: theme.shape.borderRadius,
+      padding: theme.spacing.unit * 2,
+      marginTop: theme.spacing.unit,
+    },
+    itemBlockText: {
+      overflowWrap: 'anywhere',
+    },
   })
 
 interface Props extends WithStyles<typeof styles> {
@@ -69,4 +78,28 @@ export const DetailsCardItemValue: React.FC<{
   <Typography variant="body1" noWrap>
     {children ? children : value}
   </Typography>
+)
+
+// DetailsCardItemValue provides default styles for an item value in the details
+// card.
+interface DetailsCardItemBlockValueProps extends WithStyles<typeof styles> {
+  value?: string | number | null
+}
+
+// DetailsCardItemValue provides default styles for an item value as a block
+// item. Useful to highlight blocks of text values
+export const DetailsCardItemBlockValue = withStyles(styles)(
+  ({
+    children,
+    classes,
+    value,
+  }: React.PropsWithChildren<DetailsCardItemBlockValueProps>) => {
+    return (
+      <div className={classes.itemBlock}>
+        <Typography variant="body1" className={classes.itemBlockText}>
+          {children ? children : value}
+        </Typography>
+      </div>
+    )
+  },
 )

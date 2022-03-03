@@ -23,11 +23,11 @@ const (
         ds2_parse    [type=jsonparse path="three,four"];
         ds2_multiply [type=multiply times=4.56];
 
-        ds1 -> ds1_parse -> ds1_multiply -> answer1;
+        ds1 -> ds1_parse -> ds1_multiply;
         ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
-        answer1 [type=median                      index=0];
-        answer2 [type=bridge name=election_winner index=1];
+        answer1 [type=median	index=0 input1="$(ds1_multiply)" input2="$(ds2_multiply)"];
+        answer2 [type=bridge 	name=election_winner	index=1];
     `
 )
 

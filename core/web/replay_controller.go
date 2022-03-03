@@ -33,7 +33,7 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(bdc.App.GetChainSet(), c.Query("evmChainID"))
+	chain, err := getChain(bdc.App.GetChains().EVM, c.Query("evmChainID"))
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

@@ -77,7 +77,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
    * @notice register can only be called through transferAndCall on LINK contract
    * @param name string of the upkeep to be registered
    * @param encryptedEmail email address of upkeep contact
-   * @param upkeepContract address to peform upkeep on
+   * @param upkeepContract address to perform upkeep on
    * @param gasLimit amount of gas to provide the target contract when performing upkeep
    * @param adminAddress address to cancel upkeep and withdraw remaining funds
    * @param checkData data passed to the contract when checking for upkeep
@@ -154,7 +154,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
 
   /**
    * @notice owner calls this function to set if registration requests should be sent directly to the Keeper Registry
-   * @param enabled setting for autoapprove registrations
+   * @param enabled setting for auto-approve registrations
    * @param windowSizeInBlocks window size defined in number of blocks
    * @param allowedPerWindow number of registrations that can be auto approved in above window
    * @param keeperRegistry new keeper registry address

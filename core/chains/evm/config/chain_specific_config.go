@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	// DefaultGasFeeCap is the default value to use for Fee Cap in EIP-1559 transactions
 	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
@@ -60,10 +61,15 @@ type (
 		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
 		nonceAutoSync                                  bool
-		ocrContractConfirmations                       uint16
 		rpcDefaultBatchSize                            uint32
 		// set true if fully configured
 		complete bool
+
+		// Chain specific OCR1 config
+		ocrContractConfirmations              uint16
+		ocrContractTransmitterTransmitTimeout time.Duration
+		ocrDatabaseTimeout                    time.Duration
+		ocrObservationGracePeriod             time.Duration
 	}
 )
 
@@ -95,40 +101,43 @@ func setChainSpecificConfigDefaultSets() {
 		blockHistoryEstimatorBlockDelay:            1,
 		blockHistoryEstimatorBlockHistorySize:      16,
 		blockHistoryEstimatorTransactionPercentile: 60,
-		chainType:                        "",
-		eip1559DynamicFees:               false,
-		ethTxReaperInterval:              1 * time.Hour,
-		ethTxReaperThreshold:             168 * time.Hour,
-		ethTxResendAfterThreshold:        1 * time.Minute,
-		finalityDepth:                    50,
-		gasBumpPercent:                   20,
-		gasBumpThreshold:                 3,
-		gasBumpTxDepth:                   10,
-		gasBumpWei:                       *assets.GWei(5),
-		gasEstimatorMode:                 "BlockHistory",
-		gasFeeCapDefault:                 *DefaultGasFeeCap,
-		gasLimitDefault:                  DefaultGasLimit,
-		gasLimitMultiplier:               1.0,
-		gasLimitTransfer:                 21000,
-		gasPriceDefault:                  *DefaultGasPrice,
-		gasTipCapDefault:                 *DefaultGasTip,
-		gasTipCapMinimum:                 *big.NewInt(0),
-		headTrackerHistoryDepth:          100,
-		headTrackerMaxBufferSize:         3,
-		headTrackerSamplingInterval:      1 * time.Second,
-		linkContractAddress:              "",
-		logBackfillBatchSize:             100,
-		maxGasPriceWei:                   *assets.GWei(5000),
-		maxInFlightTransactions:          16,
-		maxQueuedTransactions:            250,
-		minGasPriceWei:                   *assets.GWei(1),
-		minIncomingConfirmations:         3,
-		minRequiredOutgoingConfirmations: 12,
-		minimumContractPayment:           DefaultMinimumContractPayment,
-		nonceAutoSync:                    true,
-		ocrContractConfirmations:         4,
-		rpcDefaultBatchSize:              100,
-		complete:                         true,
+		chainType:                             "",
+		eip1559DynamicFees:                    false,
+		ethTxReaperInterval:                   1 * time.Hour,
+		ethTxReaperThreshold:                  168 * time.Hour,
+		ethTxResendAfterThreshold:             1 * time.Minute,
+		finalityDepth:                         50,
+		gasBumpPercent:                        20,
+		gasBumpThreshold:                      3,
+		gasBumpTxDepth:                        10,
+		gasBumpWei:                            *assets.GWei(5),
+		gasEstimatorMode:                      "BlockHistory",
+		gasFeeCapDefault:                      *DefaultGasFeeCap,
+		gasLimitDefault:                       DefaultGasLimit,
+		gasLimitMultiplier:                    1.0,
+		gasLimitTransfer:                      21000,
+		gasPriceDefault:                       *DefaultGasPrice,
+		gasTipCapDefault:                      *DefaultGasTip,
+		gasTipCapMinimum:                      *big.NewInt(0),
+		headTrackerHistoryDepth:               100,
+		headTrackerMaxBufferSize:              3,
+		headTrackerSamplingInterval:           1 * time.Second,
+		linkContractAddress:                   "",
+		logBackfillBatchSize:                  100,
+		maxGasPriceWei:                        *assets.GWei(5000),
+		maxInFlightTransactions:               16,
+		maxQueuedTransactions:                 250,
+		minGasPriceWei:                        *assets.GWei(1),
+		minIncomingConfirmations:              3,
+		minRequiredOutgoingConfirmations:      12,
+		minimumContractPayment:                DefaultMinimumContractPayment,
+		nonceAutoSync:                         true,
+		ocrContractConfirmations:              4,
+		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
+		ocrDatabaseTimeout:                    10 * time.Second,
+		ocrObservationGracePeriod:             1 * time.Second,
+		rpcDefaultBatchSize:                   100,
+		complete:                              true,
 	}
 
 	mainnet := fallbackDefaultSet
@@ -181,6 +190,9 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.minGasPriceWei = *assets.GWei(1)
 	bscMainnet.minIncomingConfirmations = 3
 	bscMainnet.minRequiredOutgoingConfirmations = 12
+	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
+	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
+	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
 
 	hecoMainnet := bscMainnet
 
@@ -188,17 +200,17 @@ func setChainSpecificConfigDefaultSets() {
 	// Re-orgs have been observed at 64 blocks or even deeper
 	polygonMainnet := fallbackDefaultSet
 	polygonMainnet.balanceMonitorBlockDelay = 13 // equivalent of 1 eth block seems reasonable
-	polygonMainnet.finalityDepth = 200           // A sprint is 64 blocks long and doesn't guarantee finality. To be safe we take three sprints (192 blocks) plus a safety margin
+	polygonMainnet.finalityDepth = 500           // It is quite common to see re-orgs on polygon go several hundred blocks deep. See: https://polygonscan.com/blocks_forked
 	polygonMainnet.gasBumpThreshold = 5          // 10s delay since feeds update every minute in volatile situations
 	polygonMainnet.gasBumpWei = *assets.GWei(20)
 	polygonMainnet.gasPriceDefault = *assets.GWei(1)
-	polygonMainnet.headTrackerHistoryDepth = 250 // FinalityDepth + safety margin
+	polygonMainnet.headTrackerHistoryDepth = 2000 // Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 	polygonMainnet.headTrackerSamplingInterval = 1 * time.Second
 	polygonMainnet.blockEmissionIdleWarningThreshold = 15 * time.Second
-	polygonMainnet.maxQueuedTransactions = 2000        // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
-	polygonMainnet.maxGasPriceWei = *assets.UEther(50) // 50,000 GWei
+	polygonMainnet.maxQueuedTransactions = 5000         // Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
+	polygonMainnet.maxGasPriceWei = *assets.UEther(200) // 200,000 GWei
 	polygonMainnet.minGasPriceWei = *assets.GWei(1)
-	polygonMainnet.ethTxResendAfterThreshold = 5 * time.Minute // 5 minutes is roughly 300 blocks on Polygon. Since re-orgs occur often and can be deep we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
+	polygonMainnet.ethTxResendAfterThreshold = 1 * time.Minute // Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
 	polygonMainnet.blockHistoryEstimatorBlockDelay = 10        // Must be set to something large here because Polygon has so many re-orgs that otherwise we are constantly refetching
 	polygonMainnet.blockHistoryEstimatorBlockHistorySize = 24
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"

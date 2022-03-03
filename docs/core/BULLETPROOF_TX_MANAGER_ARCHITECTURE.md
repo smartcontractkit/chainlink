@@ -99,7 +99,7 @@ A whole host of other things can subsequently go wrong such as transactions bein
 
 - A gapless, monotonically increasing sequence of nonces for `eth_txes` (scoped to key).
 - Transition of `eth_txes` from `unstarted` to either `fatal_error` or `unconfirmed`.
-- If final state is `fatal_error` then the nonce is unassigned and it is impossible that this transaction could ever be mined into a block.
+- If final state is `fatal_error` then the nonce is unassigned, and it is impossible that this transaction could ever be mined into a block.
 - If final state is `unconfirmed` then a saved `eth_transaction_attempt` exists.
 - If final state is `unconfirmed` then an eth node somewhere has accepted this transaction into its mempool at least once.
 
@@ -152,10 +152,10 @@ For example if we have heads at heights:
 
 Then a reorg that happened at block height 3 or above will not be detected and any transactions mined in those blocks may be left erroneously marked as confirmed.
 
-Currently the design of the head tracker opens us up to gaps in the head sequence. This can occur in several scenarios:
+Currently, the design of the head tracker opens us up to gaps in the head sequence. This can occur in several scenarios:
 
 1. CL Node goes offline for more than one or two blocks
 2. Eth node is behind a load balancer and gets switched out for one that has different block timing
 3. Websocket connection is broken and resubscribe does not occur right away
 
-For this reason, I propose that follow up work should be undertaken to ensure that the head tracker has some facility for backfilling heads up to`ETH_FINALITY_DEPTH`.
+For this reason, I propose that follow-up work should be undertaken to ensure that the head tracker has some facility for backfilling heads up to`ETH_FINALITY_DEPTH`.
