@@ -17,15 +17,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// TransfersController can send LINK tokens to another address
-type TransfersController struct {
+// EVMTransfersController can send LINK tokens to another address
+type EVMTransfersController struct {
 	App chainlink.Application
 }
 
 // Create sends ETH from the Chainlink's account to a specified address.
 //
 // Example: "<application>/withdrawals"
-func (tc *TransfersController) Create(c *gin.Context) {
+func (tc *EVMTransfersController) Create(c *gin.Context) {
 	var tr models.SendEtherRequest
 	if err := c.ShouldBindJSON(&tr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
