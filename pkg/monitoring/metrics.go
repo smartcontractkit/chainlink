@@ -15,8 +15,8 @@ type Metrics interface {
 	SetHeadTrackerCurrentHead(blockNumber float64, networkName, chainID, networkID string)
 	SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string)
 	SetFeedContractLinkBalance(balance float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
-	SetFeedContractTransmissionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
-	SetFeedContractTransmissionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetFeedContractTransactionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetFeedContractTransactionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string)
 	// Deprecated: use SetOffchainAggregatorAnswers
 	SetOffchainAggregatorAnswersRaw(answer float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
@@ -55,15 +55,15 @@ var (
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
-	feedContractTransmissionsSucceeded = promauto.NewCounterVec(
+	feedContractTransactionsSucceeded = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "feed_contract_transmissions_succeeded",
+			Name: "feed_contract_transactions_succeeded",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
-	feedContractTransmissionsFailed = promauto.NewCounterVec(
+	feedContractTransactionsFailed = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "feed_contract_transmissions_failed",
+			Name: "feed_contract_transactions_failed",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
@@ -126,7 +126,7 @@ var (
 	offchainAggregatorRoundID = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "offchain_aggregator_round_id",
-			Help: "Sets the aggregator contract's round id.",
+			Help: "Sets the aggregator contract's round id, ie. the number of observations stored by the feed",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
@@ -177,8 +177,8 @@ func (d *defaultMetrics) SetFeedContractLinkBalance(balance float64, contractAdd
 	}).Set(balance)
 }
 
-func (d *defaultMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	feedContractTransmissionsSucceeded.With(prometheus.Labels{
+func (d *defaultMetrics) SetFeedContractTransactionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractTransactionsSucceeded.With(prometheus.Labels{
 		"contract_address": contractAddress,
 		"feed_id":          feedID,
 		"chain_id":         chainID,
@@ -191,8 +191,8 @@ func (d *defaultMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded floa
 	}).Add(numSucceeded)
 }
 
-func (d *defaultMetrics) SetFeedContractTransmissionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
-	feedContractTransmissionsFailed.With(prometheus.Labels{
+func (d *defaultMetrics) SetFeedContractTransactionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	feedContractTransactionsFailed.With(prometheus.Labels{
 		"contract_address": contractAddress,
 		"feed_id":          feedID,
 		"chain_id":         chainID,
@@ -384,7 +384,7 @@ func (d *defaultMetrics) Cleanup(
 		},
 		{
 			"feed_contract_transmissions_succeeded",
-			feedContractTransmissionsSucceeded.MetricVec,
+			feedContractTransactionsSucceeded.MetricVec,
 			prometheus.Labels{
 				"contract_address": contractAddress,
 				"feed_id":          feedID,
@@ -399,7 +399,7 @@ func (d *defaultMetrics) Cleanup(
 		},
 		{
 			"feed_contract_transmissions_failed",
-			feedContractTransmissionsSucceeded.MetricVec,
+			feedContractTransactionsSucceeded.MetricVec,
 			prometheus.Labels{
 				"contract_address": contractAddress,
 				"feed_id":          feedID,

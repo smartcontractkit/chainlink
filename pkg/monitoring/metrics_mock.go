@@ -49,13 +49,13 @@ func (_m *MetricsMock) SetFeedContractMetadata(chainID string, contractAddress s
 	_m.Called(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol)
 }
 
-// SetFeedContractTransmissionsFailed provides a mock function with given fields: numFailed, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
-func (_m *MetricsMock) SetFeedContractTransmissionsFailed(numFailed float64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+// SetFeedContractTransactionsFailed provides a mock function with given fields: numFailed, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *MetricsMock) SetFeedContractTransactionsFailed(numFailed float64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
 	_m.Called(numFailed, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 
-// SetFeedContractTransmissionsSucceeded provides a mock function with given fields: numSucceeded, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
-func (_m *MetricsMock) SetFeedContractTransmissionsSucceeded(numSucceeded float64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+// SetFeedContractTransactionsSucceeded provides a mock function with given fields: numSucceeded, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *MetricsMock) SetFeedContractTransactionsSucceeded(numSucceeded float64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
 	_m.Called(numSucceeded, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 

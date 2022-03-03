@@ -578,7 +578,7 @@ func TestPrometheusExporter(t *testing.T) {
 		require.NoError(t, err)
 
 		txResults := generateTxResults()
-		metrics.On("SetFeedContractTransmissionsSucceeded",
+		metrics.On("SetFeedContractTransactionsSucceeded",
 			float64(txResults.NumSucceeded), // succeeded
 			feedConfig.GetID(),              // contractAddress
 			feedConfig.GetID(),              // feedID
@@ -590,7 +590,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkID(),      // networkID
 			chainConfig.GetNetworkName(),    // networkName
 		).Once()
-		metrics.On("SetFeedContractTransmissionsFailed",
+		metrics.On("SetFeedContractTransactionsFailed",
 			float64(txResults.NumFailed),   // failed
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID

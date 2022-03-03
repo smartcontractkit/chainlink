@@ -229,7 +229,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 }
 
 func (p *prometheusExporter) exportTxResults(res TxResults) {
-	p.metrics.SetFeedContractTransmissionsSucceeded(
+	p.metrics.SetFeedContractTransactionsSucceeded(
 		float64(res.NumSucceeded),
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
@@ -241,7 +241,7 @@ func (p *prometheusExporter) exportTxResults(res TxResults) {
 		p.chainConfig.GetNetworkID(),
 		p.chainConfig.GetNetworkName(),
 	)
-	p.metrics.SetFeedContractTransmissionsFailed(
+	p.metrics.SetFeedContractTransactionsFailed(
 		float64(res.NumFailed),
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
