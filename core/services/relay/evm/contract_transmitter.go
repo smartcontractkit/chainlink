@@ -119,9 +119,9 @@ func (oc *ContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	}
 
 	// Otherwise, we have to scan for the logs. First get the latest config block as a log lower bound.
-	latestConfigDetails, err2 := callContract(ctx, oc.contractAddress, oc.contractABI, "latestConfigDetails", nil, oc.contractReader)
-	if err2 != nil {
-		return ocrtypes.ConfigDigest{}, 0, err2
+	latestConfigDetails, err := callContract(ctx, oc.contractAddress, oc.contractABI, "latestConfigDetails", nil, oc.contractReader)
+	if err != nil {
+		return ocrtypes.ConfigDigest{}, 0, err
 	}
 	configBlock := *abi.ConvertType(latestConfigDetails[1], new(uint32)).(*uint32)
 	configDigest = *abi.ConvertType(latestConfigDetails[2], new([32]byte)).(*[32]byte)

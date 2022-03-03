@@ -111,7 +111,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 		r.lggr,
 	)
 
-	medianContract, err := NewMedianContract(contractAddress, chain, spec.ID, r.db, r.lggr)
+	medianContract, err := newMedianContract(contractAddress, chain, spec.ID, r.db, r.lggr)
 	if err != nil {
 		return nil, errors.Wrap(err, "error during median contract setup")
 	}
@@ -123,7 +123,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 		offchainConfigDigester: offchainConfigDigester,
 		reportCodec:            reportCodec,
 		contractTransmitter:    contractTransmitter,
-		medianContract:         &medianContract,
+		medianContract:         medianContract,
 	}, nil
 }
 
@@ -149,17 +149,17 @@ type ocr2Provider struct {
 	plugin                 job.OCR2PluginType
 	// Median specific
 	reportCodec    median.ReportCodec
-	medianContract *MedianContract
+	medianContract *medianContract
 }
 
-// On start, an ethereum ocr2 provider will start the contract tracker.
+// Start an ethereum ocr2 provider will start the contract tracker.
 func (p ocr2Provider) Start() error {
 	err := p.tracker.Start()
 	if err != nil {
 		return err
 	}
-	// TODO: I think as a follow up
-	// we need to break up ocr2Provider into more granular components
+	// TODO (https://app.shortcut.com/chainlinklabs/story/32017/plugin-specific-relay-interfaces):
+	// We need to break up ocr2Provider into more granular components
 	// per plugin (would require changes in solana/terra relay repos)
 	if p.plugin == job.Median && p.medianContract != nil {
 		return p.medianContract.Start()
@@ -167,7 +167,7 @@ func (p ocr2Provider) Start() error {
 	return nil
 }
 
-// On close, an ethereum ocr2 provider will close the contract tracker.
+// Close an ethereum ocr2 provider will close the contract tracker.
 func (p ocr2Provider) Close() error {
 	err := p.tracker.Close()
 	if err != nil {

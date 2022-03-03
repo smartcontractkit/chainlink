@@ -18,58 +18,54 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-var _ median.MedianContract = &MedianContract{}
+var _ median.MedianContract = &medianContract{}
 
-type MedianContract struct {
+type medianContract struct {
 	contractCaller *ocr2aggregator.OCR2AggregatorCaller
 	tracker        *RequestRoundTracker
 }
 
-func NewMedianContract(contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (MedianContract, error) {
+func newMedianContract(contractAddress common.Address, chain evm.Chain, specID int32, db *sqlx.DB, lggr logger.Logger) (*medianContract, error) {
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
-		return MedianContract{}, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
+		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
 	}
 
 	contractFilterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(contractAddress, chain.Client())
 	if err != nil {
-		return MedianContract{}, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
+		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
 	}
 
 	contractCaller, err := ocr2aggregator.NewOCR2AggregatorCaller(contractAddress, chain.Client())
 	if err != nil {
-		return MedianContract{}, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
+		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrDB := NewContractDB(db.DB, specID, lggr)
-
-	roundTracker := NewRequestRoundTracker(
-		contract,
-		contractFilterer,
-		chain.Client(),
-		chain.LogBroadcaster(),
-		specID,
-		lggr,
-		db,
-		ocrDB,
-		chain.Config(),
-	)
-
-	return MedianContract{
+	return &medianContract{
 		contractCaller: contractCaller,
-		tracker:        roundTracker,
+		tracker: NewRequestRoundTracker(
+			contract,
+			contractFilterer,
+			chain.Client(),
+			chain.LogBroadcaster(),
+			specID,
+			lggr,
+			db,
+			NewRoundRequestedDB(db.DB, specID, lggr),
+			chain.Config(),
+		),
 	}, nil
 }
 
-func (oc *MedianContract) Start() error {
+func (oc *medianContract) Start() error {
 	return oc.tracker.Start()
 }
 
-func (oc *MedianContract) Close() error {
+func (oc *medianContract) Close() error {
 	return oc.tracker.Close()
 }
 
-func (oc *MedianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
+func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
 	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
@@ -86,6 +82,6 @@ func (oc *MedianContract) LatestTransmissionDetails(ctx context.Context) (ocrtyp
 //
 // As an optimization, this function may also return zero values, if no
 // RoundRequested event has been emitted after the latest NewTransmission event.
-func (oc *MedianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
+func (oc *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (ocrtypes.ConfigDigest, uint32, uint8, error) {
 	return oc.tracker.LatestRoundRequested(ctx, lookback)
 }

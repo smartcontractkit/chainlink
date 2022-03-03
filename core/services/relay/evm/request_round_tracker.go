@@ -21,14 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type OCRContractTrackerDB interface {
-	SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error
-	LoadLatestRoundRequested() (rr ocr2aggregator.OCR2AggregatorRoundRequested, err error)
-}
-
 // RequestRoundTracker complies with ContractConfigTracker interface and
 // handles log events related to the contract more generally
-//go:generate mockery --name OCRContractTrackerDB --output ./mocks/ --case=underscore
 type RequestRoundTracker struct {
 	utils.StartStopOnce
 
@@ -38,7 +32,7 @@ type RequestRoundTracker struct {
 	logBroadcaster   log.Broadcaster
 	jobID            int32
 	logger           logger.Logger
-	odb              OCRContractTrackerDB
+	odb              RequestRoundDB
 	q                pg.Q
 	blockTranslator  ocrcommon.BlockTranslator
 
@@ -65,7 +59,7 @@ func NewRequestRoundTracker(
 	jobID int32,
 	logger logger.Logger,
 	db *sqlx.DB,
-	odb OCRContractTrackerDB,
+	odb RequestRoundDB,
 	chain ocrcommon.Config,
 ) (o *RequestRoundTracker) {
 	ctx, cancel := context.WithCancel(context.Background())

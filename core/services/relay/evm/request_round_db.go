@@ -12,20 +12,27 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-var _ OCRContractTrackerDB = &contractDB{}
+//go:generate mockery --name OCRContractTrackerDB --output ./mocks/ --case=underscore
 
-type contractDB struct {
+type RequestRoundDB interface {
+	SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error
+	LoadLatestRoundRequested() (rr ocr2aggregator.OCR2AggregatorRoundRequested, err error)
+}
+
+var _ RequestRoundDB = &requestRoundDB{}
+
+type requestRoundDB struct {
 	*sql.DB
 	oracleSpecID int32
 	lggr         logger.Logger
 }
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewContractDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *contractDB {
-	return &contractDB{sqldb, oracleSpecID, lggr}
+func NewRoundRequestedDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *requestRoundDB {
+	return &requestRoundDB{sqldb, oracleSpecID, lggr}
 }
 
-func (d *contractDB) SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error {
+func (d *requestRoundDB) SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal log as JSON")
@@ -43,7 +50,7 @@ VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (ocr2_oracle_spec_id) DO UPDATE SET
 	return errors.Wrap(err, "could not save latest round requested")
 }
 
-func (d *contractDB) LoadLatestRoundRequested() (ocr2aggregator.OCR2AggregatorRoundRequested, error) {
+func (d *requestRoundDB) LoadLatestRoundRequested() (ocr2aggregator.OCR2AggregatorRoundRequested, error) {
 	rr := ocr2aggregator.OCR2AggregatorRoundRequested{}
 	rows, err := d.Query(`
 SELECT requester, config_digest, epoch, round, raw

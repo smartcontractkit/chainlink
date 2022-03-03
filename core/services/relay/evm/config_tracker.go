@@ -116,7 +116,7 @@ func (c *ConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64)
 		return ocrtypes.ContractConfig{}, err
 	}
 	if len(logs) == 0 {
-		// Warn no config yet?
+		c.lggr.Warnw("Contract not configured yet")
 		return ocrtypes.ContractConfig{}, err
 	}
 	return parseConfigSet(c.contractABI, logs[len(logs)-1])
