@@ -37,11 +37,13 @@ func (raw Raw) GoString() string {
 
 var _ fmt.GoStringer = &Key{}
 
+// Key represents Solana key
 type Key struct {
 	privkey ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
 
+// New creates new Key
 func New() (Key, error) {
 	return newFrom(crypto_rand.Reader)
 }
