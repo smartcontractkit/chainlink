@@ -274,7 +274,6 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 // 7. Even if/when RPC node 2 catches up, the transaction is still stuck in state "confirmed_missing_receipt"
 //
 // This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
-
 func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
 	var attempts []EthTxAttempt
 	err = ec.q.Select(&attempts,
@@ -287,7 +286,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	if err != nil {
 		return err
 	}
-	_, reqs := batchSendTransactions(attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ctx, ec.ethClient)
+	reqs, _ := batchSendTransactions(attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ctx, ec.ethClient)
 	var ethTxIDsToUnconfirm []int64
 	for idx, req := range reqs {
 		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
