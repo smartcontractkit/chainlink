@@ -127,6 +127,7 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
+// IsEmpty returns true if bytes contains only zero values, or has len 0.
 func IsEmpty(bytes []byte) bool {
 	for _, b := range bytes {
 		if b != 0 {
@@ -374,6 +375,7 @@ func HexToUint256(s string) (*big.Int, error) {
 	return rv, nil
 }
 
+// HexToBig parses the given hex string or panics if it is invalid.
 func HexToBig(s string) *big.Int {
 	n, ok := new(big.Int).SetString(s, 16)
 	if !ok {
@@ -640,6 +642,7 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
+// TickerBase is an interface for pausable tickers.
 type TickerBase interface {
 	Resume()
 	Pause()
@@ -697,12 +700,14 @@ func (t *PausableTicker) Destroy() {
 	t.Pause()
 }
 
+// CronTicker is like a time.Ticker but for a cron schedule.
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
 	beenRun *atomic.Bool
 }
 
+// NewCronTicker returns a new CrontTicker for the given schedule.
 func NewCronTicker(schedule string) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
@@ -740,10 +745,12 @@ func (t *CronTicker) Stop() bool {
 	return false
 }
 
+// Ticks returns the underlying chanel.
 func (t *CronTicker) Ticks() <-chan time.Time {
 	return t.ch
 }
 
+// ValidateCronSchedule returns an error if the given schedule is invalid.
 func ValidateCronSchedule(schedule string) error {
 	if !(strings.HasPrefix(schedule, "CRON_TZ=") || strings.HasPrefix(schedule, "@every ")) {
 		return errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@every 1h30m'")
@@ -808,6 +815,7 @@ func EVMBytesToUint64(buf []byte) uint64 {
 }
 
 var (
+	// ErrNotStarted is returned if the service is not started.
 	ErrNotStarted = errors.New("Not started")
 )
 
@@ -820,6 +828,7 @@ type StartStopOnce struct {
 // StartStopOnceState holds the state for StartStopOnce
 type StartStopOnceState int32
 
+//nolint
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
@@ -915,6 +924,7 @@ func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
 	return true
 }
 
+// Ready returns ErrNotStarted if the state is not started.
 func (once *StartStopOnce) Ready() error {
 	if once.State() == StartStopOnce_Started {
 		return nil
@@ -922,7 +932,8 @@ func (once *StartStopOnce) Ready() error {
 	return ErrNotStarted
 }
 
-// Override this per-service with more specific implementations
+// Healthy returns ErrNotStarted if the state is not started.
+// Override this per-service with more specific implementations.
 func (once *StartStopOnce) Healthy() error {
 	if once.State() == StartStopOnce_Started {
 		return nil
