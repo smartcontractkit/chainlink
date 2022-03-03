@@ -286,7 +286,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	if err != nil {
 		return err
 	}
-	reqs, _ := batchSendTransactions(attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ctx, ec.ethClient)
+	reqs, _ := batchSendTransactions(ec.ctx, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
 	var ethTxIDsToUnconfirm []int64
 	for idx, req := range reqs {
 		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.

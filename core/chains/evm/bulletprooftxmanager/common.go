@@ -18,7 +18,7 @@ import (
 // elements in that batch.
 // TODO: The batch send is just sending the batch to 1 RPC node. Change it to send to all nodes,
 // similar to how Pool.SendTransaction sends a transaction to all nodes.
-func batchSendTransactions(attempts []EthTxAttempt, batchSize int, logger logger.Logger, ctx context.Context,
+func batchSendTransactions(ctx context.Context, attempts []EthTxAttempt, batchSize int, logger logger.Logger,
 	ethClient evmclient.Client) (reqs []rpc.BatchElem, err error) {
 	if len(attempts) == 0 {
 		return
