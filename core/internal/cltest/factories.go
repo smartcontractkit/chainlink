@@ -22,6 +22,8 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -39,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func NewEIP55Address() ethkey.EIP55Address {
@@ -245,6 +246,24 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, borm bul
 	return etx
 }
 
+func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+	t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, broadcastBeforeBlockNum int64,
+	fromAddress common.Address) bulletprooftxmanager.EthTx {
+	timeNow := time.Now()
+	etx := NewEthTx(t, fromAddress)
+
+	etx.BroadcastAt = &timeNow
+	etx.Nonce = &nonce
+	etx.State = bulletprooftxmanager.EthTxConfirmedMissingReceipt
+	require.NoError(t, borm.InsertEthTx(&etx))
+	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
+	return etx
+}
+
 func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	timeNow := time.Now()
 	etx := NewEthTx(t, fromAddress)
@@ -261,21 +280,21 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, borm bulletprooftxm
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, bOrm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
 	etx.State = bulletprooftxmanager.EthTxInProgress
-	require.NoError(t, borm.InsertEthTx(&etx))
+	require.NoError(t, bOrm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	tx := types.NewTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 	attempt.State = bulletprooftxmanager.EthTxAttemptInProgress
-	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
-	etx, err := borm.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, bOrm.InsertEthTxAttempt(&attempt))
+	etx, err := bOrm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
