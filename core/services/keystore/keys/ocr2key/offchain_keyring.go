@@ -52,7 +52,8 @@ func (ok *OffchainKeyring) OffchainSign(msg []byte) (signature []byte, err error
 	return ed25519.Sign(ed25519.PrivateKey(ok.signingKey), msg), nil
 }
 
-// ConfigDiffieHellman TODO
+// ConfigDiffieHellman returns the shared point obtained by multiplying someone's
+// public key by a secret scalar ( in this case, the offchain key ring's encryption key.)
 func (ok *OffchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte) ([curve25519.PointSize]byte, error) {
 	p, err := curve25519.X25519(ok.encryptionKey[:], point[:])
 	if err != nil {
