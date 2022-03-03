@@ -20,7 +20,7 @@ func TestRDDSource(t *testing.T) {
 			require.NoError(t, err)
 		}))
 		defer srv.Close()
-		source := NewRDDSource(srv.URL, fakeFeedsParser)
+		source := NewRDDSource(srv.URL, fakeFeedsParser, newNullLogger())
 		rawFeeds, err := source.Fetch(context.Background())
 		require.NoError(t, err)
 		feeds, ok := rawFeeds.([]FeedConfig)

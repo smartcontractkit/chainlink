@@ -12,16 +12,19 @@ type rddSource struct {
 	rddURL     string
 	httpClient *http.Client
 	feedParser FeedParser
+	log        Logger
 }
 
 func NewRDDSource(
 	rddURL string,
 	feedParser FeedParser,
+	log Logger,
 ) Source {
 	return &rddSource{
 		rddURL,
 		&http.Client{},
 		feedParser,
+		log,
 	}
 }
 
@@ -39,15 +42,17 @@ func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse RDD data into an array of feed configurations: %w", err)
 	}
-	feeds = removeDeadFeeds(feeds)
+	feeds = r.removeDeadFeeds(feeds)
 	return feeds, nil
 }
 
-func removeDeadFeeds(feeds []FeedConfig) []FeedConfig {
+func (r *rddSource) removeDeadFeeds(feeds []FeedConfig) []FeedConfig {
 	out := []FeedConfig{}
 	for _, feed := range feeds {
 		if feed.GetContractStatus() != "dead" {
 			out = append(out, feed)
+		} else {
+			r.log.Infow("ignoring feed because of contract_status=dead", "feed_id", feed.GetID())
 		}
 	}
 	return out
