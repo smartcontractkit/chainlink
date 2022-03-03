@@ -14,6 +14,7 @@ import (
 
 //go:generate mockery --name OCRContractTrackerDB --output ./mocks/ --case=underscore
 
+// RequestRoundDB stores requested rounds for querying by the median plugin.
 type RequestRoundDB interface {
 	SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error
 	LoadLatestRoundRequested() (rr ocr2aggregator.OCR2AggregatorRoundRequested, err error)

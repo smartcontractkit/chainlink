@@ -2,6 +2,8 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -127,6 +129,7 @@ func (c *ConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64)
 		c.lggr.Warnw("Contract not configured yet")
 		return ocrtypes.ContractConfig{}, err
 	}
+	fmt.Println("config set blah", hex.EncodeToString(logs[len(logs)-1].Data))
 	return parseConfigSet(c.contractABI, logs[len(logs)-1])
 }
 
@@ -142,6 +145,8 @@ func parseConfigSet(a abi.ABI, log types.Log) (ocrtypes.ContractConfig, error) {
 		OffchainConfigVersion     uint64
 		OffchainConfig            []byte
 	}
+	// Use bound contract solely for its unpack log logic
+	// which only uses the abi.
 	err := bind.NewBoundContract(common.Address{}, a, nil, nil, nil).UnpackLog(&changed, "ConfigSet", log)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
