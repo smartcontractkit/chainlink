@@ -1,6 +1,7 @@
 package terra
 
 import (
+	"database/sql"
 	"fmt"
 	"sync"
 
@@ -17,6 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	// ErrChainIDEmpty is returned when chain is required but was empty.
+	ErrChainIDEmpty = errors.New("chain id empty")
+	// ErrChainIDInvalid is returned when a chain id does not match any configured chains.
+	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
 )
 
 // ChainSetOpts holds options for configuring a ChainSet.
@@ -113,6 +121,9 @@ func (c *chainSet) ORM() types.ORM {
 }
 
 func (c *chainSet) Chain(id string) (terra.Chain, error) {
+	if id == "" {
+		return nil, ErrChainIDEmpty
+	}
 	if err := c.StartStopOnce.Ready(); err != nil {
 		return nil, err
 	}
@@ -143,6 +154,9 @@ func (c *chainSet) Chain(id string) (terra.Chain, error) {
 	opts := c.opts
 	dbchain, err := opts.ORM.Chain(id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrChainIDInvalid
+		}
 		return nil, err
 	}
 
