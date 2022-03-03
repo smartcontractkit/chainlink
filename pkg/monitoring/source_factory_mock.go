@@ -9,6 +9,20 @@ type SourceFactoryMock struct {
 	mock.Mock
 }
 
+// GetType provides a mock function with given fields:
+func (_m *SourceFactoryMock) GetType() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // NewSource provides a mock function with given fields: chainConfig, feedConfig
 func (_m *SourceFactoryMock) NewSource(chainConfig ChainConfig, feedConfig FeedConfig) (Source, error) {
 	ret := _m.Called(chainConfig, feedConfig)

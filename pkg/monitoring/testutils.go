@@ -87,6 +87,10 @@ func (f *fakeRandomDataSourceFactory) NewSource(_ ChainConfig, _ FeedConfig) (So
 	return &fakeSource{f}, nil
 }
 
+func (f *fakeRandomDataSourceFactory) GetType() string {
+	return "fake"
+}
+
 type fakeSource struct {
 	factory *fakeRandomDataSourceFactory
 }
@@ -127,6 +131,10 @@ func (f *fakeSourceFactoryWithError) NewSource(_ ChainConfig, _ FeedConfig) (Sou
 		f.updates,
 		f.errors,
 	}, nil
+}
+
+func (f *fakeSourceFactoryWithError) GetType() string {
+	return "fake-with-error"
 }
 
 type fakeSourceWithError struct {
@@ -484,9 +492,9 @@ func (d *devnullMetrics) SetFeedContractMetadata(chainID, contractAddress, feedI
 }
 func (d *devnullMetrics) SetFeedContractLinkBalance(balance float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-func (d *devnullMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetFeedContractTransactionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
-func (d *devnullMetrics) SetFeedContractTransmissionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+func (d *devnullMetrics) SetFeedContractTransactionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 func (d *devnullMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {
 }
