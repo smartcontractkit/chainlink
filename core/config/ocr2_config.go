@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// OCR2Config is a subset of global config relevant to OCR v2.
 type OCR2Config interface {
 	// OCR2 config, can override in jobs, all chains
 	OCR2ContractConfirmations() uint16
