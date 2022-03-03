@@ -55,10 +55,7 @@ func NewEntrypoint(
 	metrics := NewMetrics(log.With("component", "metrics"))
 	chainMetrics := NewChainMetrics(chainConfig)
 
-	sourceFactories := []SourceFactory{
-		NewInstrumentedSourceFactory("envelope", envelopeSourceFactory, chainMetrics),
-		NewInstrumentedSourceFactory("txresults", txResultsSourceFactory, chainMetrics),
-	}
+	sourceFactories := []SourceFactory{envelopeSourceFactory, txResultsSourceFactory}
 
 	producer, err := NewProducer(ctx, log.With("component", "producer"), cfg.Kafka)
 	if err != nil {
@@ -151,8 +148,8 @@ func (e Entrypoint) Run() {
 	wg := &sync.WaitGroup{}
 
 	if e.Config.Feature.TestOnlyFakeReaders {
-		envelopeFactory := e.SourceFactories[0].(*instrumentedSourceFactory).sourceFactory.(*fakeRandomDataSourceFactory)
-		txResultsFactory := e.SourceFactories[1].(*instrumentedSourceFactory).sourceFactory.(*fakeRandomDataSourceFactory)
+		envelopeFactory := e.SourceFactories[0].(*fakeRandomDataSourceFactory)
+		txResultsFactory := e.SourceFactories[1].(*fakeRandomDataSourceFactory)
 		wg.Add(2)
 		go func(factory *fakeRandomDataSourceFactory) {
 			defer wg.Done()
@@ -170,10 +167,17 @@ func (e Entrypoint) Run() {
 		e.RDDPoller.Run(ctx)
 	}()
 
+	// Instrument all source factories
+	instrumentedSourceFactories := []SourceFactory{}
+	for _, factory := range e.SourceFactories {
+		instrumentedSourceFactories = append(instrumentedSourceFactories,
+			NewInstrumentedSourceFactory(factory, e.ChainMetrics))
+	}
+
 	monitor := NewMultiFeedMonitor(
 		e.ChainConfig,
 		e.Log,
-		e.SourceFactories,
+		instrumentedSourceFactories,
 		e.ExporterFactories,
 		100, // bufferCapacity for source pollers
 	)
