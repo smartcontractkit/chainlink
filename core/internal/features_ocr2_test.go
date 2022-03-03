@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -40,7 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -272,7 +276,7 @@ chainID 			= 1337
 			URL:  models.WebURL(*u),
 		})
 
-		ocrJob, err := ocr2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
+		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
 relay              = "evm"
 schemaVersion      = 1
@@ -365,4 +369,17 @@ juelsPerFeeCoinSource = """
 		}
 	}
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+
+	// Assert we can read the latest config digest and epoch after a report has been submitted.
+	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
+	require.NoError(t, err)
+	ct := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].Chains.EVM.Chains()[0].Client(), contractABI, nil, lggr)
+	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(context.Background())
+	require.NoError(t, err)
+	details, err := ocrContract.LatestConfigDetails(nil)
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(configDigest[:], details.ConfigDigest[:]))
+	digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
+	require.NoError(t, err)
+	assert.Equal(t, digestAndEpoch.Epoch, epoch)
 }

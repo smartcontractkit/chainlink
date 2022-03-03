@@ -1,4 +1,4 @@
-package ocr2
+package validate
 
 import (
 	"time"
@@ -9,13 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
-//go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --name Config --output ../mocks/ --case=underscore
 
 // Config contains OCR2 configurations for a job.
 type Config interface {
 	config.OCR2Config
 	Dev() bool
 	JobPipelineResultWriteQueueDepth() uint64
+	LogSQL() bool
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
