@@ -106,6 +106,57 @@ func TestORM_pending(t *testing.T) {
 	require.Nil(t, num)
 }
 
+func TestORM_MarkUnconsumed(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	lggr := logger.TestLogger(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+
+	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
+
+	_, addr1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
+
+	_, addr2 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	job2 := cltest.MustInsertV2JobSpec(t, db, addr2)
+
+	logBefore := cltest.RandomLog(t)
+	logBefore.BlockNumber = 34
+	require.NoError(t,
+		orm.CreateBroadcast(logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
+	require.NoError(t,
+		orm.MarkBroadcastConsumed(logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
+
+	logAt := cltest.RandomLog(t)
+	logAt.BlockNumber = 38
+	require.NoError(t,
+		orm.CreateBroadcast(logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
+	require.NoError(t,
+		orm.MarkBroadcastConsumed(logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
+
+	logAfter := cltest.RandomLog(t)
+	logAfter.BlockNumber = 40
+	require.NoError(t,
+		orm.CreateBroadcast(logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
+	require.NoError(t,
+		orm.MarkBroadcastConsumed(logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
+
+	// logAt and logAfter should now be marked unconsumed. logBefore is still consumed.
+	require.NoError(t, orm.MarkBroadcastsUnconsumed(38))
+
+	consumed, err := orm.WasBroadcastConsumed(logBefore.BlockHash, logBefore.Index, job1.ID)
+	require.NoError(t, err)
+	require.True(t, consumed)
+
+	consumed, err = orm.WasBroadcastConsumed(logAt.BlockHash, logAt.Index, job1.ID)
+	require.NoError(t, err)
+	require.False(t, consumed)
+
+	consumed, err = orm.WasBroadcastConsumed(logAfter.BlockHash, logAfter.Index, job2.ID)
+	require.NoError(t, err)
+	require.False(t, consumed)
+}
+
 func TestORM_Reinitialize(t *testing.T) {
 	type TestLogBroadcast struct {
 		BlockNumber big.Int

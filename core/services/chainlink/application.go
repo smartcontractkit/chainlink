@@ -15,8 +15,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
@@ -26,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -38,9 +35,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -79,7 +77,6 @@ type Application interface {
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	EVMORM() evmtypes.ORM
-	TerraORM() terratypes.ORM
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
@@ -95,8 +92,9 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
-	// ReplayFromBlock of blocks
-	ReplayFromBlock(chainID *big.Int, number uint64) error
+	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
+	// set to true, consumers will reprocess data even if it has already been processed.
+	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -127,6 +125,7 @@ type ChainlinkApplication struct {
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
+	closeLogger              func() error
 	sqlxDB                   *sqlx.DB
 
 	started     bool
@@ -140,6 +139,7 @@ type ApplicationOpts struct {
 	KeyStore                 keystore.Master
 	Chains                   Chains
 	Logger                   logger.Logger
+	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
 }
@@ -147,7 +147,17 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM   evm.ChainSet
-	Terra terra.ChainSet
+	Terra terra.ChainSet // nil if disabled
+}
+
+func (c *Chains) services() (s []interface{}) {
+	if c.EVM != nil {
+		s = append(s, c.EVM)
+	}
+	if c.Terra != nil {
+		s = append(s, c.Terra)
+	}
+	return
 }
 
 // NewApplication initializes a new store if one is not already
@@ -197,7 +207,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
 		if cfg.TelemetryIngressUseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval())
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval(), cfg.TelemetryIngressSendTimeout())
 			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
 
 		} else {
@@ -220,7 +230,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	subservices = append(subservices, eventBroadcaster, chains.EVM)
+	subservices = append(subservices, eventBroadcaster)
+	subservices = append(subservices, chains.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
@@ -301,7 +312,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	if cfg.FeatureOffchainReporting() {
-		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
+		delegates[job.OffchainReporting] = ocr.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
@@ -331,7 +342,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relay.AddRelayer(relaytypes.Terra, terraRelayer)
 		}
 		subservices = append(subservices, relay)
-		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
+		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
 			db,
 			jobORM,
 			pipelineRunner,
@@ -398,6 +409,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
+		closeLogger:              opts.CloseLogger,
 
 		sqlxDB: opts.SqlxDB,
 
@@ -514,7 +526,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 	}
 	app.shutdownOnce.Do(func() {
 		defer func() {
-			if lerr := app.logger.Sync(); lerr != nil {
+			if lerr := app.closeLogger(); lerr != nil {
 				err = multierr.Append(err, lerr)
 			}
 		}()
@@ -590,11 +602,6 @@ func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
 	return app.Chains.EVM.ORM()
 }
 
-// TerraORM returns the Terra ORM.
-func (app *ChainlinkApplication) TerraORM() terratypes.ORM {
-	return app.Chains.Terra.ORM()
-}
-
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
@@ -650,7 +657,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	var runID int64
 
 	// Some jobs are special in that they do not have a task graph.
-	isBootstrap := jb.Type == job.OffchainReporting && jb.OffchainreportingOracleSpec != nil && jb.OffchainreportingOracleSpec.IsBootstrapPeer
+	isBootstrap := jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil && jb.OCROracleSpec.IsBootstrapPeer
 	if jb.Type.RequiresPipelineSpec() || !isBootstrap {
 		var vars map[string]interface{}
 		var saveTasks bool
@@ -710,12 +717,13 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
 
-func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64) error {
+// ReplayFromBlock implements the Application interface.
+func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
 	chain, err := app.Chains.EVM.Get(chainID)
 	if err != nil {
 		return err
 	}
-	chain.LogBroadcaster().ReplayFromBlock(int64(number))
+	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
 	return nil
 }
 
