@@ -1,10 +1,13 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math/big"
 	"net/http"
 	"os"
@@ -30,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
@@ -284,6 +288,83 @@ func TestClient_RemoteLogin(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClient_RemoteBuildCompatibility(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                       string
+		remote_version, remote_sha string
+		cli_version, cli_sha       string
+		dev_mode                   bool
+		wantError                  bool
+	}{
+		{"success match", "1.1.1", "53120d5", "1.1.1", "53120d5", false, false},
+		{"unset no error", "unset", "unset", "1.1.1", "53120d5", false, false},
+		{"cli unset no error", "1.1.1", "53120d5", "unset", "unset", false, false},
+		{"mismatch but dev mode", "1.1.1", "53120d5", "1.6.9", "13230sas", true, false},
+		{"mismatch fail", "1.1.1", "53120d5", "1.6.9", "13230sas", false, true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+				c.Overrides.Dev = null.BoolFrom(test.dev_mode)
+			}))
+
+			enteredStrings := []string{cltest.APIEmail, cltest.Password}
+			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+			client := app.NewAuthenticatingClient(prompter)
+
+			static.Version = test.cli_version
+			static.Sha = test.cli_sha
+			client.HTTP = &mockHTTPClient{client.HTTP, test.remote_version, test.remote_sha}
+
+			set := flag.NewFlagSet("test", 0)
+			c := cli.NewContext(nil, set, nil)
+			err := client.RemoteLogin(c)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+type mockHTTPClient struct {
+	HTTP        cmd.HTTPClient
+	mockVersion string
+	mockSha     string
+}
+
+func (h *mockHTTPClient) Get(path string, headers ...map[string]string) (*http.Response, error) {
+	if path == "/v2/build_info" {
+		// Return mocked response here
+		json := fmt.Sprintf(`{"version":"%s","commitSHA":"%s"}`, h.mockVersion, h.mockSha)
+		r := ioutil.NopCloser(bytes.NewReader([]byte(json)))
+		return &http.Response{
+			StatusCode: 200,
+			Body:       r,
+		}, nil
+	}
+	return h.HTTP.Get(path, headers...)
+}
+
+func (h *mockHTTPClient) Post(path string, body io.Reader) (*http.Response, error) {
+	return h.HTTP.Post(path, body)
+}
+
+func (h *mockHTTPClient) Put(path string, body io.Reader) (*http.Response, error) {
+	return h.HTTP.Put(path, body)
+}
+
+func (h *mockHTTPClient) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, error) {
+	return h.HTTP.Patch(path, body, headers...)
+}
+
+func (h *mockHTTPClient) Delete(path string) (*http.Response, error) {
+	return h.HTTP.Delete(path)
 }
 
 func TestClient_ChangePassword(t *testing.T) {

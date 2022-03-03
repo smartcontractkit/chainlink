@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -165,6 +166,7 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
+	lggr := cli.Logger.Named("RemoteLogin")
 	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
 	if err != nil {
 		return cli.errorOut(err)
@@ -173,7 +175,7 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	err = cli.checkRemoteBuildCompatibility()
+	err = cli.checkRemoteBuildCompatibility(lggr)
 	return cli.errorOut(err)
 }
 
@@ -554,7 +556,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	return b, err
 }
 
-func (cli *Client) checkRemoteBuildCompatibility() error {
+func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger) error {
 	resp, err := cli.HTTP.Get("/v2/build_info")
 	if err != nil {
 		return cli.errorOut(err)
@@ -571,10 +573,20 @@ func (cli *Client) checkRemoteBuildCompatibility() error {
 	remote_version, remote_sha := remote_build_info["version"], remote_build_info["commitSHA"]
 	cli_version, cli_sha := static.Version, static.Sha
 
+	if remote_version == "unset" || cli_version == "unset" {
+		lggr.Warn("Remote node version is unknown. CLI may behave in unexpected ways.")
+		return nil
+	}
+
 	if remote_version != cli_version || remote_sha != cli_sha {
-		// Unset the session cookie to prevent further requests
+		// Show a warning but allow mismatch if running in dev mode
+		if cli.Config.Dev() {
+			lggr.Warn(fmt.Sprintf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remote_version, remote_sha, cli_version, cli_sha))
+			return nil
+		}
+		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
 		cli.CookieAuthenticator.Logout()
-		return errors.New(fmt.Sprintf("Error: CLI build (%s@%s) mismatches remote node build (%s@%s)", remote_version, remote_sha, cli_version, cli_sha))
+		return errors.New(fmt.Sprintf("Error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set CHAINLINK_DEV=true to bypass this.", remote_version, remote_sha, cli_version, cli_sha))
 	}
 	return nil
 }
