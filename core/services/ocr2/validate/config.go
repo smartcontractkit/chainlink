@@ -16,7 +16,6 @@ type Config interface {
 	config.OCR2Config
 	Dev() bool
 	JobPipelineResultWriteQueueDepth() uint64
-	LogSQL() bool
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.

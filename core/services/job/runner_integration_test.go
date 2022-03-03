@@ -251,7 +251,7 @@ answer1      [type=median index=0];
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
 		cfg2.On("Dev").Return(true)
-		jb3, err := ocr2.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1

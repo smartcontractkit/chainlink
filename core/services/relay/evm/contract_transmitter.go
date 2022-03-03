@@ -142,6 +142,7 @@ func (oc *ContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 	if len(logs) == 0 {
 		return configDigest, 0, nil
 	}
+	// Logs come back ordered https://github.com/ethereum/go-ethereum/blob/d78590560d0107e727a44d0eea088eeb4d280bab/eth/filters/filter.go#L215
 	// If there is a transmission, we take the latest one
 	return parseTransmitted(logs[len(logs)-1].Data)
 }
