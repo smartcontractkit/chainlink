@@ -73,18 +73,21 @@ func (e *EnvVar) ParseFrom(get func(string) string) (v interface{}, invalid stri
 	return
 }
 
+// ParseString parses string
 func (e *EnvVar) ParseString() (v string, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
 	return i.(string), invalid
 }
 
+// ParseBool parses bool
 func (e *EnvVar) ParseBool() (v bool, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
 	return i.(bool), invalid
 }
 
+// ParseLogLevel parses an env var's log level
 func (e *EnvVar) ParseLogLevel() (v zapcore.Level, invalid string) {
 	var i interface{}
 	i, invalid = e.Parse()
