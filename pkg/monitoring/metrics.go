@@ -55,14 +55,14 @@ var (
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
-	feedContractTransmissionsSucceeded = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
+	feedContractTransmissionsSucceeded = promauto.NewCounterVec(
+		prometheus.CounterOpts{
 			Name: "feed_contract_transmissions_succeeded",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
-	feedContractTransmissionsFailed = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
+	feedContractTransmissionsFailed = promauto.NewCounterVec(
+		prometheus.CounterOpts{
 			Name: "feed_contract_transmissions_failed",
 		},
 		[]string{"contract_address", "feed_id", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
@@ -188,7 +188,7 @@ func (d *defaultMetrics) SetFeedContractTransmissionsSucceeded(numSucceeded floa
 		"feed_path":        feedPath,
 		"network_id":       networkID,
 		"network_name":     networkName,
-	}).Set(numSucceeded)
+	}).Add(numSucceeded)
 }
 
 func (d *defaultMetrics) SetFeedContractTransmissionsFailed(numFailed float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
@@ -202,7 +202,7 @@ func (d *defaultMetrics) SetFeedContractTransmissionsFailed(numFailed float64, c
 		"feed_path":        feedPath,
 		"network_id":       networkID,
 		"network_name":     networkName,
-	}).Set(numFailed)
+	}).Add(numFailed)
 }
 
 func (d *defaultMetrics) SetNodeMetadata(chainID, networkID, networkName, oracleName, sender string) {
