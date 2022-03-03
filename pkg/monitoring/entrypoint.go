@@ -97,7 +97,7 @@ func NewEntrypoint(
 
 	exporterFactories := []ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}
 
-	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser)
+	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser, log.With("component", "rdd-source"))
 	if cfg.Feature.TestOnlyFakeRdd {
 		// Generate between 2 and 10 random feeds every RDDPollInterval.
 		rddSource = NewFakeRDDSource(2, 10)
@@ -151,8 +151,8 @@ func (e Entrypoint) Run() {
 	wg := &sync.WaitGroup{}
 
 	if e.Config.Feature.TestOnlyFakeReaders {
-		envelopeFactory := e.SourceFactories[0].(*fakeRandomDataSourceFactory)
-		txResultsFactory := e.SourceFactories[1].(*fakeRandomDataSourceFactory)
+		envelopeFactory := e.SourceFactories[0].(*instrumentedSourceFactory).sourceFactory.(*fakeRandomDataSourceFactory)
+		txResultsFactory := e.SourceFactories[1].(*instrumentedSourceFactory).sourceFactory.(*fakeRandomDataSourceFactory)
 		wg.Add(2)
 		go func(factory *fakeRandomDataSourceFactory) {
 			defer wg.Done()
