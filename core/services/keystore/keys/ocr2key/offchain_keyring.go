@@ -64,7 +64,7 @@ func (ok *OffchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte)
 	return sharedPoint, nil
 }
 
-// OffchainPublicKey TODO
+// OffchainPublicKey returns the public component of this offchain keyring.
 func (ok *OffchainKeyring) OffchainPublicKey() ocrtypes.OffchainPublicKey {
 	var offchainPubKey [ed25519.PublicKeySize]byte
 	copy(offchainPubKey[:], ok.signingKey.Public().(ed25519.PublicKey)[:])
