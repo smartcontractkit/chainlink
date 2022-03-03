@@ -289,6 +289,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 	}
 }
 
+// FetchBlocksAndRecalculate fetches block history leading up to head and recalculates gas price.
 func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *evmtypes.Head) {
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
@@ -301,7 +302,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 	b.Recalculate(head)
 }
 
-// FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
+// Recalculate adds the given heads to the history and recalculates gas price.
 func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	enableEIP1559 := b.config.EvmEIP1559DynamicFees()
 
@@ -359,6 +360,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	}
 }
 
+// FetchBlocks fetches block history leading up to the given head.
 func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.Head) error {
 	// HACK: blockDelay is the number of blocks that the block history estimator trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, block history estimator will
