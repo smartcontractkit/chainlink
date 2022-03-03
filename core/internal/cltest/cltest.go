@@ -34,7 +34,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -77,8 +80,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -1332,14 +1333,14 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmM
 	}
 }
 
-func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
-	return req.Method == "eth_getTransactionReceipt" &&
-		len(req.Args) == 1 && req.Args[0] == hash
+func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
+	return req.Method == method &&
+		len(req.Args) == 1 && req.Args[0] == arg
 }
 
-func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
+func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash, method string) {
 	t.Helper()
-	if !BatchElemMatchesHash(req, hash) {
+	if !BatchElemMatchesParams(req, hash, method) {
 		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
 	}
 }

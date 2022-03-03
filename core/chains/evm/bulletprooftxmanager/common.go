@@ -16,6 +16,8 @@ import (
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
+// TODO: The batch send is just sending the batch to 1 RPC node. Change it to send to all nodes,
+// similar to how Pool.SendTransaction sends a transaction to all nodes.
 func batchSendTransactions(attempts []EthTxAttempt, batchSize int, logger logger.Logger, ctx context.Context,
 	ethClient evmclient.Client) (err error, reqs []rpc.BatchElem) {
 	if len(attempts) == 0 {

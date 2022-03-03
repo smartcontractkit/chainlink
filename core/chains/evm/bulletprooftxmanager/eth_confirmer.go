@@ -282,7 +282,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 		FROM eth_tx_attempts
 		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
 		WHERE evm_chain_id = $1
-		ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`,
+		ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`,
 		ec.chainID.String())
 	if err != nil {
 		return err
@@ -292,10 +292,11 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	for idx, req := range reqs {
 		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
 		if req.Error == nil || !evmclient.NewSendError(req.Error).IsNonceTooLowError() {
-			ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTx.ID)
+			ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
 		}
 	}
 	_, err = ec.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ethTxIDsToUnconfirm))
+
 	if err != nil {
 		return errors.Wrap(err, "Marking as Unconfirmed failed")
 	}
