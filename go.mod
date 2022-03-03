@@ -57,7 +57,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-solana v0.2.12-0.20220217150457-281a05e940f1
-	github.com/smartcontractkit/chainlink-terra v0.0.8-0.20220222145923-77cd6baf7b57
+	github.com/smartcontractkit/chainlink-terra v0.1.2-0.20220303010347-93a6bab4acef
 	github.com/smartcontractkit/helmenv v1.0.36
 	github.com/smartcontractkit/integrations-framework v1.0.50
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
@@ -184,7 +184,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/gateway v1.1.0 // indirect
-	github.com/gogo/protobuf v1.3.3 // indirect
+	github.com/gogo/protobuf v1.3.3
 	github.com/golang-jwt/jwt/v4 v4.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
