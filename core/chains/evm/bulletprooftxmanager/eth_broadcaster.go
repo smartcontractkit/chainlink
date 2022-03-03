@@ -122,7 +122,9 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 	}
 }
 
-func (eb *EthBroadcaster) Start() error {
+// Start starts EthBroadcaster service.
+// The provided context can be used to terminate Start sequence.
+func (eb *EthBroadcaster) Start(ctx context.Context) error {
 	return eb.StartOnce("EthBroadcaster", func() (err error) {
 		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
 		if err != nil {
@@ -130,13 +132,13 @@ func (eb *EthBroadcaster) Start() error {
 		}
 
 		if eb.config.EvmNonceAutoSync() {
-			ctx, cancel := utils.CombinedContext(context.Background(), eb.chStop)
+			cctx, cancel := utils.CombinedContext(ctx, eb.chStop)
 			defer cancel()
 
 			syncer := NewNonceSyncer(eb.db, eb.logger, eb.ChainKeyStore.config, eb.ethClient)
-			if ctx.Err() != nil {
+			if cctx.Err() != nil {
 				return nil
-			} else if err := syncer.SyncAll(ctx, eb.keyStates); err != nil {
+			} else if err := syncer.SyncAll(cctx, eb.keyStates); err != nil {
 				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
 			}
 		}

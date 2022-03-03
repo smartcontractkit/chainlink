@@ -71,13 +71,14 @@ const JOB_PAYLOAD__SPEC = gql`
       contractID
       contractConfigConfirmations
       contractConfigTrackerPollInterval
-      juelsPerFeeCoinSource
       ocrKeyBundleID
       monitoringEndpoint
       p2pBootstrapPeers
       relay
       relayConfig
       transmitterID
+      pluginType
+      pluginConfig
     }
     ... on VRFSpec {
       evmChainID

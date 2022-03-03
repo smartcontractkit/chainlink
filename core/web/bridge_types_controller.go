@@ -38,7 +38,7 @@ func ValidateBridgeType(bt *bridges.BridgeTypeRequest, orm bridges.ORM) error {
 	if len(bt.Name.String()) < 1 {
 		fe.Add("No name specified")
 	}
-	if _, err := bridges.NewTaskType(bt.Name.String()); err != nil {
+	if _, err := bridges.ParseBridgeName(bt.Name.String()); err != nil {
 		fe.Merge(err)
 	}
 	u := bt.URL.String()
@@ -117,7 +117,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) 
 func (btc *BridgeTypesController) Show(c *gin.Context) {
 	name := c.Param("BridgeName")
 
-	taskType, err := bridges.NewTaskType(name)
+	taskType, err := bridges.ParseBridgeName(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -141,7 +141,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 	name := c.Param("BridgeName")
 	btr := &bridges.BridgeTypeRequest{}
 
-	taskType, err := bridges.NewTaskType(name)
+	taskType, err := bridges.ParseBridgeName(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -178,7 +178,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	name := c.Param("BridgeName")
 
-	taskType, err := bridges.NewTaskType(name)
+	taskType, err := bridges.ParseBridgeName(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return

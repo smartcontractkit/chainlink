@@ -8,12 +8,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Spawner --output ./mocks/ --case=underscore

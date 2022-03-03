@@ -174,6 +174,7 @@ chainID			= 1337
 )
 
 type KeeperSpecParams struct {
+	Name                     string
 	ContractAddress          string
 	FromAddress              string
 	EvmChainID               int
@@ -193,7 +194,7 @@ func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
 schemaVersion   		 	= 3
-name            		 	= "example keeper spec"
+name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
 evmChainID      		 	= %d
@@ -233,7 +234,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
 	}
 }
 

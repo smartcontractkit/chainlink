@@ -39,6 +39,7 @@ type ConfigSchema struct {
 	TelemetryIngressBufferSize   uint            `env:"TELEMETRY_INGRESS_BUFFER_SIZE" default:"100"`
 	TelemetryIngressMaxBatchSize uint            `env:"TELEMETRY_INGRESS_MAX_BATCH_SIZE" default:"50"`
 	TelemetryIngressSendInterval time.Duration   `env:"TELEMETRY_INGRESS_SEND_INTERVAL" default:"500ms"`
+	TelemetryIngressSendTimeout  time.Duration   `env:"TELEMETRY_INGRESS_SEND_TIMEOUT" default:"10s"`
 	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
 	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
@@ -63,12 +64,14 @@ type ConfigSchema struct {
 	DatabaseBackupURL              *url.URL      `env:"DATABASE_BACKUP_URL"`
 
 	// Logging
-	JSONConsole bool          `env:"JSON_CONSOLE" default:"false"`
-	LogFileDir  string        `env:"LOG_FILE_DIR"`
-	LogLevel    zapcore.Level `env:"LOG_LEVEL"`
-	LogSQL      bool          `env:"LOG_SQL" default:"false"`
-	LogToDisk   bool          `env:"LOG_TO_DISK" default:"false"`
-	LogUnixTS   bool          `env:"LOG_UNIX_TS" default:"false"`
+	JSONConsole       bool           `env:"JSON_CONSOLE" default:"false"`
+	LogFileDir        string         `env:"LOG_FILE_DIR"`
+	LogLevel          zapcore.Level  `env:"LOG_LEVEL"`
+	LogSQL            bool           `env:"LOG_SQL" default:"false"`
+	LogFileMaxSize    utils.FileSize `env:"LOG_FILE_MAX_SIZE" default:"5120mb"` // 5120mb was determined based on previously collected logs, in which a daily log would be ~2.5GB and compressed would be ~210MB
+	LogFileMaxAge     int64          `env:"LOG_FILE_MAX_AGE" default:"0"`
+	LogFileMaxBackups int64          `env:"LOG_FILE_MAX_BACKUPS" default:"1"`
+	LogUnixTS         bool           `env:"LOG_UNIX_TS" default:"false"`
 
 	// Web Server
 	AllowOrigins                   string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
@@ -237,6 +240,7 @@ type ConfigSchema struct {
 	KeeperDefaultTransactionQueueDepth      uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`            //nodoc
 	KeeperGasPriceBufferPercent             uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
 	KeeperGasTipCapBufferPercent            uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
+	KeeperBaseFeeBufferPercent              uint32        `env:"KEEPER_BASE_FEE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`

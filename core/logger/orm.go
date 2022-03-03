@@ -3,10 +3,20 @@ package logger
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 )
+
+// LogConfig stores key value pairs for configuring package specific logging
+type LogConfig struct {
+	ID          int64
+	ServiceName string
+	LogLevel    string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
 
 type ORM interface {
 	GetServiceLogLevel(serviceName string) (level string, ok bool)
@@ -41,7 +51,7 @@ INSERT INTO log_configs (
 	service_name, log_level, created_at, updated_at
 ) VALUES (
 	$1, $2, NOW(), NOW()
-) ON CONFLICT (service_name) 
+) ON CONFLICT (service_name)
 DO UPDATE SET log_level = EXCLUDED.log_level
     `, serviceName, level)
 	return errors.Wrap(err, "LogOrm#SetServiceLogLevel failed")

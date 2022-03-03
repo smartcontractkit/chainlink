@@ -73,7 +73,7 @@ func ValidateBridgeType(bt *bridges.BridgeTypeRequest) error {
 	if len(bt.Name.String()) < 1 {
 		return errors.New("No name specified")
 	}
-	if _, err := bridges.NewTaskType(bt.Name.String()); err != nil {
+	if _, err := bridges.ParseBridgeName(bt.Name.String()); err != nil {
 		return errors.Wrap(err, "invalid bridge name")
 	}
 	u := bt.URL.String()

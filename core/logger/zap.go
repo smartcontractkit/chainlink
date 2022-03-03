@@ -1,31 +1,120 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var _ Logger = &zapLogger{}
 
-type zapLogger struct {
-	*zap.SugaredLogger
-	config     zap.Config
-	name       string
-	fields     []interface{}
-	callerSkip int
+// zapLoggerConfig defines the struct that serves as config when spinning up a the zap logger
+type zapLoggerConfig struct {
+	zap.Config
+	local          Config
+	diskLogLevel   zap.AtomicLevel
+	diskStats      utils.DiskStatsProvider
+	diskPollConfig zapDiskPollConfig
+
+	// This is for tests only
+	testDiskLogLvlChan chan zapcore.Level
 }
 
-func newZapLogger(cfg zap.Config) (Logger, error) {
-	zl, err := cfg.Build()
+type zapLogger struct {
+	*zap.SugaredLogger
+	config            zapLoggerConfig
+	name              string
+	fields            []interface{}
+	callerSkip        int
+	pollDiskSpaceStop chan struct{}
+	pollDiskSpaceDone chan struct{}
+}
+
+func (cfg zapLoggerConfig) newLogger() (Logger, func() error, error) {
+	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+
+	newCore, errWriter, err := cfg.newCore()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &zapLogger{config: cfg, SugaredLogger: zl.Sugar()}, nil
+	cores := []zapcore.Core{
+		newCore,
+	}
+	if cfg.local.DebugLogsToDisk() {
+		diskCore, diskErr := cfg.newDiskCore()
+		if diskErr != nil {
+			return nil, nil, diskErr
+		}
+		cores = append(cores, diskCore)
+	}
+
+	core := zapcore.NewTee(cores...)
+	lggr := &zapLogger{
+		config:            cfg,
+		pollDiskSpaceStop: make(chan struct{}),
+		pollDiskSpaceDone: make(chan struct{}),
+		SugaredLogger:     zap.New(core, zap.ErrorOutput(errWriter)).Sugar(),
+	}
+
+	if cfg.local.DebugLogsToDisk() {
+		go lggr.pollDiskSpace()
+	}
+
+	var once sync.Once
+	close := func() error {
+		once.Do(func() {
+			if cfg.local.DebugLogsToDisk() {
+				close(lggr.pollDiskSpaceStop)
+				<-lggr.pollDiskSpaceDone
+			}
+		})
+
+		return lggr.Sync()
+	}
+
+	return lggr, close, err
+}
+
+func (cfg zapLoggerConfig) newCore() (zapcore.Core, zapcore.WriteSyncer, error) {
+	encoder := zapcore.NewJSONEncoder(makeEncoderConfig(cfg.local))
+
+	sink, closeOut, err := zap.Open(cfg.OutputPaths...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	errSink, _, err := zap.Open(cfg.ErrorOutputPaths...)
+	if err != nil {
+		closeOut()
+		return nil, nil, err
+	}
+
+	if cfg.Level == (zap.AtomicLevel{}) {
+		return nil, nil, errors.New("missing Level")
+	}
+
+	filteredLogLevels := zap.LevelEnablerFunc(cfg.Level.Enabled)
+
+	return zapcore.NewCore(encoder, sink, filteredLogLevels), errSink, nil
+}
+
+func makeEncoderConfig(cfg Config) zapcore.EncoderConfig {
+	encoderConfig := zap.NewProductionEncoderConfig()
+
+	if !cfg.UnixTS {
+		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
+
+	encoderConfig.EncodeLevel = encodeLevel
+
+	return encoderConfig
 }
 
 func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
@@ -65,13 +154,26 @@ func (l *zapLogger) Named(name string) Logger {
 func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 	newLogger := *l
 	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
-	zl, err := newLogger.config.Build()
+	newCore, errWriter, err := newLogger.config.newCore()
 	if err != nil {
 		return nil, err
 	}
-	zl = zl.WithOptions(zap.AddCallerSkip(l.callerSkip))
-	newLogger.SugaredLogger = zl.Named(l.name).Sugar().With(l.fields...)
-	return &newLogger, nil
+	cores := []zapcore.Core{
+		// The console core is what we want to be unique per root, so we spin a new one here
+		newCore,
+	}
+	if newLogger.config.local.DebugLogsToDisk() {
+		diskCore, diskErr := newLogger.config.newDiskCore()
+		if diskErr != nil {
+			return nil, diskErr
+		}
+		cores = append(cores, diskCore)
+	}
+	core := zap.New(zapcore.NewTee(cores...), zap.ErrorOutput(errWriter), zap.AddCallerSkip(l.callerSkip))
+
+	newLogger.SugaredLogger = core.Named(l.name).Sugar().With(l.fields...)
+
+	return &newLogger, err
 }
 
 func (l *zapLogger) Helper(skip int) Logger {
