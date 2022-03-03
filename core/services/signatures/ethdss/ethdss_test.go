@@ -1,4 +1,4 @@
-package ethdss
+package clientdss
 
 import (
 	"crypto/rand"

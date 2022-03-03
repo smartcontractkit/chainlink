@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {

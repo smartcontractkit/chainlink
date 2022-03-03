@@ -20,13 +20,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -59,14 +59,14 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// Setup config
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	config.Overrides.SetHTTPServerWriteTimeout(10 * time.Second)
 
 	// Generally speaking, most tests that use startNewApplication don't
 	// actually need ChainSets loaded. We can greatly reduce test
-	// overhead by setting EVM_DISABLED here. If you need EVM interactions in
+	// overhead by disabling EVM here. If you need EVM interactions in
 	// your tests, you can manually override and turn it on using
 	// withConfigSet.
-	config.Overrides.EVMDisabled = null.BoolFrom(true)
+	config.Overrides.EVMEnabled = null.BoolFrom(false)
 
 	if sopts.SetConfig != nil {
 		sopts.SetConfig(config)
@@ -97,10 +97,18 @@ func withKey() func(opts *startOptions) {
 	}
 }
 
-func newEthMock(t *testing.T) (*ethmocks.Client, func()) {
+func newEthMock(t *testing.T) (*evmmocks.Client, func()) {
 	t.Helper()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+
+	return ethClient, assertMocksCalled
+}
+
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) (*evmmocks.Client, func()) {
+	t.Helper()
+
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
 	return ethClient, assertMocksCalled
 }
@@ -114,9 +122,8 @@ func deleteKeyExportFile(t *testing.T) {
 	err := os.Remove(keyName)
 	if err == nil || os.IsNotExist(err) {
 		return
-	} else {
-		require.NoError(t, err)
 	}
+	require.NoError(t, err)
 }
 
 func TestClient_ReplayBlocks(t *testing.T) {
@@ -124,7 +131,7 @@ func TestClient_ReplayBlocks(t *testing.T) {
 
 	app := startNewApplication(t,
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 			c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
@@ -313,6 +320,50 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.Contains(t, err.Error(), "Unauthorized")
 }
 
+func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+
+	client := app.NewAuthenticatingClient(prompter)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "../internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	require.NoError(t, err)
+
+	set.Uint("seconds", 10, "")
+
+	err = client.Profile(cli.NewContext(nil, set, nil))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "profile duration should be less than server write timeout.")
+
+}
+
+func TestClient_Profile(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+
+	client := app.NewAuthenticatingClient(prompter)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "../internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	require.NoError(t, err)
+
+	set.Uint("seconds", 8, "")
+	set.String("output_dir", t.TempDir(), "")
+
+	err = client.Profile(cli.NewContext(nil, set, nil))
+	require.NoError(t, err)
+}
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
@@ -322,7 +373,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		withKey(),
 		withMocks(ethMock),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.EVMEnabled = null.BoolFrom(true)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
@@ -336,7 +387,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		c := cli.NewContext(nil, set, nil)
 
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 		assert.Equal(t, big.NewInt(8616460799), cfg.EvmGasPriceDefault())
@@ -363,7 +414,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "evmChainID does not match any local chains")
 
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 		assert.Equal(t, big.NewInt(861646079900), cfg.EvmGasPriceDefault())
@@ -377,7 +428,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 		c := cli.NewContext(nil, set, nil)
 
 		assert.NoError(t, client.SetEvmGasPriceDefault(c))
-		ch, err := app.GetChainSet().Default()
+		ch, err := app.GetChains().EVM.Default()
 		require.NoError(t, err)
 		cfg := ch.Config()
 
@@ -399,7 +450,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, cfg.BridgeResponseURL().String())
 	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
 	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
-	assert.Equal(t, cp.EnvPrinter.LogLevel, config.LogLevel{Level: cfg.LogLevel()})
+	assert.Equal(t, cp.EnvPrinter.LogLevel, cfg.LogLevel())
 	assert.Equal(t, cp.EnvPrinter.LogSQL, cfg.LogSQL())
 	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
@@ -409,7 +460,8 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.EVMDisabled = null.BoolFrom(false)
+		c.Overrides.EVMEnabled = null.BoolFrom(true)
+		c.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 		c.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
 	}))
 	client, _ := app.NewClientAndRenderer()

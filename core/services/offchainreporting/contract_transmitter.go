@@ -5,11 +5,13 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
@@ -22,15 +24,10 @@ type (
 	OCRContractTransmitter struct {
 		contractAddress gethCommon.Address
 		contractABI     abi.ABI
-		transmitter     Transmitter
+		transmitter     ocrcommon.Transmitter
 		contractCaller  *offchainaggregator.OffchainAggregatorCaller
 		tracker         *OCRContractTracker
 		chainID         *big.Int
-	}
-
-	Transmitter interface {
-		CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error
-		FromAddress() gethCommon.Address
 	}
 )
 
@@ -38,7 +35,7 @@ func NewOCRContractTransmitter(
 	address gethCommon.Address,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
 	contractABI abi.ABI,
-	transmitter Transmitter,
+	transmitter ocrcommon.Transmitter,
 	logBroadcaster log.Broadcaster,
 	tracker *OCRContractTracker,
 	chainID *big.Int,

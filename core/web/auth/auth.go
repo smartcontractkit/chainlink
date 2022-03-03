@@ -117,7 +117,7 @@ func AuthenticateExternalInitiator(c *gin.Context, store Authenticator) error {
 			return auth.ErrorAuthFailed
 		}
 
-		return errors.Wrap(err, "finding external intiator")
+		return errors.Wrap(err, "finding external initiator")
 	}
 
 	ok, err := bridges.AuthenticateExternalInitiator(eia, ei)

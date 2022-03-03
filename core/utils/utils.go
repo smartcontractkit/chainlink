@@ -22,14 +22,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
-	"github.com/shopspring/decimal"
 	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 )
 
 const (
-	// DefaultSecretSize is the entroy in bytes to generate a base64 string of 64 characters.
+	// DefaultSecretSize is the entropy in bytes to generate a base64 string of 64 characters.
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
@@ -120,7 +119,7 @@ func StringToHex(in string) string {
 	return AddHexPrefix(hex.EncodeToString([]byte(in)))
 }
 
-// AddHexPrefix adds the previx (0x) to a given hex string.
+// AddHexPrefix adds the prefix (0x) to a given hex string.
 func AddHexPrefix(str string) string {
 	if len(str) < 2 || len(str) > 1 && strings.ToLower(str[0:2]) != "0x" {
 		str = "0x" + str
@@ -128,6 +127,7 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
+// IsEmpty returns true if bytes contains only zero values, or has len 0.
 func IsEmpty(bytes []byte) bool {
 	for _, b := range bytes {
 		if b != 0 {
@@ -375,6 +375,7 @@ func HexToUint256(s string) (*big.Int, error) {
 	return rv, nil
 }
 
+// HexToBig parses the given hex string or panics if it is invalid.
 func HexToBig(s string) *big.Int {
 	n, ok := new(big.Int).SetString(s, 16)
 	if !ok {
@@ -389,48 +390,6 @@ func Uint256ToBytes32(n *big.Int) []byte {
 		panic("vrf.uint256ToBytes32: too big to marshal to uint256")
 	}
 	return common.LeftPadBytes(n.Bytes(), 32)
-}
-
-// ToDecimal converts an input to a decimal
-func ToDecimal(input interface{}) (decimal.Decimal, error) {
-	switch v := input.(type) {
-	case string:
-		return decimal.NewFromString(v)
-	case int:
-		return decimal.New(int64(v), 0), nil
-	case int8:
-		return decimal.New(int64(v), 0), nil
-	case int16:
-		return decimal.New(int64(v), 0), nil
-	case int32:
-		return decimal.New(int64(v), 0), nil
-	case int64:
-		return decimal.New(v, 0), nil
-	case uint:
-		return decimal.New(int64(v), 0), nil
-	case uint8:
-		return decimal.New(int64(v), 0), nil
-	case uint16:
-		return decimal.New(int64(v), 0), nil
-	case uint32:
-		return decimal.New(int64(v), 0), nil
-	case uint64:
-		return decimal.New(int64(v), 0), nil
-	case float64:
-		return decimal.NewFromFloat(v), nil
-	case float32:
-		return decimal.NewFromFloat32(v), nil
-	case big.Int:
-		return decimal.NewFromBigInt(&v, 0), nil
-	case *big.Int:
-		return decimal.NewFromBigInt(v, 0), nil
-	case decimal.Decimal:
-		return v, nil
-	case *decimal.Decimal:
-		return *v, nil
-	default:
-		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal (%v)", input, input)
-	}
 }
 
 // WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
@@ -683,6 +642,7 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
+// TickerBase is an interface for pausable tickers.
 type TickerBase interface {
 	Resume()
 	Pause()
@@ -740,12 +700,14 @@ func (t *PausableTicker) Destroy() {
 	t.Pause()
 }
 
+// CronTicker is like a time.Ticker but for a cron schedule.
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
 	beenRun *atomic.Bool
 }
 
+// NewCronTicker returns a new CrontTicker for the given schedule.
 func NewCronTicker(schedule string) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
@@ -783,10 +745,12 @@ func (t *CronTicker) Stop() bool {
 	return false
 }
 
+// Ticks returns the underlying chanel.
 func (t *CronTicker) Ticks() <-chan time.Time {
 	return t.ch
 }
 
+// ValidateCronSchedule returns an error if the given schedule is invalid.
 func ValidateCronSchedule(schedule string) error {
 	if !(strings.HasPrefix(schedule, "CRON_TZ=") || strings.HasPrefix(schedule, "@every ")) {
 		return errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@every 1h30m'")
@@ -851,18 +815,20 @@ func EVMBytesToUint64(buf []byte) uint64 {
 }
 
 var (
+	// ErrNotStarted is returned if the service is not started.
 	ErrNotStarted = errors.New("Not started")
 )
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
 	state        atomic.Int32
-	sync.RWMutex // lock is held during statup/shutdown, RLock is held while executing functions dependent on a particular state
+	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state
 }
 
 // StartStopOnceState holds the state for StartStopOnce
 type StartStopOnceState int32
 
+//nolint
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
@@ -944,6 +910,21 @@ func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
 	return false
 }
 
+// IfNotStopped runs the func and returns true if in any state other than Stopped
+func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
+	once.RLock()
+	defer once.RUnlock()
+
+	state := once.state.Load()
+
+	if StartStopOnceState(state) == StartStopOnce_Stopped {
+		return false
+	}
+	f()
+	return true
+}
+
+// Ready returns ErrNotStarted if the state is not started.
 func (once *StartStopOnce) Ready() error {
 	if once.State() == StartStopOnce_Started {
 		return nil
@@ -951,7 +932,8 @@ func (once *StartStopOnce) Ready() error {
 	return ErrNotStarted
 }
 
-// Override this per-service with more specific implementations
+// Healthy returns ErrNotStarted if the state is not started.
+// Override this per-service with more specific implementations.
 func (once *StartStopOnce) Healthy() error {
 	if once.State() == StartStopOnce_Started {
 		return nil

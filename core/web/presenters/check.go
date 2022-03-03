@@ -1,12 +1,14 @@
 package presenters
 
-import "github.com/smartcontractkit/chainlink/core/services/health"
+import (
+	"github.com/smartcontractkit/chainlink/core/services"
+)
 
 type Check struct {
 	JAID
-	Name   string        `json:"name"`
-	Status health.Status `json:"status"`
-	Output string        `json:"output"`
+	Name   string          `json:"name"`
+	Status services.Status `json:"status"`
+	Output string          `json:"output"`
 }
 
 func (c Check) GetName() string {

@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bm "github.com/smartcontractkit/chainlink/core/utils/big_math"
@@ -106,19 +105,6 @@ func IsCurveXOrdinate(x *big.Int) bool {
 	return IsSquare(YSquared(x))
 }
 
-// packUint256s returns xs serialized as concatenated uint256s, or an error
-func packUint256s(xs ...*big.Int) ([]byte, error) {
-	mem := []byte{}
-	for _, x := range xs {
-		word, err := utils.EVMWordBigInt(x)
-		if err != nil {
-			return []byte{}, errors.Wrap(err, "vrf.packUint256s#EVMWordBigInt")
-		}
-		mem = append(mem, word...)
-	}
-	return mem, nil
-}
-
 // FieldHash hashes xs uniformly into {0, ..., fieldSize-1}. msg is assumed to
 // already be a 256-bit hash
 func FieldHash(msg []byte) *big.Int {
@@ -131,7 +117,7 @@ func FieldHash(msg []byte) *big.Int {
 	return rv
 }
 
-// linearComination returns c*p1+s*p2
+// linearCombination returns c*p1+s*p2
 func linearCombination(c *big.Int, p1 kyber.Point,
 	s *big.Int, p2 kyber.Point) kyber.Point {
 	return Secp256k1Curve.Point().Add(

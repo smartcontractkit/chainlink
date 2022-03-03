@@ -33,7 +33,7 @@ import "./VRFRequestIDBase.sol";
  * @dev shown:
  *
  * @dev   contract VRFConsumer {
- * @dev     constuctor(<other arguments>, address _vrfCoordinator, address _link)
+ * @dev     constructor(<other arguments>, address _vrfCoordinator, address _link)
  * @dev       VRFConsumerBase(_vrfCoordinator, _link) public {
  * @dev         <initialization with other arguments goes here>
  * @dev       }

@@ -12,21 +12,29 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
-	run := &memoryTaskRun{task: task, vars: s.vars.Copy()}
+func (s *scheduler) newMemoryTaskRun(task Task, vars Vars) *memoryTaskRun {
+	run := &memoryTaskRun{task: task, vars: vars}
 
+	propagatableInputs := 0
+	for _, i := range task.Inputs() {
+		if i.PropagateResult {
+			propagatableInputs++
+		}
+	}
 	// fill in the inputs, fast path for no inputs
-	if len(task.Inputs()) != 0 {
+	if propagatableInputs != 0 {
 		// construct a list of inputs, sorted by OutputIndex
 		type input struct {
 			index  int32
 			result Result
 		}
-		inputs := make([]input, 0, len(task.Inputs()))
+		inputs := make([]input, 0, propagatableInputs)
 		// NOTE: we could just allocate via make, then assign directly to run.inputs[i.OutputIndex()]
 		// if we're confident that indices are within range
 		for _, i := range task.Inputs() {
-			inputs = append(inputs, input{index: int32(i.OutputIndex()), result: s.results[i.ID()].Result})
+			if i.PropagateResult {
+				inputs = append(inputs, input{index: int32(i.InputTask.OutputIndex()), result: s.results[i.InputTask.ID()].Result})
+			}
 		}
 		sort.Slice(inputs, func(i, j int) bool {
 			return inputs[i].index < inputs[j].index
@@ -99,7 +107,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 			continue
 		}
 
-		run := s.newMemoryTaskRun(task)
+		run := s.newMemoryTaskRun(task, s.vars.Copy())
 
 		lggr.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
@@ -220,7 +228,7 @@ func (s *scheduler) Run() {
 				Max:    result.Task.TaskMaxBackoff(),
 			}
 
-			go func() {
+			go func(vars Vars) {
 				select {
 				case <-s.ctx.Done():
 					// report back so the waiting counter gets decreased
@@ -233,12 +241,12 @@ func (s *scheduler) Run() {
 					})
 				case <-time.After(backoff.ForAttempt(float64(result.Attempts - 1))): // we subtract 1 because backoff 0-indexes
 					// schedule a new attempt
-					run := s.newMemoryTaskRun(result.Task)
+					run := s.newMemoryTaskRun(result.Task, vars)
 					run.attempts = result.Attempts
 					s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 					s.taskCh <- run
 				}
-			}()
+			}(s.vars.Copy()) // must Copy() from current goroutine
 
 			// skip scheduling dependencies since it's the task is not complete yet
 			continue
@@ -251,7 +259,7 @@ func (s *scheduler) Run() {
 			// if all dependencies are done, schedule task run
 			if s.dependencies[id] == 0 {
 				task := s.pipeline.Tasks[id]
-				run := s.newMemoryTaskRun(task)
+				run := s.newMemoryTaskRun(task, s.vars.Copy())
 
 				s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 				s.taskCh <- run

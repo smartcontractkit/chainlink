@@ -91,10 +91,6 @@ type EncryptedP2PKey struct {
 	DeletedAt        *time.Time
 }
 
-func (EncryptedP2PKey) TableName() string {
-	return "encrypted_p2p_keys"
-}
-
 func (ep2pk *EncryptedP2PKey) SetID(value string) error {
 	result, err := strconv.ParseInt(value, 10, 32)
 

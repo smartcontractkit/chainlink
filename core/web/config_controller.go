@@ -20,11 +20,7 @@ type ConfigController struct {
 // Example:
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	cw, err := config.NewConfigPrinter(cc.App.GetConfig())
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
-		return
-	}
+	cw := config.NewConfigPrinter(cc.App.GetConfig())
 
 	jsonAPIResponse(c, cw, "config")
 }
@@ -67,7 +63,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(cc.App.GetChainSet(), request.EVMChainID.String())
+	chain, err := getChain(cc.App.GetChains().EVM, request.EVMChainID.String())
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

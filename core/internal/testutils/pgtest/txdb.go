@@ -18,7 +18,7 @@ import (
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
 //
 // The original lib has various problems and is hard to understand because it
-// tries to be more general. The version in thie file is more tightly focused
+// tries to be more general. The version in this file is more tightly focused
 // to our needs and should be easier to reason about and less likely to have
 // subtle bugs/races.
 //
@@ -62,9 +62,8 @@ var _ driver.Conn = &conn{}
 // when the Close is called, transaction is rolled back
 type txDriver struct {
 	sync.Mutex
-	db      *sql.DB
-	conns   map[string]*conn
-	options []func(*conn) error
+	db    *sql.DB
+	conns map[string]*conn
 
 	dbURL string
 }
@@ -81,19 +80,17 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 		d.db = db
 	}
 	c, exists := d.conns[dsn]
-	if !exists {
+	if !exists || !c.tryOpen() {
 		tx, err := d.db.Begin()
 		if err != nil {
 			return nil, err
 		}
-		c = &conn{tx: tx}
-		d.conns[dsn] = c
+		c = &conn{tx: tx, opened: 1}
 		c.removeSelf = func() error {
 			return d.deleteConn(c)
 		}
 		d.conns[dsn] = c
 	}
-	c.opened++
 	return c, nil
 }
 
@@ -104,6 +101,9 @@ func (d *txDriver) deleteConn(c *conn) error {
 	d.Lock()
 	defer d.Unlock()
 
+	if d.conns[c.dsn] != c {
+		return nil // already been replaced
+	}
 	delete(d.conns, c.dsn)
 	if len(d.conns) == 0 && d.db != nil {
 		if err := d.db.Close(); err != nil {
@@ -118,8 +118,6 @@ type conn struct {
 	sync.Mutex
 	dsn        string
 	tx         *sql.Tx // tx may be shared by many conns, definitive one lives in the map keyed by DSN on the txDriver. Do not modify from conn
-	ctx        context.Context
-	cancel     context.CancelFunc
 	closed     bool
 	opened     int
 	removeSelf func() error
@@ -199,6 +197,17 @@ func (c *conn) ExecContext(ctx context.Context, query string, args []driver.Name
 	return c.tx.ExecContext(context.Background(), query, mapNamedArgs(args)...)
 }
 
+// tryOpen attempts to increment the open count, but returns false if closed.
+func (c *conn) tryOpen() bool {
+	c.Lock()
+	defer c.Unlock()
+	if c.closed {
+		return false
+	}
+	c.opened++
+	return true
+}
+
 // Close invalidates and potentially stops any current
 // prepared statements and transactions, marking this
 // connection as no longer in use.
@@ -211,29 +220,38 @@ func (c *conn) ExecContext(ctx context.Context, query string, args []driver.Name
 // Drivers must ensure all network calls made by Close
 // do not block indefinitely (e.g. apply a timeout).
 func (c *conn) Close() (err error) {
+	if !c.close() {
+		return
+	}
+	// Wait to remove self to avoid nesting locks.
+	if err := c.removeSelf(); err != nil {
+		panic(err)
+	}
+	return
+}
+
+func (c *conn) close() bool {
 	c.Lock()
 	defer c.Unlock()
 	if c.closed {
 		// Double close, should be a safe to make this a noop
 		// PGX allows double close
 		// See: https://github.com/jackc/pgx/blob/a457da8bffa4f90ad672fa093ee87f20cf06687b/conn.go#L249
-		return nil
+		return false
 	}
 
 	c.opened--
-	if c.opened == 0 {
-		if c.tx != nil {
-			if err := c.tx.Rollback(); err != nil {
-				panic(err)
-			}
-			c.tx = nil
-		}
-		c.closed = true
-		if err := c.removeSelf(); err != nil {
+	if c.opened > 0 {
+		return false
+	}
+	if c.tx != nil {
+		if err := c.tx.Rollback(); err != nil {
 			panic(err)
 		}
+		c.tx = nil
 	}
-	return
+	c.closed = true
+	return true
 }
 
 type tx struct {

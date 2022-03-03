@@ -48,17 +48,37 @@ func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
 	return bundles
 }
 
+// -- CreateOCRKeyBundle Mutation --
+
 type CreateOCRKeyBundlePayloadResolver struct {
-	key ocrkey.KeyV2
+	key *ocrkey.KeyV2
 }
 
-func NewCreateOCRKeyBundlePayloadResolver(key ocrkey.KeyV2) *CreateOCRKeyBundlePayloadResolver {
+func NewCreateOCRKeyBundlePayload(key *ocrkey.KeyV2) *CreateOCRKeyBundlePayloadResolver {
 	return &CreateOCRKeyBundlePayloadResolver{key: key}
 }
 
-func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundleResolver {
-	return OCRKeyBundleResolver{key: r.key}
+func (r *CreateOCRKeyBundlePayloadResolver) ToCreateOCRKeyBundleSuccess() (*CreateOCRKeyBundleSuccessResolver, bool) {
+	if r.key != nil {
+		return NewCreateOCRKeyBundleSuccess(r.key), true
+	}
+
+	return nil, false
 }
+
+type CreateOCRKeyBundleSuccessResolver struct {
+	key *ocrkey.KeyV2
+}
+
+func NewCreateOCRKeyBundleSuccess(key *ocrkey.KeyV2) *CreateOCRKeyBundleSuccessResolver {
+	return &CreateOCRKeyBundleSuccessResolver{key: key}
+}
+
+func (r *CreateOCRKeyBundleSuccessResolver) Bundle() *OCRKeyBundleResolver {
+	return &OCRKeyBundleResolver{key: *r.key}
+}
+
+// -- Delete --
 
 type DeleteOCRKeyBundleSuccessResolver struct {
 	key ocrkey.KeyV2

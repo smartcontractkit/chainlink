@@ -19,7 +19,7 @@ type P2P interface {
 	Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 	Import(keyJSON []byte, password string) (p2pkey.KeyV2, error)
 	Export(id p2pkey.PeerID, password string) ([]byte, error)
-	EnsureKey() (p2pkey.KeyV2, bool, error)
+	EnsureKey() error
 
 	GetV1KeysAsV2() ([]p2pkey.KeyV2, error)
 
@@ -130,20 +130,25 @@ func (ks *p2p) Export(id p2pkey.PeerID, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *p2p) EnsureKey() (p2pkey.KeyV2, bool, error) {
+func (ks *p2p) EnsureKey() error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
-		return p2pkey.KeyV2{}, false, ErrLocked
+		return ErrLocked
 	}
+
 	if len(ks.keyRing.P2P) > 0 {
-		return p2pkey.KeyV2{}, true, nil
+		return nil
 	}
+
 	key, err := p2pkey.NewV2()
 	if err != nil {
-		return p2pkey.KeyV2{}, false, err
+		return err
 	}
-	return key, false, ks.safeAddKey(key)
+
+	ks.logger.Infof("Created P2P key with ID %s", key.ID())
+
+	return ks.safeAddKey(key)
 }
 
 func (ks *p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
@@ -183,7 +188,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	}
 	return p2pkey.KeyV2{}, errors.New(
 		"multiple p2p keys found but peer ID was not set - you must specify a P2P_PEER_ID " +
-			"env var or set the peer id in the job spec if you have more than one key",
+			"env var if you have more than one key, or delete the keys you aren't using",
 	)
 }
 

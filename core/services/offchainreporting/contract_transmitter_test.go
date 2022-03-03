@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +18,7 @@ func Test_ContractTransmitter_ChainID(t *testing.T) {
 	contractABI, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
 	require.NoError(t, err)
 	ct := offchainreporting.NewOCRContractTransmitter(
-		cltest.NewAddress(),
+		testutils.NewAddress(),
 		nil,
 		contractABI,
 		nil,

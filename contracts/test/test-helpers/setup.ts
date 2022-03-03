@@ -1,4 +1,7 @@
 import { ethers } from 'hardhat'
+// Suppress "Duplicate definition" error logs
+ethers.utils.Logger.setLogLevel(ethers.utils.Logger.levels.ERROR)
+
 import { Signer } from 'ethers'
 
 export interface Contracts {

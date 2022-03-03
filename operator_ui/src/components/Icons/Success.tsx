@@ -4,15 +4,17 @@ interface Props {
   width?: number
   height?: number
   className?: string
+  'data-testid'?: string
 }
 
-const Success = ({ width, height, className }: Props) => (
+const Success = ({ width, height, className, ...rest }: Props) => (
   <svg
     data-name="Layer 1"
     viewBox="0 0 48 48"
     width={width}
     height={height}
     className={className}
+    data-testid={rest['data-testid']}
   >
     <defs>
       <mask

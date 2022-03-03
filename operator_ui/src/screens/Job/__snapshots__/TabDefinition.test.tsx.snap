@@ -1,0 +1,21 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TabOverview renders the definition 1`] = `
+"type = \\"directrequest\\"
+schemaVersion = 1
+name = \\"direct request job\\"
+externalJobID = \\"00000000-0000-0000-0000-0000000000001\\"
+maxTaskDuration = \\"10s\\"
+contractAddress = \\"0x0000000000000000000000000000000000000000\\"
+evmChainID = \\"42\\"
+minIncomingConfirmations = 3
+requesters = [ \\"0x59bbE8CFC79c76857fE0eC27e67E4957370d72B5\\" ]
+observationSource = \\"\\"\\"
+    fetch    [type=http method=POST url=\\"http://localhost:8001\\" requestData=\\"{\\\\\\\\\\"hi\\\\\\\\\\": \\\\\\\\\\"hello\\\\\\\\\\"}\\"];
+    parse    [type=jsonparse path=\\"data,result\\"];
+    multiply [type=multiply times=100];
+    fetch -> parse -> multiply;
+\\"\\"\\"
+
+"
+`;

@@ -6,6 +6,10 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,26 +25,36 @@ import (
 
 var ErrLocked = errors.New("Keystore is locked")
 
+// DefaultEVMChainIDFunc is a func for getting a default evm chain ID -
+// necessary because it is lazily evaluated
+type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
+
 //go:generate mockery --name Master --output ./mocks/ --case=underscore
 
 type Master interface {
 	CSA() CSA
 	Eth() Eth
 	OCR() OCR
+	OCR2() OCR2
 	P2P() P2P
+	Solana() Solana
+	Terra() Terra
 	VRF() VRF
 	Unlock(password string) error
-	Migrate(vrfPassword string, chainID *big.Int) error
+	Migrate(vrfPassword string, f DefaultEVMChainIDFunc) error
 	IsEmpty() (bool, error)
 }
 
 type master struct {
 	*keyManager
-	csa *csa
-	eth *eth
-	ocr *ocr
-	p2p *p2p
-	vrf *vrf
+	csa    *csa
+	eth    *eth
+	ocr    *ocr
+	ocr2   ocr2
+	p2p    *p2p
+	solana *solana
+	terra  *terra
+	vrf    *vrf
 }
 
 func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
@@ -60,7 +74,10 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 		csa:        newCSAKeyStore(km),
 		eth:        newEthKeyStore(km),
 		ocr:        newOCRKeyStore(km),
+		ocr2:       newOCR2KeyStore(km),
 		p2p:        newP2PKeyStore(km),
+		solana:     newSolanaKeyStore(km),
+		terra:      newTerraKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 	}
 }
@@ -77,8 +94,20 @@ func (ks *master) OCR() OCR {
 	return ks.ocr
 }
 
+func (ks *master) OCR2() OCR2 {
+	return ks.ocr2
+}
+
 func (ks *master) P2P() P2P {
 	return ks.p2p
+}
+
+func (ks *master) Solana() Solana {
+	return ks.solana
+}
+
+func (ks *master) Terra() Terra {
+	return ks.terra
 }
 
 func (ks *master) VRF() VRF {
@@ -94,7 +123,7 @@ func (ks *master) IsEmpty() (bool, error) {
 	return count == 0, nil
 }
 
-func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
+func (ks *master) Migrate(vrfPssword string, f DefaultEVMChainIDFunc) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -147,16 +176,16 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 	if err = ks.keyManager.save(); err != nil {
 		return err
 	}
-	ethKeys, states, err := ks.eth.GetV1KeysAsV2(chainID)
+	ethKeys, states, err := ks.eth.GetV1KeysAsV2(f)
 	if err != nil {
 		return err
 	}
-	for idx, ethKey := range ethKeys {
+	for i, ethKey := range ethKeys {
 		if _, exists := ks.keyRing.Eth[ethKey.ID()]; exists {
 			continue
 		}
-		ks.logger.Debugf("Migrating Eth key %s (and pegging to default chain ID %s)", ethKey.ID(), chainID.String())
-		if err = ks.eth.addEthKeyWithState(ethKey, states[idx]); err != nil {
+		ks.logger.Debugf("Migrating Eth key %s (and pegging to chain ID %s)", ethKey.ID(), states[i].EVMChainID.String())
+		if err = ks.eth.addEthKeyWithState(ethKey, states[i]); err != nil {
 			return err
 		}
 		if err = ks.keyManager.save(); err != nil {
@@ -276,8 +305,14 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 		return "Eth", nil
 	case ocrkey.KeyV2:
 		return "OCR", nil
+	case ocr2key.KeyBundle:
+		return "OCR2", nil
 	case p2pkey.KeyV2:
 		return "P2P", nil
+	case solkey.Key:
+		return "Solana", nil
+	case terrakey.Key:
+		return "Terra", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	}

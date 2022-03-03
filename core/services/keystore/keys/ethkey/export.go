@@ -26,7 +26,3 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 	}
 	return keystore.EncryptKey(dKey, password, scryptParams.N, scryptParams.P)
 }
-
-func adulteratedPassword(password string) string {
-	return "ethkey" + password
-}

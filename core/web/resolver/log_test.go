@@ -142,3 +142,147 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_SQLLogging(t *testing.T) {
+	t.Parallel()
+
+	query := `
+		query GetSQLLogging {
+			sqlLogging {
+				... on SQLLogging {
+					enabled
+				}
+			}
+		}`
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "sqlLogging"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.cfg.On("LogSQL").Return(false)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+			},
+			query: query,
+			result: `
+				{
+					"sqlLogging": {
+						"enabled": false
+					}
+				}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_GlobalLogLevel(t *testing.T) {
+	t.Parallel()
+
+	query := `
+		query GetGlobalLogLevel {
+			globalLogLevel {
+				... on GlobalLogLevel {
+					level
+				}
+			}
+		}`
+
+	var warnLvl zapcore.Level
+	err := warnLvl.UnmarshalText([]byte("warn"))
+	assert.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "globalLogLevel"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.cfg.On("LogLevel").Return(warnLvl)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+			},
+			query: query,
+			result: `
+				{
+					"globalLogLevel": {
+						"level": "WARN"
+					}
+				}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_SetGlobalLogLevel(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation SetGlobalLogLevel($level: LogLevel!) {
+			setGlobalLogLevel(level: $level) {
+				... on SetGlobalLogLevelSuccess {
+					globalLogLevel {
+						level
+					}
+				}
+				... on InputErrors {
+					errors {
+						path
+						message
+						code
+					}
+				}
+			}
+		}`
+	variables := map[string]interface{}{
+		"level": LogLevelError,
+	}
+
+	var errorLvl zapcore.Level
+	err := errorLvl.UnmarshalText([]byte("error"))
+	assert.NoError(t, err)
+
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "setGlobalLogLevel"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("SetLogLevel", errorLvl).Return(nil)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"setGlobalLogLevel": {
+						"globalLogLevel": {
+							"level": "ERROR"
+						}
+					}
+				}`,
+		},
+		{
+			name:          "generic error on SetLogLevel",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("SetLogLevel", errorLvl).Return(gError)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"setGlobalLogLevel"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
