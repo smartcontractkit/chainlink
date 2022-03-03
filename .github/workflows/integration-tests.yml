@@ -91,7 +91,7 @@ jobs:
           check_name: 'Smoke Test Results'
       - name: Publish Artifacts
         if: failure()
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v2.3.1
         with:
           name: test-logs
           path: ./integration-tests/logs

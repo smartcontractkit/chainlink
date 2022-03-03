@@ -55,7 +55,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }}
       - name: Store logs artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v2.3.0
+        uses: actions/upload-artifact@v2.3.1
         with:
           name: ${{ matrix.cmd }}_logs
           path: |
