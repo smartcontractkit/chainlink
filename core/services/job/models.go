@@ -204,7 +204,7 @@ func (pr *PipelineRun) SetID(value string) error {
 type OCROracleSpec struct {
 	ID                                        int32               `toml:"-"`
 	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
-	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers"                      db:"p2p_bootstrap_peers"`
+	P2PBootstrapPeers                         pq.StringArray      `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
 	IsBootstrapPeer                           bool                `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash  `toml:"keyBundleID"`
 	EncryptedOCRKeyBundleIDEnv                bool
@@ -220,7 +220,7 @@ type OCROracleSpec struct {
 	ContractConfigTrackerPollIntervalEnv      bool
 	ContractConfigConfirmations               uint16 `toml:"contractConfigConfirmations"`
 	ContractConfigConfirmationsEnv            bool
-	EVMChainID                                *utils.Big       `toml:"evmChainID"                             db:"evm_chain_id"`
+	EVMChainID                                *utils.Big       `toml:"evmChainID" db:"evm_chain_id"`
 	DatabaseTimeout                           *models.Interval `toml:"databaseTimeout"`
 	DatabaseTimeoutEnv                        bool
 	ObservationGracePeriod                    *models.Interval `toml:"observationGracePeriod"`
@@ -273,12 +273,8 @@ func (r *JSONConfig) Scan(value interface{}) error {
 type OCR2PluginType string
 
 const (
-	// Median refers to the median.Median plugin
+	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
-	// CCIPRelay refers to the ccip.CCIPRelay plugin
-	CCIPRelay OCR2PluginType = "ccip-relay"
-	// CCIPExecution refers to the ccip.CCIPExecution plugin
-	CCIPExecution OCR2PluginType = "ccip-execution"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -327,8 +323,8 @@ type ExternalInitiatorWebhookSpec struct {
 type WebhookSpec struct {
 	ID                            int32 `toml:"-"`
 	ExternalInitiatorWebhookSpecs []ExternalInitiatorWebhookSpec
-	CreatedAt                     time.Time `toml:"-"`
-	UpdatedAt                     time.Time `toml:"-"`
+	CreatedAt                     time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt                     time.Time `json:"updatedAt" toml:"-"`
 }
 
 func (w WebhookSpec) GetID() string {

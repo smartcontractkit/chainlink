@@ -90,7 +90,6 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
-	case job.CCIPRelay, job.CCIPExecution:
 	case "":
 		return errors.New("no plugin specified")
 	default:

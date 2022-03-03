@@ -43,8 +43,6 @@ type ORM interface {
 	// Reinitialize cleans up the database by removing any unconsumed broadcasts, then updating (if necessary) and
 	// returning the pending minimum block number.
 	Reinitialize(qopts ...pg.QOpt) (blockNumber *int64, err error)
-	// FindConsumedLogs returns the consumed logs within the block number bounds given.
-	FindConsumedLogs(fromBlockNum int64, toBlockNum int64, qopts ...pg.QOpt) ([]LogBroadcast, error)
 }
 
 type orm struct {
@@ -206,26 +204,6 @@ func (o *orm) removeUnconsumed(qopts ...pg.QOpt) error {
 			AND block_number IS NOT NULL
     `, o.evmChainID)
 	return errors.Wrap(err, "failed to delete unconsumed broadcasts")
-}
-
-func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64, qopts ...pg.QOpt) ([]LogBroadcast, error) {
-	var broadcasts []LogBroadcast
-	query := `
-		SELECT block_hash, log_index, job_id FROM log_broadcasts
-		WHERE block_number >= $1
-		AND block_number <= $2
-		AND evm_chain_id = $3
-		AND consumed = true
-	`
-
-	args := []interface{}{
-		fromBlockNum,
-		toBlockNum,
-		o.evmChainID,
-	}
-	q := o.q.WithOpts(qopts...)
-	err := q.Select(&broadcasts, query, args...)
-	return broadcasts, err
 }
 
 // LogBroadcast - data from log_broadcasts table columns
