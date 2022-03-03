@@ -87,6 +87,10 @@ func (f *fakeRandomDataSourceFactory) NewSource(_ ChainConfig, _ FeedConfig) (So
 	return &fakeSource{f}, nil
 }
 
+func (f *fakeRandomDataSourceFactory) GetType() string {
+	return "fake"
+}
+
 type fakeSource struct {
 	factory *fakeRandomDataSourceFactory
 }
@@ -127,6 +131,10 @@ func (f *fakeSourceFactoryWithError) NewSource(_ ChainConfig, _ FeedConfig) (Sou
 		f.updates,
 		f.errors,
 	}, nil
+}
+
+func (f *fakeSourceFactoryWithError) GetType() string {
+	return "fake-with-error"
 }
 
 type fakeSourceWithError struct {

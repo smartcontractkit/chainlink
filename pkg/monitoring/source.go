@@ -21,4 +21,6 @@ type Source interface {
 
 type SourceFactory interface {
 	NewSource(chainConfig ChainConfig, feedConfig FeedConfig) (Source, error)
+	// GetType should return a namespace for all the source instances produced by this factory.
+	GetType() string
 }
