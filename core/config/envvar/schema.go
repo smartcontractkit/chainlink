@@ -293,7 +293,7 @@ func DefaultValue(name string) (string, bool) {
 	return "", false
 }
 
-// ZeroValue TODO
+// ZeroValue returns the zero value for a named field, or panics if it does not exist.
 func ZeroValue(name string) interface{} {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
