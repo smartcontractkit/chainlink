@@ -27,13 +27,13 @@ type ContractTransmitter struct {
 	contractAddress gethcommon.Address
 	contractABI     abi.ABI
 	transmitter     Transmitter
-	contractReader  ContractReader
+	contractReader  contractReader
 	lggr            logger.Logger
 }
 
 func NewOCRContractTransmitter(
 	address gethcommon.Address,
-	caller ContractReader,
+	caller contractReader,
 	contractABI abi.ABI,
 	transmitter Transmitter,
 	lggr logger.Logger,
@@ -73,7 +73,7 @@ func (oc *ContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
 }
 
-type ContractReader interface {
+type contractReader interface {
 	CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 }

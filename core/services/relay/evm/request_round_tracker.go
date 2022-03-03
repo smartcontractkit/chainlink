@@ -21,8 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// RequestRoundTracker complies with ContractConfigTracker interface and
-// handles log events related to the contract more generally
+// RequestRoundTracker subscribes to new request round logs.
 type RequestRoundTracker struct {
 	utils.StartStopOnce
 

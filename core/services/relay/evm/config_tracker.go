@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// ConfigTracker tracks the config of any contract implementing OCR2Abstract.
 type ConfigTracker struct {
 	utils.StartStopOnce
 	lggr        logger.Logger
@@ -39,6 +40,7 @@ type ConfigTracker struct {
 	ctxCancel context.CancelFunc
 }
 
+// NewConfigTracker builds a new config tracker
 func NewConfigTracker(lggr logger.Logger, contractABI abi.ABI, client evmclient.Client, addr common.Address, chainType chains.ChainType, headBroadcaster httypes.HeadBroadcaster) *ConfigTracker {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &ConfigTracker{
@@ -56,6 +58,7 @@ func NewConfigTracker(lggr logger.Logger, contractABI abi.ABI, client evmclient.
 	}
 }
 
+// Start starts the config tracker in particular subscribing to the head broadcaster.
 func (c *ConfigTracker) Start() error {
 	return c.StartOnce("ConfigTracker", func() (err error) {
 		var latestHead *evmtypes.Head
@@ -68,16 +71,19 @@ func (c *ConfigTracker) Start() error {
 	})
 }
 
+// Close cancels and requests and unsubscribes from the head broadcaster
 func (c *ConfigTracker) Close() error {
 	c.ctxCancel()
+	c.unsubscribeHeads()
 	return nil
 }
 
+// Notify not implemented
 func (c *ConfigTracker) Notify() <-chan struct{} {
 	return nil
 }
 
-func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []interface{}, caller ContractReader) ([]interface{}, error) {
+func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI, method string, args []interface{}, caller contractReader) ([]interface{}, error) {
 	input, err := contractABI.Pack(method, args...)
 	if err != nil {
 		return nil, err
@@ -89,6 +95,7 @@ func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI,
 	return contractABI.Unpack(method, output)
 }
 
+// LatestConfigDetails queries an OCR2Abstract contract for the latest config details
 func (c *ConfigTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	latestConfigDetails, err := callContract(ctx, c.addr, c.contractABI, "latestConfigDetails", nil, c.client)
 	if err != nil {
@@ -100,6 +107,7 @@ func (c *ConfigTracker) LatestConfigDetails(ctx context.Context) (changedInBlock
 	return
 }
 
+// LatestConfig queries an OCR2Abstract contract for the latest config contents.
 func (c *ConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
 	topics, err := abi.MakeTopics([]interface{}{c.contractABI.Events["ConfigSet"].ID})
 	if err != nil {
@@ -187,6 +195,8 @@ func (c *ConfigTracker) getLatestBlockHeight() int64 {
 	return c.latestBlockHeight
 }
 
+// LatestBlockHeight returns the latest blockheight either from the cache or
+// falling back to querying the node.
 func (c *ConfigTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	// We skip confirmation checking anyway on Optimism so there's no need to care
 	// about the block height; we have no way of getting the L1 block height anyway

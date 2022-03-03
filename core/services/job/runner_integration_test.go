@@ -213,7 +213,6 @@ func TestRunner(t *testing.T) {
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
 		cfg2.On("Dev").Return(true)
-		cfg2.On("LogSQL").Return(false)
 		jb2, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
