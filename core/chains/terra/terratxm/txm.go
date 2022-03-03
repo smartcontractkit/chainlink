@@ -6,16 +6,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/pkg/errors"
+	"github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	wasmtypes "github.com/terra-money/core/x/wasm/types"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -25,7 +28,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var _ services.Service = (*Txm)(nil)
+var (
+	_ services.Service = (*Txm)(nil)
+	_ terra.TxManager  = (*Txm)(nil)
+)
 
 // Txm manages transactions for the terra blockchain.
 type Txm struct {
@@ -75,7 +81,7 @@ func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 	// Confirm any broadcasted but not confirmed txes.
 	// This is an edge case if we crash after having broadcasted but before we confirm.
 	for {
-		broadcasted, err := txm.orm.SelectMsgsWithState(db.Broadcasted, txm.cfg.MaxMsgsPerBatch())
+		broadcasted, err := txm.orm.GetMsgsState(db.Broadcasted, txm.cfg.MaxMsgsPerBatch())
 		if err != nil {
 			// Should never happen but if so, theoretically can retry with a reboot
 			txm.lggr.Criticalw("unable to look for broadcasted but unconfirmed txes", "err", err)
@@ -126,8 +132,33 @@ func (txm *Txm) run() {
 	}
 }
 
+var (
+	typeMsgSend            = sdk.MsgTypeURL(&types.MsgSend{})
+	typeMsgExecuteContract = sdk.MsgTypeURL(&wasmtypes.MsgExecuteContract{})
+)
+
+func unmarshalMsg(msgType string, raw []byte) (sdk.Msg, string, error) {
+	switch msgType {
+	case typeMsgSend:
+		var ms types.MsgSend
+		err := ms.Unmarshal(raw)
+		if err != nil {
+			return nil, "", err
+		}
+		return &ms, ms.FromAddress, nil
+	case typeMsgExecuteContract:
+		var ms wasmtypes.MsgExecuteContract
+		err := ms.Unmarshal(raw)
+		if err != nil {
+			return nil, "", err
+		}
+		return &ms, ms.Sender, nil
+	}
+	return nil, "", errors.Errorf("unrecognized message type: %s", msgType)
+}
+
 func (txm *Txm) sendMsgBatch(ctx context.Context) {
-	unstarted, err := txm.orm.SelectMsgsWithState(db.Unstarted, txm.cfg.MaxMsgsPerBatch())
+	unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch())
 	if err != nil {
 		txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 		return
@@ -138,29 +169,27 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	txm.lggr.Debugw("building a batch", "batch", unstarted)
 	var msgsByFrom = make(map[string]terra.Msgs)
 	for _, m := range unstarted {
-		var ms wasmtypes.MsgExecuteContract
-		err := ms.Unmarshal(m.Raw)
-		if err != nil {
+		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
+		if err2 != nil {
 			// Should be impossible given the check in Enqueue
-			txm.lggr.Criticalw("failed to unmarshal msg, skipping", "err", err, "msg", m)
+			txm.lggr.Criticalw("Failed to unmarshal msg, skipping", "err", err2, "msg", m)
 			continue
 		}
-		m.ExecuteContract = &ms
-		_, err = sdk.AccAddressFromBech32(ms.Sender)
-		if err != nil {
+		m.DecodedMsg = msg
+		_, err2 = sdk.AccAddressFromBech32(sender)
+		if err2 != nil {
 			// Should never happen, we parse sender on Enqueue
-			txm.lggr.Criticalw("unable to parse sender", "err", err, "sender", ms.Sender)
+			txm.lggr.Criticalw("Unable to parse sender", "err", err2, "sender", sender)
 			continue
 		}
-		msgsByFrom[ms.Sender] = append(msgsByFrom[ms.Sender], m)
+		msgsByFrom[sender] = append(msgsByFrom[sender], m)
 	}
 
 	txm.lggr.Debugw("msgsByFrom", "msgsByFrom", msgsByFrom)
-	prices := txm.gpe.GasPrices()
-	gasPrice, ok := prices["uluna"]
-	if !ok {
+	gasPrice, err := txm.GasPrice()
+	if err != nil {
 		// Should be impossible
-		txm.lggr.Criticalw("unexpected empty uluna price")
+		txm.lggr.Criticalw("Failed to get gas price", "err", err)
 		return
 	}
 	for s, msgs := range msgsByFrom {
@@ -205,7 +234,7 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 		return
 	}
 	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.Succeeded, "failed", simResults.Failed)
-	err = txm.orm.UpdateMsgsWithState(simResults.Failed.GetSimMsgsIDs(), db.Errored, nil)
+	err = txm.orm.UpdateMsgs(simResults.Failed.GetSimMsgsIDs(), db.Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
 		// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
@@ -246,7 +275,7 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 	var resp *txtypes.BroadcastTxResponse
 	err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
 		txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
-		err = txm.orm.UpdateMsgsWithState(simResults.Succeeded.GetSimMsgsIDs(), db.Broadcasted, &txHash, pg.WithQueryer(tx))
+		err = txm.orm.UpdateMsgs(simResults.Succeeded.GetSimMsgsIDs(), db.Broadcasted, &txHash, pg.WithQueryer(tx))
 		if err != nil {
 			return err
 		}
@@ -327,7 +356,7 @@ func (txm *Txm) confirmTx(ctx context.Context, tc terraclient.Reader, txHash str
 
 		txm.lggr.Infow("successfully sent batch", "hash", txHash, "msgs", broadcasted)
 		// If confirmed mark these as completed.
-		err = txm.orm.UpdateMsgsWithState(broadcasted, db.Confirmed, nil)
+		err = txm.orm.UpdateMsgs(broadcasted, db.Confirmed, nil)
 		if err != nil {
 			return err
 		}
@@ -336,7 +365,7 @@ func (txm *Txm) confirmTx(ctx context.Context, tc terraclient.Reader, txHash str
 	txm.lggr.Errorw("unable to confirm tx after timeout period, marking errored", "hash", txHash)
 	// If we are unable to confirm the tx after the timeout period
 	// mark these msgs as errored
-	err := txm.orm.UpdateMsgsWithState(broadcasted, db.Errored, nil)
+	err := txm.orm.UpdateMsgs(broadcasted, db.Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark timed out txes as errored", "err", err, "txes", broadcasted, "num", len(broadcasted))
 		return err
@@ -345,25 +374,52 @@ func (txm *Txm) confirmTx(ctx context.Context, tc terraclient.Reader, txHash str
 }
 
 // Enqueue enqueue a msg destined for the terra chain.
-func (txm *Txm) Enqueue(contractID string, msg []byte) (int64, error) {
-	// Double check this is an unmarshalable execute contract message.
-	// Add more supported message types as needed.
-	var ms wasmtypes.MsgExecuteContract
-	err := ms.Unmarshal(msg)
+func (txm *Txm) Enqueue(contractID string, msg sdk.Msg) (int64, error) {
+	switch ms := msg.(type) {
+	case *wasmtypes.MsgExecuteContract:
+		_, err := sdk.AccAddressFromBech32(ms.Sender)
+		if err != nil {
+			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.Sender)
+			return 0, err
+		}
+
+	case *types.MsgSend:
+		_, err := sdk.AccAddressFromBech32(ms.FromAddress)
+		if err != nil {
+			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.FromAddress)
+			return 0, err
+		}
+
+	default:
+		return 0, &terra.ErrMsgUnsupported{Msg: msg}
+	}
+	typeURL := sdk.MsgTypeURL(msg)
+	raw, err := proto.Marshal(msg)
 	if err != nil {
-		txm.lggr.Errorw("failed to unmarshal msg, skipping", "err", err, "msg", hex.EncodeToString(msg))
+		txm.lggr.Errorw("failed to marshal msg, skipping", "err", err, "msg", msg)
 		return 0, err
 	}
-	_, err = sdk.AccAddressFromBech32(ms.Sender)
-	if err != nil {
-		txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.Sender)
-		return 0, err
-	}
+
 	// We could consider simulating here too, but that would
 	// introduce another network call and essentially double
 	// the enqueue time. Enqueue is used in the context of OCRs Transmit
 	// and must be fast, so we do the minimum of a db write.
-	return txm.orm.InsertMsg(contractID, msg)
+	return txm.orm.InsertMsg(contractID, typeURL, raw)
+}
+
+// GetMsgs returns any messages matching ids.
+func (txm *Txm) GetMsgs(ids ...int64) (terra.Msgs, error) {
+	return txm.orm.GetMsgs(ids...)
+}
+
+// GasPrice returns the gas price from the estimator in uluna.
+func (txm *Txm) GasPrice() (sdk.DecCoin, error) {
+	prices := txm.gpe.GasPrices()
+	gasPrice, ok := prices["uluna"]
+	if !ok {
+		return sdk.DecCoin{}, errors.New("unexpected empty uluna price")
+	}
+	return gasPrice, nil
 }
 
 // Close close service

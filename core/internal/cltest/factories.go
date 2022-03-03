@@ -72,9 +72,9 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 	rnd := uuid.NewV4().String()
 
 	if opts.Name != "" {
-		btr.Name = bridges.MustNewTaskType(opts.Name)
+		btr.Name = bridges.MustParseBridgeName(opts.Name)
 	} else {
-		btr.Name = bridges.MustNewTaskType(fmt.Sprintf("test_bridge_%s", rnd))
+		btr.Name = bridges.MustParseBridgeName(fmt.Sprintf("test_bridge_%s", rnd))
 	}
 
 	if opts.URL != "" {
@@ -466,13 +466,13 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, db, addr)
 	jb := job.Job{
-		OffchainreportingOracleSpec:   &oracleSpec,
-		OffchainreportingOracleSpecID: &oracleSpec.ID,
-		ExternalJobID:                 uuid.NewV4(),
-		Type:                          job.OffchainReporting,
-		SchemaVersion:                 1,
-		PipelineSpec:                  &pipelineSpec,
-		PipelineSpecID:                pipelineSpec.ID,
+		OCROracleSpec:   &oracleSpec,
+		OCROracleSpecID: &oracleSpec.ID,
+		ExternalJobID:   uuid.NewV4(),
+		Type:            job.OffchainReporting,
+		SchemaVersion:   1,
+		PipelineSpec:    &pipelineSpec,
+		PipelineSpecID:  pipelineSpec.ID,
 	}
 
 	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), NewTestGeneralConfig(t))
@@ -481,12 +481,12 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 	return jb
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OffchainReportingOracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OCROracleSpec {
 	t.Helper()
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
-	spec := job.OffchainReportingOracleSpec{}
-	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout) VALUES (
+	spec := job.OCROracleSpec{}
+	require.NoError(t, db.Get(&spec, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout) VALUES (
 NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
 ) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec

@@ -10,6 +10,7 @@ type JobProposal {
     status: JobProposalStatus!
     remoteUUID: String!
     externalJobID: String
+    jobID: String
     feedsManager: FeedsManager!
     multiAddrs: [String!]!
     pendingUpdate: Boolean!
