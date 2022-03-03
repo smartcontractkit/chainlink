@@ -268,7 +268,7 @@ chainID 			= 1337
 		defer servers[i].Close()
 		u, _ := url.Parse(servers[i].URL)
 		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
+			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		})
 

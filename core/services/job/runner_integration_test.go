@@ -14,6 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
+	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -162,18 +168,123 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
+		// Create a random bridge name
+		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+		// Reference a different one
+		cfg := new(evmconfigmocks.ChainScopedConfig)
+		cfg.On("Dev").Return(true)
+		cfg.On("ChainType").Return(chains.ChainType(""))
+		c := new(evmmocks.Chain)
+		c.On("Config").Return(cfg)
+		cs := new(evmmocks.ChainSet)
+		cs.On("Get", mock.Anything).Return(c, nil)
+
+		jb, err := ocr.ValidatedOracleSpecToml(cs, `
 			type               = "offchainreporting"
 			schemaVersion      = 1
+			evmChainID         = 1
+			contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+			isBootstrapPeer    = false
+			blockchainTimeout  = "1s"
+			observationTimeout = "10s"
+			databaseTimeout    = "2s"
+			contractConfigTrackerPollInterval="1s"
+			contractConfigConfirmations=1
+			observationGracePeriod = "2s"
+			contractTransmitterTransmitTimeout = "500ms"
+			contractConfigTrackerSubscribeInterval="1s"
 			observationSource = """
-				ds1          [type=bridge name="%s"];
+			ds1          [type=bridge name=blah];
+			ds1_parse    [type=jsonparse path="one,two"];
+			ds1_multiply [type=multiply times=1.23];
+			ds1 -> ds1_parse -> ds1_multiply -> answer1;
+			answer1      [type=median index=0];
 			"""
-		`, bridge.Name.String()))
-		err := jobORM.CreateJob(jb)
-		require.Error(t,
-			pipeline.ErrNoSuchBridge,
-			errors.Cause(err))
+		`)
+		require.NoError(t, err)
+		// Should error creating it
+		err = jobORM.CreateJob(&jb)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not all bridges exist")
+
+		// Same for ocr2
+		cfg2 := new(ocr2mocks.Config)
+		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
+		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
+		cfg2.On("Dev").Return(true)
+		jb2, err := ocr2.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+type               = "offchainreporting2"
+pluginType         = "median"
+schemaVersion      = 1
+relay              = "evm"
+contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+blockchainTimeout = "1s"
+contractConfigTrackerPollInterval = "2s"
+contractConfigConfirmations = 1
+observationSource  = """
+ds1          [type=bridge name="%s"];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+[relayConfig]
+chainID = 1337
+[pluginConfig]
+juelsPerFeeCoinSource = """
+ds1          [type=bridge name=blah];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`, b.Name.String()))
+		require.NoError(t, err)
+		// Should error creating it because of the juels per fee coin non-existent bridge
+		err = jobORM.CreateJob(&jb2)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not all bridges exist")
+
+		// Duplicate bridge names that exist is ok
+		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
+		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
+		cfg2.On("Dev").Return(true)
+		jb3, err := ocr2.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+type               = "offchainreporting2"
+pluginType         = "median"
+schemaVersion      = 1
+relay              = "evm"
+contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+blockchainTimeout = "1s"
+contractConfigTrackerPollInterval = "2s"
+contractConfigConfirmations = 1
+observationSource  = """
+ds1          [type=bridge name="%s"];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+[relayConfig]
+chainID = 1337
+[pluginConfig]
+juelsPerFeeCoinSource = """
+ds1          [type=bridge name="%s"];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+ds2          [type=bridge name="%s"];
+ds2_parse    [type=jsonparse path="one,two"];
+ds2_multiply [type=multiply times=1.23];
+ds2 -> ds2_parse -> ds2_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`, b.Name.String(), b.Name.String(), b.Name.String()))
+		require.NoError(t, err)
+		// Should not error with duplicate bridges
+		err = jobORM.CreateJob(&jb3)
+		require.NoError(t, err)
 	})
 
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)

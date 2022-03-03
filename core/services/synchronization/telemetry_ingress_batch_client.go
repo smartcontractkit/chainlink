@@ -62,6 +62,7 @@ type telemetryIngressBatchClient struct {
 	telemBufferSize   uint
 	telemMaxBatchSize uint
 	telemSendInterval time.Duration
+	telemSendTimeout  time.Duration
 
 	workers      map[string]*telemetryIngressBatchWorker
 	workersMutex sync.Mutex
@@ -69,11 +70,12 @@ type telemetryIngressBatchClient struct {
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration) TelemetryIngressBatchClient {
+func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration) TelemetryIngressBatchClient {
 	return &telemetryIngressBatchClient{
 		telemBufferSize:   telemBufferSize,
 		telemMaxBatchSize: telemMaxBatchSize,
 		telemSendInterval: telemSendInterval,
+		telemSendTimeout:  telemSendTimeout,
 		url:               url,
 		ks:                ks,
 		serverPubKeyHex:   serverPubKeyHex,
@@ -171,6 +173,7 @@ func (tc *telemetryIngressBatchClient) findOrCreateWorker(payload TelemPayload) 
 		worker = NewTelemetryIngressBatchWorker(
 			tc.telemMaxBatchSize,
 			tc.telemSendInterval,
+			tc.telemSendTimeout,
 			tc.telemClient,
 			&tc.wgDone,
 			tc.chDone,

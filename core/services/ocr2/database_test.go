@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/testhelpers"
 )
 
@@ -33,7 +34,7 @@ func MustInsertOCROracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethke
 	ds1_multiply [type=multiply times=1.23];
 	ds1 -> ds1_parse -> ds1_multiply -> answer1;
 	answer1      [type=median index=0];`
-	config := median.PluginConfig{JuelsPerFeeCoinPipeline: mockJuelsPerFeeCoinSource}
+	config := medianconfig.PluginConfig{JuelsPerFeeCoinPipeline: mockJuelsPerFeeCoinSource}
 	jsonConfig, err := json.Marshal(config)
 	require.NoError(t, err)
 
