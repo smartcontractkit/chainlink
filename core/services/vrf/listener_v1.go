@@ -135,6 +135,7 @@ func (lsn *listenerV1) Start() error {
 func (lsn *listenerV1) extractConfirmedLogs() []request {
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
+	updateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, len(lsn.reqs))
 	var toProcess, toKeep []request
 	for i := 0; i < len(lsn.reqs); i++ {
 		if lsn.reqs[i].confirmedAtBlock <= lsn.getLatestHead() {
@@ -311,6 +312,7 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 			"blockHash", req.Raw.BlockHash,
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
+		incDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
 	}
 	return req.Raw.BlockNumber + newConfs
 }
@@ -397,6 +399,7 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 				"keyHash", hex.EncodeToString(req.KeyHash[:]),
 				"reqTxHash", req.Raw.TxHash,
 			)
+			incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
 		}
 	}
 }
@@ -415,6 +418,7 @@ func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
+		incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, reasonMailboxSize)
 	}
 }
 

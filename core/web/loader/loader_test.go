@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/graph-gophers/dataloader"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -297,6 +298,36 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 		require.Len(t, found, 1)
 		assert.Nil(t, found[0].Data)
 		assert.ErrorIs(t, found[0].Error, sql.ErrNoRows)
+	})
+}
+
+func TestLoader_JobsByExternalJobIDs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("with out errors", func(t *testing.T) {
+		t.Parallel()
+
+		jobsORM := &jobORMMocks.ORM{}
+		app := &coremocks.Application{}
+		ctx := InjectDataloader(context.Background(), app)
+
+		defer t.Cleanup(func() {
+			mock.AssertExpectationsForObjects(t, app, jobsORM)
+		})
+
+		ejID := uuid.NewV4()
+		job := job.Job{ID: int32(2), ExternalJobID: ejID}
+
+		jobsORM.On("FindJobByExternalJobID", ejID).Return(job, nil)
+		app.On("JobORM").Return(jobsORM)
+
+		batcher := jobBatcher{app}
+
+		keys := dataloader.NewKeysFromStrings([]string{ejID.String()})
+		found := batcher.loadByExternalJobIDs(ctx, keys)
+
+		require.Len(t, found, 1)
+		assert.Equal(t, job, found[0].Data)
 	})
 }
 

@@ -14,5 +14,7 @@ var RootCmd = &cobra.Command{
 func init() {
 	RootCmd.AddCommand(deployCmd)
 	RootCmd.AddCommand(updateRegistryCmd)
+	RootCmd.AddCommand(withdrawFromRegistryCmd)
 	RootCmd.AddCommand(launchAndTestCmd)
+	RootCmd.AddCommand(upkeepCmd)
 }

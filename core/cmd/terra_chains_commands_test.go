@@ -2,38 +2,33 @@ package cmd_test
 
 import (
 	"flag"
-	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
-
-func randTerraChainID() string {
-	return fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-}
 
 func TestClient_IndexTerraChains(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.TerraORM()
+	orm := app.Chains.Terra.ORM()
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	chain, err := orm.CreateChain(randTerraChainID(), db.ChainCfg{})
+	chain, err := orm.CreateChain(terratest.RandomChainID(), db.ChainCfg{})
 	require.NoError(t, err)
 
 	require.Nil(t, client.IndexTerraChains(cltest.EmptyCLIContext()))
@@ -47,14 +42,14 @@ func TestClient_IndexTerraChains(t *testing.T) {
 func TestClient_CreateTerraChain(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.TerraORM()
+	orm := app.Chains.Terra.ORM()
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	terraChainID := randTerraChainID()
+	terraChainID := terratest.RandomChainID()
 	set := flag.NewFlagSet("cli", 0)
 	set.String("id", terraChainID, "")
 	set.Parse([]string{`{}`})
@@ -74,14 +69,14 @@ func TestClient_CreateTerraChain(t *testing.T) {
 func TestClient_RemoveTerraChain(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.TerraORM()
+	orm := app.Chains.Terra.ORM()
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	terraChainID := randTerraChainID()
+	terraChainID := terratest.RandomChainID()
 	_, err = orm.CreateChain(terraChainID, db.ChainCfg{})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
@@ -104,15 +99,15 @@ func TestClient_RemoveTerraChain(t *testing.T) {
 func TestClient_ConfigureTerraChain(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.TerraORM()
+	orm := app.Chains.Terra.ORM()
 
 	_, initialCount, err := orm.Chains(0, 25)
 	require.NoError(t, err)
 
-	terraChainID := randTerraChainID()
+	terraChainID := terratest.RandomChainID()
 	minute := models.MustMakeDuration(time.Minute)
 	original := db.ChainCfg{
 		FallbackGasPriceULuna: null.StringFrom("99.07"),

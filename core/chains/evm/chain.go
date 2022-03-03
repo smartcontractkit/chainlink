@@ -173,13 +173,13 @@ func (c *chain) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to dial ethclient")
 		}
 		merr = multierr.Combine(
-			c.txm.Start(),
-			c.headBroadcaster.Start(),
+			c.txm.Start(ctx),
+			c.headBroadcaster.Start(ctx),
 			c.headTracker.Start(ctx),
-			c.logBroadcaster.Start(),
+			c.logBroadcaster.Start(ctx),
 		)
 		if c.balanceMonitor != nil {
-			merr = multierr.Combine(merr, c.balanceMonitor.Start())
+			merr = multierr.Combine(merr, c.balanceMonitor.Start(ctx))
 		}
 
 		if merr != nil {
