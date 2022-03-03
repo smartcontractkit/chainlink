@@ -47,10 +47,12 @@ func newOffchainKeyring(encryptionMaterial, signingMaterial io.Reader) (*Offchai
 	return ok, nil
 }
 
+// OffchainSign signs message using private key
 func (ok *OffchainKeyring) OffchainSign(msg []byte) (signature []byte, err error) {
 	return ed25519.Sign(ed25519.PrivateKey(ok.signingKey), msg), nil
 }
 
+// ConfigDiffieHellman TODO
 func (ok *OffchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte) ([curve25519.PointSize]byte, error) {
 	p, err := curve25519.X25519(ok.encryptionKey[:], point[:])
 	if err != nil {
@@ -61,12 +63,14 @@ func (ok *OffchainKeyring) ConfigDiffieHellman(point [curve25519.PointSize]byte)
 	return sharedPoint, nil
 }
 
+// OffchainPublicKey TODO
 func (ok *OffchainKeyring) OffchainPublicKey() ocrtypes.OffchainPublicKey {
 	var offchainPubKey [ed25519.PublicKeySize]byte
 	copy(offchainPubKey[:], ok.signingKey.Public().(ed25519.PublicKey)[:])
 	return offchainPubKey
 }
 
+// ConfigEncryptionPublicKey returns config public key
 func (ok *OffchainKeyring) ConfigEncryptionPublicKey() ocrtypes.ConfigEncryptionPublicKey {
 	cpk, _ := ok.configEncryptionPublicKey()
 	return cpk
