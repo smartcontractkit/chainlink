@@ -61,8 +61,8 @@ func NewOCR2KeyBundle(key ocr2key.KeyBundle) *OCR2KeyBundleResolver {
 }
 
 // ID returns the OCR2 Key bundle ID
-func (k OCR2KeyBundleResolver) ID() graphql.ID {
-	return graphql.ID(k.key.ID())
+func (r OCR2KeyBundleResolver) ID() graphql.ID {
+	return graphql.ID(r.key.ID())
 }
 
 // ChainType returns the OCR2 Key bundle chain type
