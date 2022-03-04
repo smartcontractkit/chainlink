@@ -181,17 +181,27 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 		// in case they are unreliable/slow.
 		// It is purely a "best effort" send.
 		// Resource is not unbounded because the default context has a timeout.
-		go func(n SendOnlyNode, txCp types.Transaction) {
-			err := NewSendError(n.SendTransaction(context.Background(), &txCp))
-			p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
-			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
-				// Nonce too low or transaction known errors are expected since
-				// the primary SendTransaction may well have succeeded already
-				return
-			}
+		ok := p.IfNotStopped(func() {
+			// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
+			p.wg.Add(1)
+			go func(n SendOnlyNode, txCp types.Transaction) {
+				defer p.wg.Done()
+				sendCtx, cancel := utils.ContextFromChan(p.chStop)
+				defer cancel()
+				err := NewSendError(n.SendTransaction(sendCtx, &txCp))
+				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
+				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
+					// Nonce too low or transaction known errors are expected since
+					// the primary SendTransaction may well have succeeded already
+					return
+				}
 
-			p.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
-		}(n, *tx) // copy tx here in case it is mutated after the function returns
+				p.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
+			}(n, *tx) // copy tx here in case it is mutated after the function returns
+		})
+		if !ok {
+			p.logger.Debug("Cannot send transaction on sendonly node; pool is stopped", "node", n.String())
+		}
 	}
 
 	return main.SendTransaction(ctx, tx)
