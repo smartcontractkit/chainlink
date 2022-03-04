@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -436,17 +436,19 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if err != nil {
 		lggr.Fatal(err)
 	}
-	terraLggr := lggr.Named("Terra")
-	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
-		Config:           cfg,
-		Logger:           terraLggr,
-		DB:               db,
-		KeyStore:         keyStore.Terra(),
-		EventBroadcaster: eventBroadcaster,
-		ORM:              terra.NewORM(db, terraLggr, cfg),
-	})
-	if err != nil {
-		lggr.Fatal(err)
+	if cfg.TerraEnabled() {
+		terraLggr := lggr.Named("Terra")
+		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+			Config:           cfg,
+			Logger:           terraLggr,
+			DB:               db,
+			KeyStore:         keyStore.Terra(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			lggr.Fatal(err)
+		}
 	}
 
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -456,6 +458,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		Logger:                   lggr,
+		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
 	})
 	require.NoError(t, err)
@@ -583,7 +586,7 @@ func newServer(app chainlink.Application) *httptest.Server {
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.
-func (ta *TestApplication) Start() error {
+func (ta *TestApplication) Start(ctx context.Context) error {
 	ta.t.Helper()
 	ta.Started = true
 	err := ta.ChainlinkApplication.KeyStore.Unlock(Password)
@@ -591,7 +594,7 @@ func (ta *TestApplication) Start() error {
 		return err
 	}
 
-	err = ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start(ctx)
 	if err != nil {
 		return err
 	}
@@ -647,10 +650,12 @@ func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
+	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Client{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
-		Logger:                         logger.TestLogger(ta.t),
+		Logger:                         lggr,
+		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -670,6 +675,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
+		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -805,31 +811,9 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(dir string) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", dir)
+	logFile := filepath.Join(dir, logger.LogsFile)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
-}
-
-// FindLogMessage returns the message from the first JSON log line for which test returns true.
-func FindLogMessage(logs string, test func(msg string) bool) string {
-	for _, l := range strings.Split(logs, "\n") {
-		var line map[string]interface{}
-		if json.Unmarshal([]byte(l), &line) != nil {
-			continue
-		}
-		m, ok := line["msg"]
-		if !ok {
-			continue
-		}
-		ms, ok := m.(string)
-		if !ok {
-			continue
-		}
-		if test(ms) {
-			return ms
-		}
-	}
-	return ""
 }
 
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {

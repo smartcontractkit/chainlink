@@ -19,10 +19,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/KeeperRegistry.abi ../../../contracts/solc/v0.7/KeeperRegistry.bin KeeperRegistry keeper_registry_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/KeeperRegistryVB.abi ../../../contracts/solc/v0.7/KeeperRegistryVB.bin KeeperRegistryVB keeper_registry_vb_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.abi ../../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.bin UpkeepPerformCounterRestrictive upkeep_perform_counter_restrictive_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/UpkeepCounter.abi ../../../contracts/solc/v0.7/UpkeepCounter.bin UpkeepCounter upkeep_counter_wrapper
-
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.7/DerivedPriceFeed.abi ../../../contracts/solc/v0.7/DerivedPriceFeed.bin DerivedPriceFeed derived_price_feed_wrapper
 
 // v0.8 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
@@ -46,6 +45,7 @@ package gethwrappers
 // Aggregators
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/AggregatorV3Interface.abi ../../../contracts/solc/v0.8/AggregatorV3Interface.bin AggregatorV3Interface aggregator_v3_interface
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/DerivedPriceFeed.abi ../../../contracts/solc/v0.8/DerivedPriceFeed.bin DerivedPriceFeed derived_price_feed_wrapper
 
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:

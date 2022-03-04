@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -33,12 +34,12 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 
 //go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
-	services.Service
+	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
-	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
+	Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error)
 	Remove(id *big.Int) error
 	Default() (Chain, error)
-	Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
+	Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
 	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
 	Chains() []Chain
 	ChainCount() int
@@ -55,7 +56,7 @@ type chainSet struct {
 	opts          ChainSetOpts
 }
 
-func (cll *chainSet) Start() error {
+func (cll *chainSet) Start(ctx context.Context) error {
 	if !cll.opts.Config.EVMEnabled() {
 		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
 		return nil
@@ -64,7 +65,7 @@ func (cll *chainSet) Start() error {
 		cll.logger.Warn("EVM RPC connections are disabled. Chainlink will not connect to any EVM RPC node.")
 	}
 	for _, c := range cll.Chains() {
-		if err := c.Start(); err != nil {
+		if err := c.Start(ctx); err != nil {
 			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
 			continue
 		}
@@ -128,7 +129,7 @@ func (cll *chainSet) Default() (Chain, error) {
 }
 
 // Requires a lock on chainsMu
-func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
+func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) error {
 	// preload nodes
 	nodes, _, err := cll.orm.NodesForChain(dbchain.ID, 0, math.MaxInt)
 	if err != nil {
@@ -141,14 +142,14 @@ func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
 	if err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID.String())
 	}
-	if err = chain.Start(); err != nil {
+	if err = chain.Start(ctx); err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to start chain %s", dbchain.ID.String())
 	}
 	cll.chains[cid] = chain
 	return nil
 }
 
-func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -162,7 +163,7 @@ func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error
 	if err != nil {
 		return types.Chain{}, err
 	}
-	return dbchain, cll.initializeChain(&dbchain)
+	return dbchain, cll.initializeChain(ctx, &dbchain)
 }
 
 func (cll *chainSet) Remove(id *big.Int) error {
@@ -183,7 +184,7 @@ func (cll *chainSet) Remove(id *big.Int) error {
 	return chain.Close()
 }
 
-func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -205,7 +206,7 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 		return types.Chain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
-		return dbchain, cll.initializeChain(&dbchain)
+		return dbchain, cll.initializeChain(ctx, &dbchain)
 	case exists:
 		// Exists in memory, no toggling: Update in-memory chain
 		if err = chain.Config().Configure(config); err != nil {
