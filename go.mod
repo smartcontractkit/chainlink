@@ -57,7 +57,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-solana v0.2.12-0.20220217150457-281a05e940f1
-	github.com/smartcontractkit/chainlink-terra v0.1.2-0.20220303010347-93a6bab4acef
+	github.com/smartcontractkit/chainlink-terra v0.1.2-0.20220304190250-a9a6e963f91f
 	github.com/smartcontractkit/helmenv v1.0.36
 	github.com/smartcontractkit/integrations-framework v1.0.50
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
