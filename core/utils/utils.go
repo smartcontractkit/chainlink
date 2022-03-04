@@ -814,10 +814,13 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
-var (
-	// ErrNotStarted is returned if the service is not started.
-	ErrNotStarted = errors.New("Not started")
-)
+type errNotStarted struct {
+	state StartStopOnceState
+}
+
+func (e *errNotStarted) Error() string {
+	return fmt.Sprintf("service is %q, not started", e.state)
+}
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
@@ -836,6 +839,23 @@ const (
 	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
+
+func (s StartStopOnceState) String() string {
+	switch s {
+	case StartStopOnce_Unstarted:
+		return "Unstarted"
+	case StartStopOnce_Started:
+		return "Started"
+	case StartStopOnce_Starting:
+		return "Starting"
+	case StartStopOnce_Stopping:
+		return "Stopping"
+	case StartStopOnce_Stopped:
+		return "Stopped"
+	default:
+		return fmt.Sprintf("unrecognized state: %d", s)
+	}
+}
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
@@ -926,19 +946,21 @@ func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
 
 // Ready returns ErrNotStarted if the state is not started.
 func (once *StartStopOnce) Ready() error {
-	if once.State() == StartStopOnce_Started {
+	state := once.State()
+	if state == StartStopOnce_Started {
 		return nil
 	}
-	return ErrNotStarted
+	return &errNotStarted{state: state}
 }
 
 // Healthy returns ErrNotStarted if the state is not started.
 // Override this per-service with more specific implementations.
 func (once *StartStopOnce) Healthy() error {
-	if once.State() == StartStopOnce_Started {
+	state := once.State()
+	if state == StartStopOnce_Started {
 		return nil
 	}
-	return ErrNotStarted
+	return &errNotStarted{state: state}
 }
 
 // WithJitter adds +/- 10% to a duration

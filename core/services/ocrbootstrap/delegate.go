@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
@@ -21,7 +21,7 @@ type Delegate struct {
 	db            *sqlx.DB
 	jobORM        job.ORM
 	peerWrapper   *ocrcommon.SingletonPeerWrapper
-	cfg           offchainreporting2.Config
+	cfg           ocr2.Config
 	lggr          logger.Logger
 	relayer       types.Relayer
 }
@@ -32,7 +32,7 @@ func NewDelegateBootstrap(
 	jobORM job.ORM,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
-	cfg offchainreporting2.Config,
+	cfg ocr2.Config,
 	relayer types.Relayer,
 ) *Delegate {
 	return &Delegate{
@@ -89,7 +89,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	})
 
 	ocr2Spec := spec.AsOCR2Spec()
-	lc := offchainreporting2.ToLocalConfig(d.cfg, ocr2Spec)
+	lc := ocr2.ToLocalConfig(d.cfg, ocr2Spec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}

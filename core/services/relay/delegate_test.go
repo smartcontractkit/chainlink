@@ -27,10 +27,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 )
 
-func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OffchainReporting2OracleSpec {
+func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OCR2OracleSpec {
 	t.Helper()
 
-	var ocr2spec job.OffchainReporting2OracleSpec
+	var ocr2spec job.OCR2OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecToml), &ocr2spec)
 	require.NoError(t, err)
 
@@ -51,7 +51,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	// setup terra mocks
 	terraChain := new(terraMock.Chain)
 	terraChain.On("Config").Return(terra.NewConfig(terradb.ChainCfg{}, lggr))
-	terraChain.On("MsgEnqueuer").Return(new(terraMock.MsgEnqueuer)).Times(2)
+	terraChain.On("TxManager").Return(new(terraMock.TxManager)).Times(2)
 	terraChain.On("Reader", "").Return(new(terraMock.Reader), nil).Once()
 	terraChain.On("Reader", "some-test-node").Return(new(terraMock.Reader), nil).Once()
 

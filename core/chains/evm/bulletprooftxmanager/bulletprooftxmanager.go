@@ -69,7 +69,7 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
 	httypes.HeadTrackable
-	services.Service
+	services.ServiceCtx
 	Trigger(addr common.Address)
 	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
@@ -148,7 +148,9 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, cfg Config
 	return &b
 }
 
-func (b *BulletproofTxManager) Start() (merr error) {
+// Start starts BulletproofTxManager service.
+// The provided context can be used to terminate Start sequence.
+func (b *BulletproofTxManager) Start(ctx context.Context) (merr error) {
 	return b.StartOnce("BulletproofTxManager", func() error {
 		keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
 		if err != nil {
@@ -163,14 +165,14 @@ func (b *BulletproofTxManager) Start() (merr error) {
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
-		if err := eb.Start(); err != nil {
+		if err := eb.Start(ctx); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
 		}
 		if err := ec.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthConfirmer failed to start")
 		}
 
-		if err := b.gasEstimator.Start(); err != nil {
+		if err := b.gasEstimator.Start(ctx); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: Estimator failed to start")
 		}
 
@@ -216,6 +218,9 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 
 	close(b.chSubbed)
 
+	ctx, cancel := utils.CombinedContext(context.Background(), b.chStop)
+	defer cancel()
+
 	for {
 		select {
 		case address := <-b.trigger:
@@ -240,7 +245,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
-			if err := eb.Start(); err != nil {
+			if err := eb.Start(ctx); err != nil {
 				b.logger.Errorw("Failed to start EthBroadcaster", "error", err)
 			}
 			if err := ec.Start(); err != nil {
@@ -537,9 +542,15 @@ type NullTxManager struct {
 }
 
 func (n *NullTxManager) OnNewLongestChain(context.Context, *evmtypes.Head) {}
-func (n *NullTxManager) Start() error                                      { return nil }
-func (n *NullTxManager) Close() error                                      { return nil }
-func (n *NullTxManager) Trigger(common.Address)                            { panic(n.ErrMsg) }
+
+// Start does noop for NullTxManager.
+func (n *NullTxManager) Start(context.Context) error { return nil }
+
+// Close does noop for NullTxManager.
+func (n *NullTxManager) Close() error { return nil }
+
+// Trigger does noop for NullTxManager.
+func (n *NullTxManager) Trigger(common.Address) { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
