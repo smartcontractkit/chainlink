@@ -962,53 +962,54 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 	// eth_txes with nonce 0 has two attempts, the later attempt with higher gas fees
 	// eth_txes with nonce 1 has two attempts, the later attempt with higher gas fees
 	// eth_txes with nonce 2 has one attempt
+	originalBroadcastAt := time.Unix(1616509100, 0)
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 0, 1, fromAddress)
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
 	attempt0_2 := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(2))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt0_2))
 	etx1 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 1, 1, fromAddress)
+		t, borm, 1, 1, originalBroadcastAt, fromAddress)
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etx1.ID, int64(2))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt1_2))
 	etx2 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 2, 1, fromAddress)
+		t, borm, 2, 1, originalBroadcastAt, fromAddress)
 	attempt2_1 := etx2.EthTxAttempts[0]
 
-	t.Run("marks appropriate 'confirmed_missing_receipt' txs as 'unconfirmed'", func(t *testing.T) {
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 3 &&
+			cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt0_2.SignedRawTx), "eth_sendRawTransaction") &&
+			cltest.BatchElemMatchesParams(b[1], hexutil.Encode(attempt1_2.SignedRawTx), "eth_sendRawTransaction") &&
+			cltest.BatchElemMatchesParams(b[2], hexutil.Encode(attempt2_1.SignedRawTx), "eth_sendRawTransaction")
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		// First transaction confirmed
+		elems[0].Error = errors.New("nonce too low")
+		elems[1].Error = errors.New("transaction underpriced")
+		elems[2].Error = nil
+	}).Once()
+	println("Test idx: ", etx0.ID)
+	println("Test idx: ", etx1.ID)
+	println("Test idx: ", etx2.ID)
 
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 3 &&
-				cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt0_2.SignedRawTx), "eth_sendRawTransaction") &&
-				cltest.BatchElemMatchesParams(b[1], hexutil.Encode(attempt1_2.SignedRawTx), "eth_sendRawTransaction") &&
-				cltest.BatchElemMatchesParams(b[2], hexutil.Encode(attempt2_1.SignedRawTx), "eth_sendRawTransaction")
-		})).Return(nil).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			// First transaction confirmed
-			elems[0].Error = errors.New("nonce too low")
-			elems[1].Error = errors.New("transaction underpriced")
-			elems[2].Error = nil
-		}).Once()
-		println("Test idx: ", etx0.ID)
-		println("Test idx: ", etx1.ID)
-		println("Test idx: ", etx2.ID)
+	// PERFORM
+	require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
 
-		// PERFORM
-		require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
+	ethClient.AssertExpectations(t)
 
-		ethClient.AssertExpectations(t)
-
-		// Expected state is that the "top" eth_tx is untouched but the other two
-		// are marked as unconfirmed
-		etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx0.State)
-		etx1, err := borm.FindEthTxWithAttempts(etx1.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
-		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
-	})
+	// Expected state is that the "top" eth_tx is untouched but the other two
+	// are marked as unconfirmed
+	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Greater(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+	etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
+	assert.Greater(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+	etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+	assert.Greater(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
 func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t *testing.T) {
@@ -1035,46 +1036,47 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 	// eth_txes with nonce 0 has two attempts, the later attempt with higher gas fees
 	// eth_txes with nonce 1 has two attempts, the later attempt with higher gas fees
 	// eth_txes with nonce 2 has one attempt
+	originalBroadcastAt := time.Unix(1616509100, 0)
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 0, 1, fromAddress)
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
 	attempt0_2 := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(2))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt0_2))
 	etx1 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 1, 1, fromAddress)
+		t, borm, 1, 1, originalBroadcastAt, fromAddress)
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etx1.ID, int64(2))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt1_2))
 	etx2 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 2, 1, fromAddress)
+		t, borm, 2, 1, originalBroadcastAt, fromAddress)
 	attempt2_1 := etx2.EthTxAttempts[0]
 
-	t.Run("BatchSend call fails, so marks all txs as 'unconfirmed'", func(t *testing.T) {
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 3 &&
+			cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt0_2.SignedRawTx), "eth_sendRawTransaction") &&
+			cltest.BatchElemMatchesParams(b[1], hexutil.Encode(attempt1_2.SignedRawTx), "eth_sendRawTransaction") &&
+			cltest.BatchElemMatchesParams(b[2], hexutil.Encode(attempt2_1.SignedRawTx), "eth_sendRawTransaction")
+	})).Return(errors.New("Timed out")).Once()
 
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 3 &&
-				cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt0_2.SignedRawTx), "eth_sendRawTransaction") &&
-				cltest.BatchElemMatchesParams(b[1], hexutil.Encode(attempt1_2.SignedRawTx), "eth_sendRawTransaction") &&
-				cltest.BatchElemMatchesParams(b[2], hexutil.Encode(attempt2_1.SignedRawTx), "eth_sendRawTransaction")
-		})).Return(errors.New("Timed out")).Once()
+	// PERFORM
+	require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
 
-		// PERFORM
-		require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
+	ethClient.AssertExpectations(t)
 
-		ethClient.AssertExpectations(t)
-
-		// Expected state is that all txes are marked as unconfirmed, since the batch call had failed
-		etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx0.State)
-		etx1, err := borm.FindEthTxWithAttempts(etx1.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
-		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
-	})
+	// Expected state is that all txes are marked as unconfirmed, since the batch call had failed
+	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx0.State)
+	assert.Equal(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+	etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+	etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
-func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_oneBatchSendTransactionFails(t *testing.T) {
+func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBatchSendTransactionFails(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -1099,59 +1101,50 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_oneBatch
 	// eth_txes with nonce 0 has two attempts, the later attempt with higher gas fees
 	// eth_txes with nonce 1 has two attempts, the later attempt with higher gas fees
 	// eth_txes with nonce 2 has one attempt
+	originalBroadcastAt := time.Unix(1616509100, 0)
 	etx0 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 0, 1, fromAddress)
+		t, borm, 0, 1, originalBroadcastAt, fromAddress)
 	attempt0_2 := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(2))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt0_2))
 	etx1 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 1, 1, fromAddress)
+		t, borm, 1, 1, originalBroadcastAt, fromAddress)
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etx1.ID, int64(2))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt1_2))
 	etx2 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
-		t, borm, 2, 1, fromAddress)
-	attempt2_1 := etx2.EthTxAttempts[0]
+		t, borm, 2, 1, originalBroadcastAt, fromAddress)
 
-	t.Run("BatchSend call fails, so marks all txs as 'unconfirmed'", func(t *testing.T) {
+	// Expect eth_sendRawTransaction in 3 batches. First batch will pass, 2nd will fail, 3rd never attempted.
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 1 &&
+			cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt0_2.SignedRawTx), "eth_sendRawTransaction")
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		// First transaction confirmed
+		elems[0].Error = errors.New("nonce too low")
+	}).Once()
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 1 &&
+			cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt1_2.SignedRawTx), "eth_sendRawTransaction")
+	})).Return(errors.New("Timed out")).Once()
 
-		// Expect eth_sendRawTransaction in 3 batches. First batch will fail. Other 2 will succeed
-		// and return different responses
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 &&
-				cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt0_2.SignedRawTx), "eth_sendRawTransaction")
-		})).Return(errors.New("Timed out")).Once()
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 &&
-				cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt1_2.SignedRawTx), "eth_sendRawTransaction")
-		})).Return(nil).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			// First transaction confirmed
-			elems[0].Error = errors.New("nonce too low")
-		}).Once()
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 &&
-				cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt2_1.SignedRawTx), "eth_sendRawTransaction")
-		})).Return(nil).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			// First transaction confirmed
-			elems[0].Error = errors.New("transaction underpriced")
-		}).Once()
+	// PERFORM
+	require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
 
-		// PERFORM
-		require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
+	ethClient.AssertExpectations(t)
 
-		ethClient.AssertExpectations(t)
-
-		// Expected state is that all transactions that didn't get error as "nonce too low" will be unconfirmed
-		etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx0.State)
-		etx1, err := borm.FindEthTxWithAttempts(etx1.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx1.State)
-		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
-		assert.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
-	})
+	// Expected state is that all transactions since failed batch will be unconfirmed
+	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Greater(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+	etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+	etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
 func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *testing.T) {
