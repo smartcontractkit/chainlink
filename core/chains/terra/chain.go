@@ -97,7 +97,7 @@ func (c *chain) Reader(name string) (terraclient.Reader, error) {
 }
 
 // getClient returns a client, optionally requiring a specific node by name.
-func (c *chain) getClient(name string) (*terraclient.Client, error) {
+func (c *chain) getClient(name string) (terraclient.ReaderWriter, error) {
 	//TODO cache clients?
 	var node db.Node
 	if name == "" { // Any node
