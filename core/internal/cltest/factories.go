@@ -248,11 +248,10 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, borm bul
 
 func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 	t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, broadcastBeforeBlockNum int64,
-	fromAddress common.Address) bulletprooftxmanager.EthTx {
-	timeNow := time.Now()
+	broadcastAt time.Time, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	etx := NewEthTx(t, fromAddress)
 
-	etx.BroadcastAt = &timeNow
+	etx.BroadcastAt = &broadcastAt
 	etx.Nonce = &nonce
 	etx.State = bulletprooftxmanager.EthTxConfirmedMissingReceipt
 	require.NoError(t, borm.InsertEthTx(&etx))

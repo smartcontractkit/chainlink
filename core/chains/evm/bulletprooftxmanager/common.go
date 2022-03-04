@@ -3,11 +3,14 @@ package bulletprooftxmanager
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,15 +19,20 @@ import (
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
-// TODO: The batch send is just sending the batch to 1 RPC node. Change it to send to all nodes,
-// similar to how Pool.SendTransaction sends a transaction to all nodes.
-func batchSendTransactions(ctx context.Context, attempts []EthTxAttempt, batchSize int, logger logger.Logger,
-	ethClient evmclient.Client) (reqs []rpc.BatchElem, err error) {
+// Future improvement idea: The batch send is just sending the batch to 1 RPC node.
+// Change it to send to all RPC nodes, similar to Pool.SendTransaction logic.Oh
+func batchSendTransactions(
+	ctx context.Context,
+	db *sqlx.DB,
+	attempts []EthTxAttempt,
+	batchSize int,
+	logger logger.Logger,
+	ethClient evmclient.Client) ([]rpc.BatchElem, error) {
 	if len(attempts) == 0 {
-		return
+		return nil, nil
 	}
 
-	reqs = make([]rpc.BatchElem, len(attempts))
+	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
 	for i, attempt := range attempts {
 		ethTxIDs[i] = attempt.EthTxID
@@ -36,6 +44,7 @@ func batchSendTransactions(ctx context.Context, attempts []EthTxAttempt, batchSi
 		reqs[i] = req
 	}
 
+	now := time.Now()
 	if batchSize == 0 {
 		batchSize = len(reqs)
 	}
@@ -47,15 +56,25 @@ func batchSendTransactions(ctx context.Context, attempts []EthTxAttempt, batchSi
 
 		logger.Debugw(fmt.Sprintf("Batch sending transactions %v thru %v", i, j))
 
-		if errInternal := ethClient.BatchCallContext(ctx, reqs[i:j]); errInternal != nil {
-			logger.Errorw(fmt.Sprintf("Failed to batch send transactions %v thru %v", i, j),
-				"error", errInternal)
-			// Set this error on call
-			for idx := i; idx < j; idx++ {
-				reqs[idx].Error = errInternal
-			}
-			err = errors.Wrap(errInternal, "Failed to batch send transactions")
+		if err := ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
+			return reqs, errors.Wrap(err, "failed to batch send transactions")
+		}
+
+		if err := updateBroadcastAts(db, now, ethTxIDs[i:j]); err != nil {
+			return reqs, errors.Wrap(err, "failed to update last succeeded on attempts")
 		}
 	}
-	return
+	return reqs, nil
+}
+
+func updateBroadcastAts(db *sqlx.DB, now time.Time, etxIDs []int64) error {
+	// Deliberately do nothing on NULL broadcast_at because that indicates the
+	// tx has been moved into a state where broadcast_at is not relevant, e.g.
+	// fatally errored.
+	//
+	// Since we may have raced with the EthConfirmer (totally OK since highest
+	// priced transaction always wins) we only want to update broadcast_at if
+	// our version is later.
+	_, err := db.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
+	return errors.Wrap(err, "updateBroadcastAts failed to update eth_txes")
 }
