@@ -306,6 +306,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	sendonlyUrl := *cltest.MustParseURL(t, ts.URL)
 	ethClient, err := evmclient.NewClient(logger.TestLogger(t), wsUrl, nil, []url.URL{sendonlyUrl, sendonlyUrl}, &cltest.FixtureChainID)
 	require.NoError(t, err)
+	defer ethClient.Close()
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
 
