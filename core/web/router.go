@@ -384,6 +384,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/nodes/evm", enc.Create)
 		authv2.DELETE("/nodes/evm/:ID", enc.Delete)
 
+		efc := EVMForwardersController{app}
+		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
+		authv2.POST("/nodes/evm/forwarders", efc.Create)
+		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
+
 		tnc := TerraNodesController{app}
 		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))
 		authv2.GET("/chains/terra/:ID/nodes", paginatedRequest(tnc.Index))
