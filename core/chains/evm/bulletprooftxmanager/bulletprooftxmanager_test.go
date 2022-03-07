@@ -403,7 +403,7 @@ func newMockConfig(t *testing.T) *bptxmmocks.Config {
 	cfg.On("EvmGasBumpTxDepth").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe().Once()
 	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
-	cfg.On("EvmNonceAutoSync").Return(true).Maybe().Once()
+	cfg.On("EvmNonceAutoSync").Return(true).Maybe()
 	cfg.On("EvmGasLimitDefault").Return(uint64(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBatchSize").Return(uint32(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBlockDelay").Return(uint16(42)).Maybe().Once()
@@ -421,6 +421,8 @@ func newMockConfig(t *testing.T) *bptxmmocks.Config {
 	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
+
+	cfg.On("LogSQL").Maybe().Return(false)
 
 	return cfg
 }
@@ -535,7 +537,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
 	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	config.On("LogSQL").Return(false)
+	config.On("LogSQL").Return(false).Maybe()
 	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})
@@ -552,7 +554,6 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	sub := new(pgmocks.Subscription)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	config.On("EvmNonceAutoSync").Return(true)
 	config.On("EvmGasBumpThreshold").Return(uint64(1))
 
 	require.NoError(t, bptxm.Start(testutils.Context(t)))
@@ -566,8 +567,8 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{keyState}, nil).Once()
 	sub.On("Close").Return()
-	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), keyState.Address.Address()).Return(uint64(0), nil)
-	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour)
+	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.cancelCtx"), keyState.Address.Address()).Return(uint64(0), nil).Maybe()
+	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour).Maybe()
 	keyChangeCh <- struct{}{}
 
 	require.NoError(t, bptxm.Close())
