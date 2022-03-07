@@ -6,10 +6,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -114,42 +111,18 @@ func (er *EthResender) resendUnconfirmed() error {
 		return nil
 	}
 
-	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
 	for i, attempt := range attempts {
 		ethTxIDs[i] = attempt.EthTxID
-		req := rpc.BatchElem{
-			Method: "eth_sendRawTransaction",
-			Args:   []interface{}{hexutil.Encode(attempt.SignedRawTx)},
-			Result: &common.Hash{},
-		}
-		reqs[i] = req
 	}
 
 	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts), "ethTxIDs", ethTxIDs)
 
-	now := time.Now()
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
-	if batchSize == 0 {
-		batchSize = len(reqs)
+	reqs, err := batchSendTransactions(er.ctx, er.db, attempts, batchSize, er.logger, er.ethClient)
+	if err != nil {
+		return errors.Wrap(err, "failed to re-send transactions")
 	}
-	for i := 0; i < len(reqs); i += batchSize {
-		j := i + batchSize
-		if j > len(reqs) {
-			j = len(reqs)
-		}
-
-		er.logger.Debugw(fmt.Sprintf("Batch resending transactions %v thru %v", i, j))
-
-		if err := er.ethClient.BatchCallContext(er.ctx, reqs[i:j]); err != nil {
-			return errors.Wrap(err, "failed to re-send transactions")
-		}
-
-		if err := er.updateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
-			return errors.Wrap(err, "failed to update last succeeded on attempts")
-		}
-	}
-
 	logResendResult(er.logger, reqs)
 
 	return nil
@@ -172,18 +145,6 @@ LIMIT $3
 `, olderThan, chainID.String(), limit)
 
 	return attempts, errors.Wrap(err, "FindEthTxesRequiringResend failed to load eth_tx_attempts")
-}
-
-func (er *EthResender) updateBroadcastAts(now time.Time, etxIDs []int64) error {
-	// Deliberately do nothing on NULL broadcast_at because that indicates the
-	// tx has been moved into a state where broadcast_at is not relevant, e.g.
-	// fatally errored.
-	//
-	// Since we may have raced with the EthConfirmer (totally OK since highest
-	// priced transaction always wins) we only want to update broadcast_at if
-	// our version is later.
-	_, err := er.db.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
-	return errors.Wrap(err, "updateBroadcastAts failed to update eth_txes")
 }
 
 func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {

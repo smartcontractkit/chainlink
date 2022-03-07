@@ -21,6 +21,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/sqlx"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -30,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 const (
@@ -203,6 +204,9 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
+	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
+		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed")
+	}
 
 	if err := ec.CheckForReceipts(ctx, head.Number); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
@@ -249,6 +253,56 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 		blockNum, ec.chainID.String(),
 	)
 	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
+}
+
+// CheckConfirmedMissingReceipt will attempt to re-send any transaction in the
+// state of "confirmed_missing_receipt". If we get back any type of senderror
+// other than "nonce too low" it means that this transaction isn't actually
+// confirmed and needs to be put back into "unconfirmed" state, so that it can enter
+// the gas bumping cycle. This is necessary in rare cases (e.g. Polygon) where
+// network conditions are extremely hostile.
+//
+// For example, assume the following scenario:
+//
+// 0. We are connected to multiple primary nodes via load balancer
+// 1. We send a transaction, it is confirmed and, we get a receipt
+// 2. A new head comes in from RPC node 1 indicating that this transaction was re-org'd, so we put it back into unconfirmed state
+// 3. We re-send that transaction to a RPC node 2 **which hasn't caught up to this re-org yet**
+// 4. RPC node 2 still has an old view of the chain, so it returns us "nonce too low" indicating "no problem this transaction is already mined"
+// 5. Now the transaction is marked "confirmed_missing_receipt" but the latest chain does not actually include it
+// 6. Now we are reliant on the EthResender to propagate it, and this transaction will not be gas bumped, so in the event of gas spikes it could languish or even be evicted from the mempool and hold up the queue
+// 7. Even if/when RPC node 2 catches up, the transaction is still stuck in state "confirmed_missing_receipt"
+//
+// This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
+func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
+	var attempts []EthTxAttempt
+	err = ec.q.Select(&attempts,
+		`SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
+		FROM eth_tx_attempts
+		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
+		WHERE evm_chain_id = $1
+		ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`,
+		ec.chainID.String())
+	if err != nil {
+		return err
+	}
+	reqs, err := batchSendTransactions(ec.ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	if err != nil {
+		ec.lggr.Debugw("Batch sending transactions failed", err)
+	}
+	var ethTxIDsToUnconfirm []int64
+	for idx, req := range reqs {
+		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
+		if req.Error == nil || !evmclient.NewSendError(req.Error).IsNonceTooLowError() {
+			ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
+		}
+	}
+	_, err = ec.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ethTxIDsToUnconfirm))
+
+	if err != nil {
+		return errors.Wrap(err, "CheckConfirmedMissingReceipt: marking as unconfirmed failed")
+	}
+	return
 }
 
 // CheckForReceipts finds attempts that are still pending and checks to see if a receipt is present for the given block number
