@@ -121,7 +121,7 @@ func (key KeyV2) GenerateProof(seed *big.Int) (Proof, error) {
 		}
 		proof, err := key.GenerateProofWithNonce(seed, nonce)
 		switch {
-		case err == ErrCGammaEqualsSHash:
+		case errors.Is(err, ErrCGammaEqualsSHash):
 			// This is cryptographically impossible, but if it were ever to happen, we
 			// should try again with a different nonce.
 			continue

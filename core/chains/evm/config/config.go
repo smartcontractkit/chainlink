@@ -161,6 +161,9 @@ func (c *chainScopedConfig) validate() (err error) {
 	if uint32(c.EvmGasBumpTxDepth()) > c.EvmMaxInFlightTransactions() {
 		err = multierr.Combine(err, errors.New("ETH_GAS_BUMP_TX_DEPTH must be less than or equal to ETH_MAX_IN_FLIGHT_TRANSACTIONS"))
 	}
+	if c.EvmGasTipCapDefault().Cmp(c.EvmGasTipCapMinimum()) < 0 {
+		err = multierr.Combine(err, errors.Errorf("EVM_GAS_TIP_CAP_DEFAULT (%s) must be greater than or equal to EVM_GAS_TIP_CAP_MINIMUM (%s)", c.EvmGasTipCapDefault(), c.EvmGasTipCapMinimum()))
+	}
 	if c.EvmGasFeeCapDefault().Cmp(c.EvmGasTipCapDefault()) < 0 {
 		err = multierr.Combine(err, errors.Errorf("EVM_GAS_FEE_CAP_DEFAULT (%s) must be greater than or equal to EVM_GAS_TIP_CAP_DEFAULT (%s)", c.EvmGasFeeCapDefault(), c.EvmGasTipCapDefault()))
 	}
