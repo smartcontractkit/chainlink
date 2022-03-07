@@ -194,7 +194,8 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 			maskedArguments: maskedArgs,
 			pgDumpArguments: args,
 		}
-		if ee, ok := err.(*exec.ExitError); ok {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
 			return partialResult, errors.Wrapf(err, "pg_dump failed with output: %s", string(ee.Stderr))
 		}
 		return partialResult, errors.Wrap(err, "pg_dump failed")

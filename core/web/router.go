@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/pkg/errors"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -461,7 +462,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 		// Render the React index page for any other unknown requests
 		file, err := assetFs.Open("index.html")
 		if err != nil {
-			if err == fs.ErrNotExist {
+			if errors.Is(err, fs.ErrNotExist) {
 				c.AbortWithStatus(http.StatusNotFound)
 			} else {
 				lggr.Errorf("failed to open static file '%s': %+v", path, err)
