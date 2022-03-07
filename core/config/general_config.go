@@ -34,6 +34,7 @@ import (
 // this permission grants read / write access to file owners only
 const readWritePerms = os.FileMode(0600)
 
+//nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")

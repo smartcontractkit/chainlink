@@ -9,6 +9,7 @@ import (
 
 var _ config.OCR1Config = &TestGeneralConfig{}
 
+// OCRKeyBundleID returns the overridden value, if one exists.
 func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {
 	if c.Overrides.OCRKeyBundleID.Valid {
 		return c.Overrides.OCRKeyBundleID.String, nil
@@ -16,6 +17,7 @@ func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {
 	return c.GeneralConfig.OCRKeyBundleID()
 }
 
+// OCRDatabaseTimeout returns the overridden value, if one exists.
 func (c *TestGeneralConfig) OCRDatabaseTimeout() time.Duration {
 	if c.Overrides.OCRDatabaseTimeout != nil {
 		return *c.Overrides.OCRDatabaseTimeout
@@ -27,6 +29,7 @@ func (c *TestGeneralConfig) OCRDatabaseTimeout() time.Duration {
 	return v
 }
 
+// OCRObservationGracePeriod returns the overridden value, if one exists.
 func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
 	if c.Overrides.OCRObservationGracePeriod != nil {
 		return *c.Overrides.OCRObservationGracePeriod
@@ -38,6 +41,7 @@ func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
 	return v
 }
 
+// OCRObservationTimeout returns the overridden value, if one exists.
 func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
 	if c.Overrides.OCRObservationTimeout != nil {
 		return *c.Overrides.OCRObservationTimeout
@@ -45,6 +49,7 @@ func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
 	return c.GeneralConfig.OCRObservationTimeout()
 }
 
+// OCRTransmitterAddress returns the overridden value, if one exists.
 func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 	if c.Overrides.OCRTransmitterAddress != nil {
 		return *c.Overrides.OCRTransmitterAddress, nil

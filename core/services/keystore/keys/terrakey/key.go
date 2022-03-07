@@ -41,15 +41,18 @@ func (raw Raw) GoString() string {
 
 var _ fmt.GoStringer = &Key{}
 
+// Key represents Terra key
 type Key struct {
 	d *big.Int
 	k cryptotypes.PrivKey
 }
 
+// New creates new Key
 func New() Key {
 	return newFrom(cryptorand.Reader)
 }
 
+// MustNewInsecure return Key
 func MustNewInsecure(reader io.Reader) Key {
 	return newFrom(reader)
 }
