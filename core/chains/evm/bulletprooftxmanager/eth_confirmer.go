@@ -286,7 +286,10 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	if err != nil {
 		return err
 	}
-	reqs, _ := batchSendTransactions(ec.ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	reqs, err := batchSendTransactions(ec.ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	if err != nil {
+		ec.lggr.Debugw("Batch sending transactions failed", err)
+	}
 	var ethTxIDsToUnconfirm []int64
 	for idx, req := range reqs {
 		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
@@ -297,7 +300,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	_, err = ec.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ethTxIDsToUnconfirm))
 
 	if err != nil {
-		return errors.Wrap(err, "Marking as Unconfirmed failed")
+		return errors.Wrap(err, "CheckConfirmedMissingReceipt: marking as unconfirmed failed")
 	}
 	return
 }

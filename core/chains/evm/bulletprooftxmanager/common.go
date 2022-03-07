@@ -72,7 +72,7 @@ func updateBroadcastAts(db *sqlx.DB, now time.Time, etxIDs []int64) error {
 	// tx has been moved into a state where broadcast_at is not relevant, e.g.
 	// fatally errored.
 	//
-	// Since we may have raced with the EthConfirmer (totally OK since highest
+	// Since EthConfirmer/EthResender can race (totally OK since highest
 	// priced transaction always wins) we only want to update broadcast_at if
 	// our version is later.
 	_, err := db.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = ANY($2) AND broadcast_at < $1`, now, pq.Array(etxIDs))
