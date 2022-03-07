@@ -268,7 +268,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, :requested_confs_delay, :request_timeout, NOW(), NOW())
 			RETURNING id;`
 			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.VRFSpec)
-			pqErr, ok := err.(*pgconn.PgError)
+			var pqErr *pgconn.PgError
+			ok := errors.As(err, &pqErr)
 			if err != nil && ok && pqErr.Code == "23503" {
 				if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
 					return errors.Wrapf(ErrNoSuchPublicKey, "%s", jb.VRFSpec.PublicKey.String())
@@ -435,7 +436,8 @@ func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) err
 	updated_at = excluded.updated_at`
 	err := q.ExecQ(sql, jobID, description, time.Now())
 	// Noop if the job has been deleted.
-	pqErr, ok := err.(*pgconn.PgError)
+	var pqErr *pgconn.PgError
+	ok := errors.As(err, &pqErr)
 	if err != nil && ok && pqErr.Code == "23503" {
 		if pqErr.ConstraintName == "job_spec_errors_v2_job_id_fkey" {
 			return nil
@@ -617,7 +619,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := cfg.OCRTransmitterAddress()
-		if errors.Cause(err) != config.ErrUnset {
+		if !errors.Is(errors.Cause(err), config.ErrUnset) {
 			if err != nil {
 				return nil, err
 			}

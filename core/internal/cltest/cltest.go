@@ -24,7 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	"github.com/gorilla/websocket"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
@@ -34,7 +33,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -77,8 +79,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -218,82 +218,12 @@ type TestApplication struct {
 	Key     ethkey.KeyV2
 }
 
-// jsonrpcHandler is called with the method and request param(s).
-// respResult will be sent immediately. notifyResult is optional, and sent after a short delay.
-type jsonrpcHandler func(reqMethod string, reqParams gjson.Result) (respResult, notifyResult string)
-
 // NewWSServer starts a websocket server which invokes callback for each message received.
 // If chainID is set, then eth_chainId calls will be automatically handled.
-func NewWSServer(t *testing.T, chainID *big.Int, callback jsonrpcHandler) string {
-	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
-	}
-	lggr := logger.TestLogger(t).Named("WSServer")
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		require.NoError(t, err, "Failed to upgrade WS connection")
-		defer conn.Close()
-		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
-					lggr.Info("Closing")
-					return
-				}
-				lggr.Errorw("Failed to read message", "err", err)
-				return
-			}
-			lggr.Debugw("Received message", "wsmsg", string(data))
-			req := ParseJSON(t, bytes.NewReader(data))
-			if !req.IsObject() {
-				lggr.Errorw("Request must be object", "type", req.Type)
-				return
-			}
-			if e := req.Get("error"); e.Exists() {
-				lggr.Warnw("Received jsonrpc error message", "err", e)
-				break
-			}
-			m := req.Get("method")
-			if m.Type != gjson.String {
-				lggr.Errorw("method must be string", "type", m.Type)
-				return
-			}
-
-			var resp, notify string
-			if chainID != nil && m.String() == "eth_chainId" {
-				resp = `"0x` + chainID.Text(16) + `"`
-			} else {
-				resp, notify = callback(m.String(), req.Get("params"))
-			}
-			id := req.Get("id")
-			msg := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp)
-			lggr.Debugw("Sending message", "wsmsg", msg)
-			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
-			if err != nil {
-				lggr.Errorw("Failed to write message", "err", err)
-				return
-			}
-
-			if notify != "" {
-				time.Sleep(100 * time.Millisecond)
-				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, notify)
-				lggr.Debugw("Sending message", "wsmsg", msg)
-				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
-				if err != nil {
-					lggr.Errorw("Failed to write message", "err", err)
-					return
-				}
-			}
-		}
-	})
-	server := httptest.NewServer(handler)
+func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandler) string {
+	server := testutils.NewWSServer(t, chainID, callback)
 	t.Cleanup(server.Close)
-
-	u, err := url.Parse(server.URL)
-	require.NoError(t, err, "Failed to parse url")
-	u.Scheme = "ws"
-
-	return u.String()
+	return server.WSURL().String()
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
@@ -414,7 +344,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ethClient = evmclient.NewNullClient(nil, lggr)
 	}
 	if chainORM == nil {
-		chainORM = evm.NewORM(db)
+		chainORM = evm.NewORM(db, lggr, cfg)
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
@@ -1237,11 +1167,7 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 }
 
 func MustParseURL(t *testing.T, input string) *url.URL {
-	u, err := url.Parse(input)
-	if err != nil {
-		logger.TestLogger(t).Panic(err)
-	}
-	return u
+	return testutils.MustParseURL(t, input)
 }
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
@@ -1316,14 +1242,14 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmM
 	}
 }
 
-func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
-	return req.Method == "eth_getTransactionReceipt" &&
-		len(req.Args) == 1 && req.Args[0] == hash
+func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
+	return req.Method == method &&
+		len(req.Args) == 1 && req.Args[0] == arg
 }
 
-func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
+func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash, method string) {
 	t.Helper()
-	if !BatchElemMatchesHash(req, hash) {
+	if !BatchElemMatchesParams(req, hash, method) {
 		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
 	}
 }
