@@ -31,6 +31,9 @@ New ENV vars:
 - `TELEMETRY_INGRESS_SEND_INTERVAL` (default: 500ms) - the cadence on which batched telemetry is sent to the ingress server
 - `TELEMETRY_INGRESS_SEND_TIMEOUT` (default: 10s) - the max duration to wait for the request to complete when sending batch telemetry
 - `TELEMETRY_INGRESS_USE_BATCH_SEND` (default: true) - toggles sending telemetry using the batch client to the ingress server
+- `NODE_NO_NEW_HEADS_THRESHOLD` (default: 3m) - RPC node will be marked out-of-sync if it does not receive a new block for this length of time. Set to 0 to disable head monitoring for liveness checking,
+- `NODE_POLL_FAILURE_THRESHOLD` (default: 5) - number of consecutive failed polls before an RPC node is marked dead. Set to 0 to disable poll liveness checking.
+- `NODE_POLL_INTERVAL` (default: 10s) - how often to poll. Set to 0 to disable all polling.
 
 #### Bootstrap job
 
@@ -47,6 +50,12 @@ contractID      = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 [relayConfig]
 chainID	        = 4
 ```
+
+#### EVM node hot failover and liveness checking
+
+Chainlink now supports hot failover and liveness checking for EVM nodes. This completely supercedes and replaces the Fiews failover proxy and should remove the need for any kind of failover proxy between Chainlink and its RPC nodes.
+
+In order to use this feature, you'll need to set multiple primary RPC nodes.
 
 ### Removed
 
