@@ -232,7 +232,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().Node(id)
+	node, err := r.App.GetChains().EVM.GetNode(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewNodePayloadResolver(nil, err), nil
@@ -326,7 +326,7 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	nodes, count, err := r.App.EVMORM().Nodes(offset, limit)
+	nodes, count, err := r.App.GetChains().EVM.GetNodes(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}

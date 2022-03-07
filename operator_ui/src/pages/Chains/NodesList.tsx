@@ -44,6 +44,12 @@ const List = ({ nodes, nodeFilter }: Props) => {
               Created
             </Typography>
           </TableCell>
+
+          <TableCell>
+            <Typography variant="body1" color="textSecondary">
+              State
+            </Typography>
+          </TableCell>
         </TableRow>
       </TableHead>
 
