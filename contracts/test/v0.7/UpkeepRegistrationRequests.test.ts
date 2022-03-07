@@ -121,6 +121,13 @@ describe('UpkeepRegistrationRequests', () => {
     await registry.setRegistrar(registrar.address)
   })
 
+  describe('#typeAndVersion', () => {
+    it('uses the correct type and version', async () => {
+      const typeAndVersion = await registrar.typeAndVersion()
+      assert.equal(typeAndVersion, "UpkeepRegistration 1.0.0")
+    })
+  })
+
   describe('#register', () => {
     it('reverts if not called by the LINK token', async () => {
       await evmRevert(
