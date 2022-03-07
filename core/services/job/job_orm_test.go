@@ -205,6 +205,7 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 
 		err = orm.CreateJob(&jb)
+		require.NoError(t, err)
 		savedJob, err := orm.FindJob(context.Background(), jb.ID)
 		require.NoError(t, err)
 		require.Equal(t, jb.ID, savedJob.ID)
@@ -327,7 +328,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -336,8 +337,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestedConfsDelay: 10}).Toml())
 	require.NoError(t, err)
 
-	err = jobORM.CreateJob(&jb)
-	require.NoError(t, err)
+	require.NoError(t, jobORM.CreateJob(&jb))
 	cltest.AssertCount(t, db, "vrf_specs", 1)
 	cltest.AssertCount(t, db, "jobs", 1)
 	var requestedConfsDelay int64
@@ -346,21 +346,20 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)
-	jobORM.DeleteJob(jb.ID)
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 
 	jb, err = vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestTimeout: 1 * time.Hour}).Toml())
 	require.NoError(t, err)
-	err = jobORM.CreateJob(&jb)
-	require.NoError(t, err)
+	require.NoError(t, jobORM.CreateJob(&jb))
 	cltest.AssertCount(t, db, "vrf_specs", 1)
 	cltest.AssertCount(t, db, "jobs", 1)
 	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
 	require.Equal(t, int64(0), requestedConfsDelay)
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 1*time.Hour, requestTimeout)
-	jobORM.DeleteJob(jb.ID)
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 }
@@ -534,7 +533,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
@@ -631,7 +630,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db, config)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
