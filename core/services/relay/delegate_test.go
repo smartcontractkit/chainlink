@@ -88,8 +88,8 @@ func TestNewOCR2Provider(t *testing.T) {
 	}
 
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
-	d.AddRelayer(relaytypes.Solana, relaytypes.NewRelayerAdapter(solana.NewRelayer(lggr)))
-	d.AddRelayer(relaytypes.Terra, relaytypes.NewRelayerAdapter(terra.NewRelayer(lggr, terraChains)))
+	d.AddRelayer(relaytypes.Solana, relaytypes.NewRelayerCtx(solana.NewRelayer(lggr)))
+	d.AddRelayer(relaytypes.Terra, relaytypes.NewRelayerCtx(terra.NewRelayer(lggr, terraChains)))
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {

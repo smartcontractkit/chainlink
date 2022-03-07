@@ -8,22 +8,12 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-// RelayerAdapter is a helper introduced for transitioning from Relayer to RelayerCtx.
-type RelayerAdapter interface {
-	RelayerCtx
-}
-
-// OCR2ProviderAdapter is a helper introduced for transitioning from OCR2Provider to OCR2ProviderCtx.
-type OCR2ProviderAdapter interface {
-	OCR2ProviderCtx
-}
-
 type relayerAdapter struct {
 	relayer Relayer
 }
 
-// NewRelayerAdapter creates a new RelayerCtx instance using adapter.
-func NewRelayerAdapter(relayer Relayer) RelayerCtx {
+// NewRelayerCtx creates a new RelayerCtx instance using adapter.
+func NewRelayerCtx(relayer Relayer) RelayerCtx {
 	return &relayerAdapter{
 		relayer,
 	}
@@ -35,7 +25,7 @@ func (a relayerAdapter) NewOCR2Provider(externalJobID uuid.UUID, spec interface{
 	if err != nil {
 		return nil, err
 	}
-	return NewOCR2ProviderAdapter(provider), nil
+	return NewOCR2ProviderCtx(provider), nil
 }
 
 // Start forwards the call to the underlying relayer.Start().
@@ -63,8 +53,8 @@ type ocr2ProviderAdapter struct {
 	provider OCR2Provider
 }
 
-// NewOCR2ProviderAdapter creates a new OCR2ProviderCtx instance using adapter.
-func NewOCR2ProviderAdapter(provider OCR2Provider) OCR2ProviderCtx {
+// NewOCR2ProviderCtx creates a new OCR2ProviderCtx instance using adapter.
+func NewOCR2ProviderCtx(provider OCR2Provider) OCR2ProviderCtx {
 	return &ocr2ProviderAdapter{
 		provider,
 	}

@@ -335,12 +335,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
-			solanaRelayerCtx := relaytypes.NewRelayerAdapter(solanaRelayer)
+			solanaRelayerCtx := relaytypes.NewRelayerCtx(solanaRelayer)
 			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			terraRelayerCtx := relaytypes.NewRelayerAdapter(terraRelayer)
+			terraRelayerCtx := relaytypes.NewRelayerCtx(terraRelayer)
 			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
 		}
 		subservices = append(subservices, relay)
