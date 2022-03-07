@@ -22,6 +22,7 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.7
+	github.com/gobuffalo/packr v1.30.1
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
@@ -57,7 +58,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-solana v0.2.12-0.20220217150457-281a05e940f1
-	github.com/smartcontractkit/chainlink-terra v0.1.2-0.20220303010347-93a6bab4acef
+	github.com/smartcontractkit/chainlink-terra v0.1.3
 	github.com/smartcontractkit/helmenv v1.0.36
 	github.com/smartcontractkit/integrations-framework v1.0.50
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
@@ -88,6 +89,13 @@ require (
 	gonum.org/v1/gonum v0.9.3
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/guregu/null.v4 v4.0.0
+)
+
+require (
+	github.com/gobuffalo/envy v1.7.0 // indirect
+	github.com/gobuffalo/packd v1.0.0 // indirect
+	github.com/joho/godotenv v1.3.0 // indirect
+	github.com/rogpeppe/go-internal v1.5.2 // indirect
 )
 
 require (
