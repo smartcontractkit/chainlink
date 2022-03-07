@@ -64,6 +64,7 @@ func New() (*KeyBundle, error) {
 	return NewFrom(cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
 }
 
+// NewFrom makes a new set of OCR key bundles from cryptographically secure entropy
 func NewFrom(onChainSigning io.Reader, offChainSigning io.Reader, offChainEncryption io.Reader) (*KeyBundle, error) {
 	ecdsaKey, err := ecdsa.GenerateKey(curve, onChainSigning)
 	if err != nil {

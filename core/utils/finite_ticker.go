@@ -2,6 +2,7 @@ package utils
 
 import "time"
 
+// FiniteTicker starts a goroutine to execute the given function periodically, until the returned function is called.
 func FiniteTicker(period time.Duration, onTick func()) func() {
 	tick := time.NewTicker(period)
 	chStop := make(chan struct{})
