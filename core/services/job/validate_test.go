@@ -20,7 +20,7 @@ type="blah"
 schemaVersion=1
 `,
 			assertion: func(t *testing.T, err error) {
-				require.True(t, errors.Cause(err) == ErrInvalidJobType)
+				require.True(t, errors.Is(errors.Cause(err), ErrInvalidJobType))
 			},
 		},
 		{
@@ -30,7 +30,7 @@ type="vrf"
 schemaVersion=2
 `,
 			assertion: func(t *testing.T, err error) {
-				require.True(t, errors.Cause(err) == ErrInvalidSchemaVersion)
+				require.True(t, errors.Is(errors.Cause(err), ErrInvalidSchemaVersion))
 			},
 		},
 		{
@@ -39,7 +39,7 @@ schemaVersion=2
 type="vrf"
 `,
 			assertion: func(t *testing.T, err error) {
-				require.True(t, errors.Cause(err) == ErrInvalidSchemaVersion)
+				require.True(t, errors.Is(errors.Cause(err), ErrInvalidSchemaVersion))
 			},
 		},
 		{
@@ -49,7 +49,7 @@ type="vrf"
 schemaVersion=1
 `,
 			assertion: func(t *testing.T, err error) {
-				require.True(t, errors.Cause(err) == ErrNoPipelineSpec)
+				require.True(t, errors.Is(errors.Cause(err), ErrNoPipelineSpec))
 			},
 		},
 		{
@@ -60,7 +60,7 @@ schemaVersion=1
 observationSource=""
 `,
 			assertion: func(t *testing.T, err error) {
-				require.True(t, errors.Cause(err) == ErrNoPipelineSpec)
+				require.True(t, errors.Is(errors.Cause(err), ErrNoPipelineSpec))
 			},
 		},
 		{

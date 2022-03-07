@@ -965,7 +965,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
 	}
 
-	if errors.Cause(err) == gas.ErrBumpGasExceedsLimit {
+	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {
 		promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
 	}
 
