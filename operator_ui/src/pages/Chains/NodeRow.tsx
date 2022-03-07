@@ -31,6 +31,8 @@ export const NodeRow = withStyles(tableStyles)(({ node, classes }: Props) => {
       <TableCell>
         <TimeAgo tooltip>{createdAt}</TimeAgo>
       </TableCell>
+
+      <TableCell>{node.attributes.state}</TableCell>
     </TableRow>
   )
 })

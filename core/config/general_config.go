@@ -218,6 +218,9 @@ type GlobalConfig interface {
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
+	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
+	GlobalNodePollFailureThreshold() (uint32, bool)
+	GlobalNodePollInterval() (time.Duration, bool)
 
 	OCR1Config
 	OCR2Config
@@ -331,10 +334,10 @@ EVM_ENABLED=false
 `)
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {
@@ -1438,6 +1441,30 @@ func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+
+func (c *generalConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodeNoNewHeadsThreshold"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+
+func (c *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollFailureThreshold"), parse.Uint32)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint32), ok
+}
+
+func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollInterval"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

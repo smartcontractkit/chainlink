@@ -150,7 +150,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Config:           cfg,
 		Logger:           appLggr,
 		DB:               db,
-		ORM:              evm.NewORM(db),
+		ORM:              evm.NewORM(db, appLggr, cfg),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
@@ -276,7 +276,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
-			if err != http.ErrServerClosed {
+			if !errors.Is(err, http.ErrServerClosed) {
 				lggr.Criticalf("Error starting server: %v", err)
 			}
 		}
