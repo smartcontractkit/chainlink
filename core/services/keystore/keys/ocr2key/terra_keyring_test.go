@@ -3,8 +3,9 @@ package ocr2key
 import (
 	"bytes"
 	cryptorand "crypto/rand"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/require"
