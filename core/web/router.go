@@ -251,8 +251,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
 
-		ts := TransfersController{app}
-		authv2.POST("/transfers", ts.Create)
+		ets := EVMTransfersController{app}
+		authv2.POST("/transfers", ets.Create)
+		authv2.POST("/transfers/evm", ets.Create)
+		tts := TerraTransfersController{app}
+		authv2.POST("/transfers/terra", tts.Create)
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
@@ -266,8 +269,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
+		authv2.GET("/tx_attempts/evm", paginatedRequest(tas.Index))
 
 		txs := TransactionsController{app}
+		authv2.GET("/transactions/evm", paginatedRequest(txs.Index))
+		authv2.GET("/transactions/evm/:TxHash", txs.Show)
 		authv2.GET("/transactions", paginatedRequest(txs.Index))
 		authv2.GET("/transactions/:TxHash", txs.Show)
 

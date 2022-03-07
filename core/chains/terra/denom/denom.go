@@ -22,7 +22,17 @@ func init() {
 	}
 }
 
-// ConvertToLuna is just a helper for converting to luna from other denominations.
+// ConvertToLuna is a helper for converting to luna.
 func ConvertToLuna(coin sdk.Coin) (sdk.DecCoin, error) {
 	return sdk.ConvertDecCoin(sdk.NewDecCoinFromCoin(coin), "luna")
+}
+
+// ConvertToULuna is a helper for converting to uluna.
+func ConvertToULuna(coin sdk.DecCoin) (sdk.Coin, error) {
+	decCoin, err := sdk.ConvertDecCoin(coin, "uluna")
+	if err != nil {
+		return sdk.Coin{}, err
+	}
+	truncated, _ := decCoin.TruncateDecimal()
+	return truncated, nil
 }

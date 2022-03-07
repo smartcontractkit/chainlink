@@ -19,6 +19,20 @@ import (
 )
 
 // ConfigSchema records the schema of configuration at the type level
+//
+// A note on Feature Flags
+//
+// Feature flags should be used during development of large features that might
+// span more than one release cycle. Most changes that are not considered "complete"
+// when a PR is merged and might affect node operation should be put behind a
+// feature flag.
+//
+// This also allows to disable large parts of the code that may not be needed
+// for all deployments that could introduce attack surface area if it is not
+// needed.
+//
+// Good example usage is for alternative blockchain support, new services like
+// Feeds Manager, external initiators and so on.
 type ConfigSchema struct {
 	// ESSENTIAL
 	DatabaseURL string `env:"DATABASE_URL"`
@@ -39,6 +53,7 @@ type ConfigSchema struct {
 	TelemetryIngressBufferSize   uint            `env:"TELEMETRY_INGRESS_BUFFER_SIZE" default:"100"`
 	TelemetryIngressMaxBatchSize uint            `env:"TELEMETRY_INGRESS_MAX_BATCH_SIZE" default:"50"`
 	TelemetryIngressSendInterval time.Duration   `env:"TELEMETRY_INGRESS_SEND_INTERVAL" default:"500ms"`
+	TelemetryIngressSendTimeout  time.Duration   `env:"TELEMETRY_INGRESS_SEND_TIMEOUT" default:"10s"`
 	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
 	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 

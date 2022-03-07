@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -78,7 +77,6 @@ type Application interface {
 	JobSpawner() job.Spawner
 	JobORM() job.ORM
 	EVMORM() evmtypes.ORM
-	TerraORM() terratypes.ORM
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
@@ -94,8 +92,9 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
-	// ReplayFromBlock of blocks
-	ReplayFromBlock(chainID *big.Int, number uint64) error
+	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
+	// set to true, consumers will reprocess data even if it has already been processed.
+	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -148,7 +147,17 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM   evm.ChainSet
-	Terra terra.ChainSet
+	Terra terra.ChainSet // nil if disabled
+}
+
+func (c *Chains) services() (s []interface{}) {
+	if c.EVM != nil {
+		s = append(s, c.EVM)
+	}
+	if c.Terra != nil {
+		s = append(s, c.Terra)
+	}
+	return
 }
 
 // NewApplication initializes a new store if one is not already
@@ -198,7 +207,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
 		if cfg.TelemetryIngressUseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval())
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval(), cfg.TelemetryIngressSendTimeout())
 			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
 
 		} else {
@@ -221,7 +230,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
-	subservices = append(subservices, eventBroadcaster, chains.EVM)
+	subservices = append(subservices, eventBroadcaster)
+	subservices = append(subservices, chains.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
@@ -576,11 +586,6 @@ func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
 	return app.Chains.EVM.ORM()
 }
 
-// TerraORM returns the Terra ORM.
-func (app *ChainlinkApplication) TerraORM() terratypes.ORM {
-	return app.Chains.Terra.ORM()
-}
-
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
@@ -696,12 +701,13 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
 
-func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64) error {
+// ReplayFromBlock implements the Application interface.
+func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
 	chain, err := app.Chains.EVM.Get(chainID)
 	if err != nil {
 		return err
 	}
-	chain.LogBroadcaster().ReplayFromBlock(int64(number))
+	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
 	return nil
 }
 

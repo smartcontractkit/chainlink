@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
+
+	"github.com/urfave/cli"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 )
 
 type EthTxPresenter struct {
@@ -57,7 +59,7 @@ func (ps EthTxPresenters) RenderTable(rt RendererTable) error {
 // IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTransactions(c *cli.Context) error {
-	return cli.getPage("/v2/transactions", c.Int("page"), &EthTxPresenters{})
+	return cli.getPage("/v2/transactions/evm", c.Int("page"), &EthTxPresenters{})
 }
 
 // ShowTransaction returns the info for the given transaction hash
@@ -66,7 +68,7 @@ func (cli *Client) ShowTransaction(c *cli.Context) (err error) {
 		return cli.errorOut(errors.New("must pass the hash of the transaction"))
 	}
 	hash := c.Args().First()
-	resp, err := cli.HTTP.Get("/v2/transactions/" + hash)
+	resp, err := cli.HTTP.Get("/v2/transactions/evm/" + hash)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -83,13 +85,13 @@ func (cli *Client) ShowTransaction(c *cli.Context) (err error) {
 // IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTxAttempts(c *cli.Context) error {
-	return cli.getPage("/v2/tx_attempts", c.Int("page"), &EthTxPresenters{})
+	return cli.getPage("/v2/tx_attempts/evm", c.Int("page"), &EthTxPresenters{})
 }
 
 // SendEther transfers ETH from the node's account to a specified address.
 func (cli *Client) SendEther(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return cli.errorOut(errors.New("sendether expects three arguments: amount, fromAddress and toAddress"))
+		return cli.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
 	}
 
 	var amount assets.Eth
@@ -128,10 +130,21 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 				unparsedDestinationAddress), err))
 	}
 
+	var evmChainID *big.Int
+	if c.IsSet("id") {
+		s := c.String("id")
+		var ok bool
+		evmChainID, ok = new(big.Int).SetString(s, 10)
+		if !ok {
+			return cli.errorOut(errors.New(""))
+		}
+	}
+
 	request := models.SendEtherRequest{
 		DestinationAddress: destinationAddress,
 		FromAddress:        fromAddress,
 		Amount:             amount,
+		EVMChainID:         (*utils.Big)(evmChainID),
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 
@@ -142,7 +155,7 @@ func (cli *Client) SendEther(c *cli.Context) (err error) {
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := cli.HTTP.Post("/v2/transfers", buf)
+	resp, err := cli.HTTP.Post("/v2/transfers/evm", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}

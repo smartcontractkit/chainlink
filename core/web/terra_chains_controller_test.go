@@ -17,6 +17,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
@@ -307,7 +308,7 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 	}
 	terratest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
 
-	_, countBefore, err := controller.app.TerraORM().Chains(0, 10)
+	_, countBefore, err := controller.app.Chains.Terra.ORM().Chains(0, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, countBefore)
 
@@ -316,7 +317,7 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
-		_, countAfter, err := controller.app.TerraORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Terra.ORM().Chains(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 1, countAfter)
 	})
@@ -328,11 +329,11 @@ func Test_TerraChainsController_Delete(t *testing.T) {
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-		_, countAfter, err := controller.app.TerraORM().Chains(0, 10)
+		_, countAfter, err := controller.app.Chains.Terra.ORM().Chains(0, 10)
 		require.NoError(t, err)
 		require.Equal(t, 0, countAfter)
 
-		_, err = controller.app.TerraORM().Chain(chain.ID)
+		_, err = controller.app.Chains.Terra.ORM().Chain(chain.ID)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, sql.ErrNoRows))
@@ -345,9 +346,11 @@ type TestTerraChainsController struct {
 }
 
 func setupTerraChainsControllerTest(t *testing.T) *TestTerraChainsController {
-	// Using this instead of `NewApplicationTerraDisabled` since we need the chain set to be loaded in the app
-	// for the sake of the API endpoints to work properly
-	app := cltest.NewApplication(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.TerraEnabled = null.BoolFrom(true)
+	cfg.Overrides.EVMEnabled = null.BoolFrom(false)
+	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient()

@@ -33,7 +33,7 @@ import (
 // So we set a fairly high timeout here.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --name MsgEnqueuer --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
+//go:generate mockery --name TxManager --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 //go:generate mockery --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
 //go:generate mockery --name Chain --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 var _ terra.Chain = (*chain)(nil)
@@ -88,7 +88,7 @@ func (c *chain) UpdateConfig(cfg db.ChainCfg) {
 	c.cfg.Update(cfg)
 }
 
-func (c *chain) MsgEnqueuer() terra.MsgEnqueuer {
+func (c *chain) TxManager() terra.TxManager {
 	return c.txm
 }
 
@@ -97,7 +97,7 @@ func (c *chain) Reader(name string) (terraclient.Reader, error) {
 }
 
 // getClient returns a client, optionally requiring a specific node by name.
-func (c *chain) getClient(name string) (*terraclient.Client, error) {
+func (c *chain) getClient(name string) (terraclient.ReaderWriter, error) {
 	//TODO cache clients?
 	var node db.Node
 	if name == "" { // Any node

@@ -161,6 +161,7 @@ func TestConfigSchema(t *testing.T) {
 		"TelemetryIngressLogging":                        "TELEMETRY_INGRESS_LOGGING",
 		"TelemetryIngressMaxBatchSize":                   "TELEMETRY_INGRESS_MAX_BATCH_SIZE",
 		"TelemetryIngressSendInterval":                   "TELEMETRY_INGRESS_SEND_INTERVAL",
+		"TelemetryIngressSendTimeout":                    "TELEMETRY_INGRESS_SEND_TIMEOUT",
 		"TelemetryIngressServerPubKey":                   "TELEMETRY_INGRESS_SERVER_PUB_KEY",
 		"TelemetryIngressURL":                            "TELEMETRY_INGRESS_URL",
 		"TelemetryIngressUseBatchSend":                   "TELEMETRY_INGRESS_USE_BATCH_SEND",
