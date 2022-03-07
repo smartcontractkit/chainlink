@@ -314,18 +314,18 @@ func (c *generalConfig) Validate() error {
 	}
 
 	if _, exists := os.LookupEnv("ETH_DISABLED"); exists {
-		c.lggr.Warn(`DEPRECATION WARNING: ETH_DISABLED has been deprecated.
+		c.lggr.Error(`ETH_DISABLED is deprecated.
 
-This warning will become a fatal error in a future release. Please switch to using one of the two options below instead:
+This will become a fatal error in a future release. Please switch to using one of the two options below instead:
 
 - EVM_ENABLED=false - set this if you wish to completely disable all EVM chains and jobs and prevent them from ever loading (this is probably the one you want).
 - EVM_RPC_ENABLED=false - set this if you wish to load all EVM chains and jobs, but prevent any RPC calls to the eth node (the old behaviour).
 `)
 	}
 	if _, exists := os.LookupEnv("EVM_DISABLED"); exists {
-		c.lggr.Warn(`DEPRECATION WARNING: EVM_DISABLED has been deprecated and superceded by EVM_ENABLED.
+		c.lggr.Error(`EVM_DISABLED is deprecated and superceded by EVM_ENABLED.
 
-This warning will become a fatal error in a future release. Please use the following instead to disable EVM chains:
+This will become a fatal error in a future release. Please use the following instead to disable EVM chains:
 
 EVM_ENABLED=false
 `)
@@ -363,19 +363,19 @@ EVM_ENABLED=false
 	}
 	// Warn on legacy OCR env vars
 	if c.OCRDHTLookupInterval() != 0 {
-		c.lggr.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
+		c.lggr.Error("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
 	if c.OCRBootstrapCheckInterval() != 0 {
-		c.lggr.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
+		c.lggr.Error("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
 	if c.OCRIncomingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCROutgoingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCRNewStreamTimeout() != 0 {
-		c.lggr.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
+		c.lggr.Error("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 
 	switch c.DatabaseLockingMode() {
