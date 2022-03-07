@@ -152,6 +152,7 @@ var _ = Describe("VRF suite @vrf", func() {
 		By("Printing gas stats", func() {
 			nets.Default.GasStats().PrintStats()
 		})
+
 		By("Tearing down the environment", func() {
 			err = actions.TeardownSuite(e, nets, utils.ProjectRoot, nil)
 			Expect(err).ShouldNot(HaveOccurred())
