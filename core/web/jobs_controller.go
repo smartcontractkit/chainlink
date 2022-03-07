@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -114,7 +114,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 			return
 		}
 	case job.OffchainReporting2:
-		jb, err = ocr2.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
+		jb, err = validate.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting2() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
 			return
