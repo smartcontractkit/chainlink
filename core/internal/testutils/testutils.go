@@ -23,6 +23,12 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
 }
 
+// NewRandomInt64 returns a (non-cryptographically secure) random positive int64
+func NewRandomInt64() int64 {
+	id := mrand.Int63()
+	return id
+}
+
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
 	_, _ = mrand.Read(b) // Assignment for errcheck. Only used in tests so we can ignore.

@@ -280,7 +280,7 @@ func (r *Resolver) VRFKey(ctx context.Context, args struct {
 
 	key, err := r.App.GetKeyStore().VRF().Get(string(args.ID))
 	if err != nil {
-		if errors.Cause(err) == keystore.ErrMissingVRFKey {
+		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
 			return NewVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
 		}
 		return nil, err
@@ -409,7 +409,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		}
 
 		chain, err := r.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
-		if errors.Cause(err) == evm.ErrNoChains {
+		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.Address,
 				state: state,

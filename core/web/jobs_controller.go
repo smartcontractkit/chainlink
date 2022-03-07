@@ -72,7 +72,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
+		if errors.Is(errors.Cause(err), sql.ErrNoRows) {
 			jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		} else {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -148,7 +148,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	defer cancel()
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Cause(err) == job.ErrNoSuchTransmitterKey {
+		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
