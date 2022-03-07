@@ -382,7 +382,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().Node(id)
+	node, err := r.App.GetChains().EVM.GetNode(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteNodePayloadResolver(nil, err), nil
@@ -501,7 +501,7 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 
 	key, err := r.App.GetKeyStore().VRF().Delete(string(args.ID))
 	if err != nil {
-		if errors.Cause(err) == keystore.ErrMissingVRFKey {
+		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
 			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
 		}
 		return nil, err
