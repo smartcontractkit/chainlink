@@ -86,6 +86,6 @@ func (tk *terraKeyring) marshal() ([]byte, error) {
 func (tk *terraKeyring) unmarshal(in []byte) error {
 	privKey := ed25519.NewKeyFromSeed(in)
 	tk.privKey = privKey
-	tk.pubKey = ed25519.PublicKey(privKey[32:])
+	tk.pubKey = privKey.Public().(ed25519.PublicKey)
 	return nil
 }
