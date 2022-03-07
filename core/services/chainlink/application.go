@@ -150,12 +150,12 @@ type Chains struct {
 	Terra terra.ChainSet // nil if disabled
 }
 
-func (c *Chains) services() (s []interface{}) {
+func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
 	if c.Terra != nil {
-		s = append(s, c.Terra)
+		s = append(s, services.NewServiceCtx(c.Terra))
 	}
 	return
 }

@@ -97,19 +97,14 @@ type (
 
 		Checkable
 	}
-
-	// ServiceAdapter is a helper introduced for transitioning from Service to ServiceCtx.
-	ServiceAdapter interface {
-		ServiceCtx
-	}
 )
 
 type adapter struct {
 	service Service
 }
 
-// NewServiceAdapter creates an adapter instance for the given Service.
-func NewServiceAdapter(service Service) ServiceCtx {
+// NewServiceCtx creates an adapter instance for the given Service.
+func NewServiceCtx(service Service) ServiceCtx {
 	return &adapter{
 		service,
 	}
