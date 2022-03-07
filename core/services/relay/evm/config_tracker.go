@@ -2,8 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/hex"
-	"fmt"
 	"math/big"
 	"sync"
 
@@ -126,10 +124,10 @@ func (c *ConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64)
 		return ocrtypes.ContractConfig{}, err
 	}
 	if len(logs) == 0 {
-		c.lggr.Warnw("Contract not configured yet")
+		err = errors.New("Contract not configured yet")
+		c.lggr.Warnw(err.Error())
 		return ocrtypes.ContractConfig{}, err
 	}
-	fmt.Println("config set blah", hex.EncodeToString(logs[len(logs)-1].Data))
 	return parseConfigSet(c.contractABI, logs[len(logs)-1])
 }
 

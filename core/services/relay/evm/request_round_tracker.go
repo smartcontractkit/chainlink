@@ -30,7 +30,7 @@ type RequestRoundTracker struct {
 	contractFilterer *ocr2aggregator.OCR2AggregatorFilterer
 	logBroadcaster   log.Broadcaster
 	jobID            int32
-	logger           logger.Logger
+	lggr             logger.Logger
 	odb              RequestRoundDB
 	q                pg.Q
 	blockTranslator  ocrcommon.BlockTranslator
@@ -56,30 +56,25 @@ func NewRequestRoundTracker(
 	ethClient evmclient.Client,
 	logBroadcaster log.Broadcaster,
 	jobID int32,
-	logger logger.Logger,
+	lggr logger.Logger,
 	db *sqlx.DB,
 	odb RequestRoundDB,
 	chain ocrcommon.Config,
 ) (o *RequestRoundTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &RequestRoundTracker{
-		utils.StartStopOnce{},
-		ethClient,
-		contract,
-		contractFilterer,
-		logBroadcaster,
-		jobID,
-		logger,
-		odb,
-		pg.NewQ(db, logger, chain),
-		ocrcommon.NewBlockTranslator(chain, ethClient, logger),
-		ctx,
-		cancel,
-		nil,
-		ocr2aggregator.OCR2AggregatorRoundRequested{},
-		sync.RWMutex{},
-		-1,
-		sync.RWMutex{},
+		ethClient:         ethClient,
+		contract:          contract,
+		contractFilterer:  contractFilterer,
+		logBroadcaster:    logBroadcaster,
+		jobID:             jobID,
+		lggr:              lggr,
+		odb:               odb,
+		q:                 pg.NewQ(db, lggr, chain),
+		blockTranslator:   ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
+		ctx:               ctx,
+		ctxCancel:         cancel,
+		latestBlockHeight: -1,
 	}
 }
 
@@ -118,7 +113,7 @@ func (t *RequestRoundTracker) Close() error {
 func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		t.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
+		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
 		return
 	} else if was {
 		return
@@ -126,13 +121,13 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
-		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 		return
 	}
 
@@ -142,8 +137,8 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 		var rr *ocr2aggregator.OCR2AggregatorRoundRequested
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
-			t.logger.Errorw("could not parse round requested", "err", err)
-			t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+			t.lggr.Errorw("could not parse round requested", "err", err)
+			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
@@ -154,22 +149,22 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(q))
 			})
 			if err != nil {
-				t.logger.Error(err)
+				t.lggr.Error(err)
 				return
 			}
 			consumed = true
 			t.lrrMu.Lock()
 			t.latestRoundRequested = *rr
 			t.lrrMu.Unlock()
-			t.logger.Infow("RequestRoundTracker: received new latest RoundRequested event", "latestRoundRequested", *rr)
+			t.lggr.Infow("RequestRoundTracker: received new latest RoundRequested event", "latestRoundRequested", *rr)
 		} else {
-			t.logger.Warnw("RequestRoundTracker: ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
+			t.lggr.Warnw("RequestRoundTracker: ignoring out of date RoundRequested event", "latestRoundRequested", t.latestRoundRequested, "roundRequested", rr)
 		}
 	default:
-		t.logger.Debugw("RequestRoundTracker: got unrecognised log topic", "topic", topics[0])
+		t.lggr.Debugw("RequestRoundTracker: got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 	}
 }
 
