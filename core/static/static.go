@@ -2,7 +2,9 @@ package static
 
 import (
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -35,7 +37,10 @@ func init() {
 
 func checkVersion() {
 	if Version == "unset" {
-		return
+		if os.Getenv("CHAINLINK_DEV") == "true" {
+			return
+		}
+		log.Println(`Version was unset but CHAINLINK_DEV was not set to "true". Chainlink should be built with static.Version set to a valid semver for production builds.`)
 	} else if _, err := semver.NewVersion(Version); err != nil {
 		panic(fmt.Sprintf("Version invalid: %q is not valid semver", Version))
 	}
