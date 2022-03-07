@@ -1065,6 +1065,40 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		config.AssertExpectations(t)
 	})
 
+	t.Run("respects minimum gas tip cap", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+		config.On("EvmGasTipCapMinimum").Return(big.NewInt(1))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+
+		bhe := newBlockHistoryEstimator(t, ethClient, config)
+
+		b1Hash := utils.NewHash()
+
+		blocks := []gas.Block{
+			gas.Block{
+				BaseFeePerGas: big.NewInt(10),
+				Number:        0,
+				Hash:          b1Hash,
+				ParentHash:    common.Hash{},
+				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(0, 0, 0, 0, 100),
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(cltest.Head(0))
+
+		price := gas.GetTipCap(bhe)
+		assert.Equal(t, big.NewInt(1), price)
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
 	t.Run("allows to set zero tip cap if minimum allows it", func(t *testing.T) {
 		// Because everyone loves *cheap* gas!
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
