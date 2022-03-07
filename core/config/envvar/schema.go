@@ -296,6 +296,7 @@ func Name(field string) string {
 	return item.Tag.Get("env")
 }
 
+// TryName gracefully tries to get the environment variable Name for a config schema field
 func TryName(field string) string {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	item, ok := schemaT.FieldByName(field)
@@ -305,6 +306,7 @@ func TryName(field string) string {
 	return item.Tag.Get("env")
 }
 
+// DefaultValue looks up the default value
 func DefaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
@@ -314,6 +316,7 @@ func DefaultValue(name string) (string, bool) {
 	return "", false
 }
 
+// ZeroValue returns the zero value for a named field, or panics if it does not exist.
 func ZeroValue(name string) interface{} {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
