@@ -2272,6 +2272,69 @@ func (_m *ChainScopedConfig) GlobalMinimumContractPayment() (*assets.Link, bool)
 	return r0, r1
 }
 
+// GlobalNodeNoNewHeadsThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalNodePollFailureThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalNodePollInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalNodePollInterval() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -2831,6 +2894,48 @@ func (_m *ChainScopedConfig) MinimumContractPayment() *assets.Link {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Link)
 		}
+	}
+
+	return r0
+}
+
+// NodeNoNewHeadsThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) NodeNoNewHeadsThreshold() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// NodePollFailureThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) NodePollFailureThreshold() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// NodePollInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) NodePollInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

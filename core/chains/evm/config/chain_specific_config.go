@@ -60,8 +60,12 @@ type (
 		minIncomingConfirmations                       uint32
 		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
-		nonceAutoSync                                  bool
-		rpcDefaultBatchSize                            uint32
+		nodeDeadAfterNoNewHeadersThreshold             time.Duration
+		nodePollFailureThreshold                       uint32
+		nodePollInterval                               time.Duration
+
+		nonceAutoSync       bool
+		rpcDefaultBatchSize uint32
 		// set true if fully configured
 		complete bool
 
@@ -131,6 +135,9 @@ func setChainSpecificConfigDefaultSets() {
 		minIncomingConfirmations:              3,
 		minRequiredOutgoingConfirmations:      12,
 		minimumContractPayment:                DefaultMinimumContractPayment,
+		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
+		nodePollFailureThreshold:              5,
+		nodePollInterval:                      10 * time.Second,
 		nonceAutoSync:                         true,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
