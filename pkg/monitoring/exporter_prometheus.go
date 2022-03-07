@@ -88,16 +88,22 @@ func (p *prometheusExporter) Export(_ context.Context, data interface{}) {
 	}
 }
 
+func toFloat64(bignum *big.Int) float64 {
+	val, _ := new(big.Float).SetInt(bignum).Float64()
+	return val
+}
+
 func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 	p.updateLabels(prometheusLabels{
 		sender: string(envelope.Transmitter),
 	})
-	var multiply float64 = 1
-	if p.feedConfig.GetMultiply().Uint64() != 0 {
-		multiply = float64(p.feedConfig.GetMultiply().Uint64())
+	multiply := toFloat64(p.feedConfig.GetMultiply())
+	if multiply == 0.0 {
+		multiply = 1.0
 	}
+	linkBalance := toFloat64(envelope.LinkBalance)
 	p.metrics.SetFeedContractLinkBalance(
-		float64(envelope.LinkBalance.Uint64()),
+		linkBalance,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -141,9 +147,9 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 	}
 	// All the metrics below are only updated if there was a fresh
 	// transmission since the last chain read.
-
+	latestAnswer := toFloat64(envelope.LatestAnswer)
 	p.metrics.SetOffchainAggregatorAnswers(
-		float64(envelope.LatestAnswer.Uint64())/multiply,
+		latestAnswer/multiply,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -155,7 +161,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorAnswersRaw(
-		float64(envelope.LatestAnswer.Uint64()),
+		latestAnswer,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -177,8 +183,9 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkID(),
 		p.chainConfig.GetNetworkName(),
 	)
+	juelsPerFeeCoin := toFloat64(envelope.JuelsPerFeeCoin)
 	p.metrics.SetOffchainAggregatorJuelsPerFeeCoinRaw(
-		float64(envelope.JuelsPerFeeCoin.Uint64()),
+		juelsPerFeeCoin,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -190,7 +197,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorJuelsPerFeeCoin(
-		float64(envelope.JuelsPerFeeCoin.Uint64())/multiply,
+		juelsPerFeeCoin/multiply,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		p.chainConfig.GetChainID(),
@@ -202,7 +209,7 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkName(),
 	)
 	p.metrics.SetOffchainAggregatorSubmissionReceivedValues(
-		float64(envelope.LatestAnswer.Uint64())/multiply,
+		latestAnswer/multiply,
 		p.feedConfig.GetID(),
 		p.feedConfig.GetID(),
 		string(envelope.Transmitter),

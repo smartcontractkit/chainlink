@@ -48,22 +48,22 @@ func TestPrometheusExporter(t *testing.T) {
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(2),
 		}))
 
-		humanizedAnswer1 := float64(envelope1.LatestAnswer.Uint64()) / float64(feedConfig.GetMultiply().Uint64())
-		humanizedAnswer2 := float64(envelope2.LatestAnswer.Uint64()) / float64(feedConfig.GetMultiply().Uint64())
-		humanizedJuelsPerFeeCoin1 := float64(envelope1.JuelsPerFeeCoin.Uint64()) / float64(feedConfig.GetMultiply().Uint64())
-		humanizedJuelsPerFeeCoin2 := float64(envelope2.JuelsPerFeeCoin.Uint64()) / float64(feedConfig.GetMultiply().Uint64())
+		humanizedAnswer1 := toFloat64(envelope1.LatestAnswer) / toFloat64(feedConfig.GetMultiply())
+		humanizedAnswer2 := toFloat64(envelope2.LatestAnswer) / toFloat64(feedConfig.GetMultiply())
+		humanizedJuelsPerFeeCoin1 := toFloat64(envelope1.JuelsPerFeeCoin) / toFloat64(feedConfig.GetMultiply())
+		humanizedJuelsPerFeeCoin2 := toFloat64(envelope2.JuelsPerFeeCoin) / toFloat64(feedConfig.GetMultiply())
 
 		metrics.On("SetFeedContractLinkBalance",
-			float64(envelope1.LinkBalance.Uint64()), // balance
-			feedConfig.GetID(),                      // contractAddress
-			feedConfig.GetID(),                      // feedID
-			chainConfig.GetChainID(),                // chainID
-			feedConfig.GetContractStatus(),          // contractStatus
-			feedConfig.GetContractType(),            // contractType
-			feedConfig.GetName(),                    // feedName
-			feedConfig.GetPath(),                    // feedPath
-			chainConfig.GetNetworkID(),              // networkID
-			chainConfig.GetNetworkName(),            // networkName
+			toFloat64(envelope1.LinkBalance), // balance
+			feedConfig.GetID(),               // contractAddress
+			feedConfig.GetID(),               // feedID
+			chainConfig.GetChainID(),         // chainID
+			feedConfig.GetContractStatus(),   // contractStatus
+			feedConfig.GetContractType(),     // contractType
+			feedConfig.GetName(),             // feedName
+			feedConfig.GetPath(),             // feedPath
+			chainConfig.GetNetworkID(),       // networkID
+			chainConfig.GetNetworkName(),     // networkName
 		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
@@ -91,16 +91,16 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorAnswersRaw",
-			float64(envelope1.LatestAnswer.Uint64()), // answer
-			feedConfig.GetID(),                       // contractAddress
-			feedConfig.GetID(),                       // feedID
-			chainConfig.GetChainID(),                 // chainID
-			feedConfig.GetContractStatus(),           // contractStatus
-			feedConfig.GetContractType(),             // contractType
-			feedConfig.GetName(),                     // feedName
-			feedConfig.GetPath(),                     // feedPath
-			chainConfig.GetNetworkID(),               // networkID
-			chainConfig.GetNetworkName(),             // networkName
+			toFloat64(envelope1.LatestAnswer), // answer
+			feedConfig.GetID(),                // contractAddress
+			feedConfig.GetID(),                // feedID
+			chainConfig.GetChainID(),          // chainID
+			feedConfig.GetContractStatus(),    // contractStatus
+			feedConfig.GetContractType(),      // contractType
+			feedConfig.GetName(),              // feedName
+			feedConfig.GetPath(),              // feedPath
+			chainConfig.GetNetworkID(),        // networkID
+			chainConfig.GetNetworkName(),      // networkName
 		).Once()
 		metrics.On("IncOffchainAggregatorAnswersTotal",
 			feedConfig.GetID(),             // contractAddress
@@ -114,7 +114,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorJuelsPerFeeCoinRaw",
-			float64(envelope1.JuelsPerFeeCoin.Uint64()),
+			toFloat64(envelope1.JuelsPerFeeCoin),
 			feedConfig.GetID(),
 			feedConfig.GetID(),
 			chainConfig.GetChainID(),
@@ -177,16 +177,16 @@ func TestPrometheusExporter(t *testing.T) {
 		exporter.Export(ctx, envelope1)
 
 		metrics.On("SetFeedContractLinkBalance",
-			float64(envelope2.LinkBalance.Uint64()), // balance
-			feedConfig.GetID(),                      // contractAddress
-			feedConfig.GetID(),                      // feedID
-			chainConfig.GetChainID(),                // chainID
-			feedConfig.GetContractStatus(),          // contractStatus
-			feedConfig.GetContractType(),            // contractType
-			feedConfig.GetName(),                    // feedName
-			feedConfig.GetPath(),                    // feedPath
-			chainConfig.GetNetworkID(),              // networkID
-			chainConfig.GetNetworkName(),            // networkName
+			toFloat64(envelope2.LinkBalance), // balance
+			feedConfig.GetID(),               // contractAddress
+			feedConfig.GetID(),               // feedID
+			chainConfig.GetChainID(),         // chainID
+			feedConfig.GetContractStatus(),   // contractStatus
+			feedConfig.GetContractType(),     // contractType
+			feedConfig.GetName(),             // feedName
+			feedConfig.GetPath(),             // feedPath
+			chainConfig.GetNetworkID(),       // networkID
+			chainConfig.GetNetworkName(),     // networkName
 		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
@@ -214,16 +214,16 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorAnswersRaw",
-			float64(envelope2.LatestAnswer.Uint64()), // answer
-			feedConfig.GetID(),                       // contractAddress
-			feedConfig.GetID(),                       // feedID
-			chainConfig.GetChainID(),                 // chainID
-			feedConfig.GetContractStatus(),           // contractStatus
-			feedConfig.GetContractType(),             // contractType
-			feedConfig.GetName(),                     // feedName
-			feedConfig.GetPath(),                     // feedPath
-			chainConfig.GetNetworkID(),               // networkID
-			chainConfig.GetNetworkName(),             // networkName
+			toFloat64(envelope2.LatestAnswer), // answer
+			feedConfig.GetID(),                // contractAddress
+			feedConfig.GetID(),                // feedID
+			chainConfig.GetChainID(),          // chainID
+			feedConfig.GetContractStatus(),    // contractStatus
+			feedConfig.GetContractType(),      // contractType
+			feedConfig.GetName(),              // feedName
+			feedConfig.GetPath(),              // feedPath
+			chainConfig.GetNetworkID(),        // networkID
+			chainConfig.GetNetworkName(),      // networkName
 		).Once()
 		metrics.On("IncOffchainAggregatorAnswersTotal",
 			feedConfig.GetID(),             // contractAddress
@@ -237,7 +237,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorJuelsPerFeeCoinRaw",
-			float64(envelope2.JuelsPerFeeCoin.Uint64()),
+			toFloat64(envelope2.JuelsPerFeeCoin),
 			feedConfig.GetID(),
 			feedConfig.GetID(),
 			chainConfig.GetChainID(),
@@ -364,20 +364,20 @@ func TestPrometheusExporter(t *testing.T) {
 		envelope2.LatestTimestamp = envelope1.LatestTimestamp
 		envelope2.Transmitter = envelope1.Transmitter
 
-		humanizedAnswer := float64(envelope1.LatestAnswer.Uint64()) / float64(feedConfig.GetMultiply().Uint64())
-		humanizedJuelsPerFeeCoin := float64(envelope1.JuelsPerFeeCoin.Uint64()) / float64(feedConfig.GetMultiply().Uint64())
+		humanizedAnswer := toFloat64(envelope1.LatestAnswer) / toFloat64(feedConfig.GetMultiply())
+		humanizedJuelsPerFeeCoin := toFloat64(envelope1.JuelsPerFeeCoin) / toFloat64(feedConfig.GetMultiply())
 
 		metrics.On("SetFeedContractLinkBalance",
-			float64(envelope1.LinkBalance.Uint64()), // balance
-			feedConfig.GetID(),                      // contractAddress
-			feedConfig.GetID(),                      // feedID
-			chainConfig.GetChainID(),                // chainID
-			feedConfig.GetContractStatus(),          // contractStatus
-			feedConfig.GetContractType(),            // contractType
-			feedConfig.GetName(),                    // feedName
-			feedConfig.GetPath(),                    // feedPath
-			chainConfig.GetNetworkID(),              // networkID
-			chainConfig.GetNetworkName(),            // networkName
+			toFloat64(envelope1.LinkBalance), // balance
+			feedConfig.GetID(),               // contractAddress
+			feedConfig.GetID(),               // feedID
+			chainConfig.GetChainID(),         // chainID
+			feedConfig.GetContractStatus(),   // contractStatus
+			feedConfig.GetContractType(),     // contractType
+			feedConfig.GetName(),             // feedName
+			feedConfig.GetPath(),             // feedPath
+			chainConfig.GetNetworkID(),       // networkID
+			chainConfig.GetNetworkName(),     // networkName
 		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
@@ -405,16 +405,16 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorAnswersRaw",
-			float64(envelope1.LatestAnswer.Uint64()), // answer
-			feedConfig.GetID(),                       // contractAddress
-			feedConfig.GetID(),                       // feedID
-			chainConfig.GetChainID(),                 // chainID
-			feedConfig.GetContractStatus(),           // contractStatus
-			feedConfig.GetContractType(),             // contractType
-			feedConfig.GetName(),                     // feedName
-			feedConfig.GetPath(),                     // feedPath
-			chainConfig.GetNetworkID(),               // networkID
-			chainConfig.GetNetworkName(),             // networkName
+			toFloat64(envelope1.LatestAnswer), // answer
+			feedConfig.GetID(),                // contractAddress
+			feedConfig.GetID(),                // feedID
+			chainConfig.GetChainID(),          // chainID
+			feedConfig.GetContractStatus(),    // contractStatus
+			feedConfig.GetContractType(),      // contractType
+			feedConfig.GetName(),              // feedName
+			feedConfig.GetPath(),              // feedPath
+			chainConfig.GetNetworkID(),        // networkID
+			chainConfig.GetNetworkName(),      // networkName
 		).Once()
 		metrics.On("IncOffchainAggregatorAnswersTotal",
 			feedConfig.GetID(),             // contractAddress
@@ -428,7 +428,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
 		metrics.On("SetOffchainAggregatorJuelsPerFeeCoinRaw",
-			float64(envelope1.JuelsPerFeeCoin.Uint64()),
+			toFloat64(envelope1.JuelsPerFeeCoin),
 			feedConfig.GetID(),
 			feedConfig.GetID(),
 			chainConfig.GetChainID(),
@@ -491,16 +491,16 @@ func TestPrometheusExporter(t *testing.T) {
 		exporter.Export(ctx, envelope1)
 
 		metrics.On("SetFeedContractLinkBalance",
-			float64(envelope2.LinkBalance.Uint64()), // balance
-			feedConfig.GetID(),                      // contractAddress
-			feedConfig.GetID(),                      // feedID
-			chainConfig.GetChainID(),                // chainID
-			feedConfig.GetContractStatus(),          // contractStatus
-			feedConfig.GetContractType(),            // contractType
-			feedConfig.GetName(),                    // feedName
-			feedConfig.GetPath(),                    // feedPath
-			chainConfig.GetNetworkID(),              // networkID
-			chainConfig.GetNetworkName(),            // networkName
+			toFloat64(envelope2.LinkBalance), // balance
+			feedConfig.GetID(),               // contractAddress
+			feedConfig.GetID(),               // feedID
+			chainConfig.GetChainID(),         // chainID
+			feedConfig.GetContractStatus(),   // contractStatus
+			feedConfig.GetContractType(),     // contractType
+			feedConfig.GetName(),             // feedName
+			feedConfig.GetPath(),             // feedPath
+			chainConfig.GetNetworkID(),       // networkID
+			chainConfig.GetNetworkName(),     // networkName
 		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
