@@ -22,6 +22,8 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -39,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func NewEIP55Address() ethkey.EIP55Address {
@@ -242,6 +243,23 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, borm bul
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+	t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, broadcastBeforeBlockNum int64,
+	broadcastAt time.Time, fromAddress common.Address) bulletprooftxmanager.EthTx {
+	etx := NewEthTx(t, fromAddress)
+
+	etx.BroadcastAt = &broadcastAt
+	etx.Nonce = &nonce
+	etx.State = bulletprooftxmanager.EthTxConfirmedMissingReceipt
+	require.NoError(t, borm.InsertEthTx(&etx))
+	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	return etx
 }
 

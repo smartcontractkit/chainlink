@@ -8,18 +8,23 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
 
 type orm struct {
 	db *sqlx.DB
+	q  pg.Q
 }
 
 var _ types.ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB) types.ORM {
-	return &orm{db}
+// NewORM returns a new EVM ORM
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
+	lggr = lggr.Named("EVMORM")
+	return &orm{db, pg.NewQ(db, lggr, cfg)}
 }
 
 func (o *orm) Chain(id utils.Big) (chain types.Chain, err error) {
@@ -129,46 +134,49 @@ func (o *orm) EnabledChainsWithNodes() (chains []types.Chain, err error) {
 	return chains, nil
 }
 
-func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error) {
-	if err = o.db.Get(&count, "SELECT COUNT(*) FROM evm_nodes"); err != nil {
-		return
-	}
+func (o *orm) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []types.Node, count int, err error) {
+	err = o.q.WithOpts(qopts...).Transaction(func(q pg.Queryer) error {
+		if err = o.db.Get(&count, "SELECT COUNT(*) FROM evm_nodes"); err != nil {
+			return errors.Wrap(err, "Nodes failed to fetch nodes count")
+		}
 
-	sql := `SELECT * FROM evm_nodes ORDER BY created_at, id LIMIT $1 OFFSET $2;`
-	if err = o.db.Select(&nodes, sql, limit, offset); err != nil {
-		return
-	}
+		sql := `SELECT * FROM evm_nodes ORDER BY created_at, id LIMIT $1 OFFSET $2;`
+		err = o.db.Select(&nodes, sql, limit, offset)
+		return errors.Wrap(err, "Nodes failed to fetch nodes")
+	})
 
 	return
 }
 
 // GetNodesByChainIDs fetches allow nodes for the given chain ids.
-func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []types.Node, err error) {
+func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []types.Node, err error) {
 	sql := `SELECT * FROM evm_nodes WHERE evm_chain_id = ANY($1) ORDER BY created_at, id;`
 
 	cids := pq.Array(chainIDs)
-	if err = o.db.Select(&nodes, sql, cids); err != nil {
+	if err = o.q.WithOpts(qopts...).Select(&nodes, sql, cids); err != nil {
 		return nil, err
 	}
 
 	return nodes, nil
 }
 
-func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error) {
-	if err = o.db.Get(&count, "SELECT COUNT(*) FROM evm_nodes WHERE evm_chain_id = $1", chainID); err != nil {
-		return
-	}
+func (o *orm) NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) (nodes []types.Node, count int, err error) {
+	err = o.q.WithOpts(qopts...).Transaction(func(q pg.Queryer) error {
+		if err = q.Get(&count, "SELECT COUNT(*) FROM evm_nodes WHERE evm_chain_id = $1", chainID); err != nil {
+			return errors.Wrap(err, "NodesForChain failed to fetch nodes count")
+		}
 
-	sql := `SELECT * FROM evm_nodes WHERE evm_chain_id = $1 ORDER BY created_at, id LIMIT $2 OFFSET $3;`
-	if err = o.db.Select(&nodes, sql, chainID, limit, offset); err != nil {
-		return
-	}
+		sql := `SELECT * FROM evm_nodes WHERE evm_chain_id = $1 ORDER BY created_at, id LIMIT $2 OFFSET $3;`
+		err = q.Select(&nodes, sql, chainID, limit, offset)
+		return errors.Wrap(err, "NodesForChain failed to fetch nodes")
+	}, pg.OptReadOnlyTx())
 
 	return
 }
 
-func (o *orm) Node(id int32) (node types.Node, err error) {
-	err = o.db.Get(&node, "SELECT * FROM evm_nodes WHERE id = $1;", id)
+func (o *orm) Node(id int32, qopts ...pg.QOpt) (node types.Node, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Get(&node, "SELECT * FROM evm_nodes WHERE id = $1;", id)
 
 	return
 }

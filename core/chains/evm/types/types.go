@@ -10,10 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -42,10 +42,10 @@ type ORM interface {
 	CreateNode(data NewNode) (Node, error)
 	DeleteNode(id int64) error
 	GetChainsByIDs(ids []utils.Big) (chains []Chain, err error)
-	GetNodesByChainIDs(chainIDs []utils.Big) (nodes []Node, err error)
-	Node(id int32) (Node, error)
-	Nodes(offset, limit int) ([]Node, int, error)
-	NodesForChain(chainID utils.Big, offset, limit int) ([]Node, int, error)
+	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
+	Node(id int32, qopts ...pg.QOpt) (Node, error)
+	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
+	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 	ChainConfigORM
 }
 
@@ -82,6 +82,7 @@ type ChainCfg struct {
 	MinRequiredOutgoingConfirmations               null.Int
 	MinimumContractPayment                         *assets.Link
 	OCRObservationTimeout                          *models.Duration
+	NodeNoNewHeadsThreshold                        *models.Duration
 }
 
 func (c *ChainCfg) Scan(value interface{}) error {
@@ -115,6 +116,9 @@ type Node struct {
 	SendOnly   bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	// State doesn't exist in the DB, it's used to hold an in-memory state for
+	// rendering
+	State string `db:"-"`
 }
 
 // Receipt represents an ethereum receipt.

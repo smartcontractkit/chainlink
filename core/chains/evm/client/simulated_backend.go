@@ -404,3 +404,6 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return nil, nil
 }
+
+// NodeStates implements evmclient.Client
+func (c *SimulatedBackendClient) NodeStates() map[int32]string { return nil }

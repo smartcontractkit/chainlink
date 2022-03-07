@@ -46,7 +46,7 @@ func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
 	}
 	var pid p2pkey.PeerID
 	if err := pid.UnmarshalText([]byte(pidStr)); err != nil {
-		c.lggr.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
+		c.lggr.Critical(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
 		return ""
 	}
 	return pid

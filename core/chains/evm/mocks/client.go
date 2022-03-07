@@ -361,6 +361,22 @@ func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Head
 	return r0, r1
 }
 
+// NodeStates provides a mock function with given fields:
+func (_m *Client) NodeStates() map[int32]string {
+	ret := _m.Called()
+
+	var r0 map[int32]string
+	if rf, ok := ret.Get(0).(func() map[int32]string); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int32]string)
+		}
+	}
+
+	return r0
+}
+
 // NonceAt provides a mock function with given fields: ctx, account, blockNumber
 func (_m *Client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
 	ret := _m.Called(ctx, account, blockNumber)
