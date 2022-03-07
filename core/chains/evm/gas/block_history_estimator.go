@@ -326,7 +326,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 
 	percentileGasPrice, percentileTipCap, err := b.percentilePrices(percentile, enableEIP1559)
 	if err != nil {
-		if err == ErrNoSuitableTransactions {
+		if errors.Is(err, ErrNoSuitableTransactions) {
 			lggr.Debug("No suitable transactions, skipping")
 		} else {
 			lggr.Warnw("Cannot calculate percentile prices", "err", err)

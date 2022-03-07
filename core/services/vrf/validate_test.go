@@ -80,7 +80,7 @@ decode_log->vrf->encode_tx->submit_tx
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				require.True(t, ErrKeyNotSet == errors.Cause(err))
+				require.True(t, errors.Is(ErrKeyNotSet, errors.Cause(err)))
 			},
 		},
 		{
@@ -111,7 +111,7 @@ decode_log->vrf->encode_tx->submit_tx
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				require.True(t, ErrKeyNotSet == errors.Cause(err))
+				require.True(t, errors.Is(ErrKeyNotSet, errors.Cause(err)))
 			},
 		},
 		{

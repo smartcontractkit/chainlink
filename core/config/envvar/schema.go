@@ -146,6 +146,11 @@ type ConfigSchema struct {
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
+	// Node liveness checking
+	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
+	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
+	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
+
 	// EVM Gas Controls
 	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
 	EvmGasBumpPercent     uint16   `env:"ETH_GAS_BUMP_PERCENT"`
