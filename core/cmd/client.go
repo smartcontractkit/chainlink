@@ -276,7 +276,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
-			if err != http.ErrServerClosed {
+			if !errors.Is(err, http.ErrServerClosed) {
 				lggr.Criticalf("Error starting server: %v", err)
 			}
 		}

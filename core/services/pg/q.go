@@ -268,7 +268,7 @@ func (q Q) logSqlQuery(query string, args ...interface{}) {
 }
 
 func (q Q) withLogError(err error) error {
-	if err != nil && err != sql.ErrNoRows && q.config != nil && q.config.LogSQL() {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) && q.config != nil && q.config.LogSQL() {
 		q.logger.Errorf("SQL ERROR: %v", err)
 	}
 	return err

@@ -211,11 +211,11 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
+	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && !errors.Is(err, ErrNoCredentialFile) {
 		return errors.Wrap(err, "error creating api initializer")
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
-		if err == ErrorNoAPICredentialsAvailable {
+		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 			return errors.WithStack(err)
 		}
 		return errors.Wrap(err, "error creating fallback initializer")
@@ -246,7 +246,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		errInternal := cli.Runner.Run(grpCtx, app)
-		if errInternal == http.ErrServerClosed {
+		if errors.Is(errInternal, http.ErrServerClosed) {
 			errInternal = nil
 		}
 		// In tests we have custom runners that stop the app gracefully,
