@@ -78,7 +78,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(l, dbchain)
+		client, err2 = newEthClientFromChain(cfg, l, dbchain)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", dbchain.ID.String())
 		}
@@ -281,7 +281,7 @@ func (c *chain) HeadTracker() httypes.HeadTracker          { return c.headTracke
 func (c *chain) Logger() logger.Logger                     { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor    { return c.balanceMonitor }
 
-func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
 	var primaries []evmclient.Node
@@ -294,7 +294,7 @@ func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Cli
 			}
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			primary, err := newPrimary(lggr, node)
+			primary, err := newPrimary(cfg, lggr, node)
 			if err != nil {
 				return nil, err
 			}
@@ -304,7 +304,7 @@ func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Cli
 	return evmclient.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
 }
 
-func newPrimary(lggr logger.Logger, n types.Node) (evmclient.Node, error) {
+func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n types.Node) (evmclient.Node, error) {
 	if n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
@@ -324,7 +324,7 @@ func newPrimary(lggr logger.Logger, n types.Node) (evmclient.Node, error) {
 		httpuri = u
 	}
 
-	return evmclient.NewNode(lggr, *wsuri, httpuri, n.Name), nil
+	return evmclient.NewNode(cfg, lggr, *wsuri, httpuri, n.Name, n.ID, (*big.Int)(&n.EVMChainID)), nil
 }
 
 func newSendOnly(lggr logger.Logger, n types.Node) (evmclient.SendOnlyNode, error) {
@@ -339,5 +339,5 @@ func newSendOnly(lggr logger.Logger, n types.Node) (evmclient.SendOnlyNode, erro
 		return nil, errors.Wrap(err, "invalid http uri")
 	}
 
-	return evmclient.NewSendOnlyNode(lggr, *httpuri, n.Name), nil
+	return evmclient.NewSendOnlyNode(lggr, *httpuri, n.Name, (*big.Int)(&n.EVMChainID)), nil
 }

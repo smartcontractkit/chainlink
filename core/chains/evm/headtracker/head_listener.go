@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -129,10 +128,7 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 }
 
 func (hl *headListener) subscribe(ctx context.Context) bool {
-	subscribeRetryBackoff := backoff.Backoff{
-		Min: 1 * time.Second,
-		Max: 10 * time.Second,
-	}
+	subscribeRetryBackoff := utils.NewRedialBackoff()
 
 	chainID := hl.ethClient.ChainID().String()
 
