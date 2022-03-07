@@ -34,7 +34,7 @@ func (ocr2kc *OCR2KeysController) Index(c *gin.Context) {
 func (ocr2kc *OCR2KeysController) Create(c *gin.Context) {
 	chainType := chaintype.ChainType(c.Param("chainType"))
 	key, err := ocr2kc.App.GetKeyStore().OCR2().Create(chainType)
-	if errors.Cause(err) == chaintype.ErrInvalidChainType {
+	if errors.Is(errors.Cause(err), chaintype.ErrInvalidChainType) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}

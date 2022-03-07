@@ -331,10 +331,10 @@ EVM_ENABLED=false
 `)
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {
