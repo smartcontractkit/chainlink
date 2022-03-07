@@ -1,9 +1,9 @@
-import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-etherscan'
 import '@nomiclabs/hardhat-waffle'
-import 'hardhat-contract-sizer'
+import '@typechain/hardhat'
 import 'hardhat-abi-exporter'
+import 'hardhat-contract-sizer'
 import 'solidity-coverage'
 
 const COMPILER_SETTINGS = {
