@@ -28,7 +28,7 @@ type EthTxResource struct {
 
 // GetName implements the api2go EntityNamer interface
 func (EthTxResource) GetName() string {
-	return "transactions"
+	return "evm_transactions"
 }
 
 // NewEthTxResource generates a EthTxResource from an Eth.Tx.

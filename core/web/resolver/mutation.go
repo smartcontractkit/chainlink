@@ -10,7 +10,6 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
@@ -33,8 +32,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -75,7 +75,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	}
 
 	btr := &bridges.BridgeTypeRequest{
-		Name:                   bridges.TaskType(args.Input.Name),
+		Name:                   bridges.BridgeName(args.Input.Name),
 		URL:                    webURL,
 		Confirmations:          uint32(args.Input.Confirmations),
 		MinimumContractPayment: minContractPayment,
@@ -224,13 +224,13 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	}
 
 	btr := &bridges.BridgeTypeRequest{
-		Name:                   bridges.TaskType(args.Input.Name),
+		Name:                   bridges.BridgeName(args.Input.Name),
 		URL:                    webURL,
 		Confirmations:          uint32(args.Input.Confirmations),
 		MinimumContractPayment: minContractPayment,
 	}
 
-	taskType, err := bridges.NewTaskType(string(args.ID))
+	taskType, err := bridges.ParseBridgeName(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -382,7 +382,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().Node(id)
+	node, err := r.App.GetChains().EVM.GetNode(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteNodePayloadResolver(nil, err), nil
@@ -413,7 +413,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	taskType, err := bridges.NewTaskType(string(args.ID))
+	taskType, err := bridges.ParseBridgeName(string(args.ID))
 	if err != nil {
 		return NewDeleteBridgePayload(nil, err), nil
 	}
@@ -501,7 +501,7 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 
 	key, err := r.App.GetKeyStore().VRF().Delete(string(args.ID))
 	if err != nil {
-		if errors.Cause(err) == keystore.ErrMissingVRFKey {
+		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
 			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
 		}
 		return nil, err
@@ -844,7 +844,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChains().EVM.Add(id.ToInt(), *chainCfg)
+	chain, err := r.App.GetChains().EVM.Add(ctx, id.ToInt(), *chainCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -892,7 +892,7 @@ func (r *Resolver) UpdateChain(ctx context.Context, args struct {
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChains().EVM.Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
+	chain, err := r.App.GetChains().EVM.Configure(ctx, id.ToInt(), args.Input.Enabled, *chainCfg)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateChainPayload(nil, nil, err), nil
@@ -954,12 +954,12 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
+		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = offchainreporting2.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
+		jb, err = ocr2.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting2() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}

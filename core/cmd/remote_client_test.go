@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -73,7 +74,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	}
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	return app
 }
@@ -476,12 +477,12 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
-	var ocrSpec job.OffchainReportingOracleSpec
+	var ocrSpec job.OCROracleSpec
 	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
 	require.NoError(t, err)
-	jb.OffchainreportingOracleSpec = &ocrSpec
+	jb.OCROracleSpec = &ocrSpec
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
-	jb.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
+	jb.OCROracleSpec.TransmitterAddress = &key.Address
 
 	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)

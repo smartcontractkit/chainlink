@@ -14,7 +14,7 @@ var (
 	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
-	DefaultGasTip                        = assets.GWei(0)
+	DefaultGasTip                        = big.NewInt(1)                           // go-ethereum requires the tip to be at least 1 wei
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10000000000000) // 0.00001 LINK
 )
 
@@ -60,8 +60,12 @@ type (
 		minIncomingConfirmations                       uint32
 		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
-		nonceAutoSync                                  bool
-		rpcDefaultBatchSize                            uint32
+		nodeDeadAfterNoNewHeadersThreshold             time.Duration
+		nodePollFailureThreshold                       uint32
+		nodePollInterval                               time.Duration
+
+		nonceAutoSync       bool
+		rpcDefaultBatchSize uint32
 		// set true if fully configured
 		complete bool
 
@@ -118,7 +122,7 @@ func setChainSpecificConfigDefaultSets() {
 		gasLimitTransfer:                      21000,
 		gasPriceDefault:                       *DefaultGasPrice,
 		gasTipCapDefault:                      *DefaultGasTip,
-		gasTipCapMinimum:                      *big.NewInt(0),
+		gasTipCapMinimum:                      *big.NewInt(1),
 		headTrackerHistoryDepth:               100,
 		headTrackerMaxBufferSize:              3,
 		headTrackerSamplingInterval:           1 * time.Second,
@@ -131,6 +135,9 @@ func setChainSpecificConfigDefaultSets() {
 		minIncomingConfirmations:              3,
 		minRequiredOutgoingConfirmations:      12,
 		minimumContractPayment:                DefaultMinimumContractPayment,
+		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
+		nodePollFailureThreshold:              5,
+		nodePollInterval:                      10 * time.Second,
 		nonceAutoSync:                         true,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,

@@ -122,7 +122,9 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient evmclient.Client, config Config, k
 	}
 }
 
-func (eb *EthBroadcaster) Start() error {
+// Start starts EthBroadcaster service.
+// The provided context can be used to terminate Start sequence.
+func (eb *EthBroadcaster) Start(ctx context.Context) error {
 	return eb.StartOnce("EthBroadcaster", func() (err error) {
 		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
 		if err != nil {
@@ -130,13 +132,13 @@ func (eb *EthBroadcaster) Start() error {
 		}
 
 		if eb.config.EvmNonceAutoSync() {
-			ctx, cancel := utils.CombinedContext(context.Background(), eb.chStop)
+			cctx, cancel := utils.CombinedContext(ctx, eb.chStop)
 			defer cancel()
 
 			syncer := NewNonceSyncer(eb.db, eb.logger, eb.ChainKeyStore.config, eb.ethClient)
-			if ctx.Err() != nil {
+			if cctx.Err() != nil {
 				return nil
-			} else if err := syncer.SyncAll(ctx, eb.keyStates); err != nil {
+			} else if err := syncer.SyncAll(cctx, eb.keyStates); err != nil {
 				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
 			}
 		}
@@ -155,6 +157,7 @@ func (eb *EthBroadcaster) Start() error {
 	})
 }
 
+// Close closes the EthBroadcaster
 func (eb *EthBroadcaster) Close() error {
 	return eb.StopOnce("EthBroadcaster", func() error {
 		if eb.ethTxInsertListener != nil {
@@ -238,6 +241,7 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 	}
 }
 
+// ProcessUnstartedEthTxs picks up and handles all eth_txes in the queue
 func (eb *EthBroadcaster) ProcessUnstartedEthTxs(ctx context.Context, keyState ethkey.State) error {
 	return eb.processUnstartedEthTxs(ctx, keyState.Address.Address())
 }
@@ -314,7 +318,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 
-		if err := eb.handleInProgressEthTx(*etx, a, time.Now()); err != nil {
+		if err := eb.handleInProgressEthTx(ctx, *etx, a, time.Now()); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 	}
@@ -330,7 +334,7 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed")
 	}
 	if etx != nil {
-		if err := eb.handleInProgressEthTx(*etx, etx.EthTxAttempts[0], etx.CreatedAt); err != nil {
+		if err := eb.handleInProgressEthTx(ctx, *etx, etx.EthTxAttempts[0], etx.CreatedAt); err != nil {
 			return errors.Wrap(err, "handleAnyInProgressEthTx failed")
 		}
 	}
@@ -361,11 +365,10 @@ func getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
-	parentCtx := context.TODO()
 
 	checkerSpec, err := etx.GetChecker()
 	if err != nil {
@@ -379,7 +382,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 
 	// If the transmit check does not complete within the timeout, the transaction will be sent
 	// anyway.
-	checkCtx, cancel := context.WithTimeout(parentCtx, TransmitCheckTimeout)
+	checkCtx, cancel := context.WithTimeout(ctx, TransmitCheckTimeout)
 	defer cancel()
 	err = checker.Check(checkCtx, eb.logger, etx, attempt)
 	if errors.Is(err, context.Canceled) {
@@ -398,7 +401,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 	cancel()
 
-	sendError := sendTransaction(parentCtx, eb.ethClient, attempt, etx, eb.logger)
+	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, eb.logger)
 
 	if sendError.IsTooExpensive() {
 		eb.logger.Criticalw("Transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
@@ -465,11 +468,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 
 	if sendError.IsTerminallyUnderpriced() {
-		return eb.tryAgainBumpingGas(sendError, etx, attempt, initialBroadcastAt)
+		return eb.tryAgainBumpingGas(ctx, sendError, etx, attempt, initialBroadcastAt)
 	}
 
+	// Optimism-specific cases
 	if sendError.IsFeeTooLow() || sendError.IsFeeTooHigh() {
-		return eb.tryAgainWithNewEstimation(sendError, etx, attempt, initialBroadcastAt)
+		return eb.tryAgainWithNewEstimation(ctx, sendError, etx, attempt, initialBroadcastAt)
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -593,18 +597,10 @@ func saveAttempt(q pg.Q, etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTx
 	})
 }
 
-func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	if attempt.TxType == 0x2 {
-		return errors.New("bumping gas on initial send is not supported for EIP-1559 transactions")
-	}
-	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit)
-	if err != nil {
-		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
-	}
+func (eb *EthBroadcaster) tryAgainBumpingGas(ctx context.Context, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
 	eb.logger.
 		With(
 			"sendError", sendError,
-			"bumpedGasLimit", bumpedGasLimit,
 			"attemptGasFeeCap", attempt.GasFeeCap,
 			"attemptGasPrice", attempt.GasPrice,
 			"attemptGasTipCap", attempt.GasTipCap,
@@ -612,35 +608,79 @@ func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *evmclient.SendError, etx
 		).
 		Errorf("attempt gas price %v wei was rejected by the eth node for being too low. "+
 			"Eth node returned: '%s'. "+
-			"Bumping to %v wei and retrying. ACTION REQUIRED: This is a configuration error. "+
+			"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 			"Consider increasing ETH_GAS_PRICE_DEFAULT (current value: %s)",
-			attempt.GasPrice, sendError.Error(), bumpedGasPrice, eb.config.EvmGasPriceDefault().String())
-	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 && bumpedGasPrice.Cmp(eb.config.EvmMaxGasPriceWei()) == 0 {
-		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
+			attempt.GasPrice, sendError.Error(), eb.config.EvmGasPriceDefault().String())
+	switch attempt.TxType {
+	case 0x0:
+		return eb.tryAgainBumpingLegacyGas(ctx, sendError, etx, attempt, initialBroadcastAt)
+	case 0x2:
+		return eb.tryAgainBumpingDynamicFeeGas(ctx, sendError, etx, attempt, initialBroadcastAt)
+	default:
+		return errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
+			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", attempt.ID, attempt.TxType)
 	}
-	return eb.tryAgainWithNewGas(etx, attempt, initialBroadcastAt, bumpedGasPrice, bumpedGasLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+func (eb *EthBroadcaster) tryAgainBumpingLegacyGas(ctx context.Context, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit)
+	if err != nil {
+		return errors.Wrap(err, "tryAgainBumpingLegacyGas failed")
+	}
+	if bumpedGasPrice.Cmp(attempt.GasPrice.ToInt()) == 0 || bumpedGasPrice.Cmp(eb.config.EvmMaxGasPriceWei()) >= 0 {
+		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
+	}
+	return eb.tryAgainWithNewLegacyGas(ctx, etx, attempt, initialBroadcastAt, bumpedGasPrice, bumpedGasLimit)
+}
+
+func (eb *EthBroadcaster) tryAgainBumpingDynamicFeeGas(ctx context.Context, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+	bumpedFee, bumpedGasLimit, err := eb.estimator.BumpDynamicFee(attempt.DynamicFee(), etx.GasLimit)
+	if err != nil {
+		return errors.Wrap(err, "tryAgainBumpingDynamicFeeGas failed")
+	}
+	if bumpedFee.TipCap.Cmp(attempt.GasTipCap.ToInt()) == 0 || bumpedFee.FeeCap.Cmp(attempt.GasFeeCap.ToInt()) == 0 || bumpedFee.TipCap.Cmp(eb.config.EvmMaxGasPriceWei()) >= 0 || bumpedFee.TipCap.Cmp(eb.config.EvmMaxGasPriceWei()) >= 0 {
+		return errors.Errorf("Hit gas price bump ceiling, will not bump further. This is a terminal error")
+	}
+	return eb.tryAgainWithNewDynamicFeeGas(ctx, etx, attempt, initialBroadcastAt, bumpedFee, bumpedGasLimit)
+}
+
+func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, sendError *evmclient.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
+	if attempt.TxType == 0x2 {
+		return errors.Errorf("AssumptionViolation: re-estimation is not supported for EIP-1559 transactions. Eth node returned error: %v. This is a bug.", sendError.Error())
+	}
 	gasPrice, gasLimit, err := eb.estimator.GetLegacyGas(etx.EncodedPayload, etx.GasLimit, gas.OptForceRefetch)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
 	}
 	eb.logger.Debugw("Optimism rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
-	return eb.tryAgainWithNewGas(etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
+	return eb.tryAgainWithNewLegacyGas(ctx, etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }
 
-func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
+func (eb *EthBroadcaster) tryAgainWithNewLegacyGas(ctx context.Context, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
 	replacementAttempt, err := eb.NewLegacyAttempt(etx, newGasPrice, newGasLimit)
 	if err != nil {
-		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
+		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed")
 	}
 
 	if err = saveReplacementInProgressAttempt(eb.q, attempt, &replacementAttempt); err != nil {
-		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
+		return errors.Wrap(err, "tryAgainWithNewLegacyGas failed")
 	}
-	return eb.handleInProgressEthTx(etx, replacementAttempt, initialBroadcastAt)
+	eb.logger.Debugw("Bumped legacy gas on initial send", "oldGasPrice", attempt.GasPrice, "newGasPrice", newGasPrice)
+	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
+}
+
+func (eb *EthBroadcaster) tryAgainWithNewDynamicFeeGas(ctx context.Context, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newDynamicFee gas.DynamicFee, newGasLimit uint64) error {
+	replacementAttempt, err := eb.NewDynamicFeeAttempt(etx, newDynamicFee, newGasLimit)
+	if err != nil {
+		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed")
+	}
+
+	if err = saveReplacementInProgressAttempt(eb.q, attempt, &replacementAttempt); err != nil {
+		return errors.Wrap(err, "tryAgainWithNewDynamicFeeGas failed")
+	}
+	eb.logger.Debugw("Bumped dynamic fee gas on initial send", "oldFee", attempt.DynamicFee(), "newFee", newDynamicFee)
+	return eb.handleInProgressEthTx(ctx, etx, replacementAttempt, initialBroadcastAt)
 }
 
 func (eb *EthBroadcaster) saveFatallyErroredTransaction(etx *EthTx) error {

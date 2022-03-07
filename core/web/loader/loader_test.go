@@ -6,15 +6,17 @@ import (
 	"testing"
 
 	"github.com/graph-gophers/dataloader"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
-	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -26,12 +28,12 @@ import (
 func TestLoader_Chains(t *testing.T) {
 	t.Parallel()
 
-	emvORM := &evmORMMocks.ORM{}
+	evmORM := &evmmocks.ORM{}
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(context.Background(), app)
 
 	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, emvORM)
+		mock.AssertExpectationsForObjects(t, app, evmORM)
 	})
 
 	id := utils.Big{}
@@ -55,11 +57,11 @@ func TestLoader_Chains(t *testing.T) {
 		Enabled: true,
 	}
 
-	emvORM.On("GetChainsByIDs", []utils.Big{id2, id, chainId3}).Return([]types.Chain{
+	evmORM.On("GetChainsByIDs", []utils.Big{id2, id, chainId3}).Return([]types.Chain{
 		chain,
 		chain2,
 	}, nil)
-	app.On("EVMORM").Return(emvORM)
+	app.On("EVMORM").Return(evmORM)
 
 	batcher := chainBatcher{app}
 
@@ -77,12 +79,14 @@ func TestLoader_Chains(t *testing.T) {
 func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
 
-	emvORM := &evmORMMocks.ORM{}
+	evmChainSet := new(evmmocks.ChainSet)
+	evmChainSet.Test(t)
 	app := &coremocks.Application{}
+	app.Test(t)
 	ctx := InjectDataloader(context.Background(), app)
 
 	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, emvORM)
+		mock.AssertExpectationsForObjects(t, app, evmChainSet)
 	})
 
 	chainId1 := utils.Big{}
@@ -108,10 +112,10 @@ func TestLoader_Nodes(t *testing.T) {
 		EVMChainID: chainId2,
 	}
 
-	emvORM.On("GetNodesByChainIDs", []utils.Big{chainId2, chainId1, chainId3}).Return([]types.Node{
+	evmChainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainId2, chainId1, chainId3}).Return([]types.Node{
 		node1, node2,
 	}, nil)
-	app.On("EVMORM").Return(emvORM)
+	app.On("GetChains").Return(chainlink.Chains{EVM: evmChainSet})
 
 	batcher := nodeBatcher{app}
 
@@ -297,6 +301,36 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 		require.Len(t, found, 1)
 		assert.Nil(t, found[0].Data)
 		assert.ErrorIs(t, found[0].Error, sql.ErrNoRows)
+	})
+}
+
+func TestLoader_JobsByExternalJobIDs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("with out errors", func(t *testing.T) {
+		t.Parallel()
+
+		jobsORM := &jobORMMocks.ORM{}
+		app := &coremocks.Application{}
+		ctx := InjectDataloader(context.Background(), app)
+
+		defer t.Cleanup(func() {
+			mock.AssertExpectationsForObjects(t, app, jobsORM)
+		})
+
+		ejID := uuid.NewV4()
+		job := job.Job{ID: int32(2), ExternalJobID: ejID}
+
+		jobsORM.On("FindJobByExternalJobID", ejID).Return(job, nil)
+		app.On("JobORM").Return(jobsORM)
+
+		batcher := jobBatcher{app}
+
+		keys := dataloader.NewKeysFromStrings([]string{ejID.String()})
+		found := batcher.loadByExternalJobIDs(ctx, keys)
+
+		require.Len(t, found, 1)
+		assert.Equal(t, job, found[0].Data)
 	})
 }
 

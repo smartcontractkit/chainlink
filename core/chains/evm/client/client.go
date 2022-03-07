@@ -29,6 +29,9 @@ type Client interface {
 	Dial(ctx context.Context) error
 	Close()
 	ChainID() *big.Int
+	// NodeStates returns a map of node ID->node state
+	// It might be nil or empty, e.g. for mock clients etc
+	NodeStates() map[int32]string
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
@@ -116,6 +119,14 @@ func (client *client) Dial(ctx context.Context) error {
 
 func (client *client) Close() {
 	client.pool.Close()
+}
+
+func (client *client) NodeStates() (states map[int32]string) {
+	states = make(map[int32]string)
+	for _, n := range client.pool.nodes {
+		states[n.ID()] = n.State().String()
+	}
+	return
 }
 
 // CallArgs represents the data used to call the balance method of a contract.
@@ -262,7 +273,7 @@ func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.
 	return csf, nil
 }
 
-func (client *client) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+func (client *client) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
 	return client.pool.EthSubscribe(ctx, channel, args...)
 }
 
