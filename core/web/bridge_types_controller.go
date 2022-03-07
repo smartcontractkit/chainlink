@@ -25,7 +25,7 @@ func ValidateBridgeTypeNotExist(bt *bridges.BridgeTypeRequest, orm bridges.ORM) 
 	if err == nil {
 		fe.Add(fmt.Sprintf("Bridge Type %v already exists", bt.Name))
 	}
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		fe.Add(fmt.Sprintf("Error determining if bridge type %v already exists", bt.Name))
 	}
 	return fe.CoerceEmptyToNil()
