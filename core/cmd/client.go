@@ -150,7 +150,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Config:           cfg,
 		Logger:           appLggr,
 		DB:               db,
-		ORM:              evm.NewORM(db),
+		ORM:              evm.NewORM(db, appLggr, cfg),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
