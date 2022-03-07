@@ -72,22 +72,6 @@ func (_m *Chain) ID() string {
 	return r0
 }
 
-// MsgEnqueuer provides a mock function with given fields:
-func (_m *Chain) MsgEnqueuer() terra.MsgEnqueuer {
-	ret := _m.Called()
-
-	var r0 terra.MsgEnqueuer
-	if rf, ok := ret.Get(0).(func() terra.MsgEnqueuer); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(terra.MsgEnqueuer)
-		}
-	}
-
-	return r0
-}
-
 // Reader provides a mock function with given fields: nodeName
 func (_m *Chain) Reader(nodeName string) (client.Reader, error) {
 	ret := _m.Called(nodeName)
@@ -134,6 +118,22 @@ func (_m *Chain) Start() error {
 		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TxManager provides a mock function with given fields:
+func (_m *Chain) TxManager() terra.TxManager {
+	ret := _m.Called()
+
+	var r0 terra.TxManager
+	if rf, ok := ret.Get(0).(func() terra.TxManager); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(terra.TxManager)
+		}
 	}
 
 	return r0

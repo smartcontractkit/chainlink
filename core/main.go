@@ -23,7 +23,7 @@ func main() {
 func Run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
 	client.Logger.ErrorIf(app.Run(args), "Error running app")
-	if err := client.Logger.Sync(); err != nil {
+	if err := client.CloseLogger(); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -31,7 +31,7 @@ func Run(client *cmd.Client, args ...string) {
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
-	lggr := logger.NewLogger()
+	lggr, closeLggr := logger.NewLogger()
 	cfg := config.NewGeneralConfig(lggr)
 
 	prompter := cmd.NewTerminalPrompter()
@@ -41,7 +41,7 @@ func NewProductionClient() *cmd.Client {
 	if credentialsFile := cfg.AdminCredentialsFile(); credentialsFile != "" {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)
-		if err != nil && errors.Cause(err) != cmd.ErrNoCredentialFile && !os.IsNotExist(err) {
+		if err != nil && !errors.Is(errors.Cause(err), cmd.ErrNoCredentialFile) && !os.IsNotExist(err) {
 			lggr.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
 		}
 	}
@@ -49,6 +49,7 @@ func NewProductionClient() *cmd.Client {
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		Config:                         cfg,
 		Logger:                         lggr,
+		CloseLogger:                    closeLggr,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),

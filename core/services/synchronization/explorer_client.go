@@ -47,7 +47,7 @@ const (
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
-	services.Service
+	services.ServiceCtx
 	Url() url.URL
 	Status() ConnectionStatus
 	Send(context.Context, []byte, ...int)
@@ -56,13 +56,28 @@ type ExplorerClient interface {
 
 type NoopExplorerClient struct{}
 
-func (NoopExplorerClient) Url() url.URL                                              { return url.URL{} }
-func (NoopExplorerClient) Status() ConnectionStatus                                  { return ConnectionStatusDisconnected }
-func (NoopExplorerClient) Start() error                                              { return nil }
-func (NoopExplorerClient) Close() error                                              { return nil }
-func (NoopExplorerClient) Healthy() error                                            { return nil }
-func (NoopExplorerClient) Ready() error                                              { return nil }
-func (NoopExplorerClient) Send(context.Context, []byte, ...int)                      {}
+// Url always returns underlying url.
+func (NoopExplorerClient) Url() url.URL { return url.URL{} }
+
+// Status always returns ConnectionStatusDisconnected.
+func (NoopExplorerClient) Status() ConnectionStatus { return ConnectionStatusDisconnected }
+
+// Start is a no-op
+func (NoopExplorerClient) Start(context.Context) error { return nil }
+
+// Close is a no-op
+func (NoopExplorerClient) Close() error { return nil }
+
+// Healthy is a no-op
+func (NoopExplorerClient) Healthy() error { return nil }
+
+// Ready is a no-op
+func (NoopExplorerClient) Ready() error { return nil }
+
+// Send is a no-op
+func (NoopExplorerClient) Send(context.Context, []byte, ...int) {}
+
+// Receive is a no-op
 func (NoopExplorerClient) Receive(context.Context, ...time.Duration) ([]byte, error) { return nil, nil }
 
 type explorerClient struct {
@@ -116,7 +131,7 @@ func (ec *explorerClient) Status() ConnectionStatus {
 }
 
 // Start starts a write pump over a websocket.
-func (ec *explorerClient) Start() error {
+func (ec *explorerClient) Start(context.Context) error {
 	return ec.StartOnce("Explorer client", func() error {
 		ec.chStop = make(chan struct{})
 		ec.wg.Add(1)

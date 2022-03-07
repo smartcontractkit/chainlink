@@ -13,19 +13,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gumocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
@@ -95,7 +97,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			}
 		})
 
-		err := bhe.Start()
+		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		assert.Len(t, bhe.RollingBlockHistory(), 2)
@@ -119,7 +121,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			return len(b) == int(historySize)
 		})).Return(nil)
 
-		err := bhe.Start()
+		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		// non-eip1559 block
@@ -136,7 +138,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("something exploded"))
 
-		err := bhe.Start()
+		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		assert.Nil(t, gas.GetLatestBaseFee(bhe))
@@ -162,7 +164,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
 
-		err := bhe.Start()
+		err := bhe.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
@@ -1058,6 +1060,40 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		price := gas.GetTipCap(bhe)
 		require.Equal(t, big.NewInt(60), price)
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("respects minimum gas tip cap", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+		config.On("EvmGasTipCapMinimum").Return(big.NewInt(1))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+
+		bhe := newBlockHistoryEstimator(t, ethClient, config)
+
+		b1Hash := utils.NewHash()
+
+		blocks := []gas.Block{
+			gas.Block{
+				BaseFeePerGas: big.NewInt(10),
+				Number:        0,
+				Hash:          b1Hash,
+				ParentHash:    common.Hash{},
+				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(0, 0, 0, 0, 100),
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(cltest.Head(0))
+
+		price := gas.GetTipCap(bhe)
+		assert.Equal(t, big.NewInt(1), price)
 
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -16,6 +18,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -30,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
@@ -59,10 +62,10 @@ func TestHeadTracker_New(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
-	assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), cltest.Head(1)))
+	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(1)))
 	last := cltest.Head(16)
-	assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), last))
-	assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), cltest.Head(10)))
+	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), last))
+	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(10)))
 
 	evmcfg := newCfg(t)
 	ht := createHeadTracker(t, ethClient, evmcfg, orm)
@@ -83,19 +86,19 @@ func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 
 	for idx := 0; idx < 200; idx++ {
-		assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), cltest.Head(idx)))
+		assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(idx)))
 	}
 
 	ht := createHeadTracker(t, ethClient, config, orm)
 
 	h := cltest.Head(200)
-	require.NoError(t, ht.headSaver.Save(context.TODO(), h))
+	require.NoError(t, ht.headSaver.Save(testutils.Context(t), h))
 	assert.Equal(t, big.NewInt(200), ht.headSaver.LatestChain().ToInt())
 
 	firstHead := firstHead(t, db)
 	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
 
-	lastHead, err := orm.LatestHead(context.TODO())
+	lastHead, err := orm.LatestHead(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, int64(200), lastHead.Number)
 }
@@ -141,14 +144,14 @@ func TestHeadTracker_Get(t *testing.T) {
 			}
 
 			if test.initial != nil {
-				assert.Nil(t, orm.IdempotentInsertHead(context.TODO(), test.initial))
+				assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), test.initial))
 			}
 
 			ht := createHeadTracker(t, ethClient, config, orm)
 			ht.Start(t)
 
 			if test.toSave != nil {
-				err := ht.headSaver.Save(context.TODO(), test.toSave)
+				err := ht.headSaver.Save(testutils.Context(t), test.toSave)
 				assert.NoError(t, err)
 			}
 
@@ -180,6 +183,41 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	<-chStarted
 
 	ethClient.AssertExpectations(t)
+}
+
+func TestHeadTracker_Start_CancelContext(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	logger := logger.TestLogger(t)
+	config := newCfg(t)
+	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
+	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil)
+	chStarted := make(chan struct{})
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Run(func(args mock.Arguments) {
+		ctx := args.Get(0).(context.Context)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+			assert.FailNow(t, "context was not cancelled within 10s")
+		}
+	}).Return(cltest.Head(0), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(mock.Arguments) { close(chStarted) }).
+		Return(sub, nil)
+
+	ht := createHeadTracker(t, ethClient, config, orm)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(1 * time.Second)
+		cancel()
+	}()
+	err := ht.headTracker.Start(ctx)
+	require.NoError(t, err)
 }
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
@@ -335,7 +373,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	})).Once().Return()
 	ht.Start(t)
 
-	h, err := orm.LatestHead(context.TODO())
+	h, err := orm.LatestHead(testutils.Context(t))
 	require.NoError(t, err)
 	require.NotNil(t, h)
 	assert.Equal(t, h.Number, int64(3))
@@ -701,7 +739,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), &h))
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
@@ -720,7 +758,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), &h))
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
@@ -745,7 +783,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		require.NotNil(t, h.Parent.Parent.Parent)
 		assert.Equal(t, int64(9), h.Parent.Parent.Parent.Number)
 
-		writtenHead, err := orm.HeadByHash(context.TODO(), head10.Hash)
+		writtenHead, err := orm.HeadByHash(testutils.Context(t), head10.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, int64(10), writtenHead.Number)
 
@@ -758,7 +796,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), &h))
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
@@ -793,7 +831,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), &h))
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
@@ -821,7 +859,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).
 			Return(&head0, nil)
 
-		require.NoError(t, orm.IdempotentInsertHead(context.TODO(), &h1))
+		require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h1))
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
@@ -843,7 +881,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), &h))
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
@@ -876,7 +914,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		logger := logger.TestLogger(t)
 		orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 		for _, h := range heads {
-			require.NoError(t, orm.IdempotentInsertHead(context.TODO(), &h))
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &h))
 		}
 
 		ethClient := cltest.NewEthClientMock(t)
@@ -959,8 +997,9 @@ func (u *headTrackerUniverse) Backfill(ctx context.Context, head *evmtypes.Head,
 func (u *headTrackerUniverse) Start(t *testing.T) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	require.NoError(t, u.headBroadcaster.Start())
-	require.NoError(t, u.headTracker.Start())
+	ctx := testutils.Context(t)
+	require.NoError(t, u.headBroadcaster.Start(ctx))
+	require.NoError(t, u.headTracker.Start(ctx))
 	t.Cleanup(func() {
 		u.Stop(t)
 	})

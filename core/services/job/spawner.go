@@ -8,12 +8,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Spawner --output ./mocks/ --case=underscore
@@ -105,7 +105,7 @@ func (js *spawner) startAllServices() {
 	// TODO: rename to find AllJobs
 	specs, _, err := js.orm.FindJobs(0, math.MaxUint32)
 	if err != nil {
-		js.lggr.Errorf("Couldn't fetch unclaimed jobs: %v", err)
+		js.lggr.Criticalf("Couldn't fetch unclaimed jobs: %v", err)
 		return
 	}
 
