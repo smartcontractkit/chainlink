@@ -51,4 +51,7 @@ func TestTerraKeyRing_Marshalling(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, bytes.Equal(kr1.pubKey, kr2.pubKey))
 	assert.True(t, bytes.Equal(kr1.privKey, kr2.privKey))
+
+	// Invalid seed size should error
+	require.Error(t, kr2.unmarshal([]byte{0x01}))
 }

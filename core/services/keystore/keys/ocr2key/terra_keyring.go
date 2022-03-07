@@ -3,6 +3,7 @@ package ocr2key
 import (
 	"crypto/ed25519"
 	"encoding/binary"
+	"github.com/pkg/errors"
 	"io"
 
 	"github.com/hdevalence/ed25519consensus"
@@ -84,6 +85,9 @@ func (tk *terraKeyring) marshal() ([]byte, error) {
 }
 
 func (tk *terraKeyring) unmarshal(in []byte) error {
+	if len(in) !=  ed25519.SeedSize {
+		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
+	}
 	privKey := ed25519.NewKeyFromSeed(in)
 	tk.privKey = privKey
 	tk.pubKey = privKey.Public().(ed25519.PublicKey)
