@@ -77,6 +77,7 @@ declare module 'core/store/models' {
     wsURL: string
     createdAt: time.Time
     updatedAt: time.Time
+    state: string
   }
 
   // We really need to change the API for this. It not only returns levels but

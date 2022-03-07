@@ -403,7 +403,7 @@ func newMockConfig(t *testing.T) *bptxmmocks.Config {
 	cfg.On("EvmGasBumpTxDepth").Return(uint16(42)).Maybe().Once()
 	cfg.On("EvmMaxInFlightTransactions").Return(uint32(42)).Maybe().Once()
 	cfg.On("EvmMaxQueuedTransactions").Return(uint64(42)).Maybe().Once()
-	cfg.On("EvmNonceAutoSync").Return(true).Maybe().Once()
+	cfg.On("EvmNonceAutoSync").Return(true).Maybe()
 	cfg.On("EvmGasLimitDefault").Return(uint64(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBatchSize").Return(uint32(42)).Maybe().Once()
 	cfg.On("BlockHistoryEstimatorBlockDelay").Return(uint16(42)).Maybe().Once()
@@ -421,6 +421,8 @@ func newMockConfig(t *testing.T) *bptxmmocks.Config {
 	cfg.On("EvmGasTipCapMinimum").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMaxGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
 	cfg.On("EvmMinGasPriceWei").Return(big.NewInt(42)).Maybe().Once()
+
+	cfg.On("LogSQL").Maybe().Return(false)
 
 	return cfg
 }
@@ -552,7 +554,6 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	sub := new(pgmocks.Subscription)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	config.On("EvmNonceAutoSync").Return(true)
 	config.On("EvmGasBumpThreshold").Return(uint64(1))
 
 	require.NoError(t, bptxm.Start(testutils.Context(t)))

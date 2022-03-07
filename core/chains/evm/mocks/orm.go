@@ -5,8 +5,10 @@ package mocks
 import (
 	big "math/big"
 
-	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
+
+	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	utils "github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -197,13 +199,20 @@ func (_m *ORM) GetChainsByIDs(ids []utils.Big) ([]types.Chain, error) {
 	return r0, r1
 }
 
-// GetNodesByChainIDs provides a mock function with given fields: chainIDs
-func (_m *ORM) GetNodesByChainIDs(chainIDs []utils.Big) ([]types.Node, error) {
-	ret := _m.Called(chainIDs)
+// GetNodesByChainIDs provides a mock function with given fields: chainIDs, qopts
+func (_m *ORM) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) ([]types.Node, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, chainIDs)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 []types.Node
-	if rf, ok := ret.Get(0).(func([]utils.Big) []types.Node); ok {
-		r0 = rf(chainIDs)
+	if rf, ok := ret.Get(0).(func([]utils.Big, ...pg.QOpt) []types.Node); ok {
+		r0 = rf(chainIDs, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.Node)
@@ -211,8 +220,8 @@ func (_m *ORM) GetNodesByChainIDs(chainIDs []utils.Big) ([]types.Node, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]utils.Big) error); ok {
-		r1 = rf(chainIDs)
+	if rf, ok := ret.Get(1).(func([]utils.Big, ...pg.QOpt) error); ok {
+		r1 = rf(chainIDs, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -220,20 +229,27 @@ func (_m *ORM) GetNodesByChainIDs(chainIDs []utils.Big) ([]types.Node, error) {
 	return r0, r1
 }
 
-// Node provides a mock function with given fields: id
-func (_m *ORM) Node(id int32) (types.Node, error) {
-	ret := _m.Called(id)
+// Node provides a mock function with given fields: id, qopts
+func (_m *ORM) Node(id int32, qopts ...pg.QOpt) (types.Node, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 types.Node
-	if rf, ok := ret.Get(0).(func(int32) types.Node); ok {
-		r0 = rf(id)
+	if rf, ok := ret.Get(0).(func(int32, ...pg.QOpt) types.Node); ok {
+		r0 = rf(id, qopts...)
 	} else {
 		r0 = ret.Get(0).(types.Node)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(int32) error); ok {
-		r1 = rf(id)
+	if rf, ok := ret.Get(1).(func(int32, ...pg.QOpt) error); ok {
+		r1 = rf(id, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -241,13 +257,20 @@ func (_m *ORM) Node(id int32) (types.Node, error) {
 	return r0, r1
 }
 
-// Nodes provides a mock function with given fields: offset, limit
-func (_m *ORM) Nodes(offset int, limit int) ([]types.Node, int, error) {
-	ret := _m.Called(offset, limit)
+// Nodes provides a mock function with given fields: offset, limit, qopts
+func (_m *ORM) Nodes(offset int, limit int, qopts ...pg.QOpt) ([]types.Node, int, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, offset, limit)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 []types.Node
-	if rf, ok := ret.Get(0).(func(int, int) []types.Node); ok {
-		r0 = rf(offset, limit)
+	if rf, ok := ret.Get(0).(func(int, int, ...pg.QOpt) []types.Node); ok {
+		r0 = rf(offset, limit, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.Node)
@@ -255,15 +278,15 @@ func (_m *ORM) Nodes(offset int, limit int) ([]types.Node, int, error) {
 	}
 
 	var r1 int
-	if rf, ok := ret.Get(1).(func(int, int) int); ok {
-		r1 = rf(offset, limit)
+	if rf, ok := ret.Get(1).(func(int, int, ...pg.QOpt) int); ok {
+		r1 = rf(offset, limit, qopts...)
 	} else {
 		r1 = ret.Get(1).(int)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(int, int) error); ok {
-		r2 = rf(offset, limit)
+	if rf, ok := ret.Get(2).(func(int, int, ...pg.QOpt) error); ok {
+		r2 = rf(offset, limit, qopts...)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -271,13 +294,20 @@ func (_m *ORM) Nodes(offset int, limit int) ([]types.Node, int, error) {
 	return r0, r1, r2
 }
 
-// NodesForChain provides a mock function with given fields: chainID, offset, limit
-func (_m *ORM) NodesForChain(chainID utils.Big, offset int, limit int) ([]types.Node, int, error) {
-	ret := _m.Called(chainID, offset, limit)
+// NodesForChain provides a mock function with given fields: chainID, offset, limit, qopts
+func (_m *ORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts ...pg.QOpt) ([]types.Node, int, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, chainID, offset, limit)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 []types.Node
-	if rf, ok := ret.Get(0).(func(utils.Big, int, int) []types.Node); ok {
-		r0 = rf(chainID, offset, limit)
+	if rf, ok := ret.Get(0).(func(utils.Big, int, int, ...pg.QOpt) []types.Node); ok {
+		r0 = rf(chainID, offset, limit, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.Node)
@@ -285,15 +315,15 @@ func (_m *ORM) NodesForChain(chainID utils.Big, offset int, limit int) ([]types.
 	}
 
 	var r1 int
-	if rf, ok := ret.Get(1).(func(utils.Big, int, int) int); ok {
-		r1 = rf(chainID, offset, limit)
+	if rf, ok := ret.Get(1).(func(utils.Big, int, int, ...pg.QOpt) int); ok {
+		r1 = rf(chainID, offset, limit, qopts...)
 	} else {
 		r1 = ret.Get(1).(int)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(utils.Big, int, int) error); ok {
-		r2 = rf(chainID, offset, limit)
+	if rf, ok := ret.Get(2).(func(utils.Big, int, int, ...pg.QOpt) error); ok {
+		r2 = rf(chainID, offset, limit, qopts...)
 	} else {
 		r2 = ret.Error(2)
 	}

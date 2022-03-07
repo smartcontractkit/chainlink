@@ -25,9 +25,10 @@ func (nc *EVMNodesController) Index(c *gin.Context, size, page, offset int) {
 	var count int
 	var err error
 
+	chainSet := nc.App.GetChains().EVM
 	if id == "" {
 		// fetch all nodes
-		nodes, count, err = nc.App.EVMORM().Nodes(offset, size)
+		nodes, count, err = chainSet.GetNodes(c, offset, size)
 
 	} else {
 		// fetch nodes for chain ID
@@ -36,12 +37,13 @@ func (nc *EVMNodesController) Index(c *gin.Context, size, page, offset int) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
-		nodes, count, err = nc.App.EVMORM().NodesForChain(chainID, offset, size)
+		nodes, count, err = chainSet.GetNodesForChain(c, chainID, offset, size)
 	}
 
 	var resources []presenters.EVMNodeResource
 	for _, node := range nodes {
-		resources = append(resources, presenters.NewEVMNodeResource(node))
+		res := presenters.NewEVMNodeResource(node)
+		resources = append(resources, res)
 	}
 
 	paginatedResponse(c, "node", size, page, resources, count, err)
