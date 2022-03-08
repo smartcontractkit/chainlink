@@ -1,7 +1,9 @@
 package chains
 
+// ChainType denotes the chain or network to work with
 type ChainType string
 
+//nolint
 const (
 	Arbitrum ChainType = "arbitrum"
 	ExChain  ChainType = "exchain"

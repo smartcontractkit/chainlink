@@ -6,11 +6,11 @@ import (
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
@@ -93,6 +93,7 @@ type OCR2ProviderArgs struct {
 	Relay           types.Network
 	RelayConfig     job.JSONConfig
 	IsBootstrapPeer bool
+	Plugin          job.OCR2PluginType
 }
 
 func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2Provider, error) {
@@ -118,6 +119,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			ContractID:    spec.ContractID,
 			TransmitterID: spec.TransmitterID,
 			ChainID:       config.ChainID.ToInt(),
+			Plugin:        spec.Plugin,
 		})
 	case types.Solana:
 		r, exists := d.relayers[types.Solana]

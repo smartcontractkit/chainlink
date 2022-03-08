@@ -42,7 +42,6 @@ linters-settings:
       - name: error-return
       - name: error-strings
       - name: error-naming
-      - name: exported
       - name: if-return
       - name: increment-decrement
       # - name: var-naming
@@ -84,10 +83,3 @@ issues:
       text: "^G404:"
       linters:
         - gosec
-  include:
-    # Enable GoDoc comment checks.
-    - EXC0002
-    - EXC0011
-    - EXC0012
-    - EXC0013
-    - EXC0014
