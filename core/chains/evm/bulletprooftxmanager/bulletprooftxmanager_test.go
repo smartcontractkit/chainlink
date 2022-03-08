@@ -538,6 +538,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	config.On("LogSQL").Return(false).Maybe()
+	config.On("EvmRPCDefaultBatchSize").Return(uint32(4)).Maybe()
 	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})
