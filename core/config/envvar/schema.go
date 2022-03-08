@@ -9,11 +9,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -119,6 +119,9 @@ type ConfigSchema struct {
 	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
 	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
 	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
+
+	// Access control
+	KeyExportsAllowed bool `env:"KEY_EXPORTS_ALLOWED" default:"true"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars

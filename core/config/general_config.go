@@ -58,6 +58,9 @@ type FeatureFlags interface {
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	TerraEnabled() bool
+
+	// KeyExportsAllowed allows keys to be exported.
+	KeyExportsAllowed() bool
 }
 
 type GeneralOnlyConfig interface {
@@ -732,6 +735,11 @@ func (c *generalConfig) TerraEnabled() bool {
 func (c *generalConfig) P2PEnabled() bool {
 	// We need p2p networking if either ocr1 or ocr2 is enabled
 	return c.P2PListenPort() > 0 || c.FeatureOffchainReporting() || c.FeatureOffchainReporting2()
+}
+
+// KeyExportsAllowed allows keys to be exported
+func (c *generalConfig) KeyExportsAllowed() bool {
+	return c.viper.GetBool(envvar.Name("KeyExportsAllowed"))
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead

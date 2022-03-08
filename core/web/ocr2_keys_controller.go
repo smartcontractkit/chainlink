@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -89,6 +90,10 @@ func (ocr2kc *OCR2KeysController) Import(c *gin.Context) {
 // "Post <application>/keys/ocr/export"
 func (ocr2kc *OCR2KeysController) Export(c *gin.Context) {
 	defer ocr2kc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export response body")
+
+	if !ocr2kc.App.GetConfig().KeyExportsAllowed() {
+		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("key export not allowed"))
+	}
 
 	stringID := c.Param("ID")
 	newPassword := c.Query("newpassword")

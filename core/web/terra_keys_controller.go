@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -84,6 +85,10 @@ func (terkc *TerraKeysController) Import(c *gin.Context) {
 // "Post <application>/keys/terra/export"
 func (terkc *TerraKeysController) Export(c *gin.Context) {
 	defer terkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+
+	if !terkc.App.GetConfig().KeyExportsAllowed() {
+		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("key export not allowed"))
+	}
 
 	keyID := c.Param("ID")
 	newPassword := c.Query("newpassword")

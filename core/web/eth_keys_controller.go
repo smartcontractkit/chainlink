@@ -285,6 +285,10 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 func (ekc *ETHKeysController) Export(c *gin.Context) {
 	defer ekc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
+	if !ekc.App.GetConfig().KeyExportsAllowed() {
+		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("key export not allowed"))
+	}
+
 	address := c.Param("address")
 	newPassword := c.Query("newpassword")
 

@@ -2117,6 +2117,20 @@ func (_m *GeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return r0
 }
 
+// KeyExportsAllowed provides a mock function with given fields:
+func (_m *GeneralConfig) KeyExportsAllowed() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // KeyFile provides a mock function with given fields:
 func (_m *GeneralConfig) KeyFile() string {
 	ret := _m.Called()

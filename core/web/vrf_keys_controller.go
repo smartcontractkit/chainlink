@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -84,6 +85,10 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 // "Post <application>/keys/vrf/export/:keyID"
 func (vrfkc *VRFKeysController) Export(c *gin.Context) {
 	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+
+	if !vrfkc.App.GetConfig().KeyExportsAllowed() {
+		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("key export not allowed"))
+	}
 
 	keyID := c.Param("keyID")
 	// New password to re-encrypt the export with

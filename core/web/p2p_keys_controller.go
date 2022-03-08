@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -89,6 +90,10 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 // "Post <application>/keys/p2p/export"
 func (p2pkc *P2PKeysController) Export(c *gin.Context) {
 	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
+
+	if !p2pkc.App.GetConfig().KeyExportsAllowed() {
+		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("key export not allowed"))
+	}
 
 	keyID, err := p2pkey.MakePeerID(c.Param("ID"))
 	if err != nil {

@@ -69,6 +69,10 @@ func (ctrl *CSAKeysController) Import(c *gin.Context) {
 func (ctrl *CSAKeysController) Export(c *gin.Context) {
 	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
+	if !ctrl.App.GetConfig().KeyExportsAllowed() {
+		jsonAPIError(c, http.StatusMethodNotAllowed, errors.New("key export not allowed"))
+	}
+
 	keyID := c.Param("ID")
 	newPassword := c.Query("newpassword")
 
