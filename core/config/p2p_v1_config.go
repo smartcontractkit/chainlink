@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
@@ -53,6 +54,15 @@ func (c *generalConfig) P2PListenPort() uint16 {
 	if c.viper.IsSet(envvar.Name("P2PListenPort")) {
 		return uint16(c.viper.GetUint32(envvar.Name("P2PListenPort")))
 	}
+	switch c.P2PNetworkingStack() {
+	case ocrnetworking.NetworkingStackV1, ocrnetworking.NetworkingStackV1V2:
+		return c.randomP2PListenPort()
+	default:
+		return 0
+	}
+}
+
+func (c *generalConfig) randomP2PListenPort() uint16 {
 	// Fast path in case it was already set
 	c.randomP2PPortMtx.RLock()
 	if c.randomP2PPort > 0 {
