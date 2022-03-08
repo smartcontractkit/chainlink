@@ -281,7 +281,7 @@ func BumpLegacyGasPriceOnly(cfg Config, lggr logger.Logger, currentGasPrice, ori
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func bumpGasPrice(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
+func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
 	maxGasPrice := cfg.EvmMaxGasPriceWei()
 
 	var priceByPercentage = new(big.Int)
@@ -296,7 +296,7 @@ func bumpGasPrice(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPr
 		if currentGasPrice.Cmp(maxGasPrice) > 0 {
 			// Shouldn't happen because the estimator should not be allowed to
 			// estimate a higher gas than the maximum allowed
-			lggr.Errorf("AssumptionViolation: Ignoring current gas price of %s that would exceed max gas price of %s", currentGasPrice.String(), maxGasPrice.String())
+			lggr.AssumptionViolationf("Ignoring current gas price of %s that would exceed max gas price of %s", currentGasPrice.String(), maxGasPrice.String())
 		} else if bumpedGasPrice.Cmp(currentGasPrice) < 0 {
 			// If the current gas price is higher than the old price bumped, use that instead
 			bumpedGasPrice = currentGasPrice
