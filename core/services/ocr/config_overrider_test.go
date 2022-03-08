@@ -8,15 +8,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 type configOverriderUni struct {
@@ -66,7 +68,7 @@ func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
 		Run(checkFlagsAddress(t, uni.contractAddress)).
 		Return([]bool{true, true}, nil)
 
-	require.NoError(t, uni.overrider.Start())
+	require.NoError(t, uni.overrider.Start(testutils.Context(t)))
 
 	// not hibernating initially
 	require.Nil(t, uni.overrider.ConfigOverride())
@@ -97,7 +99,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 			Run(checkFlagsAddress(t, uni.contractAddress)).
 			Return([]bool{true, true}, nil)
 
-		require.NoError(t, uni.overrider.Start())
+		require.NoError(t, uni.overrider.Start(testutils.Context(t)))
 
 		// not hibernating initially
 		require.Nil(t, uni.overrider.ConfigOverride())
@@ -126,7 +128,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 			Run(checkFlagsAddress(t, uni.contractAddress)).
 			Return([]bool{true, false}, nil)
 
-		require.NoError(t, uni.overrider.Start())
+		require.NoError(t, uni.overrider.Start(testutils.Context(t)))
 
 		// initially enters hibernation
 		expectedOverride := &ocrtypes.ConfigOverride{AlphaPPB: math.MaxUint64, DeltaC: uni.overrider.DeltaCFromAddress}
