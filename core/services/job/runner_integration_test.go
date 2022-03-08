@@ -66,7 +66,7 @@ func TestRunner(t *testing.T) {
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t))
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	runner.Start()
+	runner.Start(testutils.Context(t))
 	defer runner.Close()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -478,7 +478,7 @@ ds1 -> ds1_parse;
 
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -530,7 +530,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -564,7 +564,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -592,7 +592,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -622,7 +622,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 
 		sd := ocr.NewDelegate(
 			db,
@@ -639,8 +639,9 @@ ds1 -> ds1_parse;
 
 		// Return an error getting the contract code.
 		ethClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
+		ctx := testutils.Context(t)
 		for _, s := range services {
-			err = s.Start()
+			err = s.Start(ctx)
 			require.NoError(t, err)
 		}
 		var se []job.SpecError

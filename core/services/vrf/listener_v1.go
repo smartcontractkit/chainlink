@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	_ log.Listener = &listenerV1{}
-	_ job.Service  = &listenerV1{}
+	_ log.Listener   = &listenerV1{}
+	_ job.ServiceCtx = &listenerV1{}
 )
 
 type request struct {
@@ -95,7 +95,7 @@ func (lsn *listenerV1) getLatestHead() uint64 {
 }
 
 // Start complies with job.Service
-func (lsn *listenerV1) Start() error {
+func (lsn *listenerV1) Start(context.Context) error {
 	return lsn.StartOnce("VRFListener", func() error {
 		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
 

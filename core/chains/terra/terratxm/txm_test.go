@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -51,7 +52,7 @@ func TestTxm_Integration(t *testing.T) {
 	chainCfg := pkgterra.NewConfig(dbChain.Cfg, lggr)
 	orm := terratxm.NewORM(chainID, db, lggr, logCfg)
 	eb := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, lggr, uuid.NewV4())
-	require.NoError(t, eb.Start())
+	require.NoError(t, eb.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewPGCfg(true))
 	accounts, testdir, tendermintURL := terraclient.SetupLocalTerraNode(t, "42")
