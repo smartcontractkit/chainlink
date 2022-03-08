@@ -11,20 +11,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 	"gopkg.in/guregu/null.v4"
 
-	txm "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
-	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	rtypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -72,7 +64,7 @@ func (r *Relayer) Healthy() error {
 
 // NewOCR2Provider provides all evm specific implementations of OCR2 components
 // including components generic across all plugins and ones specific to plugins.
-func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types2.OCR2Provider, error) {
+func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types2.OCR2ProviderCtx, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
 	chain, err := r.chainSet.Get(spec.ChainID)
@@ -163,8 +155,8 @@ type ocr2Provider struct {
 }
 
 // Start an ethereum ocr2 provider will start the contract tracker.
-func (p ocr2Provider) Start(ctx context.Context) error {
-	err := p.tracker.Start(ctx)
+func (p ocr2Provider) Start(context.Context) error {
+	err := p.tracker.Start()
 	if err != nil {
 		return err
 	}
