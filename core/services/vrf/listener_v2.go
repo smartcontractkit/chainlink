@@ -208,6 +208,30 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 // we simply retry TODO: follow up where if we see a fulfillment revert, return log to the queue.
 func (lsn *listenerV2) processPendingVRFRequests() {
 	confirmed := lsn.getAndRemoveConfirmedLogsBySub(lsn.getLatestHead())
+	processed := make(map[string]struct{})
+	start := time.Now()
+
+	// Add any unprocessed requests back to lsn.reqs after request processing is complete.
+	defer func() {
+		var toKeep []pendingRequest
+		for _, subReqs := range confirmed {
+			for _, req := range subReqs {
+				if _, ok := processed[req.req.RequestId.String()]; !ok {
+					toKeep = append(toKeep, req)
+				}
+			}
+		}
+		// There could be logs accumulated to this slice while request processor is running,
+		// so we merged the new ones with the ones that need to be requeued.
+		lsn.reqsMu.Lock()
+		lsn.reqs = append(lsn.reqs, toKeep...)
+		lsn.reqsMu.Unlock()
+		lsn.l.Infow("Finished processing pending requests",
+			"total processed", len(processed),
+			"total unprocessed", len(toKeep),
+			"time", time.Since(start).String())
+	}()
+
 	keys, err := lsn.gethks.SendingKeys()
 	if err != nil {
 		lsn.l.Errorw("Unable to read sending keys", "err", err)
@@ -229,10 +253,13 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 		sub, err := lsn.coordinator.GetSubscription(nil, subID)
 		if err != nil {
 			lsn.l.Errorw("Unable to read subscription balance", "err", err)
-			return
+			continue
 		}
 		startBalance := sub.Balance
-		lsn.processRequestsPerSub(subID, fromAddress.Address(), startBalance, maxGasPriceWei, reqs)
+		p := lsn.processRequestsPerSub(subID, fromAddress.Address(), startBalance, maxGasPriceWei, reqs)
+		for reqID := range p {
+			processed[reqID] = struct{}{}
+		}
 	}
 	lsn.pruneConfirmedRequestCounts()
 }
@@ -290,12 +317,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 	startBalance *big.Int,
 	maxGasPriceWei *big.Int,
 	reqs []pendingRequest,
-) {
+) map[string]struct{} {
+	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
 		lsn.l, lsn.q, fromAddress, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
-		return
+		return processed
 	}
 	lggr := lsn.l.With(
 		"subID", reqs[0].req.SubId,
@@ -307,7 +335,6 @@ func (lsn *listenerV2) processRequestsPerSub(
 	lggr.Infow("Processing requests for subscription")
 
 	// Attempt to process every request, break if we run out of balance
-	var processed = make(map[string]struct{})
 	for _, req := range reqs {
 		vrfRequest := req.req
 		rlog := lggr.With(
@@ -319,7 +346,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// goroutine as the mark consumed to avoid processing duplicates.
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(req.lb)
 		if err != nil {
-			// Do not process, let lb resend it as a retry mechanism.
+			// Do not process for now, retry on next iteration.
 			rlog.Errorw("Could not determine if log was already consumed", "error", err)
 			continue
 		} else if consumed {
@@ -400,24 +427,12 @@ func (lsn *listenerV2) processRequestsPerSub(
 		processed[vrfRequest.RequestId.String()] = struct{}{}
 		incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2)
 	}
-	// Remove all the confirmed logs
-	var toKeep []pendingRequest
-	for _, req := range reqs {
-		if _, ok := processed[req.req.RequestId.String()]; !ok {
-			toKeep = append(toKeep, req)
-		}
-	}
-	lsn.reqsMu.Lock()
-	// There could be logs accumulated to this slice while request processor is running,
-	// so we merged the new ones with the ones that need to be requeued.
-	lsn.reqs = append(lsn.reqs, toKeep...)
-	lsn.reqsMu.Unlock()
 	lggr.Infow("Finished processing for sub",
 		"total reqs", len(reqs),
 		"total processed", len(processed),
-		"total remaining", len(toKeep),
 		"total unique", uniqueReqs(reqs),
 	)
+	return processed
 }
 
 func (lsn *listenerV2) estimateFeeJuels(
