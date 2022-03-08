@@ -1,9 +1,9 @@
 package services
 
-// Types requiring health checks should implement the Checkable interface.
+// Checkable should be implemented by any type requiring health checks.
 type Checkable interface {
-	// Checkables should return nil if ready, or an error message otherwise.
+	// Ready should return nil if ready, or an error message otherwise.
 	Ready() error
-	// Checkables should return nil if healthy, or an error message otherwise.
+	// Healthy should return nil if healthy, or an error message otherwise.
 	Healthy() error
 }

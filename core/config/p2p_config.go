@@ -5,12 +5,14 @@ import (
 
 	"github.com/pkg/errors"
 
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 )
 
+// P2PNetworking is a subset of global config relevant to p2p networking.
 type P2PNetworking interface {
 	P2PNetworkingStack() (n ocrnetworking.NetworkingStack)
 	P2PNetworkingStackRaw() string
@@ -44,7 +46,7 @@ func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
 	}
 	var pid p2pkey.PeerID
 	if err := pid.UnmarshalText([]byte(pidStr)); err != nil {
-		c.lggr.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
+		c.lggr.Critical(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
 		return ""
 	}
 	return pid

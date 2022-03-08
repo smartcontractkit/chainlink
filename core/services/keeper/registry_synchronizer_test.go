@@ -117,13 +117,13 @@ func Test_RegistrySynchronizer_Start(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", canceledUpkeeps).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	err := synchronizer.Start()
+	err := synchronizer.Start(testutils.Context(t))
 	require.NoError(t, err)
 	defer synchronizer.Close()
 
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 
-	err = synchronizer.Start()
+	err = synchronizer.Start(testutils.Context(t))
 	require.Error(t, err)
 }
 
@@ -197,7 +197,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
@@ -241,7 +241,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
@@ -286,7 +286,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(3)).Once()
 	registryMock.MockResponse("getUpkeep", upkeepConfig).Times(3)
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer func() { require.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
@@ -322,7 +322,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 
@@ -362,7 +362,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(1)).Once()
 	registryMock.MockResponse("getUpkeep", upkeepConfig).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)

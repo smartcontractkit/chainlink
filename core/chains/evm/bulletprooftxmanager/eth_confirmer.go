@@ -21,6 +21,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/sqlx"
+
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -30,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 const (
@@ -203,6 +204,9 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head *evmtypes.Head) er
 	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
+	if err := ec.CheckConfirmedMissingReceipt(ctx); err != nil {
+		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed")
+	}
 
 	if err := ec.CheckForReceipts(ctx, head.Number); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
@@ -251,6 +255,60 @@ AND eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.evm_chain_id = $2`,
 	return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 }
 
+// CheckConfirmedMissingReceipt will attempt to re-send any transaction in the
+// state of "confirmed_missing_receipt". If we get back any type of senderror
+// other than "nonce too low" it means that this transaction isn't actually
+// confirmed and needs to be put back into "unconfirmed" state, so that it can enter
+// the gas bumping cycle. This is necessary in rare cases (e.g. Polygon) where
+// network conditions are extremely hostile.
+//
+// For example, assume the following scenario:
+//
+// 0. We are connected to multiple primary nodes via load balancer
+// 1. We send a transaction, it is confirmed and, we get a receipt
+// 2. A new head comes in from RPC node 1 indicating that this transaction was re-org'd, so we put it back into unconfirmed state
+// 3. We re-send that transaction to a RPC node 2 **which hasn't caught up to this re-org yet**
+// 4. RPC node 2 still has an old view of the chain, so it returns us "nonce too low" indicating "no problem this transaction is already mined"
+// 5. Now the transaction is marked "confirmed_missing_receipt" but the latest chain does not actually include it
+// 6. Now we are reliant on the EthResender to propagate it, and this transaction will not be gas bumped, so in the event of gas spikes it could languish or even be evicted from the mempool and hold up the queue
+// 7. Even if/when RPC node 2 catches up, the transaction is still stuck in state "confirmed_missing_receipt"
+//
+// This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
+func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err error) {
+	var attempts []EthTxAttempt
+	err = ec.q.Select(&attempts,
+		`SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
+		FROM eth_tx_attempts
+		JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state = 'confirmed_missing_receipt'
+		WHERE evm_chain_id = $1
+		ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`,
+		ec.chainID.String())
+	if err != nil {
+		return errors.Wrap(err, "CheckConfirmedMissingReceipt failed to query")
+	}
+	if len(attempts) == 0 {
+		return nil
+	}
+	ec.lggr.Infof("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts))
+	reqs, err := batchSendTransactions(ec.ctx, ec.db, attempts, int(ec.config.EvmRPCDefaultBatchSize()), ec.lggr, ec.ethClient)
+	if err != nil {
+		ec.lggr.Debugw("Batch sending transactions failed", err)
+	}
+	var ethTxIDsToUnconfirm []int64
+	for idx, req := range reqs {
+		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
+		if req.Error == nil || !evmclient.NewSendError(req.Error).IsNonceTooLowError() {
+			ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
+		}
+	}
+	_, err = ec.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ethTxIDsToUnconfirm))
+
+	if err != nil {
+		return errors.Wrap(err, "CheckConfirmedMissingReceipt: marking as unconfirmed failed")
+	}
+	return
+}
+
 // CheckForReceipts finds attempts that are still pending and checks to see if a receipt is present for the given block number
 func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
 	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
@@ -269,12 +327,15 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	}
 
 	for from, attempts := range attemptsByAddress {
-		latestBlockNonce, err := ec.getNonceForLatestBlock(ctx, from)
+		minedTransactionCount, err := ec.getMinedTransactionCount(ctx, from)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
 
-		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, latestBlockNonce)
+		// separateLikelyConfirmedAttempts is used as an optimisation: there is
+		// no point trying to fetch receipts for attempts with a nonce higher
+		// than the highest nonce the RPC node thinks it has seen
+		likelyConfirmed := ec.separateLikelyConfirmedAttempts(from, attempts, minedTransactionCount)
 		likelyConfirmedCount := len(likelyConfirmed)
 		if likelyConfirmedCount > 0 {
 			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
@@ -302,19 +363,29 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	return nil
 }
 
-func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []EthTxAttempt, latestBlockNonce uint64) []EthTxAttempt {
+func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []EthTxAttempt, minedTransactionCount uint64) []EthTxAttempt {
 	if len(attempts) == 0 {
 		return attempts
 	}
 
-	firstAttemptNonce := fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
-	lastAttemptNonce := fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
-	ec.lggr.Debugw(fmt.Sprintf("There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
-		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "latestBlockNonce", latestBlockNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
+	firstAttemptNonce := *attempts[len(attempts)-1].EthTx.Nonce
+	lastAttemptNonce := *attempts[0].EthTx.Nonce
+	latestMinedNonce := int64(minedTransactionCount) - 1 // this can be -1 if a transaction has never been mined on this account
+	ec.lggr.Debugw(fmt.Sprintf("There are %d attempts from address %s, mined transaction count is %d (latest mined nonce is %d) and for the attempts' nonces: first = %d, last = %d",
+		len(attempts), from.Hex(), minedTransactionCount, latestMinedNonce, firstAttemptNonce, lastAttemptNonce), "nAttempts", len(attempts), "fromAddress", from, "minedTransactionCount", minedTransactionCount, "latestMinedNonce", latestMinedNonce, "firstAttemptNonce", firstAttemptNonce, "lastAttemptNonce", lastAttemptNonce)
 
 	likelyConfirmed := attempts
+	// attempts are ordered by nonce ASC
 	for i := 0; i < len(attempts); i++ {
-		if attempts[i].EthTx.Nonce != nil && *attempts[i].EthTx.Nonce > int64(latestBlockNonce) {
+		// If the attempt nonce is lower or equal to the latestBlockNonce
+		// it must have been confirmed, we just didn't get a receipt yet
+		//
+		// Examples:
+		// 3 transactions confirmed, highest has nonce 2
+		// 5 total attempts, highest has nonce 4
+		// minedTransactionCount=3
+		// likelyConfirmed will be attempts[0:3] which gives the first 3 transactions, as expected
+		if *attempts[i].EthTx.Nonce > int64(minedTransactionCount) {
 			ec.lggr.Debugf("Marking attempts as likely confirmed just before index %v, at nonce: %v", i, *attempts[i].EthTx.Nonce)
 			likelyConfirmed = attempts[0:i]
 			break
@@ -374,7 +445,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 	return
 }
 
-func (ec *EthConfirmer) getNonceForLatestBlock(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
+func (ec *EthConfirmer) getMinedTransactionCount(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
 	return ec.ethClient.NonceAt(ctx, from, nil)
 }
 
@@ -408,30 +479,31 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		l := lggr.With(
-			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID, "err", err,
+			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID,
+			"ethTxID", attempt.EthTxID, "err", err, "nonce", attempt.EthTx.Nonce,
 		)
 
 		if err != nil {
-			l.Errorw("FetchReceipt failed")
+			l.Error("FetchReceipt failed")
 			continue
 		}
 
 		if receipt == nil {
-			// NOTE: This should never possibly happen, but it seems safer to
-			// check regardless to avoid a potential panic
-			l.Errorw("Invariant violation, got nil receipt")
+			// NOTE: This should never happen, but it seems safer to check
+			// regardless to avoid a potential panic
+			l.Error("AssumptionViolation: got nil receipt")
 			continue
 		}
 
 		if receipt.IsZero() {
-			l.Debugw("Still waiting for receipt")
+			l.Debug("Still waiting for receipt")
 			continue
 		}
 
 		l = l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex)
 
 		if receipt.IsUnmined() {
-			l.Debugw("Got receipt for transaction but it's still in the mempool and not included in a block yet")
+			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
 			continue
 		}
 
@@ -965,7 +1037,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 			"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", previousAttempt.ID, previousAttempt.TxType)
 	}
 
-	if errors.Cause(err) == gas.ErrBumpGasExceedsLimit {
+	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {
 		promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
 	}
 

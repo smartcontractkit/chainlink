@@ -14,6 +14,7 @@ func NewHash() common.Hash {
 	return common.BytesToHash(b)
 }
 
+// PadByteToHash returns a hash with zeros padded on the left of the given byte.
 func PadByteToHash(b byte) common.Hash {
 	var h [32]byte
 	h[31] = b

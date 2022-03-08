@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -72,7 +72,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		if errors.Cause(err) == sql.ErrNoRows {
+		if errors.Is(errors.Cause(err), sql.ErrNoRows) {
 			jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		} else {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -114,7 +114,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 			return
 		}
 	case job.OffchainReporting2:
-		jb, err = ocr2.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
+		jb, err = validate.ValidatedOracleSpecToml(jc.App.GetConfig(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting2() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration"))
 			return
@@ -148,7 +148,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	defer cancel()
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Cause(err) == job.ErrNoSuchTransmitterKey {
+		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}

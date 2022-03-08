@@ -37,15 +37,15 @@ func (_m *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec provides a mock function with given fields: spec
-func (_m *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
+func (_m *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 	ret := _m.Called(spec)
 
-	var r0 []job.Service
-	if rf, ok := ret.Get(0).(func(job.Job) []job.Service); ok {
+	var r0 []job.ServiceCtx
+	if rf, ok := ret.Get(0).(func(job.Job) []job.ServiceCtx); ok {
 		r0 = rf(spec)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]job.Service)
+			r0 = ret.Get(0).([]job.ServiceCtx)
 		}
 	}
 
