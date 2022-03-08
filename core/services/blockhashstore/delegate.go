@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var _ job.Service = &service{}
+var _ job.ServiceCtx = &service{}
 
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
@@ -45,7 +45,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockhashStoreSpec == nil {
 		return nil, errors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
@@ -118,7 +118,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			return uint64(head.Number), nil
 		})
 
-	return []job.Service{&service{
+	return []job.ServiceCtx{&service{
 		feeder:     feeder,
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
@@ -147,7 +147,7 @@ type service struct {
 }
 
 // Start the BHS feeder service, satisfying the job.Service interface.
-func (s *service) Start() error {
+func (s *service) Start(context.Context) error {
 	return s.StartOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Starting BHS feeder")
 		ticker := time.NewTicker(s.pollPeriod)

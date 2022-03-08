@@ -66,8 +66,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		ch := make(chan struct{})
 		go func() {
-			n.wg.Add(1)
-			n.aliveLoop()
+			n.IfStarted(func() {
+				n.wg.Add(1)
+				n.aliveLoop()
+			})
 			close(ch)
 		}()
 		n.Close()
@@ -270,8 +272,10 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		ch := make(chan struct{})
 		go func() {
-			n.wg.Add(1)
-			n.aliveLoop()
+			n.IfStarted(func() {
+				n.wg.Add(1)
+				n.aliveLoop()
+			})
 			close(ch)
 		}()
 		n.Close()
