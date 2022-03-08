@@ -24,7 +24,7 @@ import (
 // EventBroadcaster opaquely manages a collection of Postgres event listeners
 // and broadcasts events to subscribers (with an optional payload filter).
 type EventBroadcaster interface {
-	services.Service
+	services.ServiceCtx
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
 }
@@ -69,7 +69,8 @@ func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxRec
 	}
 }
 
-func (b *eventBroadcaster) Start() error {
+// Start starts EventBroadcaster.
+func (b *eventBroadcaster) Start(context.Context) error {
 	return b.StartOnce("Postgres event broadcaster", func() (err error) {
 		// Explicitly using the lib/pq for notifications so we use the postgres driverName
 		// and NOT pgx.
@@ -300,9 +301,16 @@ func NewNullEventBroadcaster() *NullEventBroadcaster {
 
 var _ EventBroadcaster = &NullEventBroadcaster{}
 
-func (*NullEventBroadcaster) Start() error   { return nil }
-func (*NullEventBroadcaster) Close() error   { return nil }
-func (*NullEventBroadcaster) Ready() error   { return nil }
+// Start does no-op.
+func (*NullEventBroadcaster) Start(context.Context) error { return nil }
+
+// Close does no-op.
+func (*NullEventBroadcaster) Close() error { return nil }
+
+// Ready does no-op.
+func (*NullEventBroadcaster) Ready() error { return nil }
+
+// Healthy does no-op.
 func (*NullEventBroadcaster) Healthy() error { return nil }
 
 func (ne *NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
