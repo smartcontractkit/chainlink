@@ -19,8 +19,6 @@ import (
 // Tries to send transactions in batches. Even if some batch(es) fail to get sent, it tries all remaining batches,
 // before returning with error for the latest batch send. If a batch send fails, this sets the error on all
 // elements in that batch.
-// Future improvement idea: The batch send is just sending the batch to 1 RPC node.
-// Change it to send to all RPC nodes, similar to Pool.SendTransaction logic.Oh
 func batchSendTransactions(
 	ctx context.Context,
 	db *sqlx.DB,
