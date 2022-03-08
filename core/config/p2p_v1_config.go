@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 )
 
+// P2PV1Networking is a subset of global config relevant to p2p v1 networking.
 type P2PV1Networking interface {
 	P2PAnnounceIP() net.IP
 	P2PAnnouncePort() uint16

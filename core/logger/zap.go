@@ -37,16 +37,14 @@ type zapLogger struct {
 	pollDiskSpaceDone chan struct{}
 }
 
-func (cfg zapLoggerConfig) newLogger() (Logger, func() error, error) {
+func (cfg zapLoggerConfig) newLogger(cores ...zapcore.Core) (Logger, func() error, error) {
 	cfg.diskLogLevel = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 
 	newCore, errWriter, err := cfg.newCore()
 	if err != nil {
 		return nil, nil, err
 	}
-	cores := []zapcore.Core{
-		newCore,
-	}
+	cores = append(cores, newCore)
 	if cfg.local.DebugLogsToDisk() {
 		diskCore, diskErr := cfg.newDiskCore()
 		if diskErr != nil {

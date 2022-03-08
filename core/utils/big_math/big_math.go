@@ -1,3 +1,4 @@
+// Package bigmath compensates for awkward big.Int API. Can cause an extra allocation or two.
 package bigmath
 
 import (
@@ -6,18 +7,32 @@ import (
 	"strings"
 )
 
-// Compensate for awkward big.Int API. Can cause an extra allocation or two.
-func I() *big.Int                                { return new(big.Int) }
-func Add(addend1, addend2 interface{}) *big.Int  { return I().Add(bnIfy(addend1), bnIfy(addend2)) }
+// I returns a new big.Int.
+func I() *big.Int { return new(big.Int) }
+
+// Add performs addition with the given values after coercing them to big.Int, or panics if it cannot.
+func Add(addend1, addend2 interface{}) *big.Int { return I().Add(bnIfy(addend1), bnIfy(addend2)) }
+
+// Div performs division with the given values after coercing them to big.Int, or panics if it cannot.
 func Div(dividend, divisor interface{}) *big.Int { return I().Div(bnIfy(dividend), bnIfy(divisor)) }
-func Equal(left, right interface{}) bool         { return bnIfy(left).Cmp(bnIfy(right)) == 0 }
+
+// Equal compares the given values after coercing them to big.Int, or panics if it cannot.
+func Equal(left, right interface{}) bool { return bnIfy(left).Cmp(bnIfy(right)) == 0 }
+
+// Exp performs modular eponentiation with the given values after coercing them to big.Int, or panics if it cannot.
 func Exp(base, exponent, modulus interface{}) *big.Int {
 	return I().Exp(bnIfy(base), bnIfy(exponent), bnIfy(modulus))
 }
+
+// Mul performs multiplication with the given values after coercing them to big.Int, or panics if it cannot.
 func Mul(multiplicand, multiplier interface{}) *big.Int {
 	return I().Mul(bnIfy(multiplicand), bnIfy(multiplier))
 }
-func Mod(dividend, divisor interface{}) *big.Int   { return I().Mod(bnIfy(dividend), bnIfy(divisor)) }
+
+// Mod performs modulus with the given values after coercing them to big.Int, or panics if it cannot.
+func Mod(dividend, divisor interface{}) *big.Int { return I().Mod(bnIfy(dividend), bnIfy(divisor)) }
+
+// Sub performs subtraction with the given values after coercing them to big.Int, or panics if it cannot.
 func Sub(minuend, subtrahend interface{}) *big.Int { return I().Sub(bnIfy(minuend), bnIfy(subtrahend)) }
 
 func bnIfy(val interface{}) *big.Int {
@@ -60,9 +75,12 @@ func bnIfy(val interface{}) *big.Int {
 	}
 }
 
-var Zero = big.NewInt(0)
-var One = big.NewInt(1)
-var Two = big.NewInt(2)
-var Three = big.NewInt(3)
-var Four = big.NewInt(4)
-var Seven = big.NewInt(7)
+//nolint
+var (
+	Zero  = big.NewInt(0)
+	One   = big.NewInt(1)
+	Two   = big.NewInt(2)
+	Three = big.NewInt(3)
+	Four  = big.NewInt(4)
+	Seven = big.NewInt(7)
+)

@@ -161,19 +161,23 @@ func (mo *MockORM) DeleteNode(id int64) error {
 	panic("not implemented")
 }
 
-func (mo *MockORM) Nodes(offset int, limit int) ([]evmtypes.Node, int, error) {
+// Nodes implements evmtypes.ORM
+func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) ([]evmtypes.Node, int, error) {
 	panic("not implemented")
 }
 
-func (mo *MockORM) Node(id int32) (evmtypes.Node, error) {
+// Node implements evmtypes.ORM
+func (mo *MockORM) Node(id int32, qopts ...pg.QOpt) (evmtypes.Node, error) {
 	panic("not implemented")
 }
 
-func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []evmtypes.Node, err error) {
+// GetNodesByChainIDs implements evmtypes.ORM
+func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []evmtypes.Node, err error) {
 	panic("not implemented")
 }
 
-func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int) ([]evmtypes.Node, int, error) {
+// NodesForChain implements evmtypes.ORM
+func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts ...pg.QOpt) ([]evmtypes.Node, int, error) {
 	panic("not implemented")
 }
 

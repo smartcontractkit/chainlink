@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 
+	"github.com/pkg/errors"
+
 	"github.com/hdevalence/ed25519consensus"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
@@ -84,6 +86,9 @@ func (tk *terraKeyring) marshal() ([]byte, error) {
 }
 
 func (tk *terraKeyring) unmarshal(in []byte) error {
+	if len(in) != ed25519.SeedSize {
+		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
+	}
 	privKey := ed25519.NewKeyFromSeed(in)
 	tk.privKey = privKey
 	tk.pubKey = privKey.Public().(ed25519.PublicKey)

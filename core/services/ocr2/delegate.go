@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
@@ -25,7 +26,7 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
-	cfg                   Config
+	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
 	relayer               types.RelayerCtx
@@ -41,7 +42,7 @@ func NewDelegate(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	cfg Config,
+	cfg validate.Config,
 	ks keystore.OCR2,
 	relayer types.RelayerCtx,
 ) *Delegate {
@@ -82,6 +83,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		TransmitterID:   spec.TransmitterID,
 		Relay:           spec.Relay,
 		RelayConfig:     spec.RelayConfig,
+		Plugin:          spec.PluginType,
 		IsBootstrapPeer: false,
 	})
 	if err != nil {
@@ -96,17 +98,17 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
 	}
 
-	loggerWith := d.lggr.With(
+	lggr := d.lggr.With(
 		"OCRLogger", "true",
 		"contractID", spec.ContractID,
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
-	ocrLogger := logger.NewOCRWrapper(loggerWith, true, func(msg string) {
+	ocrLogger := logger.NewOCRWrapper(lggr, true, func(msg string) {
 		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 
-	lc := ToLocalConfig(d.cfg, *spec)
+	lc := validate.ToLocalConfig(d.cfg, *spec)
 	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -148,7 +150,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	var pluginOracle plugins.OraclePlugin
 	switch spec.PluginType {
 	case job.Median:
-		pluginOracle, err = median.NewMedian(jobSpec, ocr2Provider, d.pipelineRunner, runResults, loggerWith, ocrLogger)
+		pluginOracle, err = median.NewMedian(jobSpec, ocr2Provider, d.pipelineRunner, runResults, lggr, ocrLogger)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -189,7 +191,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		runResults,
 		d.pipelineRunner,
 		make(chan struct{}),
-		loggerWith)
+		lggr)
 
 	oracleCtx := job.NewServiceAdapter(oracle)
 	return append([]job.ServiceCtx{runResultSaver, ocr2Provider, oracleCtx}, pluginServices...), nil

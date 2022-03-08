@@ -127,6 +127,7 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
+// IsEmpty returns true if bytes contains only zero values, or has len 0.
 func IsEmpty(bytes []byte) bool {
 	for _, b := range bytes {
 		if b != 0 {
@@ -374,6 +375,7 @@ func HexToUint256(s string) (*big.Int, error) {
 	return rv, nil
 }
 
+// HexToBig parses the given hex string or panics if it is invalid.
 func HexToBig(s string) *big.Int {
 	n, ok := new(big.Int).SetString(s, 16)
 	if !ok {
@@ -439,7 +441,7 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 	signals = append(signals, ctx)
 
 	var cases []reflect.SelectCase
-	var cancel2 context.CancelFunc
+	var cancels []context.CancelFunc
 	for _, signal := range signals {
 		var ch reflect.Value
 
@@ -451,8 +453,8 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 		case chan struct{}:
 			ch = reflect.ValueOf(sig)
 		case time.Duration:
-			var ctxTimeout context.Context
-			ctxTimeout, cancel2 = context.WithTimeout(ctx, sig)
+			ctxTimeout, cancel2 := context.WithTimeout(ctx, sig)
+			cancels = append(cancels, cancel2)
 			ch = reflect.ValueOf(ctxTimeout.Done())
 		default:
 			panic(fmt.Sprintf("utils.CombinedContext cannot accept a value of type %T, skipping", sig))
@@ -461,11 +463,11 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 	}
 
 	go func() {
-		defer cancel()
-		if cancel2 != nil {
-			defer cancel2()
-		}
 		_, _, _ = reflect.Select(cases)
+		cancel()
+		for _, rCancel := range cancels {
+			rCancel()
+		}
 	}()
 
 	return ctx, cancel
@@ -640,6 +642,7 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
+// TickerBase is an interface for pausable tickers.
 type TickerBase interface {
 	Resume()
 	Pause()
@@ -697,12 +700,14 @@ func (t *PausableTicker) Destroy() {
 	t.Pause()
 }
 
+// CronTicker is like a time.Ticker but for a cron schedule.
 type CronTicker struct {
 	*cron.Cron
 	ch      chan time.Time
 	beenRun *atomic.Bool
 }
 
+// NewCronTicker returns a new CrontTicker for the given schedule.
 func NewCronTicker(schedule string) (CronTicker, error) {
 	cron := cron.New(cron.WithSeconds())
 	ch := make(chan time.Time, 1)
@@ -740,10 +745,12 @@ func (t *CronTicker) Stop() bool {
 	return false
 }
 
+// Ticks returns the underlying chanel.
 func (t *CronTicker) Ticks() <-chan time.Time {
 	return t.ch
 }
 
+// ValidateCronSchedule returns an error if the given schedule is invalid.
 func ValidateCronSchedule(schedule string) error {
 	if !(strings.HasPrefix(schedule, "CRON_TZ=") || strings.HasPrefix(schedule, "@every ")) {
 		return errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@every 1h30m'")
@@ -824,6 +831,7 @@ type StartStopOnce struct {
 // StartStopOnceState holds the state for StartStopOnce
 type StartStopOnceState int32
 
+//nolint
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
@@ -886,7 +894,7 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
-		return errors.Errorf("%v has already stopped once", name)
+		return errors.Errorf("%v is unstarted or has already stopped once", name)
 	}
 
 	err := fn()
@@ -936,6 +944,7 @@ func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
 	return true
 }
 
+// Ready returns ErrNotStarted if the state is not started.
 func (once *StartStopOnce) Ready() error {
 	state := once.State()
 	if state == StartStopOnce_Started {
@@ -944,7 +953,8 @@ func (once *StartStopOnce) Ready() error {
 	return &errNotStarted{state: state}
 }
 
-// Override this per-service with more specific implementations
+// Healthy returns ErrNotStarted if the state is not started.
+// Override this per-service with more specific implementations.
 func (once *StartStopOnce) Healthy() error {
 	state := once.State()
 	if state == StartStopOnce_Started {
@@ -956,9 +966,23 @@ func (once *StartStopOnce) Healthy() error {
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {
 	// #nosec
+	if d == 0 {
+		return 0
+	}
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
+}
+
+// NewRedialBackoff is a standard backoff to use for redialling or reconnecting to
+// unreachable network endpoints
+func NewRedialBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
+
 }
 
 // KeyedMutex allows to lock based on particular values
