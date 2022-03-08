@@ -3,16 +3,18 @@ package ocrcommon_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
@@ -30,7 +32,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db, cfg)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 	})
 
 	var k p2pkey.KeyV2
@@ -46,7 +48,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.NoError(t, pw.Start(), "foo")
+		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k.PeerID(), pw.PeerID)
 	})
 
@@ -57,7 +59,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), "unable to find P2P key with id")
+		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
 
 	var k2 p2pkey.KeyV2
@@ -73,7 +75,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.NoError(t, pw.Start(), "foo")
+		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k2.PeerID(), pw.PeerID)
 	})
 
@@ -84,6 +86,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), "unable to find P2P key with id")
+		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
 	})
 }

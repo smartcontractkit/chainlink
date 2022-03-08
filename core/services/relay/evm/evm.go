@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"math/big"
 	"strings"
 
@@ -10,11 +11,12 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/sqlx"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -41,7 +43,7 @@ func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger) *Relayer
 }
 
 // Start does noop: no subservices started on relay start, but when the first job is started
-func (r *Relayer) Start() error {
+func (r *Relayer) Start(context.Context) error {
 	return nil
 }
 
@@ -62,7 +64,7 @@ func (r *Relayer) Healthy() error {
 
 // NewOCR2Provider provides all evm specific implementations of OCR2 components
 // including components generic across all plugins and ones specific to plugins.
-func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types2.OCR2Provider, error) {
+func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types2.OCR2ProviderCtx, error) {
 	// Expect trusted input
 	spec := s.(OCR2Spec)
 	chain, err := r.chainSet.Get(spec.ChainID)
@@ -140,7 +142,7 @@ type OCR2Spec struct {
 	Plugin        job.OCR2PluginType
 }
 
-var _ services.Service = (*ocr2Provider)(nil)
+var _ services.ServiceCtx = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
 	tracker                *ConfigTracker
@@ -153,7 +155,7 @@ type ocr2Provider struct {
 }
 
 // Start an ethereum ocr2 provider will start the contract tracker.
-func (p ocr2Provider) Start() error {
+func (p ocr2Provider) Start(context.Context) error {
 	err := p.tracker.Start()
 	if err != nil {
 		return err

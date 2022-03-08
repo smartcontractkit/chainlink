@@ -27,9 +27,24 @@ type Relayer interface {
 	// For now, the ocr2/plugins/ccip is EVM specific.
 }
 
+// RelayerCtx is replacing Relayer interface
+type RelayerCtx interface {
+	services.ServiceCtx
+	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2ProviderCtx, error)
+}
+
 // OCR2Provider contains methods needed for job.OCR2OracleSpec functionality
 type OCR2Provider interface {
 	services.Service
+	ContractTransmitter() types.ContractTransmitter
+	ContractConfigTracker() types.ContractConfigTracker
+	OffchainConfigDigester() types.OffchainConfigDigester
+	OCR2MedianProvider
+}
+
+// OCR2ProviderCtx is replacing OCR2Provider interface
+type OCR2ProviderCtx interface {
+	services.ServiceCtx
 	ContractTransmitter() types.ContractTransmitter
 	ContractConfigTracker() types.ContractConfigTracker
 	OffchainConfigDigester() types.OffchainConfigDigester

@@ -275,3 +275,47 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	})
 
 }
+
+func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
+	var mockNodes []*evmmocks.Node
+	var mockSendonlys []*evmmocks.SendOnlyNode
+	var nodes []evmclient.Node
+	var sendonlys []evmclient.SendOnlyNode
+
+	nodeCount := 2
+	sendOnlyCount := 3
+
+	b := []rpc.BatchElem{
+		rpc.BatchElem{Method: "method", Args: []interface{}{1, false}},
+		rpc.BatchElem{Method: "method2"},
+	}
+
+	ctx := context.Background()
+
+	for i := 0; i < nodeCount; i++ {
+		node := new(evmmocks.Node)
+		node.On("State").Return(evmclient.NodeStateAlive)
+		node.Test(t)
+		node.On("BatchCallContext", ctx, b).Return(nil).Once()
+		nodes = append(nodes, node)
+		mockNodes = append(mockNodes, node)
+	}
+	for i := 0; i < sendOnlyCount; i++ {
+		s := new(evmmocks.SendOnlyNode)
+		s.Test(t)
+		s.On("BatchCallContext", ctx, b).Return(nil).Once()
+		sendonlys = append(sendonlys, s)
+		mockSendonlys = append(mockSendonlys, s)
+	}
+
+	p := evmclient.NewPool(logger.TestLogger(t), nodes, sendonlys, &cltest.FixtureChainID)
+
+	p.BatchCallContextAll(ctx, b)
+
+	for _, n := range mockNodes {
+		n.AssertExpectations(t)
+	}
+	for _, s := range mockSendonlys {
+		s.AssertExpectations(t)
+	}
+}

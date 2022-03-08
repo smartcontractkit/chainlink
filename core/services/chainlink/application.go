@@ -121,7 +121,7 @@ type ChainlinkApplication struct {
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
 	explorerClient           synchronization.ExplorerClient
-	subservices              []interface{} // services.Service or services.ServiceCtx
+	subservices              []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
 	logger                   logger.Logger
@@ -150,12 +150,12 @@ type Chains struct {
 	Terra terra.ChainSet // nil if disabled
 }
 
-func (c *Chains) services() (s []interface{}) {
+func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
 	if c.Terra != nil {
-		s = append(s, c.Terra)
+		s = append(s, services.NewServiceCtx(c.Terra))
 	}
 	return
 }
@@ -166,7 +166,7 @@ func (c *Chains) services() (s []interface{}) {
 // be used by the node.
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
-	var subservices []interface{}
+	var subservices []services.ServiceCtx
 	db := opts.SqlxDB
 	cfg := opts.Config
 	keyStore := opts.KeyStore
@@ -335,11 +335,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
-			relay.AddRelayer(relaytypes.Solana, solanaRelayer)
+			solanaRelayerCtx := relaytypes.NewRelayerCtx(solanaRelayer)
+			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			relay.AddRelayer(relaytypes.Terra, terraRelayer)
+			terraRelayerCtx := relaytypes.NewRelayerCtx(terraRelayer)
+			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
 		}
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
@@ -455,7 +457,7 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 }
 
 // Start all necessary services. If successful, nil will be returned.
-// Start sequence is terminated if the context gets cancelled.
+// Start sequence is aborted if the context gets cancelled.
 func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	app.startStopMu.Lock()
 	defer app.startStopMu.Unlock()
@@ -476,19 +478,8 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 
-		// Eventually all services will migrate to ServiceCtx interface and this switch will be removed.
-		// TODO: https://app.shortcut.com/chainlinklabs/story/30692/migrate-services-to-become-servicectx
-		switch ss := subservice.(type) {
-		case services.Service:
-			if err := ss.Start(); err != nil {
-				return err
-			}
-		case services.ServiceCtx:
-			if err := ss.Start(ctx); err != nil {
-				return err
-			}
-		default:
-			panic("unknown service type")
+		if err := subservice.Start(ctx); err != nil {
+			return err
 		}
 	}
 
@@ -536,14 +527,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		for i := len(app.subservices) - 1; i >= 0; i-- {
 			service := app.subservices[i]
 			app.logger.Debugw("Closing service...", "serviceType", reflect.TypeOf(service))
-			switch ss := service.(type) {
-			case services.Service:
-				err = multierr.Append(err, ss.Close())
-			case services.ServiceCtx:
-				err = multierr.Append(err, ss.Close())
-			default:
-				panic("unknown service type")
-			}
+			err = multierr.Append(err, service.Close())
 		}
 
 		app.logger.Debug("Stopping SessionReaper...")
