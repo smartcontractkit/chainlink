@@ -473,6 +473,9 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 	return
 }
 
+// NonceAt is a bit of a misnomer. You might expect it to return the highest
+// mined nonce at the given block number, but it actually returns the total
+// transaction count which is the highest mined nonce + 1
 func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
 	ctx, cancel, err := n.wrapLiveCtx(ctx)
 	if err != nil {
