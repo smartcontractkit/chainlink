@@ -576,14 +576,12 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.C
 	remote_version, remote_sha := remote_build_info["version"], remote_build_info["commitSHA"]
 	cli_version, cli_sha := static.Version, static.Sha
 
-	if remote_version == "unset" || cli_version == "unset" {
-		lggr.Warn("Remote node version is unknown. CLI may behave in unexpected ways.")
-		return nil
-	}
+	remote_semver_unset := remote_version == "unset" || remote_version == "" || remote_sha == "unset" || remote_sha == ""
+	cli_remote_semver_mismatch := remote_version != cli_version || remote_sha != cli_sha
 
-	if remote_version != cli_version || remote_sha != cli_sha {
-		// Show a warning but allow mismatch if running in dev mode
-		if cli.Config.Dev() || c.Bool("bypass-semver-check") {
+	if remote_semver_unset || cli_remote_semver_mismatch {
+		// Show a warning but allow mismatch if running in dev mode or using bypass-version-check flag
+		if cli.Config.Dev() || c.Bool("bypass-version-check") {
 			lggr.Warn(fmt.Sprintf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remote_version, remote_sha, cli_version, cli_sha))
 			return nil
 		}

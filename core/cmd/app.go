@@ -58,8 +58,8 @@ func NewApp(client *Client) *cli.App {
 							Usage: "text file holding the API email and password needed to create a session cookie",
 						},
 						cli.BoolFlag{
-							Name:  "bypass-semver-check",
-							Usage: "Bypass semantic versioning check for compatibility of remote node",
+							Name:  "bypass-version-check",
+							Usage: "Bypass versioning check for compatibility of remote node",
 						},
 					},
 				},
