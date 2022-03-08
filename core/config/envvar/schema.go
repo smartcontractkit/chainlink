@@ -142,7 +142,7 @@ type ConfigSchema struct {
 	EvmGasTipCapDefault   *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
 	EvmGasTipCapMinimum   *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
 	EvmMaxGasPriceWei     *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
+	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI" default:"7777777000000000000000000"`
 	// Gas Estimation
 	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
 	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
