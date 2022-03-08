@@ -22,7 +22,6 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.7
-	github.com/gobuffalo/packr v1.30.1
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
@@ -64,7 +63,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
-	github.com/smartcontractkit/wsrpc v0.3.8
+	github.com/smartcontractkit/wsrpc v0.3.9
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.0
@@ -89,13 +88,6 @@ require (
 	gonum.org/v1/gonum v0.9.3
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/guregu/null.v4 v4.0.0
-)
-
-require (
-	github.com/gobuffalo/envy v1.7.0 // indirect
-	github.com/gobuffalo/packd v1.0.0 // indirect
-	github.com/joho/godotenv v1.3.0 // indirect
-	github.com/rogpeppe/go-internal v1.5.2 // indirect
 )
 
 require (
