@@ -276,7 +276,11 @@ func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) 
 	q := o.q.WithOpts(pg.WithParentCtx(ctx))
 
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
-		result, err := q.Queryer.Exec(`DELETE FROM pipeline_runs WHERE finished_at < $1 LIMIT $2`, time.Now().Add(-threshold), limit)
+		result, err := q.Queryer.Exec(
+			`DELETE FROM pipeline_runs WHERE finished_at < $1 LIMIT $2 ORDER BY created_at ASC`,
+			time.Now().Add(-threshold),
+			limit,
+		)
 		if err != nil {
 			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to delete old pipeline_runs")
 		}

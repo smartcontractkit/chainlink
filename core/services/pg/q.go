@@ -68,6 +68,14 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
+// WithOneMinuteTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
+// Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
+func WithOneMinuteTimeout() func(q *Q) {
+	return func(q *Q) {
+		q.QueryTimeout = OneMinuteQueryTimeout
+	}
+}
+
 // MergeCtx allows callers to combine a ctx with a previously set parent context
 // Responsibility for cancelling the passed context lies with caller
 func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
@@ -105,10 +113,11 @@ func init() {
 // can do.
 type Q struct {
 	Queryer
-	ParentCtx context.Context
-	db        *sqlx.DB
-	logger    logger.Logger
-	config    LogConfig
+	ParentCtx    context.Context
+	db           *sqlx.DB
+	logger       logger.Logger
+	config       LogConfig
+	QueryTimeout time.Duration
 }
 
 func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
@@ -141,6 +150,14 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
+	if q.QueryTimeout > 0 {
+		ctx := context.Background()
+		if q.ParentCtx != nil {
+			ctx = q.ParentCtx
+		}
+		return context.WithTimeout(ctx, q.QueryTimeout)
+	}
+
 	if q.ParentCtx == nil {
 		return DefaultQueryCtx()
 	}

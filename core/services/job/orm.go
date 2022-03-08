@@ -364,6 +364,7 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	o.lggr.Debugw("Deleting job", "jobID", id)
+	qopts = append(qopts, pg.WithOneMinuteTimeout())
 	q := o.q.WithOpts(qopts...)
 	query := `
 		WITH deleted_jobs AS (
