@@ -65,7 +65,8 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 	}
 }
 
-func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
+// ServicesForSpec satisfies the job.Delegate interface.
+func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 	// TODO: we need to fill these out manually, find a better fix
 	if spec.PipelineSpec == nil {
 		spec.PipelineSpec = &pipeline.Spec{}
@@ -77,7 +78,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
 		spec:             spec,
 		webhookJobRunner: d.webhookJobRunner,
 	}
-	return []job.Service{service}, nil
+	return []job.ServiceCtx{service}, nil
 }
 
 type pseudoService struct {
@@ -85,7 +86,8 @@ type pseudoService struct {
 	webhookJobRunner *webhookJobRunner
 }
 
-func (s pseudoService) Start() error {
+// Start starts PseudoService.
+func (s pseudoService) Start(context.Context) error {
 	// add the spec to the webhookJobRunner
 	return s.webhookJobRunner.addSpec(s.spec)
 }

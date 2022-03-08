@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// OCR1Config is a subset of global config relevant to OCR v1.
 type OCR1Config interface {
 	// OCR1 config, can override in jobs, only ethereum.
 	GlobalOCRContractConfirmations() (uint16, bool)

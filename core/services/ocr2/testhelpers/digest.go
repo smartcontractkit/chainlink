@@ -7,6 +7,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
+// MakeConfigDigest makes config digest
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 32)
@@ -18,6 +19,7 @@ func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	return MustBytesToConfigDigest(t, b)
 }
 
+// MustBytesToConfigDigest returns config digest from bytes
 func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 	t.Helper()
 	configDigest, err := ocrtypes.BytesToConfigDigest(b)

@@ -15,6 +15,8 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
@@ -33,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func newHead() evmtypes.Head {
@@ -74,7 +75,7 @@ func setup(t *testing.T) (
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
-	err := executer.Start()
+	err := executer.Start(testutils.Context(t))
 	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
 	require.NoError(t, err)
 	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm, keyStore, ch, orm
@@ -97,7 +98,7 @@ var checkUpkeepResponse = struct {
 func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 	t.Parallel()
 	_, _, _, executer, _, _, _, _, _, _, _, _ := setup(t)
-	err := executer.Start() // already started in setup()
+	err := executer.Start(testutils.Context(t)) // already started in setup()
 	require.Error(t, err)
 }
 
@@ -228,7 +229,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		job.KeeperSpec.EVMChainID = (*utils.Big)(big.NewInt(999))
 		lggr := logger.TestLogger(t)
 		executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
-		err := executer.Start()
+		err := executer.Start(testutils.Context(t))
 		require.NoError(t, err)
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), &head)

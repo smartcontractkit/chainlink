@@ -98,10 +98,12 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 	return EnsureFileMaxPerms(dst, perms)
 }
 
+// FileSize repesents a file size in bytes.
 type FileSize uint64
 
 var fsregex = regexp.MustCompile(`(\d+\.?\d*)(tb|gb|mb|kb|b)?`)
 
+//nolint
 const (
 	KB = 1000
 	MB = 1000 * KB
@@ -109,6 +111,7 @@ const (
 	TB = 1000 * GB
 )
 
+// MarshalText encodes s as a human readable string.
 func (s FileSize) MarshalText() ([]byte, error) {
 	if s > TB {
 		return []byte(fmt.Sprintf("%.2ftb", float64(s)/TB)), nil
@@ -122,6 +125,7 @@ func (s FileSize) MarshalText() ([]byte, error) {
 	return []byte(fmt.Sprintf("%db", s)), nil
 }
 
+// UnmarshalText parses a file size from bs in to s.
 func (s *FileSize) UnmarshalText(bs []byte) error {
 	matches := fsregex.FindAllStringSubmatch(strings.ToLower(string(bs)), -1)
 	if len(matches) != 1 {

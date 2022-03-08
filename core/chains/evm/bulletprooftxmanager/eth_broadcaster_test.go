@@ -1373,8 +1373,14 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// In this scenario the node operator REALLY fucked up and set the bump
 		// to zero (even though that should not be possible due to config
 		// validation)
+		oldGasBumpWei := evmcfg.EvmGasBumpWei()
+		oldGasBumpPercent := evmcfg.EvmGasBumpPercent()
 		cfg.Overrides.GlobalEvmGasBumpWei = big.NewInt(0)
 		cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(0)
+		defer func() {
+			cfg.Overrides.GlobalEvmGasBumpWei = oldGasBumpWei
+			cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(int64(oldGasBumpPercent))
+		}()
 
 		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -1441,8 +1447,51 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 	cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
 
-	t.Run("eth node returns underpriced transaction for EIP-1559 tx, should return error", func(t *testing.T) {
-		// Experimentally this error is not actually possible; eth nodes will accept literally any price for EIP-1559 transactions
+	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it in EIP-1559 mode", func(t *testing.T) {
+		// This happens if a transaction's gas price is below the minimum
+		// configured for the transaction pool.
+		// This is a configuration error by the node operator, since it means they set the base gas level too low.
+
+		// In this scenario the node operator REALLY fucked up and set the bump
+		// to zero (even though that should not be possible due to config
+		// validation)
+		oldGasBumpWei := evmcfg.EvmGasBumpWei()
+		oldGasBumpPercent := evmcfg.EvmGasBumpPercent()
+		cfg.Overrides.GlobalEvmGasBumpWei = big.NewInt(0)
+		cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(0)
+		defer func() {
+			cfg.Overrides.GlobalEvmGasBumpWei = oldGasBumpWei
+			cfg.Overrides.GlobalEvmGasBumpPercent = null.IntFrom(int64(oldGasBumpPercent))
+		}()
+
+		etx := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          bulletprooftxmanager.EthTxUnstarted,
+		}
+		require.NoError(t, borm.InsertEthTx(&etx))
+
+		underpricedError := "transaction underpriced"
+		localNextNonce := getLocalNextNonce(t, q, fromAddress)
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(1)) == 0
+		})).Return(errors.New(underpricedError)).Once()
+
+		// Check gas tip cap verification
+		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "bumped gas tip cap of 1 is less than or equal to original gas tip cap of 1")
+
+		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+	})
+
+	t.Run("eth node returns underpriced transaction in EIP-1559 mode, bumps until inclusion", func(t *testing.T) {
+		// This happens if a transaction's gas price is below the minimum
+		// configured for the transaction pool.
+		// This is a configuration error by the node operator, since it means they set the base gas level too low.
 		underpricedError := "transaction underpriced"
 		localNextNonce := getLocalNextNonce(t, q, fromAddress)
 
@@ -1456,17 +1505,36 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}
 		require.NoError(t, borm.InsertEthTx(&etx))
 
-		// First was underpriced
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce
-		})).Return(errors.New(underpricedError)).Once()
-
+		// Check gas tip cap verification
+		cfg.Overrides.GlobalEvmGasTipCapDefault = big.NewInt(0)
 		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "bumping gas on initial send is not supported for EIP-1559 transactions")
+		require.Contains(t, err.Error(), "specified gas tip cap of 0 is below min configured gas tip of 1 for key")
+
+		gasTipCapDefault := big.NewInt(42)
+		cfg.Overrides.GlobalEvmGasTipCapDefault = gasTipCapDefault
+		// Second was underpriced but above minimum
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(gasTipCapDefault) == 0
+		})).Return(errors.New(underpricedError)).Once()
+		// Resend at the bumped price
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault, evmcfg.EvmGasBumpWei())) == 0
+		})).Return(errors.New(underpricedError)).Once()
+		// Final bump succeeds
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault, big.NewInt(0).Mul(evmcfg.EvmGasBumpWei(), big.NewInt(2)))) == 0
+		})).Return(nil).Once()
+
+		err = eb.ProcessUnstartedEthTxs(context.Background(), keyState)
+		require.NoError(t, err)
+
+		// TEARDOWN: Clear out the unsent tx before the next test
+		pgtest.MustExec(t, db, `DELETE FROM eth_txes WHERE nonce = $1`, localNextNonce)
 
 		ethClient.AssertExpectations(t)
 	})
+
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
@@ -1591,7 +1659,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	eventBroadcaster := cltest.NewEventBroadcaster(t, evmcfg.DatabaseURL())
-	require.NoError(t, eventBroadcaster.Start())
+	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
 	ethTxInsertListener, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")

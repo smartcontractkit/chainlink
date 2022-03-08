@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 type ConfigOverriderImpl struct {
@@ -72,7 +73,8 @@ func NewConfigOverriderImpl(
 	return &co, nil
 }
 
-func (c *ConfigOverriderImpl) Start() error {
+// Start starts ConfigOverriderImpl.
+func (c *ConfigOverriderImpl) Start(context.Context) error {
 	return c.StartOnce("OCRConfigOverrider", func() (err error) {
 		if err := c.updateFlagsStatus(); err != nil {
 			c.logger.Errorw("OCRConfigOverrider: Error updating hibernation status at OCR job start. Will default to not hibernating, until next successful update.", "err", err)

@@ -11,7 +11,10 @@ tmp/
 
 contracts/node_modules
 examples/
-integration/node_modules
+
+integration/
+integration-scripts/
+integration-tests/
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt

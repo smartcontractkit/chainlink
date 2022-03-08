@@ -41,7 +41,7 @@ func NewProductionClient() *cmd.Client {
 	if credentialsFile := cfg.AdminCredentialsFile(); credentialsFile != "" {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)
-		if err != nil && errors.Cause(err) != cmd.ErrNoCredentialFile && !os.IsNotExist(err) {
+		if err != nil && !errors.Is(errors.Cause(err), cmd.ErrNoCredentialFile) && !os.IsNotExist(err) {
 			lggr.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
 		}
 	}
