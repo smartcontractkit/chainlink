@@ -179,10 +179,10 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 		txm.lggr.Errorw("unable to mark expired txes as errored", "err", err)
 		return
 	}
-	if len(unstarted) == 0 {
+	if len(notExpired) == 0 {
 		return
 	}
-	txm.lggr.Debugw("building a batch", "batch", unstarted)
+	txm.lggr.Debugw("building a batch", "batch", notExpired)
 	var msgsByFrom = make(map[string]terra.Msgs)
 	for _, m := range notExpired {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
