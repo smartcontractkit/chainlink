@@ -163,8 +163,8 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 		txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 		return
 	}
-	var notExpired []terra.Msg
-	var expired []terra.Msg
+	var notExpired terra.Msgs
+	var expired terra.Msgs
 	cutoff := time.Now().Add(-txm.cfg.TxMsgTimeout())
 	for _, msg := range unstarted {
 		if msg.CreatedAt.Before(cutoff) {
@@ -173,7 +173,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 			notExpired = append(notExpired, msg)
 		}
 	}
-	err = txm.orm.UpdateMsgs(unstarted.GetIDs(), db.Errored, nil)
+	err = txm.orm.UpdateMsgs(expired.GetIDs(), db.Errored, nil)
 	if err != nil {
 		// Assume transient db error retry
 		txm.lggr.Errorw("unable to mark expired txes as errored", "err", err)
