@@ -158,14 +158,13 @@ func unmarshalMsg(msgType string, raw []byte) (sdk.Msg, string, error) {
 }
 
 func (txm *Txm) sendMsgBatch(ctx context.Context) {
-	var notExpired terra.Msgs
+	var notExpired, expired terra.Msgs
 	err := txm.orm.q.Transaction(func(tx pg.Queryer) error {
 		unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
 		if err != nil {
 			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 			return err
 		}
-		var expired terra.Msgs
 		cutoff := time.Now().Add(-txm.cfg.TxMsgTimeout())
 		for _, msg := range unstarted {
 			if msg.CreatedAt.Before(cutoff) {
@@ -188,7 +187,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	if len(notExpired) == 0 {
 		return
 	}
-	txm.lggr.Debugw("building a batch", "batch", notExpired)
+	txm.lggr.Debugw("building a batch", "not expired", notExpired, "marked expired", expired)
 	var msgsByFrom = make(map[string]terra.Msgs)
 	for _, m := range notExpired {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
