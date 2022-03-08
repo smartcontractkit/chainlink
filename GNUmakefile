@@ -94,7 +94,7 @@ telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers
 test_smoke: # Run integration smoke tests.
 	ginkgo -v -r --junit-report=tests-smoke-report.xml \
 	--keep-going --trace --randomize-all --randomize-suites \
-	-tags smoke --progress $(args) ./integration-tests/smoke
+	--progress $(args) ./integration-tests/smoke
 
 
 help:

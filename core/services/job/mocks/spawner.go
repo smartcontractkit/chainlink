@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 	mock "github.com/stretchr/testify/mock"
 
@@ -114,13 +116,13 @@ func (_m *Spawner) Ready() error {
 	return r0
 }
 
-// Start provides a mock function with given fields:
-func (_m *Spawner) Start() error {
-	ret := _m.Called()
+// Start provides a mock function with given fields: _a0
+func (_m *Spawner) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -128,13 +130,13 @@ func (_m *Spawner) Start() error {
 	return r0
 }
 
-// StartService provides a mock function with given fields: spec
-func (_m *Spawner) StartService(spec job.Job) error {
-	ret := _m.Called(spec)
+// StartService provides a mock function with given fields: ctx, spec
+func (_m *Spawner) StartService(ctx context.Context, spec job.Job) error {
+	ret := _m.Called(ctx, spec)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(job.Job) error); ok {
-		r0 = rf(spec)
+	if rf, ok := ret.Get(0).(func(context.Context, job.Job) error); ok {
+		r0 = rf(ctx, spec)
 	} else {
 		r0 = ret.Error(0)
 	}

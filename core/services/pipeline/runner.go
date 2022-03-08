@@ -25,7 +25,7 @@ import (
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
-	services.Service
+	services.ServiceCtx
 
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
@@ -112,7 +112,8 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 	return r
 }
 
-func (r *runner) Start() error {
+// Start starts Runner.
+func (r *runner) Start(context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
 		r.wgDone.Add(2)
 		go r.scheduleUnfinishedRuns()
@@ -143,7 +144,7 @@ func (r *runner) runReaperLoop() {
 		return
 	}
 
-	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
+	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 	defer runReaperTicker.Stop()
 	for {
 		select {
@@ -151,6 +152,7 @@ func (r *runner) runReaperLoop() {
 			return
 		case <-runReaperTicker.C:
 			r.runReaperWorker.WakeUp()
+			runReaperTicker.Reset(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 		}
 	}
 }

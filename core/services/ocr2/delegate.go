@@ -29,7 +29,7 @@ type Delegate struct {
 	cfg                   validate.Config
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
-	relayer               types.Relayer
+	relayer               types.RelayerCtx
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -44,7 +44,7 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg validate.Config,
 	ks keystore.OCR2,
-	relayer types.Relayer,
+	relayer types.RelayerCtx,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -71,7 +71,7 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
-func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.Service, error) {
+func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 	spec := jobSpec.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
@@ -193,5 +193,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.Service, error) {
 		make(chan struct{}),
 		lggr)
 
-	return append([]job.Service{runResultSaver, ocr2Provider, oracle}, pluginServices...), nil
+	oracleCtx := job.NewServiceAdapter(oracle)
+	return append([]job.ServiceCtx{runResultSaver, ocr2Provider, oracleCtx}, pluginServices...), nil
 }

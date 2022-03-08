@@ -30,7 +30,7 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
 var (
-	_ job.Service           = (*UpkeepExecuter)(nil)
+	_ job.ServiceCtx        = (*UpkeepExecuter)(nil)
 	_ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 )
 
@@ -87,7 +87,7 @@ func NewUpkeepExecuter(
 }
 
 // Start starts the upkeep executer logic
-func (ex *UpkeepExecuter) Start() error {
+func (ex *UpkeepExecuter) Start(context.Context) error {
 	return ex.StartOnce("UpkeepExecuter", func() error {
 		ex.wgDone.Add(2)
 		go ex.run()
