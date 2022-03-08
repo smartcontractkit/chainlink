@@ -583,8 +583,10 @@ func (r *runner) runReaper() {
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
 	if ctx.Err() != nil {
+		r.lggr.Errorw("Pipeline run reaper timed out", "error", err)
 		return
-	} else if err != nil {
+	}
+	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }

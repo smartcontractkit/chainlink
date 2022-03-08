@@ -271,10 +271,27 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	return errors.Wrap(err, "InsertFinishedRun failed")
 }
 
+// DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
 	q := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err := q.ExecQ(`DELETE FROM pipeline_runs WHERE finished_at < $1`, time.Now().Add(-threshold))
-	return errors.Wrap(err, "DeleteRunsOlderThan failed")
+
+	err := pg.Batch(func(_, limit uint) (count uint, err error) {
+		result, err := q.Queryer.Exec(`DELETE FROM pipeline_runs WHERE finished_at < $1 LIMIT $2`, time.Now().Add(-threshold), limit)
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to delete old pipeline_runs")
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to get rows affected")
+		}
+
+		return uint(rowsAffected), err
+	})
+	if err != nil {
+		return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	}
+
+	return nil
 }
 
 func (o *orm) FindRun(id int64) (r Run, err error) {
