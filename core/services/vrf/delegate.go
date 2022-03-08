@@ -127,6 +127,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqAdded:           func() {},
 				headBroadcaster:    chain.HeadBroadcaster(),
 				wg:                 &sync.WaitGroup{},
+				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
 			}}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
@@ -150,6 +151,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
+				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
 			}}, nil
 		}
 	}
