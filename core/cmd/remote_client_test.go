@@ -294,18 +294,18 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                         string
-		remote_version, remote_sha   string
-		cli_version, cli_sha         string
-		dev_mode, bypass_semver_flag bool
-		wantError                    bool
+		name                          string
+		remote_version, remote_sha    string
+		cli_version, cli_sha          string
+		dev_mode, bypass_version_flag bool
+		wantError                     bool
 	}{
 		{"success match", "1.1.1", "53120d5", "1.1.1", "53120d5", false, false, false},
 		{"cli unset fails", "1.1.1", "53120d5", "unset", "unset", false, false, true},
 		{"remote unset fails", "unset", "unset", "1.1.1", "53120d5", false, false, true},
 		{"mismatch fail", "1.1.1", "53120d5", "1.6.9", "13230sas", false, false, true},
 		{"mismatch but dev mode", "1.1.1", "53120d5", "1.6.9", "13230sas", true, false, false},
-		{"mismatch but using bypass_semver_flag", "1.1.1", "53120d5", "1.6.9", "13230sas", false, true, false},
+		{"mismatch but using bypass_version_flag", "1.1.1", "53120d5", "1.6.9", "13230sas", false, true, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -322,7 +322,7 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 			client.HTTP = &mockHTTPClient{client.HTTP, test.remote_version, test.remote_sha}
 
 			set := flag.NewFlagSet("test", 0)
-			set.Bool("bypass-version-check", test.bypass_semver_flag, "")
+			set.Bool("bypass-version-check", test.bypass_version_flag, "")
 			c := cli.NewContext(nil, set, nil)
 			err := client.RemoteLogin(c)
 			if test.wantError {
