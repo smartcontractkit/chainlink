@@ -45,6 +45,14 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   }
   mapping(uint256 => Request) s_requests; /* requestId */ /* request */
 
+  /** 
+   *  @dev You can check the `_baseFee` value for your current network on   
+   *  @dev https://docs.chain.link/docs/vrf-contracts/. It's recommendable 
+   *  @dev to use 1e9 to populate the `_gasPriceLink` variable in the constructor.  
+   *
+   *  @param _baseFee premium for your current network
+   *  @param _gasPriceLink value set dinamically on-chain based on the link price
+   */
   constructor(uint96 _baseFee, uint96 _gasPriceLink) {
     BASE_FEE = _baseFee;
     GAS_PRICE_LINK = _gasPriceLink;
