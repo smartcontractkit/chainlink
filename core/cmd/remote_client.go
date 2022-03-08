@@ -587,7 +587,7 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.C
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
 		cli.CookieAuthenticator.Logout()
-		return fmt.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-semver-check to bypass this", remoteVersion, remoteSha, cliVersion, cliSha)
+		return fmt.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", remoteVersion, remoteSha, cliVersion, cliSha)
 	}
 	return nil
 }
