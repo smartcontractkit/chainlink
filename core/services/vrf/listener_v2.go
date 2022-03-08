@@ -32,8 +32,8 @@ import (
 )
 
 var (
-	_ log.Listener = &listenerV2{}
-	_ job.Service  = &listenerV2{}
+	_ log.Listener   = &listenerV2{}
+	_ job.ServiceCtx = &listenerV2{}
 )
 
 const (
@@ -94,7 +94,8 @@ type listenerV2 struct {
 	aggregator *aggregator_v3_interface.AggregatorV3Interface
 }
 
-func (lsn *listenerV2) Start() error {
+// Start starts listenerV2.
+func (lsn *listenerV2) Start(context.Context) error {
 	return lsn.StartOnce("VRFListenerV2", func() error {
 		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
 

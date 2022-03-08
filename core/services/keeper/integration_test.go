@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -24,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 )
 
 var (
@@ -126,7 +127,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// create job
 			regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
 			job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
-			err = app.JobSpawner().StartService(job)
+			err = app.JobSpawner().StartService(testutils.Context(t), job)
 			require.NoError(t, err)
 
 			// keeper job is triggered and payload is received
