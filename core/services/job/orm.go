@@ -8,16 +8,13 @@ import (
 	"reflect"
 	"time"
 
-	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
-
-	"github.com/smartcontractkit/chainlink/core/bridges"
-
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -25,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
@@ -220,12 +218,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			switch jb.OCR2OracleSpec.PluginType {
 			case Median:
-				var config medianconfig.PluginConfig
-				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &config)
+				var cfg medianconfig.PluginConfig
+				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
-					return err
+					return errors.Wrap(err, "failed to parse plugin config")
 				}
-				feePipeline, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline)
+				feePipeline, err := pipeline.Parse(cfg.JuelsPerFeeCoinPipeline)
 				if err != nil {
 					return err
 				}

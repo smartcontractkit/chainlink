@@ -1,4 +1,4 @@
-package ocr2
+package validate
 
 import (
 	"github.com/lib/pq"
@@ -60,14 +60,13 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 // Parameters that must be explicitly set by the operator.
 var (
 	params = map[string]struct{}{
-		"type":              {},
-		"schemaVersion":     {},
-		"contractID":        {},
-		"observationSource": {},
-		"relay":             {},
-		"relayConfig":       {},
-		"pluginType":        {},
-		"pluginConfig":      {},
+		"type":          {},
+		"schemaVersion": {},
+		"contractID":    {},
+		"relay":         {},
+		"relayConfig":   {},
+		"pluginType":    {},
+		"pluginConfig":  {},
 	}
 	notExpectedParams = map[string]struct{}{
 		"isBootstrapPeer":       {},
@@ -85,12 +84,12 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	if err := ocrcommon.ValidateExplicitlySetKeys(tree, expected, notExpected, "ocr2"); err != nil {
 		return err
 	}
-	if spec.Pipeline.Source == "" {
-		return errors.New("no pipeline specified")
-	}
 
 	switch spec.OCR2OracleSpec.PluginType {
 	case job.Median:
+		if spec.Pipeline.Source == "" {
+			return errors.New("no pipeline specified")
+		}
 	case "":
 		return errors.New("no plugin specified")
 	default:
