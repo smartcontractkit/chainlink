@@ -568,26 +568,26 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.C
 		return nil
 	}
 
-	var remote_build_info map[string]string
-	if err := json.Unmarshal(b, &remote_build_info); err != nil {
+	var remoteBuildInfo map[string]string
+	if err := json.Unmarshal(b, &remoteBuildInfo); err != nil {
 		lggr.Warn("Remote node version is unknown. CLI may behave in unexpected ways.")
 		return nil
 	}
-	remote_version, remote_sha := remote_build_info["version"], remote_build_info["commitSHA"]
-	cli_version, cli_sha := static.Version, static.Sha
+	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
+	cliVersion, cliSha := static.Version, static.Sha
 
-	remote_semver_unset := remote_version == "unset" || remote_version == "" || remote_sha == "unset" || remote_sha == ""
-	cli_remote_semver_mismatch := remote_version != cli_version || remote_sha != cli_sha
+	remoteSemverUnset := remoteVersion == "unset" || remoteVersion == "" || remoteSha == "unset" || remoteSha == ""
+	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
 
-	if remote_semver_unset || cli_remote_semver_mismatch {
+	if remoteSemverUnset || cliRemoteSemverMismatch {
 		// Show a warning but allow mismatch if running in dev mode or using bypass-version-check flag
 		if cli.Config.Dev() || c.Bool("bypass-version-check") {
-			lggr.Warn(fmt.Sprintf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remote_version, remote_sha, cli_version, cli_sha))
+			lggr.Warn(fmt.Sprintf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remoteVersion, remoteSha, cliVersion, cliSha))
 			return nil
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
 		cli.CookieAuthenticator.Logout()
-		return fmt.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-semver-check to bypass this", remote_version, remote_sha, cli_version, cli_sha)
+		return fmt.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-semver-check to bypass this", remoteVersion, remoteSha, cliVersion, cliSha)
 	}
 	return nil
 }
