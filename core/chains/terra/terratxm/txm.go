@@ -163,12 +163,28 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 		txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 		return
 	}
+	var notExpired []terra.Msg
+	var expired []terra.Msg
+	cutoff := time.Now().Add(-txm.cfg.TxMsgTimeout())
+	for _, msg := range unstarted {
+		if msg.CreatedAt.Before(cutoff) {
+			expired = append(expired, msg)
+		} else {
+			notExpired = append(notExpired, msg)
+		}
+	}
+	err = txm.orm.UpdateMsgs(unstarted.GetIDs(), db.Errored, nil)
+	if err != nil {
+		// Assume transient db error retry
+		txm.lggr.Errorw("unable to mark expired txes as errored", "err", err)
+		return
+	}
 	if len(unstarted) == 0 {
 		return
 	}
 	txm.lggr.Debugw("building a batch", "batch", unstarted)
 	var msgsByFrom = make(map[string]terra.Msgs)
-	for _, m := range unstarted {
+	for _, m := range notExpired {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
 		if err2 != nil {
 			// Should be impossible given the check in Enqueue
