@@ -168,6 +168,13 @@ describe('KeeperRegistry', () => {
     return base.add(premium).add(flatFeeJules)
   }
 
+  describe('#typeAndVersion', () => {
+    it('uses the correct type and version', async () => {
+      const typeAndVersion = await registry.typeAndVersion()
+      assert.equal(typeAndVersion, 'KeeperRegistry 1.1.0')
+    })
+  })
+
   describe('#setKeepers', () => {
     const IGNORE_ADDRESS = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
     it('reverts when not called by the owner', async () => {

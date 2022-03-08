@@ -63,7 +63,7 @@ func (r *Reaper) Stop() {
 
 func (r *Reaper) runLoop() {
 	defer close(r.chDone)
-	ticker := time.NewTicker(r.config.EthTxReaperInterval())
+	ticker := time.NewTicker(utils.WithJitter(r.config.EthTxReaperInterval()))
 	defer ticker.Stop()
 	for {
 		select {
@@ -71,8 +71,10 @@ func (r *Reaper) runLoop() {
 			return
 		case <-ticker.C:
 			r.work()
+			ticker.Reset(utils.WithJitter(r.config.EthTxReaperInterval()))
 		case <-r.trigger:
 			r.work()
+			ticker.Reset(utils.WithJitter(r.config.EthTxReaperInterval()))
 		}
 	}
 }

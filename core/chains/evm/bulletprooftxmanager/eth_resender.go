@@ -102,21 +102,16 @@ func (er *EthResender) resendUnconfirmed() error {
 	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 
 	olderThan := time.Now().Add(-ageThreshold)
-	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions, er.chainID)
+	attempts, err := FindEthTxAttemptsRequiringResend(er.db, olderThan, maxInFlightTransactions, er.chainID)
 	if err != nil {
-		return errors.Wrap(err, "failed to FindEthTxesRequiringResend")
+		return errors.Wrap(err, "failed to FindEthTxAttemptsRequiringResend")
 	}
 
 	if len(attempts) == 0 {
 		return nil
 	}
 
-	ethTxIDs := make([]int64, len(attempts))
-	for i, attempt := range attempts {
-		ethTxIDs[i] = attempt.EthTxID
-	}
-
-	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts), "ethTxIDs", ethTxIDs)
+	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
 
 	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	reqs, err := batchSendTransactions(er.ctx, er.db, attempts, batchSize, er.logger, er.ethClient)
@@ -128,9 +123,9 @@ func (er *EthResender) resendUnconfirmed() error {
 	return nil
 }
 
-// FindEthTxesRequiringResend returns the highest priced attempt for each
+// FindEthTxAttemptsRequiringResend returns the highest priced attempt for each
 // eth_tx that was last sent before or at the given time (up to limit)
-func FindEthTxesRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int) (attempts []EthTxAttempt, err error) {
+func FindEthTxAttemptsRequiringResend(db *sqlx.DB, olderThan time.Time, maxInFlightTransactions uint32, chainID big.Int) (attempts []EthTxAttempt, err error) {
 	var limit null.Uint32
 	if maxInFlightTransactions > 0 {
 		limit = null.Uint32From(maxInFlightTransactions)
@@ -140,11 +135,11 @@ SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
 FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
 WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= $1 AND evm_chain_id = $2
-ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC
+ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
 LIMIT $3
 `, olderThan, chainID.String(), limit)
 
-	return attempts, errors.Wrap(err, "FindEthTxesRequiringResend failed to load eth_tx_attempts")
+	return attempts, errors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load eth_tx_attempts")
 }
 
 func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
