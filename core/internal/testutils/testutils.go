@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	mrand "math/rand"
 	"net/http"
@@ -40,6 +41,13 @@ func NewAddress() common.Address {
 func NewRandomInt64() int64 {
 	id := mrand.Int63()
 	return id
+}
+
+// NewRandomChainID returns a suitable random chain ID that will not conflict
+// with fixtures
+func NewRandomChainID() *big.Int {
+	id := mrand.Int63n(math.MaxInt32) + 10000
+	return big.NewInt(id)
 }
 
 // TestCtx is a context that will expire on test timeout
