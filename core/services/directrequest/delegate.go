@@ -62,7 +62,7 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.DirectRequestSpec == nil {
 		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
@@ -100,15 +100,15 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		minContractPayment:       concreteSpec.MinContractPayment,
 		chStop:                   make(chan struct{}),
 	}
-	var services []job.Service
+	var services []job.ServiceCtx
 	services = append(services, logListener)
 
 	return services, nil
 }
 
 var (
-	_ log.Listener = &listener{}
-	_ job.Service  = &listener{}
+	_ log.Listener   = &listener{}
+	_ job.ServiceCtx = &listener{}
 )
 
 type listener struct {
@@ -131,7 +131,7 @@ type listener struct {
 }
 
 // Start complies with job.Service
-func (l *listener) Start() error {
+func (l *listener) Start(context.Context) error {
 	return l.StartOnce("DirectRequestListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle.Address(),

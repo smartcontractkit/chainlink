@@ -13,5 +13,5 @@ type OraclePlugin interface {
 	GetPluginFactory() (plugin ocr2types.ReportingPluginFactory, err error)
 	// GetServices returns any additional services that the plugin might need. This can return an empty slice when
 	// there are no additional services needed.
-	GetServices() (services []job.Service, err error)
+	GetServices() (services []job.ServiceCtx, err error)
 }

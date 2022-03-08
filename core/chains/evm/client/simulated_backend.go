@@ -400,6 +400,11 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 	return nil
 }
 
+// BatchCallContextAll makes a batch rpc call.
+func (c *SimulatedBackendClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	return c.BatchCallContext(ctx, b)
+}
+
 // SuggestGasTipCap suggests a gas tip cap.
 func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return nil, nil

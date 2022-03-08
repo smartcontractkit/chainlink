@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"context"
 	"encoding/json"
 
 	solanaGo "github.com/gagliardetto/solana-go"
@@ -23,13 +24,13 @@ var (
 		types.Solana: {},
 		types.Terra:  {},
 	}
-	_ types.Relayer = &evm.Relayer{}
+	_ types.RelayerCtx = &evm.Relayer{}
 	_ types.Relayer = &solana.Relayer{}
 	_ types.Relayer = &terra.Relayer{}
 )
 
 type delegate struct {
-	relayers map[types.Network]types.Relayer
+	relayers map[types.Network]types.RelayerCtx
 	ks       keystore.Master
 }
 
@@ -38,22 +39,22 @@ type delegate struct {
 func NewDelegate(ks keystore.Master) *delegate {
 	d := &delegate{
 		ks:       ks,
-		relayers: map[types.Network]types.Relayer{},
+		relayers: map[types.Network]types.RelayerCtx{},
 	}
 	return d
 }
 
 // AddRelayer registers the relayer r, or a disabled placeholder if nil.
 // NOT THREAD SAFE
-func (d delegate) AddRelayer(n types.Network, r types.Relayer) {
+func (d delegate) AddRelayer(n types.Network, r types.RelayerCtx) {
 	d.relayers[n] = r
 }
 
-// A delegate relayer on start will start all relayers it manages.
-func (d delegate) Start() error {
+// Start starts all relayers it manages.
+func (d delegate) Start(ctx context.Context) error {
 	var err error
 	for _, r := range d.relayers {
-		err = multierr.Combine(err, r.Start())
+		err = multierr.Combine(err, r.Start(ctx))
 	}
 	return err
 }
@@ -96,7 +97,8 @@ type OCR2ProviderArgs struct {
 	Plugin          job.OCR2PluginType
 }
 
-func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2Provider, error) {
+// NewOCR2Provider creates a new OCR2 provider instance.
+func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2ProviderCtx, error) {
 	// We expect trusted input
 	spec := s.(*OCR2ProviderArgs)
 	choice := spec.Relay

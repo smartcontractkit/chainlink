@@ -158,17 +158,38 @@ func unmarshalMsg(msgType string, raw []byte) (sdk.Msg, string, error) {
 }
 
 func (txm *Txm) sendMsgBatch(ctx context.Context) {
-	unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch())
+	var notExpired, expired terra.Msgs
+	err := txm.orm.q.Transaction(func(tx pg.Queryer) error {
+		unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
+		if err != nil {
+			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
+			return err
+		}
+		cutoff := time.Now().Add(-txm.cfg.TxMsgTimeout())
+		for _, msg := range unstarted {
+			if msg.CreatedAt.Before(cutoff) {
+				expired = append(expired, msg)
+			} else {
+				notExpired = append(notExpired, msg)
+			}
+		}
+		err = txm.orm.UpdateMsgs(expired.GetIDs(), db.Errored, nil, pg.WithQueryer(tx))
+		if err != nil {
+			// Assume transient db error retry
+			txm.lggr.Errorw("unable to mark expired txes as errored", "err", err)
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 		return
 	}
-	if len(unstarted) == 0 {
+	if len(notExpired) == 0 {
 		return
 	}
-	txm.lggr.Debugw("building a batch", "batch", unstarted)
+	txm.lggr.Debugw("building a batch", "not expired", notExpired, "marked expired", expired)
 	var msgsByFrom = make(map[string]terra.Msgs)
-	for _, m := range unstarted {
+	for _, m := range notExpired {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
 		if err2 != nil {
 			// Should be impossible given the check in Enqueue

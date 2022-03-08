@@ -64,6 +64,20 @@ func (_m *Client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	return r0
 }
 
+// BatchCallContextAll provides a mock function with given fields: ctx, b
+func (_m *Client) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	ret := _m.Called(ctx, b)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []rpc.BatchElem) error); ok {
+		r0 = rf(ctx, b)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // BlockByNumber provides a mock function with given fields: ctx, number
 func (_m *Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	ret := _m.Called(ctx, number)
