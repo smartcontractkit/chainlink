@@ -3,7 +3,6 @@ package logger
 // SugaredLogger extends the base Logger interface with syntactic sugar, similar to zap.SugaredLogger.
 type SugaredLogger interface {
 	Logger
-	//TODO document
 	AssumptionViolation(args ...interface{})
 	AssumptionViolationf(format string, vals ...interface{})
 	AssumptionViolationw(msg string, keyvals ...interface{})
