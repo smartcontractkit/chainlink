@@ -31,7 +31,7 @@ contract UpkeepRegistrationRequests is TypeAndVersionInterface, ConfirmedOwner {
    * @notice versions:
    * - UpkeepRegistration 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "UpkeepRegistration 1.0.0";
+  string public constant override typeAndVersion = "UpkeepRegistrationRequests 1.0.0";
 
   struct AutoApprovedConfig {
     bool enabled;

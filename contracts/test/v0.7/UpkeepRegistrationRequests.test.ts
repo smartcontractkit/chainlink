@@ -124,7 +124,7 @@ describe('UpkeepRegistrationRequests', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registrar.typeAndVersion()
-      assert.equal(typeAndVersion, "UpkeepRegistration 1.0.0")
+      assert.equal(typeAndVersion, 'UpkeepRegistrationRequests 1.0.0')
     })
   })
 
