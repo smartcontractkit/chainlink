@@ -92,6 +92,9 @@ type listenerV2 struct {
 
 	// aggregator client to get link/eth feed prices from chain.
 	aggregator *aggregator_v3_interface.AggregatorV3Interface
+
+	// deduper prevents processing duplicate requests from the log broadcaster.
+	deduper *logDeduper
 }
 
 // Start starts listenerV2.
@@ -665,6 +668,11 @@ func (lsn *listenerV2) Close() error {
 }
 
 func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
+	if !lsn.deduper.shouldDeliver(lb.RawLog()) {
+		lsn.l.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
+		return
+	}
+
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		lsn.l.Error("Log mailbox is over capacity - dropped the oldest log")

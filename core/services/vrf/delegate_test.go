@@ -320,6 +320,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 				TxHash:      txHash,
 				BlockNumber: 10,
 				BlockHash:   bh,
+				Index:       1,
 			},
 		},
 		{
@@ -340,6 +341,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 				TxHash:      txHash,
 				BlockNumber: 10,
 				BlockHash:   bh,
+				Index:       2,
 			},
 		},
 	}
@@ -362,7 +364,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
 
 		// Ensure we queue up a valid eth transaction
-		// Linked to  requestID
+		// Linked to requestID
 		vuni.txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx txmgr.NewTx) bool {
 				meta := newTx.Meta
@@ -406,6 +408,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 			),
 			BlockNumber: 10,
 			TxHash:      txHash,
+			Index:       uint(i),
 		}, vuni.cid, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: tc.reqID}))
 		waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
 		// Should record that we've responded to this request
