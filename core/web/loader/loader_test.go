@@ -337,12 +337,12 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	bptxmORM := &txmgrMocks.ORM{}
+	txmORM := &txmgrMocks.ORM{}
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(context.Background(), app)
 
 	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, bptxmORM)
+		mock.AssertExpectationsForObjects(t, app, txmORM)
 	})
 
 	ethTxIDs := []int64{1, 2, 3}
@@ -356,10 +356,10 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 		EthTxID: ethTxIDs[1],
 	}
 
-	bptxmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
+	txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
 		attempt1, attempt2,
 	}, nil)
-	app.On("TxmORM").Return(bptxmORM)
+	app.On("TxmORM").Return(txmORM)
 
 	batcher := ethTransactionAttemptBatcher{app}
 

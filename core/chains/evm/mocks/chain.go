@@ -5,9 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-
 	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 
 	context "context"
@@ -19,6 +17,8 @@ import (
 	mock "github.com/stretchr/testify/mock"
 
 	monitor "github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
+
+	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 )

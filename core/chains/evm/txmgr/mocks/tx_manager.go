@@ -7,8 +7,6 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
-	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-
 	common "github.com/ethereum/go-ethereum/common"
 
 	context "context"
@@ -18,6 +16,8 @@ import (
 	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+
+	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
