@@ -318,6 +318,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 	maxGasPriceWei *big.Int,
 	reqs []pendingRequest,
 ) map[string]struct{} {
+	start := time.Now()
 	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
 		lsn.l, lsn.q, fromAddress, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
@@ -431,7 +432,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		"total reqs", len(reqs),
 		"total processed", len(processed),
 		"total unique", uniqueReqs(reqs),
-	)
+		"time", time.Since(start).String())
 	return processed
 }
 
