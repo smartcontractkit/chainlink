@@ -1,4 +1,4 @@
-package bulletprooftxmanager
+package txmgr
 
 import (
 	"time"
@@ -35,7 +35,7 @@ type orm struct {
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
-	namedLogger := lggr.Named("BulletproofTxManagerORM")
+	namedLogger := lggr.Named("TxmORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{q, namedLogger}
 }

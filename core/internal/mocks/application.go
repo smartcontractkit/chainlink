@@ -6,7 +6,7 @@ import (
 	big "math/big"
 
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
 
@@ -62,16 +62,16 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 *job.Job) error {
 	return r0
 }
 
-// BPTXMORM provides a mock function with given fields:
-func (_m *Application) BPTXMORM() bulletprooftxmanager.ORM {
+// TxmORM provides a mock function with given fields:
+func (_m *Application) TxmORM() txmgr.ORM {
 	ret := _m.Called()
 
-	var r0 bulletprooftxmanager.ORM
-	if rf, ok := ret.Get(0).(func() bulletprooftxmanager.ORM); ok {
+	var r0 txmgr.ORM
+	if rf, ok := ret.Get(0).(func() txmgr.ORM); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(bulletprooftxmanager.ORM)
+			r0 = ret.Get(0).(txmgr.ORM)
 		}
 	}
 

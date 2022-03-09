@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -19,13 +19,13 @@ func TestEthTxResource(t *testing.T) {
 
 	from := common.HexToAddress("0x1")
 	to := common.HexToAddress("0x2")
-	tx := bulletprooftxmanager.EthTx{
+	tx := txmgr.EthTx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
 		FromAddress:    from,
 		ToAddress:      to,
 		GasLimit:       uint64(5000),
-		State:          bulletprooftxmanager.EthTxConfirmed,
+		State:          txmgr.EthTxConfirmed,
 		Value:          assets.NewEthValue(1),
 	}
 
@@ -67,7 +67,7 @@ func TestEthTxResource(t *testing.T) {
 	)
 
 	tx.Nonce = &nonce
-	txa := bulletprooftxmanager.EthTxAttempt{
+	txa := txmgr.EthTxAttempt{
 		EthTx:                   tx,
 		Hash:                    hash,
 		GasPrice:                gasPrice,

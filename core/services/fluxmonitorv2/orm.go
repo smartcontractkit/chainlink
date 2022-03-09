@@ -6,14 +6,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 )
 
 type transmitter interface {
-	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...pg.QOpt) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (etx txmgr.EthTx, err error)
 }
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -31,13 +31,13 @@ type ORM interface {
 type orm struct {
 	q        pg.Q
 	txm      transmitter
-	strategy bulletprooftxmanager.TxStrategy
-	checker  bulletprooftxmanager.TransmitCheckerSpec
+	strategy txmgr.TxStrategy
+	checker  txmgr.TransmitCheckerSpec
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy bulletprooftxmanager.TxStrategy, checker bulletprooftxmanager.TransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy txmgr.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
@@ -110,7 +110,7 @@ func (o *orm) CountFluxMonitorRoundStats() (count int, err error) {
 	return count, errors.Wrap(err, "CountFluxMonitorRoundStats failed")
 }
 
-// CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
+// CreateEthTransaction creates an ethereum transaction for the Txm to pick up
 func (o *orm) CreateEthTransaction(
 	fromAddress common.Address,
 	toAddress common.Address,
@@ -118,7 +118,7 @@ func (o *orm) CreateEthTransaction(
 	gasLimit uint64,
 	qopts ...pg.QOpt,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(bulletprooftxmanager.NewTx{
+	_, err = o.txm.CreateEthTransaction(txmgr.NewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: payload,

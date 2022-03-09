@@ -7,7 +7,7 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 
 	common "github.com/ethereum/go-ethereum/common"
 
@@ -42,7 +42,7 @@ func (_m *TxManager) Close() error {
 }
 
 // CreateEthTransaction provides a mock function with given fields: newTx, qopts
-func (_m *TxManager) CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...pg.QOpt) (bulletprooftxmanager.EthTx, error) {
+func (_m *TxManager) CreateEthTransaction(newTx txmgr.NewTx, qopts ...pg.QOpt) (txmgr.EthTx, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -52,15 +52,15 @@ func (_m *TxManager) CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopt
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 bulletprooftxmanager.EthTx
-	if rf, ok := ret.Get(0).(func(bulletprooftxmanager.NewTx, ...pg.QOpt) bulletprooftxmanager.EthTx); ok {
+	var r0 txmgr.EthTx
+	if rf, ok := ret.Get(0).(func(txmgr.NewTx, ...pg.QOpt) txmgr.EthTx); ok {
 		r0 = rf(newTx, qopts...)
 	} else {
-		r0 = ret.Get(0).(bulletprooftxmanager.EthTx)
+		r0 = ret.Get(0).(txmgr.EthTx)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(bulletprooftxmanager.NewTx, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(txmgr.NewTx, ...pg.QOpt) error); ok {
 		r1 = rf(newTx, qopts...)
 	} else {
 		r1 = ret.Error(1)
@@ -119,19 +119,19 @@ func (_m *TxManager) Ready() error {
 }
 
 // RegisterResumeCallback provides a mock function with given fields: fn
-func (_m *TxManager) RegisterResumeCallback(fn bulletprooftxmanager.ResumeCallback) {
+func (_m *TxManager) RegisterResumeCallback(fn txmgr.ResumeCallback) {
 	_m.Called(fn)
 }
 
 // SendEther provides a mock function with given fields: chainID, from, to, value, gasLimit
-func (_m *TxManager) SendEther(chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint64) (bulletprooftxmanager.EthTx, error) {
+func (_m *TxManager) SendEther(chainID *big.Int, from common.Address, to common.Address, value assets.Eth, gasLimit uint64) (txmgr.EthTx, error) {
 	ret := _m.Called(chainID, from, to, value, gasLimit)
 
-	var r0 bulletprooftxmanager.EthTx
-	if rf, ok := ret.Get(0).(func(*big.Int, common.Address, common.Address, assets.Eth, uint64) bulletprooftxmanager.EthTx); ok {
+	var r0 txmgr.EthTx
+	if rf, ok := ret.Get(0).(func(*big.Int, common.Address, common.Address, assets.Eth, uint64) txmgr.EthTx); ok {
 		r0 = rf(chainID, from, to, value, gasLimit)
 	} else {
-		r0 = ret.Get(0).(bulletprooftxmanager.EthTx)
+		r0 = ret.Get(0).(txmgr.EthTx)
 	}
 
 	var r1 error

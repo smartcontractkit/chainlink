@@ -5,7 +5,7 @@ package mocks
 import (
 	big "math/big"
 
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
 	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -213,15 +213,15 @@ func (_m *Chain) Start(_a0 context.Context) error {
 }
 
 // TxManager provides a mock function with given fields:
-func (_m *Chain) TxManager() bulletprooftxmanager.TxManager {
+func (_m *Chain) TxManager() txmgr.TxManager {
 	ret := _m.Called()
 
-	var r0 bulletprooftxmanager.TxManager
-	if rf, ok := ret.Get(0).(func() bulletprooftxmanager.TxManager); ok {
+	var r0 txmgr.TxManager
+	if rf, ok := ret.Get(0).(func() txmgr.TxManager); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(bulletprooftxmanager.TxManager)
+			r0 = ret.Get(0).(txmgr.TxManager)
 		}
 	}
 
