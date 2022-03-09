@@ -1,4 +1,4 @@
-package bulletprooftxmanager
+package txmgr
 
 import evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 
