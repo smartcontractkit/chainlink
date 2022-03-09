@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -85,18 +83,6 @@ func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
 }
 
 var _ Queryer = Q{}
-var slowSqlThreshold = time.Second
-
-func init() {
-	slowSqlThresholdStr := os.Getenv("SLOW_SQL_THRESHOLD")
-	if len(slowSqlThresholdStr) > 0 {
-		d, err := time.ParseDuration(slowSqlThresholdStr)
-		if err != nil {
-			log.Fatalf("failed to parse SLOW_SQL_THRESHOLD: %s", err)
-		}
-		slowSqlThreshold = d
-	}
-}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
@@ -296,7 +282,14 @@ func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
 	if ctx.Err() != nil {
 		q.logger.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
 	}
-	if slowSqlThreshold > 0 && elapsed > slowSqlThreshold {
+
+	slowThreshold := DefaultQueryTimeout
+	if q.QueryTimeout > 0 {
+		slowThreshold = q.QueryTimeout
+	}
+	// The idea is to always use the `SLOW_SQL_THRESHOLD` ENV var but the 1/10th of whatever the timeout value has been set to.
+	slowThreshold = slowThreshold / 10
+	if slowThreshold > 0 && elapsed > slowThreshold {
 		q.logger.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
 	}
 }
