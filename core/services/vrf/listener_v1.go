@@ -68,6 +68,9 @@ type listenerV1 struct {
 	// respCount map - we repeatedly want remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	blockNumberToReqID *pairing.PairHeap
+
+	// deduper prevents processing duplicate requests from the log broadcaster.
+	deduper *logDeduper
 }
 
 // Note that we have 2 seconds to do this processing
@@ -415,6 +418,11 @@ func (lsn *listenerV1) Close() error {
 }
 
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
+	if !lsn.deduper.shouldDeliver(lb.RawLog()) {
+		lsn.l.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
+		return
+	}
+
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
