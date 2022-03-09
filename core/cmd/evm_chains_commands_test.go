@@ -18,7 +18,7 @@ import (
 )
 
 func newRandChainID() *utils.Big {
-	return utils.NewBig(testutils.NewRandomChainID())
+	return utils.NewBig(testutils.NewRandomEVMChainID())
 }
 
 func TestClient_IndexEVMChains(t *testing.T) {
