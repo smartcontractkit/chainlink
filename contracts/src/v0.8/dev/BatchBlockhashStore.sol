@@ -23,6 +23,11 @@ contract BatchBlockhashStore {
    */
   function store(uint256[] memory blockNumbers) public {
     for (uint256 i = 0; i < blockNumbers.length; i++) {
+      // skip the block if it's not storeable, the caller will have to check
+      // after the transaction is mined to see if the blockhash was truly stored.
+      if (!storeableBlock(blockNumbers[i])) {
+        continue;
+      }
       BHS.store(blockNumbers[i]);
     }
   }
@@ -42,13 +47,32 @@ contract BatchBlockhashStore {
   /**
    * @notice retrieves blockhashes of all the given block numbers from the blockhash store, if available.
    * @param blockNumbers array of block numbers to fetch blockhashes for
+   * @return blockhashes array of block hashes corresponding to each block number provided in the `blockNumbers`
+   *   param. If the blockhash is not found, 0x0 is returned instead of the real blockhash, indicating
+   *   that it is not in the blockhash store.
    */
   function getBlockhashes(uint256[] memory blockNumbers) external view returns (bytes32[] memory) {
     bytes32[] memory blockHashes = new bytes32[](blockNumbers.length);
     for (uint256 i = 0; i < blockNumbers.length; i++) {
-      blockHashes[i] = BHS.getBlockhash(blockNumbers[i]);
+      try BHS.getBlockhash(blockNumbers[i]) returns (bytes32 bh) {
+        blockHashes[i] = bh;
+      } catch Error(
+        string memory /* reason */
+      ) {
+        blockHashes[i] = 0x0;
+      }
     }
     return blockHashes;
+  }
+
+  /**
+   * @notice returns true if and only if the given block number's blockhash can be retrieved
+   *   using the blockhash() instruction.
+   * @param blockNumber the block number to check if it's storeable with blockhash()
+   */
+  function storeableBlock(uint256 blockNumber) private view returns (bool) {
+    // handle edge case on simulated chains which possibly have < 256 blocks total.
+    return block.number <= 256 ? true : blockNumber >= (block.number - 256);
   }
 }
 

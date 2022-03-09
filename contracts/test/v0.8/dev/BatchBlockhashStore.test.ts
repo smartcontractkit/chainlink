@@ -37,7 +37,7 @@ describe('BatchBlockhashStore', () => {
   })
 
   describe('#store', () => {
-    it('stores batches of blocknumbers available through the blockhash instruction', async () => {
+    it('stores batches of blocknumbers', async () => {
       const latestBlock = await ethers.provider.send('eth_blockNumber', [])
       const bottomBlock = latestBlock - 5
       const numBlocks = 3
@@ -56,16 +56,29 @@ describe('BatchBlockhashStore', () => {
       }
     })
 
-    it('reverts if block number is too far back for blockhash instruction', async () => {
+    it('skips block numbers that are too far back', async () => {
       // blockhash(n) fails if n is more than 256 blocks behind the current block in which
       // the instruction is executing.
       for (let i = 0; i < 256; i++) {
         await ethers.provider.send('evm_mine', [])
       }
 
-      expect(batchBHS.connect(owner).store([1, 2, 3])).to.be.revertedWith(
-        'blockhash(n) failed',
-      )
+      // Store 3 block numbers that are too far back, and one that is close enough.
+      await batchBHS.connect(owner).store([1, 2, 3, 250])
+
+      await ethers.provider.send('evm_mine', [])
+
+      // Only block "250" should be stored
+      const actualBh = await blockhashStore.connect(owner).getBlockhash(250)
+      const expectedBh = (await ethers.provider.getBlock(250)).hash
+      expect(expectedBh).to.equal(actualBh)
+
+      // others were not stored
+      for (let i of [1, 2, 3]) {
+        expect(
+          blockhashStore.connect(owner).getBlockhash(i),
+        ).to.be.revertedWith('blockhash not found in store')
+      }
     })
   })
 
@@ -97,13 +110,19 @@ describe('BatchBlockhashStore', () => {
       assert.deepEqual(actualBlockhashes, expectedBlockhashes)
     })
 
-    it('reverts if one of the block numbers does not have an associated blockhash', async () => {
+    it('returns 0x0 for block numbers without an associated blockhash', async () => {
       const latestBlock = await ethers.provider.send('eth_blockNumber', [])
       const bottomBlock = latestBlock - 5
       const numBlocks = 3
-      expect(
-        batchBHS.connect(owner).getBlockhashes(range(numBlocks, bottomBlock)),
-      ).to.be.revertedWith('blockhash not found in store')
+      const blockhashes = await batchBHS
+        .connect(owner)
+        .getBlockhashes(range(numBlocks, bottomBlock))
+      const expected = [
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+        '0x0000000000000000000000000000000000000000000000000000000000000000',
+      ]
+      assert.deepEqual(blockhashes, expected)
     })
   })
 
