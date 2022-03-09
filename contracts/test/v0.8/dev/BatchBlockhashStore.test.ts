@@ -7,7 +7,7 @@ function range(size: number, startAt = 0) {
   return [...Array(size).keys()].map((i) => i + startAt)
 }
 
-describe('BatchBHS', () => {
+describe('BatchBlockhashStore', () => {
   let blockhashStore: Contract
   let batchBHS: Contract
   let owner: Signer
@@ -24,7 +24,7 @@ describe('BatchBHS', () => {
     blockhashStore = await bhFactory.deploy()
 
     const batchBHSFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/BatchBHS.sol:BatchBHS',
+      'src/v0.8/dev/BatchBlockhashStore.sol:BatchBlockhashStore',
       accounts[0],
     )
 

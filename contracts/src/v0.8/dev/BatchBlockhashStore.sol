@@ -2,13 +2,13 @@
 pragma solidity 0.8.6;
 
 /**
- * @title BatchBHS
- * @notice The BatchBHS contract acts as a proxy to write many blockhashes to the
+ * @title BatchBlockhashStore
+ * @notice The BatchBlockhashStore contract acts as a proxy to write many blockhashes to the
  *   provided BlockhashStore contract efficiently in a single transaction. This results
  *   in plenty of gas savings and higher throughput of blockhash storage, which is desirable
  *   in times of high network congestion.
  */
-contract BatchBHS {
+contract BatchBlockhashStore {
   BlockhashStore public immutable BHS;
 
   constructor(address blockhashStoreAddr) {

@@ -155,12 +155,12 @@ why a transaction failed. For example [this Rinkeby transaction](https://dashboa
 failed because a non-owner tried to request random words from 
 [VRFExternalSubOwnerExample](../../../../contracts/src/v0.8/tests/VRFExternalSubOwnerExample.sol).
 
-## Using the `BatchBHS` Contract
+## Using the `BatchBlockhashStore` Contract
 
-The `BatchBHS` contract acts as a proxy to the `BlockhashStore` contract, allowing callers to store
+The `BatchBlockhashStore` contract acts as a proxy to the `BlockhashStore` contract, allowing callers to store
 and fetch many blockhashes in a single transaction.
 
-### Deploy a `BatchBHS` instance
+### Deploy a `BatchBlockhashStore` instance
 
 ```
 go run main.go batch-bhs-deploy -bhs-address $BHS_ADDRESS
@@ -179,7 +179,7 @@ go run main.go bhs-deploy
 go run main.go batch-bhs-store -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
 ```
 
-where `$BATCH_BHS_ADDRESS` points to the `BatchBHS` contract deployed above, and `-block-numbers` is a comma-separated
+where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, and `-block-numbers` is a comma-separated
 list of block numbers you want to store in a single transaction.
 
 Please note that these block numbers must not be further than 256 from the latest head, otherwise the store will fail.
@@ -190,12 +190,12 @@ Please note that these block numbers must not be further than 256 from the lates
 go run main.go batch-bhs-get -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
 ```
 
-where `$BATCH_BHS_ADDRESS` points to the `BatchBHS` contract deployed above, and `-block-numbers` is a comma-separated
+where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, and `-block-numbers` is a comma-separated
 list of block numbers you want to get in a single transaction.
 
 ### Store many blockhashes, possibly farther back than 256 blocks
 
-In order to store blockhashes farther back than 256 blocks we can make use of the `storeVerifyHeader` method on the `BatchBHS`.
+In order to store blockhashes farther back than 256 blocks we can make use of the `storeVerifyHeader` method on the `BatchBlockhashStore`.
 
 Here's how to use it:
 
@@ -203,6 +203,6 @@ Here's how to use it:
 go run main.go batch-bhs-storeVerify -batch-bhs-address $BATCH_BHS_ADDRESS -num-blocks 25 -start-block 10298739
 ```
 
-where `$BATCH_BHS_ADDRESS` points to the `BatchBHS` contract deployed above, `-num-blocks` is the amount of blocks to store, and
+where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, `-num-blocks` is the amount of blocks to store, and
 `-start-block` is the block to start storing from, backwards. The block number specified by `-start-block` MUST be
 in the blockhash store already, or this will not work.

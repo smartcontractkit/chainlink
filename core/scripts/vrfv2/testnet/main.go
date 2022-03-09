@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_bhs"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -79,15 +79,15 @@ func main() {
 		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
 		bhsAddr := cmd.String("bhs-address", "", "address of the blockhash store contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
-		batchBHSAddress, tx, _, err := batch_bhs.DeployBatchBHS(owner, ec, common.HexToAddress(*bhsAddr))
+		batchBHSAddress, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(owner, ec, common.HexToAddress(*bhsAddr))
 		helpers.PanicErr(err)
-		fmt.Println("BatchBHS:", batchBHSAddress.Hex(), "tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+		fmt.Println("BatchBlockhashStore:", batchBHSAddress.Hex(), "tx:", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "batch-bhs-store":
 		cmd := flag.NewFlagSet("batch-bhs-store", flag.ExitOnError)
 		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
 		blockNumbersArg := cmd.String("block-numbers", "", "block numbers to store in a single transaction")
 		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "block-numbers")
-		batchBHS, err := batch_bhs.NewBatchBHS(common.HexToAddress(*batchAddr), ec)
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
 		helpers.PanicErr(err)
 		blockNumbers, err := parseIntSlice(*blockNumbersArg)
 		helpers.PanicErr(err)
@@ -99,7 +99,7 @@ func main() {
 		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
 		blockNumbersArg := cmd.String("block-numbers", "", "block numbers to store in a single transaction")
 		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "block-numbers")
-		batchBHS, err := batch_bhs.NewBatchBHS(common.HexToAddress(*batchAddr), ec)
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
 		helpers.PanicErr(err)
 		blockNumbers, err := parseIntSlice(*blockNumbersArg)
 		helpers.PanicErr(err)
@@ -114,7 +114,7 @@ func main() {
 		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
 		numBlocks := cmd.Int64("num-blocks", -1, "number of blockhashes to store. will be stored in a single tx, can't be > 150")
 		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "num-blocks")
-		batchBHS, err := batch_bhs.NewBatchBHS(common.HexToAddress(*batchAddr), ec)
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
 		helpers.PanicErr(err)
 		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
 		helpers.PanicErr(err)
