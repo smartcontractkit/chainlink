@@ -280,7 +280,7 @@ func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) 
 WITH batched_pipeline_runs AS (
 	SELECT * FROM pipeline_runs
 	WHERE finished_at < ($1)
-	ORDER BY created_at ASC
+	ORDER BY finished_at ASC
 	LIMIT $2
 )
 DELETE FROM pipeline_runs
