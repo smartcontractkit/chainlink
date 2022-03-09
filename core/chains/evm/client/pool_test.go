@@ -290,7 +290,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		rpc.BatchElem{Method: "method2"},
 	}
 
-	ctx := context.Background()
+	ctx := testutils.Context(t)
 
 	for i := 0; i < nodeCount; i++ {
 		node := new(evmmocks.Node)

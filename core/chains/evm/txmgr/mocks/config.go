@@ -5,9 +5,8 @@ package mocks
 import (
 	big "math/big"
 
-	chains "github.com/smartcontractkit/chainlink/core/chains"
-
 	common "github.com/ethereum/go-ethereum/common"
+	chains "github.com/smartcontractkit/chainlink/core/chains"
 
 	mock "github.com/stretchr/testify/mock"
 
