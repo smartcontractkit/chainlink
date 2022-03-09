@@ -294,11 +294,11 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                          string
-		remote_version, remote_sha    string
-		cli_version, cli_sha          string
-		dev_mode, bypass_version_flag bool
-		wantError                     bool
+		name                       string
+		remoteVersion, remoteSha   string
+		cliVersion, cliSha         string
+		devMode, bypassVersionFlag bool
+		wantError                  bool
 	}{
 		{"success match", "1.1.1", "53120d5", "1.1.1", "53120d5", false, false, false},
 		{"cli unset fails", "1.1.1", "53120d5", "unset", "unset", false, false, true},
@@ -310,19 +310,19 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-				c.Overrides.Dev = null.BoolFrom(test.dev_mode)
+				c.Overrides.Dev = null.BoolFrom(test.devMode)
 			}))
 
 			enteredStrings := []string{cltest.APIEmail, cltest.Password}
 			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingClient(prompter)
 
-			static.Version = test.cli_version
-			static.Sha = test.cli_sha
-			client.HTTP = &mockHTTPClient{client.HTTP, test.remote_version, test.remote_sha}
+			static.Version = test.cliVersion
+			static.Sha = test.cliSha
+			client.HTTP = &mockHTTPClient{client.HTTP, test.remoteVersion, test.remoteSha}
 
 			set := flag.NewFlagSet("test", 0)
-			set.Bool("bypass-version-check", test.bypass_version_flag, "")
+			set.Bool("bypass-version-check", test.bypassVersionFlag, "")
 			c := cli.NewContext(nil, set, nil)
 			err := client.RemoteLogin(c)
 			if test.wantError {
