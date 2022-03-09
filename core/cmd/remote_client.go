@@ -559,18 +559,18 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.Context) error {
 	resp, err := cli.HTTP.Get("/v2/build_info")
 	if err != nil {
-		lggr.Warn("Remote node version is unknown. CLI may behave in unexpected ways.")
+		lggr.Warnw("Got error querying for version, remote node version is unknown. CLI may behave in unexpected ways.", "err", err)
 		return nil
 	}
 	b, err := parseResponse(resp)
 	if err != nil {
-		lggr.Warn("Remote node version is unknown. CLI may behave in unexpected ways.")
+		lggr.Warnw("Got error querying for version, remote node version is unknown. CLI may behave in unexpected ways.", "err", err)
 		return nil
 	}
 
 	var remoteBuildInfo map[string]string
 	if err := json.Unmarshal(b, &remoteBuildInfo); err != nil {
-		lggr.Warn("Remote node version is unknown. CLI may behave in unexpected ways.")
+		lggr.Warnw("Got error querying for version, remote node version is unknown. CLI may behave in unexpected ways.", "err", err)
 		return nil
 	}
 	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
@@ -587,7 +587,7 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.C
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
 		cli.CookieAuthenticator.Logout()
-		return fmt.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", remoteVersion, remoteSha, cliVersion, cliSha)
+		return errors.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", remoteVersion, remoteSha, cliVersion, cliSha)
 	}
 	return nil
 }
