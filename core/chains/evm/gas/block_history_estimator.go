@@ -400,7 +400,9 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	}
 
 	var reqs []rpc.BatchElem
-	for i := lowestBlockToFetch; i <= highestBlockToFetch; i++ {
+	// Fetch blocks in reverse order so if it times out halfway through we bias
+	// towards more recent blocks
+	for i := highestBlockToFetch; i >= lowestBlockToFetch; i-- {
 		// NOTE: To save rpc calls, don't fetch blocks we already have in the history
 		if _, exists := blocks[i]; exists {
 			continue
@@ -431,7 +433,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 					),
 					"err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
 			} else {
-				lggr.Warnw("Error while fetching block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+				lggr.Warnw("Failed to fetch block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
 			}
 			continue
 		}
@@ -444,7 +446,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 			return errors.New("invariant violation: got nil block")
 		}
 		if block.Hash == (common.Hash{}) {
-			lggr.Warnw("Block was missing hash", "block", b, "blockNum", head.Number, "erroredBlockNum", block.Number)
+			lggr.Warnw("Block was missing hash", "block", b, "headNum", head.Number, "blockNum", block.Number)
 			continue
 		}
 
@@ -485,7 +487,15 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 
 		b.logger.Tracew(fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
-		if err := b.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
+		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
+		if errors.Is(err, context.DeadlineExceeded) {
+			// We ran out of time, return what we have
+			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results", i, len(reqs))
+			for k := i; k < len(reqs); k++ {
+				reqs[k].Error = err
+			}
+			return nil
+		} else if err != nil {
 			return errors.Wrap(err, "BlockHistoryEstimator#fetchBlocks error fetching blocks with BatchCallContext")
 		}
 	}

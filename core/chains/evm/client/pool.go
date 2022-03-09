@@ -154,7 +154,7 @@ func (p *Pool) report() {
 	}
 
 	live := total - dead
-	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%[1]d nodes live and %d/%[1]d nodes dead", live, total, dead), "nodeStates", nodeStates)
+	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		p.logger.Criticalw(fmt.Sprintf("No EVM primary nodes available: 0/%d nodes are alive", total), "nodeStates", nodeStates)
 	} else if dead > 0 {
