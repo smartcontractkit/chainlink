@@ -40,12 +40,13 @@ func (o *ORM) InsertMsg(contractID, typeURL string, msg []byte) (int64, error) {
 }
 
 // GetMsgsState returns the oldest messages with a given state up to limit.
-func (o *ORM) GetMsgsState(state db.State, limit int64) (terra.Msgs, error) {
+func (o *ORM) GetMsgsState(state db.State, limit int64, qopts ...pg.QOpt) (terra.Msgs, error) {
 	if limit < 1 {
 		return terra.Msgs{}, errors.New("limit must be greater than 0")
 	}
+	q := o.q.WithOpts(qopts...)
 	var msgs terra.Msgs
-	if err := o.q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2 ORDER BY created_at LIMIT $3`, state, o.chainID, limit); err != nil {
+	if err := q.Select(&msgs, `SELECT * FROM terra_msgs WHERE state = $1 AND terra_chain_id = $2 ORDER BY created_at LIMIT $3`, state, o.chainID, limit); err != nil {
 		return nil, err
 	}
 	return msgs, nil
