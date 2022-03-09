@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"math/big"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -152,6 +153,11 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		ex.logger.With("error", err).Error("unable to load active registrations")
 		return
 	}
+
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(activeUpkeeps), func(i, j int) {
+		activeUpkeeps[i], activeUpkeeps[j] = activeUpkeeps[j], activeUpkeeps[i]
+	})
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
