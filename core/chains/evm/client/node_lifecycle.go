@@ -132,7 +132,7 @@ func (n *node) aliveLoop() {
 			promEVMPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
 			ctx, cancel := context.WithTimeout(n.getCtx(), pollInterval)
-			err := n.CallContext(ctx, &version, "eth_protocolVersion")
+			err := n.CallContext(ctx, &version, "web3_clientVersion")
 			cancel()
 			if err != nil {
 				// prevent overflow
@@ -142,7 +142,7 @@ func (n *node) aliveLoop() {
 				}
 				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.State())
 			} else {
-				lggr.Tracew("Version poll successful", "nodeState", n.State(), "protocolVersion", version)
+				lggr.Tracew("Version poll successful", "nodeState", n.State(), "clientVersion", version)
 				promEVMPoolRPCNodePollsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 				pollFailures = 0
 			}
