@@ -63,14 +63,19 @@ describe('BatchBlockhashStore', () => {
         await ethers.provider.send('evm_mine', [])
       }
 
+      const gettableBlock =
+        (await ethers.provider.send('eth_blockNumber', [])) - 1
+
       // Store 3 block numbers that are too far back, and one that is close enough.
-      await batchBHS.connect(owner).store([1, 2, 3, 250])
+      await batchBHS.connect(owner).store([1, 2, 3, gettableBlock])
 
       await ethers.provider.send('evm_mine', [])
 
       // Only block "250" should be stored
-      const actualBh = await blockhashStore.connect(owner).getBlockhash(250)
-      const expectedBh = (await ethers.provider.getBlock(250)).hash
+      const actualBh = await blockhashStore
+        .connect(owner)
+        .getBlockhash(gettableBlock)
+      const expectedBh = (await ethers.provider.getBlock(gettableBlock)).hash
       expect(expectedBh).to.equal(actualBh)
 
       // others were not stored
