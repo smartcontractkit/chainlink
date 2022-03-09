@@ -43,9 +43,9 @@ func NewRandomInt64() int64 {
 	return id
 }
 
-// NewRandomChainID returns a suitable random chain ID that will not conflict
+// NewRandomEVMChainID returns a suitable random chain ID that will not conflict
 // with fixtures
-func NewRandomChainID() *big.Int {
+func NewRandomEVMChainID() *big.Int {
 	id := mrand.Int63n(math.MaxInt32) + 10000
 	return big.NewInt(id)
 }
