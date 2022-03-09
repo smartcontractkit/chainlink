@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	txm "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	txm "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"

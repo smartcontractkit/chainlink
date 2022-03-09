@@ -25,8 +25,8 @@ var (
 		types.Terra:  {},
 	}
 	_ types.RelayerCtx = &evm.Relayer{}
-	_ types.Relayer = &solana.Relayer{}
-	_ types.Relayer = &terra.Relayer{}
+	_ types.Relayer    = &solana.Relayer{}
+	_ types.Relayer    = &terra.Relayer{}
 )
 
 type delegate struct {

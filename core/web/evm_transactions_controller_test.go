@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -25,7 +25,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	db := app.GetSqlxDB()
-	borm := app.BPTXMORM()
+	borm := app.TxmORM()
 	ethKeyStore := cltest.NewKeyStore(t, db, app.Config).Eth()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -37,7 +37,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	// add second tx attempt for tx2
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
-	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt.State = txmgr.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
@@ -81,7 +81,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.BPTXMORM()
+	borm := app.TxmORM()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
@@ -114,7 +114,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.BPTXMORM()
+	borm := app.TxmORM()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
