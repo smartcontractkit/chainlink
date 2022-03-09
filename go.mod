@@ -54,8 +54,8 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.12-0.20220217150457-281a05e940f1
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220308190332-ea421a9fd285
+	github.com/smartcontractkit/chainlink-solana v0.2.14-0.20220309071359-63dec0c9a405
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220309074941-71a9196285bd
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -86,10 +86,7 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require (
-	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
-	github.com/onsi/ginkgo/v2 v2.1.3 // indirect
-)
+require github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect

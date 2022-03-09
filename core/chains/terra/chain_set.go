@@ -1,6 +1,7 @@
 package terra
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -73,9 +74,9 @@ func (o ChainSetOpts) newChain(dbchain db.Chain) (*chain, error) {
 type ChainSet interface {
 	terra.ChainSet
 
-	Add(string, db.ChainCfg) (db.Chain, error)
+	Add(context.Context, string, db.ChainCfg) (db.Chain, error)
 	Remove(string) error
-	Configure(id string, enabled bool, config db.ChainCfg) (db.Chain, error)
+	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (db.Chain, error)
 
 	ORM() types.ORM
 }
@@ -120,7 +121,7 @@ func (c *chainSet) ORM() types.ORM {
 	return c.opts.ORM
 }
 
-func (c *chainSet) Chain(id string) (terra.Chain, error) {
+func (c *chainSet) Chain(ctx context.Context, id string) (terra.Chain, error) {
 	if id == "" {
 		return nil, ErrChainIDEmpty
 	}
@@ -160,14 +161,14 @@ func (c *chainSet) Chain(id string) (terra.Chain, error) {
 		return nil, err
 	}
 
-	err = c.initializeChain(&dbchain)
+	err = c.initializeChain(ctx, &dbchain)
 	if err != nil {
 		return nil, err
 	}
 	return c.chains[id], nil
 }
 
-func (c *chainSet) Add(id string, config db.ChainCfg) (db.Chain, error) {
+func (c *chainSet) Add(ctx context.Context, id string, config db.ChainCfg) (db.Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -179,18 +180,18 @@ func (c *chainSet) Add(id string, config db.ChainCfg) (db.Chain, error) {
 	if err != nil {
 		return db.Chain{}, err
 	}
-	return dbchain, c.initializeChain(&dbchain)
+	return dbchain, c.initializeChain(ctx, &dbchain)
 }
 
 // Requires a lock on chainsMu
-func (c *chainSet) initializeChain(dbchain *db.Chain) error {
+func (c *chainSet) initializeChain(ctx context.Context, dbchain *db.Chain) error {
 	// Start it
 	cid := dbchain.ID
 	chain, err := c.opts.newChain(*dbchain)
 	if err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID)
 	}
-	if err = chain.Start(); err != nil {
+	if err = chain.Start(ctx); err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to start chain %s", dbchain.ID)
 	}
 	c.chains[cid] = chain
@@ -214,7 +215,7 @@ func (c *chainSet) Remove(id string) error {
 	return chain.Close()
 }
 
-func (c *chainSet) Configure(id string, enabled bool, config db.ChainCfg) (db.Chain, error) {
+func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (db.Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
@@ -233,7 +234,7 @@ func (c *chainSet) Configure(id string, enabled bool, config db.ChainCfg) (db.Ch
 		return db.Chain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
-		return dbchain, c.initializeChain(&dbchain)
+		return dbchain, c.initializeChain(ctx, &dbchain)
 	case exists:
 		// Exists in memory, no toggling: Update in-memory chain
 		chain.UpdateConfig(config)
@@ -242,7 +243,8 @@ func (c *chainSet) Configure(id string, enabled bool, config db.ChainCfg) (db.Ch
 	return dbchain, nil
 }
 
-func (c *chainSet) Start() error {
+// Start starts terra ChainSet.
+func (c *chainSet) Start(ctx context.Context) error {
 	//TODO if terra disabled, warn and return?
 	return c.StartOnce("ChainSet", func() error {
 		c.lggr.Debug("Starting")
@@ -251,7 +253,7 @@ func (c *chainSet) Start() error {
 		defer c.chainsMu.Unlock()
 		var started int
 		for _, ch := range c.chains {
-			if err := ch.Start(); err != nil {
+			if err := ch.Start(ctx); err != nil {
 				c.lggr.Errorw(fmt.Sprintf("Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", ch.ID(), err), "err", err)
 				continue
 			}
