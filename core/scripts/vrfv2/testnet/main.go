@@ -104,6 +104,7 @@ func main() {
 		blockNumbers, err := parseIntSlice(*blockNumbersArg)
 		helpers.PanicErr(err)
 		blockhashes, err := batchBHS.GetBlockhashes(nil, blockNumbers)
+		helpers.PanicErr(err)
 		for i, bh := range blockhashes {
 			fmt.Println("blockhash(", blockNumbers[i], ") = ", common.Bytes2Hex(bh[:]))
 		}
@@ -118,6 +119,7 @@ func main() {
 		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
 		helpers.PanicErr(err)
 		rlpHeaders, err := getRlpHeaders(ec, blockRange)
+		helpers.PanicErr(err)
 		tx, err := batchBHS.StoreVerifyHeader(owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
 		fmt.Println("storeVerifyHeader(", blockRange, ", ...) tx:", helpers.ExplorerLink(chainID, tx.Hash()))
