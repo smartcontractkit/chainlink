@@ -180,6 +180,53 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
 	})
+
+	t.Run("returns error if main context is cancelled", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+
+		bhe := newBlockHistoryEstimator(t, ethClient, config)
+
+		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: utils.NewBigI(420)}
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("this error doesn't matter"))
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		err := bhe.Start(ctx)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "context canceled")
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("starts anyway even if the fetch context is cancelled due to taking longer than the MaxStartTime", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+
+		bhe := newBlockHistoryEstimator(t, ethClient, config)
+
+		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: utils.NewBigI(420)}
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
+		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("this error doesn't matter")).Run(func(_ mock.Arguments) {
+			time.Sleep(gas.MaxStartTime + 1*time.Second)
+		})
+
+		err := bhe.Start(testutils.Context(t))
+		require.NoError(t, err)
+
+		assert.Equal(t, big.NewInt(420), gas.GetLatestBaseFee(bhe))
+
+		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
+
+		_, _, err = bhe.GetDynamicFee(100)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
 }
 
 func TestBlockHistoryEstimator_OnNewLongestChain(t *testing.T) {

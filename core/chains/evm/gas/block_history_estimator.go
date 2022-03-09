@@ -21,15 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const (
-	// maxStartTime is the maximum amount of time we are allowed to spend
-	// trying to fill initial data on start. This must be capped because it can
-	// block the application from starting.
-	maxStartTime = 10 * time.Second
-	// maxEthNodeRequestTime is the worst case time we will wait for a response
-	// from the eth node before we consider it to be an error
-	maxEthNodeRequestTime = 30 * time.Second
-)
+// MaxStartTime is the maximum amount of time we are allowed to spend
+// trying to fill initial data on start. This must be capped because it can
+// block the application from starting.
+var MaxStartTime = 10 * time.Second
 
 var (
 	promBlockHistoryEstimatorAllGasPricePercentiles = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -148,10 +143,9 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Trace("Starting")
 
-		cctx, cancel := context.WithTimeout(ctx, maxStartTime)
+		fetchCtx, cancel := context.WithTimeout(ctx, MaxStartTime)
 		defer cancel()
-
-		latestHead, err := b.ethClient.HeadByNumber(cctx, nil)
+		latestHead, err := b.ethClient.HeadByNumber(fetchCtx, nil)
 		if err != nil {
 			b.logger.Warnw("Initial check for latest head failed", "err", err)
 		} else if latestHead == nil {
@@ -159,11 +153,12 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 		} else {
 			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
 			b.setLatestBaseFee(latestHead.BaseFeePerGas)
-			b.FetchBlocksAndRecalculate(cctx, latestHead)
+			b.FetchBlocksAndRecalculate(fetchCtx, latestHead)
 		}
 
-		if cctx.Err() != nil {
-			return errors.Wrap(cctx.Err(), "failed to start BlockHistoryEstimator due to context error")
+		// NOTE: This only checks the start context, not the fetch context
+		if ctx.Err() != nil {
+			return errors.Wrap(ctx.Err(), "failed to start BlockHistoryEstimator due to main context error")
 		}
 
 		b.wg.Add(1)
@@ -301,9 +296,6 @@ func (b *BlockHistoryEstimator) runLoop() {
 
 // FetchBlocksAndRecalculate fetches block history leading up to head and recalculates gas price.
 func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *evmtypes.Head) {
-	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
-	defer cancel()
-
 	if err := b.FetchBlocks(ctx, head); err != nil {
 		b.logger.Warnw("Error fetching blocks", "head", head, "err", err)
 		return

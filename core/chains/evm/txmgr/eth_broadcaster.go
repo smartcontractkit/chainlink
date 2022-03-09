@@ -132,13 +132,11 @@ func (eb *EthBroadcaster) Start(ctx context.Context) error {
 		}
 
 		if eb.config.EvmNonceAutoSync() {
+			syncer := NewNonceSyncer(eb.db, eb.logger, eb.ChainKeyStore.config, eb.ethClient)
+
 			cctx, cancel := utils.WithCloseChan(ctx, eb.chStop)
 			defer cancel()
-
-			syncer := NewNonceSyncer(eb.db, eb.logger, eb.ChainKeyStore.config, eb.ethClient)
-			if cctx.Err() != nil {
-				return nil
-			} else if err := syncer.SyncAll(cctx, eb.keyStates); err != nil {
+			if err := syncer.SyncAll(cctx, eb.keyStates); err != nil {
 				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
 			}
 		}
