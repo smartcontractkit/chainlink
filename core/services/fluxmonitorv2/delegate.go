@@ -5,7 +5,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -63,10 +63,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if err != nil {
 		return nil, err
 	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
-	var checker bulletprooftxmanager.TransmitCheckerSpec
+	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
+	var checker txmgr.TransmitCheckerSpec
 	if chain.Config().FMSimulateTransactions() {
-		checker.CheckerType = bulletprooftxmanager.TransmitCheckerTypeSimulate
+		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}
 
 	fm, err := NewFromJobSpec(

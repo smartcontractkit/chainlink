@@ -1,4 +1,4 @@
-package bulletprooftxmanager
+package txmgr
 
 import (
 	"github.com/pkg/errors"

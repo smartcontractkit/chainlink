@@ -1,4 +1,4 @@
-package bulletprooftxmanager
+package txmgr
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Config encompasses config used by bulletprooftxmanager package
+// Config encompasses config used by txmgr package
 // Unless otherwise specified, these should support changing at runtime
 //go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
@@ -51,17 +51,17 @@ type Config interface {
 	LogSQL() bool
 }
 
-// KeyStore encompasses the subset of keystore used by bulletprooftxmanager
+// KeyStore encompasses the subset of keystore used by txmgr
 type KeyStore interface {
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 }
 
-// For more information about the BulletproofTxManager architecture, see the design doc:
-// https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
+// For more information about the Txm architecture, see the design doc:
+// https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
-var _ TxManager = &BulletproofTxManager{}
+var _ TxManager = &Txm{}
 
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
@@ -77,7 +77,7 @@ type TxManager interface {
 	SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error)
 }
 
-type BulletproofTxManager struct {
+type Txm struct {
 	utils.StartStopOnce
 
 	logger           logger.Logger
@@ -103,13 +103,13 @@ type BulletproofTxManager struct {
 	ethResender *EthResender
 }
 
-func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
+func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-// NewBulletproofTxManager creates a new BulletproofTxManager with the given configuration.
-func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *BulletproofTxManager {
-	lggr = lggr.Named("BulletproofTxManager")
+// NewTxm creates a new Txm with the given configuration.
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *Txm {
+	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
 		"maxInFlightTransactions", cfg.EvmMaxInFlightTransactions(),
@@ -117,7 +117,7 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, cfg Config
 		"nonceAutoSync", cfg.EvmNonceAutoSync(),
 		"gasLimitDefault", cfg.EvmGasLimitDefault(),
 	)
-	b := BulletproofTxManager{
+	b := Txm{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		db:               db,
@@ -148,13 +148,13 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient evmclient.Client, cfg Config
 	return &b
 }
 
-// Start starts BulletproofTxManager service.
+// Start starts Txm service.
 // The provided context can be used to terminate Start sequence.
-func (b *BulletproofTxManager) Start(ctx context.Context) (merr error) {
-	return b.StartOnce("BulletproofTxManager", func() error {
+func (b *Txm) Start(ctx context.Context) (merr error) {
+	return b.StartOnce("Txm", func() error {
 		keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
 		if err != nil {
-			return errors.Wrap(err, "BulletproofTxManager: failed to load key states")
+			return errors.Wrap(err, "Txm: failed to load key states")
 		}
 
 		if len(keyStates) > 0 {
@@ -166,14 +166,14 @@ func (b *BulletproofTxManager) Start(ctx context.Context) (merr error) {
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger, b.checkerFactory)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err := eb.Start(ctx); err != nil {
-			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
+			return errors.Wrap(err, "Txm: EthBroadcaster failed to start")
 		}
 		if err := ec.Start(); err != nil {
-			return errors.Wrap(err, "BulletproofTxManager: EthConfirmer failed to start")
+			return errors.Wrap(err, "Txm: EthConfirmer failed to start")
 		}
 
 		if err := b.gasEstimator.Start(ctx); err != nil {
-			return errors.Wrap(err, "BulletproofTxManager: Estimator failed to start")
+			return errors.Wrap(err, "Txm: Estimator failed to start")
 		}
 
 		b.wg.Add(1)
@@ -192,8 +192,8 @@ func (b *BulletproofTxManager) Start(ctx context.Context) (merr error) {
 	})
 }
 
-func (b *BulletproofTxManager) Close() (merr error) {
-	return b.StopOnce("BulletproofTxManager", func() error {
+func (b *Txm) Close() (merr error) {
+	return b.StopOnce("Txm", func() error {
 		close(b.chStop)
 
 		if b.reaper != nil {
@@ -211,7 +211,7 @@ func (b *BulletproofTxManager) Close() (merr error) {
 	})
 }
 
-func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
+func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 	defer b.wg.Done()
 	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges()
 	defer unsub()
@@ -256,7 +256,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+func (b *Txm) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
@@ -274,7 +274,7 @@ func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head *evmt
 }
 
 // Trigger forces the EthBroadcaster to check early for the given address
-func (b *BulletproofTxManager) Trigger(addr common.Address) {
+func (b *Txm) Trigger(addr common.Address) {
 	select {
 	case b.trigger <- addr:
 	default:
@@ -298,12 +298,12 @@ type NewTx struct {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
+func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
 
 	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
-		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
+		return etx, errors.Wrap(err, "Txm#CreateEthTransaction")
 	}
 
 	value := 0
@@ -313,7 +313,7 @@ func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) 
 			// If no eth_tx matches (the common case) then continue
 			if !errors.Is(err, sql.ErrNoRows) {
 				if err != nil {
-					return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
+					return errors.Wrap(err, "Txm#CreateEthTransaction")
 				}
 				// if a previous transaction for this task run exists, immediately return it
 				return nil
@@ -330,12 +330,12 @@ $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 RETURNING "eth_txes".*
 `, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Checker)
 		if err != nil {
-			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
+			return errors.Wrap(err, "Txm#CreateEthTransaction failed to insert eth_tx")
 		}
 
 		pruned, err := newTx.Strategy.PruneQueue(tx)
 		if err != nil {
-			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
+			return errors.Wrap(err, "Txm#CreateEthTransaction failed to prune eth_txes")
 		}
 		if pruned > 0 {
 			b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", etx.ID)
@@ -345,7 +345,7 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (b *BulletproofTxManager) checkStateExists(q pg.Queryer, addr common.Address) error {
+func (b *Txm) checkStateExists(q pg.Queryer, addr common.Address) error {
 	var state ethkey.State
 	err := q.Get(&state, `SELECT * FROM eth_key_states WHERE address = $1`, addr)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -360,12 +360,12 @@ func (b *BulletproofTxManager) checkStateExists(q pg.Queryer, addr common.Addres
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
-func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
+func (b *Txm) GetGasEstimator() gas.Estimator {
 	return b.gasEstimator
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func (b *BulletproofTxManager) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+func (b *Txm) SendEther(chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -525,7 +525,7 @@ func CheckEthTxQueueCapacity(q pg.Queryer, fromAddress common.Address, maxQueued
 	var count uint64
 	err = q.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, fromAddress, chainID.String())
 	if err != nil {
-		err = errors.Wrap(err, "bulletprooftxmanager.CheckEthTxQueueCapacity query failed")
+		err = errors.Wrap(err, "txmgr.CheckEthTxQueueCapacity query failed")
 		return
 	}
 

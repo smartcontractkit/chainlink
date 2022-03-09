@@ -1,4 +1,4 @@
-package bulletprooftxmanager_test
+package txmgr_test
 
 import (
 	"context"
@@ -21,8 +21,8 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -41,15 +41,15 @@ func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
-func mustInsertUnstartedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, fromAddress gethCommon.Address) {
+func mustInsertUnstartedEthTx(t *testing.T, borm txmgr.ORM, fromAddress gethCommon.Address) {
 	etx := cltest.NewEthTx(t, fromAddress)
-	etx.State = bulletprooftxmanager.EthTxUnstarted
+	etx.State = txmgr.EthTxUnstarted
 	require.NoError(t, borm.InsertEthTx(&etx))
 }
 
-func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) bulletprooftxmanager.EthTxAttempt {
+func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EthTxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
-	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt.State = txmgr.EthTxAttemptBroadcast
 	if len(gasPrice) > 0 {
 		gp := gasPrice[0]
 		attempt.GasPrice = utils.NewBig(big.NewInt(gp))
@@ -57,9 +57,9 @@ func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64
 	return attempt
 }
 
-func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) bulletprooftxmanager.EthTxAttempt {
+func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EthTxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
-	attempt.State = bulletprooftxmanager.EthTxAttemptInProgress
+	attempt.State = txmgr.EthTxAttemptInProgress
 	if len(gasPrice) > 0 {
 		gp := gasPrice[0]
 		attempt.GasPrice = utils.NewBig(big.NewInt(gp))
@@ -67,18 +67,18 @@ func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int6
 	return attempt
 }
 
-func mustInsertInProgressEthTx(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress gethCommon.Address) bulletprooftxmanager.EthTx {
+func mustInsertInProgressEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress gethCommon.Address) txmgr.EthTx {
 	etx := cltest.NewEthTx(t, fromAddress)
-	etx.State = bulletprooftxmanager.EthTxInProgress
+	etx.State = txmgr.EthTxInProgress
 	etx.Nonce = &nonce
 	require.NoError(t, borm.InsertEthTx(&etx))
 
 	return etx
 }
 
-func mustInsertConfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress gethCommon.Address) bulletprooftxmanager.EthTx {
+func mustInsertConfirmedEthTx(t *testing.T, borm txmgr.ORM, nonce int64, fromAddress gethCommon.Address) txmgr.EthTx {
 	etx := cltest.NewEthTx(t, fromAddress)
-	etx.State = bulletprooftxmanager.EthTxConfirmed
+	etx.State = txmgr.EthTxConfirmed
 	etx.Nonce = &nonce
 	now := time.Now()
 	etx.BroadcastAt = &now
@@ -91,7 +91,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	cfg := newTestChainScopedConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -157,7 +157,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	config := newTestChainScopedConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, config)
+	borm := cltest.NewTxmORM(t, db, config)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
@@ -218,7 +218,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	})
 
 	t.Run("saves nothing if returned receipt does not match the attempt", func(t *testing.T) {
-		bptxmReceipt := evmtypes.Receipt{
+		txmReceipt := evmtypes.Receipt{
 			TxHash:           utils.NewHash(),
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -231,7 +231,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &bptxmReceipt
+			elems[0].Result = &txmReceipt
 		}).Once()
 
 		// No error because it is merely logged
@@ -245,7 +245,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	})
 
 	t.Run("saves nothing if query returns error", func(t *testing.T) {
-		bptxmReceipt := evmtypes.Receipt{
+		txmReceipt := evmtypes.Receipt{
 			TxHash:           attempt1_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -258,7 +258,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt1_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &bptxmReceipt
+			elems[0].Result = &txmReceipt
 			elems[0].Error = errors.New("foo")
 		}).Once()
 
@@ -278,7 +278,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	require.Len(t, attempt2_1.EthReceipts, 0)
 
 	t.Run("saves eth_receipt and marks eth_tx as confirmed when geth client returns valid receipt", func(t *testing.T) {
-		bptxmReceipt := evmtypes.Receipt{
+		txmReceipt := evmtypes.Receipt{
 			TxHash:           attempt1_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -294,7 +294,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
-			elems[0].Result = &bptxmReceipt
+			elems[0].Result = &txmReceipt
 			// Second transaction still unconfirmed
 			elems[1].Result = &evmtypes.Receipt{}
 		}).Once()
@@ -306,19 +306,19 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := borm.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxConfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt1_1 = etx.EthTxAttempts[0]
 		require.Len(t, attempt1_1.EthReceipts, 1)
 
 		ethReceipt := attempt1_1.EthReceipts[0]
 
-		assert.Equal(t, bptxmReceipt.TxHash, ethReceipt.TxHash)
-		assert.Equal(t, bptxmReceipt.BlockHash, ethReceipt.BlockHash)
-		assert.Equal(t, bptxmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
-		assert.Equal(t, bptxmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
+		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash)
+		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
+		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
+		assert.Equal(t, txmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 
-		receiptJSON, err := json.Marshal(bptxmReceipt)
+		receiptJSON, err := json.Marshal(txmReceipt)
 		require.NoError(t, err)
 
 		assert.JSONEq(t, string(receiptJSON), string(ethReceipt.Receipt))
@@ -337,7 +337,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.NoError(t, borm.InsertEthTxAttempt(&attempt2_3))
 		require.NoError(t, borm.InsertEthTxAttempt(&attempt2_2))
 
-		bptxmReceipt := evmtypes.Receipt{
+		txmReceipt := evmtypes.Receipt{
 			TxHash:           attempt2_2.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -356,7 +356,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			// Most expensive attempt still unconfirmed
 			elems[2].Result = &evmtypes.Receipt{}
 			// Second most expensive attempt is confirmed
-			elems[1].Result = &bptxmReceipt
+			elems[1].Result = &txmReceipt
 			// Cheapest attempt still unconfirmed
 			elems[0].Result = &evmtypes.Receipt{}
 		}).Once()
@@ -370,7 +370,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 3)
 	})
 
@@ -397,7 +397,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt3_1 = etx.EthTxAttempts[0]
 		require.Len(t, attempt3_1.EthReceipts, 0)
@@ -423,7 +423,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt3_1 = etx.EthTxAttempts[0]
 		require.Len(t, attempt3_1.EthReceipts, 0)
@@ -432,7 +432,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Run("handles case where eth_receipt already exists somehow", func(t *testing.T) {
 		ethReceipt := cltest.MustInsertEthReceipt(t, borm, 42, utils.NewHash(), attempt3_1.Hash)
 
-		bptxmReceipt := evmtypes.Receipt{
+		txmReceipt := evmtypes.Receipt{
 			TxHash:           attempt3_1.Hash,
 			BlockHash:        ethReceipt.BlockHash,
 			BlockNumber:      big.NewInt(ethReceipt.BlockNumber),
@@ -443,7 +443,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			return len(b) == 1 && cltest.BatchElemMatchesParams(b[0], attempt3_1.Hash, "eth_getTransactionReceipt")
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &bptxmReceipt
+			elems[0].Result = &txmReceipt
 		}).Once()
 
 		// Do the thing
@@ -453,17 +453,17 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx, err := borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxConfirmed, etx.State)
 		assert.Len(t, etx.EthTxAttempts, 1)
 		attempt3_1 = etx.EthTxAttempts[0]
 		require.Len(t, attempt3_1.EthReceipts, 1)
 
 		ethReceipt = attempt3_1.EthReceipts[0]
 
-		assert.Equal(t, bptxmReceipt.TxHash, ethReceipt.TxHash)
-		assert.Equal(t, bptxmReceipt.BlockHash, ethReceipt.BlockHash)
-		assert.Equal(t, bptxmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
-		assert.Equal(t, bptxmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
+		assert.Equal(t, txmReceipt.TxHash, ethReceipt.TxHash)
+		assert.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
+		assert.Equal(t, txmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
+		assert.Equal(t, txmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -478,7 +478,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		require.NoError(t, borm.InsertEthTxAttempt(&attempt4_2))
 
-		bptxmReceipt := evmtypes.Receipt{
+		txmReceipt := evmtypes.Receipt{
 			TxHash:           attempt4_2.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -495,7 +495,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			// First attempt still unconfirmed
 			elems[1].Result = &evmtypes.Receipt{}
 			// Second attempt is confirmed
-			elems[0].Result = &bptxmReceipt
+			elems[0].Result = &txmReceipt
 		}).Once()
 
 		// Do the thing
@@ -512,9 +512,9 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		attempt4_2 = etx4.EthTxAttempts[0]
 
 		// And the attempts
-		require.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt4_1.State)
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, attempt4_1.State)
 		require.Nil(t, attempt4_1.BroadcastBeforeBlockNum)
-		require.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt4_2.State)
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, attempt4_2.State)
 		require.Equal(t, int64(42), *attempt4_2.BroadcastBeforeBlockNum)
 
 		// Check receipts
@@ -529,7 +529,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(2)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -544,7 +544,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	ctx := context.Background()
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, borm, 0, fromAddress)
-	var attempts []bulletprooftxmanager.EthTxAttempt
+	var attempts []txmgr.EthTxAttempt
 
 	// Total of 5 attempts should lead to 3 batched fetches (2, 2, 1)
 	for i := 0; i < 5; i++ {
@@ -591,7 +591,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(6)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -605,7 +605,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	ctx := context.Background()
 
-	var attempts []bulletprooftxmanager.EthTxAttempt
+	var attempts []txmgr.EthTxAttempt
 	// inserting in DESC nonce order to test DB ASC ordering
 	etx2 := cltest.MustInsertUnconfirmedEthTx(t, borm, 1, fromAddress)
 	for i := 0; i < 4; i++ {
@@ -650,7 +650,7 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	db := pgtest.NewSqlxDB(t)
 	config := newTestChainScopedConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, config)
+	borm := cltest.NewTxmORM(t, db, config)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
@@ -682,7 +682,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -730,13 +730,13 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	pgtest.MustExec(t, db, `UPDATE eth_tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
 
 	t.Run("marks buried eth_txes as 'confirmed_missing_receipt'", func(t *testing.T) {
-		bptxmReceipt0 := evmtypes.Receipt{
+		txmReceipt0 := evmtypes.Receipt{
 			TxHash:           attempt0_2.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		bptxmReceipt3 := evmtypes.Receipt{
+		txmReceipt3 := evmtypes.Receipt{
 			TxHash:           attempt3_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -755,7 +755,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
-			elems[0].Result = &bptxmReceipt0
+			elems[0].Result = &txmReceipt0
 			elems[1].Result = &evmtypes.Receipt{}
 			// Second transaction stil unconfirmed
 			elems[2].Result = &evmtypes.Receipt{}
@@ -763,7 +763,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			// Third transaction still unconfirmed
 			elems[4].Result = &evmtypes.Receipt{}
 			// Fourth transaction is confirmed
-			elems[5].Result = &bptxmReceipt3
+			elems[5].Result = &txmReceipt3
 		}).Once()
 
 		// PERFORM
@@ -776,26 +776,26 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// two below it "confirmed_missing_receipt" and the "bottom" eth_tx also confirmed
 		etx3, err := borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx3.State)
 
 		ethReceipt := etx3.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, bptxmReceipt3.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, txmReceipt3.BlockHash, ethReceipt.BlockHash)
 
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx2.State)
+		require.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx2.State)
 		etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx1.State)
+		require.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx1.State)
 
 		etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 
 		require.Len(t, etx0.EthTxAttempts, 2)
 		require.Len(t, etx0.EthTxAttempts[0].EthReceipts, 1)
 		ethReceipt = etx0.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, bptxmReceipt0.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, txmReceipt0.BlockHash, ethReceipt.BlockHash)
 	})
 
 	// STATE
@@ -805,7 +805,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("marks eth_txes with state 'confirmed_missing_receipt' as 'confirmed' if a receipt finally shows up", func(t *testing.T) {
-		bptxmReceipt := evmtypes.Receipt{
+		txmReceipt := evmtypes.Receipt{
 			TxHash:           attempt2_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(43),
@@ -824,7 +824,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			elems[0].Result = &evmtypes.Receipt{}
 			elems[1].Result = &evmtypes.Receipt{}
 			// Second transaction confirmed
-			elems[2].Result = &bptxmReceipt
+			elems[2].Result = &txmReceipt
 		}).Once()
 
 		// PERFORM
@@ -837,20 +837,20 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
 		etx3, err := borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx3.State)
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx2.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx2.State)
 
 		ethReceipt := etx2.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, bptxmReceipt.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, txmReceipt.BlockHash, ethReceipt.BlockHash)
 
 		etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx1.State)
+		require.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx1.State)
 		etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 	})
 
 	// STATE
@@ -883,16 +883,16 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
 		etx3, err := borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx3.State)
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx2.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx2.State)
 		etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx1.State)
+		require.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx1.State)
 		etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 	})
 
 	// STATE
@@ -925,16 +925,16 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		// one below it marked as "fatal_error" and the bottom one remains confirmed
 		etx3, err := borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx3.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx3.State)
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx2.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx2.State)
 		etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxFatalError, etx1.State)
+		require.Equal(t, txmgr.EthTxFatalError, etx1.State)
 		etx0, err = borm.FindEthTxWithAttempts(etx0.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx0.State)
+		require.Equal(t, txmgr.EthTxConfirmed, etx0.State)
 	})
 }
 
@@ -943,7 +943,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -1000,15 +1000,15 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 	// are marked as unconfirmed
 	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx0.State)
 	assert.Greater(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx1.State)
 	assert.Greater(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx2.State)
 	assert.Greater(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
@@ -1017,7 +1017,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -1064,15 +1064,15 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 	// Expected state is that all txes are marked as unconfirmed, since the batch call had failed
 	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx0.State)
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx0.State)
 	assert.Equal(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx1.State)
 	assert.Equal(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx2.State)
 	assert.Equal(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
@@ -1081,7 +1081,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -1135,15 +1135,15 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 	// Expected state is that all transactions since failed batch will be unconfirmed
 	etx0, err := borm.FindEthTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx0.State)
+	assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx0.State)
 	assert.Greater(t, etx0.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx1, err = borm.FindEthTxWithAttempts(etx1.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx1.State)
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx1.State)
 	assert.Equal(t, etx1.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 	etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+	assert.Equal(t, txmgr.EthTxUnconfirmed, etx2.State)
 	assert.Equal(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
@@ -1152,7 +1152,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -1164,7 +1164,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 1, fromAddress)
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, etx3.ID)
-	attempt3_2.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
+	attempt3_2.State = txmgr.EthTxAttemptInsufficientEth
 	attempt3_2.GasPrice = utils.NewBig(big.NewInt(100))
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt3_2))
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, fromAddress)
@@ -1175,7 +1175,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, otherAddress)
 
 	t.Run("returns all eth_txes with at least one attempt that is in insufficient_eth state", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 3)
@@ -1189,7 +1189,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	})
 
 	t.Run("does not return eth_txes with different chain ID", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, *big.NewInt(42))
+		etxs, err := txmgr.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, *big.NewInt(42))
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1199,7 +1199,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx1.ID)
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL WHERE id = $1`, etx2.ID)
 
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringResubmissionDueToInsufficientEth(context.Background(), q, logger.TestLogger(t), fromAddress, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 1)
@@ -1214,7 +1214,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -1236,7 +1236,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1246,7 +1246,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	t.Run("returns nothing when the transaction is in_progress", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1257,7 +1257,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	t.Run("ignores unconfirmed transactions with nil BroadcastBeforeBlockNum", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1273,7 +1273,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt1_2))
 
 	t.Run("returns nothing when the transaction is unconfirmed with an attempt that is recent", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1285,7 +1285,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Get(&attempt2_1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, tooNew, attempt2_1.ID))
 
 	t.Run("returns nothing when the transaction has attempts that are too new", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1298,19 +1298,19 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	}
 	now := time.Now()
 	etxWithoutAttempts.BroadcastAt = &now
-	etxWithoutAttempts.State = bulletprooftxmanager.EthTxUnconfirmed
+	etxWithoutAttempts.State = txmgr.EthTxUnconfirmed
 	require.NoError(t, borm.InsertEthTx(&etxWithoutAttempts))
 	nonce++
 
 	t.Run("does nothing if the transaction is from a different address than the one given", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, otherAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, otherAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
 	})
 
 	t.Run("returns the transaction if it is unconfirmed and has no attempts (note that this is an invariant violation, but we handle it anyway)", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 1)
@@ -1318,7 +1318,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	t.Run("returns nothing for different chain id", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, *big.NewInt(42))
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, *big.NewInt(42))
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 0)
@@ -1335,7 +1335,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Get(&attemptOther1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attemptOther1.ID))
 
 	t.Run("returns the transaction if it is unconfirmed with an attempt that is older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -1344,7 +1344,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	t.Run("returns nothing if threshold is zero", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, 0, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, 0, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 0)
@@ -1358,13 +1358,13 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		// etxWithoutAttempts (nonce 5)
 		// etx3 (nonce 6) - ready for bump
 		// etx4 (nonce 7) - ready for bump
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 4, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 4, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 1) // returns etxWithoutAttempts only - eligible for gas bumping because it technically doesn't have any attempts withing gasBumpThreshold blocks
 		assert.Equal(t, etxWithoutAttempts.ID, etxs[0].ID)
 
-		etxs, err = bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 5, 0, cltest.FixtureChainID)
+		etxs, err = txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 5, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2) // includes etxWithoutAttempts, etx3 and etx4
@@ -1372,7 +1372,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Equal(t, etx3.ID, etxs[1].ID)
 
 		// Zero limit disables it
-		etxs, err = bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 0, 0, cltest.FixtureChainID)
+		etxs, err = txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 0, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2) // includes etxWithoutAttempts, etx3 and etx4
@@ -1389,7 +1389,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		aOther := etxOther.EthTxAttempts[0]
 		require.NoError(t, db.Get(&aOther, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, aOther.ID))
 
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 6, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 6, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 3) // includes etxWithoutAttempts, etx3 and etx4
@@ -1404,7 +1404,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt3_2))
 
 	t.Run("returns the transaction if it is unconfirmed with two attempts that are older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 3)
@@ -1419,7 +1419,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt3_3))
 
 	t.Run("does not return the transaction if it has some older but one newer attempt", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -1432,14 +1432,14 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	attempt0_1 := newBroadcastLegacyEthTxAttempt(t, etxWithoutAttempts.ID)
-	attempt0_1.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
+	attempt0_1.State = txmgr.EthTxAttemptInsufficientEth
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt0_1))
 
 	// This attempt has insufficient_eth, but there is also another attempt4_1
 	// which is old enough, so this will be caught by both queries and should
 	// not be duplicated
 	attempt4_2 := cltest.NewLegacyEthTxAttempt(t, etx4.ID)
-	attempt4_2.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
+	attempt4_2.State = txmgr.EthTxAttemptInsufficientEth
 	attempt4_2.GasPrice = utils.NewBigI(40000)
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_2))
 
@@ -1457,7 +1457,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	t.Run("returns unique attempts requiring resubmission due to insufficient eth, ordered by nonce asc", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 4)
@@ -1472,7 +1472,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	t.Run("applies limit", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 2, cltest.FixtureChainID)
+		etxs, err := txmgr.FindEthTxsRequiringRebroadcast(context.Background(), q, lggr, fromAddress, currentHead, gasBumpThreshold, 10, 2, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -1488,7 +1488,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -1534,7 +1534,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		require.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 
 		require.Len(t, etx.EthTxAttempts, 1)
 
@@ -1572,7 +1572,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	ethClient = cltest.NewEthClientMockWithDefaultChain(t)
-	bulletprooftxmanager.SetEthClientOnEthConfirmer(ethClient, ec)
+	txmgr.SetEthClientOnEthConfirmer(ethClient, ec)
 
 	t.Run("does nothing and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1610,9 +1610,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	var attempt1_2 bulletprooftxmanager.EthTxAttempt
+	var attempt1_2 txmgr.EthTxAttempt
 	ethClient = cltest.NewEthClientMockWithDefaultChain(t)
-	bulletprooftxmanager.SetEthClientOnEthConfirmer(ethClient, ec)
+	txmgr.SetEthClientOnEthConfirmer(ethClient, ec)
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
@@ -1647,7 +1647,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Got the new attempt
 		attempt1_2 = etx.EthTxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt1_2.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt1_2.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -1663,7 +1663,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&attempt1_2, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_2.ID))
-	var attempt1_3 bulletprooftxmanager.EthTxAttempt
+	var attempt1_3 txmgr.EthTxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(25000000000)
@@ -1697,14 +1697,14 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Got the new attempt
 		attempt1_3 = etx.EthTxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_3.GasPrice.ToInt().Int64())
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt1_3.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt1_3.State)
 
 		kst.AssertExpectations(t)
 		ethClient.AssertExpectations(t)
 	})
 
 	require.NoError(t, db.Get(&attempt1_3, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_3.ID))
-	var attempt1_4 bulletprooftxmanager.EthTxAttempt
+	var attempt1_4 txmgr.EthTxAttempt
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(30000000000)
@@ -1733,7 +1733,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx.State)
+		assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx.State)
 
 		// Got the new attempt
 		attempt1_4 = etx.EthTxAttempts[0]
@@ -1744,10 +1744,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Equal(t, attempt1_2.ID, etx.EthTxAttempts[2].ID)
 		require.Equal(t, attempt1_3.ID, etx.EthTxAttempts[1].ID)
 		require.Equal(t, attempt1_4.ID, etx.EthTxAttempts[0].ID)
-		require.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
-		require.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx.EthTxAttempts[1].State)
-		require.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx.EthTxAttempts[2].State)
-		require.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx.EthTxAttempts[3].State)
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, etx.EthTxAttempts[1].State)
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, etx.EthTxAttempts[2].State)
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, etx.EthTxAttempts[3].State)
 
 		ethClient.AssertExpectations(t)
 		kst.AssertExpectations(t)
@@ -1760,7 +1760,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	nonce++
 	attempt2_1 := etx2.EthTxAttempts[0]
 	require.NoError(t, db.Get(&attempt2_1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_1.ID))
-	var attempt2_2 bulletprooftxmanager.EthTxAttempt
+	var attempt2_2 txmgr.EthTxAttempt
 
 	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
@@ -1790,18 +1790,18 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx2.State)
 
 		// Old attempt is untouched
 		require.Len(t, etx2.EthTxAttempts, 2)
 		require.Equal(t, attempt2_1.ID, etx2.EthTxAttempts[1].ID)
 		attempt2_1 = etx2.EthTxAttempts[1]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt2_1.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt2_1.State)
 		assert.Equal(t, oldEnough, *attempt2_1.BroadcastBeforeBlockNum)
 
 		// New in_progress attempt saved
 		attempt2_2 = etx2.EthTxAttempts[0]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInProgress, attempt2_2.State)
+		assert.Equal(t, txmgr.EthTxAttemptInProgress, attempt2_2.State)
 		assert.Nil(t, attempt2_2.BroadcastBeforeBlockNum)
 
 		// Do it again and move the attempt into "broadcast"
@@ -1816,13 +1816,13 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx2.State)
 
 		// New in_progress attempt saved
 		require.Len(t, etx2.EthTxAttempts, 2)
 		require.Equal(t, attempt2_2.ID, etx2.EthTxAttempts[0].ID)
 		attempt2_2 = etx2.EthTxAttempts[0]
-		require.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt2_2.State)
+		require.Equal(t, txmgr.EthTxAttemptBroadcast, attempt2_2.State)
 		assert.Nil(t, attempt2_2.BroadcastBeforeBlockNum)
 
 		ethClient.AssertExpectations(t)
@@ -1856,13 +1856,13 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx2.State)
+		assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx2.State)
 
 		// One new attempt saved
 		require.Len(t, etx2.EthTxAttempts, 3)
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx2.EthTxAttempts[0].State)
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx2.EthTxAttempts[1].State)
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, etx2.EthTxAttempts[2].State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, etx2.EthTxAttempts[0].State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, etx2.EthTxAttempts[1].State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, etx2.EthTxAttempts[2].State)
 
 		ethClient.AssertExpectations(t)
 		kst.AssertExpectations(t)
@@ -1874,7 +1874,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	attempt3_1 := etx3.EthTxAttempts[0]
 	require.NoError(t, db.Get(&attempt3_1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`, oldEnough, utils.NewBig(big.NewInt(35000000000)), attempt3_1.ID))
 
-	var attempt3_2 bulletprooftxmanager.EthTxAttempt
+	var attempt3_2 txmgr.EthTxAttempt
 
 	t.Run("saves attempt anyway if replacement transaction is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(42000000000)
@@ -1901,7 +1901,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx3.State)
 
 		require.Len(t, etx3.EthTxAttempts, 2)
 		require.Equal(t, attempt3_1.ID, etx3.EthTxAttempts[1].ID)
@@ -1914,7 +1914,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&attempt3_2, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_2.ID))
-	var attempt3_3 bulletprooftxmanager.EthTxAttempt
+	var attempt3_3 txmgr.EthTxAttempt
 
 	t.Run("handles case where transaction is already known somehow", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(50400000000)
@@ -1941,7 +1941,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx3.State)
 
 		require.Len(t, etx3.EthTxAttempts, 3)
 		attempt3_3 = etx3.EthTxAttempts[0]
@@ -1952,7 +1952,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&attempt3_3, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_3.ID))
-	var attempt3_4 bulletprooftxmanager.EthTxAttempt
+	var attempt3_4 txmgr.EthTxAttempt
 
 	t.Run("pretends it was accepted and continues the cycle if rejected for being temporarily underpriced", func(t *testing.T) {
 		// This happens if parity is rejecting transactions that are not priced high enough to even get into the mempool at all
@@ -1983,7 +1983,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx3.State)
 
 		require.Len(t, etx3.EthTxAttempts, 4)
 		attempt3_4 = etx3.EthTxAttempts[0]
@@ -2011,7 +2011,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx3.State)
 
 		// No new tx attempts
 		require.Len(t, etx3.EthTxAttempts, 4)
@@ -2040,7 +2040,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx3, err = borm.FindEthTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx3.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx3.State)
 
 		// No new tx attempts
 		require.Len(t, etx3.EthTxAttempts, 4)
@@ -2057,7 +2057,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	attempt4_1 := etx4.EthTxAttempts[0]
 	require.NoError(t, db.Get(&attempt4_1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
 		oldEnough, utils.NewBig(assets.GWei(35)), utils.NewBig(assets.GWei(100)), attempt4_1.ID))
-	var attempt4_2 bulletprooftxmanager.EthTxAttempt
+	var attempt4_2 txmgr.EthTxAttempt
 
 	t.Run("EIP-1559: bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
 		cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1000)
@@ -2083,7 +2083,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx4, err = borm.FindEthTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx4.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx4.State)
 
 		// A new, bumped attempt
 		require.Len(t, etx4.EthTxAttempts, 2)
@@ -2091,7 +2091,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Nil(t, attempt4_2.GasPrice)
 		assert.Equal(t, assets.GWei(42).String(), attempt4_2.GasTipCap.String())
 		assert.Equal(t, assets.GWei(120).String(), attempt4_2.GasFeeCap.String())
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt1_2.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt1_2.State)
 
 		ethClient.AssertExpectations(t)
 		kst.AssertExpectations(t)
@@ -2113,7 +2113,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx4, err = borm.FindEthTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx4.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx4.State)
 
 		// No new tx attempts
 		require.Len(t, etx4.EthTxAttempts, 2)
@@ -2154,7 +2154,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx4, err = borm.FindEthTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx4.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx4.State)
 
 		require.Len(t, etx4.EthTxAttempts, 3)
 		require.Equal(t, attempt4_1.ID, etx4.EthTxAttempts[2].ID)
@@ -2177,7 +2177,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -2197,7 +2197,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 	nonce := int64(0)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	etx := cltest.MustInsertUnconfrimedEthTxWithAttemptState(t, borm, nonce, fromAddress, bulletprooftxmanager.EthTxAttemptInProgress, originalBroadcastAt)
+	etx := cltest.MustInsertUnconfrimedEthTxWithAttemptState(t, borm, nonce, fromAddress, txmgr.EthTxAttemptInProgress, originalBroadcastAt)
 	require.Equal(t, originalBroadcastAt, *etx.BroadcastAt)
 	nonce++
 	attempt := etx.EthTxAttempts[0]
@@ -2223,7 +2223,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -2244,7 +2244,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	nonce++
 	attempt1_1 := etx.EthTxAttempts[0]
 	require.NoError(t, db.Get(&attempt1_1, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
-	var attempt1_2 bulletprooftxmanager.EthTxAttempt
+	var attempt1_2 txmgr.EthTxAttempt
 
 	insufficientEthError := errors.New("insufficient funds for gas * price + value")
 
@@ -2270,7 +2270,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		// Got the new attempt
 		attempt1_2 = etx.EthTxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInsufficientEth, attempt1_2.State)
+		assert.Equal(t, txmgr.EthTxAttemptInsufficientEth, attempt1_2.State)
 		assert.Nil(t, attempt1_2.BroadcastBeforeBlockNum)
 
 		ethClient.AssertExpectations(t)
@@ -2298,7 +2298,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		// The attempt is still "out of eth"
 		attempt1_2 = etx.EthTxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInsufficientEth, attempt1_2.State)
+		assert.Equal(t, txmgr.EthTxAttemptInsufficientEth, attempt1_2.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -2325,7 +2325,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		// Attempt is now 'broadcast'
 		attempt1_2 = etx.EthTxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt1_2.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt1_2.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -2351,7 +2351,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
-		var attempts []bulletprooftxmanager.EthTxAttempt
+		var attempts []txmgr.EthTxAttempt
 		require.NoError(t, db.Select(&attempts, "SELECT * FROM eth_tx_attempts WHERE state = 'insufficient_eth'"))
 		require.Len(t, attempts, 0)
 
@@ -2364,7 +2364,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -2401,7 +2401,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 	})
 
 	t.Run("does nothing to confirmed transactions with receipts within head height of the chain and included in the chain", func(t *testing.T) {
@@ -2414,7 +2414,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxConfirmed, etx.State)
 	})
 
 	t.Run("does nothing to confirmed transactions that only have receipts older than the start of the chain", func(t *testing.T) {
@@ -2428,7 +2428,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxConfirmed, etx.State)
 	})
 
 	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of the chain but not included in the chain", func(t *testing.T) {
@@ -2449,10 +2449,10 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -2472,10 +2472,10 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -2509,14 +2509,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxUnconfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 3)
 		attempt1 := etx.EthTxAttempts[0]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt1.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt1.State)
 		attempt2 = etx.EthTxAttempts[1]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt2.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt2.State)
 		attempt3 = etx.EthTxAttempts[2]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt3.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt3.State)
 
 		ethClient.AssertExpectations(t)
 	})
@@ -2531,10 +2531,10 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxConfirmed, etx.State)
+		assert.Equal(t, txmgr.EthTxConfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 1)
 		attempt = etx.EthTxAttempts[0]
-		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
+		assert.Equal(t, txmgr.EthTxAttemptBroadcast, attempt.State)
 		assert.Len(t, attempt.EthReceipts, 1)
 
 		ethClient.AssertExpectations(t)
@@ -2546,7 +2546,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -2656,7 +2656,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	config := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, config)
+	borm := cltest.NewTxmORM(t, db, config)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 

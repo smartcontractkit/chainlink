@@ -12,10 +12,10 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -355,7 +355,7 @@ type ChainSetOpts struct {
 	GenEthClient      func(types.Chain) evmclient.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
 	GenHeadTracker    func(types.Chain, httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager
+	GenTxManager      func(types.Chain) txmgr.TxManager
 }
 
 func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
