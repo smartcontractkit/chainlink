@@ -6,20 +6,20 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/graph-gophers/graphql-go"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 type EthTransactionResolver struct {
-	tx bulletprooftxmanager.EthTx
+	tx txmgr.EthTx
 }
 
-func NewEthTransaction(tx bulletprooftxmanager.EthTx) *EthTransactionResolver {
+func NewEthTransaction(tx txmgr.EthTx) *EthTransactionResolver {
 	return &EthTransactionResolver{tx: tx}
 }
 
-func NewEthTransactions(results []bulletprooftxmanager.EthTx) []*EthTransactionResolver {
+func NewEthTransactions(results []txmgr.EthTx) []*EthTransactionResolver {
 	var resolver []*EthTransactionResolver
 
 	for _, tx := range results {
@@ -126,11 +126,11 @@ func (r *EthTransactionResolver) SentAt(ctx context.Context) *string {
 // -- EthTransaction Query --
 
 type EthTransactionPayloadResolver struct {
-	tx *bulletprooftxmanager.EthTx
+	tx *txmgr.EthTx
 	NotFoundErrorUnionType
 }
 
-func NewEthTransactionPayload(tx *bulletprooftxmanager.EthTx, err error) *EthTransactionPayloadResolver {
+func NewEthTransactionPayload(tx *txmgr.EthTx, err error) *EthTransactionPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "transaction not found", isExpectedErrorFn: nil}
 
 	return &EthTransactionPayloadResolver{tx: tx, NotFoundErrorUnionType: e}
@@ -147,11 +147,11 @@ func (r *EthTransactionPayloadResolver) ToEthTransaction() (*EthTransactionResol
 // -- EthTransactions Query --
 
 type EthTransactionsPayloadResolver struct {
-	results []bulletprooftxmanager.EthTx
+	results []txmgr.EthTx
 	total   int32
 }
 
-func NewEthTransactionsPayload(results []bulletprooftxmanager.EthTx, total int32) *EthTransactionsPayloadResolver {
+func NewEthTransactionsPayload(results []txmgr.EthTx, total int32) *EthTransactionsPayloadResolver {
 	return &EthTransactionsPayloadResolver{results: results, total: total}
 }
 

@@ -9,14 +9,16 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestWebhookDelegate(t *testing.T) {
@@ -60,7 +62,7 @@ func TestWebhookDelegate(t *testing.T) {
 	require.Equal(t, webhook.ErrJobNotExists, errors.Cause(err))
 
 	// Should succeed after service is started upon a successful run
-	err = service.Start()
+	err = service.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).

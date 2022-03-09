@@ -12,6 +12,7 @@ import (
 
 const keyTypeIdentifier = "OCR2"
 
+// EncryptedOCRKeyExport represents encrypted OCR key export
 type EncryptedOCRKeyExport struct {
 	KeyType           string              `json:"keyType"`
 	ChainType         chaintype.ChainType `json:"chainType"`
@@ -22,6 +23,7 @@ type EncryptedOCRKeyExport struct {
 	Crypto            keystore.CryptoJSON `json:"crypto"`
 }
 
+// FromEncryptedJSON returns key from encrypted json
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 	var export EncryptedOCRKeyExport
 	if err := json.Unmarshal(keyJSON, &export); err != nil {
@@ -46,6 +48,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 	}
 }
 
+// ToEncryptedJSON returns encrypted JSON representing key
 func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptParams) (export []byte, err error) {
 	cryptoJSON, err := keystore.EncryptDataV3(
 		key.Raw(),

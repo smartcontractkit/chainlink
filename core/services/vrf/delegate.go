@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -20,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type Delegate struct {
@@ -70,7 +71,8 @@ func (d *Delegate) JobType() job.Type {
 func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
+// ServicesForSpec satisfies the job.Delegate interface.
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -108,7 +110,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			if err != nil {
 				return nil, err
 			}
-			return []job.Service{&listenerV2{
+			return []job.ServiceCtx{&listenerV2{
 				cfg:                chain.Config(),
 				l:                  lV2,
 				ethClient:          chain.Client(),
@@ -131,7 +133,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			}}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
-			return []job.Service{&listenerV1{
+			return []job.ServiceCtx{&listenerV1{
 				cfg:             chain.Config(),
 				l:               lV1,
 				headBroadcaster: chain.HeadBroadcaster(),

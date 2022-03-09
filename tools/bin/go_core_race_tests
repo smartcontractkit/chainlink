@@ -2,8 +2,7 @@
 set -ex
 
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-# remove -short for complete coverage
-GORACE="log_path=$PWD/race" LOG_LEVEL=panic go test -race -ldflags "$GO_LDFLAGS" -short -shuffle on -timeout 30s -count 10 -p 4 ./core/... | tee ./output.txt
+GORACE="log_path=$PWD/race" LOG_LEVEL=panic go test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout 30s -count 10 -p 4 ./core/... | tee ./output.txt
 EXITCODE=${PIPESTATUS[0]}
 # Fail if any race logs are present.
 if ls race.* &>/dev/null

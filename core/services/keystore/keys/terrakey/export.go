@@ -11,6 +11,7 @@ import (
 
 const keyTypeIdentifier = "Terra"
 
+// FromEncryptedJSON gets key from json and password
 func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
 	var export EncryptedTerraKeyExport
 	if err := json.Unmarshal(keyJSON, &export); err != nil {
@@ -24,12 +25,14 @@ func FromEncryptedJSON(keyJSON []byte, password string) (Key, error) {
 	return key, nil
 }
 
+// EncryptedTerraKeyExport represents the Terra encrypted key
 type EncryptedTerraKeyExport struct {
 	KeyType   string              `json:"keyType"`
 	PublicKey string              `json:"publicKey"`
 	Crypto    keystore.CryptoJSON `json:"crypto"`
 }
 
+// ToEncryptedJSON returns encrypted JSON representing key
 func (key Key) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
 	cryptoJSON, err := keystore.EncryptDataV3(
 		key.Raw(),

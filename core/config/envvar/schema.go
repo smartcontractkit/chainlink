@@ -146,6 +146,11 @@ type ConfigSchema struct {
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
+	// Node liveness checking
+	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
+	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
+	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
+
 	// EVM Gas Controls
 	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
 	EvmGasBumpPercent     uint16   `env:"ETH_GAS_BUMP_PERCENT"`
@@ -167,7 +172,7 @@ type ConfigSchema struct {
 	BlockHistoryEstimatorBlockHistorySize          uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16 `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
 	BlockHistoryEstimatorTransactionPercentile     uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
-	// BPTXM
+	// Txm
 	EvmGasBumpTxDepth          uint16 `env:"ETH_GAS_BUMP_TX_DEPTH"`
 	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
 	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
@@ -291,6 +296,7 @@ func Name(field string) string {
 	return item.Tag.Get("env")
 }
 
+// TryName gracefully tries to get the environment variable Name for a config schema field
 func TryName(field string) string {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	item, ok := schemaT.FieldByName(field)
@@ -300,6 +306,7 @@ func TryName(field string) string {
 	return item.Tag.Get("env")
 }
 
+// DefaultValue looks up the default value
 func DefaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
@@ -309,6 +316,7 @@ func DefaultValue(name string) (string, bool) {
 	return "", false
 }
 
+// ZeroValue returns the zero value for a named field, or panics if it does not exist.
 func ZeroValue(name string) interface{} {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {

@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/stretchr/testify/assert"
 
@@ -67,11 +69,22 @@ func MemoryLogTestingOnly() *MemorySink {
 // TestLogger creates a logger that directs output to PrettyConsole configured
 // for test output, and to the buffer testMemoryLog. t is optional.
 // Log level is derived from the LOG_LEVEL env var.
-func TestLogger(t T) Logger {
+func TestLogger(t T) SugaredLogger {
+	return testLogger(t)
+}
+
+// TestLoggerObserved creates a logger with an observer that can be used to
+// test emitted logs at the given level or above
+func TestLoggerObserved(t T, lvl zapcore.Level) (Logger, *observer.ObservedLogs) {
+	observedZapCore, observedLogs := observer.New(lvl)
+	return testLogger(t, observedZapCore), observedLogs
+}
+
+func testLogger(t T, cores ...zapcore.Core) SugaredLogger {
 	cfg := newZapConfigTest()
 	ll, invalid := envvar.LogLevel.ParseLogLevel()
 	cfg.Level.SetLevel(ll)
-	l, close, err := zapLoggerConfig{Config: cfg}.newLogger()
+	l, close, err := zapLoggerConfig{Config: cfg}.newLogger(cores...)
 	if err != nil {
 		if t == nil {
 			log.Fatal(err)
@@ -87,9 +100,9 @@ func TestLogger(t T) Logger {
 		})
 	}
 	if t == nil {
-		return l
+		return Sugared(l)
 	}
-	return l.Named(verShaNameStatic()).Named(t.Name())
+	return Sugared(l.Named(verShaNameStatic()).Named(t.Name()))
 }
 
 func newZapConfigTest() zap.Config {

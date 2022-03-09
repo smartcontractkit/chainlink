@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -32,7 +32,7 @@ func setupKeeperDB(t *testing.T) (
 	gcfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	orm := keeper.NewORM(db, logger.TestLogger(t), cfg, bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), cfg, txmgr.SendEveryStrategy{})
 	return db, cfg, orm
 }
 

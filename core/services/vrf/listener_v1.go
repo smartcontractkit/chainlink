@@ -10,9 +10,9 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	_ log.Listener = &listenerV1{}
-	_ job.Service  = &listenerV1{}
+	_ log.Listener   = &listenerV1{}
+	_ job.ServiceCtx = &listenerV1{}
 )
 
 type request struct {
@@ -45,7 +45,7 @@ type listenerV1 struct {
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             bulletprooftxmanager.TxManager
+	txm             txmgr.TxManager
 	gethks          GethKeyStore
 	reqLogs         *utils.Mailbox
 	chStop          chan struct{}
@@ -98,7 +98,7 @@ func (lsn *listenerV1) getLatestHead() uint64 {
 }
 
 // Start complies with job.Service
-func (lsn *listenerV1) Start() error {
+func (lsn *listenerV1) Start(context.Context) error {
 	return lsn.StartOnce("VRFListener", func() error {
 		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
 
