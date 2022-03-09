@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -141,7 +141,7 @@ func TestETHCallTask(t *testing.T) {
 
 			keyStore := new(keystoremocks.Eth)
 			keyStore.Test(t)
-			txManager := new(bptxmmocks.TxManager)
+			txManager := new(txmmocks.TxManager)
 			txManager.Test(t)
 			db := pgtest.NewSqlxDB(t)
 

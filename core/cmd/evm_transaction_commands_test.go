@@ -12,7 +12,7 @@ import (
 	null "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -26,7 +26,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.BPTXMORM(), 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmORM(), 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
 	// page 1
@@ -60,7 +60,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	db := app.GetSqlxDB()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	borm := cltest.NewBulletproofTxManagerORM(t, db, app.GetConfig())
+	borm := cltest.NewTxmORM(t, db, app.GetConfig())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
@@ -81,7 +81,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.BPTXMORM(), 0, 1, from)
+	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, app.TxmORM(), 0, 1, from)
 
 	// page 1
 	set := flag.NewFlagSet("test txattempts", 0)
@@ -105,7 +105,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	assert.Equal(t, 0, len(renderedAttempts))
 }
 
-func TestClient_SendEther_From_BPTXM(t *testing.T) {
+func TestClient_SendEther_From_Txm(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -141,7 +141,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := bulletprooftxmanager.EthTx{}
+	etx := txmgr.EthTx{}
 	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
 	require.Equal(t, "100.500000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)
@@ -153,7 +153,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	assert.Equal(t, etx.Value.String(), output.Value)
 }
 
-func TestClient_SendEther_From_BPTXM_WEI(t *testing.T) {
+func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 	t.Parallel()
 
 	key := cltest.MustGenerateRandomKey(t)
@@ -194,7 +194,7 @@ func TestClient_SendEther_From_BPTXM_WEI(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	etx := bulletprooftxmanager.EthTx{}
+	etx := txmgr.EthTx{}
 	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
 	require.Equal(t, "1.000000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -36,7 +36,7 @@ func (EthTxResource) GetName() string {
 // For backwards compatibility, there is no id set when initializing from an
 // EthTx as the id being used was the EthTxAttempt Hash.
 // This should really use it's proper id
-func NewEthTxResource(tx bulletprooftxmanager.EthTx) EthTxResource {
+func NewEthTxResource(tx txmgr.EthTx) EthTxResource {
 	return EthTxResource{
 		Data:       hexutil.Bytes(tx.EncodedPayload),
 		From:       &tx.FromAddress,
@@ -48,7 +48,7 @@ func NewEthTxResource(tx bulletprooftxmanager.EthTx) EthTxResource {
 	}
 }
 
-func NewEthTxResourceFromAttempt(txa bulletprooftxmanager.EthTxAttempt) EthTxResource {
+func NewEthTxResourceFromAttempt(txa txmgr.EthTxAttempt) EthTxResource {
 	tx := txa.EthTx
 
 	r := NewEthTxResource(tx)

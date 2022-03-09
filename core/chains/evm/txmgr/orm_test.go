@@ -1,10 +1,10 @@
-package bulletprooftxmanager_test
+package txmgr_test
 
 import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -16,7 +16,7 @@ import (
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	orm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -27,14 +27,14 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	// add 2nd attempt to tx2
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
-	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt.State = txmgr.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = bulletprooftxmanager.EthTxUnstarted
+	tx3.State = txmgr.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -64,7 +64,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 func TestORM_EthTransactions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	orm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -75,14 +75,14 @@ func TestORM_EthTransactions(t *testing.T) {
 	// add 2nd attempt to tx2
 	blockNum := int64(3)
 	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
-	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt.State = txmgr.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
-	tx3.State = bulletprooftxmanager.EthTxUnstarted
+	tx3.State = txmgr.EthTxUnstarted
 	tx3.FromAddress = from
 	require.NoError(t, orm.InsertEthTx(&tx3))
 
@@ -107,11 +107,11 @@ func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
-	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	orm := cltest.NewTxmORM(t, db, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 	var err error
-	var etx bulletprooftxmanager.EthTx
+	var etx txmgr.EthTx
 	t.Run("InsertEthTx", func(t *testing.T) {
 		etx = cltest.NewEthTx(t, fromAddress)
 		err = orm.InsertEthTx(&etx)
@@ -119,8 +119,8 @@ func TestORM(t *testing.T) {
 		assert.Greater(t, int(etx.ID), 0)
 		cltest.AssertCount(t, db, "eth_txes", 1)
 	})
-	var attemptL bulletprooftxmanager.EthTxAttempt
-	var attemptD bulletprooftxmanager.EthTxAttempt
+	var attemptL txmgr.EthTxAttempt
+	var attemptD txmgr.EthTxAttempt
 	t.Run("InsertEthTxAttempt", func(t *testing.T) {
 		attemptD = cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		err = orm.InsertEthTxAttempt(&attemptD)
@@ -129,14 +129,14 @@ func TestORM(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_tx_attempts", 1)
 
 		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
-		attemptL.State = bulletprooftxmanager.EthTxAttemptBroadcast
+		attemptL.State = txmgr.EthTxAttemptBroadcast
 		attemptL.GasPrice = utils.NewBigI(42)
 		err = orm.InsertEthTxAttempt(&attemptL)
 		require.NoError(t, err)
 		assert.Greater(t, int(attemptL.ID), 0)
 		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
 	})
-	var r bulletprooftxmanager.EthReceipt
+	var r txmgr.EthReceipt
 	t.Run("InsertEthReceipt", func(t *testing.T) {
 		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash)
 		err = orm.InsertEthReceipt(&r)

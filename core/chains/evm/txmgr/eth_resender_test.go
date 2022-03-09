@@ -1,4 +1,4 @@
-package bulletprooftxmanager_test
+package txmgr_test
 
 import (
 	"math/big"
@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -26,7 +26,7 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -34,12 +34,12 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 10, cltest.FixtureChainID)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 10, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
 
-	etxs := []bulletprooftxmanager.EthTx{
+	etxs := []txmgr.EthTx{
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, time.Unix(1616509100, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress, time.Unix(1616509200, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress, time.Unix(1616509300, 0)),
@@ -56,22 +56,22 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 	attempt4_2 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
 	attempt4_2.GasTipCap = utils.NewBig(big.NewInt(10))
 	attempt4_2.GasFeeCap = utils.NewBig(big.NewInt(20))
-	attempt4_2.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt4_2.State = txmgr.EthTxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_2))
 	attempt4_4 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
 	attempt4_4.GasTipCap = utils.NewBig(big.NewInt(30))
 	attempt4_4.GasFeeCap = utils.NewBig(big.NewInt(40))
-	attempt4_4.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt4_4.State = txmgr.EthTxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_4))
 	attempt4_3 := cltest.NewDynamicFeeEthTxAttempt(t, etxs[3].ID)
 	attempt4_3.GasTipCap = utils.NewBig(big.NewInt(20))
 	attempt4_3.GasFeeCap = utils.NewBig(big.NewInt(30))
-	attempt4_3.State = bulletprooftxmanager.EthTxAttemptBroadcast
+	attempt4_3.State = txmgr.EthTxAttemptBroadcast
 	require.NoError(t, borm.InsertEthTxAttempt(&attempt4_3))
 
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -80,7 +80,7 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns the highest price attempt for EIP-1559 transactions", func(t *testing.T) {
 		olderThan := time.Unix(1616509400, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 4)
 		assert.Equal(t, attempt4_4.ID, attempts[3].ID)
@@ -88,7 +88,7 @@ func Test_EthResender_FindEthTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("applies limit", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxAttemptsRequiringResend(db, olderThan, 1, cltest.FixtureChainID)
+		attempts, err := txmgr.FindEthTxAttemptsRequiringResend(db, olderThan, 1, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -100,7 +100,7 @@ func Test_EthResender_Start(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	// This can be anything as long as it isn't zero
 	d := 42 * time.Hour
@@ -114,7 +114,7 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		er := bulletprooftxmanager.NewEthResender(lggr, db, ethClient, 100*time.Millisecond, evmcfg)
+		er := txmgr.NewEthResender(lggr, db, ethClient, 100*time.Millisecond, evmcfg)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress, originalBroadcastAt)

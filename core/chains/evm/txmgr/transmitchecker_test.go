@@ -1,4 +1,4 @@
-package bulletprooftxmanager_test
+package txmgr_test
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	v1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -26,42 +26,42 @@ import (
 
 func TestFactory(t *testing.T) {
 	client, _, _ := cltest.NewEthMocksWithDefaultChain(t)
-	factory := &bulletprooftxmanager.CheckerFactory{Client: client}
+	factory := &txmgr.CheckerFactory{Client: client}
 
 	t.Run("no checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{})
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{})
 		require.NoError(t, err)
-		require.Equal(t, bulletprooftxmanager.NoChecker, c)
+		require.Equal(t, txmgr.NoChecker, c)
 	})
 
 	t.Run("vrf v1 checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
-			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV1,
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
+			CheckerType:           txmgr.TransmitCheckerTypeVRFV1,
 			VRFCoordinatorAddress: testutils.NewAddress(),
 		})
 		require.NoError(t, err)
-		require.IsType(t, &bulletprooftxmanager.VRFV1Checker{}, c)
+		require.IsType(t, &txmgr.VRFV1Checker{}, c)
 	})
 
 	t.Run("vrf v2 checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
-			CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
+			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddress(),
 		})
 		require.NoError(t, err)
-		require.IsType(t, &bulletprooftxmanager.VRFV2Checker{}, c)
+		require.IsType(t, &txmgr.VRFV2Checker{}, c)
 	})
 
 	t.Run("simulate checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
-			CheckerType: bulletprooftxmanager.TransmitCheckerTypeSimulate,
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
+			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		})
 		require.NoError(t, err)
-		require.Equal(t, &bulletprooftxmanager.SimulateChecker{Client: client}, c)
+		require.Equal(t, &txmgr.SimulateChecker{Client: client}, c)
 	})
 
 	t.Run("invalid checker type", func(t *testing.T) {
-		_, err := factory.BuildChecker(bulletprooftxmanager.TransmitCheckerSpec{
+		_, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType: "invalid",
 		})
 		require.EqualError(t, err, "unrecognized checker type: invalid")
@@ -74,27 +74,27 @@ func TestTransmitCheckers(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("no checker", func(t *testing.T) {
-		checker := bulletprooftxmanager.NoChecker
-		require.NoError(t, checker.Check(ctx, log, bulletprooftxmanager.EthTx{}, bulletprooftxmanager.EthTxAttempt{}))
+		checker := txmgr.NoChecker
+		require.NoError(t, checker.Check(ctx, log, txmgr.EthTx{}, txmgr.EthTxAttempt{}))
 	})
 
 	t.Run("simulate", func(t *testing.T) {
-		checker := bulletprooftxmanager.SimulateChecker{Client: client}
+		checker := txmgr.SimulateChecker{Client: client}
 
-		tx := bulletprooftxmanager.EthTx{
+		tx := txmgr.EthTx{
 			FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
 			ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 			EncodedPayload: []byte{42, 0, 0},
 			Value:          assets.NewEthValue(642),
 			GasLimit:       1e9,
 			CreatedAt:      time.Unix(0, 0),
-			State:          bulletprooftxmanager.EthTxUnstarted,
+			State:          txmgr.EthTxUnstarted,
 		}
-		attempt := bulletprooftxmanager.EthTxAttempt{
+		attempt := txmgr.EthTxAttempt{
 			EthTx:     tx,
 			Hash:      common.Hash{},
 			CreatedAt: tx.CreatedAt,
-			State:     bulletprooftxmanager.EthTxAttemptInProgress,
+			State:     txmgr.EthTxAttemptInProgress,
 		}
 
 		t.Run("success", func(t *testing.T) {
@@ -142,8 +142,8 @@ func TestTransmitCheckers(t *testing.T) {
 
 	t.Run("VRF V1", func(t *testing.T) {
 
-		newTx := func(t *testing.T, vrfReqID [32]byte) (bulletprooftxmanager.EthTx, bulletprooftxmanager.EthTxAttempt) {
-			meta := bulletprooftxmanager.EthTxMeta{
+		newTx := func(t *testing.T, vrfReqID [32]byte) (txmgr.EthTx, txmgr.EthTxAttempt) {
+			meta := txmgr.EthTxMeta{
 				RequestID: common.BytesToHash(vrfReqID[:]),
 				MaxLink:   "1000000000000000000", // 1 LINK
 				SubID:     2,
@@ -153,21 +153,21 @@ func TestTransmitCheckers(t *testing.T) {
 			require.NoError(t, err)
 			metaJson := datatypes.JSON(b)
 
-			tx := bulletprooftxmanager.EthTx{
+			tx := txmgr.EthTx{
 				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
 				ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 				EncodedPayload: []byte{42, 0, 0},
 				Value:          assets.NewEthValue(642),
 				GasLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          bulletprooftxmanager.EthTxUnstarted,
+				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
-			return tx, bulletprooftxmanager.EthTxAttempt{
+			return tx, txmgr.EthTxAttempt{
 				EthTx:     tx,
 				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
-				State:     bulletprooftxmanager.EthTxAttemptInProgress,
+				State:     txmgr.EthTxAttemptInProgress,
 			}
 		}
 
@@ -175,7 +175,7 @@ func TestTransmitCheckers(t *testing.T) {
 		r2 := [32]byte{2}
 		r3 := [32]byte{3}
 
-		checker := bulletprooftxmanager.VRFV1Checker{Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
+		checker := txmgr.VRFV1Checker{Callbacks: func(opts *bind.CallOpts, reqID [32]byte) (v1.Callbacks, error) {
 			if reqID == r1 {
 				// Request 1 is already fulfilled
 				return v1.Callbacks{
@@ -210,8 +210,8 @@ func TestTransmitCheckers(t *testing.T) {
 
 	t.Run("VRF V2", func(t *testing.T) {
 
-		newTx := func(t *testing.T, vrfReqID *big.Int) (bulletprooftxmanager.EthTx, bulletprooftxmanager.EthTxAttempt) {
-			meta := bulletprooftxmanager.EthTxMeta{
+		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EthTx, txmgr.EthTxAttempt) {
+			meta := txmgr.EthTxMeta{
 				RequestID: common.BytesToHash(vrfReqID.Bytes()),
 				MaxLink:   "1000000000000000000", // 1 LINK
 				SubID:     2,
@@ -221,25 +221,25 @@ func TestTransmitCheckers(t *testing.T) {
 			require.NoError(t, err)
 			metaJson := datatypes.JSON(b)
 
-			tx := bulletprooftxmanager.EthTx{
+			tx := txmgr.EthTx{
 				FromAddress:    common.HexToAddress("0xfe0629509E6CB8dfa7a99214ae58Ceb465d5b5A9"),
 				ToAddress:      common.HexToAddress("0xff0Aac13eab788cb9a2D662D3FB661Aa5f58FA21"),
 				EncodedPayload: []byte{42, 0, 0},
 				Value:          assets.NewEthValue(642),
 				GasLimit:       1e9,
 				CreatedAt:      time.Unix(0, 0),
-				State:          bulletprooftxmanager.EthTxUnstarted,
+				State:          txmgr.EthTxUnstarted,
 				Meta:           &metaJson,
 			}
-			return tx, bulletprooftxmanager.EthTxAttempt{
+			return tx, txmgr.EthTxAttempt{
 				EthTx:     tx,
 				Hash:      common.Hash{},
 				CreatedAt: tx.CreatedAt,
-				State:     bulletprooftxmanager.EthTxAttemptInProgress,
+				State:     txmgr.EthTxAttemptInProgress,
 			}
 		}
 
-		checker := bulletprooftxmanager.VRFV2Checker{GetCommitment: func(_ *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
+		checker := txmgr.VRFV2Checker{GetCommitment: func(_ *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
 			if requestID.String() == "1" {
 				// Request 1 is already fulfilled
 				return [32]byte{}, nil

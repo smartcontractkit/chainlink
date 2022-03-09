@@ -5,7 +5,7 @@ import (
 
 	"github.com/graph-gophers/dataloader"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
@@ -28,13 +28,13 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 		keyOrder[key.String()] = ix
 	}
 
-	attempts, err := b.app.BPTXMORM().FindEthTxAttemptsByEthTxIDs(ethTxsIDs)
+	attempts, err := b.app.TxmORM().FindEthTxAttemptsByEthTxIDs(ethTxsIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
 
 	// Generate a map of attempts to txIDs
-	attemptsForTx := map[string][]bulletprooftxmanager.EthTxAttempt{}
+	attemptsForTx := map[string][]txmgr.EthTxAttempt{}
 	for _, a := range attempts {
 		id := stringutils.FromInt64(a.EthTxID)
 
@@ -54,7 +54,7 @@ func (b *ethTransactionAttemptBatcher) loadByEthTransactionIDs(ctx context.Conte
 
 	// fill array positions without any attempts as an empty slice
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: []bulletprooftxmanager.EthTxAttempt{}, Error: nil}
+		results[ix] = &dataloader.Result{Data: []txmgr.EthTxAttempt{}, Error: nil}
 	}
 
 	return results

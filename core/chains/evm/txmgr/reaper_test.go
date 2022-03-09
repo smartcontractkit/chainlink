@@ -1,12 +1,12 @@
-package bulletprooftxmanager_test
+package txmgr_test
 
 import (
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newReaperWithChainID(t *testing.T, db *sqlx.DB, cfg bulletprooftxmanager.ReaperConfig, cid big.Int) *bulletprooftxmanager.Reaper {
-	return bulletprooftxmanager.NewReaper(logger.TestLogger(t), db, cfg, cid)
+func newReaperWithChainID(t *testing.T, db *sqlx.DB, cfg txmgr.ReaperConfig, cid big.Int) *txmgr.Reaper {
+	return txmgr.NewReaper(logger.TestLogger(t), db, cfg, cid)
 }
 
-func newReaper(t *testing.T, db *sqlx.DB, cfg bulletprooftxmanager.ReaperConfig) *bulletprooftxmanager.Reaper {
+func newReaper(t *testing.T, db *sqlx.DB, cfg txmgr.ReaperConfig) *txmgr.Reaper {
 	return newReaperWithChainID(t, db, cfg, cltest.FixtureChainID)
 }
 
@@ -29,7 +29,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
