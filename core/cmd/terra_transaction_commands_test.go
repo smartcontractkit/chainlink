@@ -38,7 +38,7 @@ func TestClient_SendTerraCoins(t *testing.T) {
 	require.NoError(t, app.GetKeyStore().Terra().Add(terrakey.Raw(from.PrivateKey.Bytes()).Key()))
 
 	chains := app.GetChains()
-	_, err := chains.Terra.Add(chainID, terradb.ChainCfg{})
+	_, err := chains.Terra.Add(testutils.Context(t), chainID, terradb.ChainCfg{})
 	require.NoError(t, err)
 	chain, err := chains.Terra.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
