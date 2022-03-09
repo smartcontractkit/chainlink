@@ -15,10 +15,10 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -58,7 +58,7 @@ type listenerV2 struct {
 	l              logger.Logger
 	ethClient      evmclient.Client
 	logBroadcaster log.Broadcaster
-	txm            bulletprooftxmanager.TxManager
+	txm            txmgr.TxManager
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
 	pipelineRunner pipeline.Runner
 	job            job.Job
@@ -194,7 +194,7 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 // Determine a set of logs that are confirmed
 // and the subscription has sufficient balance to fulfill,
 // given a eth call with the max gas price.
-// Note we have to consider the pending reqs already in the bptxm as already "spent" link,
+// Note we have to consider the pending reqs already in the txm as already "spent" link,
 // using a max link consumed in their metadata.
 // A user will need a minBalance capable of fulfilling a single req at the max gas price or nothing will happen.
 // This is acceptable as users can choose different keyhashes which have different max gas prices.
@@ -363,7 +363,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			break
 		}
 		rlog.Infow("Enqueuing fulfillment")
-		// We have enough balance to service it, lets enqueue for bptxm
+		// We have enough balance to service it, lets enqueue for txm
 		err = lsn.q.Transaction(func(tx pg.Queryer) error {
 			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err != nil {
 				return err
@@ -371,20 +371,20 @@ func (lsn *listenerV2) processRequestsPerSub(
 			if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 				return err
 			}
-			_, err = lsn.txm.CreateEthTransaction(bulletprooftxmanager.NewTx{
+			_, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 				FromAddress:    fromAddress,
 				ToAddress:      lsn.coordinator.Address(),
 				EncodedPayload: hexutil.MustDecode(payload),
 				GasLimit:       gaslimit,
-				Meta: &bulletprooftxmanager.EthTxMeta{
+				Meta: &txmgr.EthTxMeta{
 					RequestID: common.BytesToHash(vrfRequest.RequestId.Bytes()),
 					MaxLink:   maxLink.String(),
 					SubID:     vrfRequest.SubId,
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
-				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(),
-				Checker: bulletprooftxmanager.TransmitCheckerSpec{
-					CheckerType:           bulletprooftxmanager.TransmitCheckerTypeVRFV2,
+				Strategy:         txmgr.NewSendEveryStrategy(),
+				Checker: txmgr.TransmitCheckerSpec{
+					CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 					VRFCoordinatorAddress: lsn.coordinator.Address(),
 				},
 			}, pg.WithQueryer(tx))
@@ -394,7 +394,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			rlog.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 			continue
 		}
-		// If we successfully enqueued for the bptxm, subtract that balance
+		// If we successfully enqueued for the txm, subtract that balance
 		// And loop to attempt to enqueue another fulfillment
 		startBalanceNoReserveLink = startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, maxLink)
 		processed[vrfRequest.RequestId.String()] = struct{}{}

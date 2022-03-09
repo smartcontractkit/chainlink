@@ -3,19 +3,19 @@ package resolver
 import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 type EthTransactionAttemptResolver struct {
-	attmpt bulletprooftxmanager.EthTxAttempt
+	attmpt txmgr.EthTxAttempt
 }
 
-func NewEthTransactionAttempt(attmpt bulletprooftxmanager.EthTxAttempt) *EthTransactionAttemptResolver {
+func NewEthTransactionAttempt(attmpt txmgr.EthTxAttempt) *EthTransactionAttemptResolver {
 	return &EthTransactionAttemptResolver{attmpt: attmpt}
 }
 
-func NewEthTransactionsAttempts(results []bulletprooftxmanager.EthTxAttempt) []*EthTransactionAttemptResolver {
+func NewEthTransactionsAttempts(results []txmgr.EthTxAttempt) []*EthTransactionAttemptResolver {
 	var resolver []*EthTransactionAttemptResolver
 
 	for _, tx := range results {
@@ -50,11 +50,11 @@ func (r *EthTransactionAttemptResolver) SentAt() *string {
 // -- EthTransactionAttempts Query --
 
 type EthTransactionsAttemptsPayloadResolver struct {
-	results []bulletprooftxmanager.EthTxAttempt
+	results []txmgr.EthTxAttempt
 	total   int32
 }
 
-func NewEthTransactionsAttemptsPayload(results []bulletprooftxmanager.EthTxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
+func NewEthTransactionsAttemptsPayload(results []txmgr.EthTxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
 	return &EthTransactionsAttemptsPayloadResolver{results: results, total: total}
 }
 

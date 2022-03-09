@@ -1,4 +1,4 @@
-package bulletprooftxmanager_test
+package txmgr_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
@@ -15,7 +15,7 @@ import (
 func Test_SendEveryStrategy(t *testing.T) {
 	t.Parallel()
 
-	s := bulletprooftxmanager.SendEveryStrategy{}
+	s := txmgr.SendEveryStrategy{}
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
@@ -28,7 +28,7 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 	t.Parallel()
 
 	subject := uuid.NewV4()
-	s := bulletprooftxmanager.NewDropOldestStrategy(subject, 1)
+	s := txmgr.NewDropOldestStrategy(subject, 1)
 
 	assert.True(t, s.Subject().Valid)
 	assert.Equal(t, subject, s.Subject().UUID)
@@ -39,7 +39,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	borm := cltest.NewTxmORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	subj1 := uuid.NewV4()
@@ -57,7 +57,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	n++
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
 	n++
-	initialEtxs := []bulletprooftxmanager.EthTx{
+	initialEtxs := []txmgr.EthTx{
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj1),
 		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress, subj2),
 		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress, subj1),
@@ -66,7 +66,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
-		s := bulletprooftxmanager.NewDropOldestStrategy(subj1, 2)
+		s := txmgr.NewDropOldestStrategy(subj1, 2)
 
 		n, err := s.PruneQueue(db)
 		require.NoError(t, err)
@@ -75,7 +75,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
 		cltest.AssertCount(t, db, "eth_txes", 7)
 
-		var etxs []bulletprooftxmanager.EthTx
+		var etxs []txmgr.EthTx
 		require.NoError(t, db.Select(&etxs, `SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`))
 
 		require.Len(t, etxs, 3)
