@@ -82,11 +82,11 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		var calls atomic.Int32
 		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (respResult string, notifyResult string) {
 			switch method {
-			case "eth_protocolVersion":
+			case "web3_clientVersion":
 				defer calls.Inc()
 				// It starts working right before it hits threshold
 				if int(calls.Load())+1 >= threshold {
-					return `"0x2a"`, ""
+					return `"test client version"`, ""
 				}
 				return "this will error", ""
 			default:
@@ -129,7 +129,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		var calls atomic.Int32
 		n := newTestNodeWithCallback(t, cfg, func(method string, params gjson.Result) (respResult string, notifyResult string) {
 			switch method {
-			case "eth_protocolVersion":
+			case "web3_clientVersion":
 				defer calls.Inc()
 				return "this will error", ""
 			default:
@@ -181,12 +181,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 					default:
 					}
 					return `"0x00"`, makeHeadResult(0)
-				case "eth_protocolVersion":
+				case "web3_clientVersion":
 					select {
 					case chPolled <- struct{}{}:
 					default:
 					}
-					return `"0x2a"`, ""
+					return `"test client version 2"`, ""
 				default:
 					t.Fatalf("unexpected RPC method: %s", method)
 				}

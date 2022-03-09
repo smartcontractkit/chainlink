@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -337,29 +337,29 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	bptxmORM := &bulletprooftxmanagerMocks.ORM{}
+	txmORM := &txmgrMocks.ORM{}
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(context.Background(), app)
 
 	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, bptxmORM)
+		mock.AssertExpectationsForObjects(t, app, txmORM)
 	})
 
 	ethTxIDs := []int64{1, 2, 3}
 
-	attempt1 := bulletprooftxmanager.EthTxAttempt{
+	attempt1 := txmgr.EthTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[0],
 	}
-	attempt2 := bulletprooftxmanager.EthTxAttempt{
+	attempt2 := txmgr.EthTxAttempt{
 		ID:      int64(1),
 		EthTxID: ethTxIDs[1],
 	}
 
-	bptxmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]bulletprooftxmanager.EthTxAttempt{
+	txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EthTxAttempt{
 		attempt1, attempt2,
 	}, nil)
-	app.On("BPTXMORM").Return(bptxmORM)
+	app.On("TxmORM").Return(txmORM)
 
 	batcher := ethTransactionAttemptBatcher{app}
 
@@ -367,7 +367,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{}, found[0].Data)
-	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{attempt2}, found[1].Data)
-	assert.Equal(t, []bulletprooftxmanager.EthTxAttempt{attempt1}, found[2].Data)
+	assert.Equal(t, []txmgr.EthTxAttempt{}, found[0].Data)
+	assert.Equal(t, []txmgr.EthTxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []txmgr.EthTxAttempt{attempt1}, found[2].Data)
 }
