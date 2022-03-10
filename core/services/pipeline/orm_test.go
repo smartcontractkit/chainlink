@@ -370,11 +370,11 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 				DotID:         "answer2",
 				Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
 				CreatedAt:     now,
-				FinishedAt:    null.TimeFrom(now),
+				FinishedAt:    null.TimeFrom(now.Add(-1 * time.Second)),
 			},
 		}
-		run.FinishedAt = null.TimeFrom(now)
 		run.State = pipeline.RunStatusCompleted
+		run.FinishedAt = null.TimeFrom(now.Add(-1 * time.Second))
 		run.Outputs = pipeline.JSONSerializable{Val: 1, Valid: true}
 		run.FatalErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
@@ -385,8 +385,6 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 
 		runsIds = append(runsIds, run.ID)
 	}
-
-	time.Sleep(2 * time.Second)
 
 	err := orm.DeleteRunsOlderThan(context.Background(), 1*time.Second)
 	assert.NoError(t, err)
