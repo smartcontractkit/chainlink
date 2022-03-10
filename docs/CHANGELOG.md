@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
+- EIP-1559 is now enabled by default on mainnet. To disable (go back to legacy mode) set `EVM_EIP1559_DYNAMIC_FEES=false`. The default settings should work well, but if you wish to tune your gas controls, see the [documentation](https://docs.chain.link/docs/configuration-variables/#evm-gas-controls).
+
+Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended to enable this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
+
+See issue: https://github.com/maticnetwork/bor/issues/347
 
 ## [1.2.0] - 2022-03-02
 
