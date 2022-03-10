@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
@@ -121,6 +122,61 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 	}
 	err = cli.errorOut(cli.Render(model))
 	return err
+}
+
+// BackwardsModeBHS stores block hashes in the blockhash store contract on-chain
+func (cli *Client) BackwardsModeBHS(c *clipkg.Context) (err error) {
+	startBlock := c.Int64("start-block")
+	if startBlock <= 0 {
+		return cli.errorOut(errors.New("Must pass a positive value in '--start-block' parameter"))
+	}
+
+	endBlock := c.Int64("end-block")
+	if endBlock <= 0 {
+		return cli.errorOut(errors.New("Must pass a positive value in '--end-block' parameter"))
+	}
+
+	batchBHSAddress := c.String("batch-bhs-address")
+	if a := common.HexToAddress(batchBHSAddress).Hex(); a == (common.Address{}).Hex() {
+		return cli.errorOut(errors.New("Must pass a valid ethereum address in '--batch-bhs-address' parameter"))
+	}
+
+	batchSize := c.Int64("batch-size")
+	if batchSize <= 0 {
+		return cli.errorOut(errors.New("Must pass a positive value in '--batch-size' parameter"))
+	}
+
+	buf := bytes.NewBufferString("{}")
+	path := fmt.Sprintf(
+		"/v2/backwards_mode_bhs?start_block=%d&end_block=%d&batch_bhs_address=%s&batch_size=%d",
+		startBlock,
+		endBlock,
+		batchBHSAddress,
+		batchSize,
+	)
+	resp, err := cli.HTTP.Post(
+		path,
+		buf,
+	)
+	if err != nil {
+		return cli.errorOut(errors.Wrapf(err, "http call %s", path))
+	}
+
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		bytes, err2 := cli.parseResponse(resp)
+		if err2 != nil {
+			return cli.errorOut(errors.Wrap(err2, "parseResponse error"))
+		}
+		return cli.errorOut(errors.New(string(bytes)))
+	}
+
+	return cli.printResponseBody(resp)
 }
 
 // ReplayFromBlock replays chain data from the given block number until the most recent

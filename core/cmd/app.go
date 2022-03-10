@@ -106,6 +106,42 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
+			Name:    "bhs",
+			Aliases: []string{},
+			Usage:   "Commands for interacting with the blockhash store",
+			Subcommands: []cli.Command{
+				{
+					Name:   "backwards",
+					Usage:  "Fills the blockhash store backwards from the specified block",
+					Action: client.BackwardsModeBHS,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:     "start-block",
+							Usage:    "Block number to start filling from. Must be in the BHS already",
+							Required: true,
+						},
+						cli.IntFlag{
+							Name:     "end-block",
+							Usage:    "Block number to stop filling at. Must be less than start-block",
+							Required: true,
+						},
+						cli.StringFlag{
+							Name:     "batch-bhs-address",
+							Usage:    "Address of the BatchBlockhashStore address on-chain",
+							Required: true,
+						},
+						cli.IntFlag{
+							Name:     "batch-size",
+							Usage:    "How many blockhashes to store in a single transaction",
+							Required: false,
+							Value:    25,
+						},
+					},
+				},
+			},
+		},
+
+		{
 			Name:  "bridges",
 			Usage: "Commands for Bridges communicating with External Adapters",
 			Subcommands: []cli.Command{
