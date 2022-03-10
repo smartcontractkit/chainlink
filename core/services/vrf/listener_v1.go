@@ -10,9 +10,9 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,7 +45,7 @@ type listenerV1 struct {
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             bulletprooftxmanager.TxManager
+	txm             txmgr.TxManager
 	gethks          GethKeyStore
 	reqLogs         *utils.Mailbox
 	chStop          chan struct{}
@@ -68,6 +68,9 @@ type listenerV1 struct {
 	// respCount map - we repeatedly want remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	blockNumberToReqID *pairing.PairHeap
+
+	// deduper prevents processing duplicate requests from the log broadcaster.
+	deduper *logDeduper
 }
 
 // Note that we have 2 seconds to do this processing
@@ -415,6 +418,11 @@ func (lsn *listenerV1) Close() error {
 }
 
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
+	if !lsn.deduper.shouldDeliver(lb.RawLog()) {
+		lsn.l.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
+		return
+	}
+
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")

@@ -14,7 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -179,11 +179,11 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
+		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
 
-		var checker bulletprooftxmanager.TransmitCheckerSpec
+		var checker txmgr.TransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {
-			checker.CheckerType = bulletprooftxmanager.TransmitCheckerTypeSimulate
+			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
 
 		if concreteSpec.TransmitterAddress == nil {

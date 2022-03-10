@@ -9,11 +9,11 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -30,7 +30,7 @@ type TestChainOpts struct {
 	ChainCfg       evmtypes.ChainCfg
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
-	TxManager      bulletprooftxmanager.TxManager
+	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 }
 
@@ -64,7 +64,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 	}
 	if testopts.TxManager != nil {
-		opts.GenTxManager = func(evmtypes.Chain) bulletprooftxmanager.TxManager {
+		opts.GenTxManager = func(evmtypes.Chain) txmgr.TxManager {
 			return testopts.TxManager
 		}
 
