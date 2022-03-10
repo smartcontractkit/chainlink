@@ -118,10 +118,10 @@ type node struct {
 	state   NodeState
 	stateMu sync.RWMutex
 
-	// cancelInflightRequestsCh can be closed to immediately cancel all in-flight requests on
+	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this node. Closing and replacing should be serialized through
 	// stateMu it can happen on on state transitions as well as node Close.
-	cancelInflightRequestsCh chan struct{}
+	chStopInFlight chan struct{}
 	// chStop signals the node to exit
 	chStop chan struct{}
 	// wg waits for subsidiary goroutines
@@ -153,7 +153,7 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}
 	}
-	n.cancelInflightRequestsCh = make(chan struct{})
+	n.chStopInFlight = make(chan struct{})
 	n.chStop = make(chan struct{})
 	n.log = lggr.Named("Node").With(
 		"nodeTier", "primary",
@@ -327,20 +327,20 @@ func (n *node) Close() {
 	}
 }
 
-// cancelInflightRequests closes and replaces the cancelInflightRequestsCh
+// cancelInflightRequests closes and replaces the chStopInFlight
 // WARNING: NOT THREAD-SAFE
 // This must be called from within the n.stateMu lock
 func (n *node) cancelInflightRequests() {
-	close(n.cancelInflightRequestsCh)
-	n.cancelInflightRequestsCh = make(chan struct{})
+	close(n.chStopInFlight)
+	n.chStopInFlight = make(chan struct{})
 }
 
-// getCancelInFlightRequestsCh provides a convenience helper that mutex wraps a
-// read to the cancelInflightRequestsCh
-func (n *node) getCancelInFlightRequestsCh() chan struct{} {
+// getChStopInflight provides a convenience helper that mutex wraps a
+// read to the chStopInFlight
+func (n *node) getChStopInflight() chan struct{} {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.cancelInflightRequestsCh
+	return n.chStopInFlight
 }
 
 // RPC wrappers
@@ -797,14 +797,14 @@ func (n *node) makeLiveQueryCtx(parentCtx context.Context) (ctx context.Context,
 		n.stateMu.RUnlock()
 		return
 	}
-	cancelCh := n.cancelInflightRequestsCh
+	cancelCh := n.chStopInFlight
 	n.stateMu.RUnlock()
 	ctx, cancel = makeQueryCtx(parentCtx, cancelCh)
 	return
 }
 
 func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
-	return makeQueryCtx(ctx, n.getCancelInFlightRequestsCh())
+	return makeQueryCtx(ctx, n.getChStopInflight())
 }
 
 // makeQueryCtx returns a context that cancels if:
