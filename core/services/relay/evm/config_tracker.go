@@ -209,7 +209,7 @@ func (c *ConfigTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.WithCloseChannel(ctx, c.chStop)
+	ctx, cancel = utils.WithCloseChan(ctx, c.chStop)
 	defer cancel()
 
 	c.lggr.Debugw("ConfigTracker: still waiting for first head, falling back to on-chain lookup")

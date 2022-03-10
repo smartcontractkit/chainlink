@@ -401,11 +401,11 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	return chAwait
 }
 
-// WithCloseChannel wraps a context so that it is canceled if the passed in
+// WithCloseChan wraps a context so that it is canceled if the passed in
 // channel is closed.
 // NOTE: Spins up a goroutine that exits on cancellation.
 // REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
-func WithCloseChannel(parentCtx context.Context, chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
+func WithCloseChan(parentCtx context.Context, chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
 	ctx, cancel = context.WithCancel(parentCtx)
 
 	go func() {

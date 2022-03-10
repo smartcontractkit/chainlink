@@ -138,7 +138,7 @@ func (s *sendOnlyNode) verify(parentCtx context.Context) (err error) {
 // 3. Default timeout is reached (queryTimeout)
 func (s *sendOnlyNode) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
-	ctx, chCancel = utils.WithCloseChannel(ctx, s.chStop)
+	ctx, chCancel = utils.WithCloseChan(ctx, s.chStop)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
 	cancel := func() {
 		chCancel()

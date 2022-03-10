@@ -813,7 +813,7 @@ func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.Cance
 // 3. Default timeout is reached (queryTimeout)
 func makeQueryCtx(ctx context.Context, ch chan struct{}) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
-	ctx, chCancel = utils.WithCloseChannel(ctx, ch)
+	ctx, chCancel = utils.WithCloseChan(ctx, ch)
 	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
 	cancel := func() {
 		chCancel()
