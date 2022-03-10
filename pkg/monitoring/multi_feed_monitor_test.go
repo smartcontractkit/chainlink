@@ -221,6 +221,9 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		sourceFactory1.On("NewSource", chainConfig, feeds[1]).Return(source1, nil)
 		sourceFactory2.On("NewSource", chainConfig, feeds[1]).Return(source2, nil)
 
+		sourceFactory1.On("GetType").Return("fake")
+		sourceFactory2.On("GetType").Return("fake")
+
 		exporterFactory1.On("NewExporter", chainConfig, feeds[0]).Return(exporter1, nil)
 		exporterFactory2.On("NewExporter", chainConfig, feeds[0]).Return(exporter2, nil)
 		exporterFactory1.On("NewExporter", chainConfig, feeds[1]).Return(nil, fmt.Errorf("exporter_factory1/feed2 failed"))

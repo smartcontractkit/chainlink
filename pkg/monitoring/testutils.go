@@ -225,7 +225,6 @@ func generate32ByteArr() [32]byte {
 }
 
 type fakeFeedConfig struct {
-	ID             string `json:"id,omitempty"`
 	Name           string `json:"name,omitempty"`
 	Path           string `json:"path,omitempty"`
 	Symbol         string `json:"symbol,omitempty"`
@@ -233,12 +232,13 @@ type fakeFeedConfig struct {
 	ContractType   string `json:"contract_type,omitempty"`
 	ContractStatus string `json:"status,omitempty"`
 	// This functions as a feed identifier.
-	ContractAddress []byte   `json:"contract_address,omitempty"`
-	Multiply        *big.Int `json:"-"`
-	MultiplyRaw     string   `json:"multiply,omitempty"`
+	ContractAddress        []byte   `json:"-"`
+	ContractAddressEncoded string   `json:"contract_address_encoded,omitempty"`
+	Multiply               *big.Int `json:"-"`
+	MultiplyRaw            string   `json:"multiply,omitempty"`
 }
 
-func (f fakeFeedConfig) GetID() string             { return f.ID }
+func (f fakeFeedConfig) GetID() string             { return f.ContractAddressEncoded }
 func (f fakeFeedConfig) GetName() string           { return f.Name }
 func (f fakeFeedConfig) GetPath() string           { return f.Path }
 func (f fakeFeedConfig) GetSymbol() string         { return f.Symbol }
@@ -270,16 +270,16 @@ func generateFeedConfig() FeedConfig {
 	coin := coins[rand.Intn(len(coins))]
 	contractAddress := generate32ByteArr()
 	return fakeFeedConfig{
-		ID:              hex.EncodeToString(contractAddress[:]),
-		Name:            fmt.Sprintf("%s / usd", coin),
-		Path:            fmt.Sprintf("%s-usd", coin),
-		Symbol:          "$",
-		HeartbeatSec:    1,
-		ContractType:    "ocr2",
-		ContractStatus:  "status",
-		ContractAddress: contractAddress[:],
-		Multiply:        big.NewInt(10000),
-		MultiplyRaw:     "10000",
+		Name:                   fmt.Sprintf("%s / usd", coin),
+		Path:                   fmt.Sprintf("%s-usd", coin),
+		Symbol:                 "$",
+		HeartbeatSec:           1,
+		ContractType:           "ocr2",
+		ContractStatus:         "status",
+		ContractAddress:        contractAddress[:],
+		ContractAddressEncoded: hex.EncodeToString(contractAddress[:]),
+		Multiply:               big.NewInt(10000),
+		MultiplyRaw:            "10000",
 	}
 }
 
@@ -296,6 +296,7 @@ func fakeFeedsParser(buf io.ReadCloser) ([]FeedConfig, error) {
 			return nil, fmt.Errorf("failed to parse multiply from '%s'", rawFeed.MultiplyRaw)
 		}
 		rawFeed.Multiply = multiply
+		rawFeed.ContractAddress = []byte(rawFeed.ContractAddressEncoded)[:32]
 		feeds[i] = FeedConfig(rawFeed)
 	}
 	return feeds, nil

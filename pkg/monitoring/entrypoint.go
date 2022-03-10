@@ -94,7 +94,7 @@ func NewEntrypoint(
 
 	exporterFactories := []ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}
 
-	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser, log.With("component", "rdd-source"))
+	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser, log.With("component", "rdd-source"), cfg.Feeds.IgnoreIDs)
 	if cfg.Feature.TestOnlyFakeRdd {
 		// Generate between 2 and 10 random feeds every RDDPollInterval.
 		rddSource = NewFakeRDDSource(2, 10)
