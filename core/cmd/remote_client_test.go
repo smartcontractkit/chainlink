@@ -278,6 +278,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("file", test.file, "")
+			set.Bool("bypass-version-check", true, "")
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.RemoteLogin(c)
@@ -377,6 +378,7 @@ func TestClient_ChangePassword(t *testing.T) {
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
@@ -433,6 +435,7 @@ func TestClient_Profile(t *testing.T) {
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)
@@ -566,6 +569,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
+	set.Bool("bypass-version-check", true, "")
 	set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
@@ -580,6 +584,7 @@ func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
+	set.Bool("bypass-version-check", true, "")
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
@@ -594,6 +599,7 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{"1"})
+	set.Bool("bypass-version-check", true, "")
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
