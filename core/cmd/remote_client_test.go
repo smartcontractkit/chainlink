@@ -293,26 +293,21 @@ func TestClient_RemoteLogin(t *testing.T) {
 func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
+	app := startNewApplication(t)
 	tests := []struct {
-		name                       string
-		remoteVersion, remoteSha   string
-		cliVersion, cliSha         string
-		devMode, bypassVersionFlag bool
-		wantError                  bool
+		name                         string
+		remoteVersion, remoteSha     string
+		cliVersion, cliSha           string
+		bypassVersionFlag, wantError bool
 	}{
-		{"success match", "1.1.1", "53120d5", "1.1.1", "53120d5", false, false, false},
-		{"cli unset fails", "1.1.1", "53120d5", "unset", "unset", false, false, true},
-		{"remote unset fails", "unset", "unset", "1.1.1", "53120d5", false, false, true},
-		{"mismatch fail", "1.1.1", "53120d5", "1.6.9", "13230sas", false, false, true},
-		{"mismatch but dev mode", "1.1.1", "53120d5", "1.6.9", "13230sas", true, false, false},
-		{"mismatch but using bypass_version_flag", "1.1.1", "53120d5", "1.6.9", "13230sas", false, true, false},
+		{"success match", "1.1.1", "53120d5", "1.1.1", "53120d5", false, false},
+		{"cli unset fails", "1.1.1", "53120d5", "unset", "unset", false, true},
+		{"remote unset fails", "unset", "unset", "1.1.1", "53120d5", false, true},
+		{"mismatch fail", "1.1.1", "53120d5", "1.6.9", "13230sas", false, true},
+		{"mismatch but using bypass_version_flag", "1.1.1", "53120d5", "1.6.9", "13230sas", true, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-				c.Overrides.Dev = null.BoolFrom(test.devMode)
-			}))
-
 			enteredStrings := []string{cltest.APIEmail, cltest.Password}
 			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingClient(prompter)

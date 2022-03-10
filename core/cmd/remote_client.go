@@ -559,18 +559,18 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.Context) error {
 	resp, err := cli.HTTP.Get("/v2/build_info")
 	if err != nil {
-		lggr.Warnw("Got error querying for version, remote node version is unknown. CLI may behave in unexpected ways.", "err", err)
+		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
 		return nil
 	}
 	b, err := parseResponse(resp)
 	if err != nil {
-		lggr.Warnw("Got error querying for version, remote node version is unknown. CLI may behave in unexpected ways.", "err", err)
+		lggr.Warnw("Got error parsing http response for remote version. Remote node version is unknown and CLI may behave in unexpected ways.", "resp", resp, "err", err)
 		return nil
 	}
 
 	var remoteBuildInfo map[string]string
 	if err := json.Unmarshal(b, &remoteBuildInfo); err != nil {
-		lggr.Warnw("Got error querying for version, remote node version is unknown. CLI may behave in unexpected ways.", "err", err)
+		lggr.Warnw("Got error json parsing bytes from remote version response. Remote node version is unknown and CLI may behave in unexpected ways.", "bytes", b, "err", err)
 		return nil
 	}
 	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
@@ -580,9 +580,9 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.C
 	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
 
 	if remoteSemverUnset || cliRemoteSemverMismatch {
-		// Show a warning but allow mismatch if running in dev mode or using bypass-version-check flag
-		if cli.Config.Dev() || c.Bool("bypass-version-check") {
-			lggr.Warn(fmt.Sprintf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remoteVersion, remoteSha, cliVersion, cliSha))
+		// Show a warning but allow mismatch if using bypass-version-check flag
+		if c.Bool("bypass-version-check") {
+			lggr.Warnf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remoteVersion, remoteSha, cliVersion, cliSha)
 			return nil
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
