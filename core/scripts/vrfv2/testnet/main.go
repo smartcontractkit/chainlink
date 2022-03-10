@@ -15,7 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rlp"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -73,6 +75,58 @@ func main() {
 	helpers.PanicErr(err)
 	owner.GasPrice = gp
 	switch os.Args[1] {
+	case "batch-bhs-deploy":
+		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
+		bhsAddr := cmd.String("bhs-address", "", "address of the blockhash store contract")
+		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
+		batchBHSAddress, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(owner, ec, common.HexToAddress(*bhsAddr))
+		helpers.PanicErr(err)
+		fmt.Println("BatchBlockhashStore:", batchBHSAddress.Hex(), "tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "batch-bhs-store":
+		cmd := flag.NewFlagSet("batch-bhs-store", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		blockNumbersArg := cmd.String("block-numbers", "", "block numbers to store in a single transaction")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "block-numbers")
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+		blockNumbers, err := parseIntSlice(*blockNumbersArg)
+		helpers.PanicErr(err)
+		tx, err := batchBHS.Store(owner, blockNumbers)
+		helpers.PanicErr(err)
+		fmt.Println("Store tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "batch-bhs-get":
+		cmd := flag.NewFlagSet("batch-bhs-get", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		blockNumbersArg := cmd.String("block-numbers", "", "block numbers to store in a single transaction")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "block-numbers")
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+		blockNumbers, err := parseIntSlice(*blockNumbersArg)
+		helpers.PanicErr(err)
+		blockhashes, err := batchBHS.GetBlockhashes(nil, blockNumbers)
+		helpers.PanicErr(err)
+		for i, bh := range blockhashes {
+			fmt.Println("blockhash(", blockNumbers[i], ") = ", common.Bytes2Hex(bh[:]))
+		}
+	case "batch-bhs-storeVerify":
+		cmd := flag.NewFlagSet("batch-bhs-storeVerify", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
+		numBlocks := cmd.Int64("num-blocks", -1, "number of blockhashes to store. will be stored in a single tx, can't be > 150")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "num-blocks")
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
+		helpers.PanicErr(err)
+		rlpHeaders, err := getRlpHeaders(ec, blockRange)
+		helpers.PanicErr(err)
+		tx, err := batchBHS.StoreVerifyHeader(owner, blockRange, rlpHeaders)
+		helpers.PanicErr(err)
+		fmt.Println("storeVerifyHeader(", blockRange, ", ...) tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "latest-head":
+		h, err := ec.HeaderByNumber(context.Background(), nil)
+		helpers.PanicErr(err)
+		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
 		bhsAddress, tx, _, err := blockhash_store.DeployBlockhashStore(owner, ec)
 		helpers.PanicErr(err)
@@ -450,4 +504,50 @@ func main() {
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
+}
+
+func parseIntSlice(arg string) (ret []*big.Int, err error) {
+	parts := strings.Split(arg, ",")
+	ret = []*big.Int{}
+	for _, part := range parts {
+		i, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, big.NewInt(i))
+	}
+	return ret, nil
+}
+
+// decreasingBlockRange creates a continugous block range starting with
+// block `start` and ending at block `end`.
+func decreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
+	if start.Cmp(end) == -1 {
+		return nil, fmt.Errorf("start (%s) must be greater than end (%s)", start.String(), end.String())
+	}
+	ret = []*big.Int{}
+	for i := new(big.Int).Set(start); i.Cmp(end) >= 0; i.Sub(i, big.NewInt(1)) {
+		ret = append(ret, new(big.Int).Set(i))
+	}
+	return
+}
+
+func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]byte, err error) {
+	headers = [][]byte{}
+	for _, blockNum := range blockNumbers {
+		// Get child block since it's the one that has the parent hash in it's header.
+		h, err := ec.HeaderByNumber(
+			context.Background(),
+			new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get header: %+v", err)
+		}
+		rlpHeader, err := rlp.EncodeToBytes(h)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode rlp: %+v", err)
+		}
+		headers = append(headers, rlpHeader)
+	}
+	return
 }
