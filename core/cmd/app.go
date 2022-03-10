@@ -979,7 +979,7 @@ func NewApp(client *Client) *cli.App {
 									Name:  "force",
 									Usage: "allows to send a higher amount than the account's balance",
 								},
-								cli.Int64Flag{
+								cli.StringFlag{
 									Name:  "id",
 									Usage: "chain ID",
 								},
