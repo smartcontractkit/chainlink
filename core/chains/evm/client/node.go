@@ -120,7 +120,7 @@ type node struct {
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this node. Closing and replacing should be serialized through
-	// stateMu it can happen on on state transitions as well as node Close.
+	// stateMu since it can happen on state transitions as well as node Close.
 	chStopInFlight chan struct{}
 	// chStop signals the node to exit
 	chStop chan struct{}
