@@ -66,11 +66,11 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
-// WithOneMinuteTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
+// WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
 // Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
-func WithOneMinuteTimeout() func(q *Q) {
+func WithLongQueryTimeout() func(q *Q) {
 	return func(q *Q) {
-		q.QueryTimeout = OneMinuteQueryTimeout
+		q.QueryTimeout = LongQueryTimeout
 	}
 }
 

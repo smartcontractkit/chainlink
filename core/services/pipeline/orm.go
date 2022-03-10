@@ -274,7 +274,7 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
 	// Addede 1 minute timeout to account for big databases
-	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithOneMinuteTimeout())
+	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 
 	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		result, cancel, err := q.ExecQIter(`
