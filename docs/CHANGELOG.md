@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for the `force` flag on `chainlink blocks replay`. If set to true, already consumed logs that would otherwise be skipped will be rebroadcasted.
 - Added version compatibility check when using CLI to login to a remote node. flag `bypass-version-check` skips this check.
 
+### Changed
+
+- Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
+
 ## [1.2.0] - 2022-03-02
 
 ### Added
