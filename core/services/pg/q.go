@@ -137,9 +137,9 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
 	if q.QueryTimeout > 0 {
-		ctx := context.Background()
-		if q.ParentCtx != nil {
-			ctx = q.ParentCtx
+		ctx := q.ParentCtx
+		if ctx == nil {
+			ctx = context.Background()
 		}
 		return context.WithTimeout(ctx, q.QueryTimeout)
 	}
@@ -283,12 +283,11 @@ func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
 		q.logger.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
 	}
 
-	slowThreshold := DefaultQueryTimeout
-	if q.QueryTimeout > 0 {
-		slowThreshold = q.QueryTimeout
+	timeout := q.QueryTimeout
+	if timeout <= 0 {
+		timeout = DefaultQueryTimeout
 	}
-	// The idea is to always use the `SLOW_SQL_THRESHOLD` ENV var but the 1/10th of whatever the timeout value has been set to.
-	slowThreshold = slowThreshold / 10
+	slowThreshold := timeout / 10
 	if slowThreshold > 0 && elapsed > slowThreshold {
 		q.logger.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
 	}
