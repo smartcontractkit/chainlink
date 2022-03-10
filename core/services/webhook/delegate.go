@@ -159,7 +159,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		"uuid", spec.ExternalJobID,
 	)
 
-	ctx, cancel := utils.CombinedContext(ctx, spec.chRemove)
+	ctx, cancel := utils.WithCloseChannel(ctx, spec.chRemove)
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{

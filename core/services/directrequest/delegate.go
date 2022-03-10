@@ -324,7 +324,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	if loaded {
 		runCloserChannel, _ = runCloserChannelIf.(chan struct{})
 	}
-	ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
+	ctx, cancel := utils.ContextFromChan(runCloserChannel)
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{

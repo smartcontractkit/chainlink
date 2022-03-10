@@ -218,7 +218,7 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 
 	close(b.chSubbed)
 
-	ctx, cancel := utils.CombinedContext(context.Background(), b.chStop)
+	ctx, cancel := utils.ContextFromChan(b.chStop)
 	defer cancel()
 
 	for {
@@ -246,10 +246,10 @@ func (b *Txm) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 			if err := eb.Start(ctx); err != nil {
-				b.logger.Errorw("Failed to start EthBroadcaster", "error", err)
+				b.logger.Criticalw("Failed to start EthBroadcaster", "error", err)
 			}
 			if err := ec.Start(); err != nil {
-				b.logger.Errorw("Failed to start EthConfirmer", "error", err)
+				b.logger.Criticalw("Failed to start EthConfirmer", "error", err)
 			}
 		}
 	}

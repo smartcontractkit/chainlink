@@ -44,8 +44,8 @@ var (
 // NOTE: This only applies to out-of-sync nodes if they are the last available node
 func zombieNodeCheckInterval(cfg NodeConfig) time.Duration {
 	interval := cfg.NodeNoNewHeadsThreshold()
-	if interval <= 0 || interval > 10*time.Second {
-		interval = 10 * time.Second
+	if interval <= 0 || interval > queryTimeout {
+		interval = queryTimeout
 	}
 	return utils.WithJitter(interval)
 }
@@ -125,14 +125,16 @@ func (n *node) aliveLoop() {
 
 	for {
 		select {
-		case <-n.getCtx().Done():
+		case <-n.chStop:
 			return
 		case <-pollCh:
 			var version string
 			promEVMPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
-			ctx, cancel := context.WithTimeout(n.getCtx(), pollInterval)
+			ctx, cancel := context.WithTimeout(context.Background(), pollInterval)
+			ctx, cancel2 := n.makeQueryCtx(ctx)
 			err := n.CallContext(ctx, &version, "web3_clientVersion")
+			cancel2()
 			cancel()
 			if err != nil {
 				// prevent overflow
@@ -215,9 +217,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
-	ctx, cancel := n.ctxWithDefaultTimeout()
-	err := n.dial(ctx)
-	cancel()
+	err := n.dial(context.Background())
 	if err != nil {
 		lggr.Errorw("Failed to dial out-of-sync RPC node", "nodeState", n.State())
 		n.declareUnreachable()
@@ -225,9 +225,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	}
 
 	// Manually re-verify since out-of-sync nodes are automatically disconnected
-	verifyCtx, cancel := n.ctxWithDefaultTimeout()
-	err = n.verify(verifyCtx)
-	cancel()
+	err = n.verify(context.Background())
 	if err != nil {
 		n.log.Errorw(fmt.Sprintf("Failed to verify out-of-sync RPC node: %v", err), "err", err)
 		n.declareInvalidChainID()
@@ -237,7 +235,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "stuckAtBlockNumber", stuckAtBlockNumber, "nodeState", n.State())
 
 	ch := make(chan *evmtypes.Head)
-	subCtx, cancel := n.ctxWithDefaultTimeout()
+	subCtx, cancel := n.makeQueryCtx(context.Background())
 	// raw call here to bypass node state checking
 	sub, err := n.ws.rpc.EthSubscribe(subCtx, ch, "newHeads")
 	cancel()
@@ -250,7 +248,7 @@ func (n *node) outOfSyncLoop(stuckAtBlockNumber int64) {
 
 	for {
 		select {
-		case <-n.getCtx().Done():
+		case <-n.chStop:
 			return
 		case head, open := <-ch:
 			if !open {
@@ -304,14 +302,12 @@ func (n *node) unreachableLoop() {
 
 	for {
 		select {
-		case <-n.getCtx().Done():
+		case <-n.chStop:
 			return
 		case <-time.After(dialRetryBackoff.Duration()):
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
 
-			dialCtx, cancel := n.ctxWithDefaultTimeout()
-			err := n.dial(dialCtx)
-			cancel()
+			err := n.dial(context.Background())
 			if err != nil {
 				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; still unreachable: %v", err), "err", err, "nodeState", n.State())
 				continue
@@ -319,9 +315,7 @@ func (n *node) unreachableLoop() {
 
 			n.setState(NodeStateDialed)
 
-			verifyCtx, cancel := n.ctxWithDefaultTimeout()
-			err = n.verify(verifyCtx)
-			cancel()
+			err = n.verify(context.Background())
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to redial RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				n.declareInvalidChainID()
@@ -363,12 +357,10 @@ func (n *node) invalidChainIDLoop() {
 
 	for {
 		select {
-		case <-n.getCtx().Done():
+		case <-n.chStop:
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
-			verifyCtx, cancel := n.ctxWithDefaultTimeout()
-			err := n.verify(verifyCtx)
-			cancel()
+			err := n.verify(context.Background())
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				continue

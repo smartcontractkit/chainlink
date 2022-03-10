@@ -70,8 +70,7 @@ type (
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
-		ctx             context.Context
-		ctxCancel       context.CancelFunc
+		chStop          chan struct{}
 		wg              sync.WaitGroup
 		unsubscribeLogs func()
 
@@ -108,7 +107,6 @@ func NewOCRContractTracker(
 	cfg ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
-	ctx, cancel := context.WithCancel(context.Background())
 	logger = logger.Named("OCRContractTracker")
 	return &OCRContractTracker{
 		utils.StartStopOnce{},
@@ -125,8 +123,7 @@ func NewOCRContractTracker(
 		cfg,
 		headBroadcaster,
 		nil,
-		ctx,
-		cancel,
+		make(chan struct{}),
 		sync.WaitGroup{},
 		nil,
 		offchainaggregator.OffchainAggregatorRoundRequested{},
@@ -172,7 +169,7 @@ func (t *OCRContractTracker) Start(context.Context) error {
 // Close should be called after teardown of the OCR job relying on this tracker
 func (t *OCRContractTracker) Close() error {
 	return t.StopOnce("OCRContractTracker", func() error {
-		t.ctxCancel()
+		close(t.chStop)
 		t.wg.Wait()
 		t.unsubscribeHeads()
 		t.unsubscribeLogs()
@@ -225,11 +222,11 @@ func (t *OCRContractTracker) processLogs() {
 				}
 				select {
 				case t.chConfigs <- cc:
-				case <-t.ctx.Done():
+				case <-t.chStop:
 					return
 				}
 			}
-		case <-t.ctx.Done():
+		case <-t.chStop:
 			return
 		}
 	}
@@ -341,7 +338,7 @@ func (t *OCRContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.Co
 // LatestConfigDetails queries the eth node
 func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	var cancel context.CancelFunc
-	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
+	ctx, cancel = utils.WithCloseChannel(ctx, t.chStop)
 	defer cancel()
 
 	opts := bind.CallOpts{Context: ctx, Pending: false}
@@ -369,7 +366,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
+	ctx, cancel = utils.WithCloseChannel(ctx, t.chStop)
 	defer cancel()
 
 	logs, err := t.ethClient.FilterLogs(ctx, q)
@@ -407,7 +404,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	t.logger.Debugw("still waiting for first head, falling back to on-chain lookup")
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
+	ctx, cancel = utils.WithCloseChannel(ctx, t.chStop)
 	defer cancel()
 
 	h, err := t.ethClient.HeadByNumber(ctx, nil)
