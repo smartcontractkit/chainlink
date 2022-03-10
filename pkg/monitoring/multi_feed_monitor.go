@@ -62,7 +62,7 @@ FEED_LOOP:
 			}
 			poller := NewSourcePoller(
 				source,
-				feedLogger.With("component", "chain-poller"),
+				feedLogger.With("component", "chain-poller", "source", sourceFactory.GetType()),
 				m.chainConfig.GetPollInterval(),
 				m.chainConfig.GetReadTimeout(),
 				m.bufferCapacity,

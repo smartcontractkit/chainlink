@@ -6,9 +6,7 @@
     "heartbeat": 0,
     "contract_type": "numerical_median_feed",
     "status": "dead",
-    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
-    "transmissions_account_base58": "DgpoPD7MU621ReWr3TWEBociJgUzRSUdDxUGnR8mKHdq",
-    "state_account_base58": "57X5Rq3o7k5z976kAjYTWu5yKfgX1aQxH4bXACpmTPPF",
+    "contract_address_encoded": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5a",
     "multiply": "100000000"
   },
   {
@@ -18,9 +16,7 @@
     "heartbeat": 0,
     "contract_type": "numerical_median_feed",
     "status": "dead",
-    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
-    "transmissions_account_base58": "4gyCbmS3R6gQA9wK84y7UMFva5KzoKzkMgbGurzyC6Ly",
-    "state_account_base58": "5XvR36Yybeh7wMYfR1i3YDu9pcrpgacDujA84nvuCHgD",
+    "contract_address_encoded": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5b",
     "multiply": "100000000"
   },
   {
@@ -30,9 +26,7 @@
     "heartbeat": 0,
     "contract_type": "numerical_median_feed",
     "status": "live",
-    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
-    "transmissions_account_base58": "HiY8TjDX44C41GPJYB8REuonLeZEpE4CnLiXL5dRcaEs",
-    "state_account_base58": "7ytfPg43gSnGwe5ahQEtjyFp5qRjqgCQV396YQHFtX6Y",
+    "contract_address_encoded": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5c",
     "multiply": "100000000"
   },
   {
@@ -42,9 +36,7 @@
     "heartbeat": 0,
     "contract_type": "numerical_median_feed",
     "status": "live",
-    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
-    "transmissions_account_base58": "ByXcCDGuJLs8AmFRnQKVbLoGaXMEvUjfqWLKpoHkttfH",
-    "state_account_base58": "8earjafHwUdcsTdVH8zpuU6ozvcxzgYkSjfKS12aag9o",
+    "contract_address_encoded": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5d",
     "multiply": "100000000"
   },
   {
@@ -54,9 +46,7 @@
     "heartbeat": 0,
     "contract_type": "numerical_median_feed",
     "status": "live",
-    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
-    "transmissions_account_base58": "dnSJHZHaV6megSd8Dfha3pBm9G9s7FRs2BBxdx1Prmf",
-    "state_account_base58": "9QjW5o4gQhj5JggLh49bmWwiDevXLQoe1SMYwDKGgfDf",
+    "contract_address_encoded": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5e",
     "multiply": "100000000"
   },
   {
@@ -66,9 +56,7 @@
     "heartbeat": 0,
     "contract_type": "numerical_median_feed",
     "status": "live",
-    "contract_address_base58": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5v",
-    "transmissions_account_base58": "D2EAsNBcYdxwi6Xtg2tdsxMMuKJ2vimaa3K8ydTu96NA",
-    "state_account_base58": "BXNGDywcpX2zKCKHocB2fMjFfgdrvp8aGY6jWWBZbeF5",
+    "contract_address_encoded": "HW3ipKzeeduJq6f1NqRCw4doknMeWkfrM4WxobtG3o5f",
     "multiply": "100000000"
   }
 ]

@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -75,6 +76,15 @@ func parseEnvVars(cfg *Config) error {
 			return fmt.Errorf("failed to parse env var FEEDS_RDD_POLL_INTERVAL, see https://pkg.go.dev/time#ParseDuration: %w", err)
 		}
 		cfg.Feeds.RDDPollInterval = pollInterval
+	}
+	if value, isPresent := os.LookupEnv("FEEDS_IGNORE_IDS"); isPresent {
+		ids := strings.Split(value, ",")
+		for _, id := range ids {
+			if id == "" {
+				continue
+			}
+			cfg.Feeds.IgnoreIDs = append(cfg.Feeds.IgnoreIDs, strings.TrimSpace(id))
+		}
 	}
 
 	if value, isPresent := os.LookupEnv("HTTP_ADDRESS"); isPresent {
