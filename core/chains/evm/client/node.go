@@ -118,12 +118,12 @@ type node struct {
 	state   NodeState
 	stateMu sync.RWMutex
 
-	// ctx can be cancelled to immediately cancel all in-flight requests on
-	// this node. All access to ctx and cancel should be serialized through
-	// stateMu since the context can be cancelled and replaced on state
-	// transitions as well as node Close.
-	ctx    context.Context
-	cancel context.CancelFunc
+	// chStopInFlight can be closed to immediately cancel all in-flight requests on
+	// this node. Closing and replacing should be serialized through
+	// stateMu since it can happen on state transitions as well as node Close.
+	chStopInFlight chan struct{}
+	// chStop signals the node to exit
+	chStop chan struct{}
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -153,7 +153,8 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}
 	}
-	n.ctx, n.cancel = context.WithCancel(context.Background())
+	n.chStopInFlight = make(chan struct{})
+	n.chStop = make(chan struct{})
 	n.log = lggr.Named("Node").With(
 		"nodeTier", "primary",
 		"nodeName", name,
@@ -184,7 +185,7 @@ func (n *node) start(startCtx context.Context) {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
 
-	dialCtx, cancel := n.wrapCtx(startCtx)
+	dialCtx, cancel := n.makeQueryCtx(startCtx)
 	defer cancel()
 	if err := n.dial(dialCtx); err != nil {
 		n.log.Errorw("Dial failed: EVM Node is unreachable", "err", err)
@@ -193,7 +194,7 @@ func (n *node) start(startCtx context.Context) {
 	}
 	n.setState(NodeStateDialed)
 
-	verifyCtx, cancel := n.wrapCtx(startCtx)
+	verifyCtx, cancel := n.makeQueryCtx(startCtx)
 	defer cancel()
 	if err := n.verify(verifyCtx); errors.Is(err, errInvalidChainID) {
 		n.log.Errorw("Verify failed: EVM Node has the wrong chain ID", "err", err)
@@ -210,7 +211,10 @@ func (n *node) start(startCtx context.Context) {
 
 // Not thread-safe
 // Pure dial: does not mutate node "state" field.
-func (n *node) dial(ctx context.Context) error {
+func (n *node) dial(callerCtx context.Context) error {
+	ctx, cancel := n.makeQueryCtx(callerCtx)
+	defer cancel()
+
 	promEVMPoolRPCNodeDials.WithLabelValues(n.chainID.String(), n.name).Inc()
 	var httpuri string
 	if n.http != nil {
@@ -253,11 +257,11 @@ var errInvalidChainID = errors.New("invalid chain id")
 // verify checks that all connections to eth nodes match the given chain ID
 // Not thread-safe
 // Pure verify: does not mutate node "state" field.
-func (n *node) verify(ctx context.Context) (err error) {
-	promEVMPoolRPCNodeVerifies.WithLabelValues(n.chainID.String(), n.name).Inc()
-	ctx, cancel := n.wrapCtx(ctx)
+func (n *node) verify(callerCtx context.Context) (err error) {
+	ctx, cancel := n.makeQueryCtx(callerCtx)
 	defer cancel()
 
+	promEVMPoolRPCNodeVerifies.WithLabelValues(n.chainID.String(), n.name).Inc()
 	promFailed := func() {
 		promEVMPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
 	}
@@ -310,7 +314,8 @@ func (n *node) Close() {
 		n.stateMu.Lock()
 		defer n.stateMu.Unlock()
 
-		n.cancel()
+		close(n.chStop)
+		n.cancelInflightRequests()
 		n.state = NodeStateClosed
 		if n.ws.rpc != nil {
 			n.ws.rpc.Close()
@@ -322,11 +327,27 @@ func (n *node) Close() {
 	}
 }
 
+// cancelInflightRequests closes and replaces the chStopInFlight
+// WARNING: NOT THREAD-SAFE
+// This must be called from within the n.stateMu lock
+func (n *node) cancelInflightRequests() {
+	close(n.chStopInFlight)
+	n.chStopInFlight = make(chan struct{})
+}
+
+// getChStopInflight provides a convenience helper that mutex wraps a
+// read to the chStopInFlight
+func (n *node) getChStopInflight() chan struct{} {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	return n.chStopInFlight
+}
+
 // RPC wrappers
 
 // CallContext implementation
 func (n *node) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return err
 	}
@@ -349,7 +370,7 @@ func (n *node) CallContext(ctx context.Context, result interface{}, method strin
 }
 
 func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return err
 	}
@@ -369,7 +390,7 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 }
 
 func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +408,7 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 // GethClient wrappers
 
 func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +431,7 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 }
 
 func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *types.Header, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +453,7 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 }
 
 func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return err
 	}
@@ -452,7 +473,7 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 }
 
 func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -477,7 +498,7 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 // mined nonce at the given block number, but it actually returns the total
 // transaction count which is the highest mined nonce + 1
 func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -499,7 +520,7 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 }
 
 func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code []byte, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -521,7 +542,7 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 }
 
 func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) (code []byte, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +564,7 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 }
 
 func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -565,7 +586,7 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 }
 
 func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -587,7 +608,7 @@ func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) 
 }
 
 func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) (val []byte, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -610,7 +631,7 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 }
 
 func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -632,7 +653,7 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 }
 
 func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (balance *big.Int, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -654,7 +675,7 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 }
 
 func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []types.Log, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -676,7 +697,7 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 }
 
 func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (sub ethereum.Subscription, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +714,7 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 }
 
 func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
-	ctx, cancel, err := n.wrapLiveCtx(ctx)
+	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -765,20 +786,9 @@ func wrap(err error, tp string) error {
 	return errors.Wrapf(err, "%s call failed", tp)
 }
 
-// wrapLiveCtx adds a default timeout and combines with the node's master context
-// which can be cancelled early.
-//
-// Returns error if node is not "alive".
-//
-// NOTE: We don't want to wrap all calls in a mutex lock via IfAlive or
-// something similar because rpc calls can be slow and there are a lot
-// of them: we might end up holding a read lock for a really long time
-// through various overlapping requests, preventing state transitions.
-//
-// Instead, we check if the node is alive, and if so, copy the context pointer.
-// If the node is marked dead during the request, the master context will be
-// cancelled and the request will exit early.
-func (n *node) wrapLiveCtx(parentCtx context.Context) (combinedCtx context.Context, cancel context.CancelFunc, err error) {
+// makeLiveQueryCtx wraps makeQueryCtx but returns error if node is not
+// "alive".
+func (n *node) makeLiveQueryCtx(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, err error) {
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
 	n.stateMu.RLock()
@@ -787,33 +797,29 @@ func (n *node) wrapLiveCtx(parentCtx context.Context) (combinedCtx context.Conte
 		n.stateMu.RUnlock()
 		return
 	}
-	nodeCtx := n.ctx
+	cancelCh := n.chStopInFlight
 	n.stateMu.RUnlock()
-	combinedCtx, cancel = wrapCtx(parentCtx, nodeCtx)
+	ctx, cancel = makeQueryCtx(parentCtx, cancelCh)
 	return
 }
 
-func (n *node) wrapCtx(parentCtx context.Context) (combinedCtx context.Context, cancel context.CancelFunc) {
-	nodeCtx := n.getCtx()
-	combinedCtx, cancel = wrapCtx(parentCtx, nodeCtx)
-	return
+func (n *node) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	return makeQueryCtx(ctx, n.getChStopInflight())
 }
 
-// getCtx wraps context access in the stateMu since state transitions can
-// cancel and replace contexts
-func (n *node) getCtx() context.Context {
-	n.stateMu.RLock()
-	defer n.stateMu.RUnlock()
-	return n.ctx
-}
-
-func wrapCtx(parentCtx, nodeCtx context.Context) (combinedCtx context.Context, cancel context.CancelFunc) {
-	combinedCtx, cancel = utils.CombinedContext(parentCtx, nodeCtx, queryTimeout)
-	return
-}
-
-func (n *node) ctxWithDefaultTimeout() (context.Context, context.CancelFunc) {
-	return DefaultQueryCtx(n.getCtx())
+// makeQueryCtx returns a context that cancels if:
+// 1. Passed in ctx cancels
+// 2. Passed in channel is closed
+// 3. Default timeout is reached (queryTimeout)
+func makeQueryCtx(ctx context.Context, ch chan struct{}) (context.Context, context.CancelFunc) {
+	var chCancel, timeoutCancel context.CancelFunc
+	ctx, chCancel = utils.WithCloseChan(ctx, ch)
+	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
+	cancel := func() {
+		chCancel()
+		timeoutCancel()
+	}
+	return ctx, cancel
 }
 
 func switching(n *node) string {

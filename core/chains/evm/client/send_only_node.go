@@ -39,8 +39,8 @@ type sendOnlyNode struct {
 	dialed  bool
 	name    string
 	chainID *big.Int
-	ctx     context.Context
-	cancel  context.CancelFunc
+
+	chStop chan struct{}
 }
 
 // NewSendOnlyNode returns a new sendonly node
@@ -52,7 +52,7 @@ func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *
 	)
 	s.uri = httpuri
 	s.chainID = chainID
-	s.ctx, s.cancel = context.WithCancel(context.Background())
+	s.chStop = make(chan struct{})
 	return s
 }
 
@@ -82,42 +82,42 @@ func (s *sendOnlyNode) Start(startCtx context.Context) error {
 }
 
 func (s *sendOnlyNode) Close() {
-	s.cancel()
+	close(s.chStop)
 }
 
-func (s sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Transaction) error {
+func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Transaction) error {
 	s.log.Debugw("evmclient.Client#SendTransaction(...)",
 		"tx", tx,
 	)
-	ctx, cancel := s.wrapCtx(parentCtx)
+	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
 	return s.wrap(s.geth.SendTransaction(ctx, tx))
 }
 
-func (s sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.BatchElem) error {
+func (s *sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.BatchElem) error {
 	s.log.Debugw("evmclient.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 	)
-	ctx, cancel := s.wrapCtx(parentCtx)
+	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
 	return s.wrap(s.rpc.BatchCallContext(ctx, b))
 }
 
-func (s sendOnlyNode) ChainID() (chainID *big.Int) {
+func (s *sendOnlyNode) ChainID() (chainID *big.Int) {
 	return s.chainID
 }
 
-func (s sendOnlyNode) wrap(err error) error {
+func (s *sendOnlyNode) wrap(err error) error {
 	return wrap(err, fmt.Sprintf("sendonly http (%s)", s.uri.String()))
 }
 
-func (s sendOnlyNode) String() string {
+func (s *sendOnlyNode) String() string {
 	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.String())
 }
 
-func (s sendOnlyNode) verify(parentCtx context.Context) (err error) {
+func (s *sendOnlyNode) verify(parentCtx context.Context) (err error) {
 	s.log.Debugw("evmclient.Client#ChainID(...)")
-	ctx, cancel := s.wrapCtx(parentCtx)
+	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
 	if chainID, err := s.geth.ChainID(ctx); err != nil {
 		return errors.Wrap(err, "failed to verify chain ID")
@@ -132,7 +132,17 @@ func (s sendOnlyNode) verify(parentCtx context.Context) (err error) {
 	return nil
 }
 
-func (s sendOnlyNode) wrapCtx(parentCtx context.Context) (combinedCtx context.Context, cancel context.CancelFunc) {
-	combinedCtx, cancel = utils.CombinedContext(parentCtx, s.ctx, queryTimeout)
-	return
+// makeQueryCtx returns a context that cancels if:
+// 1. Passed in ctx cancels
+// 2. chStop is closed
+// 3. Default timeout is reached (queryTimeout)
+func (s *sendOnlyNode) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
+	var chCancel, timeoutCancel context.CancelFunc
+	ctx, chCancel = utils.WithCloseChan(ctx, s.chStop)
+	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
+	cancel := func() {
+		chCancel()
+		timeoutCancel()
+	}
+	return ctx, cancel
 }
