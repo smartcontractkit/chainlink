@@ -582,9 +582,7 @@ func (r *runner) runReaper() {
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
-	if ctx.Err() != nil {
-		return
-	} else if err != nil {
+	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }
