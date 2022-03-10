@@ -364,6 +364,10 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	o.lggr.Debugw("Deleting job", "jobID", id)
+	// Added a 1 minute timeout to this query since this can take a long time as data increases.
+	// This was added specifically due to an issue with a database that had a millions of pipeline_runs and pipeline_task_runs
+	// and this query was taking ~40secs.
+	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
 	query := `
 		WITH deleted_jobs AS (
