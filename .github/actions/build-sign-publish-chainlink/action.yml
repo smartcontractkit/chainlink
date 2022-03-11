@@ -141,7 +141,7 @@ runs:
       labels: ${{ steps.meta-nonroot.outputs.labels }}
       file: core/chainlink.Dockerfile
       build-args: |
-        CHAINLINK_USER:chainlink
+        CHAINLINK_USER=chainlink
         ${{ env.shared-build-args }}
 
   - if: inputs.sign-images == 'true'
