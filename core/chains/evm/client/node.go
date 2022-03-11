@@ -758,11 +758,6 @@ func (n *node) logResult(lggr logger.Logger, err error, results ...interface{}) 
 
 func (n *node) wrapWS(err error) error {
 	err = wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.String()))
-	if err != nil {
-		n.log.Debugw("Call failed", "err", err)
-	} else {
-		n.log.Trace("Call succeeded")
-	}
 	return err
 }
 
