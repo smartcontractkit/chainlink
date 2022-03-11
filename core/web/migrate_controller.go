@@ -6,14 +6,16 @@ import (
 	"net/http"
 	"strings"
 
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/tidwall/gjson"
-
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"github.com/tidwall/gjson"
+	"gonum.org/v1/gonum/graph/encoding/dot"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -21,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	"gonum.org/v1/gonum/graph/encoding/dot"
-	"gopkg.in/guregu/null.v4"
 )
 
 var (
@@ -91,11 +91,27 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 	jsonAPIResponse(c, webpresenters.NewJobResource(jb), jb.Type.String())
 }
 
-// Does not support mixed initiator types.
+// Does not support mixed initiator types, except for web/cron.
 func (mc *MigrateController) MigrateJobSpec(c *config.Config, js models.JobSpec) (job.Job, error) {
 	var jb job.Job
-	if len(js.Initiators) == 0 {
+	switch len(js.Initiators) {
+	case 0:
 		return jb, errors.New("initiator required to migrate job")
+	case 2:
+		// Special case for cron/web pairs: drop web
+		a, b := js.Initiators[0].Type, js.Initiators[1].Type
+		if a == models.InitiatorCron && b == models.InitiatorWeb {
+			js.Initiators = js.Initiators[:1]
+			break
+		} else if a == models.InitiatorWeb && b == models.InitiatorCron {
+			js.Initiators = js.Initiators[1:]
+			break
+		}
+		fallthrough // unsupported pair
+	default:
+		return jb, errors.Errorf("mixed initiator types unsupported: %d initiators", len(js.Initiators))
+	case 1:
+		// standard
 	}
 	v1JobType := js.Initiators[0].Type
 	switch v1JobType {
@@ -568,8 +584,8 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		case adapters.TaskTypeCopy:
 			// Do nothing. This is implicit in v2 - directly via parameter references
 		case adapters.TaskTypeEthTx:
+			var hexData string
 			if tpe == job.DirectRequest {
-
 				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 				i++
 				attrs := map[string]string{
@@ -608,6 +624,20 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					dg.SetEdge(dg.NewEdge(last, n))
 				}
 				last = n
+			} else if funcSel := ts.Params.Get("functionSelector").String(); funcSel != "" {
+				if strings.HasPrefix(funcSel, "0x") {
+					// Already encoded
+					hexData = funcSel
+				} else {
+					// Need to encode
+					attrs := map[string]string{"type": "ethabiencode", "abi": funcSel}
+					n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_tx_%d", i), attrs)
+					dg.AddNode(n)
+					if last != nil {
+						dg.SetEdge(dg.NewEdge(last, n))
+					}
+					last = n
+				}
 			}
 
 			prevTaskRef := "$(jobRun)"
@@ -620,6 +650,17 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 				"to":   js.Initiators[0].Address.String(),
 				"data": prevTaskRef,
 			}
+
+			if addr := ts.Params.Get("address").String(); addr != "" {
+				attrs["to"] = addr
+			}
+			if gasLimit := ts.Params.Get("gasLimit").String(); gasLimit != "" {
+				attrs["gasLimit"] = gasLimit
+			}
+			if hexData != "" {
+				attrs["data"] = hexData
+			}
+
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("send_tx_%d", i), attrs)
 			foundEthTx = true
 		default:
