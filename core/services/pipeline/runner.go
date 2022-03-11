@@ -389,7 +389,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	// below. It has already been changed several times trying to "fix" a bug,
 	// but actually introducing new ones. Please leave it as-is unless you have
 	// an extremely good reason to change it.
-	ctx, cancel := utils.CombinedContext(ctx, r.chStop)
+	ctx, cancel := utils.WithCloseChan(ctx, r.chStop)
 	defer cancel()
 	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet && taskTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
@@ -578,13 +578,11 @@ func (r *runner) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts 
 }
 
 func (r *runner) runReaper() {
-	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
-	if ctx.Err() != nil {
-		return
-	} else if err != nil {
+	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }
@@ -600,7 +598,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// immediately run reaper so we don't consider runs that are too old
 	r.runReaper()
 
-	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
 	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {

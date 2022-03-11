@@ -1,14 +1,17 @@
 package keeper
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // ORM implements ORM layer using PostgreSQL
@@ -96,10 +99,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 	return rowsAffected, nil
 }
 
-func (korm ORM) EligibleUpkeepsForRegistry(
-	registryAddress ethkey.EIP55Address,
-	blockNumber, gracePeriod int64,
-) (upkeeps []UpkeepRegistration, err error) {
+func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber, gracePeriod int64) (upkeeps []UpkeepRegistration, err error) {
 	err = korm.q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
@@ -126,6 +126,11 @@ ORDER BY upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC
 		}
 		return nil
 	}, pg.OptReadOnlyTx())
+
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(upkeeps), func(i, j int) {
+		upkeeps[i], upkeeps[j] = upkeeps[j], upkeeps[i]
+	})
 
 	return upkeeps, err
 }

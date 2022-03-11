@@ -79,9 +79,11 @@ func (l *zapLogger) pollDiskSpace() {
 				)
 			}
 
+			lvlBefore := l.config.diskLogLevel.Level()
+
 			l.config.diskLogLevel.SetLevel(lvl)
 
-			if lvl == zapcore.DebugLevel {
+			if lvlBefore == disabledLevel && lvl == zapcore.DebugLevel {
 				l.Info("Resuming disk logs, disk has enough space")
 			}
 
