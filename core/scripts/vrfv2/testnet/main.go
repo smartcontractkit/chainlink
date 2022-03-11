@@ -11,11 +11,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
@@ -123,6 +126,72 @@ func main() {
 		tx, err := batchBHS.StoreVerifyHeader(owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
 		fmt.Println("storeVerifyHeader(", blockRange, ", ...) tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "batch-bhs-backwards":
+		cmd := flag.NewFlagSet("batch-bhs-backwards", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
+		endBlock := cmd.Int64("end-block", -1, "block number to end at. Must be less than startBlock")
+		batchSize := cmd.Int64("batch-size", -1, "batch size")
+		gasMultiplier := cmd.Int64("gas-price-multiplier", 1, "gas price multiplier to use, defaults to 1 (no multiplication)")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "end-block", "batch-size")
+
+		batchBHSABI, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
+		helpers.PanicErr(err)
+
+		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*endBlock))
+		helpers.PanicErr(err)
+
+		batchbhsaddr := common.HexToAddress(*batchAddr)
+
+		for i := 0; i < len(blockRange); i += int(*batchSize) {
+			j := i + int(*batchSize)
+			if j > len(blockRange) {
+				j = len(blockRange)
+			}
+
+			blockNumbers := blockRange[i:j]
+			blockHeaders, err := getRlpHeaders(ec, blockNumbers)
+			fmt.Println("storing blockNumbers:", blockNumbers)
+			helpers.PanicErr(err)
+
+			payload, err := batchBHSABI.Pack("storeVerifyHeader", blockNumbers, blockHeaders)
+			helpers.PanicErr(err)
+
+			nonce, err := ec.PendingNonceAt(context.Background(), owner.From)
+			helpers.PanicErr(err)
+
+			fmt.Println("using nonce:", nonce)
+
+			fmt.Println("estimating gas")
+
+			gasLimit, err := ec.EstimateGas(context.Background(), ethereum.CallMsg{
+				From:     owner.From,
+				To:       &batchbhsaddr,
+				Gas:      10_000_000, // put a big number here, we will probably estimate lower for batch sizes < 75
+				GasPrice: new(big.Int).Set(gp).Mul(gp, big.NewInt(2)),
+				Data:     payload,
+			})
+			helpers.PanicErr(errors.Wrap(err, "gas estimation - batch size too big?"))
+
+			fmt.Println("estimated gas:", gasLimit)
+			tx := types.NewTransaction(
+				nonce, batchbhsaddr, big.NewInt(0),
+				gasLimit, new(big.Int).Set(gp).Mul(gp, big.NewInt(*gasMultiplier)), payload,
+			)
+			signedTx, err := owner.Signer(owner.From, tx)
+			helpers.PanicErr(err)
+
+			fmt.Println("sending tx:", helpers.ExplorerLink(chainID, signedTx.Hash()))
+			err = ec.SendTransaction(context.Background(), signedTx)
+			helpers.PanicErr(err)
+
+			fmt.Println("waiting for it to mine...")
+			_, err = bind.WaitMined(context.Background(), ec, signedTx)
+			helpers.PanicErr(err)
+
+			fmt.Println("received receipt, continuing")
+		}
+		fmt.Println("done")
 	case "latest-head":
 		h, err := ec.HeaderByNumber(context.Background(), nil)
 		helpers.PanicErr(err)
@@ -547,6 +616,13 @@ func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]b
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode rlp: %+v", err)
 		}
+		// Uncomment in case storeVerifyHeader calls are reverting, there may be an issue with the RLP
+		// encoding.
+		// h2, err := ec.HeaderByNumber(context.Background(), blockNum)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("failed to get header: %v", err)
+		// }
+		// fmt.Println("block number:", blockNum, "blockhash:", h2.Hash(), "encoded header of next block:", common.Bytes2Hex(rlpHeader))
 		headers = append(headers, rlpHeader)
 	}
 	return
