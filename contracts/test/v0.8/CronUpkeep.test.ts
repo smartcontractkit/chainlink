@@ -262,6 +262,29 @@ describe('CronUpkeep', () => {
         assert.isTrue(needsUpkeep)
         await cron.connect(stranger).performUpkeep(payload)
       })
+
+      it('is only callable once for a given tick', async () => {
+        await h.fastForward(moment.duration(10, 'minutes').asSeconds())
+        const [needsUpkeep, payload] = await cron
+          .connect(AddressZero)
+          .callStatic.checkUpkeep('0x')
+        assert.isTrue(needsUpkeep)
+        const maliciousPayload = encodePayload([
+          2,
+          moment.unix(timeStamp).add(10, 'minutes').add(59, 'seconds').unix(),
+          cronReceiver1.address,
+          handler2Sig,
+        ])
+        await cron.performUpkeep(payload)
+        await expect(cron.performUpkeep(payload)).to.be.reverted
+        await expect(cron.performUpkeep(maliciousPayload)).to.be.reverted
+        await h.fastForward(moment.duration(1, 'minute').asSeconds())
+        await expect(cron.performUpkeep(payload)).to.be.reverted
+        await expect(cron.performUpkeep(maliciousPayload)).to.be.reverted
+        await h.fastForward(moment.duration(10, 'minute').asSeconds())
+        await expect(cron.performUpkeep(payload)).to.be.reverted
+        await expect(cron.performUpkeep(maliciousPayload)).to.be.reverted
+      })
     })
   })
 
