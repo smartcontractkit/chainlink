@@ -492,7 +492,11 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 			// We ran out of time, return what we have
 			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results", i, len(reqs))
 			for k := i; k < len(reqs); k++ {
-				reqs[k].Error = err
+				if k < j {
+					reqs[k].Error = errors.Wrap(err, "request failed")
+				} else {
+					reqs[k].Error = errors.Wrap(err, "request skipped; previous request exceeded deadline")
+				}
 			}
 			return nil
 		} else if err != nil {
