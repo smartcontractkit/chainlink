@@ -19,11 +19,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -40,15 +42,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/sqlx"
 )
 
 const oracleCount uint8 = 17
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm bulletprooftxmanager.TxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, bulletprooftxmanager.SendEveryStrategy{}, bulletprooftxmanager.TransmitCheckerSpec{})
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.TransmitCheckerSpec{})
 }
 
 var (
@@ -722,7 +723,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once().
 		Run(func(mock.Arguments) { readyToAssert.ItHappened() })
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 
 	var logBroadcasts []*logmocks.Broadcast
 
@@ -802,7 +803,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				})
 			}
 
-			fm.Start()
+			fm.Start(testutils.Context(t))
 			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
 
 			if tc.expectedToSubmit {
@@ -871,7 +872,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 
 	pollOccured := make(chan struct{}, 4)
 
-	err := fm.Start()
+	err := fm.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	t.Cleanup(func() { fm.Close() })
@@ -974,7 +975,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	pollOccured := make(chan struct{}, 4)
 
-	err := fm.Start()
+	err := fm.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	t.Cleanup(func() { fm.Close() })
@@ -1086,7 +1087,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	idleDurationOccured := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 	t.Cleanup(func() { fm.Close() })
 
 	// Initial Poll
@@ -1208,7 +1209,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	fm.SetOracleAddress()
 	fm.ExportedRoundState()
-	fm.Start()
+	fm.Start(testutils.Context(t))
 
 	g.Eventually(ch).Should(gomega.BeClosed())
 
@@ -1269,7 +1270,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 				Run(func(mock.Arguments) { close(chRoundState) }).
 				Maybe()
 
-			fm.Start()
+			fm.Start(testutils.Context(t))
 
 			if test.expectedToSubmit {
 				g.Eventually(chRoundState).Should(gomega.BeClosed())
@@ -1351,7 +1352,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 				}).
 				Maybe()
 
-			require.NoError(t, fm.Start())
+			require.NoError(t, fm.Start(testutils.Context(t)))
 			t.Cleanup(func() { fm.Close() })
 
 			assert.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
@@ -1427,7 +1428,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 		Run(func(mock.Arguments) { close(chRoundState2) }).
 		Once()
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
@@ -2002,7 +2003,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 4, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}, nil).
 		Maybe()
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 	defer fm.Close()
 
 	waitTime := 15 * time.Second

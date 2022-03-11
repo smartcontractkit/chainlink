@@ -33,41 +33,25 @@ func (_m *SendOnlyNode) BatchCallContext(ctx context.Context, b []rpc.BatchElem)
 	return r0
 }
 
-// ChainID provides a mock function with given fields: ctx
-func (_m *SendOnlyNode) ChainID(ctx context.Context) (*big.Int, error) {
-	ret := _m.Called(ctx)
+// ChainID provides a mock function with given fields:
+func (_m *SendOnlyNode) ChainID() *big.Int {
+	ret := _m.Called()
 
 	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
-// Dial provides a mock function with given fields: _a0
-func (_m *SendOnlyNode) Dial(_a0 context.Context) error {
-	ret := _m.Called(_a0)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
-		r0 = rf(_a0)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+// Close provides a mock function with given fields:
+func (_m *SendOnlyNode) Close() {
+	_m.Called()
 }
 
 // SendTransaction provides a mock function with given fields: ctx, tx
@@ -84,6 +68,20 @@ func (_m *SendOnlyNode) SendTransaction(ctx context.Context, tx *types.Transacti
 	return r0
 }
 
+// Start provides a mock function with given fields: _a0
+func (_m *SendOnlyNode) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // String provides a mock function with given fields:
 func (_m *SendOnlyNode) String() string {
 	ret := _m.Called()
@@ -93,20 +91,6 @@ func (_m *SendOnlyNode) String() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// Verify provides a mock function with given fields: ctx, expectedChainID
-func (_m *SendOnlyNode) Verify(ctx context.Context, expectedChainID *big.Int) error {
-	ret := _m.Called(ctx, expectedChainID)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) error); ok {
-		r0 = rf(ctx, expectedChainID)
-	} else {
-		r0 = ret.Error(0)
 	}
 
 	return r0

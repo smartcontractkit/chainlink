@@ -9,7 +9,7 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -59,18 +59,18 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(&bulletprooftxmanager.EthTx{
+				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(&txmgr.EthTx{
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          bulletprooftxmanager.EthTxInProgress,
+					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					GasLimit:       100,
 					Value:          assets.NewEthValue(100),
 					EVMChainID:     *utils.NewBigI(22),
 					Nonce:          nil,
 				}, nil)
-				f.Mocks.bptxmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]bulletprooftxmanager.EthTxAttempt{
+				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
@@ -79,7 +79,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 						BroadcastBeforeBlockNum: nil,
 					},
 				}, nil)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
 					{
 						ID: chainID,
@@ -119,18 +119,18 @@ func TestResolver_EthTransaction(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(&bulletprooftxmanager.EthTx{
+				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(&txmgr.EthTx{
 					ID:             1,
 					ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 					FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-					State:          bulletprooftxmanager.EthTxInProgress,
+					State:          txmgr.EthTxInProgress,
 					EncodedPayload: []byte("encoded payload"),
 					GasLimit:       100,
 					Value:          assets.NewEthValue(100),
 					EVMChainID:     *utils.NewBigI(22),
 					Nonce:          &num,
 				}, nil)
-				f.Mocks.bptxmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]bulletprooftxmanager.EthTxAttempt{
+				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
@@ -139,7 +139,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 						BroadcastBeforeBlockNum: &num,
 					},
 				}, nil)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
 					{
 						ID: chainID,
@@ -177,8 +177,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(nil, sql.ErrNoRows)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(nil, sql.ErrNoRows)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 			},
 			query:     query,
 			variables: variables,
@@ -194,8 +194,8 @@ func TestResolver_EthTransaction(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("FindEthTxByHash", hash).Return(nil, gError)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.Mocks.txmORM.On("FindEthTxByHash", hash).Return(nil, gError)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 			},
 			query:     query,
 			variables: variables,
@@ -250,19 +250,19 @@ func TestResolver_EthTransactions(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.bptxmORM.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return([]bulletprooftxmanager.EthTx{
+				f.Mocks.txmORM.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTx{
 					{
 						ID:             1,
 						ToAddress:      common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
 						FromAddress:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
-						State:          bulletprooftxmanager.EthTxInProgress,
+						State:          txmgr.EthTxInProgress,
 						EncodedPayload: []byte("encoded payload"),
 						GasLimit:       100,
 						Value:          assets.NewEthValue(100),
 						EVMChainID:     *utils.NewBigI(22),
 					},
 				}, 1, nil)
-				f.Mocks.bptxmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]bulletprooftxmanager.EthTxAttempt{
+				f.Mocks.txmORM.On("FindEthTxAttemptsByEthTxIDs", []int64{1}).Return([]txmgr.EthTxAttempt{
 					{
 						EthTxID:                 1,
 						Hash:                    hash,
@@ -271,7 +271,7 @@ func TestResolver_EthTransactions(t *testing.T) {
 						BroadcastBeforeBlockNum: &num,
 					},
 				}, nil)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 			},
 			query: query,
 			result: `
@@ -301,8 +301,8 @@ func TestResolver_EthTransactions(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.Mocks.txmORM.On("EthTransactions", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 			},
 			query:  query,
 			result: `null`,
@@ -348,16 +348,16 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				num := int64(2)
 
-				f.Mocks.bptxmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]bulletprooftxmanager.EthTxAttempt{
+				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTxAttempt{
 					{
 						Hash:                    hash,
 						GasPrice:                utils.NewBigI(12),
 						SignedRawTx:             []byte("something"),
 						BroadcastBeforeBlockNum: &num,
-						EthTx:                   bulletprooftxmanager.EthTx{},
+						EthTx:                   txmgr.EthTx{},
 					},
 				}, 1, nil)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 			},
 			query: query,
 			result: `
@@ -379,7 +379,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			name:          "success with nil values",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]bulletprooftxmanager.EthTxAttempt{
+				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return([]txmgr.EthTxAttempt{
 					{
 						Hash:                    hash,
 						GasPrice:                utils.NewBigI(12),
@@ -387,7 +387,7 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 						BroadcastBeforeBlockNum: nil,
 					},
 				}, 1, nil)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 			},
 			query: query,
 			result: `
@@ -409,8 +409,8 @@ func TestResolver_EthTransactionsAttempts(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.bptxmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
-				f.App.On("BPTXMORM").Return(f.Mocks.bptxmORM)
+				f.Mocks.txmORM.On("EthTxAttempts", PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+				f.App.On("TxmORM").Return(f.Mocks.txmORM)
 			},
 			query:  query,
 			result: `null`,

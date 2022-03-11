@@ -20,7 +20,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	borm := app.BPTXMORM()
+	borm := app.TxmORM()
 	client := app.NewHTTPClient()
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)

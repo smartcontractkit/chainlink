@@ -1,6 +1,7 @@
 package terratxm
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/terratest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	. "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
@@ -231,5 +233,37 @@ func TestTxm(t *testing.T) {
 		assert.Equal(t, Confirmed, msgs[1].State)
 		assert.Equal(t, Confirmed, msgs[2].State)
 		tc.AssertExpectations(t)
+	})
+
+	t.Run("expired msgs", func(t *testing.T) {
+		tc := new(tcmocks.ReaderWriter)
+		timeout := models.MustMakeDuration(1 * time.Millisecond)
+		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
+		cfgShortExpiry := terra.NewConfig(terradb.ChainCfg{
+			MaxMsgsPerBatch: null.IntFrom(2),
+			TxMsgTimeout:    &timeout,
+		}, lggr)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfgShortExpiry, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+
+		// Send a single one expired
+		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
+		require.NoError(t, err)
+		time.Sleep(1 * time.Millisecond)
+		txm.sendMsgBatch(context.Background())
+		// Should be marked errored
+		m, err := txm.orm.GetMsgs(id1)
+		require.NoError(t, err)
+		assert.Equal(t, terradb.Errored, m[0].State)
+
+		// Send a batch which is all expired
+		id2, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
+		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
+		require.NoError(t, err)
+		time.Sleep(1 * time.Millisecond)
+		txm.sendMsgBatch(context.Background())
+		require.NoError(t, err)
+		ms, err := txm.orm.GetMsgs(id2, id3)
+		assert.Equal(t, terradb.Errored, ms[0].State)
+		assert.Equal(t, terradb.Errored, ms[1].State)
 	})
 }

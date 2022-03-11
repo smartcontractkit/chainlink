@@ -154,3 +154,55 @@ insufficient funds / LINK, or incorrect contract addresses.
 why a transaction failed. For example [this Rinkeby transaction](https://dashboard.tenderly.co/tx/rinkeby/0x71a7279033b47472ca453f7a19ccb685d0f32cdb4854a45052f1aaccd80436e9)
 failed because a non-owner tried to request random words from 
 [VRFExternalSubOwnerExample](../../../../contracts/src/v0.8/tests/VRFExternalSubOwnerExample.sol).
+
+## Using the `BatchBlockhashStore` Contract
+
+The `BatchBlockhashStore` contract acts as a proxy to the `BlockhashStore` contract, allowing callers to store
+and fetch many blockhashes in a single transaction.
+
+### Deploy a `BatchBlockhashStore` instance
+
+```
+go run main.go batch-bhs-deploy -bhs-address $BHS_ADDRESS
+```
+
+where `$BHS_ADDRESS` is an environment variable that points to an existing `BlockhashStore` contract. If one is not available,
+you can easily deploy one using this command:
+
+```
+go run main.go bhs-deploy
+```
+
+### Store many blockhashes
+
+```
+go run main.go batch-bhs-store -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
+```
+
+where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, and `-block-numbers` is a comma-separated
+list of block numbers you want to store in a single transaction.
+
+Please note that these block numbers must not be further than 256 from the latest head, otherwise the store will fail.
+
+### Fetch many blockhashes
+
+```
+go run main.go batch-bhs-get -batch-bhs-address $BATCH_BHS_ADDRESS -block-numbers 10298742,10298741,10298740,10298739
+```
+
+where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, and `-block-numbers` is a comma-separated
+list of block numbers you want to get in a single transaction.
+
+### Store many blockhashes, possibly farther back than 256 blocks
+
+In order to store blockhashes farther back than 256 blocks we can make use of the `storeVerifyHeader` method on the `BatchBlockhashStore`.
+
+Here's how to use it:
+
+```
+go run main.go batch-bhs-storeVerify -batch-bhs-address $BATCH_BHS_ADDRESS -num-blocks 25 -start-block 10298739
+```
+
+where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, `-num-blocks` is the amount of blocks to store, and
+`-start-block` is the block to start storing from, backwards. The block number specified by `-start-block` MUST be
+in the blockhash store already, or this will not work.

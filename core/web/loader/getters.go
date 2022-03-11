@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -197,7 +197,7 @@ func GetJobByPipelineSpecID(ctx context.Context, id string) (*job.Job, error) {
 }
 
 // GetEthTxAttemptsByEthTxID fetches the attempts for an eth transaction.
-func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]bulletprooftxmanager.EthTxAttempt, error) {
+func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]txmgr.EthTxAttempt, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.EthTxAttemptsByEthTxIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -206,7 +206,7 @@ func GetEthTxAttemptsByEthTxID(ctx context.Context, id string) ([]bulletprooftxm
 		return nil, err
 	}
 
-	attempts, ok := result.([]bulletprooftxmanager.EthTxAttempt)
+	attempts, ok := result.([]txmgr.EthTxAttempt)
 	if !ok {
 		return nil, ErrInvalidType
 	}

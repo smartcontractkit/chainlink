@@ -126,7 +126,7 @@ CLIENT_NODE_URL: http://localhost:6688
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
 DATABASE_BACKUP_ON_VERSION_UPGRADE: true
-DATABASE_LOCKING_MODE: advisorylock
+DATABASE_LOCKING_MODE: dual
 ETH_CHAIN_ID: <nil>
 DEFAULT_HTTP_LIMIT: 32768
 DEFAULT_HTTP_TIMEOUT: 15s
@@ -432,7 +432,7 @@ func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
+func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -454,7 +454,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
+	borm := cltest.NewTxmORM(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := new(mocks.Application)
@@ -493,7 +493,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
+func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -529,7 +529,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			c := cli.NewContext(nil, set, nil)
 
-			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
+			borm := cltest.NewTxmORM(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
 			app := new(mocks.Application)

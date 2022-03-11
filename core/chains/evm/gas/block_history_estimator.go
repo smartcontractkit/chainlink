@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,7 +87,7 @@ type (
 		latestBaseFee *big.Int
 		mu            sync.RWMutex
 
-		logger logger.Logger
+		logger logger.SugaredLogger
 	}
 )
 
@@ -109,7 +110,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		nil,
 		nil,
 		sync.RWMutex{},
-		lggr.Named("BlockHistoryEstimator"),
+		logger.Sugared(lggr.Named("BlockHistoryEstimator")),
 	}
 
 	return b
@@ -298,6 +299,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 	}
 }
 
+// FetchBlocksAndRecalculate fetches block history leading up to head and recalculates gas price.
 func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *evmtypes.Head) {
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
@@ -310,7 +312,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 	b.Recalculate(head)
 }
 
-// Recalculate adds the given heads to the history and recalculates gas price
+// Recalculate adds the given heads to the history and recalculates gas price.
 func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	enableEIP1559 := b.config.EvmEIP1559DynamicFees()
 
@@ -325,7 +327,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 
 	percentileGasPrice, percentileTipCap, err := b.percentilePrices(percentile, enableEIP1559)
 	if err != nil {
-		if err == ErrNoSuitableTransactions {
+		if errors.Is(err, ErrNoSuitableTransactions) {
 			lggr.Debug("No suitable transactions, skipping")
 		} else {
 			lggr.Warnw("Cannot calculate percentile prices", "err", err)
@@ -368,6 +370,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	}
 }
 
+// FetchBlocks fetches block history leading up to the given head.
 func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.Head) error {
 	// HACK: blockDelay is the number of blocks that the block history estimator trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, block history estimator will
@@ -426,10 +429,18 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 		return err
 	}
 
-	for i, req := range reqs {
+	for _, req := range reqs {
 		result, err := req.Result, req.Error
 		if err != nil {
-			lggr.Warnw("Error while fetching block", "err", err, "blockNum", int(lowestBlockToFetch)+i, "headNum", head.Number)
+			if strings.Contains(err.Error(), "failed to decode block number while unmarshalling block") {
+				lggr.Errorw(
+					fmt.Sprintf("Failed to fetch block: RPC node returned an empty block on query for block number %d even though the WS subscription already sent us this block. It might help to increase BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY (currently %d)",
+						HexToInt64(req.Args[0]), blockDelay,
+					),
+					"err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+			} else {
+				lggr.Warnw("Error while fetching block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+			}
 			continue
 		}
 
@@ -617,12 +628,12 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *
 		}
 		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
 			// This should not pass config validation
-			b.logger.Errorw("AssumptionViolation: MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
+			b.logger.AssumptionViolationw("MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
 			// This should not pass config validation
-			b.logger.Errorw("AssumptionViolation: MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
+			b.logger.AssumptionViolationw("MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.GasPrice != nil {
@@ -658,7 +669,7 @@ func (b *BlockHistoryEstimator) EffectiveTipCap(block Block, tx Transaction) *bi
 		}
 		effectiveTipCap := big.NewInt(0).Sub(tx.GasPrice, block.BaseFeePerGas)
 		if effectiveTipCap.Cmp(big.NewInt(0)) < 0 {
-			b.logger.Errorw("AssumptionViolation: GasPrice - BaseFeePerGas >= 0", "block", block, "tx", tx)
+			b.logger.AssumptionViolationw("GasPrice - BaseFeePerGas >= 0", "block", block, "tx", tx)
 			return nil
 		}
 		return effectiveTipCap

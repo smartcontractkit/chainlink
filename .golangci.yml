@@ -7,6 +7,7 @@ linters:
     - gosec
     - misspell
     - rowserrcheck
+    - errorlint
   disable:
     # These are all considered deprecated: https://github.com/golangci/golangci-lint/issues/1841
     - deadcode
@@ -28,6 +29,9 @@ linters-settings:
   govet:
     # report about shadowed variables
     check-shadowing: true
+  errorlint:
+    # Allow formatting of errors without %w
+    errorf: false
   revive:
     confidence: 0.8
     rules:
@@ -38,7 +42,6 @@ linters-settings:
       - name: error-return
       - name: error-strings
       - name: error-naming
-      - name: exported
       - name: if-return
       - name: increment-decrement
       # - name: var-naming
@@ -80,10 +83,3 @@ issues:
       text: "^G404:"
       linters:
         - gosec
-  include:
-    # Enable GoDoc comment checks.
-    - EXC0002
-    - EXC0011
-    - EXC0012
-    - EXC0013
-    - EXC0014

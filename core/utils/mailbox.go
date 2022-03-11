@@ -72,6 +72,7 @@ func (m *Mailbox) Retrieve() (interface{}, bool) {
 	return x, true
 }
 
+// RetrieveLatestAndClear returns the latest value (or nil), and clears the queue.
 func (m *Mailbox) RetrieveLatestAndClear() interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
