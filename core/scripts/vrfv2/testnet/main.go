@@ -11,14 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
@@ -135,13 +132,11 @@ func main() {
 		gasMultiplier := cmd.Int64("gas-price-multiplier", 1, "gas price multiplier to use, defaults to 1 (no multiplication)")
 		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "end-block", "batch-size")
 
-		batchBHSABI, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
 		helpers.PanicErr(err)
 
 		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*endBlock))
 		helpers.PanicErr(err)
-
-		batchbhsaddr := common.HexToAddress(*batchAddr)
 
 		for i := 0; i < len(blockRange); i += int(*batchSize) {
 			j := i + int(*batchSize)
@@ -149,44 +144,27 @@ func main() {
 				j = len(blockRange)
 			}
 
+			// Get suggested gas price and multiply by multiplier on every iteration
+			// so we don't have our transaction getting stuck. Need to be as fast as
+			// possible.
+			gp, err := ec.SuggestGasPrice(context.Background())
+			helpers.PanicErr(err)
+			owner.GasPrice = new(big.Int).Mul(gp, big.NewInt(*gasMultiplier))
+
+			fmt.Println("using gas price", owner.GasPrice, "wei")
+
 			blockNumbers := blockRange[i:j]
 			blockHeaders, err := getRlpHeaders(ec, blockNumbers)
 			fmt.Println("storing blockNumbers:", blockNumbers)
 			helpers.PanicErr(err)
 
-			payload, err := batchBHSABI.Pack("storeVerifyHeader", blockNumbers, blockHeaders)
+			tx, err := batchBHS.StoreVerifyHeader(owner, blockNumbers, blockHeaders)
 			helpers.PanicErr(err)
 
-			nonce, err := ec.PendingNonceAt(context.Background(), owner.From)
-			helpers.PanicErr(err)
-
-			fmt.Println("using nonce:", nonce)
-
-			fmt.Println("estimating gas")
-
-			gasLimit, err := ec.EstimateGas(context.Background(), ethereum.CallMsg{
-				From:     owner.From,
-				To:       &batchbhsaddr,
-				Gas:      10_000_000, // put a big number here, we will probably estimate lower for batch sizes < 75
-				GasPrice: new(big.Int).Set(gp).Mul(gp, big.NewInt(2)),
-				Data:     payload,
-			})
-			helpers.PanicErr(errors.Wrap(err, "gas estimation - batch size too big?"))
-
-			fmt.Println("estimated gas:", gasLimit)
-			tx := types.NewTransaction(
-				nonce, batchbhsaddr, big.NewInt(0),
-				gasLimit, new(big.Int).Set(gp).Mul(gp, big.NewInt(*gasMultiplier)), payload,
-			)
-			signedTx, err := owner.Signer(owner.From, tx)
-			helpers.PanicErr(err)
-
-			fmt.Println("sending tx:", helpers.ExplorerLink(chainID, signedTx.Hash()))
-			err = ec.SendTransaction(context.Background(), signedTx)
-			helpers.PanicErr(err)
+			fmt.Println("sent tx:", helpers.ExplorerLink(chainID, tx.Hash()))
 
 			fmt.Println("waiting for it to mine...")
-			_, err = bind.WaitMined(context.Background(), ec, signedTx)
+			_, err = bind.WaitMined(context.Background(), ec, tx)
 			helpers.PanicErr(err)
 
 			fmt.Println("received receipt, continuing")
