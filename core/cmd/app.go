@@ -1155,9 +1155,8 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 		{
-			Name:        "forwarders",
-			Usage:       "Commands for managing forwarder addresses.",
-			Description: "List, add, delete.",
+			Name:  "forwarders",
+			Usage: "Commands for managing forwarder addresses.",
 			Subcommands: []cli.Command{
 				{
 					Name:   "list",

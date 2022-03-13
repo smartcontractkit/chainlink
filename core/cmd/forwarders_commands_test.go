@@ -74,9 +74,6 @@ func TestClient_CreateEVMForwarder(t *testing.T) {
 
 	// Create chain
 	orm := app.EVMORM()
-	_, _, err := orm.Chains(0, 25)
-	require.NoError(t, err)
-
 	id := newRandChainID()
 	chain, err := orm.CreateChain(*id, types.ChainCfg{})
 	require.NoError(t, err)
