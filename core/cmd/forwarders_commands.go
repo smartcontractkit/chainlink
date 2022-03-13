@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -30,8 +31,7 @@ func (p *EVMForwarderPresenter) ToRow() []string {
 		p.GetID(),
 		p.Address.String(),
 		p.EVMChainID.ToInt().String(),
-		p.CreatedAt.String(),
-		p.UpdatedAt.String(),
+		p.CreatedAt.Format(time.RFC3339),
 	}
 	return row
 }
