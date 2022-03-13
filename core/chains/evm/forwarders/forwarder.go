@@ -7,8 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name EVMForwarder --output mocks/ --case=underscore
-
 // Forwarder is the external interface for ForwarderAddresses
 type EVMForwarder struct {
 	ID         int64

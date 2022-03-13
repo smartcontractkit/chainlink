@@ -25,7 +25,7 @@ type EVMForwarderPresenter struct {
 
 var evmFwdsHeaders = []string{"ID", "Address", "Chain ID", "Created At"}
 
-// ToRow presents the EVMNodeResource as a slice of strings.
+// ToRow presents the EVMForwarderResource as a slice of strings.
 func (p *EVMForwarderPresenter) ToRow() []string {
 	row := []string{
 		p.GetID(),
