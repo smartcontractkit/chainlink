@@ -99,14 +99,9 @@ func TestClient_CreateEVMForwarder(t *testing.T) {
 	assert.Equal(t, createOutput.ID, fwds[0].ID)
 
 	// Delete fwdr
-	// Must supply fwdr id
-	set = flag.NewFlagSet("test", 0)
-	c := cli.NewContext(nil, set, nil)
-	require.Equal(t, "must pass the forwarder id to be archived", client.DeleteForwarder(c).Error())
-
 	set = flag.NewFlagSet("test", 0)
 	set.Parse([]string{createOutput.ID})
-	c = cli.NewContext(nil, set, nil)
+	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.DeleteForwarder(c))
 
 	// Assert fwdr is not listed
