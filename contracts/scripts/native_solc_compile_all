@@ -58,6 +58,8 @@ $SCRIPTPATH/native_solc8_compile dev/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFSingleConsumerExample.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFOwnerlessConsumerExample.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFLoadTestOwnerlessConsumer.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFLoadTestExternalSubOwner.sol
 
 $SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol
