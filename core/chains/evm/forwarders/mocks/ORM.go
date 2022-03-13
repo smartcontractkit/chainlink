@@ -7,8 +7,6 @@ import (
 	forwarders "github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/core/services/pg"
-
 	utils "github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -17,27 +15,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateForwarder provides a mock function with given fields: addr, evmChainId, qopts
-func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big, qopts ...pg.QOpt) (forwarders.EVMForwarder, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, addr, evmChainId)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// CreateForwarder provides a mock function with given fields: addr, evmChainId
+func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big) (forwarders.EVMForwarder, error) {
+	ret := _m.Called(addr, evmChainId)
 
 	var r0 forwarders.EVMForwarder
-	if rf, ok := ret.Get(0).(func(common.Address, utils.Big, ...pg.QOpt) forwarders.EVMForwarder); ok {
-		r0 = rf(addr, evmChainId, qopts...)
+	if rf, ok := ret.Get(0).(func(common.Address, utils.Big) forwarders.EVMForwarder); ok {
+		r0 = rf(addr, evmChainId)
 	} else {
 		r0 = ret.Get(0).(forwarders.EVMForwarder)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address, utils.Big, ...pg.QOpt) error); ok {
-		r1 = rf(addr, evmChainId, qopts...)
+	if rf, ok := ret.Get(1).(func(common.Address, utils.Big) error); ok {
+		r1 = rf(addr, evmChainId)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -45,20 +36,13 @@ func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big, qopts 
 	return r0, r1
 }
 
-// DeleteForwarder provides a mock function with given fields: id, qopts
-func (_m *ORM) DeleteForwarder(id int32, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, id)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// DeleteForwarder provides a mock function with given fields: id
+func (_m *ORM) DeleteForwarder(id int32) error {
+	ret := _m.Called(id)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int32, ...pg.QOpt) error); ok {
-		r0 = rf(id, qopts...)
+	if rf, ok := ret.Get(0).(func(int32) error); ok {
+		r0 = rf(id)
 	} else {
 		r0 = ret.Error(0)
 	}
