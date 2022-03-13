@@ -12,7 +12,7 @@ import (
 type EVMForwarderResource struct {
 	JAID
 	Address    common.Address `json:"address"`
-	EVMChainID utils.Big      `json:evmChainId`
+	EVMChainID utils.Big      `json:"evmChainId"`
 	CreatedAt  time.Time      `json:"createdAt"`
 	UpdatedAt  time.Time      `json:"updatedAt"`
 }
