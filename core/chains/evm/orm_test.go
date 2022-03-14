@@ -108,6 +108,8 @@ func Test_EVMORM_CreateNode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, initialCount+1, count)
 	require.Equal(t, nodes[initialCount], node)
+
+	assert.NoError(t, orm.DeleteChain(chain.ID))
 }
 
 func Test_EVMORM_GetNodesByChainIDs(t *testing.T) {
