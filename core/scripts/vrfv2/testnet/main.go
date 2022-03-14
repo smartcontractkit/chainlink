@@ -585,7 +585,7 @@ func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]b
 		// Get child block since it's the one that has the parent hash in it's header.
 		h, err := ec.HeaderByNumber(
 			context.Background(),
-			new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+			new(big.Int).Add(blockNum, big.NewInt(1)),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get header: %+v", err)

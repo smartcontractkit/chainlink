@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"reflect"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -14,6 +15,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 var _ BackwardsBHS = &backwardsBHS{}
@@ -23,13 +25,20 @@ type backwardsBHSConfig interface {
 }
 
 type backwardsBHS struct {
-	config      backwardsBHSConfig
 	txm         txmgr.TxManager
 	ethClient   evmclient.Client
 	fromAddress common.Address
+	lg          logger.Logger
 }
 
+// BackwardsBHS provides methods to interact with the BatchBlockhashStore contract.
 type BackwardsBHS interface {
+	// Backwards fills the blockhash store backwards starting from the given startBlock
+	// and stopping at the provided endBlock.
+	// Preconditions:
+	// 1. The startBlock parameter provided must have an associated blockhash in the blockhash store.
+	// 2. endBlock < startBlock
+	// 3. The batchBHSAddress must point to a valid BatchBlockhashStore contract.
 	Backwards(
 		startBlock, endBlock int64,
 		batchBHSAddress common.Address,
@@ -37,19 +46,29 @@ type BackwardsBHS interface {
 	) error
 }
 
+// NewBackwardsBHS creates a BackwardsBHS with the provided parameters.
+// The fromAddress parameter is the address to use to send transactions.
+// This address must be available in the Chainlink node's Ethereum keystore.
 func NewBackwardsBHS(
-	config backwardsBHSConfig,
 	txm txmgr.TxManager,
 	evmClient evmclient.Client,
-	fromAddress common.Address) BackwardsBHS {
+	fromAddress common.Address,
+	lg logger.Logger,
+) BackwardsBHS {
 	return &backwardsBHS{
-		config:      config,
 		txm:         txm,
 		ethClient:   evmClient,
 		fromAddress: fromAddress,
+		lg:          lg,
 	}
 }
 
+// Backwards fills the blockhash store backwards starting from the given startBlock
+// and stopping at the provided endBlock.
+// Preconditions:
+// 1. The startBlock parameter provided must have an associated blockhash in the blockhash store.
+// 2. endBlock < startBlock
+// 3. The batchBHSAddress must point to a valid BatchBlockhashStore contract.
 func (b *backwardsBHS) Backwards(
 	startBlock, endBlock int64,
 	batchBHSAddress common.Address,
@@ -100,19 +119,32 @@ func (b *backwardsBHS) Backwards(
 
 		payload, err := batchBHSABI.Pack("storeVerifyHeader", blockNumbers, blockHeaders)
 		if err != nil {
-			return errors.Wrapf(err, "packing storeVerifyHeader(%+v, %+v)", blockNumbers, blockHeaders)
+			return errors.Wrapf(err, "packing storeVerifyHeader(%+v, ...)", blockNumbers)
 		}
 
+		gasLimit, err := b.ethClient.EstimateGas(context.Background(), ethereum.CallMsg{
+			From: b.fromAddress,
+			To:   &batchBHSAddress,
+			Gas:  10e6, // overestimate due to potentially large batch sizes, real value will likely be smaller
+			Data: payload,
+		})
+		if err != nil {
+			return errors.Wrap(err, "estimating gas")
+		}
+
+		b.lg.Debugw("Sending storeVerifyHeader tx", "blockNumbers", blockNumbers)
 		_, err = b.txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:    b.fromAddress,
 			ToAddress:      batchBHSAddress,
 			EncodedPayload: payload,
-			GasLimit:       b.config.EvmGasLimitDefault(),
+			GasLimit:       gasLimit,
 		})
 		if err != nil {
 			return errors.Wrap(err, "enqueue bptxm")
 		}
 	}
+
+	b.lg.Debug("Done feeding blocks", startBlock-1, "to", endBlock)
 
 	return nil
 }
@@ -123,7 +155,7 @@ func (b *backwardsBHS) storeVerifyHeaders(blockRange []*big.Int) (headers [][]by
 		// Get child block since it's the one that has the parent hash in it's header.
 		h, err := b.ethClient.HeaderByNumber(
 			context.Background(),
-			new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+			new(big.Int).Add(blockNum, big.NewInt(1)),
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "get header")

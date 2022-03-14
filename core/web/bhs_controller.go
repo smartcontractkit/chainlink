@@ -2,7 +2,6 @@ package web
 
 import (
 	"fmt"
-	"log"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -34,7 +33,7 @@ type BackwardsResponse struct {
 // BackwardsMode triggers a task to fill the blockhash store with blockhashes
 // of the blocks in the block range specified by the request.
 // Example:
-// POST <app-url>/v2/backwards_mode_bhs?start_block=<integer>&end_block=<integer>&batch_bhs_address=<address>&batch_size=<integer>
+// POST <app-url>/v2/bhs/backwards?start_block=<integer>&end_block=<integer>&batch_bhs_address=<address>&batch_size=<integer>
 func (c *BHSController) BackwardsMode(cx *gin.Context) {
 	r, err := c.validateAndExtractBackwardsParams(cx)
 	if err != nil {
@@ -42,24 +41,31 @@ func (c *BHSController) BackwardsMode(cx *gin.Context) {
 		return
 	}
 
-	sendingAddr, err := c.App.GetKeyStore().Eth().GetRoundRobinAddress()
+	// The caller of this endpoint will have to ensure that there is enough ETH
+	// in all sending keys to perform the backwards operation.
+	sendingKeys, err := c.App.GetKeyStore().Eth().SendingKeys()
 	if err != nil {
 		jsonAPIError(cx, http.StatusInternalServerError, err)
 		return
 	}
 
+	if len(sendingKeys) == 0 {
+		jsonAPIError(cx, http.StatusInternalServerError, errors.New("no sending keys configured on chainlink node"))
+	}
+
 	chain, err := getChain(c.App.GetChains().EVM, cx.Query("evmChainID"))
 	backwardsBHS := blockhashstore.NewBackwardsBHS(
-		chain.Config(),
 		chain.TxManager(),
 		chain.Client(),
-		sendingAddr,
+		sendingKeys[0].Address.Address(),
+		c.App.GetLogger().Named("BackwardsBHS"),
 	)
 
+	// Run backwards feeding async, caller will have to check CL node logs
+	// to observe progress.
 	go func() {
 		if err := backwardsBHS.Backwards(r.startBlock, r.endBlock, r.batchBHSAddress, r.batchSize); err != nil {
-			// TODO: use correct logger
-			log.Println("error encountered running backwards bhs:", err)
+			c.App.GetLogger().Errorw("error encountered running backwards bhs", "err", err)
 		}
 	}()
 

@@ -148,7 +148,7 @@ func (cli *Client) BackwardsModeBHS(c *clipkg.Context) (err error) {
 
 	buf := bytes.NewBufferString("{}")
 	path := fmt.Sprintf(
-		"/v2/backwards_mode_bhs?start_block=%d&end_block=%d&batch_bhs_address=%s&batch_size=%d",
+		"/v2/bhs/backwards?start_block=%d&end_block=%d&batch_bhs_address=%s&batch_size=%d",
 		startBlock,
 		endBlock,
 		batchBHSAddress,

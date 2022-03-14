@@ -281,6 +281,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		rc := ReplayController{app}
 		authv2.POST("/replay_from_block/:number", rc.ReplayFromBlock)
 
+		bhsc := BHSController{app}
+		authv2.POST("/bhs/backwards", bhsc.BackwardsMode)
+
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
 		authv2.POST("/keys/csa", csakc.Create)
