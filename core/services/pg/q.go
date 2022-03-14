@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -68,6 +66,14 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
+// WithLongQueryTimeout prevents the usage of the `DefaultQueryTimeout` duration and uses `OneMinuteQueryTimeout` instead
+// Some queries need to take longer when operating over big chunks of data, like deleting jobs, but we need to keep some upper bound timeout
+func WithLongQueryTimeout() func(q *Q) {
+	return func(q *Q) {
+		q.QueryTimeout = LongQueryTimeout
+	}
+}
+
 // MergeCtx allows callers to combine a ctx with a previously set parent context
 // Responsibility for cancelling the passed context lies with caller
 func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
@@ -77,18 +83,6 @@ func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
 }
 
 var _ Queryer = Q{}
-var slowSqlThreshold = time.Second
-
-func init() {
-	slowSqlThresholdStr := os.Getenv("SLOW_SQL_THRESHOLD")
-	if len(slowSqlThresholdStr) > 0 {
-		d, err := time.ParseDuration(slowSqlThresholdStr)
-		if err != nil {
-			log.Fatalf("failed to parse SLOW_SQL_THRESHOLD: %s", err)
-		}
-		slowSqlThreshold = d
-	}
-}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
@@ -105,10 +99,11 @@ func init() {
 // can do.
 type Q struct {
 	Queryer
-	ParentCtx context.Context
-	db        *sqlx.DB
-	logger    logger.Logger
-	config    LogConfig
+	ParentCtx    context.Context
+	db           *sqlx.DB
+	logger       logger.Logger
+	config       LogConfig
+	QueryTimeout time.Duration
 }
 
 func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
@@ -141,6 +136,14 @@ func (q Q) WithOpts(qopts ...QOpt) Q {
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
+	if q.QueryTimeout > 0 {
+		ctx := q.ParentCtx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		return context.WithTimeout(ctx, q.QueryTimeout)
+	}
+
 	if q.ParentCtx == nil {
 		return DefaultQueryCtx()
 	}
@@ -279,7 +282,13 @@ func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
 	if ctx.Err() != nil {
 		q.logger.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
 	}
-	if slowSqlThreshold > 0 && elapsed > slowSqlThreshold {
+
+	timeout := q.QueryTimeout
+	if timeout <= 0 {
+		timeout = DefaultQueryTimeout
+	}
+	slowThreshold := timeout / 10
+	if slowThreshold > 0 && elapsed > slowThreshold {
 		q.logger.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
 	}
 }

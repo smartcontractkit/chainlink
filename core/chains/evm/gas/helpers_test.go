@@ -1,6 +1,14 @@
 package gas
 
-import "math/big"
+import (
+	"math/big"
+	"time"
+)
+
+func init() {
+	// No need to wait 10 seconds in tests
+	MaxStartTime = 1 * time.Second
+}
 
 func BlockHistoryEstimatorFromInterface(bhe Estimator) *BlockHistoryEstimator {
 	return bhe.(*BlockHistoryEstimator)

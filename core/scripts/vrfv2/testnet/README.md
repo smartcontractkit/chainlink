@@ -206,3 +206,29 @@ go run main.go batch-bhs-storeVerify -batch-bhs-address $BATCH_BHS_ADDRESS -num-
 where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, `-num-blocks` is the amount of blocks to store, and
 `-start-block` is the block to start storing from, backwards. The block number specified by `-start-block` MUST be
 in the blockhash store already, or this will not work.
+ 
+### Batch BHS "Backwards Mode"
+
+There may be a situation where you want to backfill a lot of blockhashes, down to a certain block number.
+
+This is where "Backwrads Mode" comes in - you're going to need the following:
+
+* A block number that has already been stored in the BHS. The closer it is to the target block range you want to store,
+the better. You can view the most oldest "Store" transactions on the BHS contract that is still ahead of the block range you
+are interested in. For example, if you want to store blocks 100 to 200, and 210 and 220 are available, specify `-start-block`
+as `210`.
+* A destination block number, where you want to stop storing after this one has been stored in the BHS. This number doesn't have
+to be in the BHS already but must be less than the block specified for `--start-block`
+* A batch size to use. This is how many stores we will attempt to do in a single transaction. A good value for this is usually 50-75
+for big block ranges.
+* The address of the batch BHS to use.
+
+Example:
+
+```
+go run main.go batch-bhs-backwards -batch-bhs-address $BATCH_BHS_ADDRESS -start-block 25814538 -end-block 25811350 -batch-size 50
+```
+
+This script is simplistic on purpose, where we wait for the transaction to mine before proceeding with the next one. This
+is to avoid issues where a transaction gets sent and not included on-chain, and subsequent calls to `storeVerifyHeader` will
+fail.
