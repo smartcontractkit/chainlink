@@ -395,6 +395,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/nodes/terra", tnc.Create)
 		authv2.DELETE("/nodes/terra/:ID", tnc.Delete)
 
+		build_info := BuildInfoController{app}
+		authv2.GET("/build_info", build_info.Show)
+
 		// Debug routes accessible via authentication
 		metricRoutes(authv2)
 	}

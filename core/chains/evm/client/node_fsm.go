@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"fmt"
 )
 
@@ -157,10 +156,7 @@ func (n *node) transitionToOutOfSync(fn func()) {
 	case NodeStateAlive:
 		// Need to disconnect all clients subscribed to this node
 		n.ws.rpc.Close()
-		n.cancel() // cancel all pending calls that didn't get killed by closing RPC above
-		// Replace the context
-		// NOTE: This is why all ctx access must happen inside the mutex
-		n.ctx, n.cancel = context.WithCancel(context.Background())
+		n.cancelInflightRequests()
 		n.state = NodeStateOutOfSync
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateOutOfSync))
@@ -186,10 +182,7 @@ func (n *node) transitionToUnreachable(fn func()) {
 	case NodeStateDialed, NodeStateAlive, NodeStateOutOfSync:
 		// Need to disconnect all clients subscribed to this node
 		n.ws.rpc.Close()
-		n.cancel() // cancel all pending calls that didn't get killed by closing RPC above
-		// Replace the context
-		// NOTE: This is why all ctx access must happen inside the mutex
-		n.ctx, n.cancel = context.WithCancel(context.Background())
+		n.cancelInflightRequests()
 		n.state = NodeStateUnreachable
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateUnreachable))
@@ -215,10 +208,7 @@ func (n *node) transitionToInvalidChainID(fn func()) {
 	case NodeStateDialed:
 		// Need to disconnect all clients subscribed to this node
 		n.ws.rpc.Close()
-		n.cancel() // cancel all pending calls that didn't get killed by closing RPC above
-		// Replace the context
-		// NOTE: This is why all ctx access must happen inside the mutex
-		n.ctx, n.cancel = context.WithCancel(context.Background())
+		n.cancelInflightRequests()
 		n.state = NodeStateInvalidChainID
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateInvalidChainID))
