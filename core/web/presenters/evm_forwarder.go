@@ -23,7 +23,7 @@ func (r EVMForwarderResource) GetName() string {
 }
 
 // NewEVMForwarderResource returns a new EVMForwarderResource for chain.
-func NewEVMForwarderResource(fwd forwarders.EVMForwarder) EVMForwarderResource {
+func NewEVMForwarderResource(fwd forwarders.Forwarder) EVMForwarderResource {
 	return EVMForwarderResource{
 		JAID:       NewJAIDInt64(fwd.ID),
 		Address:    fwd.Address,

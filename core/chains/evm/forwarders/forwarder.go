@@ -7,8 +7,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// Forwarder is the external interface for ForwarderAddresses
-type EVMForwarder struct {
+// Forwarder is the struct for Forwarder Addresses
+type Forwarder struct {
 	ID         int64
 	Address    common.Address
 	EVMChainID utils.Big

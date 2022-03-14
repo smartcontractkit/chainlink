@@ -16,14 +16,14 @@ type ORM struct {
 }
 
 // CreateForwarder provides a mock function with given fields: addr, evmChainId
-func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big) (forwarders.EVMForwarder, error) {
+func (_m *ORM) CreateForwarder(addr common.Address, evmChainId utils.Big) (forwarders.Forwarder, error) {
 	ret := _m.Called(addr, evmChainId)
 
-	var r0 forwarders.EVMForwarder
-	if rf, ok := ret.Get(0).(func(common.Address, utils.Big) forwarders.EVMForwarder); ok {
+	var r0 forwarders.Forwarder
+	if rf, ok := ret.Get(0).(func(common.Address, utils.Big) forwarders.Forwarder); ok {
 		r0 = rf(addr, evmChainId)
 	} else {
-		r0 = ret.Get(0).(forwarders.EVMForwarder)
+		r0 = ret.Get(0).(forwarders.Forwarder)
 	}
 
 	var r1 error
@@ -51,15 +51,15 @@ func (_m *ORM) DeleteForwarder(id int32) error {
 }
 
 // FindForwarders provides a mock function with given fields: offset, limit
-func (_m *ORM) FindForwarders(offset int, limit int) ([]forwarders.EVMForwarder, int, error) {
+func (_m *ORM) FindForwarders(offset int, limit int) ([]forwarders.Forwarder, int, error) {
 	ret := _m.Called(offset, limit)
 
-	var r0 []forwarders.EVMForwarder
-	if rf, ok := ret.Get(0).(func(int, int) []forwarders.EVMForwarder); ok {
+	var r0 []forwarders.Forwarder
+	if rf, ok := ret.Get(0).(func(int, int) []forwarders.Forwarder); ok {
 		r0 = rf(offset, limit)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]forwarders.EVMForwarder)
+			r0 = ret.Get(0).([]forwarders.Forwarder)
 		}
 	}
 
