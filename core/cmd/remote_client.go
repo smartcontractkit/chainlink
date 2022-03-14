@@ -176,7 +176,11 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	err = cli.checkRemoteBuildCompatibility(lggr, c)
-	return cli.errorOut(err)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	fmt.Println("Successfully Logged In.")
+	return nil
 }
 
 // ChangePassword prompts the user for the old password and a new one, then
