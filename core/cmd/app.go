@@ -57,6 +57,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "file, f",
 							Usage: "text file holding the API email and password needed to create a session cookie",
 						},
+						cli.BoolFlag{
+							Name:  "bypass-version-check",
+							Usage: "Bypass versioning check for compatibility of remote node",
+						},
 					},
 				},
 			},
