@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -135,6 +135,37 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	require.Equal(t, int64(1), remainingUpkeep.UpkeepID)
 }
 
+func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+
+	blockheight := int64(63)
+	gracePeriod := int64(10)
+
+	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore)
+
+	ordered := [100]int64{}
+	for i := 0; i < 100; i++ {
+		k := newUpkeep(registry, int64(i))
+		ordered[i] = int64(i)
+		err := orm.UpsertUpkeep(&k)
+		require.NoError(t, err)
+	}
+
+	cltest.AssertCount(t, db, "upkeep_registrations", 100)
+
+	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, blockheight, gracePeriod)
+	assert.NoError(t, err)
+
+	require.Len(t, eligibleUpkeeps, 100)
+	shuffled := [100]int64{}
+	for i := 0; i < 100; i++ {
+		shuffled[i] = eligibleUpkeeps[i].UpkeepID
+	}
+	assert.NotEqualValues(t, ordered, shuffled)
+}
+
 func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
@@ -169,10 +200,11 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, blockheight, gracePeriod)
 	assert.NoError(t, err)
 
+	// 3 out of 5 are eligible, check that ids are 0,1 or 2 but order is shuffled so can not use equals
 	require.Len(t, eligibleUpkeeps, 3)
-	assert.Equal(t, int64(0), eligibleUpkeeps[0].UpkeepID)
-	assert.Equal(t, int64(1), eligibleUpkeeps[1].UpkeepID)
-	assert.Equal(t, int64(2), eligibleUpkeeps[2].UpkeepID)
+	assert.Less(t, eligibleUpkeeps[0].UpkeepID, int64(3))
+	assert.Less(t, eligibleUpkeeps[1].UpkeepID, int64(3))
+	assert.Less(t, eligibleUpkeeps[2].UpkeepID, int64(3))
 
 	// preloads registry data
 	assert.Equal(t, registry.ID, eligibleUpkeeps[0].RegistryID)
@@ -211,9 +243,10 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 
 	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, blockheight, gracePeriod)
 	assert.NoError(t, err)
+	// 2 out of 3 are eligible, check that ids are 0 or 1 but order is shuffled so can not use equals
 	assert.Len(t, eligibleUpkeeps, 2)
-	assert.Equal(t, int64(0), eligibleUpkeeps[0].UpkeepID)
-	assert.Equal(t, int64(1), eligibleUpkeeps[1].UpkeepID)
+	assert.Less(t, eligibleUpkeeps[0].UpkeepID, int64(2))
+	assert.Less(t, eligibleUpkeeps[1].UpkeepID, int64(2))
 }
 
 func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {

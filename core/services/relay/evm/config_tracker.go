@@ -36,13 +36,11 @@ type ConfigTracker struct {
 	headBroadcaster  httypes.HeadBroadcaster
 	unsubscribeHeads func()
 
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	chStop chan struct{}
 }
 
 // NewConfigTracker builds a new config tracker
 func NewConfigTracker(lggr logger.Logger, contractABI abi.ABI, client evmclient.Client, addr common.Address, chainType chains.ChainType, headBroadcaster httypes.HeadBroadcaster) *ConfigTracker {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &ConfigTracker{
 		client:              client,
 		addr:                addr,
@@ -53,8 +51,7 @@ func NewConfigTracker(lggr logger.Logger, contractABI abi.ABI, client evmclient.
 		lggr:                lggr,
 		headBroadcaster:     headBroadcaster,
 		unsubscribeHeads:    nil,
-		ctx:                 ctx,
-		ctxCancel:           cancel,
+		chStop:              make(chan struct{}),
 	}
 }
 
@@ -73,7 +70,7 @@ func (c *ConfigTracker) Start() error {
 
 // Close cancels and requests and unsubscribes from the head broadcaster
 func (c *ConfigTracker) Close() error {
-	c.ctxCancel()
+	close(c.chStop)
 	c.unsubscribeHeads()
 	return nil
 }
@@ -212,7 +209,7 @@ func (c *ConfigTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint
 	}
 
 	var cancel context.CancelFunc
-	ctx, cancel = utils.CombinedContext(c.ctx, ctx)
+	ctx, cancel = utils.WithCloseChan(ctx, c.chStop)
 	defer cancel()
 
 	c.lggr.Debugw("ConfigTracker: still waiting for first head, falling back to on-chain lookup")
