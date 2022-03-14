@@ -21,15 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const (
-	// maxStartTime is the maximum amount of time we are allowed to spend
-	// trying to fill initial data on start. This must be capped because it can
-	// block the application from starting.
-	maxStartTime = 10 * time.Second
-	// maxEthNodeRequestTime is the worst case time we will wait for a response
-	// from the eth node before we consider it to be an error
-	maxEthNodeRequestTime = 30 * time.Second
-)
+// MaxStartTime is the maximum amount of time we are allowed to spend
+// trying to fill initial data on start. This must be capped because it can
+// block the application from starting.
+var MaxStartTime = 10 * time.Second
 
 var (
 	promBlockHistoryEstimatorAllGasPricePercentiles = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -148,10 +143,9 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Trace("Starting")
 
-		cctx, cancel := context.WithTimeout(ctx, maxStartTime)
+		fetchCtx, cancel := context.WithTimeout(ctx, MaxStartTime)
 		defer cancel()
-
-		latestHead, err := b.ethClient.HeadByNumber(cctx, nil)
+		latestHead, err := b.ethClient.HeadByNumber(fetchCtx, nil)
 		if err != nil {
 			b.logger.Warnw("Initial check for latest head failed", "err", err)
 		} else if latestHead == nil {
@@ -159,11 +153,12 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 		} else {
 			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
 			b.setLatestBaseFee(latestHead.BaseFeePerGas)
-			b.FetchBlocksAndRecalculate(cctx, latestHead)
+			b.FetchBlocksAndRecalculate(fetchCtx, latestHead)
 		}
 
-		if cctx.Err() != nil {
-			return errors.Wrap(cctx.Err(), "failed to start BlockHistoryEstimator due to context error")
+		// NOTE: This only checks the start context, not the fetch context
+		if ctx.Err() != nil {
+			return errors.Wrap(ctx.Err(), "failed to start BlockHistoryEstimator due to main context error")
 		}
 
 		b.wg.Add(1)
@@ -301,9 +296,6 @@ func (b *BlockHistoryEstimator) runLoop() {
 
 // FetchBlocksAndRecalculate fetches block history leading up to head and recalculates gas price.
 func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *evmtypes.Head) {
-	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
-	defer cancel()
-
 	if err := b.FetchBlocks(ctx, head); err != nil {
 		b.logger.Warnw("Error fetching blocks", "head", head, "err", err)
 		return
@@ -408,7 +400,9 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	}
 
 	var reqs []rpc.BatchElem
-	for i := lowestBlockToFetch; i <= highestBlockToFetch; i++ {
+	// Fetch blocks in reverse order so if it times out halfway through we bias
+	// towards more recent blocks
+	for i := highestBlockToFetch; i >= lowestBlockToFetch; i-- {
 		// NOTE: To save rpc calls, don't fetch blocks we already have in the history
 		if _, exists := blocks[i]; exists {
 			continue
@@ -439,7 +433,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 					),
 					"err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
 			} else {
-				lggr.Warnw("Error while fetching block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
+				lggr.Warnw("Failed to fetch block", "err", err, "blockNum", HexToInt64(req.Args[0]), "headNum", head.Number)
 			}
 			continue
 		}
@@ -452,7 +446,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 			return errors.New("invariant violation: got nil block")
 		}
 		if block.Hash == (common.Hash{}) {
-			lggr.Warnw("Block was missing hash", "block", b, "blockNum", head.Number, "erroredBlockNum", block.Number)
+			lggr.Warnw("Block was missing hash", "block", b, "headNum", head.Number, "blockNum", block.Number)
 			continue
 		}
 
@@ -493,7 +487,19 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 
 		b.logger.Tracew(fmt.Sprintf("Batch fetching blocks %v thru %v", HexToInt64(reqs[i].Args[0]), HexToInt64(reqs[j-1].Args[0])))
 
-		if err := b.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
+		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
+		if errors.Is(err, context.DeadlineExceeded) {
+			// We ran out of time, return what we have
+			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results", i, len(reqs))
+			for k := i; k < len(reqs); k++ {
+				if k < j {
+					reqs[k].Error = errors.Wrap(err, "request failed")
+				} else {
+					reqs[k].Error = errors.Wrap(err, "request skipped; previous request exceeded deadline")
+				}
+			}
+			return nil
+		} else if err != nil {
 			return errors.Wrap(err, "BlockHistoryEstimator#fetchBlocks error fetching blocks with BatchCallContext")
 		}
 	}

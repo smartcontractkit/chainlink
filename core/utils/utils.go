@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -402,8 +401,29 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	return chAwait
 }
 
+// WithCloseChan wraps a context so that it is canceled if the passed in
+// channel is closed.
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
+func WithCloseChan(parentCtx context.Context, chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
+	ctx, cancel = context.WithCancel(parentCtx)
+
+	go func() {
+		select {
+		case <-chStop:
+		case <-ctx.Done():
+		}
+		cancel()
+	}()
+
+	return ctx, cancel
+}
+
 // ContextFromChan creates a context that finishes when the provided channel
 // receives or is closed.
+// When channel closes, the ctx.Err() will always be context.Canceled
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
 func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -418,6 +438,8 @@ func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFun
 
 // ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
 // receives or is closed.
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
 func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	go func() {
@@ -427,49 +449,6 @@ func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) 
 		case <-ctx.Done():
 		}
 	}()
-	return ctx, cancel
-}
-
-// CombinedContext creates a context that finishes when any of the provided
-// signals finish.  A signal can be a `context.Context`, a `chan struct{}`, or
-// a `time.Duration` (which is transformed into a `context.WithTimeout`).
-func CombinedContext(signals ...interface{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	if len(signals) == 0 {
-		return ctx, cancel
-	}
-	signals = append(signals, ctx)
-
-	var cases []reflect.SelectCase
-	var cancels []context.CancelFunc
-	for _, signal := range signals {
-		var ch reflect.Value
-
-		switch sig := signal.(type) {
-		case context.Context:
-			ch = reflect.ValueOf(sig.Done())
-		case <-chan struct{}:
-			ch = reflect.ValueOf(sig)
-		case chan struct{}:
-			ch = reflect.ValueOf(sig)
-		case time.Duration:
-			ctxTimeout, cancel2 := context.WithTimeout(ctx, sig)
-			cancels = append(cancels, cancel2)
-			ch = reflect.ValueOf(ctxTimeout.Done())
-		default:
-			panic(fmt.Sprintf("utils.CombinedContext cannot accept a value of type %T, skipping", sig))
-		}
-		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
-	}
-
-	go func() {
-		_, _, _ = reflect.Select(cases)
-		cancel()
-		for _, rCancel := range cancels {
-			rCancel()
-		}
-	}()
-
 	return ctx, cancel
 }
 

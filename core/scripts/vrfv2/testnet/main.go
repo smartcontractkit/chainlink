@@ -123,6 +123,53 @@ func main() {
 		tx, err := batchBHS.StoreVerifyHeader(owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
 		fmt.Println("storeVerifyHeader(", blockRange, ", ...) tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "batch-bhs-backwards":
+		cmd := flag.NewFlagSet("batch-bhs-backwards", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
+		endBlock := cmd.Int64("end-block", -1, "block number to end at. Must be less than startBlock")
+		batchSize := cmd.Int64("batch-size", -1, "batch size")
+		gasMultiplier := cmd.Int64("gas-price-multiplier", 1, "gas price multiplier to use, defaults to 1 (no multiplication)")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "end-block", "batch-size")
+
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+
+		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*endBlock))
+		helpers.PanicErr(err)
+
+		for i := 0; i < len(blockRange); i += int(*batchSize) {
+			j := i + int(*batchSize)
+			if j > len(blockRange) {
+				j = len(blockRange)
+			}
+
+			// Get suggested gas price and multiply by multiplier on every iteration
+			// so we don't have our transaction getting stuck. Need to be as fast as
+			// possible.
+			gp, err := ec.SuggestGasPrice(context.Background())
+			helpers.PanicErr(err)
+			owner.GasPrice = new(big.Int).Mul(gp, big.NewInt(*gasMultiplier))
+
+			fmt.Println("using gas price", owner.GasPrice, "wei")
+
+			blockNumbers := blockRange[i:j]
+			blockHeaders, err := getRlpHeaders(ec, blockNumbers)
+			fmt.Println("storing blockNumbers:", blockNumbers)
+			helpers.PanicErr(err)
+
+			tx, err := batchBHS.StoreVerifyHeader(owner, blockNumbers, blockHeaders)
+			helpers.PanicErr(err)
+
+			fmt.Println("sent tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+
+			fmt.Println("waiting for it to mine...")
+			_, err = bind.WaitMined(context.Background(), ec, tx)
+			helpers.PanicErr(err)
+
+			fmt.Println("received receipt, continuing")
+		}
+		fmt.Println("done")
 	case "latest-head":
 		h, err := ec.HeaderByNumber(context.Background(), nil)
 		helpers.PanicErr(err)
@@ -547,6 +594,13 @@ func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]b
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode rlp: %+v", err)
 		}
+		// Uncomment in case storeVerifyHeader calls are reverting, there may be an issue with the RLP
+		// encoding.
+		// h2, err := ec.HeaderByNumber(context.Background(), blockNum)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("failed to get header: %v", err)
+		// }
+		// fmt.Println("block number:", blockNum, "blockhash:", h2.Hash(), "encoded header of next block:", common.Bytes2Hex(rlpHeader))
 		headers = append(headers, rlpHeader)
 	}
 	return

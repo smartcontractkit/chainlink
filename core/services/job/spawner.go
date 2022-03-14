@@ -201,7 +201,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 	q := js.q.WithOpts(qopts...)
 	if q.ParentCtx != nil {
-		ctx, cancel := utils.CombinedContext(js.chStop, q.ParentCtx)
+		ctx, cancel := utils.WithCloseChan(q.ParentCtx, js.chStop)
 		defer cancel()
 		q.ParentCtx = ctx
 	} else {
@@ -265,7 +265,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		if parentCtx == nil {
 			ctx, cancel = utils.ContextFromChan(js.chStop)
 		} else {
-			ctx, cancel = utils.CombinedContext(js.chStop, parentCtx)
+			ctx, cancel = utils.WithCloseChan(parentCtx, js.chStop)
 		}
 		return ctx
 	}
