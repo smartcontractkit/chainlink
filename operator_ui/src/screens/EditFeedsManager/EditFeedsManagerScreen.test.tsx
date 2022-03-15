@@ -170,7 +170,7 @@ describe('EditFeedsManagerScreen', () => {
     userEvent.clear(publicKeyInput)
     userEvent.type(publicKeyInput, '22222')
 
-    userEvent.click(getByRole('checkbox', { name: /ocr/i }))
+    userEvent.click(getByRole('checkbox', { name: 'OCR' }))
 
     userEvent.click(getByRole('button', { name: /submit/i }))
 
