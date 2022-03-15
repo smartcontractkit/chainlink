@@ -233,6 +233,11 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"call failed: Int256Overflow", true, "Nethermind"},
 		{"call failed: FailedToResolveSender", true, "Nethermind"},
 		{"call failed: GasLimitExceeded", true, "Nethermind"},
+
+		{"invalid shard", true, "Harmony"},
+		{"`to` address of transaction in blacklist", true, "Harmony"},
+		{"`from` address of transaction in blacklist", true, "Harmony"},
+		{"staking message does not match directive message", true, "Harmony"},
 	}
 
 	for _, test := range tests {
