@@ -25,6 +25,8 @@ upkeep_perform_counter_restrictive_wrapper: ../../../contracts/solc/v0.7/UpkeepP
 vrf_consumer_v2: ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin ad31c7a9e17e0e5d2e334f6478b7a2435a17c12f9fc33143729d7452bfd0cd91
 vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin 7839d54d662197ad8f987495b6461e8ea9c66746b79a744bfd74ff086c276be0
 vrf_external_sub_owner_example: ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.abi ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.bin 14f888eb313930b50233a6f01ea31eba0206b7f41a41f6311670da8bb8a26963
+vrf_load_test_external_sub_owner: ../../../contracts/solc/v0.8/VRFLoadTestExternalSubOwner.abi ../../../contracts/solc/v0.8/VRFLoadTestExternalSubOwner.bin 2097faa70265e420036cc8a3efb1f1e0836ad2d7323b295b9a26a125dbbe6c7d
+vrf_load_test_ownerless_consumer: ../../../contracts/solc/v0.8/VRFLoadTestOwnerlessConsumer.abi ../../../contracts/solc/v0.8/VRFLoadTestOwnerlessConsumer.bin 74f914843cbc70b9c3079c3e1c709382ce415225e8bb40113e7ac018bfcb0f5c
 vrf_malicious_consumer_v2: ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.abi ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.bin 68ecbaa5dfa616ed5d628e57772fa17569719fc0b0a2a10bcd27ba01c49bc998
 vrf_ownerless_consumer_example: ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.abi ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.bin 9893b3805863273917fb282eed32274e32aa3d5c2a67a911510133e1218132be
 vrf_single_consumer_example: ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin 892a5ed35da2e933f7fd7835cd6f7f70ef3aa63a9c03a22c5b1fd026711b0ece
