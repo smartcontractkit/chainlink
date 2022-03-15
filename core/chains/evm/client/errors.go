@@ -49,6 +49,7 @@ const (
 	TooExpensive
 	FeeTooLow
 	FeeTooHigh
+	TransactionAlreadyMined
 	Fatal
 )
 
@@ -134,7 +135,8 @@ var nethermind = ClientErrors{
 // https://github.com/harmony-one/harmony/blob/main/core/tx_pool.go#L49
 var harmonyFatal = regexp.MustCompile("(: |^)(invalid shard|staking message does not match directive message|`from` address of transaction in blacklist|`to` address of transaction in blacklist)$")
 var harmony = ClientErrors{
-	Fatal: harmonyFatal,
+	TransactionAlreadyMined: regexp.MustCompile(`(: |^)transaction already finalized$`),
+	Fatal:                   harmonyFatal,
 }
 
 var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate, avalanche, nethermind, harmony}
@@ -164,6 +166,11 @@ func (s *SendError) IsReplacementUnderpriced() bool {
 
 func (s *SendError) IsNonceTooLowError() bool {
 	return s.is(NonceTooLow)
+}
+
+// IsTransactionAlreadyMined - Harmony returns this error if the transaction has already been mined
+func (s *SendError) IsTransactionAlreadyMined() bool {
+	return s.is(TransactionAlreadyMined)
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
