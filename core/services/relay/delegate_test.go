@@ -8,6 +8,7 @@ import (
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -56,7 +57,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	terraChain.On("Reader", "some-test-node").Return(new(terraMock.Reader), nil).Once()
 
 	terraChains := new(terraMock.ChainSet)
-	terraChains.On("Chain", "Chainlink-99").Return(terraChain, nil).Times(2)
+	terraChains.On("Chain", mock.Anything, "Chainlink-99").Return(terraChain, nil).Times(2)
 
 	d := relay.NewDelegate(keystore)
 
@@ -88,8 +89,8 @@ func TestNewOCR2Provider(t *testing.T) {
 	}
 
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
-	d.AddRelayer(relaytypes.Solana, relaytypes.NewRelayerCtx(solana.NewRelayer(lggr)))
-	d.AddRelayer(relaytypes.Terra, relaytypes.NewRelayerCtx(terra.NewRelayer(lggr, terraChains)))
+	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr))
+	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
