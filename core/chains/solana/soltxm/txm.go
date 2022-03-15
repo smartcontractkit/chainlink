@@ -3,8 +3,9 @@ package soltxm
 import (
 	"fmt"
 
-	"github.com/gagliardetto/solana-go"
+	solanaGo "github.com/gagliardetto/solana-go"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
@@ -24,8 +25,9 @@ type Txm struct {
 	starter    utils.StartStopOnce
 	lggr       logger.Logger
 	tc         func() (solanaClient.ReaderWriter, error)
+	queue      chan *solanaGo.Transaction
 	stop, done chan struct{}
-	cfg        solana.Config
+	cfg        config.Config
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
@@ -35,7 +37,7 @@ func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lgg
 		starter: utils.StartStopOnce{},
 		tc:      tc,
 		lggr:    lggr,
-		queue:   make(chan *solana.Transaction, 1000), // queue can support 1000 pending txs
+		queue:   make(chan *solanaGo.Transaction, 1000), // queue can support 1000 pending txs
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 		cfg:     cfg,
@@ -56,14 +58,14 @@ func (txm *Txm) run() {
 	defer cancel()
 	for {
 		select {
-		case tx <- txm.queue:
+		case tx := <-txm.queue:
 			// fetch client
-			client, err := tc()
+			client, err := txm.tc()
 			if err != nil {
 				txm.lggr.Errorw("failed to get client", "err", err)
 			}
 			// process tx
-			sig, err := client.SendTx(tx)
+			sig, err := client.SendTx(ctx, tx)
 			if err != nil {
 				txm.lggr.Errorw("failed to send transaction", "err", err)
 			}
@@ -78,7 +80,7 @@ func (txm *Txm) run() {
 // use ConfirmPollPeriod() in config
 
 // Enqueue enqueue a msg destined for the solana chain.
-func (txm *Txm) Enqueue(accountID string, msg *solana.Transaction) error {
+func (txm *Txm) Enqueue(accountID string, msg *solanaGo.Transaction) error {
 	select {
 	case txm.queue <- msg:
 	default:
@@ -90,7 +92,6 @@ func (txm *Txm) Enqueue(accountID string, msg *solana.Transaction) error {
 
 // Close close service
 func (txm *Txm) Close() error {
-	txm.sub.Close()
 	close(txm.stop)
 	<-txm.done
 	return nil

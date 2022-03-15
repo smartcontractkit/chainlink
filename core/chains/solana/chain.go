@@ -9,13 +9,15 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaclient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/types"
+	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -35,7 +37,7 @@ type chain struct {
 	utils.StartStopOnce
 	id  string
 	cfg solana.Config
-	// txm            *terratxm.Txm
+	txm            *soltxm.Txm
 	balanceMonitor services.Service
 	orm            types.ORM
 	lggr           logger.Logger
@@ -43,7 +45,7 @@ type chain struct {
 
 // NewChain returns a new chain backed by node.
 func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, orm types.ORM, lggr logger.Logger) (*chain, error) {
-	cfg := solana.NewConfig(dbchain.Cfg, lggr)
+	cfg := config.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("solanaChainID", dbchain.ID)
 	var ch = chain{
 		id:   dbchain.ID,
@@ -54,7 +56,7 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient("")
 	}
-	// ch.txm = terratxm.NewTxm(db, tc, *gpe, ch.id, cfg, ks, lggr, logCfg, eb)
+	ch.txm = soltxm.NewTxm(tc, cfg, lggr)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
 }
@@ -71,9 +73,9 @@ func (c *chain) UpdateConfig(cfg db.ChainCfg) {
 	c.cfg.Update(cfg)
 }
 
-// func (c *chain) TxManager() solana.TxManager {
-// 	return c.txm
-// }
+func (c *chain) TxManager() solana.TxManager {
+	return c.txm
+}
 
 func (c *chain) Reader(name string) (solanaclient.Reader, error) {
 	return c.getClient(name)

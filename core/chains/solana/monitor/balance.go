@@ -5,7 +5,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
+	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -24,11 +24,11 @@ type Keystore interface {
 }
 
 // NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
-func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (client.Reader, error)) services.Service {
+func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (solanaClient.Reader, error)) services.Service {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }
 
-func newBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (client.Reader, error)) *balanceMonitor {
+func newBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (solanaClient.Reader, error)) *balanceMonitor {
 	b := balanceMonitor{
 		chainID:   chainID,
 		cfg:       cfg,
@@ -48,10 +48,10 @@ type balanceMonitor struct {
 	cfg       Config
 	lggr      logger.Logger
 	ks        Keystore
-	newReader func(string) (client.Reader, error)
+	newReader func(string) (solanaClient.Reader, error)
 	updateFn  func(acc solana.PublicKey, lamports uint64) // overridable for testing
 
-	reader client.Reader
+	reader solanaClient.Reader
 
 	stop, done chan struct{}
 }
@@ -86,8 +86,8 @@ func (b *balanceMonitor) monitor() {
 	}
 }
 
-// getReader returns the cached client.Reader, or creates a new one if nil.
-func (b *balanceMonitor) getReader() (client.Reader, error) {
+// getReader returns the cached solanaClient.Reader, or creates a new one if nil.
+func (b *balanceMonitor) getReader() (solanaClient.Reader, error) {
 	if b.reader == nil {
 		var err error
 		b.reader, err = b.newReader("")
