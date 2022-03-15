@@ -83,7 +83,7 @@ runs:
       if [ "$PUBLISH" = "false" ]; then
         SHARED_OUTPUTS=$(
           cat <<EOF
-        type=image,push=false
+        type=docker,dest=/tmp/image.tar
       EOF
         )
 
