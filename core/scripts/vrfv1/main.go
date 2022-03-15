@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/shopspring/decimal"
 
 	linktoken "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	vrfltoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_ownerless_consumer"
@@ -100,12 +101,9 @@ func main() {
 		cmd := flag.NewFlagSet("loadtest-ownerless-consumer-deploy", flag.ExitOnError)
 		coordAddr := cmd.String("coordinator-address", "", "address of VRF coordinator")
 		linkAddr := cmd.String("link-address", "", "address of link token")
-		priceStr := cmd.String("price", "", "the price of each VRF request")
+		priceStr := cmd.String("price", "", "the price of each VRF request in Juels")
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
-		price, ok := big.NewInt(0).SetString(*priceStr, 10)
-		if !ok {
-			panic(fmt.Sprintf("failed to parse price amount: %s", *priceStr))
-		}
+		price := decimal.RequireFromString(*priceStr).BigInt()
 		consumerAddr, tx, _, err := vrfltoc.DeployVRFLoadTestOwnerlessConsumer(
 			account,
 			ec,

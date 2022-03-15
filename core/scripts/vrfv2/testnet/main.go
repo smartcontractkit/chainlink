@@ -77,7 +77,7 @@ func main() {
 	owner.GasPrice = gp
 
 	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
-
+	//
 	//block, err := ec.BlockNumber(context.Background())
 	//helpers.PanicErr(err)
 	//
@@ -488,9 +488,7 @@ func main() {
 		request := flag.NewFlagSet("eoa-load-test-request", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
 		subID := request.Uint64("sub-id", 0, "subscription ID")
-		cbGasLimit := request.Uint("cb-gas-limit", 1_000_000, "callback gas limit")
 		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
-		numWords := request.Uint("num-words", 3, "number of words to request")
 		keyHash := request.String("key-hash", "", "key hash")
 		requests := request.Uint("requests", 10, "number of randomness requests to make")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
@@ -499,8 +497,7 @@ func main() {
 			common.HexToAddress(*consumerAddress),
 			ec)
 		helpers.PanicErr(err)
-		tx, err := consumer.RequestRandomWords(owner,
-			*subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords),
+		tx, err := consumer.RequestRandomWords(owner, *subID, uint16(*requestConfirmations),
 			keyHashBytes, uint16(*requests))
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
