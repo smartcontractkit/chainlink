@@ -46,7 +46,7 @@ $SCRIPTPATH/native_solc8_compile tests/VRFRequestIDBaseTestHelper.sol
 $SCRIPTPATH/native_solc8_compile mocks/VRFCoordinatorMock.sol
 
 # VRF V2
-$SCRIPTPATH/native_solc8_compile dev/VRFConsumerBaseV2.sol
+$SCRIPTPATH/native_solc8_compile VRFConsumerBaseV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFConsumerV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFMaliciousConsumerV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFTestHelper.sol
@@ -58,6 +58,8 @@ $SCRIPTPATH/native_solc8_compile dev/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFSingleConsumerExample.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFOwnerlessConsumerExample.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFLoadTestOwnerlessConsumer.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFLoadTestExternalSubOwner.sol
 
 $SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
 $SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol
