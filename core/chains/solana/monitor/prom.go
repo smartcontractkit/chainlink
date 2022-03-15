@@ -1,7 +1,7 @@
 package monitor
 
 import (
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/gagliardetto/solana-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -11,11 +11,8 @@ var promTerraBalance = promauto.NewGaugeVec(
 	[]string{"account", "terraChainID", "denomination"},
 )
 
-func (b *balanceMonitor) updateProm(acc sdk.AccAddress, bal *sdk.DecCoin) {
-	balF, err := bal.Amount.Float64()
-	if err != nil {
-		b.lggr.Errorw("Failed to convert balance to float", "err", err)
-		return
-	}
-	promTerraBalance.WithLabelValues(acc.String(), b.chainID, bal.GetDenom()).Set(balF)
+func (b *balanceMonitor) updateProm(acc solana.PublicKey, lamports uint64) {
+	var v float64
+	v = float64(lamports) / 1_000_000_000 // convert from lamports to SOL
+	promTerraBalance.WithLabelValues(acc.String(), b.chainID, v)
 }

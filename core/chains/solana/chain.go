@@ -56,7 +56,6 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 	}
 	// ch.txm = terratxm.NewTxm(db, tc, *gpe, ch.id, cfg, ks, lggr, logCfg, eb)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
-
 	return &ch, nil
 }
 
@@ -104,11 +103,11 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.SolanaChainID)
 		}
 	}
-	client, err := solanaclient.NewClient(c.id, node.SolanaURL, DefaultRequestTimeout, c.lggr.Named("Client-"+name))
+	client, err := solanaclient.NewClient(node.SolanaURL, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client")
 	}
-	c.lggr.Debugw("Created client", "name", name, "tendermint-url", node.SolanaURL)
+	c.lggr.Debugw("Created client", "name", node.Name, "solana-url", node.SolanaURL)
 	return client, nil
 }
 

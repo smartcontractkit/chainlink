@@ -3,7 +3,7 @@ package monitor
 import (
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 
@@ -49,7 +49,7 @@ type balanceMonitor struct {
 	lggr      logger.Logger
 	ks        Keystore
 	newReader func(string) (client.Reader, error)
-	updateFn  func(acc sdk.AccAddress, bal *sdk.DecCoin) // overridable for testing
+	updateFn  func(acc solana.PublicKey, lamports uint64) // overridable for testing
 
 	reader client.Reader
 
@@ -120,19 +120,14 @@ func (b *balanceMonitor) updateBalances() {
 			return
 		default:
 		}
-		acc := sdk.AccAddress(k.PublicKey().Address())
-		bal, err := reader.Balance(acc, "uluna")
+		acc := k.PublicKey()
+		lamports, err := reader.Balance(acc)
 		if err != nil {
-			b.lggr.Errorw("Failed to get balance", "account", acc, "err", err)
+			b.lggr.Errorw("Failed to get balance", "account", acc.String(), "err", err)
 			continue
 		}
 		gotSomeBals = true
-		balLuna, err := denom.ConvertToLuna(*bal)
-		if err != nil {
-			b.lggr.Errorw("Failed to convert uluna to luna", "account", acc, "err", err)
-			continue
-		}
-		b.updateFn(acc, &balLuna)
+		b.updateFn(acc, lamports)
 	}
 	if !gotSomeBals {
 		// Try a new client next time.
