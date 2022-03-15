@@ -14,8 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/shopspring/decimal"
 
 	linktoken "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	vrfltoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_ownerless_consumer"
 	vrfoc "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_ownerless_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -70,6 +72,17 @@ func main() {
 	helpers.PanicErr(err)
 	account.GasPrice = gp
 
+	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
+	//
+	//block, err := ec.BlockNumber(context.Background())
+	//helpers.PanicErr(err)
+	//
+	//nonce, err := ec.NonceAt(context.Background(), account.From, big.NewInt(int64(block)))
+	//helpers.PanicErr(err)
+	//
+	//account.Nonce = big.NewInt(int64(nonce))
+	//account.GasPrice = gp.Mul(gp, big.NewInt(2))
+
 	switch os.Args[1] {
 	case "ownerless-consumer-deploy":
 		cmd := flag.NewFlagSet("ownerless-consumer-deploy", flag.ExitOnError)
@@ -83,6 +96,22 @@ func main() {
 			common.HexToAddress(*linkAddr))
 		helpers.PanicErr(err)
 		fmt.Printf("Ownerless Consumer: %s TX: %s\n",
+			consumerAddr, helpers.ExplorerLink(chainID, tx.Hash()))
+	case "loadtest-ownerless-consumer-deploy":
+		cmd := flag.NewFlagSet("loadtest-ownerless-consumer-deploy", flag.ExitOnError)
+		coordAddr := cmd.String("coordinator-address", "", "address of VRF coordinator")
+		linkAddr := cmd.String("link-address", "", "address of link token")
+		priceStr := cmd.String("price", "", "the price of each VRF request in Juels")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "link-address")
+		price := decimal.RequireFromString(*priceStr).BigInt()
+		consumerAddr, tx, _, err := vrfltoc.DeployVRFLoadTestOwnerlessConsumer(
+			account,
+			ec,
+			common.HexToAddress(*coordAddr),
+			common.HexToAddress(*linkAddr),
+			price)
+		helpers.PanicErr(err)
+		fmt.Printf("Loadtest Ownerless Consumer: %s TX: %s\n",
 			consumerAddr, helpers.ExplorerLink(chainID, tx.Hash()))
 	case "ownerless-consumer-request":
 		cmd := flag.NewFlagSet("ownerless-consumer-request", flag.ExitOnError)

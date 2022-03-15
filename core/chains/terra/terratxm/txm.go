@@ -29,8 +29,8 @@ import (
 )
 
 var (
-	_ services.Service = (*Txm)(nil)
-	_ terra.TxManager  = (*Txm)(nil)
+	_ services.ServiceCtx = (*Txm)(nil)
+	_ terra.TxManager     = (*Txm)(nil)
 )
 
 // Txm manages transactions for the terra blockchain.
@@ -65,7 +65,7 @@ func NewTxm(db *sqlx.DB, tc func() (terraclient.ReaderWriter, error), gpe terrac
 }
 
 // Start subscribes to pg notifications about terra msg inserts and processes them.
-func (txm *Txm) Start() error {
+func (txm *Txm) Start(context.Context) error {
 	return txm.starter.StartOnce("terratxm", func() error {
 		sub, err := txm.eb.Subscribe(pg.ChannelInsertOnTerraMsg, "")
 		if err != nil {

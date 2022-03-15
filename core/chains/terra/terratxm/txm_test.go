@@ -82,7 +82,7 @@ func TestTxm_Integration(t *testing.T) {
 	tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 	// Start txm
 	txm := terratxm.NewTxm(db, tcFn, *gpe, chainID, chainCfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), eb)
-	require.NoError(t, txm.Start())
+	require.NoError(t, txm.Start(testutils.Context(t)))
 
 	// Change the contract state
 	setMsg := wasmtypes.NewMsgExecuteContract(transmitterID, contractID, []byte(`{"reset":{"count":5}}`), sdk.Coins{})
