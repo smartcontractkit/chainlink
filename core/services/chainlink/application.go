@@ -155,7 +155,7 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 		s = append(s, c.EVM)
 	}
 	if c.Terra != nil {
-		s = append(s, services.NewServiceCtx(c.Terra))
+		s = append(s, c.Terra)
 	}
 	return
 }
@@ -335,12 +335,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		if cfg.SolanaEnabled() {
 			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
-			solanaRelayerCtx := relaytypes.NewRelayerCtx(solanaRelayer)
+			solanaRelayerCtx := solanaRelayer
 			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			terraRelayerCtx := relaytypes.NewRelayerCtx(terraRelayer)
+			terraRelayerCtx := terraRelayer
 			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
 		}
 		subservices = append(subservices, relay)
