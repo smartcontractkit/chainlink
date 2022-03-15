@@ -52,7 +52,7 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("IsTransactionAlreadyMined", func(t *testing.T) {
-		assert.False(t, randomError.IsNonceTooLowError())
+		assert.False(t, randomError.IsTransactionAlreadyMined())
 
 		tests := []errorCase{
 			{"transaction already finalized", true, "Harmony"},
@@ -252,7 +252,6 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"call failed: GasLimitExceeded", true, "Nethermind"},
 
 		{"invalid shard", true, "Harmony"},
-		{"transaction already finalized", true, "Harmony"},
 		{"`to` address of transaction in blacklist", true, "Harmony"},
 		{"`from` address of transaction in blacklist", true, "Harmony"},
 		{"staking message does not match directive message", true, "Harmony"},
