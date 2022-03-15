@@ -103,6 +103,9 @@ func Test_ORM(t *testing.T) {
 	gotNamed, err := orm.NodeNamed("third")
 	require.NoError(t, err)
 	assertEqual(t, newNode3, gotNamed)
+
+	assert.NoError(t, orm.DeleteChain(chainIDA))
+	assert.NoError(t, orm.DeleteChain(chainIDB))
 }
 
 func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
