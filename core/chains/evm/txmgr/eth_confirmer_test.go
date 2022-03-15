@@ -992,10 +992,6 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 		elems[2].Error = nil
 		elems[3].Error = errors.New("transaction already finalized")
 	}).Once()
-	println("Test idx: ", etx0.ID)
-	println("Test idx: ", etx1.ID)
-	println("Test idx: ", etx2.ID)
-	println("Test idx: ", etx3.ID)
 
 	// PERFORM
 	require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
