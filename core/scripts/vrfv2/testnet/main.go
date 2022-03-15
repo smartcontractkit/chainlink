@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -74,6 +75,18 @@ func main() {
 	gp, err := ec.SuggestGasPrice(context.Background())
 	helpers.PanicErr(err)
 	owner.GasPrice = gp
+
+	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
+	//
+	//block, err := ec.BlockNumber(context.Background())
+	//helpers.PanicErr(err)
+	//
+	//nonce, err := ec.NonceAt(context.Background(), owner.From, big.NewInt(int64(block)))
+	//helpers.PanicErr(err)
+	//
+	//owner.Nonce = big.NewInt(int64(nonce))
+	//owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+
 	switch os.Args[1] {
 	case "batch-bhs-deploy":
 		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
@@ -380,6 +393,18 @@ func main() {
 			common.HexToAddress(*consumerLinkAddress))
 		helpers.PanicErr(err)
 		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "eoa-load-test-consumer-deploy":
+		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
+		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
+		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
+		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
+		consumerAddress, tx, _, err := vrf_load_test_external_sub_owner.DeployVRFLoadTestExternalSubOwner(
+			owner,
+			ec,
+			common.HexToAddress(*consumerCoordinator),
+			common.HexToAddress(*consumerLinkAddress))
+		helpers.PanicErr(err)
+		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
@@ -399,7 +424,7 @@ func main() {
 		helpers.PanicErr(err)
 		txadd, err := coordinator.AddConsumer(owner, *subID, common.HexToAddress(*consumerAddress))
 		helpers.PanicErr(err)
-		fmt.Println("Adding consumer", "TX hash", txadd.Hash())
+		fmt.Println("Adding consumer", "TX hash", helpers.ExplorerLink(chainID, txadd.Hash()))
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -457,6 +482,23 @@ func main() {
 			ec)
 		helpers.PanicErr(err)
 		tx, err := consumer.RequestRandomWords(owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes)
+		helpers.PanicErr(err)
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "eoa-load-test-request":
+		request := flag.NewFlagSet("eoa-load-test-request", flag.ExitOnError)
+		consumerAddress := request.String("consumer-address", "", "consumer address")
+		subID := request.Uint64("sub-id", 0, "subscription ID")
+		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
+		keyHash := request.String("key-hash", "", "key hash")
+		requests := request.Uint("requests", 10, "number of randomness requests to make")
+		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
+		keyHashBytes := common.HexToHash(*keyHash)
+		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
+			common.HexToAddress(*consumerAddress),
+			ec)
+		helpers.PanicErr(err)
+		tx, err := consumer.RequestRandomWords(owner, *subID, uint16(*requestConfirmations),
+			keyHashBytes, uint16(*requests))
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-transfer-sub":
