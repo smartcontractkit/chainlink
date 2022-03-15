@@ -433,7 +433,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
 		feedsMgr  = &feeds.FeedsManager{
 			ID:                        1,
-			JobTypes:                  pq.StringArray{feeds.JobTypeFluxMonitor},
+			JobTypes:                  pq.StringArray{feeds.JobTypeFluxMonitor, feeds.JobTypeOffchainReporting2},
 			IsOCRBootstrapPeer:        true,
 			OCRBootstrapPeerMultiaddr: null.StringFrom(multiaddr),
 		}
@@ -459,7 +459,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
-		JobTypes: []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
+		JobTypes: []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR, proto.JobType_JOB_TYPE_OCR2},
 		Chains: []*proto.Chain{{
 			Id:   svc.cc.Chains()[0].ID().String(),
 			Type: proto.ChainType_CHAIN_TYPE_EVM,
