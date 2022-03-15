@@ -194,7 +194,7 @@ func main() {
 		fmt.Println("Coordinator", coordinatorAddress.String(), "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "coordinator-get-config":
 		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
-		setConfigAddress := cmd.String("address", "", "coordinator address")
+		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
 		helpers.ParseArgs(cmd, os.Args[2:], "address")
 
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
@@ -210,7 +210,7 @@ func main() {
 		fmt.Printf("fee config: %+v\n", feeConfig)
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
-		setConfigAddress := cmd.String("address", "", "coordinator address")
+		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
 		minConfs := cmd.Int("min-confs", 3, "min confs")
 		maxGasLimit := cmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
 		stalenessSeconds := cmd.Int64("staleness-seconds", 86400, "staleness in seconds")
@@ -226,7 +226,7 @@ func main() {
 		reqsForTier4 := cmd.Int64("reqs-for-tier-4", 0, "requests for tier 4")
 		reqsForTier5 := cmd.Int64("reqs-for-tier-5", 0, "requests for tier 5")
 
-		helpers.ParseArgs(cmd, os.Args[2:], "address", "fallback-wei-per-unit-link")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "fallback-wei-per-unit-link")
 
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
 		helpers.PanicErr(err)
