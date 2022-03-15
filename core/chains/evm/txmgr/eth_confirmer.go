@@ -297,9 +297,14 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	var ethTxIDsToUnconfirm []int64
 	for idx, req := range reqs {
 		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
-		if req.Error == nil || !(evmclient.NewSendError(req.Error).IsNonceTooLowError() || evmclient.NewSendError(req.Error).IsTransactionAlreadyMined()) {
-			ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
+		if req.Error != nil {
+			err := evmclient.NewSendError(req.Error)
+			if err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() {
+				continue
+			}
 		}
+
+		ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
 	}
 	_, err = ec.q.Exec(`UPDATE eth_txes SET state='unconfirmed' WHERE id = ANY($1)`, pq.Array(ethTxIDsToUnconfirm))
 
