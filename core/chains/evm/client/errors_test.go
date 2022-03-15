@@ -51,6 +51,23 @@ func Test_Eth_Errors(t *testing.T) {
 		}
 	})
 
+	t.Run("IsTransactionAlreadyMined", func(t *testing.T) {
+		assert.False(t, randomError.IsNonceTooLowError())
+
+		tests := []errorCase{
+			{"transaction already finalized", true, "Harmony"},
+		}
+
+		for _, test := range tests {
+			t.Run(test.network, func(t *testing.T) {
+				err = evmclient.NewSendErrorS(test.message)
+				assert.Equal(t, err.IsTransactionAlreadyMined(), test.expect)
+				err = newSendErrorWrapped(test.message)
+				assert.Equal(t, err.IsTransactionAlreadyMined(), test.expect)
+			})
+		}
+	})
+
 	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
 
 		tests := []errorCase{
@@ -235,6 +252,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"call failed: GasLimitExceeded", true, "Nethermind"},
 
 		{"invalid shard", true, "Harmony"},
+		{"transaction already finalized", true, "Harmony"},
 		{"`to` address of transaction in blacklist", true, "Harmony"},
 		{"`from` address of transaction in blacklist", true, "Harmony"},
 		{"staking message does not match directive message", true, "Harmony"},

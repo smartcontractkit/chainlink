@@ -297,7 +297,7 @@ func (ec *EthConfirmer) CheckConfirmedMissingReceipt(ctx context.Context) (err e
 	var ethTxIDsToUnconfirm []int64
 	for idx, req := range reqs {
 		// Add to Unconfirm array, all tx where error wasn't NonceTooLow.
-		if req.Error == nil || !evmclient.NewSendError(req.Error).IsNonceTooLowError() {
+		if req.Error == nil || !(evmclient.NewSendError(req.Error).IsNonceTooLowError() || evmclient.NewSendError(req.Error).IsTransactionAlreadyMined()) {
 			ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].EthTxID)
 		}
 	}
@@ -1149,7 +1149,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		return deleteInProgressAttempt(ec.q.WithOpts(pg.WithParentCtx(ctx)), attempt)
 	}
 
-	if sendError.IsNonceTooLowError() {
+	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		sendError = nil
