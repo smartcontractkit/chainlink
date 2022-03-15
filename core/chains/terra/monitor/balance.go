@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -24,8 +25,8 @@ type Keystore interface {
 	GetAll() ([]terrakey.Key, error)
 }
 
-// NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
-func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (client.Reader, error)) services.Service {
+// NewBalanceMonitor returns a balance monitoring services.ServiceCtx which reports the luna balance of all ks keys to prometheus.
+func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (client.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }
 
@@ -57,7 +58,8 @@ type balanceMonitor struct {
 	stop, done chan struct{}
 }
 
-func (b *balanceMonitor) Start() error {
+// Start starts balance monitor for terra.
+func (b *balanceMonitor) Start(context.Context) error {
 	return b.StartOnce("TerraBalanceMonitor", func() error {
 		go b.monitor()
 		return nil
