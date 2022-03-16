@@ -59,7 +59,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
-	github.com/smartcontractkit/wsrpc v0.3.9
+	github.com/smartcontractkit/wsrpc v0.3.10-0.20220316210103-f69903b28e60
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.0
