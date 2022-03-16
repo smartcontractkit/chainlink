@@ -28,7 +28,7 @@ const (
 func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uint64) {
 	// There must not be a large different between boundaries
 	if to-from > defaultMaxBlocksRange {
-		log.Fatal("blocks range difference must not more than 1000")
+		log.Fatalf("blocks range difference must not more than %d", defaultMaxBlocksRange)
 	}
 
 	registryAddr, registryClient := k.GetRegistry(ctx)
@@ -154,20 +154,4 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 		)
 	}
 	fmt.Fprintf(writer, "\n %s\t\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n", "----", "----", "----", "----", "----", "----", "----", "----", "----", "----")
-}
-
-func (k *Keeper) getPositioningConstant(upkeepId int64) (int32, error) {
-	registryAddress, err := ethkey.NewEIP55Address(k.cfg.RegistryAddress)
-	if err != nil {
-		log.Println("failed to parse registry address: ", err)
-		return 0, err
-	}
-
-	positioningConstant, err := keeper.CalcPositioningConstant(upkeepId, registryAddress)
-	if err != nil {
-		log.Println("failed to Calc Positioning Constant: ", err)
-		return 0, err
-	}
-
-	return positioningConstant, nil
 }
