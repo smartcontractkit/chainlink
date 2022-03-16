@@ -52,7 +52,7 @@ type telemetryIngressBatchClient struct {
 	serverPubKeyHex string
 
 	telemClient  telemPb.TelemClient
-	close        func()
+	close        func() error
 	globalLogger logger.Logger
 	logging      bool
 	lggr         logger.Logger
@@ -112,8 +112,8 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 				return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
 			}
 			tc.telemClient = telemPb.NewTelemClient(conn)
-			tc.close = func() {
-				conn.Close()
+			tc.close = func() error {
+				return conn.Close()
 			}
 		}
 
@@ -126,8 +126,7 @@ func (tc *telemetryIngressBatchClient) Close() error {
 	return tc.StopOnce("TelemetryIngressBatchClient", func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
-		tc.close()
-		return nil
+		return tc.close()
 	})
 }
 
