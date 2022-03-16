@@ -16,5 +16,6 @@ func init() {
 	RootCmd.AddCommand(updateRegistryCmd)
 	RootCmd.AddCommand(withdrawFromRegistryCmd)
 	RootCmd.AddCommand(launchAndTestCmd)
-	RootCmd.AddCommand(upkeepCmd)
+	RootCmd.AddCommand(upkeepEventsCmd)
+	RootCmd.AddCommand(upkeepHistoryCmd)
 }
