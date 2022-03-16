@@ -48,26 +48,30 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 	}
 	log.Println("Calculated Positioning Constant for the registry: ", positioningConstant)
 
-	callOpts := bind.CallOpts{Context: ctx}
-
-	log.Println("Fetching registry config")
-	registryConfig, err := registryClient.GetConfig(&callOpts)
-	if err != nil {
-		log.Fatal("failed to fetch registry config: ", err)
-	}
-	blockCountPerTurn := registryConfig.BlockCountPerTurn.Uint64()
-
-	log.Println("Fetching registry keepers list")
-	keepersList, err := registryClient.GetKeeperList(&callOpts)
-	if err != nil {
-		log.Fatal("failed to fetch keepers list: ", err)
-	}
-
 	log.Println("Preparing a batch call request")
 	var reqs []rpc.BatchElem
 	var results []*string
-	var keeperPerBlock []uint64
+	var keeperPerBlockIndex []uint64
+	var keeperPerBlockAddress []common.Address
 	for block := from; block <= to; block++ {
+		callOpts := bind.CallOpts{
+			Context:     ctx,
+			BlockNumber: big.NewInt(0).SetUint64(block),
+		}
+
+		log.Println("Fetching registry config")
+		registryConfig, err := registryClient.GetConfig(&callOpts)
+		if err != nil {
+			log.Fatal("failed to fetch registry config: ", err)
+		}
+		blockCountPerTurn := registryConfig.BlockCountPerTurn.Uint64()
+
+		log.Println("Fetching registry keepers list")
+		keepersList, err := registryClient.GetKeeperList(&callOpts)
+		if err != nil {
+			log.Fatal("failed to fetch keepers list: ", err)
+		}
+
 		keeperIndex := (uint64(positioningConstant) + ((block - (block % blockCountPerTurn)) / blockCountPerTurn)) % uint64(len(keepersList))
 		payload, err := keeper.RegistryABI.Pack("checkUpkeep", big.NewInt(upkeepId), keepersList[keeperIndex])
 		if err != nil {
@@ -89,7 +93,8 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 		})
 
 		results = append(results, &result)
-		keeperPerBlock = append(keeperPerBlock, keeperIndex)
+		keeperPerBlockIndex = append(keeperPerBlockIndex, keeperIndex)
+		keeperPerBlockAddress = append(keeperPerBlockAddress, keepersList[keeperIndex])
 	}
 
 	log.Println("Doing batch call to check upkeeps")
@@ -116,8 +121,8 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 			parsedResults = append(parsedResults, result{
 				block:         uint64(i) + from,
 				checkUpkeep:   false,
-				keeperIndex:   keeperPerBlock[i],
-				keeperAddress: keepersList[keeperPerBlock[i]],
+				keeperIndex:   keeperPerBlockIndex[i],
+				keeperAddress: keeperPerBlockAddress[i],
 				reason:        strings.TrimPrefix(req.Error.Error(), "execution reverted: "),
 			})
 			continue
@@ -131,8 +136,8 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 		parsedResults = append(parsedResults, result{
 			block:          uint64(i) + from,
 			checkUpkeep:    true,
-			keeperIndex:    keeperPerBlock[i],
-			keeperAddress:  keepersList[keeperPerBlock[i]],
+			keeperIndex:    keeperPerBlockIndex[i],
+			keeperAddress:  keeperPerBlockAddress[i],
 			performData:    "0x" + hex.EncodeToString(*abi.ConvertType(returnValues[0], new([]byte)).(*[]byte)),
 			maxLinkPayment: *abi.ConvertType(returnValues[1], new(*big.Int)).(**big.Int),
 			gasLimit:       *abi.ConvertType(returnValues[2], new(*big.Int)).(**big.Int),
