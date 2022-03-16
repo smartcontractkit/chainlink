@@ -80,7 +80,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 		log.Fatal("failed to batch call checkUpkeep: ", err)
 	}
 
-	log.Println("Parsing batch call response", len(reqs))
+	log.Println("Parsing batch call response")
 	type result struct {
 		block          uint64
 		checkUpkeep    bool
