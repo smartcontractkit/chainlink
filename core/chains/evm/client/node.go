@@ -61,6 +61,10 @@ var (
 		Name: "evm_pool_rpc_node_calls_success",
 		Help: "The approximate total number of successful RPC calls for the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolSendTransactionTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "evm_pool_rpc_node_send_tx_timing",
+		Help: "The duration of a SendTransaction call in nanoseconds",
+	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly"})
 )
 
 //go:generate mockery --name Node --output ../mocks/ --case=underscore
@@ -453,6 +457,15 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 }
 
 func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	var rpcDomain string
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		promEVMPoolSendTransactionTiming.
+			WithLabelValues(n.chainID.String(), n.name, rpcDomain, "false").
+			Observe(float64(duration))
+	}()
+
 	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return err
@@ -462,8 +475,10 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 
 	lggr.Debug("RPC call: evmclient.Client#SendTransaction")
 	if n.http != nil {
+		rpcDomain = n.http.uri.Host
 		err = n.wrapHTTP(n.http.geth.SendTransaction(ctx, tx))
 	} else {
+		rpcDomain = n.ws.uri.Host
 		err = n.wrapWS(n.ws.geth.SendTransaction(ctx, tx))
 	}
 

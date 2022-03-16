@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -86,6 +88,14 @@ func (s *sendOnlyNode) Close() {
 }
 
 func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Transaction) error {
+	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+		promEVMPoolSendTransactionTiming.
+			WithLabelValues(s.chainID.String(), s.name, s.uri.Host, "true").
+			Observe(float64(duration))
+	}()
+
 	s.log.Debugw("evmclient.Client#SendTransaction(...)",
 		"tx", tx,
 	)
