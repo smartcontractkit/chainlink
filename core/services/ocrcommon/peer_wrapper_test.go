@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"gopkg.in/guregu/null.v4"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,9 @@ import (
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Parallel()
 
-	cfg := configtest.NewTestGeneralConfig(t)
+	cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
+		P2PEnabled: null.BoolFrom(true),
+	})
 	db := pgtest.NewSqlxDB(t)
 
 	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
@@ -28,11 +31,12 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 
-	t.Run("with no p2p keys returns nil", func(t *testing.T) {
+	t.Run("with no p2p keys panics", func(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db, cfg)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
-
-		require.NoError(t, pw.Start(testutils.Context(t)))
+		require.Panics(t, func() {
+			pw.Start(testutils.Context(t))
+		})
 	})
 
 	var k p2pkey.KeyV2

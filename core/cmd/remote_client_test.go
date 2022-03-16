@@ -72,6 +72,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// your tests, you can manually override and turn it on using
 	// withConfigSet.
 	config.Overrides.EVMEnabled = null.BoolFrom(false)
+	config.Overrides.P2PEnabled = null.BoolFrom(false)
 
 	if sopts.SetConfig != nil {
 		sopts.SetConfig(config)
