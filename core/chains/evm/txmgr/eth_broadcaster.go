@@ -420,7 +420,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 
 	etx.BroadcastAt = &initialBroadcastAt
 
-	if sendError.IsNonceTooLowError() || sendError.IsReplacementUnderpriced() {
+	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsReplacementUnderpriced() {
 		// There are four scenarios that this can happen:
 		//
 		// SCENARIO 1
@@ -448,7 +448,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		// SCENARIO 3
 		//
 		// The network/eth client can be assumed to have at-least-once delivery
-		// behaviour. It is possible that the eth client could have already
+		// behavior. It is possible that the eth client could have already
 		// sent this exact same transaction even if this is our first time
 		// calling SendTransaction().
 		//

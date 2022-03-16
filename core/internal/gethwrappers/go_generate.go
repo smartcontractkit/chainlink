@@ -28,6 +28,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.abi ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id_v08
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.abi ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.bin VRFOwnerlessConsumerExample vrf_ownerless_consumer_example
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFLoadTestOwnerlessConsumer.abi ../../../contracts/solc/v0.8/VRFLoadTestOwnerlessConsumer.bin VRFLoadTestOwnerlessConsumer vrf_load_test_ownerless_consumer
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/VRFLoadTestExternalSubOwner.abi ../../../contracts/solc/v0.8/VRFLoadTestExternalSubOwner.bin VRFLoadTestExternalSubOwner vrf_load_test_external_sub_owner
 
 //go:generate mockery --recursive --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
 //go:generate mockery --recursive --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
