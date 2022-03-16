@@ -42,7 +42,7 @@ func (tc *TerraTransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("missing terraChainID"))
 		return
 	}
-	chain, err := terraChains.Chain(tr.TerraChainID)
+	chain, err := terraChains.Chain(c.Request.Context(), tr.TerraChainID)
 	switch err {
 	case terra.ErrChainIDInvalid, terra.ErrChainIDEmpty:
 		jsonAPIError(c, http.StatusBadRequest, err)

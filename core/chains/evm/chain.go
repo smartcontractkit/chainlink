@@ -11,13 +11,13 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -34,7 +34,7 @@ type Chain interface {
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
-	TxManager() bulletprooftxmanager.TxManager
+	TxManager() txmgr.TxManager
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
@@ -47,7 +47,7 @@ type chain struct {
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
-	txm             bulletprooftxmanager.TxManager
+	txm             txmgr.TxManager
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -78,7 +78,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(l, dbchain)
+		client, err2 = newEthClientFromChain(cfg, l, dbchain)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", dbchain.ID.String())
 		}
@@ -107,12 +107,12 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
-	var txm bulletprooftxmanager.TxManager
+	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
-		txm = &bulletprooftxmanager.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
-		checker := &bulletprooftxmanager.CheckerFactory{Client: client}
-		txm = bulletprooftxmanager.NewBulletproofTxManager(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker)
+		checker := &txmgr.CheckerFactory{Client: client}
+		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker)
 	} else {
 		txm = opts.GenTxManager(dbchain)
 	}
@@ -271,17 +271,17 @@ func (c *chain) Healthy() (merr error) {
 	return
 }
 
-func (c *chain) ID() *big.Int                              { return c.id }
-func (c *chain) Client() evmclient.Client                  { return c.client }
-func (c *chain) Config() evmconfig.ChainScopedConfig       { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster           { return c.logBroadcaster }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadcaster }
-func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
-func (c *chain) HeadTracker() httypes.HeadTracker          { return c.headTracker }
-func (c *chain) Logger() logger.Logger                     { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor    { return c.balanceMonitor }
+func (c *chain) ID() *big.Int                             { return c.id }
+func (c *chain) Client() evmclient.Client                 { return c.client }
+func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
+func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
+func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
+func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
+func (c *chain) Logger() logger.Logger                    { return c.logger }
+func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 
-func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
 	var primaries []evmclient.Node
@@ -294,7 +294,7 @@ func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Cli
 			}
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			primary, err := newPrimary(lggr, node)
+			primary, err := newPrimary(cfg, lggr, node)
 			if err != nil {
 				return nil, err
 			}
@@ -304,7 +304,7 @@ func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (evmclient.Cli
 	return evmclient.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
 }
 
-func newPrimary(lggr logger.Logger, n types.Node) (evmclient.Node, error) {
+func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n types.Node) (evmclient.Node, error) {
 	if n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
@@ -324,7 +324,7 @@ func newPrimary(lggr logger.Logger, n types.Node) (evmclient.Node, error) {
 		httpuri = u
 	}
 
-	return evmclient.NewNode(lggr, *wsuri, httpuri, n.Name), nil
+	return evmclient.NewNode(cfg, lggr, *wsuri, httpuri, n.Name, n.ID, (*big.Int)(&n.EVMChainID)), nil
 }
 
 func newSendOnly(lggr logger.Logger, n types.Node) (evmclient.SendOnlyNode, error) {
@@ -339,5 +339,5 @@ func newSendOnly(lggr logger.Logger, n types.Node) (evmclient.SendOnlyNode, erro
 		return nil, errors.Wrap(err, "invalid http uri")
 	}
 
-	return evmclient.NewSendOnlyNode(lggr, *httpuri, n.Name), nil
+	return evmclient.NewSendOnlyNode(lggr, *httpuri, n.Name, (*big.Int)(&n.EVMChainID)), nil
 }
