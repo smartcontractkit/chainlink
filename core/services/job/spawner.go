@@ -129,6 +129,8 @@ func (js *spawner) stopAllServices() {
 	}
 }
 
+// stopService removes the job from memory and stop the services.
+// It will always delete the job from memory even if closing the services fail.
 func (js *spawner) stopService(jobID int32) {
 	js.lggr.Debugw("Stopping services for job", "jobID", jobID)
 	js.activeJobsMu.Lock()
@@ -248,9 +250,6 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		return errors.Errorf("job not found (id: %v)", jobID)
 	}
 
-	// Stop the service if we own the job.
-	js.stopService(jobID)
-
 	lggr.Debugw("Callback: BeforeJobDeleted")
 	aj.delegate.BeforeJobDeleted(aj.spec)
 	lggr.Debugw("Callback: BeforeJobDeleted done")
@@ -274,6 +273,10 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 		js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
 		return err
 	}
+
+	// Stop the service if we own the job.
+	// this will remove the job from memory, which will always happen even if closing the services fail.
+	js.stopService(jobID)
 
 	lggr.Infow("Stopped and deleted job")
 

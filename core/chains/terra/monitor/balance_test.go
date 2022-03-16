@@ -53,7 +53,7 @@ func TestBalanceMonitor(t *testing.T) {
 	}
 	b.reader = client
 
-	require.NoError(t, b.Start())
+	require.NoError(t, b.Start(testutils.Context(t)))
 	t.Cleanup(func() {
 		assert.NoError(t, b.Close())
 		client.AssertExpectations(t)

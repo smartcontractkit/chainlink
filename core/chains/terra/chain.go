@@ -1,6 +1,7 @@
 package terra
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -43,7 +44,7 @@ type chain struct {
 	id             string
 	cfg            terra.Config
 	txm            *terratxm.Txm
-	balanceMonitor services.Service
+	balanceMonitor services.ServiceCtx
 	orm            types.ORM
 	lggr           logger.Logger
 }
@@ -128,7 +129,8 @@ func (c *chain) getClient(name string) (terraclient.ReaderWriter, error) {
 	return client, nil
 }
 
-func (c *chain) Start() error {
+// Start starts terra chain.
+func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
 		c.lggr.Debug("Starting")
 		//TODO dial client?
@@ -136,8 +138,8 @@ func (c *chain) Start() error {
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
 		return multierr.Combine(
-			c.txm.Start(),
-			c.balanceMonitor.Start())
+			c.txm.Start(ctx),
+			c.balanceMonitor.Start(ctx))
 	})
 }
 

@@ -16,15 +16,16 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -74,6 +75,18 @@ func main() {
 	gp, err := ec.SuggestGasPrice(context.Background())
 	helpers.PanicErr(err)
 	owner.GasPrice = gp
+
+	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
+	//
+	//block, err := ec.BlockNumber(context.Background())
+	//helpers.PanicErr(err)
+	//
+	//nonce, err := ec.NonceAt(context.Background(), owner.From, big.NewInt(int64(block)))
+	//helpers.PanicErr(err)
+	//
+	//owner.Nonce = big.NewInt(int64(nonce))
+	//owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+
 	switch os.Args[1] {
 	case "batch-bhs-deploy":
 		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
@@ -192,30 +205,61 @@ func main() {
 			common.HexToAddress(*coordinatorDeployLinkEthFeedAddress))
 		helpers.PanicErr(err)
 		fmt.Println("Coordinator", coordinatorAddress.String(), "TX", helpers.ExplorerLink(chainID, tx.Hash()))
-	case "coordinator-set-config":
-		coordinatorSetConfigCmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
-		setConfigAddress := coordinatorSetConfigCmd.String("address", "", "coordinator address")
-		// TODO: add config parameters as cli args here
-		helpers.PanicErr(coordinatorSetConfigCmd.Parse(os.Args[2:]))
+	case "coordinator-get-config":
+		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
+		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
+		helpers.ParseArgs(cmd, os.Args[2:], "address")
+
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
 		helpers.PanicErr(err)
-		helpers.ParseArgs(coordinatorSetConfigCmd, os.Args[2:], "address")
+
+		cfg, err := coordinator.GetConfig(nil)
+		helpers.PanicErr(err)
+
+		feeConfig, err := coordinator.GetFeeConfig(nil)
+		helpers.PanicErr(err)
+
+		fmt.Printf("config: %+v\n", cfg)
+		fmt.Printf("fee config: %+v\n", feeConfig)
+	case "coordinator-set-config":
+		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
+		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
+		minConfs := cmd.Int("min-confs", 3, "min confs")
+		maxGasLimit := cmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
+		stalenessSeconds := cmd.Int64("staleness-seconds", 86400, "staleness in seconds")
+		gasAfterPayment := cmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
+		fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "fallback wei per unit link")
+		flatFeeTier1 := cmd.Int64("flat-fee-tier-1", 500, "flat fee tier 1")
+		flatFeeTier2 := cmd.Int64("flat-fee-tier-2", 500, "flat fee tier 2")
+		flatFeeTier3 := cmd.Int64("flat-fee-tier-3", 500, "flat fee tier 3")
+		flatFeeTier4 := cmd.Int64("flat-fee-tier-4", 500, "flat fee tier 4")
+		flatFeeTier5 := cmd.Int64("flat-fee-tier-5", 500, "flat fee tier 5")
+		reqsForTier2 := cmd.Int64("reqs-for-tier-2", 0, "requests for tier 2")
+		reqsForTier3 := cmd.Int64("reqs-for-tier-3", 0, "requests for tier 3")
+		reqsForTier4 := cmd.Int64("reqs-for-tier-4", 0, "requests for tier 4")
+		reqsForTier5 := cmd.Int64("reqs-for-tier-5", 0, "requests for tier 5")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "fallback-wei-per-unit-link")
+
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
+		helpers.PanicErr(err)
+
 		tx, err := coordinator.SetConfig(owner,
-			uint16(1),                              // minRequestConfirmations
-			uint32(1000000),                        // max gas limit
-			uint32(60*60*24),                       // stalenessSeconds
-			uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
-			big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
+			uint16(*minConfs),         // minRequestConfirmations
+			uint32(*maxGasLimit),      // max gas limit
+			uint32(*stalenessSeconds), // stalenessSeconds
+			uint32(*gasAfterPayment),  // gasAfterPaymentCalculation
+			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(), // 0.01 eth per link fallbackLinkPrice
 			vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-				FulfillmentFlatFeeLinkPPMTier1: uint32(10000),
-				FulfillmentFlatFeeLinkPPMTier2: uint32(1000),
-				FulfillmentFlatFeeLinkPPMTier3: uint32(100),
-				FulfillmentFlatFeeLinkPPMTier4: uint32(10),
-				FulfillmentFlatFeeLinkPPMTier5: uint32(1),
-				ReqsForTier2:                   big.NewInt(10),
-				ReqsForTier3:                   big.NewInt(20),
-				ReqsForTier4:                   big.NewInt(30),
-				ReqsForTier5:                   big.NewInt(40),
+				FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
+				FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
+				FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3),
+				FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4),
+				FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5),
+				ReqsForTier2:                   big.NewInt(*reqsForTier2),
+				ReqsForTier3:                   big.NewInt(*reqsForTier3),
+				ReqsForTier4:                   big.NewInt(*reqsForTier4),
+				ReqsForTier5:                   big.NewInt(*reqsForTier5),
 			},
 		)
 		helpers.PanicErr(err)
@@ -380,6 +424,18 @@ func main() {
 			common.HexToAddress(*consumerLinkAddress))
 		helpers.PanicErr(err)
 		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "eoa-load-test-consumer-deploy":
+		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
+		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
+		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
+		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
+		consumerAddress, tx, _, err := vrf_load_test_external_sub_owner.DeployVRFLoadTestExternalSubOwner(
+			owner,
+			ec,
+			common.HexToAddress(*consumerCoordinator),
+			common.HexToAddress(*consumerLinkAddress))
+		helpers.PanicErr(err)
+		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
@@ -399,7 +455,7 @@ func main() {
 		helpers.PanicErr(err)
 		txadd, err := coordinator.AddConsumer(owner, *subID, common.HexToAddress(*consumerAddress))
 		helpers.PanicErr(err)
-		fmt.Println("Adding consumer", "TX hash", txadd.Hash())
+		fmt.Println("Adding consumer", "TX hash", helpers.ExplorerLink(chainID, txadd.Hash()))
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -457,6 +513,23 @@ func main() {
 			ec)
 		helpers.PanicErr(err)
 		tx, err := consumer.RequestRandomWords(owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes)
+		helpers.PanicErr(err)
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "eoa-load-test-request":
+		request := flag.NewFlagSet("eoa-load-test-request", flag.ExitOnError)
+		consumerAddress := request.String("consumer-address", "", "consumer address")
+		subID := request.Uint64("sub-id", 0, "subscription ID")
+		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
+		keyHash := request.String("key-hash", "", "key hash")
+		requests := request.Uint("requests", 10, "number of randomness requests to make")
+		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
+		keyHashBytes := common.HexToHash(*keyHash)
+		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
+			common.HexToAddress(*consumerAddress),
+			ec)
+		helpers.PanicErr(err)
+		tx, err := consumer.RequestRandomWords(owner, *subID, uint16(*requestConfirmations),
+			keyHashBytes, uint16(*requests))
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-transfer-sub":

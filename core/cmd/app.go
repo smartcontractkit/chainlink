@@ -57,6 +57,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "file, f",
 							Usage: "text file holding the API email and password needed to create a session cookie",
 						},
+						cli.BoolFlag{
+							Name:  "bypass-version-check",
+							Usage: "Bypass versioning check for compatibility of remote node",
+						},
 					},
 				},
 			},
@@ -893,7 +897,6 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
-
 		{
 			Name:   "initiators",
 			Usage:  "Commands for managing External Initiators",
@@ -1152,6 +1155,37 @@ func NewApp(client *Client) *cli.App {
 							Action: client.IndexTerraNodes,
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:  "forwarders",
+			Usage: "Commands for managing forwarder addresses.",
+			Subcommands: []cli.Command{
+				{
+					Name:   "list",
+					Usage:  "List all stored forwarders addresses",
+					Action: client.ListForwarders,
+				},
+				{
+					Name:   "create",
+					Usage:  "Create a new forwarder",
+					Action: client.CreateForwarder,
+					Flags: []cli.Flag{
+						cli.Int64Flag{
+							Name:  "evmChainID, c",
+							Usage: "chain ID, if left empty, ETH_CHAIN_ID will be used",
+						},
+						cli.StringFlag{
+							Name:  "address, a",
+							Usage: "The forwarding address (in hex format)",
+						},
+					},
+				},
+				{
+					Name:   "delete",
+					Usage:  "Delete a forwarder address",
+					Action: client.DeleteForwarder,
 				},
 			},
 		},
