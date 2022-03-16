@@ -51,10 +51,15 @@ var upkeepHistoryCmd = &cobra.Command{
 			log.Fatal("failed to get 'to' flag: ", err)
 		}
 
+		gasPrice, err := cmd.Flags().GetUint64("gas-price")
+		if err != nil {
+			log.Fatal("failed to get 'gas-price' flag: ", err)
+		}
+
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
 
-		hdlr.UpkeepHistory(cmd.Context(), upkeepId, fromBlock, toBlock)
+		hdlr.UpkeepHistory(cmd.Context(), upkeepId, fromBlock, toBlock, gasPrice)
 	},
 }
 
@@ -62,4 +67,5 @@ func init() {
 	upkeepHistoryCmd.Flags().Int64("upkeep-id", 0, "upkeep ID")
 	upkeepHistoryCmd.Flags().Uint64("from", 0, "from block")
 	upkeepHistoryCmd.Flags().Uint64("to", 0, "to block")
+	upkeepHistoryCmd.Flags().Uint64("gas-price", 0, "gas price to use")
 }

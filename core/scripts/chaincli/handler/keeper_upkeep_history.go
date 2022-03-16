@@ -33,7 +33,7 @@ func init() {
 }
 
 // UpkeepHistory prints the checkUpkeep status and keeper responsibility for a given upkeep in a set block range
-func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uint64) {
+func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, gasPrice uint64) {
 	// There must not be a large different between boundaries
 	if to-from > defaultMaxBlocksRange {
 		log.Fatalf("blocks range difference must not more than %d", defaultMaxBlocksRange)
@@ -59,14 +59,12 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 			BlockNumber: big.NewInt(0).SetUint64(block),
 		}
 
-		log.Println("Fetching registry config")
 		registryConfig, err := registryClient.GetConfig(&callOpts)
 		if err != nil {
 			log.Fatal("failed to fetch registry config: ", err)
 		}
 		blockCountPerTurn := registryConfig.BlockCountPerTurn.Uint64()
 
-		log.Println("Fetching registry keepers list")
 		keepersList, err := registryClient.GetKeeperList(&callOpts)
 		if err != nil {
 			log.Fatal("failed to fetch keepers list: ", err)
@@ -78,14 +76,19 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 			log.Fatal("failed to pack checkUpkeep: ", err)
 		}
 
+		args := map[string]interface{}{
+			"to":   k.cfg.RegistryAddress,
+			"data": hexutil.Bytes(payload),
+		}
+		if gasPrice > 0 {
+			args["gasPrice"] = hexutil.EncodeUint64(gasPrice)
+		}
+
 		var result string
 		reqs = append(reqs, rpc.BatchElem{
 			Method: "eth_call",
 			Args: []interface{}{
-				map[string]interface{}{
-					"to":   k.cfg.RegistryAddress,
-					"data": hexutil.Bytes(payload),
-				},
+				args,
 				// The block at which we want to inspect the upkeep state
 				hexutil.EncodeUint64(block),
 			},
