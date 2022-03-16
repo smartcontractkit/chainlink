@@ -24,6 +24,14 @@ const (
 	defaultMaxBlocksRange = 1000
 )
 
+var (
+	checkUpkeepArguments abi.Arguments
+)
+
+func init() {
+	checkUpkeepArguments = keeper.RegistryABI.Methods["checkUpkeep"].Outputs
+}
+
 // UpkeepHistory prints the checkUpkeep status and keeper responsibility for a given upkeep in a set block range
 func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uint64) {
 	// There must not be a large different between boundaries
@@ -115,8 +123,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uin
 			continue
 		}
 
-		returnValues, err := keeper.RegistryABI.Methods["checkUpkeep"].
-			Outputs.UnpackValues(hexutil.MustDecode(*results[i]))
+		returnValues, err := checkUpkeepArguments.UnpackValues(hexutil.MustDecode(*results[i]))
 		if err != nil {
 			log.Fatal("unpack checkUpkeep return: ", err, *results[i])
 		}
