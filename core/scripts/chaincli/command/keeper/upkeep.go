@@ -87,5 +87,5 @@ func getRange(cmd *cobra.Command) (uint64, uint64) {
 
 func init() {
 	upkeepHistoryCmd.Flags().Int64("upkeep-id", 0, "upkeep ID")
-	upkeepHistoryCmd.Flags().String("range", "10", "block range")
+	upkeepHistoryCmd.Flags().String("range", "", "block range")
 }
