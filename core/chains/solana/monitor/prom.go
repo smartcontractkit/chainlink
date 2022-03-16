@@ -9,8 +9,8 @@ import (
 )
 
 var promTerraBalance = promauto.NewGaugeVec(
-	prometheus.GaugeOpts{Name: "terra_balance", Help: "Terra account balances"},
-	[]string{"account", "terraChainID", "denomination"},
+	prometheus.GaugeOpts{Name: "solana_balance", Help: "Solana account balances"},
+	[]string{"account", "solanaChainID", "balanceSOL"},
 )
 
 func (b *balanceMonitor) updateProm(acc solana.PublicKey, lamports uint64) {

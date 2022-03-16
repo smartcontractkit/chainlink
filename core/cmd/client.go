@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -169,6 +170,21 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
 			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Terra chainset")
+		}
+	}
+
+	if cfg.SolanaEnabled() {
+		solLggr := appLggr.Named("Solana")
+		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
+			Config:           cfg,
+			Logger:           solLggr,
+			DB:               db,
+			KeyStore:         keyStore.Solana(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              solana.NewORM(db, solLggr, cfg),
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to load Terra chainset")

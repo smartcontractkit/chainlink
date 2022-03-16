@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink
 
 go 1.17
 
+replace github.com/smartcontractkit/chainlink-solana => ../chainlink-solana
+
 require (
 	github.com/Depado/ginprom v1.7.3
 	github.com/Masterminds/semver/v3 v3.1.1
