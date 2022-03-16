@@ -8,22 +8,21 @@ import (
 	"testing"
 	"time"
 
-	clnull "github.com/smartcontractkit/chainlink/core/null"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/stretchr/testify/assert"
-
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/adapters"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 func TestMigrateController_MigrateRunLog(t *testing.T) {
@@ -626,6 +625,203 @@ func TestMigrateController_MigrateCron(t *testing.T) {
 	cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
 	assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
 	assert.Equal(t, "CRON_TZ=UTC 0 * * * * *", migratedJobV2.CronSpec.CronSchedule)
+}
+
+func TestMigrateController_MigrateUtilEthTx_encode(t *testing.T) {
+	for _, tt := range []struct {
+		firstInit  string
+		secondInit string
+	}{
+		{"cron", "web"},
+		{"web", "cron"},
+	} {
+		t.Run(tt.firstInit+"-"+tt.secondInit, func(t *testing.T) {
+			config, cfgCleanup := cltest.NewConfig(t)
+			t.Cleanup(cfgCleanup)
+			config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+			config.Set("ETH_DISABLED", true)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+			t.Cleanup(cleanup)
+			app.Config.Set("FEATURE_CRON_V2", true)
+			require.NoError(t, app.Start())
+			client := app.NewHTTPClient()
+
+			// Create the v1 job
+			resp, cleanup := client.Post("/v2/specs", strings.NewReader(fmt.Sprintf(`
+{
+  "name": "",
+  "initiators": [
+    {
+      "id": 52,
+      "jobSpecId": "95311d21-7c9f-4f35-b00c-fa32b5ae97e1",
+      "type": "%s",
+      "params": { "schedule": "CRON_TZ=UTC * * * * *" }
+    },
+    {
+      "id": 52,
+      "jobSpecId": "95311d21-7c9f-4f35-b00c-fa32b5ae97e1",
+      "type": "%s",
+      "params": { "schedule": "CRON_TZ=UTC * * * * *" }
+    }
+  ],
+  "tasks": [
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "ethtx",
+      "params": {"address": "0xf480B1D3658b8f2642bCe6ABCd7E98B96B2A8fC6", "gasLimit": 2800000, "functionSelector": "requestNewRound()"}
+    }
+  ]
+}
+`, tt.firstInit, tt.secondInit)))
+			assert.Equal(t, 200, resp.StatusCode)
+			t.Cleanup(cleanup)
+			var jobV1 presenters.JobSpec
+			cltest.ParseJSONAPIResponse(t, resp, &jobV1)
+			expectedDotSpec := `encode_tx_0 [
+	abi="requestNewRound()"
+	type=ethabiencode
+	];
+	send_tx_0 [
+	data="$(encode_tx_0)"
+	gasLimit=2800000
+	to="0xf480B1D3658b8f2642bCe6ABCd7E98B96B2A8fC6"
+	type=ethtx
+	];
+	
+	// Edge definitions.
+	encode_tx_0 -> send_tx_0;
+	`
+
+			// Migrate it
+			resp, cleanup = client.Post(fmt.Sprintf("/v2/migrate/%s", jobV1.ID.String()), nil)
+			t.Cleanup(cleanup)
+
+			assert.Equal(t, 200, resp.StatusCode)
+
+			var createdJobV2 webpresenters.JobResource
+			cltest.ParseJSONAPIResponse(t, resp, &createdJobV2)
+
+			// v2 job migrated should be identical to v1.
+			assert.Equal(t, uint32(1), createdJobV2.SchemaVersion)
+			assert.Equal(t, job.Cron.String(), createdJobV2.Type.String())
+			assert.Equal(t, createdJobV2.Name, jobV1.Name)
+			require.NotNil(t, createdJobV2.CronSpec)
+			assert.Equal(t, expectedDotSpec, createdJobV2.PipelineSpec.DotDAGSource)
+
+			// v1 FM job should be archived
+			resp, cleanup = client.Get(fmt.Sprintf("/v2/specs/%s", jobV1.ID.String()), nil)
+			t.Cleanup(cleanup)
+			assert.Equal(t, 404, resp.StatusCode)
+			errs := cltest.ParseJSONAPIErrors(t, resp.Body)
+			require.NotNil(t, errs)
+			require.Len(t, errs.Errors, 1)
+			require.Equal(t, "JobSpec not found", errs.Errors[0].Detail)
+
+			// v2 job read should be identical to created.
+			resp, cleanup = client.Get(fmt.Sprintf("/v2/jobs/%s", createdJobV2.ID), nil)
+			assert.Equal(t, 200, resp.StatusCode)
+			t.Cleanup(cleanup)
+			var migratedJobV2 webpresenters.JobResource
+			cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
+			assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
+			assert.Equal(t, "CRON_TZ=UTC 0 * * * * *", migratedJobV2.CronSpec.CronSchedule)
+		})
+	}
+}
+
+func TestMigrateController_MigrateUtilEthTx_hex(t *testing.T) {
+	for _, tt := range []struct {
+		firstInit  string
+		secondInit string
+	}{
+		{"cron", "web"},
+		{"web", "cron"},
+	} {
+		t.Run(tt.firstInit+"-"+tt.secondInit, func(t *testing.T) {
+			config, cfgCleanup := cltest.NewConfig(t)
+			t.Cleanup(cfgCleanup)
+			config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+			config.Set("ETH_DISABLED", true)
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+			t.Cleanup(cleanup)
+			app.Config.Set("FEATURE_CRON_V2", true)
+			require.NoError(t, app.Start())
+			client := app.NewHTTPClient()
+
+			// Create the v1 job
+			resp, cleanup := client.Post("/v2/specs", strings.NewReader(fmt.Sprintf(`
+{
+  "name": "",
+  "initiators": [
+    {
+      "id": 52,
+      "jobSpecId": "95311d21-7c9f-4f35-b00c-fa32b5ae97e1",
+      "type": "%s",
+      "params": { "schedule": "CRON_TZ=UTC * * * * *" }
+    },
+    {
+      "id": 52,
+      "jobSpecId": "95311d21-7c9f-4f35-b00c-fa32b5ae97e1",
+      "type": "%s",
+      "params": { "schedule": "CRON_TZ=UTC * * * * *" }
+    }
+  ],
+  "tasks": [
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "ethtx",
+      "params": {"address": "0xf480B1D3658b8f2642bCe6ABCd7E98B96B2A8fC6", "gasLimit": 2800000, "functionSelector": "0x609ff1bd"}
+    }
+  ]
+}
+`, tt.firstInit, tt.secondInit)))
+			assert.Equal(t, 200, resp.StatusCode)
+			t.Cleanup(cleanup)
+			var jobV1 presenters.JobSpec
+			cltest.ParseJSONAPIResponse(t, resp, &jobV1)
+			expectedDotSpec := `send_tx_0 [
+	data="0x609ff1bd"
+	gasLimit=2800000
+	to="0xf480B1D3658b8f2642bCe6ABCd7E98B96B2A8fC6"
+	type=ethtx
+	];
+	`
+
+			// Migrate it
+			resp, cleanup = client.Post(fmt.Sprintf("/v2/migrate/%s", jobV1.ID.String()), nil)
+			t.Cleanup(cleanup)
+
+			assert.Equal(t, 200, resp.StatusCode)
+
+			var createdJobV2 webpresenters.JobResource
+			cltest.ParseJSONAPIResponse(t, resp, &createdJobV2)
+
+			// v2 job migrated should be identical to v1.
+			assert.Equal(t, uint32(1), createdJobV2.SchemaVersion)
+			assert.Equal(t, job.Cron.String(), createdJobV2.Type.String())
+			assert.Equal(t, createdJobV2.Name, jobV1.Name)
+			require.NotNil(t, createdJobV2.CronSpec)
+			assert.Equal(t, expectedDotSpec, createdJobV2.PipelineSpec.DotDAGSource)
+
+			// v1 FM job should be archived
+			resp, cleanup = client.Get(fmt.Sprintf("/v2/specs/%s", jobV1.ID.String()), nil)
+			t.Cleanup(cleanup)
+			assert.Equal(t, 404, resp.StatusCode)
+			errs := cltest.ParseJSONAPIErrors(t, resp.Body)
+			require.NotNil(t, errs)
+			require.Len(t, errs.Errors, 1)
+			require.Equal(t, "JobSpec not found", errs.Errors[0].Detail)
+
+			// v2 job read should be identical to created.
+			resp, cleanup = client.Get(fmt.Sprintf("/v2/jobs/%s", createdJobV2.ID), nil)
+			assert.Equal(t, 200, resp.StatusCode)
+			t.Cleanup(cleanup)
+			var migratedJobV2 webpresenters.JobResource
+			cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
+			assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
+			assert.Equal(t, "CRON_TZ=UTC 0 * * * * *", migratedJobV2.CronSpec.CronSchedule)
+		})
+	}
 }
 
 func TestMigrateController_Migrate(t *testing.T) {
