@@ -20,8 +20,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
+const (
+	defaultMaxBlocksRange = 1000
+)
+
 // UpkeepHistory prints the checkUpkeep status and keeper responsibility for a given upkeep in a set block range
 func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to uint64) {
+	// There must not be a large different between boundaries
+	if to-from > defaultMaxBlocksRange {
+		log.Fatal("blocks range difference must not more than 1000")
+	}
+
 	registryAddr, registryClient := k.GetRegistry(ctx)
 
 	// Get positioning constant of the current registry
