@@ -62,7 +62,7 @@ var (
 		Help: "The approximate total number of successful RPC calls for the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
 	promEVMPoolSendTransactionTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "evm_pool_rpc_node_send_tx_timing",
+		Name: "evm_pool_rpc_node_send_tx_execution_time",
 		Help: "The duration of a SendTransaction call in nanoseconds",
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly"})
 )
