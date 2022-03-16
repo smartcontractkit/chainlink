@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -16,8 +17,8 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
-	"github.com/smartcontractkit/chainlink/core/chains/solana/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
+	"github.com/smartcontractkit/chainlink/core/chains/solana/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -35,10 +36,10 @@ var _ solana.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id  string
-	cfg solana.Config
+	id             string
+	cfg            config.Config
 	txm            *soltxm.Txm
-	balanceMonitor services.Service
+	balanceMonitor services.ServiceCtx
 	orm            types.ORM
 	lggr           logger.Logger
 }
@@ -65,7 +66,7 @@ func (c *chain) ID() string {
 	return c.id
 }
 
-func (c *chain) Config() solana.Config {
+func (c *chain) Config() config.Config {
 	return c.cfg
 }
 
@@ -113,14 +114,14 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 	return client, nil
 }
 
-func (c *chain) Start() error {
+func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
 		c.lggr.Debug("Starting")
 		c.lggr.Debug("Starting txm")
 		c.lggr.Debug("Starting balance monitor")
 		return multierr.Combine(
-			c.txm.Start(),
-			c.balanceMonitor.Start())
+			c.txm.Start(ctx),
+			c.balanceMonitor.Start(ctx))
 	})
 }
 

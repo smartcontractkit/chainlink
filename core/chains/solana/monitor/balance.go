@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -24,7 +25,7 @@ type Keystore interface {
 }
 
 // NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
-func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (solanaClient.Reader, error)) services.Service {
+func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (solanaClient.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }
 
@@ -56,7 +57,7 @@ type balanceMonitor struct {
 	stop, done chan struct{}
 }
 
-func (b *balanceMonitor) Start() error {
+func (b *balanceMonitor) Start(context.Context) error {
 	return b.StartOnce("SolanaBalanceMonitor", func() error {
 		go b.monitor()
 		return nil

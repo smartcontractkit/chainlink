@@ -1,59 +1,65 @@
 package monitor
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 )
 
 func TestBalanceMonitor(t *testing.T) {
 	const chainID = "Chainlinktest-42"
-	ks := keystore{terrakey.New(), terrakey.New(), terrakey.New()}
-	bals := []sdk.Coin{
-		sdk.NewInt64Coin("uluna", 0),
-		sdk.NewInt64Coin("uluna", 1),
-		sdk.NewInt64Coin("uluna", 100000000000),
+	ks := keystore{}
+	for i := 0; i < 3; i++ {
+		k, err := solkey.New()
+		assert.NoError(t, err)
+		ks = append(ks, k)
 	}
+
+	bals := []uint64{0, 1, 1_000_000_000}
 	expBals := []string{
-		"0.000000000000000000luna",
-		"0.000001000000000000luna",
-		"100000.000000000000000000luna",
+		"0.000000000",
+		"0.000000001",
+		"1.000000000",
 	}
+
 	client := new(mocks.ReaderWriter)
 	type update struct{ acc, bal string }
 	var exp []update
 	for i := range bals {
-		acc := sdk.AccAddress(ks[i].PublicKey().Address())
-		client.On("Balance", acc, bals[i].Denom).Return(&bals[i], nil)
+		acc := ks[i].PublicKey()
+		client.On("Balance", acc).Return(bals[i], nil)
 		exp = append(exp, update{acc.String(), expBals[i]})
 	}
 	cfg := &config{blockRate: time.Second}
 	b := newBalanceMonitor(chainID, cfg, logger.TestLogger(t), ks, nil)
 	var got []update
 	done := make(chan struct{})
-	b.updateFn = func(acc sdk.AccAddress, bal *sdk.DecCoin) {
+	b.updateFn = func(acc solana.PublicKey, lamports uint64) {
 		select {
 		case <-done:
 			return
 		default:
 		}
-		got = append(got, update{acc.String(), bal.String()})
+		v := float64(lamports) / 1_000_000_000 // convert from lamports to SOL
+		got = append(got, update{acc.String(), fmt.Sprintf("%.9f", v)})
 		if len(got) == len(exp) {
 			close(done)
 		}
 	}
 	b.reader = client
 
-	require.NoError(t, b.Start())
+	require.NoError(t, b.Start(context.Background()))
 	t.Cleanup(func() {
 		assert.NoError(t, b.Close())
 		client.AssertExpectations(t)
@@ -75,8 +81,8 @@ func (c *config) BlockRate() time.Duration {
 	return c.blockRate
 }
 
-type keystore []terrakey.Key
+type keystore []solkey.Key
 
-func (k keystore) GetAll() ([]terrakey.Key, error) {
+func (k keystore) GetAll() ([]solkey.Key, error) {
 	return k, nil
 }

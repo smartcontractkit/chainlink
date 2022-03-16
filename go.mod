@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink
 
 go 1.17
 
-replace github.com/smartcontractkit/chainlink-solana => ../chainlink-solana
-
 require (
 	github.com/Depado/ginprom v1.7.3
 	github.com/Masterminds/semver/v3 v3.1.1
@@ -56,7 +54,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.18-0.20220315140817-b4df0b6bc414
+	github.com/smartcontractkit/chainlink-solana v0.2.18-0.20220316213038-395cd66ce2e2
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220315114020-a15962b0ed9b
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb

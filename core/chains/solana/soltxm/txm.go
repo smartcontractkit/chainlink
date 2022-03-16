@@ -1,6 +1,7 @@
 package soltxm
 
 import (
+	"context"
 	"fmt"
 
 	solanaGo "github.com/gagliardetto/solana-go"
@@ -15,8 +16,8 @@ import (
 )
 
 var (
-	_ services.Service = (*Txm)(nil)
-	_ solana.TxManager = (*Txm)(nil)
+	_ services.ServiceCtx = (*Txm)(nil)
+	_ solana.TxManager    = (*Txm)(nil)
 )
 
 // Txm manages transactions for the solana blockchain.
@@ -45,7 +46,7 @@ func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lgg
 }
 
 // Start subscribes to queuing channel and processes them.
-func (txm *Txm) Start() error {
+func (txm *Txm) Start(context.Context) error {
 	return txm.starter.StartOnce("solanatxm", func() error {
 		go txm.run()
 		return nil
