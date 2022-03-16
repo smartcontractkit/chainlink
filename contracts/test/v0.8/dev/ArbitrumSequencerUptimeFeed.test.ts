@@ -1,5 +1,5 @@
 import { ethers, network } from 'hardhat'
-import { Contract, BigNumber } from 'ethers'
+import { BigNumber, Contract } from 'ethers'
 import { expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
@@ -292,7 +292,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const noUpdateTx = await _noUpdateTx.wait(1)
       // Assert no update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(0)
-      expect(noUpdateTx.cumulativeGasUsed).to.be.closeTo(
+      expect(noUpdateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
         28300,
         gasUsedDeviation,
       )
@@ -305,7 +305,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
       const updateTx = await _updateTx.wait(1)
       // Assert update
       expect(await arbitrumSequencerUptimeFeed.latestAnswer()).to.equal(1)
-      expect(updateTx.cumulativeGasUsed).to.be.closeTo(93137, gasUsedDeviation)
+      expect(updateTx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+        93137,
+        gasUsedDeviation,
+      )
     })
 
     describe('Aggregator interface', () => {
@@ -326,7 +329,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
             .populateTransaction.getRoundData(1),
         )
         const tx = await _tx.wait(1)
-        expect(tx.cumulativeGasUsed).to.be.closeTo(31157, gasUsedDeviation)
+        expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+          31157,
+          gasUsedDeviation,
+        )
       })
 
       it('should consume a known amount of gas for latestRoundData() @skip-coverage', async () => {
@@ -336,7 +342,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
             .populateTransaction.latestRoundData(),
         )
         const tx = await _tx.wait(1)
-        expect(tx.cumulativeGasUsed).to.be.closeTo(28523, gasUsedDeviation)
+        expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+          28523,
+          gasUsedDeviation,
+        )
       })
 
       it('should consume a known amount of gas for latestAnswer() @skip-coverage', async () => {
@@ -346,7 +355,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
             .populateTransaction.latestAnswer(),
         )
         const tx = await _tx.wait(1)
-        expect(tx.cumulativeGasUsed).to.be.closeTo(28329, gasUsedDeviation)
+        expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+          28329,
+          gasUsedDeviation,
+        )
       })
 
       it('should consume a known amount of gas for latestTimestamp() @skip-coverage', async () => {
@@ -356,7 +368,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
             .populateTransaction.latestTimestamp(),
         )
         const tx = await _tx.wait(1)
-        expect(tx.cumulativeGasUsed).to.be.closeTo(28229, gasUsedDeviation)
+        expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+          28229,
+          gasUsedDeviation,
+        )
       })
 
       it('should consume a known amount of gas for latestRound() @skip-coverage', async () => {
@@ -366,7 +381,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
             .populateTransaction.latestRound(),
         )
         const tx = await _tx.wait(1)
-        expect(tx.cumulativeGasUsed).to.be.closeTo(28245, gasUsedDeviation)
+        expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+          28245,
+          gasUsedDeviation,
+        )
       })
 
       it('should consume a known amount of gas for getAnswer(roundId) @skip-coverage', async () => {
@@ -376,7 +394,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
             .populateTransaction.getAnswer(1),
         )
         const tx = await _tx.wait(1)
-        expect(tx.cumulativeGasUsed).to.be.closeTo(30799, gasUsedDeviation)
+        expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+          30799,
+          gasUsedDeviation,
+        )
       })
 
       it('should consume a known amount of gas for getTimestamp(roundId) @skip-coverage', async () => {
@@ -386,7 +407,10 @@ describe('ArbitrumSequencerUptimeFeed', () => {
             .populateTransaction.getTimestamp(1),
         )
         const tx = await _tx.wait(1)
-        expect(tx.cumulativeGasUsed).to.be.closeTo(30753, gasUsedDeviation)
+        expect(tx.cumulativeGasUsed.toNumber()).to.be.closeTo(
+          30753,
+          gasUsedDeviation,
+        )
       })
     })
   })
