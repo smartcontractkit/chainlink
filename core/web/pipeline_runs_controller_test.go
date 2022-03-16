@@ -29,8 +29,7 @@ import (
 func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
@@ -88,8 +87,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	cfg.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
@@ -247,8 +245,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
 	t.Parallel()
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)

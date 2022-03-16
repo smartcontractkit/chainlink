@@ -72,8 +72,7 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
@@ -248,8 +247,8 @@ observationSource   = """
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+
 	app := cltest.NewApplication(t, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -798,8 +797,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
-	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
-	defer assertMocksCalled()
+	ethClient, sub := cltest.NewEthMocksWithDefaultChain(t)
 	chchNewHeads := make(chan chan<- *evmtypes.Head, 1)
 
 	db := pgtest.NewSqlxDB(t)

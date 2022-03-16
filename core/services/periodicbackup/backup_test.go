@@ -7,14 +7,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func mustNewDatabaseBackup(t *testing.T, config Config) *databaseBackup {
+	if testing.Short() {
+		t.Skip("skipping: DB dependency")
+	}
 	b, err := NewDatabaseBackup(config, logger.TestLogger(t))
 	require.NoError(t, err)
 	return b.(*databaseBackup)

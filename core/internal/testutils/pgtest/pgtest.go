@@ -22,6 +22,9 @@ func NewPGCfg(logSQL bool) pg.LogConfig { return PGCfg{logSQL} }
 func (p PGCfg) LogSQL() bool            { return p.logSQL }
 
 func NewSqlDB(t *testing.T) *sql.DB {
+	if testing.Short() {
+		t.Skip("DB dependency")
+	}
 	db, err := sql.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
@@ -30,6 +33,9 @@ func NewSqlDB(t *testing.T) *sql.DB {
 }
 
 func NewSqlxDB(t *testing.T) *sqlx.DB {
+	if testing.Short() {
+		t.Skip("DB dependency")
+	}
 	db, err := sqlx.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
