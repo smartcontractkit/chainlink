@@ -458,13 +458,12 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 
 func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	var rpcDomain string
-	start := time.Now()
-	defer func() {
+	defer func(start time.Time) {
 		duration := time.Since(start)
 		promEVMPoolSendTransactionTiming.
 			WithLabelValues(n.chainID.String(), n.name, rpcDomain, "false").
 			Observe(float64(duration))
-	}()
+	}(time.Now())
 
 	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {

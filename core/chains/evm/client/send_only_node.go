@@ -88,13 +88,12 @@ func (s *sendOnlyNode) Close() {
 }
 
 func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Transaction) error {
-	start := time.Now()
-	defer func() {
+	defer func(start time.Time) {
 		duration := time.Since(start)
 		promEVMPoolSendTransactionTiming.
 			WithLabelValues(s.chainID.String(), s.name, s.uri.Host, "true").
 			Observe(float64(duration))
-	}()
+	}(time.Now())
 
 	s.log.Debugw("evmclient.Client#SendTransaction(...)",
 		"tx", tx,
