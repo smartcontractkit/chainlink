@@ -50,7 +50,7 @@ type RegistrySynchronizer struct {
 	mailRoom                 MailRoom
 	minIncomingConfirmations uint32
 	orm                      ORM
-	logger                   logger.Logger
+	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
 	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
 	utils.StartStopOnce
@@ -74,7 +74,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		mailRoom:                 mailRoom,
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
-		logger:                   opts.Logger.Named("RegistrySynchronizer"),
+		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 	}
 }
