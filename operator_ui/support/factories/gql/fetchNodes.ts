@@ -14,6 +14,7 @@ export function buildNode(
       id: '42',
     },
     createdAt: minuteAgo,
+    state: '',
     ...overrides,
   }
 }

@@ -14,16 +14,16 @@ var _ Estimator = &fixedPriceEstimator{}
 
 type fixedPriceEstimator struct {
 	config Config
-	lggr   logger.Logger
+	lggr   logger.SugaredLogger
 }
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
 func NewFixedPriceEstimator(cfg Config, lggr logger.Logger) Estimator {
-	return &fixedPriceEstimator{cfg, lggr.Named("FixedPriceEstimator")}
+	return &fixedPriceEstimator{cfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 
-func (f *fixedPriceEstimator) Start() error                                          { return nil }
+func (f *fixedPriceEstimator) Start(context.Context) error                           { return nil }
 func (f *fixedPriceEstimator) Close() error                                          { return nil }
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 

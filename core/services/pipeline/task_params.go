@@ -31,7 +31,7 @@ func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
 	var found bool
 	for _, get := range getters {
 		val, err = get()
-		if errors.Cause(err) == ErrParameterEmpty {
+		if errors.Is(errors.Cause(err), ErrParameterEmpty) {
 			continue
 		} else if err != nil {
 			return err

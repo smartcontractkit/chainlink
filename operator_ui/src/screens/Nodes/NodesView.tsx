@@ -25,6 +25,7 @@ export const NODES_PAYLOAD__RESULTS_FIELDS = gql`
     }
     name
     createdAt
+    state
   }
 `
 
@@ -97,6 +98,7 @@ export const NodesView: React.FC<Props> = ({
                   <TableCell>Name</TableCell>
                   <TableCell>EVM Chain ID</TableCell>
                   <TableCell>Created</TableCell>
+                  <TableCell>State</TableCell>
                 </TableRow>
               </TableHead>
 

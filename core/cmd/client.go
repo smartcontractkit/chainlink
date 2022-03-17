@@ -63,6 +63,7 @@ type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
 	Logger                         logger.Logger
+	CloseLogger                    func() error
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -92,7 +93,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
-	appLggr := logger.NewLogger()
+	appLggr, closeLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
@@ -149,7 +150,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Config:           cfg,
 		Logger:           appLggr,
 		DB:               db,
-		ORM:              evm.NewORM(db),
+		ORM:              evm.NewORM(db, appLggr, cfg),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
@@ -182,6 +183,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
+		CloseLogger:              closeLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 	})
@@ -274,7 +276,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg con
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
-			if err != http.ErrServerClosed {
+			if !errors.Is(err, http.ErrServerClosed) {
 				lggr.Criticalf("Error starting server: %v", err)
 			}
 		}
@@ -439,6 +441,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 type CookieAuthenticator interface {
 	Cookie() (*http.Cookie, error)
 	Authenticate(sessions.SessionRequest) (*http.Cookie, error)
+	Logout() error
 }
 
 type SessionCookieAuthenticatorConfig interface {
@@ -499,10 +502,16 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	return sc, t.store.Save(sc)
 }
 
+// Deletes any stored session
+func (t *SessionCookieAuthenticator) Logout() error {
+	return t.store.Reset()
+}
+
 // CookieStore is a place to store and retrieve cookies.
 type CookieStore interface {
 	Save(cookie *http.Cookie) error
 	Retrieve() (*http.Cookie, error)
+	Reset() error
 }
 
 // MemoryCookieStore keeps a single cookie in memory
@@ -513,6 +522,12 @@ type MemoryCookieStore struct {
 // Save stores a cookie.
 func (m *MemoryCookieStore) Save(cookie *http.Cookie) error {
 	m.Cookie = cookie
+	return nil
+}
+
+// Removes any stored cookie.
+func (m *MemoryCookieStore) Reset() error {
+	m.Cookie = nil
 	return nil
 }
 
@@ -533,6 +548,12 @@ type DiskCookieStore struct {
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
 	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+}
+
+// Removes any stored cookie.
+func (d DiskCookieStore) Reset() error {
+	// Write empty bytes
+	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.

@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/big"
@@ -11,11 +12,12 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -33,16 +35,21 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 
 //go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
-	services.Service
+	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
-	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
+	Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error)
 	Remove(id *big.Int) error
 	Default() (Chain, error)
-	Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
+	Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
 	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
 	Chains() []Chain
 	ChainCount() int
 	ORM() types.ORM
+	// GetNode et al retrieves Nodes from the ORM and adds additional state info
+	GetNode(ctx context.Context, id int32) (node evmtypes.Node, err error)
+	GetNodes(ctx context.Context, offset, limit int) (nodes []evmtypes.Node, count int, err error)
+	GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []evmtypes.Node, count int, err error)
+	GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []types.Node, err error)
 }
 
 type chainSet struct {
@@ -55,7 +62,7 @@ type chainSet struct {
 	opts          ChainSetOpts
 }
 
-func (cll *chainSet) Start() error {
+func (cll *chainSet) Start(ctx context.Context) error {
 	if !cll.opts.Config.EVMEnabled() {
 		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
 		return nil
@@ -64,7 +71,7 @@ func (cll *chainSet) Start() error {
 		cll.logger.Warn("EVM RPC connections are disabled. Chainlink will not connect to any EVM RPC node.")
 	}
 	for _, c := range cll.Chains() {
-		if err := c.Start(); err != nil {
+		if err := c.Start(ctx); err != nil {
 			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
 			continue
 		}
@@ -128,7 +135,7 @@ func (cll *chainSet) Default() (Chain, error) {
 }
 
 // Requires a lock on chainsMu
-func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
+func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) error {
 	// preload nodes
 	nodes, _, err := cll.orm.NodesForChain(dbchain.ID, 0, math.MaxInt)
 	if err != nil {
@@ -141,14 +148,14 @@ func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
 	if err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID.String())
 	}
-	if err = chain.Start(); err != nil {
+	if err = chain.Start(ctx); err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to start chain %s", dbchain.ID.String())
 	}
 	cll.chains[cid] = chain
 	return nil
 }
 
-func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -162,7 +169,7 @@ func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error
 	if err != nil {
 		return types.Chain{}, err
 	}
-	return dbchain, cll.initializeChain(&dbchain)
+	return dbchain, cll.initializeChain(ctx, &dbchain)
 }
 
 func (cll *chainSet) Remove(id *big.Int) error {
@@ -183,7 +190,7 @@ func (cll *chainSet) Remove(id *big.Int) error {
 	return chain.Close()
 }
 
-func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -205,7 +212,7 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 		return types.Chain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
-		return dbchain, cll.initializeChain(&dbchain)
+		return dbchain, cll.initializeChain(ctx, &dbchain)
 	case exists:
 		// Exists in memory, no toggling: Update in-memory chain
 		if err = chain.Config().Configure(config); err != nil {
@@ -267,6 +274,75 @@ func (cll *chainSet) ORM() types.ORM {
 	return cll.orm
 }
 
+func (cll *chainSet) GetNode(ctx context.Context, id int32) (n evmtypes.Node, err error) {
+	n, err = cll.orm.Node(id, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNode failed to load node from DB")
+		return
+	}
+	cll.addStateToNode(&n)
+	return
+}
+
+func (cll *chainSet) GetNodes(ctx context.Context, offset, limit int) (nodes []evmtypes.Node, count int, err error) {
+	nodes, count, err = cll.orm.Nodes(offset, limit, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNodes failed to load nodes from DB")
+		return
+	}
+	for i := range nodes {
+		cll.addStateToNode(&nodes[i])
+	}
+	return
+}
+
+func (cll *chainSet) GetNodesForChain(ctx context.Context, chainID utils.Big, offset, limit int) (nodes []evmtypes.Node, count int, err error) {
+	nodes, count, err = cll.orm.NodesForChain(chainID, offset, limit, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
+		return
+	}
+	for i := range nodes {
+		cll.addStateToNode(&nodes[i])
+	}
+	return
+}
+
+func (cll *chainSet) GetNodesByChainIDs(ctx context.Context, chainIDs []utils.Big) (nodes []evmtypes.Node, err error) {
+	nodes, err = cll.orm.GetNodesByChainIDs(chainIDs, pg.WithParentCtx(ctx))
+	if err != nil {
+		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
+		return
+	}
+	for i := range nodes {
+		cll.addStateToNode(&nodes[i])
+	}
+	return
+}
+
+func (cll *chainSet) addStateToNode(n *evmtypes.Node) {
+	cll.chainsMu.RLock()
+	chain, exists := cll.chains[n.EVMChainID.String()]
+	cll.chainsMu.RUnlock()
+	if !exists {
+		// The EVM chain is disabled
+		n.State = "Disabled"
+		return
+	}
+	states := chain.Client().NodeStates()
+	if states == nil {
+		n.State = "Unknown"
+		return
+	}
+	state, exists := states[n.ID]
+	if exists {
+		n.State = state
+		return
+	}
+	// The node is in the DB and the chain is enabled but it's not running
+	n.State = "NotLoaded"
+}
+
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
 	Logger           logger.Logger
@@ -279,7 +355,7 @@ type ChainSetOpts struct {
 	GenEthClient      func(types.Chain) evmclient.Client
 	GenLogBroadcaster func(types.Chain) log.Broadcaster
 	GenHeadTracker    func(types.Chain, httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func(types.Chain) bulletprooftxmanager.TxManager
+	GenTxManager      func(types.Chain) txmgr.TxManager
 }
 
 func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
@@ -331,7 +407,7 @@ func checkOpts(opts *ChainSetOpts) error {
 		return errors.New("config must be non-nil")
 	}
 	if opts.ORM == nil {
-		opts.ORM = NewORM(opts.DB)
+		opts.ORM = NewORM(opts.DB, opts.Logger, opts.Config)
 	}
 	return nil
 }

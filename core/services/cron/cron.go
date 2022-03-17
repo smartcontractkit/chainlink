@@ -1,6 +1,7 @@
 package cron
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/robfig/cron/v3"
@@ -41,7 +42,7 @@ func NewCronFromJobSpec(
 }
 
 // Start implements the job.Service interface.
-func (cr *Cron) Start() error {
+func (cr *Cron) Start(context.Context) error {
 	cr.logger.Debug("Starting")
 
 	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)

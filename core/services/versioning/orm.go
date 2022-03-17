@@ -73,7 +73,8 @@ func CheckVersion(q pg.Queryer, lggr logger.Logger, appVersion string) (appv, db
 		lggr.Debugw("No previous version set", "appVersion", appVersion)
 		return nil, nil, nil
 	} else if err != nil {
-		pqErr, ok := err.(*pgconn.PgError)
+		var pqErr *pgconn.PgError
+		ok := errors.As(err, &pqErr)
 		if ok && pqErr.Code == "42P01" && pqErr.Message == `relation "node_versions" does not exist` {
 			lggr.Debugw("Previous version not set; node_versions table does not exist", "appVersion", appVersion)
 			return nil, nil, nil

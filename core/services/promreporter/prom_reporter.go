@@ -109,7 +109,8 @@ func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...interface{}) *promR
 	}
 }
 
-func (pr *promReporter) Start() error {
+// Start starts PromReporter.
+func (pr *promReporter) Start(context.Context) error {
 	return pr.StartOnce("PromReporter", func() error {
 		pr.wgDone.Add(1)
 		go pr.eventLoop()

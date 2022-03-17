@@ -5,19 +5,20 @@ package mocks
 import (
 	big "math/big"
 
-	balancemonitor "github.com/smartcontractkit/chainlink/core/chains/evm/balancemonitor"
-
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-
 	client "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-
 	config "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+
+	context "context"
 
 	log "github.com/smartcontractkit/chainlink/core/chains/evm/log"
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
+
+	monitor "github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
+
+	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 )
@@ -28,15 +29,15 @@ type Chain struct {
 }
 
 // BalanceMonitor provides a mock function with given fields:
-func (_m *Chain) BalanceMonitor() balancemonitor.BalanceMonitor {
+func (_m *Chain) BalanceMonitor() monitor.BalanceMonitor {
 	ret := _m.Called()
 
-	var r0 balancemonitor.BalanceMonitor
-	if rf, ok := ret.Get(0).(func() balancemonitor.BalanceMonitor); ok {
+	var r0 monitor.BalanceMonitor
+	if rf, ok := ret.Get(0).(func() monitor.BalanceMonitor); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(balancemonitor.BalanceMonitor)
+			r0 = ret.Get(0).(monitor.BalanceMonitor)
 		}
 	}
 
@@ -197,13 +198,13 @@ func (_m *Chain) Ready() error {
 	return r0
 }
 
-// Start provides a mock function with given fields:
-func (_m *Chain) Start() error {
-	ret := _m.Called()
+// Start provides a mock function with given fields: _a0
+func (_m *Chain) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -212,15 +213,15 @@ func (_m *Chain) Start() error {
 }
 
 // TxManager provides a mock function with given fields:
-func (_m *Chain) TxManager() bulletprooftxmanager.TxManager {
+func (_m *Chain) TxManager() txmgr.TxManager {
 	ret := _m.Called()
 
-	var r0 bulletprooftxmanager.TxManager
-	if rf, ok := ret.Get(0).(func() bulletprooftxmanager.TxManager); ok {
+	var r0 txmgr.TxManager
+	if rf, ok := ret.Get(0).(func() txmgr.TxManager); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(bulletprooftxmanager.TxManager)
+			r0 = ret.Get(0).(txmgr.TxManager)
 		}
 	}
 

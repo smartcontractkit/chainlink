@@ -28,7 +28,7 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 		keyOrder[key.String()] = ix
 	}
 
-	nodes, err := b.app.EVMORM().GetNodesByChainIDs(chainIDs)
+	nodes, err := b.app.GetChains().EVM.GetNodesByChainIDs(ctx, chainIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

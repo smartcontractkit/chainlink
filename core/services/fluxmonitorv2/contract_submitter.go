@@ -43,7 +43,7 @@ func NewFluxAggregatorContractSubmitter(
 	}
 }
 
-// Submit submits the answer by writing a EthTx for the bulletprooftxmanager to
+// Submit submits the answer by writing a EthTx for the txmgr to
 // pick up
 func (c *FluxAggregatorContractSubmitter) Submit(roundID *big.Int, submission *big.Int, qopts ...pg.QOpt) error {
 	fromAddress, err := c.keyStore.GetRoundRobinAddress()
