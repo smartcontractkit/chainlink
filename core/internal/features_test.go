@@ -552,9 +552,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 }
 
 func TestIntegration_OCR(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+	testutils.SkipShort(t, "long test")
 	tests := []struct {
 		id        int
 		portStart int // Test need to run in parallel, all need distinct port ranges.

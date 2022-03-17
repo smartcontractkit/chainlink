@@ -26,6 +26,8 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -45,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/smartcontractkit/sqlx"
 )
 
 const description = "exactly thirty-three characters!!"
@@ -102,9 +103,7 @@ func WithMinMaxSubmission(min, max *big.Int) func(cfg *fluxAggregatorUniverseCon
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAggregatorUniverseConfig)) fluxAggregatorUniverse {
-	if testing.Short() {
-		t.Skip("skipping due to VRFCoordinatorV2Universe")
-	}
+	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
 	cfg := &fluxAggregatorUniverseConfig{
 		MinSubmission: big.NewInt(0),
 		MaxSubmission: big.NewInt(100000000000),

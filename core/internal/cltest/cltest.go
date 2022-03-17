@@ -301,9 +301,7 @@ const (
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
 func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
-	if testing.Short() {
-		t.Skip("DB dependency")
-	}
+	testutils.SkipShortDB(t)
 
 	lggr := logger.TestLogger(t)
 
@@ -414,9 +412,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 }
 
 func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription) {
-	if testing.Short() {
-		t.Skip("skipping: DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	c, s = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
@@ -461,9 +457,7 @@ func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
 }
 
 func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
-	if testing.Short() {
-		t.Skip("skipping: long test")
-	}
+	testutils.SkipShort(t, "long test")
 	c, s := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
@@ -484,9 +478,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
 func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Client {
-	if testing.Short() {
-		t.Skip("skipping: long test")
-	}
+	testutils.SkipShort(t, "long test")
 	c, s := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)

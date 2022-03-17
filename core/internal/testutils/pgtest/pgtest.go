@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -22,9 +23,7 @@ func NewPGCfg(logSQL bool) pg.LogConfig { return PGCfg{logSQL} }
 func (p PGCfg) LogSQL() bool            { return p.logSQL }
 
 func NewSqlDB(t *testing.T) *sql.DB {
-	if testing.Short() {
-		t.Skip("DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	db, err := sql.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
@@ -33,9 +32,7 @@ func NewSqlDB(t *testing.T) *sql.DB {
 }
 
 func NewSqlxDB(t *testing.T) *sqlx.DB {
-	if testing.Short() {
-		t.Skip("DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	db, err := sqlx.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 
@@ -13,9 +14,7 @@ import (
 )
 
 func TestLockedDB_HappyPath(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping: DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.DatabaseLockingMode = null.StringFrom("dual")
 	lggr := logger.TestLogger(t)
@@ -31,9 +30,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 }
 
 func TestLockedDB_ContextCancelled(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping: DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.DatabaseLockingMode = null.StringFrom("dual")
 	lggr := logger.TestLogger(t)
@@ -47,9 +44,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 }
 
 func TestLockedDB_OpenTwice(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping: DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.DatabaseLockingMode = null.StringFrom("lease")
 	lggr := logger.TestLogger(t)
@@ -65,9 +60,7 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 }
 
 func TestLockedDB_TwoInstances(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping: DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.DatabaseLockingMode = null.StringFrom("dual")
 	lggr := logger.TestLogger(t)
@@ -89,9 +82,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 }
 
 func TestOpenUnlockedDB(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping: DB dependency")
-	}
+	testutils.SkipShortDB(t)
 	config := cltest.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 
