@@ -117,7 +117,7 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 				go func() {
 					// Use background context to retry forever to connect
 					// Blocks until we connect
-					conn, err := wsrpc.DialUniWithContext(context.Background(), tc.lggr, tc.url.String(), clientPrivKey, serverPubKey)
+					conn, err := wsrpc.DialUniWithContext(ctx, tc.lggr, tc.url.String(), clientPrivKey, serverPubKey)
 					if err != nil {
 						tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
 					} else {
@@ -127,12 +127,13 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 					}
 				}()
 			} else {
-				// Spawns a goroutine will will eventually connect
-				conn, err := wsrpc.DialUniWithContext(ctx, tc.lggr, tc.url.String(), clientPrivKey, serverPubKey)
+				// Spawns a goroutine that will eventually connect
+				conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 				if err != nil {
 					return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
 				}
 				tc.telemClient = telemPb.NewTelemClient(conn)
+				tc.close = func() error { conn.Close(); return nil }
 			}
 		}
 
@@ -145,7 +146,7 @@ func (tc *telemetryIngressBatchClient) Close() error {
 	return tc.StopOnce("TelemetryIngressBatchClient", func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
-		if tc.useUniConn && tc.connected.Load() {
+		if tc.useUniConn && tc.connected.Load() || !tc.useUniConn {
 			return tc.close()
 		}
 		return nil
@@ -170,7 +171,7 @@ func (tc *telemetryIngressBatchClient) getCSAPrivateKey() (privkey []byte, err e
 // and a warning is logged.
 func (tc *telemetryIngressBatchClient) Send(payload TelemPayload) {
 	if tc.useUniConn && !tc.connected.Load() {
-		tc.lggr.Errorw("not connected to telemetry endpoint", "endpoint", tc.url.String())
+		tc.lggr.Warnw("not connected to telemetry endpoint", "endpoint", tc.url.String())
 		return
 	}
 	worker := tc.findOrCreateWorker(payload)
