@@ -31,12 +31,10 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 
-	t.Run("with no p2p keys panics", func(t *testing.T) {
+	t.Run("with no p2p keys returns error", func(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db, cfg)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
-		require.Panics(t, func() {
-			pw.Start(testutils.Context(t))
-		})
+		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 	})
 
 	var k p2pkey.KeyV2
