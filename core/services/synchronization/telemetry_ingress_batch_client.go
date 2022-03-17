@@ -51,9 +51,9 @@ type telemetryIngressBatchClient struct {
 	ks              keystore.CSA
 	serverPubKeyHex string
 
-	connected    *atomic.Bool
-	telemClient  telemPb.TelemClient
-	close        func() error
+	connected   *atomic.Bool
+	telemClient telemPb.TelemClient
+	close       func() error
 
 	globalLogger logger.Logger
 	logging      bool
