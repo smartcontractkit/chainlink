@@ -106,7 +106,7 @@ func Test_Bridge(t *testing.T) {
 				}
 			}`
 
-		name = bridges.TaskType("bridge1")
+		name = bridges.BridgeName("bridge1")
 	)
 	bridgeURL, err := url.Parse("https://external.adapter")
 	require.NoError(t, err)
@@ -164,7 +164,7 @@ func Test_CreateBridge(t *testing.T) {
 	t.Parallel()
 
 	var (
-		name     = bridges.TaskType("bridge1")
+		name     = bridges.BridgeName("bridge1")
 		mutation = `
 			mutation createBridge($input: CreateBridgeInput!) {
 				createBridge(input: $input) {
@@ -244,7 +244,7 @@ func Test_UpdateBridge(t *testing.T) {
 	t.Parallel()
 
 	var (
-		name     = bridges.TaskType("bridge1")
+		name     = bridges.BridgeName("bridge1")
 		mutation = `
 			mutation updateBridge($id: ID!, $input: UpdateBridgeInput!) {
 				updateBridge(id: $id, input: $input) {
@@ -301,7 +301,7 @@ func Test_UpdateBridge(t *testing.T) {
 				f.Mocks.bridgeORM.On("FindBridge", name).Return(bridge, nil)
 
 				btr := &bridges.BridgeTypeRequest{
-					Name:                   bridges.TaskType("bridge-updated"),
+					Name:                   bridges.BridgeName("bridge-updated"),
 					URL:                    models.WebURL(*newBridgeURL),
 					Confirmations:          2,
 					MinimumContractPayment: assets.NewLinkFromJuels(2),
@@ -361,7 +361,7 @@ func Test_UpdateBridge(t *testing.T) {
 func Test_DeleteBridgeMutation(t *testing.T) {
 	t.Parallel()
 
-	name := bridges.TaskType("bridge1")
+	name := bridges.BridgeName("bridge1")
 
 	bridgeURL, err := url.Parse("https://test-url.com")
 	require.NoError(t, err)

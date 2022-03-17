@@ -1,6 +1,7 @@
 package periodicbackup
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -36,7 +38,7 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		services.Service
+		services.ServiceCtx
 		RunBackup(version string) error
 	}
 
@@ -61,7 +63,7 @@ type (
 )
 
 // NewDatabaseBackup instantiates a *databaseBackup
-func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
+func NewDatabaseBackup(config Config, lggr logger.Logger) (DatabaseBackup, error) {
 	lggr = lggr.Named("DatabaseBackup")
 	dbUrl := config.DatabaseURL()
 	dbBackupUrl := config.DatabaseBackupURL()
@@ -73,7 +75,7 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
 	if config.DatabaseBackupDir() != "" {
 		dir, err := filepath.Abs(config.DatabaseBackupDir())
 		if err != nil {
-			lggr.Fatalf("Failed to get path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
+			return nil, errors.Errorf("failed to get path for DATABASE_BACKUP_DIR (%s) - please set it to a valid directory path", config.DatabaseBackupDir())
 		}
 		outputParentDir = dir
 	}
@@ -86,10 +88,11 @@ func NewDatabaseBackup(config Config, lggr logger.Logger) DatabaseBackup {
 		outputParentDir,
 		make(chan bool),
 		utils.StartStopOnce{},
-	}
+	}, nil
 }
 
-func (backup *databaseBackup) Start() error {
+// Start starts DatabaseBackup.
+func (backup *databaseBackup) Start(context.Context) error {
 	return backup.StartOnce("DatabaseBackup", func() (err error) {
 		ticker := time.NewTicker(backup.frequency)
 		if backup.frequency == 0 {
@@ -191,7 +194,8 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 			maskedArguments: maskedArgs,
 			pgDumpArguments: args,
 		}
-		if ee, ok := err.(*exec.ExitError); ok {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
 			return partialResult, errors.Wrapf(err, "pg_dump failed with output: %s", string(ee.Stderr))
 		}
 		return partialResult, errors.Wrap(err, "pg_dump failed")

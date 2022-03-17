@@ -1,5 +1,3 @@
-//go:build smoke
-
 package smoke_test
 
 //revive:disable:dot-imports
@@ -36,7 +34,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			e, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(environment.ChainlinkReplicas(3, nil)),
+				environment.NewChainlinkConfig(environment.ChainlinkReplicas(3, nil), ""),
 				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -136,7 +134,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
 			nets.Default.GasStats().PrintStats()
-			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

@@ -3,14 +3,18 @@ package job
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
 
-	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
-
+	"github.com/jackc/pgconn"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,14 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/sqlx"
-
-	"github.com/jackc/pgconn"
-	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 )
 
 var (
@@ -44,6 +45,7 @@ type ORM interface {
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
 	FindJobByExternalJobID(uuid uuid.UUID, qopts ...pg.QOpt) (Job, error)
+	FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (int32, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
 	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
@@ -68,6 +70,7 @@ type orm struct {
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
 	lggr        logger.Logger
+	bridgeORM   bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
@@ -86,10 +89,38 @@ func NewORM(
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
+		bridgeORM:   bridges.NewORM(db, lggr, cfg),
 		lggr:        namedLogger,
 	}
 }
 func (o *orm) Close() error {
+	return nil
+}
+
+func (o *orm) assertBridgesExist(p pipeline.Pipeline) error {
+	var bridgeNames = make(map[bridges.BridgeName]struct{})
+	var uniqueBridges []bridges.BridgeName
+	for _, task := range p.Tasks {
+		if task.Type() == pipeline.TaskTypeBridge {
+			// Bridge must exist
+			name := task.(*pipeline.BridgeTask).Name
+			bridge, err := bridges.ParseBridgeName(name)
+			if err != nil {
+				return err
+			}
+			if _, have := bridgeNames[bridge]; have {
+				continue
+			}
+			bridgeNames[bridge] = struct{}{}
+			uniqueBridges = append(uniqueBridges, bridge)
+		}
+	}
+	if len(uniqueBridges) != 0 {
+		_, err := o.bridgeORM.FindBridges(uniqueBridges)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -99,21 +130,8 @@ func (o *orm) Close() error {
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
-	for _, task := range p.Tasks {
-		if task.Type() == pipeline.TaskTypeBridge {
-			// Bridge must exist
-			name := task.(*pipeline.BridgeTask).Name
-
-			sql := `SELECT EXISTS(SELECT 1 FROM bridge_types WHERE name = $1);`
-			var exists bool
-			err := q.Get(&exists, sql, name)
-			if err != nil {
-				return errors.Wrap(err, "CreateJob failed to check bridge")
-			}
-			if !exists {
-				return errors.Wrap(pipeline.ErrNoSuchBridge, name)
-			}
-		}
+	if err := o.assertBridgesExist(p); err != nil {
+		return err
 	}
 
 	var jobID int32
@@ -146,71 +164,86 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.FluxMonitorSpecID = &specID
 		case OffchainReporting:
 			var specID int32
-			if jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID != nil {
-				_, err := o.keyStore.OCR().Get(jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID.String())
+			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
+				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCROracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
-			if jb.OffchainreportingOracleSpec.TransmitterAddress != nil {
-				_, err := o.keyStore.Eth().Get(jb.OffchainreportingOracleSpec.TransmitterAddress.Hex())
+			if jb.OCROracleSpec.TransmitterAddress != nil {
+				_, err := o.keyStore.Eth().Get(jb.OCROracleSpec.TransmitterAddress.Hex())
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OffchainreportingOracleSpec.TransmitterAddress)
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCROracleSpec.TransmitterAddress)
 				}
 			}
 
-			sql := `INSERT INTO offchainreporting_oracle_specs (contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
+			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
 					observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id,
 					created_at, updated_at, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout)
 			VALUES (:contract_address, :p2p_bootstrap_peers, :is_bootstrap_peer, :encrypted_ocr_key_bundle_id, :transmitter_address,
 					:observation_timeout, :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id,
 					NOW(), NOW(), :database_timeout, :observation_grace_period, :contract_transmitter_transmit_timeout)
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OffchainreportingOracleSpec)
+			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCROracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec")
 			}
-			jb.OffchainreportingOracleSpecID = &specID
+			jb.OCROracleSpecID = &specID
 		case OffchainReporting2:
 			var specID int32
-			if jb.Offchainreporting2OracleSpec.OCRKeyBundleID.Valid {
-				_, err := o.keyStore.OCR2().Get(jb.Offchainreporting2OracleSpec.OCRKeyBundleID.String)
+			if jb.OCR2OracleSpec.OCRKeyBundleID.Valid {
+				_, err := o.keyStore.OCR2().Get(jb.OCR2OracleSpec.OCRKeyBundleID.String)
 				if err != nil {
-					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.Offchainreporting2OracleSpec.OCRKeyBundleID)
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OCR2OracleSpec.OCRKeyBundleID)
 				}
 			}
-			if jb.Offchainreporting2OracleSpec.TransmitterID.Valid {
-				switch jb.Offchainreporting2OracleSpec.Relay {
+			if jb.OCR2OracleSpec.TransmitterID.Valid {
+				switch jb.OCR2OracleSpec.Relay {
 				case relaytypes.EVM:
-					_, err := o.keyStore.Eth().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
+					_, err := o.keyStore.Eth().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				case relaytypes.Solana:
-					_, err := o.keyStore.Solana().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
+					_, err := o.keyStore.Solana().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
 				case relaytypes.Terra:
-					_, err := o.keyStore.Terra().Get(jb.Offchainreporting2OracleSpec.TransmitterID.String)
+					_, err := o.keyStore.Terra().Get(jb.OCR2OracleSpec.TransmitterID.String)
 					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.Offchainreporting2OracleSpec.TransmitterID)
+						return errors.Wrapf(ErrNoSuchTransmitterKey, "%v", jb.OCR2OracleSpec.TransmitterID)
 					}
+				}
+			}
+			switch jb.OCR2OracleSpec.PluginType {
+			case Median:
+				var cfg medianconfig.PluginConfig
+				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
+				if err != nil {
+					return errors.Wrap(err, "failed to parse plugin config")
+				}
+				feePipeline, err := pipeline.Parse(cfg.JuelsPerFeeCoinPipeline)
+				if err != nil {
+					return err
+				}
+				if err2 := o.assertBridgesExist(*feePipeline); err2 != nil {
+					return err2
 				}
 			}
 
-			sql := `INSERT INTO offchainreporting2_oracle_specs (contract_id, relay, relay_config, p2p_bootstrap_peers, is_bootstrap_peer, ocr_key_bundle_id, transmitter_id,
-					blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline,
+			sql := `INSERT INTO ocr2_oracle_specs (contract_id, relay, relay_config, plugin_type, plugin_config, p2p_bootstrap_peers, ocr_key_bundle_id, transmitter_id,
+					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :relay, :relay_config, :p2p_bootstrap_peers, :is_bootstrap_peer, :ocr_key_bundle_id, :transmitter_id,
-					 :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :juels_per_fee_coin_pipeline,
+			VALUES (:contract_id, :relay, :relay_config, :plugin_type, :plugin_config, :p2p_bootstrap_peers, :ocr_key_bundle_id, :transmitter_id,
+					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.Offchainreporting2OracleSpec)
+			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCR2OracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
 			}
-			jb.Offchainreporting2OracleSpecID = &specID
+			jb.OCR2OracleSpecID = &specID
 		case Keeper:
 			var specID int32
 			sql := `INSERT INTO keeper_specs (contract_address, from_address, evm_chain_id, created_at, updated_at)
@@ -235,7 +268,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, :requested_confs_delay, :request_timeout, NOW(), NOW())
 			RETURNING id;`
 			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.VRFSpec)
-			pqErr, ok := err.(*pgconn.PgError)
+			var pqErr *pgconn.PgError
+			ok := errors.As(err, &pqErr)
 			if err != nil && ok && pqErr.Code == "23503" {
 				if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
 					return errors.Wrapf(ErrNoSuchPublicKey, "%s", jb.VRFSpec.PublicKey.String())
@@ -275,8 +309,21 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create BlockhashStore spec")
 			}
 			jb.BlockhashStoreSpecID = &specID
+		case Bootstrap:
+			var specID int32
+			sql := `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
+					blockchain_timeout, contract_config_tracker_poll_interval, 
+					contract_config_confirmations, created_at, updated_at)
+			VALUES (:contract_id, :relay, :relay_config, :monitoring_endpoint, 
+					:blockchain_timeout, :contract_config_tracker_poll_interval, 
+					:contract_config_confirmations, NOW(), NOW())
+			RETURNING id;`
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, jb.BootstrapSpec); err != nil {
+				return errors.Wrap(err, "failed to create BootstrapSpec for jobSpec")
+			}
+			jb.BootstrapSpecID = &specID
 		default:
-			o.lggr.Fatalf("Unsupported jb.Type: %v", jb.Type)
+			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
 
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(p, jb.MaxTaskDuration, pg.WithQueryer(tx))
@@ -306,36 +353,42 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, offchainreporting_oracle_spec_id, offchainreporting2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, external_job_id, created_at)
-		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :offchainreporting_oracle_spec_id, :offchainreporting2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :external_job_id, NOW())
+	query := `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
+				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, external_job_id, created_at)
+		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :external_job_id, NOW())
 		RETURNING *;`
 	return q.GetNamed(query, job, job)
 }
 
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
+	o.lggr.Debugw("Deleting job", "jobID", id)
+	// Added a 1 minute timeout to this query since this can take a long time as data increases.
+	// This was added specifically due to an issue with a database that had a millions of pipeline_runs and pipeline_task_runs
+	// and this query was taking ~40secs.
+	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
 	query := `
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
 				pipeline_spec_id,
-				offchainreporting_oracle_spec_id,
-				offchainreporting2_oracle_spec_id,
+				ocr_oracle_spec_id,
+				ocr2_oracle_spec_id,
 				keeper_spec_id,
 				cron_spec_id,
 				flux_monitor_spec_id,
 				vrf_spec_id,
 				webhook_spec_id,
 				direct_request_spec_id,
-				blockhash_store_spec_id
+				blockhash_store_spec_id,
+				bootstrap_spec_id
 		),
 		deleted_oracle_specs AS (
-			DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+			DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)
 		),
 		deleted_oracle2_specs AS (
-			DELETE FROM offchainreporting2_oracle_specs WHERE id IN (SELECT offchainreporting2_oracle_spec_id FROM deleted_jobs)
+			DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)
 		),
 		deleted_keeper_specs AS (
 			DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
@@ -357,6 +410,9 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 		),
 		deleted_blockhash_store_specs AS (
 			DELETE FROM blockhash_store_specs WHERE id IN (SELECT blockhash_store_spec_id FROM deleted_jobs)
+		),
+		deleted_bootstrap_specs AS (
+			DELETE FROM bootstrap_specs WHERE id IN (SELECT bootstrap_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
 	res, cancel, err := q.ExecQIter(query, id)
@@ -371,6 +427,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
+	o.lggr.Debugw("Deleted job", "jobID", id)
 	return nil
 }
 
@@ -383,7 +440,8 @@ func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) err
 	updated_at = excluded.updated_at`
 	err := q.ExecQ(sql, jobID, description, time.Now())
 	// Noop if the job has been deleted.
-	pqErr, ok := err.(*pgconn.PgError)
+	var pqErr *pgconn.PgError
+	ok := errors.As(err, &pqErr)
 	if err != nil && ok && pqErr.Code == "23503" {
 		if pqErr.ConstraintName == "job_spec_errors_v2_job_id_fkey" {
 			return nil
@@ -452,16 +510,16 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 }
 
 func (o *orm) LoadEnvConfigVars(jb *Job) error {
-	if jb.OffchainreportingOracleSpec != nil {
-		ch, err := o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
+	if jb.OCROracleSpec != nil {
+		ch, err := o.chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
 		if err != nil {
 			return err
 		}
-		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), o.keyStore.P2P(), *jb.OffchainreportingOracleSpec)
+		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), o.keyStore.P2P(), *jb.OCROracleSpec)
 		if err != nil {
 			return err
 		}
-		jb.OffchainreportingOracleSpec = newSpec
+		jb.OCROracleSpec = newSpec
 	} else if jb.VRFSpec != nil {
 		ch, err := o.chainSet.Get(jb.VRFSpec.EVMChainID.ToInt())
 		if err != nil {
@@ -524,7 +582,8 @@ type OCRSpecConfig interface {
 	OCRKeyBundleID() (string, error)
 }
 
-func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+// LoadEnvConfigVarsLocalOCR loads local OCR env vars into the OCROracleSpec.
+func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSpec {
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeoutEnv = true
 		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
@@ -560,10 +619,11 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec
 	return &os
 }
 
-func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OffchainReportingOracleSpec) (*OffchainReportingOracleSpec, error) {
+// LoadEnvConfigVarsOCR loads OCR env vars into the OCROracleSpec.
+func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := cfg.OCRTransmitterAddress()
-		if errors.Cause(err) != config.ErrUnset {
+		if !errors.Is(errors.Cause(err), config.ErrUnset) {
 			if err != nil {
 				return nil, err
 			}
@@ -603,6 +663,32 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) (jb Job, err error) {
 	err = o.findJob(&jb, "external_job_id", externalJobID, qopts...)
 	return
+}
+
+// FindJobIDByAddress - finds a job id by contract address. Currently only OCR and FM jobs are supported
+func (o *orm) FindJobIDByAddress(address ethkey.EIP55Address, qopts ...pg.QOpt) (jobID int32, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Transaction(func(tx pg.Queryer) error {
+		stmt := `
+SELECT jobs.id
+FROM jobs
+LEFT JOIN ocr_oracle_specs ocrspec on ocrspec.contract_address = $1 AND ocrspec.id = jobs.ocr_oracle_spec_id
+LEFT JOIN flux_monitor_specs fmspec on fmspec.contract_address = $1 AND fmspec.id = jobs.flux_monitor_spec_id
+WHERE ocrspec.id IS NOT NULL OR fmspec.id IS NOT NULL
+`
+		err = tx.Get(&jobID, stmt, address)
+
+		if !errors.Is(err, sql.ErrNoRows) {
+			if err != nil {
+				return errors.Wrap(err, "error searching for job by contract address")
+			}
+			return nil
+		}
+
+		return err
+	})
+
+	return jobID, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
@@ -890,13 +976,14 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "PipelineSpec", "pipeline_specs", &job.PipelineSpecID),
 		loadJobType(tx, job, "FluxMonitorSpec", "flux_monitor_specs", job.FluxMonitorSpecID),
 		loadJobType(tx, job, "DirectRequestSpec", "direct_request_specs", job.DirectRequestSpecID),
-		loadJobType(tx, job, "OffchainreportingOracleSpec", "offchainreporting_oracle_specs", job.OffchainreportingOracleSpecID),
-		loadJobType(tx, job, "Offchainreporting2OracleSpec", "offchainreporting2_oracle_specs", job.Offchainreporting2OracleSpecID),
+		loadJobType(tx, job, "OCROracleSpec", "ocr_oracle_specs", job.OCROracleSpecID),
+		loadJobType(tx, job, "OCR2OracleSpec", "ocr2_oracle_specs", job.OCR2OracleSpecID),
 		loadJobType(tx, job, "KeeperSpec", "keeper_specs", job.KeeperSpecID),
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		loadJobType(tx, job, "VRFSpec", "vrf_specs", job.VRFSpecID),
 		loadJobType(tx, job, "BlockhashStoreSpec", "blockhash_store_specs", job.BlockhashStoreSpecID),
+		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 	)
 }
 

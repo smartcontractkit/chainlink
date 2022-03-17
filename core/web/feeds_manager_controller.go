@@ -53,7 +53,16 @@ func (fmc *FeedsManagerController) Create(c *gin.Context) {
 
 	id, err := feedsService.RegisterManager(ms)
 	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+		if errors.Is(err, feeds.ErrSingleFeedsManager) {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+		if errors.Is(err, feeds.ErrBootstrapXorJobs) {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 

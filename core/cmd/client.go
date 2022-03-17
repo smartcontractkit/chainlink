@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -64,6 +63,7 @@ type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
 	Logger                         logger.Logger
+	CloseLogger                    func() error
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -85,15 +85,15 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (chainlink.Application, error)
+	NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB, sig shutdown.Signal) (app chainlink.Application, err error) {
-	appLggr := logger.NewLogger()
+func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.DB) (app chainlink.Application, err error) {
+	appLggr, closeLggr := logger.NewLogger()
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
@@ -138,7 +138,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		}
 	}
 
-	if !cfg.EthereumDisabled() && !cfg.EVMDisabled() {
+	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
+	if cfg.EVMEnabled() {
 		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}
@@ -149,36 +150,40 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 		Config:           cfg,
 		Logger:           appLggr,
 		DB:               db,
-		ORM:              evm.NewORM(db),
+		ORM:              evm.NewORM(db, appLggr, cfg),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
 	var chains chainlink.Chains
 	chains.EVM, err = evm.LoadChainSet(ccOpts)
 	if err != nil {
-		appLggr.Fatal(err)
+		return nil, errors.Wrap(err, "failed to load EVM chainset")
 	}
-	terraLggr := appLggr.Named("Terra")
-	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
-		Config:           cfg,
-		Logger:           terraLggr,
-		DB:               db,
-		KeyStore:         keyStore.Terra(),
-		EventBroadcaster: eventBroadcaster,
-		ORM:              terra.NewORM(db, terraLggr, cfg),
-	})
-	if err != nil {
-		appLggr.Fatal(err)
+
+	if cfg.TerraEnabled() {
+		terraLggr := appLggr.Named("Terra")
+		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+			Config:           cfg,
+			Logger:           terraLggr,
+			DB:               db,
+			KeyStore:         keyStore.Terra(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to load Terra chainset")
+		}
 	}
+
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, pipeline.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
-		ShutdownSignal:           sig,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   appLggr,
+		CloseLogger:              closeLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 	})
@@ -199,13 +204,16 @@ func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, ap
 	}
 	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic databsae backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
 
-	databaseBackup := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
+	if err != nil {
+		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
+	}
 	return databaseBackup.RunBackup(appv.String())
 }
 
 // Runner implements the Run method.
 type Runner interface {
-	Run(chainlink.Application) error
+	Run(context.Context, chainlink.Application) error
 }
 
 // ChainlinkRunner is used to run the node application.
@@ -213,12 +221,7 @@ type ChainlinkRunner struct{}
 
 // Run sets the log level based on config and starts the web router to listen
 // for input and return data.
-func (n ChainlinkRunner) Run(app chainlink.Application) error {
-	defer func() {
-		if err := app.GetLogger().Sync(); err != nil {
-			log.Println(err)
-		}
-	}()
+func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) error {
 	config := app.GetConfig()
 	mode := gin.ReleaseMode
 	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
@@ -229,22 +232,23 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 	}
 	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
-	var g errgroup.Group
+
+	g, gCtx := errgroup.WithContext(ctx)
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
-		log.Fatal("You must specify at least one port to listen on")
+		return errors.New("You must specify at least one port to listen on")
 	}
 
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	if config.Port() != 0 {
-		g.Go(func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.run(config.Port(), config.HTTPServerWriteTimeout())
 		})
 	}
 
 	if config.TLSPort() != 0 {
-		g.Go(func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), config, func() error {
 			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
@@ -253,28 +257,58 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		})
 	}
 
-	return g.Wait()
+	g.Go(func() error {
+		<-gCtx.Done()
+		var err error
+		if server.httpServer != nil {
+			err = errors.WithStack(server.httpServer.Shutdown(context.Background()))
+		}
+		if server.tlsServer != nil {
+			err = multierr.Combine(err, errors.WithStack(server.tlsServer.Shutdown(context.Background())))
+		}
+		return err
+	})
+
+	return errors.WithStack(g.Wait())
+}
+
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, cfg config.GeneralConfig, runServer func() error) {
+	for {
+		// try calling runServer() and log error if any
+		if err := runServer(); err != nil {
+			if !errors.Is(err, http.ErrServerClosed) {
+				lggr.Criticalf("Error starting server: %v", err)
+			}
+		}
+		// if ctx is cancelled, we must leave the loop
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(cfg.DefaultHTTPTimeout().Duration()):
+			// pause between attempts, default 15s
+		}
+	}
 }
 
 type server struct {
-	handler *gin.Engine
-	lggr    logger.Logger
+	httpServer *http.Server
+	tlsServer  *http.Server
+	handler    *gin.Engine
+	lggr       logger.Logger
 }
 
 func (s *server) run(port uint16, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTP on port %d", port)
-	server := createServer(s.handler, port, writeTimeout)
-	err := server.ListenAndServe()
-	s.lggr.ErrorIf(err, "Error starting server")
-	return err
+	s.httpServer = createServer(s.handler, port, writeTimeout)
+	err := s.httpServer.ListenAndServe()
+	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
 func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
 	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
-	server := createServer(s.handler, port, writeTimeout)
-	err := server.ListenAndServeTLS(certFile, keyFile)
-	s.lggr.ErrorIf(err, "Error starting TLS server")
-	return err
+	s.tlsServer = createServer(s.handler, port, writeTimeout)
+	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
+	return errors.Wrap(err, "failed to run TLS server")
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
@@ -407,6 +441,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 type CookieAuthenticator interface {
 	Cookie() (*http.Cookie, error)
 	Authenticate(sessions.SessionRequest) (*http.Cookie, error)
+	Logout() error
 }
 
 type SessionCookieAuthenticatorConfig interface {
@@ -467,10 +502,16 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	return sc, t.store.Save(sc)
 }
 
+// Deletes any stored session
+func (t *SessionCookieAuthenticator) Logout() error {
+	return t.store.Reset()
+}
+
 // CookieStore is a place to store and retrieve cookies.
 type CookieStore interface {
 	Save(cookie *http.Cookie) error
 	Retrieve() (*http.Cookie, error)
+	Reset() error
 }
 
 // MemoryCookieStore keeps a single cookie in memory
@@ -481,6 +522,12 @@ type MemoryCookieStore struct {
 // Save stores a cookie.
 func (m *MemoryCookieStore) Save(cookie *http.Cookie) error {
 	m.Cookie = cookie
+	return nil
+}
+
+// Removes any stored cookie.
+func (m *MemoryCookieStore) Reset() error {
+	m.Cookie = nil
 	return nil
 }
 
@@ -501,6 +548,12 @@ type DiskCookieStore struct {
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
 	return ioutil.WriteFile(d.cookiePath(), []byte(cookie.String()), 0600)
+}
+
+// Removes any stored cookie.
+func (d DiskCookieStore) Reset() error {
+	// Write empty bytes
+	return ioutil.WriteFile(d.cookiePath(), []byte(""), 0600)
 }
 
 // Retrieve returns any Saved cookies.

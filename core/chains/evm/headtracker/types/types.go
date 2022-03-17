@@ -28,7 +28,7 @@ type HeadSaver interface {
 // HeadTracker holds and stores the latest block number experienced by this particular node in a thread safe manner.
 // Reconstitutes the last block number from the data store on reboot.
 type HeadTracker interface {
-	services.Service
+	services.ServiceCtx
 	// SetLogLevel changes log level for HeadTracker logger
 	SetLogLevel(lvl zapcore.Level)
 	// Backfill given a head will fill in any missing heads up to the given depth
@@ -51,7 +51,7 @@ type HeadBroadcasterRegistry interface {
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 //go:generate mockery --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster interface {
-	services.Service
+	services.ServiceCtx
 	BroadcastNewLongestChain(head *evmtypes.Head)
 	HeadBroadcasterRegistry
 }

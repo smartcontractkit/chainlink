@@ -1,9 +1,23 @@
 name: Integration Tests
-on: [pull_request]
+on:
+  pull_request:
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      src: ${{ steps.changes.outputs.src }}
+    steps:
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            src:
+              - '**/*.go'
   build-chainlink:
     name: Build Chainlink Image
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.src == 'true' }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -25,14 +39,15 @@ jobs:
         with:
           context: .
           file: core/chainlink.Dockerfile
-          build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
+          # comma separated like: KEY1=VAL1,KEY2=VAL2,...
+          build-args: COMMIT_SHA=${{ github.sha }}
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
-
   smoke:
-    name: Smoke Tests
+    name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: build-chainlink
+    needs: [changes, build-chainlink]
+    if: ${{ needs.changes.outputs.src == 'true' }}
     env:
       CHAINLINK_IMAGE: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
       CHAINLINK_VERSION: latest.${{ github.sha }}
@@ -75,9 +90,9 @@ jobs:
         run: go mod download
       - name: Install Ginkgo CLI
         run: |
-          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.0.0
-          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.0.0
-          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.0.0
+          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.1.2
+          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.1.2
+          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.1.2
           go install github.com/onsi/ginkgo/v2/ginkgo
       - name: Run Tests
         run: |
@@ -95,3 +110,36 @@ jobs:
         with:
           name: test-logs
           path: ./integration-tests/logs
+  solana:
+    name: Solana Tests
+    needs: [changes, build-chainlink]
+    if: ${{ needs.changes.outputs.src == 'true' }}
+    uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
+    with:
+      repo_name: smartcontractkit/chainlink-solana
+      ref: develop
+      cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
+      cl_image: latest.${{ github.sha }}
+    secrets:
+      QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      QA_AWS_REGION: ${{ secrets.AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+  terra:
+    name: Terra Tests
+    needs: [changes, build-chainlink]
+    if: ${{ needs.changes.outputs.src == 'true' }}
+    uses: smartcontractkit/chainlink-terra/.github/workflows/e2e.yml@main
+    with:
+      repo_name: smartcontractkit/chainlink-terra
+      ref: develop
+      cl_repo: 795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink
+      cl_image: latest.${{ github.sha }}
+    secrets:
+      QA_AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      QA_AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      QA_AWS_REGION: ${{ secrets.AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

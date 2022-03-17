@@ -1,5 +1,3 @@
-//go:build smoke
-
 package smoke_test
 
 //revive:disable:dot-imports
@@ -36,7 +34,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			env, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(environment.ChainlinkReplicas(6, nil)),
+				environment.NewChainlinkConfig(environment.ChainlinkReplicas(6, nil), ""),
 				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -180,7 +178,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 			networks.Default.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(env, networks, utils.ProjectRoot)
+			err = actions.TeardownSuite(env, networks, utils.ProjectRoot, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

@@ -61,8 +61,8 @@ func NewOCR2KeyBundle(key ocr2key.KeyBundle) *OCR2KeyBundleResolver {
 }
 
 // ID returns the OCR2 Key bundle ID
-func (k OCR2KeyBundleResolver) ID() graphql.ID {
-	return graphql.ID(k.key.ID())
+func (r OCR2KeyBundleResolver) ID() graphql.ID {
+	return graphql.ID(r.key.ID())
 }
 
 // ChainType returns the OCR2 Key bundle chain type
@@ -82,7 +82,8 @@ func (r OCR2KeyBundleResolver) OnChainPublicKey() string {
 
 // OffChainPublicKey returns the OCR2 Key bundle off-chain public key
 func (r OCR2KeyBundleResolver) OffChainPublicKey() string {
-	return fmt.Sprintf("ocr2off_%s_%s", r.key.ChainType(), hex.EncodeToString(r.key.OffchainPublicKey()))
+	pubKey := r.key.OffchainPublicKey()
+	return fmt.Sprintf("ocr2off_%s_%s", r.key.ChainType(), hex.EncodeToString(pubKey[:]))
 }
 
 // ConfigPublicKey returns the OCR2 Key bundle config public key

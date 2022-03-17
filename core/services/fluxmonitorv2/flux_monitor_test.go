@@ -19,15 +19,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	corenull "github.com/smartcontractkit/chainlink/core/null"
@@ -39,15 +42,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/sqlx"
 )
 
 const oracleCount uint8 = 17
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm bulletprooftxmanager.TxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, bulletprooftxmanager.SendEveryStrategy{}, bulletprooftxmanager.TransmitCheckerSpec{})
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.TransmitCheckerSpec{})
 }
 
 var (
@@ -63,7 +65,7 @@ var (
 		return flux_aggregator_wrapper.LatestRoundData{}, errors.New("No data present")
 	}
 
-	contractAddress   = cltest.NewAddress()
+	contractAddress   = testutils.NewAddress()
 	threshold         = float64(0.5)
 	absoluteThreshold = float64(0.01)
 	idleTimerPeriod   = time.Minute
@@ -508,7 +510,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					Return(nil)
 			}
 
-			oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+			oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			fm.SetOracleAddress()
 			fm.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
@@ -521,7 +523,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 // incorrect address) then the pollIfEligible method should create a JobErr record
 func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	var (
 		roundState = flux_aggregator_wrapper.OracleRoundState{}
@@ -552,7 +554,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	fm, tm := setup(t,
 		db,
@@ -721,7 +723,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once().
 		Run(func(mock.Arguments) { readyToAssert.ItHappened() })
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 
 	var logBroadcasts []*logmocks.Broadcast
 
@@ -764,7 +766,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 
 	db, nodeAddr := setupStoreWithKey(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	for _, tc := range testCases {
 		tc := tc
@@ -801,7 +803,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				})
 			}
 
-			fm.Start()
+			fm.Start(testutils.Context(t))
 			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
 
 			if tc.expectedToSubmit {
@@ -847,7 +849,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	fm, tm := setup(t,
 		db,
@@ -870,7 +872,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 
 	pollOccured := make(chan struct{}, 4)
 
-	err := fm.Start()
+	err := fm.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	t.Cleanup(func() { fm.Close() })
@@ -939,7 +941,7 @@ func dbName(s string) string {
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	db, nodeAddr := setupFullDBWithKey(t, dbName(t.Name()))
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	const (
 		roundZero = uint32(0)
@@ -973,7 +975,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	pollOccured := make(chan struct{}, 4)
 
-	err := fm.Start()
+	err := fm.Start(testutils.Context(t))
 	require.NoError(t, err)
 
 	t.Cleanup(func() { fm.Close() })
@@ -1063,7 +1065,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	fm, tm := setup(t,
 		db,
@@ -1085,7 +1087,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	idleDurationOccured := make(chan struct{}, 4)
 	initialPollOccurred := make(chan struct{}, 1)
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 	t.Cleanup(func() { fm.Close() })
 
 	// Initial Poll
@@ -1172,7 +1174,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	var (
-		oracles = []common.Address{nodeAddr, cltest.NewAddress()}
+		oracles = []common.Address{nodeAddr, testutils.NewAddress()}
 		orm     = newORM(t, db, cfg, nil)
 	)
 
@@ -1207,7 +1209,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	fm.SetOracleAddress()
 	fm.ExportedRoundState()
-	fm.Start()
+	fm.Start(testutils.Context(t))
 
 	g.Eventually(ch).Should(gomega.BeClosed())
 
@@ -1219,7 +1221,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 	g := gomega.NewWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	tests := []struct {
 		name             string
@@ -1268,7 +1270,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 				Run(func(mock.Arguments) { close(chRoundState) }).
 				Maybe()
 
-			fm.Start()
+			fm.Start(testutils.Context(t))
 
 			if test.expectedToSubmit {
 				g.Eventually(chRoundState).Should(gomega.BeClosed())
@@ -1286,7 +1288,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	almostExpired := time.Now().
 		Add(idleTimerPeriod * -1).
@@ -1350,7 +1352,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 				}).
 				Maybe()
 
-			require.NoError(t, fm.Start())
+			require.NoError(t, fm.Start(testutils.Context(t)))
 			t.Cleanup(func() { fm.Close() })
 
 			assert.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
@@ -1370,7 +1372,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	var (
@@ -1426,7 +1428,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 		Run(func(mock.Arguments) { close(chRoundState2) }).
 		Once()
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 
 	tm.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
@@ -1529,7 +1531,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
 		db, nodeAddr := setupStoreWithKey(t)
-		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+		oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 		fm, tm := setup(t,
 			db,
@@ -1646,7 +1648,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 
 	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
 		db, nodeAddr := setupStoreWithKey(t)
-		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+		oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 		fm, tm := setup(t,
 			db,
 			disableIdleTimer(true),
@@ -1741,7 +1743,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 
 	t.Run("when poll ticker fires, then an older NewRound log arrives, but does submit on a log arrival after a reorg", func(t *testing.T) {
 		db, nodeAddr := setupStoreWithKey(t)
-		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+		oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 		fm, tm := setup(t,
 			db,
 			disableIdleTimer(true),
@@ -1899,7 +1901,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	t.Parallel()
 
 	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	// a setup with a random delay being zero
 	_, _ = setup(t, db, enableDrumbeatTicker("@every 10s", 0))
@@ -2001,7 +2003,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 4, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}, nil).
 		Maybe()
 
-	fm.Start()
+	fm.Start(testutils.Context(t))
 	defer fm.Close()
 
 	waitTime := 15 * time.Second

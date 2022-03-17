@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,9 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
-
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,12 +23,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2aggregator "github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -37,10 +38,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -176,7 +180,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		}
 	}()
 
-	lggr.Debugw("Setting Payees on Oracle Contract", "transmitters", transmitters)
+	lggr.Debugw("Setting Payees on OraclePlugin Contract", "transmitters", transmitters)
 	_, err := ocrContract.SetPayees(
 		owner,
 		transmitters,
@@ -208,21 +212,20 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	b.Commit()
 
-	err = appBootstrap.Start()
+	err = appBootstrap.Start(testutils.Context(t))
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
 	chainSet := appBootstrap.GetChains().EVM
 	require.NotNil(t, chainSet)
-	ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(appBootstrap.Config, fmt.Sprintf(`
-type               = "offchainreporting2"
-relay = "evm"
-schemaVersion      = 1
-name               = "boot"
-contractID = "%s"
-isBootstrapPeer    = true
+	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(`
+type				= "bootstrap"
+name				= "bootstrap"
+relay				= "evm"
+schemaVersion		= 1
+contractID			= "%s"
 [relayConfig]
-chainID = 1337
+chainID 			= 1337
 `, ocrContractAddress))
 	require.NoError(t, err)
 	err = appBootstrap.AddJobV2(context.Background(), &ocrJob)
@@ -241,7 +244,7 @@ chainID = 1337
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
 	for i := 0; i < 4; i++ {
-		err = apps[i].Start()
+		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 		defer apps[i].Stop()
 
@@ -268,22 +271,22 @@ chainID = 1337
 		defer servers[i].Close()
 		u, _ := url.Parse(servers[i].URL)
 		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
+			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		})
 
-		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
+		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
-relay = "evm"
+relay              = "evm"
 schemaVersion      = 1
+pluginType         = "median"
 name               = "web oracle spec"
-contractID = "%s"
-isBootstrapPeer    = false
-ocrKeyBundleID        = "%s"
-transmitterID = "%s"
+contractID         = "%s"
+ocrKeyBundleID     = "%s"
+transmitterID      = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
-observationSource = """
+observationSource  = """
     // data source 1
     ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
@@ -299,6 +302,9 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
+[pluginConfig]
 juelsPerFeeCoinSource = """
 		// data source 1
 		ds1          [type=bridge name="%s"];
@@ -315,8 +321,6 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-[relayConfig]
-chainID = 1337
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
@@ -365,4 +369,16 @@ chainID = 1337
 	}
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
 
+	// Assert we can read the latest config digest and epoch after a report has been submitted.
+	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
+	require.NoError(t, err)
+	ct := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].Chains.EVM.Chains()[0].Client(), contractABI, nil, lggr)
+	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(context.Background())
+	require.NoError(t, err)
+	details, err := ocrContract.LatestConfigDetails(nil)
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(configDigest[:], details.ConfigDigest[:]))
+	digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
+	require.NoError(t, err)
+	assert.Equal(t, digestAndEpoch.Epoch, epoch)
 }

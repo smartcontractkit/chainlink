@@ -44,9 +44,10 @@ func TestResolver_Config(t *testing.T) {
 					DefaultHTTPAllowUnrestrictedNetworkAccess: null.BoolFrom(true),
 					DefaultHTTPTimeout:                        nil,
 					Dev:                                       null.BoolFrom(true),
+					ShutdownGracePeriod:                       nil,
 					Dialect:                                   "",
-					EVMDisabled:                               null.BoolFrom(true),
-					EthereumDisabled:                          null.BoolFrom(true),
+					EVMEnabled:                                null.BoolFrom(false),
+					EVMRPCEnabled:                             null.BoolFrom(false),
 					EthereumURL:                               null.StringFrom(""),
 					FeatureExternalInitiators:                 null.BoolFrom(true),
 					GlobalBalanceMonitorEnabled:               null.BoolFrom(true),
@@ -83,7 +84,9 @@ func TestResolver_Config(t *testing.T) {
 					DefaultLogLevel:                           nil,
 					LogFileDir:                                null.StringFrom("foo"),
 					LogSQL:                                    null.BoolFrom(true),
-					LogToDisk:                                 null.BoolFrom(true),
+					LogFileMaxSize:                            null.StringFrom("100mb"),
+					LogFileMaxAge:                             null.IntFrom(3),
+					LogFileMaxBackups:                         null.IntFrom(12),
 					OCRKeyBundleID:                            null.StringFrom("test"),
 					OCRObservationTimeout:                     nil,
 					OCRTransmitterAddress:                     nil,
@@ -175,9 +178,13 @@ func TestResolver_Config(t *testing.T) {
         "key": "CHAINLINK_DEV",
         "value": "true"
       },
+	  {
+		"key":"SHUTDOWN_GRACE_PERIOD",
+		"value":"5s"
+	  },
       {
-        "key": "ETH_DISABLED",
-        "value": "true"
+        "key": "EVM_RPC_ENABLED",
+        "value": "false"
       },
       {
         "key": "ETH_HTTP_URL",
@@ -240,6 +247,10 @@ func TestResolver_Config(t *testing.T) {
         "value": "20"
       },
       {
+        "key": "KEEPER_BASE_FEE_BUFFER_PERCENT",
+        "value": "20"
+      },
+      {
         "key": "KEEPER_MAXIMUM_GRACE_PERIOD",
         "value": "0"
       },
@@ -288,8 +299,16 @@ func TestResolver_Config(t *testing.T) {
         "value": "true"
       },
       {
-        "key": "LOG_TO_DISK",
-        "value": "true"
+        "key": "LOG_FILE_MAX_SIZE",
+        "value": "100.00mb"
+      },
+      {
+        "key": "LOG_FILE_MAX_AGE",
+        "value": "3"
+      },
+      {
+        "key": "LOG_FILE_MAX_BACKUPS",
+        "value": "12"
       },
       {
         "key": "TRIGGER_FALLBACK_DB_POLL_INTERVAL",

@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -28,6 +29,8 @@ import (
 var (
 	ErrOCRDisabled        = errors.New("ocr is disabled")
 	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
+	ErrBootstrapXorJobs   = errors.New("feeds manager cannot be bootstrap while having assigned job types")
+	ErrJobAlreadyExists   = errors.New("a job for this contract address already exists - please use the 'force' option to replace it")
 
 	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "feeds_job_proposal_requests",
@@ -55,7 +58,7 @@ type Service interface {
 	ListJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 	ListJobProposals() ([]JobProposal, error)
 
-	ApproveSpec(ctx context.Context, id int64) error
+	ApproveSpec(ctx context.Context, id int64, force bool) error
 	CancelSpec(ctx context.Context, id int64) error
 	GetSpec(id int64) (*JobProposalSpec, error)
 	ListSpecsByJobProposalIDs(ids []int64) ([]JobProposalSpec, error)
@@ -126,6 +129,10 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 		return 0, ErrSingleFeedsManager
 	}
 
+	if mgr.IsOCRBootstrapPeer && len(mgr.JobTypes) > 0 {
+		return 0, ErrBootstrapXorJobs
+	}
+
 	id, err := s.orm.CreateManager(mgr)
 	if err != nil {
 		return 0, err
@@ -150,6 +157,13 @@ func (s *service) SyncNodeInfo(id int64) error {
 		return err
 	}
 
+	// Get the FMS RPC client
+	fmsClient, err := s.connMgr.GetClient(id)
+	if err != nil {
+		return errors.Wrap(err, "could not fetch client")
+	}
+
+	// Generate job types
 	jobtypes := []pb.JobType{}
 	for _, jt := range mgr.JobTypes {
 		switch jt {
@@ -157,39 +171,50 @@ func (s *service) SyncNodeInfo(id int64) error {
 			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_FLUX_MONITOR)
 		case JobTypeOffchainReporting:
 			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_OCR)
+		case JobTypeOffchainReporting2:
+			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_OCR2)
 		default:
 			// NOOP
 		}
 	}
 
-	keys, err := s.ethKeyStore.SendingKeys()
+	// Assemble EVM keys
+	evmKeys, err := s.ethKeyStore.SendingKeys()
 	if err != nil {
 		return err
 	}
 
-	addresses := []string{}
-	for _, k := range keys {
-		addresses = append(addresses, k.Address.String())
-	}
-
-	// Make the remote call to FMS
-	fmsClient, err := s.connMgr.GetClient(id)
+	evmKeyStates, err := s.ethKeyStore.GetStatesForKeys(evmKeys)
 	if err != nil {
-		return errors.Wrap(err, "could not fetch client")
+		return err
 	}
 
-	chainIDs := []int64{}
+	// Generate accounts
+	accounts := make([]*pb.Account, 0, len(evmKeyStates))
+	for _, k := range evmKeyStates {
+		accounts = append(accounts, &pb.Account{
+			ChainType: pb.ChainType_CHAIN_TYPE_EVM,
+			ChainId:   k.EVMChainID.String(),
+			Address:   k.Address.String(),
+		})
+	}
+
+	// Generate chains
+	chains := make([]*pb.Chain, 0, len(s.chainSet.Chains()))
 	for _, c := range s.chainSet.Chains() {
-		chainIDs = append(chainIDs, c.ID().Int64())
+		chains = append(chains, &pb.Chain{
+			Id:   c.ID().String(),
+			Type: pb.ChainType_CHAIN_TYPE_EVM,
+		})
 	}
 
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes:           jobtypes,
-		ChainIds:           chainIDs,
-		AccountAddresses:   addresses,
+		Chains:             chains,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
 		Version:            s.version,
+		Accounts:           accounts,
 	})
 	if err != nil {
 		return err
@@ -201,6 +226,10 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+	if mgr.IsOCRBootstrapPeer && len(mgr.JobTypes) > 0 {
+		return ErrBootstrapXorJobs
+	}
+
 	err := s.orm.UpdateManager(mgr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")
@@ -426,7 +455,7 @@ func (s *service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
 
 // ApproveSpec approves a spec for a job proposal and creates a job with the
 // spec.
-func (s *service) ApproveSpec(ctx context.Context, id int64) error {
+func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	pctx := pg.WithParentCtx(ctx)
 
 	spec, err := s.orm.GetSpec(id, pctx)
@@ -453,8 +482,32 @@ func (s *service) ApproveSpec(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
+	var address ethkey.EIP55Address
+	switch j.Type {
+	case job.OffchainReporting:
+		address = j.OCROracleSpec.ContractAddress
+	case job.FluxMonitor:
+		address = j.FluxMonitorSpec.ContractAddress
+	default:
+		return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
+	}
+
 	q := s.q.WithOpts(pctx)
 	err = q.Transaction(func(tx pg.Queryer) error {
+
+		existingJobID, err2 := s.jobORM.FindJobIDByAddress(address, pg.WithQueryer(tx))
+		if err2 == nil {
+			if force {
+				if err2 = s.jobSpawner.DeleteJob(existingJobID, pg.WithQueryer(tx)); err2 != nil {
+					return errors.Wrap(err2, "DeleteJob failed")
+				}
+			} else {
+				return ErrJobAlreadyExists
+			}
+		} else if !errors.Is(err2, sql.ErrNoRows) {
+			return errors.Wrap(err2, "FindJobIDByAddress failed")
+		}
+
 		// Create the job
 		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err
@@ -664,7 +717,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
+		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:
@@ -702,7 +755,7 @@ type NullService struct{}
 //revive:disable
 func (ns NullService) Start() error { return nil }
 func (ns NullService) Close() error { return nil }
-func (ns NullService) ApproveSpec(ctx context.Context, id int64) error {
+func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return errors.New("feeds manager is disabled")
 }
 func (ns NullService) ApproveJobProposal(ctx context.Context, id int64) error {

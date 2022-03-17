@@ -1,3 +1,8 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       solidity-paths-ignore.yml
+##
+
 name: Solidity
 
 on:
@@ -6,7 +11,15 @@ on:
       - auto
       - try
       - rollup
+    paths:
+      - 'contracts/**'
+      - yarn.lock
+      - 'tools/ci/**'
   pull_request:
+    paths:
+      - 'contracts/**'
+      - yarn.lock
+      - 'tools/ci/**'
 
 jobs:
   solidity-coverage:
@@ -16,7 +29,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
@@ -46,7 +59,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Yarn cache
@@ -70,3 +83,5 @@ jobs:
         run: ./tools/ci/check_solc_hashes
       - name: Run tests
         run: ./tools/ci/solidity_test_hardhat
+      - name: Run prepublish NPM test
+        run: ./tools/ci/prepublish_npm_test

@@ -34,6 +34,7 @@ import (
 // this permission grants read / write access to file owners only
 const readWritePerms = os.FileMode(0600)
 
+//nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
@@ -41,10 +42,30 @@ var (
 	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
 )
 
+// FeatureFlags contains bools that toggle various features or chains
+// TODO: document the new ones
+type FeatureFlags interface {
+	FeatureExternalInitiators() bool
+	FeatureFeedsManager() bool
+	FeatureOffchainReporting() bool
+	FeatureOffchainReporting2() bool
+	FeatureUICSAKeys() bool
+
+	AutoPprofEnabled() bool
+	EVMEnabled() bool
+	EVMRPCEnabled() bool
+	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
+	P2PEnabled() bool
+	SolanaEnabled() bool
+	TerraEnabled() bool
+}
+
 type GeneralOnlyConfig interface {
 	Validate() error
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQL(logSQL bool)
+
+	FeatureFlags
 
 	AdminCredentialsFile() string
 	AdvisoryLockCheckInterval() time.Duration
@@ -53,18 +74,17 @@ type GeneralOnlyConfig interface {
 	AppID() uuid.UUID
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
-	AutoPprofEnabled() bool
-	AutoPprofProfileRoot() string
-	AutoPprofPollInterval() models.Duration
+	AutoPprofBlockProfileRate() int
+	AutoPprofCPUProfileRate() int
 	AutoPprofGatherDuration() models.Duration
 	AutoPprofGatherTraceDuration() models.Duration
-	AutoPprofMaxProfileSize() utils.FileSize
-	AutoPprofCPUProfileRate() int
-	AutoPprofMemProfileRate() int
-	AutoPprofBlockProfileRate() int
-	AutoPprofMutexProfileFraction() int
-	AutoPprofMemThreshold() utils.FileSize
 	AutoPprofGoroutineThreshold() int
+	AutoPprofMaxProfileSize() utils.FileSize
+	AutoPprofMemProfileRate() int
+	AutoPprofMemThreshold() utils.FileSize
+	AutoPprofMutexProfileFraction() int
+	AutoPprofPollInterval() models.Duration
+	AutoPprofProfileRoot() string
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
@@ -73,8 +93,8 @@ type GeneralOnlyConfig interface {
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
-	DatabaseBackupURL() *url.URL
 	DatabaseBackupOnVersionUpgrade() bool
+	DatabaseBackupURL() *url.URL
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
 	DatabaseLockingMode() string
@@ -85,8 +105,7 @@ type GeneralOnlyConfig interface {
 	DefaultHTTPTimeout() models.Duration
 	DefaultLogLevel() zapcore.Level
 	Dev() bool
-	EVMDisabled() bool
-	EthereumDisabled() bool
+	ShutdownGracePeriod() time.Duration
 	EthereumHTTPURL() *url.URL
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string
@@ -95,11 +114,6 @@ type GeneralOnlyConfig interface {
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
-	FeatureExternalInitiators() bool
-	FeatureFeedsManager() bool
-	FeatureOffchainReporting() bool
-	FeatureOffchainReporting2() bool
-	FeatureUICSAKeys() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	HTTPServerWriteTimeout() time.Duration
@@ -113,19 +127,21 @@ type GeneralOnlyConfig interface {
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
+	KeeperBaseFeeBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
-	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeyFile() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
 	LogFileDir() string
 	LogLevel() zapcore.Level
 	LogSQL() bool
-	LogToDisk() bool
+	LogFileMaxSize() utils.FileSize
+	LogFileMaxAge() int64
+	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
@@ -148,6 +164,11 @@ type GeneralOnlyConfig interface {
 	TelemetryIngressLogging() bool
 	TelemetryIngressServerPubKey() string
 	TelemetryIngressURL() *url.URL
+	TelemetryIngressBufferSize() uint
+	TelemetryIngressMaxBatchSize() uint
+	TelemetryIngressSendInterval() time.Duration
+	TelemetryIngressSendTimeout() time.Duration
+	TelemetryIngressUseBatchSend() bool
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
@@ -162,7 +183,9 @@ type GlobalConfig interface {
 	GlobalBlockHistoryEstimatorBatchSize() (uint32, bool)
 	GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool)
 	GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool)
+	GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool)
 	GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool)
+	GlobalChainType() (string, bool)
 	GlobalEthTxReaperInterval() (time.Duration, bool)
 	GlobalEthTxReaperThreshold() (time.Duration, bool)
 	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
@@ -173,6 +196,7 @@ type GlobalConfig interface {
 	GlobalEvmGasBumpThreshold() (uint64, bool)
 	GlobalEvmGasBumpTxDepth() (uint16, bool)
 	GlobalEvmGasBumpWei() (*big.Int, bool)
+	GlobalEvmGasFeeCapDefault() (*big.Int, bool)
 	GlobalEvmGasLimitDefault() (uint64, bool)
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
@@ -191,11 +215,13 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
-	GlobalChainType() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
+	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
+	GlobalNodePollFailureThreshold() (uint32, bool)
+	GlobalNodePollInterval() (time.Duration, bool)
 
 	OCR1Config
 	OCR2Config
@@ -291,10 +317,28 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("MINIMUM_CONTRACT_PAYMENT is deprecated, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
+	if _, exists := os.LookupEnv("ETH_DISABLED"); exists {
+		c.lggr.Error(`ETH_DISABLED is deprecated.
+
+This will become a fatal error in a future release. Please switch to using one of the two options below instead:
+
+- EVM_ENABLED=false - set this if you wish to completely disable all EVM chains and jobs and prevent them from ever loading (this is probably the one you want).
+- EVM_RPC_ENABLED=false - set this if you wish to load all EVM chains and jobs, but prevent any RPC calls to the eth node (the old behaviour).
+`)
+	}
+	if _, exists := os.LookupEnv("EVM_DISABLED"); exists {
+		c.lggr.Error(`EVM_DISABLED is deprecated and superceded by EVM_ENABLED.
+
+This will become a fatal error in a future release. Please use the following instead to disable EVM chains:
+
+EVM_ENABLED=false
+`)
+	}
+
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {
@@ -323,19 +367,19 @@ func (c *generalConfig) Validate() error {
 	}
 	// Warn on legacy OCR env vars
 	if c.OCRDHTLookupInterval() != 0 {
-		c.lggr.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
+		c.lggr.Error("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
 	if c.OCRBootstrapCheckInterval() != 0 {
-		c.lggr.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
+		c.lggr.Error("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
 	if c.OCRIncomingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCROutgoingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCRNewStreamTimeout() != 0 {
-		c.lggr.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
+		c.lggr.Error("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 
 	switch c.DatabaseLockingMode() {
@@ -348,8 +392,8 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
 	}
 
-	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.LogToDisk() {
-		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
+	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && c.LogFileMaxSize() <= 0 {
+		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
 	return nil
@@ -562,6 +606,12 @@ func (c *generalConfig) Dev() bool {
 	return c.viper.GetBool(envvar.Name("Dev"))
 }
 
+// ShutdownGracePeriod is the maximum duration of graceful application shutdown.
+// If exceeded, it will try closing DB lock and connection and exit immediately to avoid SIGKILL.
+func (c *generalConfig) ShutdownGracePeriod() time.Duration {
+	return c.getWithFallback("ShutdownGracePeriod", parse.Duration).(time.Duration)
+}
+
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(envvar.Name("FeatureExternalInitiators"))
@@ -643,14 +693,45 @@ func (c *generalConfig) EthereumSecondaryURLs() []url.URL {
 	return urls
 }
 
-// EthereumDisabled will substitute null Eth clients if set
-func (c *generalConfig) EthereumDisabled() bool {
-	return c.viper.GetBool(envvar.Name("EthereumDisabled"))
+// EVMRPCEnabled if false prevents any calls to any EVM-based chain RPC node
+func (c *generalConfig) EVMRPCEnabled() bool {
+	if ethDisabled, exists := os.LookupEnv("ETH_DISABLED"); exists {
+		res, err := parse.Bool(ethDisabled)
+		if err == nil {
+			return !res.(bool)
+		}
+		c.lggr.Warnw("Failed to parse value for ETH_DISABLED", "err", err)
+	}
+	rpcEnabled := c.viper.GetBool(envvar.Name("EVMRPCEnabled"))
+	return rpcEnabled
 }
 
-// EVMDisabled prevents any evm_chains from being loaded at all if set
-func (c *generalConfig) EVMDisabled() bool {
-	return c.viper.GetBool(envvar.Name("EVMDisabled"))
+// EVMEnabled allows EVM chains to be used
+func (c *generalConfig) EVMEnabled() bool {
+	if evmDisabled, exists := os.LookupEnv("EVM_DISABLED"); exists {
+		res, err := parse.Bool(evmDisabled)
+		if err == nil {
+			return res.(bool)
+		}
+		c.lggr.Warnw("Failed to parse value for EVM_DISABLED", "err", err)
+	}
+	return c.viper.GetBool(envvar.Name("EVMEnabled"))
+}
+
+// SolanaEnabled allows Solana to be used
+func (c *generalConfig) SolanaEnabled() bool {
+	return c.viper.GetBool(envvar.Name("SolanaEnabled"))
+}
+
+// TerraEnabled allows Terra to be used
+func (c *generalConfig) TerraEnabled() bool {
+	return c.viper.GetBool(envvar.Name("TerraEnabled"))
+}
+
+// P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol
+func (c *generalConfig) P2PEnabled() bool {
+	// We need p2p networking if either ocr1 or ocr2 is enabled
+	return c.P2PListenPort() > 0 || c.FeatureOffchainReporting() || c.FeatureOffchainReporting2()
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
@@ -717,6 +798,12 @@ func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
 // used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
 func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
 	return c.viper.GetUint32(envvar.Name("KeeperGasTipCapBufferPercent"))
+}
+
+// KeeperBaseFeeBufferPercent adds the specified percentage to the base fee
+// used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
+func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
+	return c.viper.GetUint32(envvar.Name("KeeperBaseFeeBufferPercent"))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
@@ -788,6 +875,31 @@ func (c *generalConfig) TelemetryIngressServerPubKey() string {
 	return c.viper.GetString(envvar.Name("TelemetryIngressServerPubKey"))
 }
 
+// TelemetryIngressBufferSize is the number of telemetry messages to buffer before dropping new ones
+func (c *generalConfig) TelemetryIngressBufferSize() uint {
+	return c.viper.GetUint(envvar.Name("TelemetryIngressBufferSize"))
+}
+
+// TelemetryIngressMaxBatchSize is the maximum number of messages to batch into one telemetry request
+func (c *generalConfig) TelemetryIngressMaxBatchSize() uint {
+	return c.viper.GetUint(envvar.Name("TelemetryIngressMaxBatchSize"))
+}
+
+// TelemetryIngressSendInterval is the cadence on which batched telemetry is sent to the ingress server
+func (c *generalConfig) TelemetryIngressSendInterval() time.Duration {
+	return c.getDuration("TelemetryIngressSendInterval")
+}
+
+// TelemetryIngressSendTimeout is the max duration to wait for the request to complete when sending batch telemetry
+func (c *generalConfig) TelemetryIngressSendTimeout() time.Duration {
+	return c.getDuration("TelemetryIngressSendTimeout")
+}
+
+// TelemetryIngressUseBatchSend toggles sending telemetry using the batch client to the ingress server
+func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
+	return c.viper.GetBool(envvar.Name("TelemetryIngressUseBatchSend"))
+}
+
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
 func (c *generalConfig) TelemetryIngressLogging() bool {
 	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
@@ -821,9 +933,20 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	return nil
 }
 
-// LogToDisk configures disk preservation of logs.
-func (c *generalConfig) LogToDisk() bool {
-	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
+// LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.
+func (c *generalConfig) LogFileMaxSize() utils.FileSize {
+	return c.getWithFallback("LogFileMaxSize", parse.FileSize).(utils.FileSize)
+}
+
+// LogFileMaxAge configures disk preservation of logs max age (in days) before file rotation.
+func (c *generalConfig) LogFileMaxAge() int64 {
+	return c.getWithFallback("LogFileMaxAge", parse.Int64).(int64)
+}
+
+// LogFileMaxBackups configures disk preservation of the max amount of old log files to retain.
+// If this is set to 0, the node will retain all old log files instead.
+func (c *generalConfig) LogFileMaxBackups() int64 {
+	return c.getWithFallback("LogFileMaxBackups", parse.Int64).(int64)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger
@@ -989,7 +1112,7 @@ func (c *generalConfig) getWithFallback(name string, parser func(string) (interf
 func (c *generalConfig) getEnvWithFallback(e *envvar.EnvVar) interface{} {
 	v, invalid, err := e.ParseFrom(c.viper.GetString)
 	if err != nil {
-		c.lggr.Fatal(err)
+		c.lggr.Panic(err)
 	}
 	if invalid != "" {
 		c.lggr.Error(invalid)
@@ -1134,6 +1257,20 @@ func (c *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+func (c *generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmGasFeeCapDefault"), parse.BigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
+}
+func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
+	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks"), parse.Uint16)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint16), ok
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
 	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitDefault"), parse.Uint64)
@@ -1305,6 +1442,30 @@ func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+
+func (c *generalConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodeNoNewHeadsThreshold"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+
+func (c *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollFailureThreshold"), parse.Uint32)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint32), ok
+}
+
+func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollInterval"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

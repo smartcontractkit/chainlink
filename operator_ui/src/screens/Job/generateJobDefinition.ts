@@ -177,14 +177,13 @@ export const generateJobDefinition = (
           'contractID',
           'contractConfigConfirmations',
           'contractConfigTrackerPollInterval',
-          'contractConfigTrackerSubscribeInterval',
-          'isBootstrapPeer',
-          'juelsPerFeeCoinSource',
           'ocrKeyBundleID',
           'monitoringEndpoint',
           'p2pBootstrapPeers',
           'relay',
           'relayConfig',
+          'pluginType',
+          'pluginConfig',
         ),
         // We need to call 'extractSpecFields' again here so we get the spec
         // fields displaying in alphabetical order.
@@ -227,6 +226,23 @@ export const generateJobDefinition = (
           'fromAddress',
         ),
         ...extractObservationSourceField(job),
+      }
+
+      break
+    case 'BootstrapSpec':
+      values = {
+        ...extractJobFields(job),
+        ...extractSpecFields(
+          job.spec,
+          'id',
+          'contractID',
+          'relay',
+          'relayConfig',
+          'monitoringEndpoint',
+          'blockchainTimeout',
+          'contractConfigTrackerPollInterval',
+          'contractConfigConfirmations',
+        ),
       }
 
       break

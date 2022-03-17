@@ -6,6 +6,9 @@ coverage:
       default:
         threshold: 1%
 
+github_checks:
+  annotations: false
+
 ignore:
   - 'contracts/src/v0.4'
   - 'contracts/src/v0.5'

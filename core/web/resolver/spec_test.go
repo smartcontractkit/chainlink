@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -15,6 +13,7 @@ import (
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -372,7 +371,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.OffchainReporting,
-					OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{
+					OCROracleSpec: &job.OCROracleSpec{
 						BlockchainTimeout:                         models.Interval(1 * time.Minute),
 						BlockchainTimeoutEnv:                      false,
 						ContractAddress:                           contractAddress,
@@ -488,6 +487,9 @@ func TestResolver_OCR2Spec(t *testing.T) {
 	relayConfig := map[string]interface{}{
 		"chainID": 1337,
 	}
+	pluginConfig := map[string]interface{}{
+		"juelsPerFeeCoinSource": 100000000,
+	}
 	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
@@ -498,21 +500,20 @@ func TestResolver_OCR2Spec(t *testing.T) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.OffchainReporting2,
-					Offchainreporting2OracleSpec: &job.OffchainReporting2OracleSpec{
-						BlockchainTimeout:                      models.Interval(1 * time.Minute),
-						ContractID:                             contractAddress.String(),
-						ContractConfigConfirmations:            1,
-						ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-						ContractConfigTrackerSubscribeInterval: models.Interval(1 * time.Minute),
-						CreatedAt:                              f.Timestamp(),
-						IsBootstrapPeer:                        false,
-						JuelsPerFeeCoinPipeline:                "100000000",
-						OCRKeyBundleID:                         null.StringFrom(keyBundleID.String()),
-						MonitoringEndpoint:                     null.StringFrom("https://monitor.endpoint"),
-						P2PBootstrapPeers:                      pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                                  types.EVM,
-						RelayConfig:                            relayConfig,
-						TransmitterID:                          null.StringFrom(transmitterAddress.String()),
+					OCR2OracleSpec: &job.OCR2OracleSpec{
+						BlockchainTimeout:                 models.Interval(1 * time.Minute),
+						ContractID:                        contractAddress.String(),
+						ContractConfigConfirmations:       1,
+						ContractConfigTrackerPollInterval: models.Interval(1 * time.Minute),
+						CreatedAt:                         f.Timestamp(),
+						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
+						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
+						P2PBootstrapPeers:                 pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
+						Relay:                             types.EVM,
+						RelayConfig:                       relayConfig,
+						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
+						PluginType:                        job.Median,
+						PluginConfig:                      pluginConfig,
 					},
 				}, nil)
 			},
@@ -527,16 +528,15 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									contractID
 									contractConfigConfirmations
 									contractConfigTrackerPollInterval
-									contractConfigTrackerSubscribeInterval
 									createdAt
-									isBootstrapPeer
-									juelsPerFeeCoinSource
 									ocrKeyBundleID
 									monitoringEndpoint
 									p2pBootstrapPeers
 									relay
 									relayConfig
 									transmitterID
+									pluginType
+									pluginConfig
 								}
 							}
 						}
@@ -552,10 +552,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"contractConfigConfirmations": 1,
 							"contractConfigTrackerPollInterval": "1m0s",
-							"contractConfigTrackerSubscribeInterval": "1m0s",
 							"createdAt": "2021-01-01T00:00:00Z",
-							"isBootstrapPeer": false,
-							"juelsPerFeeCoinSource": "100000000",
 							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
 							"monitoringEndpoint": "https://monitor.endpoint",
 							"p2pBootstrapPeers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
@@ -563,7 +560,11 @@ func TestResolver_OCR2Spec(t *testing.T) {
 							"relayConfig": {
 								"chainID": 1337
 							},
-							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+							"pluginType": "median",
+							"pluginConfig": {
+								"juelsPerFeeCoinSource": 100000000
+							}
 						}
 					}
 				}
@@ -778,6 +779,78 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 							"waitBlocks": 100,
 							"lookbackBlocks": 200,
 							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_BootstrapSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "Bootstrap spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
+					Type: job.Bootstrap,
+					BootstrapSpec: &job.BootstrapSpec{
+						ID:                                id,
+						ContractID:                        "0x613a38AC1659769640aaE063C651F48E0250454C",
+						Relay:                             "evm",
+						RelayConfig:                       map[string]interface{}{},
+						MonitoringEndpoint:                null.String{},
+						BlockchainTimeout:                 models.Interval(2 * time.Minute),
+						ContractConfigTrackerPollInterval: models.Interval(2 * time.Minute),
+						ContractConfigConfirmations:       100,
+						CreatedAt:                         f.Timestamp(),
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on BootstrapSpec {
+									id
+									contractID
+									relay
+									relayConfig
+									monitoringEndpoint
+									blockchainTimeout
+									contractConfigTrackerPollInterval
+									contractConfigConfirmations
+									createdAt
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "BootstrapSpec",
+							"id": "1",
+							"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"relay": "evm",
+							"relayConfig": {},
+							"monitoringEndpoint": null,
+							"blockchainTimeout": "2m0s",
+							"contractConfigTrackerPollInterval": "2m0s",
+							"contractConfigConfirmations": 100,
+							"createdAt": "2021-01-01T00:00:00Z"
 						}
 					}
 				}

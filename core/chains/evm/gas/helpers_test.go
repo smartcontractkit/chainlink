@@ -1,6 +1,14 @@
 package gas
 
-import "math/big"
+import (
+	"math/big"
+	"time"
+)
+
+func init() {
+	// No need to wait 10 seconds in tests
+	MaxStartTime = 1 * time.Second
+}
 
 func BlockHistoryEstimatorFromInterface(bhe Estimator) *BlockHistoryEstimator {
 	return bhe.(*BlockHistoryEstimator)
@@ -32,4 +40,14 @@ func GetTipCap(b *BlockHistoryEstimator) *big.Int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return b.tipCap
+}
+
+func GetLatestBaseFee(b *BlockHistoryEstimator) *big.Int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.latestBaseFee
+}
+
+func SimulateStart(b *BlockHistoryEstimator) {
+	b.StartOnce("BlockHistoryEstimatorSimulatedStart", func() error { return nil })
 }

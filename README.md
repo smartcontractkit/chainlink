@@ -56,6 +56,7 @@ Ethereum node versions currently tested and supported:
 
 - [Parity/Openethereum](https://github.com/openethereum/openethereum)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
+- [Nethermind](https://github.com/NethermindEth/nethermind)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
@@ -138,8 +139,9 @@ go generate ./...
 
 ```bash
 export DATABASE_URL=postgresql://127.0.0.1:5432/chainlink_test?sslmode=disable
-export CHAINLINK_DEV=true # You may wish to use something like direnv to manage env variables instead of setting directly
 ```
+
+Note: Other environment variables should not be set for all tests to pass
 
 6.  Drop/Create test database and run migrations:
 
@@ -152,8 +154,10 @@ If you do end up modifying the migrations for the database, you will need to rer
 7. Run tests:
 
 ```bash
-go test -parallel=1 ./...
+go test ./...
 ```
+
+Note: You can use flag ```-parallel=1``` to limit CPU usage in background, by default, it is set to the value of GOMAXPROCS
 
 ### Solidity Development
 

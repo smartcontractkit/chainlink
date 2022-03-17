@@ -1,21 +1,21 @@
 package relay
 
 import (
+	"context"
 	"encoding/json"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
 	solanaGo "github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
 
 var (
@@ -24,42 +24,37 @@ var (
 		types.Solana: {},
 		types.Terra:  {},
 	}
-	_ types.Relayer = &evm.Relayer{}
-	_ types.Relayer = &solana.Relayer{}
-	_ types.Relayer = &terra.Relayer{}
+	_ types.RelayerCtx = &evm.Relayer{}
+	_ types.RelayerCtx = &solana.Relayer{}
+	_ types.RelayerCtx = &terra.Relayer{}
 )
 
 type delegate struct {
-	relayers map[types.Network]types.Relayer
+	relayers map[types.Network]types.RelayerCtx
 	ks       keystore.Master
 }
 
 // NewDelegate creates a master relay delegate which manages "relays" which are OCR2 median reporting plugins
 // for various chains (evm and non-evm). nil Relayers will be disabled.
-func NewDelegate(ks keystore.Master, evmRelayer, solanaRelayer, terraRelayer types.Relayer) *delegate {
+func NewDelegate(ks keystore.Master) *delegate {
 	d := &delegate{
 		ks:       ks,
-		relayers: map[types.Network]types.Relayer{},
+		relayers: map[types.Network]types.RelayerCtx{},
 	}
-	d.addRelayer(types.EVM, evmRelayer)
-	d.addRelayer(types.Solana, solanaRelayer)
-	d.addRelayer(types.Terra, terraRelayer)
 	return d
 }
 
-// addRelayer registers the relayer r, or a disabled placeholder if nil.
-func (d delegate) addRelayer(n types.Network, r types.Relayer) {
-	if r == nil {
-		r = types.DisabledRelayer(n)
-	}
+// AddRelayer registers the relayer r, or a disabled placeholder if nil.
+// NOT THREAD SAFE
+func (d delegate) AddRelayer(n types.Network, r types.RelayerCtx) {
 	d.relayers[n] = r
 }
 
-// A delegate relayer on start will start all relayers it manages.
-func (d delegate) Start() error {
+// Start starts all relayers it manages.
+func (d delegate) Start(ctx context.Context) error {
 	var err error
 	for _, r := range d.relayers {
-		err = multierr.Combine(err, r.Start())
+		err = multierr.Combine(err, r.Start(ctx))
 	}
 	return err
 }
@@ -91,26 +86,49 @@ func (d delegate) Healthy() error {
 	return err
 }
 
-func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2Provider, error) {
+// OCR2ProviderArgs contains the minimal parameters to create a OCR2 Provider.
+type OCR2ProviderArgs struct {
+	ID              int32
+	ContractID      string
+	TransmitterID   null.String
+	Relay           types.Network
+	RelayConfig     job.JSONConfig
+	IsBootstrapPeer bool
+	Plugin          job.OCR2PluginType
+}
+
+// NewOCR2Provider creates a new OCR2 provider instance.
+func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types.OCR2ProviderCtx, error) {
 	// We expect trusted input
-	spec := s.(*job.OffchainReporting2OracleSpec)
+	spec := s.(*OCR2ProviderArgs)
 	choice := spec.Relay
 	switch choice {
 	case types.EVM:
+		r, exists := d.relayers[types.EVM]
+		if !exists {
+			return nil, errors.New("no EVM relay found; is EVM enabled?")
+		}
+
 		var config evm.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
 			return nil, err
 		}
 
-		return d.relayers[types.EVM].NewOCR2Provider(externalJobID, evm.OCR2Spec{
+		return r.NewOCR2Provider(externalJobID, evm.OCR2Spec{
 			ID:            spec.ID,
 			IsBootstrap:   spec.IsBootstrapPeer,
 			ContractID:    spec.ContractID,
 			TransmitterID: spec.TransmitterID,
 			ChainID:       config.ChainID.ToInt(),
+			Plugin:        spec.Plugin,
 		})
 	case types.Solana:
+		r, exists := d.relayers[types.Solana]
+		if !exists {
+			return nil, errors.New("no Solana relay found; is Solana enabled?")
+		}
+
 		var config solana.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
@@ -149,7 +167,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			}
 		}
 
-		return d.relayers[types.Solana].NewOCR2Provider(externalJobID, solana.OCR2Spec{
+		return r.NewOCR2Provider(externalJobID, solana.OCR2Spec{
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
 			NodeEndpointHTTP:   config.NodeEndpointHTTP,
@@ -160,11 +178,17 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			TransmissionSigner: transmissionSigner,
 			UsePreflight:       config.UsePreflight,
 			Commitment:         config.Commitment,
+			TxTimeout:          config.TxTimeout,
 			PollingInterval:    config.PollingInterval,
 			PollingCtxTimeout:  config.PollingCtxTimeout,
 			StaleTimeout:       config.StaleTimeout,
 		})
 	case types.Terra:
+		r, exists := d.relayers[types.Terra]
+		if !exists {
+			return nil, errors.New("no Terra relay found; is Terra enabled?")
+		}
+
 		var config terra.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
@@ -177,7 +201,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			}
 		}
 
-		return d.relayers[types.Terra].NewOCR2Provider(externalJobID, terra.OCR2Spec{
+		return r.NewOCR2Provider(externalJobID, terra.OCR2Spec{
 			RelayConfig:   config,
 			ID:            spec.ID,
 			IsBootstrap:   spec.IsBootstrapPeer,

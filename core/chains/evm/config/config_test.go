@@ -17,6 +17,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -63,8 +64,8 @@ func TestChainScopedConfig(t *testing.T) {
 	})
 
 	t.Run("KeySpecificMaxGasPriceWei", func(t *testing.T) {
-		addr := cltest.NewAddress()
-		randomOtherAddr := cltest.NewAddress()
+		addr := testutils.NewAddress()
+		randomOtherAddr := testutils.NewAddress()
 		randomOtherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: utils.NewBigI(rand.Int63())}
 		evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
 			cfg.KeySpecific[randomOtherAddr.Hex()] = randomOtherKeySpecific
@@ -96,6 +97,28 @@ func TestChainScopedConfig(t *testing.T) {
 			gcfg.Overrides.GlobalEvmMaxGasPriceWei = val
 
 			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
+	})
+
+	t.Run("LinkContractAddress", func(t *testing.T) {
+		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
+			assert.Equal(t, "", cfg.LinkContractAddress())
+		})
+
+		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
+			val := testutils.NewAddress().String()
+			evmconfig.UpdatePersistedCfg(cfg, func(cfg *evmtypes.ChainCfg) {
+				cfg.LinkContractAddress = null.StringFrom(val)
+			})
+
+			assert.Equal(t, val, cfg.LinkContractAddress())
+		})
+
+		t.Run("uses global value when that is set", func(t *testing.T) {
+			val := testutils.NewAddress().String()
+			gcfg.Overrides.LinkContractAddress = null.StringFrom(val)
+
+			assert.Equal(t, val, cfg.LinkContractAddress())
 		})
 	})
 }

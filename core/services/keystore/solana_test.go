@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,12 +86,12 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		_, didExist, err := ks.EnsureKey()
-		require.NoError(t, err)
-		require.False(t, didExist)
-		_, didExist, err = ks.EnsureKey()
-		require.NoError(t, err)
-		require.True(t, didExist)
+		err := ks.EnsureKey()
+		assert.NoError(t, err)
+
+		err = ks.EnsureKey()
+		assert.NoError(t, err)
+
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
