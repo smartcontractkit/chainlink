@@ -64,8 +64,8 @@ runs:
       )
 
       SHARED_BUILD_ARGS=$(cat << EOF
-      COMMIT_SHA:${{ github.sha }}
-      ENVIRONMENT:release
+      COMMIT_SHA=${{ github.sha }}
+      ENVIRONMENT=release
       EOF
       )
 
@@ -118,7 +118,7 @@ runs:
       labels: ${{ steps.meta-root.outputs.labels }}
       file: core/chainlink.Dockerfile
       build-args: |
-        CHAINLINK_USER:root
+        CHAINLINK_USER=root
         ${{ env.shared-build-args }}
 
   - name: Generate docker metadata for non-root image
@@ -141,7 +141,7 @@ runs:
       labels: ${{ steps.meta-nonroot.outputs.labels }}
       file: core/chainlink.Dockerfile
       build-args: |
-        CHAINLINK_USER:chainlink
+        CHAINLINK_USER=chainlink
         ${{ env.shared-build-args }}
 
   - if: inputs.sign-images == 'true'
