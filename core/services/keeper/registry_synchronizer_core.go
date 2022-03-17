@@ -84,7 +84,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 	return rs.StartOnce("RegistrySynchronizer", func() error {
 		rs.wgDone.Add(2)
 		go rs.run()
-
+		keeperList = map[int32]map[common.Address]int32{}
 		logListenerOpts := log.ListenerOpts{
 			Contract: rs.contract.Address(),
 			ParseLog: rs.contract.ParseLog,
@@ -93,13 +93,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 				keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
 				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
 				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic(): {
-					{},
-					{},
-					{
-						log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
-					},
-				},
+				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
 			},
 			MinIncomingConfirmations: rs.minIncomingConfirmations,
 		}

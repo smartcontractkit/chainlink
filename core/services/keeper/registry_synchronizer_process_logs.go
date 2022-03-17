@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"database/sql"
 	"fmt"
 	"sync"
 
@@ -154,9 +155,11 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return
 	}
-
-	// set last run to 0 so that keeper can resume checkUpkeep()
-	err = rs.orm.SetLastRunHeightForUpkeepOnJob(rs.job.ID, log.Id.Int64(), 0)
+	keeperListmutex.RLock()
+	i, ok := keeperList[rs.job.ID][log.From]
+	keeperListmutex.RUnlock()
+	fromIndex := sql.NullInt64{Int64: int64(i), Valid: ok}
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), fromIndex)
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return

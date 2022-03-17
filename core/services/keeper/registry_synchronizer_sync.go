@@ -5,11 +5,16 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+// keeperList is a local lookup map that is refreshed every Registry sync.
+var keeperList = map[int32]map[common.Address]int32{}
+var keeperListmutex = &sync.RWMutex{}
 
 func (rs *RegistrySynchronizer) fullSync() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
@@ -99,16 +104,11 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) er
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
-	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
-	if err != nil {
-		return errors.Wrap(err, "failed to calc positioning constant")
-	}
 	newUpkeep := UpkeepRegistration{
-		CheckData:           upkeepConfig.CheckData,
-		ExecuteGas:          uint64(upkeepConfig.ExecuteGas),
-		RegistryID:          registry.ID,
-		PositioningConstant: positioningConstant,
-		UpkeepID:            upkeepID,
+		CheckData:  upkeepConfig.CheckData,
+		ExecuteGas: uint64(upkeepConfig.ExecuteGas),
+		RegistryID: registry.ID,
+		UpkeepID:   upkeepID,
 	}
 	if err := rs.orm.UpsertUpkeep(&newUpkeep); err != nil {
 		return errors.Wrap(err, "failed to upsert upkeep")
@@ -147,7 +147,14 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		return Registry{}, errors.Wrap(err, "failed to get keeper list")
 	}
 	keeperIndex := int32(-1)
+	// clear keeperList
+	keeperListmutex.Lock()
+	keeperList[rs.job.ID] = map[common.Address]int32{}
+	keeperListmutex.Unlock()
 	for idx, address := range keeperAddresses {
+		keeperListmutex.Lock()
+		keeperList[rs.job.ID][address] = int32(idx)
+		keeperListmutex.Unlock()
 		if address == fromAddress.Address() {
 			keeperIndex = int32(idx)
 		}

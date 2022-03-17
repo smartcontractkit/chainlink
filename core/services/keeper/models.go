@@ -1,6 +1,10 @@
 package keeper
 
-import "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+import (
+	"database/sql"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+)
 
 type Registry struct {
 	ID                int64
@@ -13,12 +17,12 @@ type Registry struct {
 	NumKeepers        int32
 }
 type UpkeepRegistration struct {
-	ID                  int32
-	CheckData           []byte
-	ExecuteGas          uint64
-	LastRunBlockHeight  int64
-	RegistryID          int64
-	Registry            Registry
-	UpkeepID            int64
-	PositioningConstant int32
+	ID                 int32
+	CheckData          []byte
+	ExecuteGas         uint64
+	LastRunBlockHeight int64
+	RegistryID         int64
+	Registry           Registry
+	UpkeepID           int64
+	LastKeeperIndex    sql.NullInt64
 }
