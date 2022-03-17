@@ -20,6 +20,7 @@ type legacyEthNodeConfig struct {
 	ethereumURL           string
 	ethereumHTTPURL       *url.URL
 	ethereumSecondaryURLs []url.URL
+	evmNodes              string
 }
 
 func (c legacyEthNodeConfig) DefaultChainID() *big.Int {
@@ -37,6 +38,12 @@ func (c legacyEthNodeConfig) EthereumHTTPURL() *url.URL {
 func (c legacyEthNodeConfig) EthereumSecondaryURLs() []url.URL {
 	return c.ethereumSecondaryURLs
 }
+
+func (c legacyEthNodeConfig) EthereumNodes() string {
+	return c.evmNodes
+}
+
+func (c legacyEthNodeConfig) LogSQL() bool { return false }
 
 func Test_ClobberDBFromEnv(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
@@ -84,4 +91,79 @@ func Test_ClobberDBFromEnv(t *testing.T) {
 	assert.False(t, sendonlyNodes[1].WSURL.Valid)
 	assert.True(t, sendonlyNodes[1].HTTPURL.Valid)
 	assert.Equal(t, "https://secondary2.example/bar", sendonlyNodes[1].HTTPURL.String)
+}
+
+func Test_SetupMultiplePrimaries(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+
+	s := `
+[
+	{
+		"name": "primary_0_1",
+		"evmChainId": "0",
+		"wsUrl": "ws://test1.invalid",
+		"sendOnly": false
+	},
+	{
+		"name": "primary_0_2",
+		"evmChainId": "0",
+		"wsUrl": "ws://test1.invalid",
+		"httpUrl": "https://test1.invalid",
+		"sendOnly": false
+	},
+	{
+		"name": "primary_1337_1",
+		"evmChainId": "1337",
+		"wsUrl": "ws://test2.invalid",
+		"httpUrl": "http://test2.invalid",
+		"sendOnly": false
+	},
+	{
+		"name": "sendonly_1337_1",
+		"evmChainId": "1337",
+		"httpUrl": "http://test1.invalid",
+		"sendOnly": true
+	},
+	{
+		"name": "sendonly_0_1",
+		"evmChainId": "0",
+		"httpUrl": "http://test1.invalid",
+		"sendOnly": true
+	},
+	{
+		"name": "primary_42_1",
+		"evmChainId": "42",
+		"wsUrl": "ws://test1.invalid",
+		"sendOnly": false
+	},
+	{
+		"name": "sendonly_43_1",
+		"evmChainId": "43",
+		"httpUrl": "http://test1.invalid",
+		"sendOnly": true
+	}
+]
+	`
+
+	cfg := legacyEthNodeConfig{
+		evmNodes: s,
+	}
+
+	err := evm.ClobberDBFromEnv(db, cfg, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	cltest.AssertCount(t, db, "evm_nodes", 8) // 7 inserted plus 1 fixture node
+
+	var nodes []evmtypes.Node
+	err = db.Select(&nodes, `SELECT * FROM evm_nodes ORDER BY name ASC`)
+	require.NoError(t, err)
+
+	assert.Equal(t, "eth-test-ws-only-0", nodes[0].Name)
+	assert.Equal(t, "primary_0_1", nodes[1].Name)
+	assert.Equal(t, "primary_0_2", nodes[2].Name)
+	assert.Equal(t, "primary_1337_1", nodes[3].Name)
+	assert.Equal(t, "primary_42_1", nodes[4].Name)
+	assert.Equal(t, "sendonly_0_1", nodes[5].Name)
+	assert.Equal(t, "sendonly_1337_1", nodes[6].Name)
+	assert.Equal(t, "sendonly_43_1", nodes[7].Name)
 }

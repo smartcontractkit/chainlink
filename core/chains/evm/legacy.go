@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -8,7 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -18,6 +21,8 @@ type LegacyEthNodeConfig interface {
 	EthereumURL() string
 	EthereumHTTPURL() *url.URL
 	EthereumSecondaryURLs() []url.URL
+	EthereumNodes() string
+	LogSQL() bool
 }
 
 const missingEthChainIDMsg = `missing ETH_CHAIN_ID; this env var is required if ETH_URL is set
@@ -55,6 +60,10 @@ For more information on configuring your node, check the docs: https://docs.chai
 `
 
 func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logger) error {
+	if err := SetupMultiplePrimaries(db, config, lggr); err != nil {
+		return errors.Wrap(err, "failed to setup multiple primary nodes")
+	}
+
 	primaryWS := config.EthereumURL()
 	if primaryWS == "" {
 		return nil
@@ -91,6 +100,38 @@ func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logge
 			return errors.Wrapf(err, "failed to upsert %s", name)
 		}
 	}
+
 	return nil
+}
+
+// SetupMultiplePrimaries is a hack/shim method to allow node operators to
+// specify multiple nodes via ENV
+// See: https://app.shortcut.com/chainlinklabs/epic/33587/overhaul-config?cf_workflow=500000005&ct_workflow=all
+func SetupMultiplePrimaries(db *sqlx.DB, cfg LegacyEthNodeConfig, lggr logger.Logger) error {
+	if cfg.EthereumNodes() == "" {
+		return nil
+	}
+
+	var nodes []evmtypes.Node
+	if err := json.Unmarshal([]byte(cfg.EthereumNodes()), &nodes); err != nil {
+		return errors.Wrap(err, "invalid nodes json")
+	}
+
+	chainIDs := make(map[string]struct{})
+	for _, n := range nodes {
+		chainIDs[n.EVMChainID.String()] = struct{}{}
+	}
+	for cid := range chainIDs {
+		if _, err := pg.NewQ(db, lggr, cfg).Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW()) ON CONFLICT DO NOTHING;", cid); err != nil {
+			return errors.Wrapf(err, "failed to insert chain %s", cid)
+		}
+	}
+
+	stmt := `INSERT INTO evm_nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at)
+	VALUES (:name, :evm_chain_id, :ws_url, :http_url, :send_only, now(), now())
+	ON CONFLICT DO NOTHING;`
+	_, err := pg.NewQ(db, lggr, cfg).NamedExec(stmt, nodes)
+
+	return errors.Wrap(err, "failed to insert nodes")
 
 }
