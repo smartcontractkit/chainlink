@@ -27,7 +27,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_vb_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -86,7 +86,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	wg.Wait()
 
 	// Deploy keeper registry or get an existing one
-	var registry *keeper.KeeperRegistry
+	var registry *keeper.KeeperRegistryVB
 	var registryAddr common.Address
 	var upkeepCount int64
 	if k.cfg.RegistryAddress != "" {
@@ -119,6 +119,9 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 	// Deploy Upkeeps
 	k.deployUpkeeps(ctx, registryAddr, registry, upkeepCount)
 
+	lggr, closeLggr := logger.NewLogger()
+	defer closeLggr()
+
 	// Prepare keeper addresses and owners
 	var keepers []common.Address
 	var owners []common.Address
@@ -132,7 +135,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 		c := cfg{nodeURL: startedNode.url}
 		sr := sessions.SessionRequest{Email: defaultChainlinkNodeLogin, Password: defaultChainlinkNodePassword}
 		store := &cmd.MemoryCookieStore{}
-		tca := cmd.NewSessionCookieAuthenticator(c, store, logger.NewLogger())
+		tca := cmd.NewSessionCookieAuthenticator(c, store, lggr)
 		if _, err = tca.Authenticate(sr); err != nil {
 			log.Println("failed to authenticate: ", err)
 			continue
@@ -198,7 +201,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool) {
 }
 
 // cancelAndWithdrawUpkeeps cancels all upkeeps of the registry and withdraws funds
-func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistry) error {
+func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, registryInstance *keeper.KeeperRegistryVB) error {
 	count, err := registryInstance.GetUpkeepCount(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get upkeeps count: %s", err)
@@ -250,10 +253,11 @@ func (k *Keeper) getNodeAddress(client cmd.HTTPClient) (string, error) {
 }
 
 // createKeeperJob creates a keeper job in the chainlink node by the given address
-func (k *Keeper) createKeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr string) error {
+func (k *Keeper) createKeeperJob(client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-			ContractAddress:          contractAddr,
+			Name:                     fmt.Sprintf("keeper job - registry %s", registryAddr),
+			ContractAddress:          registryAddr,
 			FromAddress:              nodeAddr,
 			EvmChainID:               int(k.cfg.ChainID),
 			MinIncomingConfirmations: 1,
@@ -277,9 +281,7 @@ func (k *Keeper) createKeeperJob(client cmd.HTTPClient, contractAddr, nodeAddr s
 
 		return fmt.Errorf("unable to create keeper job: '%v' [%d]", string(body), resp.StatusCode)
 	}
-
-	log.Println("Keeper job has been successfully created")
-
+	log.Println("Keeper job has been successfully created in the Chainlink node with address: ", nodeAddr)
 	return nil
 }
 

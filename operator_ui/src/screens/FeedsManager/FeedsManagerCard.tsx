@@ -101,6 +101,8 @@ export const FeedsManagerCard = ({ manager }: Props) => {
             return 'Flux Monitor'
           case 'OCR':
             return 'OCR'
+          case 'OCR2':
+            return 'OCR2'
         }
       })
       .join(', ')

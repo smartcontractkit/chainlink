@@ -6,10 +6,12 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +40,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 	keyStore := app.GetKeyStore()
 
@@ -93,7 +95,7 @@ func setupSolanaKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, key
 	t.Helper()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.Solana().Add(cltest.DefaultSolanaKey)
 

@@ -8,13 +8,14 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 )
 
 //go:generate mockery --dir ./telem --name TelemClient --output ./mocks/ --case=underscore
@@ -25,19 +26,26 @@ const SendIngressBufferSize = 100
 // TelemetryIngressClient encapsulates all the functionality needed to
 // send telemetry to the ingress server using wsrpc
 type TelemetryIngressClient interface {
-	services.Service
-	Start() error
-	Close() error
+	services.ServiceCtx
 	Send(TelemPayload)
 }
 
 type NoopTelemetryIngressClient struct{}
 
-func (NoopTelemetryIngressClient) Start() error      { return nil }
-func (NoopTelemetryIngressClient) Close() error      { return nil }
+// Start is a no-op
+func (NoopTelemetryIngressClient) Start(context.Context) error { return nil }
+
+// Close is a no-op
+func (NoopTelemetryIngressClient) Close() error { return nil }
+
+// Send is a no-op
 func (NoopTelemetryIngressClient) Send(TelemPayload) {}
-func (NoopTelemetryIngressClient) Healthy() error    { return nil }
-func (NoopTelemetryIngressClient) Ready() error      { return nil }
+
+// Healthy is a no-op
+func (NoopTelemetryIngressClient) Healthy() error { return nil }
+
+// Ready is a no-op
+func (NoopTelemetryIngressClient) Ready() error { return nil }
 
 type telemetryIngressClient struct {
 	utils.StartStopOnce
@@ -76,14 +84,14 @@ func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore
 }
 
 // Start connects the wsrpc client to the telemetry ingress server
-func (tc *telemetryIngressClient) Start() error {
+func (tc *telemetryIngressClient) Start(ctx context.Context) error {
 	return tc.StartOnce("TelemetryIngressClient", func() error {
 		privkey, err := tc.getCSAPrivateKey()
 		if err != nil {
 			return err
 		}
 
-		tc.connect(privkey)
+		tc.connect(ctx, privkey)
 
 		return nil
 	})
@@ -98,7 +106,7 @@ func (tc *telemetryIngressClient) Close() error {
 	})
 }
 
-func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
+func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {
 	tc.wgDone.Add(1)
 
 	go func() {
@@ -106,7 +114,7 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
+		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 		if err != nil {
 			tc.lggr.Errorf("Error connecting to telemetry ingress server: %v", err)
 			return

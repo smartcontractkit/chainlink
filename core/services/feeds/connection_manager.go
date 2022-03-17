@@ -107,7 +107,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 			// We only want to log if there was an error that did not occur
 			// from a context cancel.
 			if conn.ctx.Err() == nil {
-				mgr.lggr.Infof("Error connecting to Feeds Manager server: %v", err)
+				mgr.lggr.Warnf("Error connecting to Feeds Manager server: %v", err)
 			} else {
 				mgr.lggr.Infof("Closing wsrpc websocket connection: %v", err)
 			}

@@ -12,10 +12,21 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/atomic"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	// PromEVMPoolRPCNodeStates reports current RPC node state
+	PromEVMPoolRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "evm_pool_rpc_node_states",
+		Help: "The number of RPC nodes currently in the given state for the given chain",
+	}, []string{"evmChainID", "state"})
 )
 
 // Pool represents an abstraction over one or more primary nodes
@@ -49,22 +60,34 @@ func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chain
 	return p
 }
 
-// Dial dials every node in the pool and verifies their chain IDs are consistent.
+// Dial starts every node in the pool
 func (p *Pool) Dial(ctx context.Context) error {
 	return p.StartOnce("Pool", func() (merr error) {
 		if len(p.nodes) == 0 {
 			return errors.Errorf("no available nodes for chain %s", p.chainID.String())
 		}
 		for _, n := range p.nodes {
-			if err := n.Dial(ctx); err != nil {
-				p.logger.Errorw("Error dialing node", "node", n, "err", err)
-			} else if err := n.Verify(ctx, p.chainID); err != nil {
-				p.logger.Errorw("Error verifying node", "node", n, "err", err)
+			if n.ChainID().Cmp(p.chainID) != 0 {
+				return errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), p.chainID.String())
+			}
+			rawNode, ok := n.(*node)
+			if ok {
+				// This is a bit hacky but it allows the node to be aware of
+				// pool state and prevent certain state transitions that might
+				// otherwise leave no nodes available. It is better to have one
+				// node in a degraded state than no nodes at all.
+				rawNode.nLiveNodes = p.nLiveNodes
+			}
+			// node will handle its own redialing and automatic recovery
+			if err := n.Start(ctx); err != nil {
+				return err
 			}
 		}
 		for _, s := range p.sendonlys {
-			// TODO: Deal with sendonly nodes state
-			err := s.Dial(ctx)
+			if s.ChainID().Cmp(p.chainID) != 0 {
+				return errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String())
+			}
+			err := s.Start(ctx)
 			if err != nil {
 				return err
 			}
@@ -76,56 +99,96 @@ func (p *Pool) Dial(ctx context.Context) error {
 	})
 }
 
-// dialRetryInterval controls how often we try to reconnect a dead node
-var dialRetryInterval = 5 * time.Second
+// nLiveNodes returns the number of currently alive nodes
+func (p *Pool) nLiveNodes() (nLiveNodes int) {
+	for _, n := range p.nodes {
+		if n.State() == NodeStateAlive {
+			nLiveNodes++
+		}
+	}
+	return
+}
 
 func (p *Pool) runLoop() {
 	defer p.wg.Done()
-	ticker := time.NewTicker(dialRetryInterval)
+
+	p.report()
+
+	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
+	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
+	reportInterval := 6500 * time.Millisecond
+	monitor := time.NewTicker(utils.WithJitter(reportInterval))
+	defer monitor.Stop()
 
 	for {
 		select {
+		case <-monitor.C:
+			p.report()
 		case <-p.chStop:
 			return
-		case <-ticker.C:
-			// re-dial all dead nodes
-			func() {
-				ctx, cancel := utils.ContextFromChan(p.chStop)
-				defer cancel()
-				ctx, cancel = context.WithTimeout(ctx, dialRetryInterval)
-				defer cancel()
-				// TODO: How does this play with automatic WS reconnects?
-				p.redialDeadNodes(ctx)
-			}()
 		}
 	}
 }
 
-func (p *Pool) redialDeadNodes(ctx context.Context) {
-	for _, n := range p.nodes {
-		if n.State() == NodeStateDead {
-			if err := n.Dial(ctx); err != nil {
-				p.logger.Errorw(fmt.Sprintf("Failed to redial eth node: %v", err), "err", err, "node", n.String())
-			}
+func (p *Pool) report() {
+	type nodeWithState struct {
+		Node  string
+		State string
+	}
+
+	var total, dead int
+	counts := make(map[NodeState]int)
+	nodeStates := make([]nodeWithState, len(p.nodes))
+	for i, n := range p.nodes {
+		state := n.State()
+		nodeStates[i] = nodeWithState{n.String(), state.String()}
+		total++
+		if state != NodeStateAlive {
+			dead++
 		}
-		if n.State() == NodeStateInvalidChainID || n.State() == NodeStateDialed {
-			if err := n.Verify(ctx, p.chainID); err != nil {
-				p.logger.Errorw(fmt.Sprintf("Failed to verify eth node: %v", err), "err", err, "node", n.String())
-			}
-		}
+		counts[state]++
+	}
+	for _, state := range allNodeStates {
+		count := counts[state]
+		PromEVMPoolRPCNodeStates.WithLabelValues(p.chainID.String(), state.String()).Set(float64(count))
+	}
+
+	live := total - dead
+	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	if total == dead {
+		p.logger.Criticalw(fmt.Sprintf("No EVM primary nodes available: 0/%d nodes are alive", total), "nodeStates", nodeStates)
+	} else if dead > 0 {
+		p.logger.Errorw(fmt.Sprintf("At least one EVM primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	}
 }
 
+// Close tears down the pool and closes all nodes
 func (p *Pool) Close() {
-	//nolint:errcheck
-	p.StopOnce("Pool", func() error {
+	err := p.StopOnce("Pool", func() error {
 		close(p.chStop)
 		p.wg.Wait()
+
+		var closeWg sync.WaitGroup
+		closeWg.Add(len(p.nodes))
 		for _, n := range p.nodes {
-			n.Close()
+			go func(node Node) {
+				defer closeWg.Done()
+				node.Close()
+			}(n)
 		}
+		closeWg.Add(len(p.sendonlys))
+		for _, s := range p.sendonlys {
+			go func(sNode SendOnlyNode) {
+				defer closeWg.Done()
+				sNode.Close()
+			}(s)
+		}
+		closeWg.Wait()
 		return nil
 	})
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (p *Pool) ChainID() *big.Int {
@@ -136,6 +199,7 @@ func (p *Pool) getRoundRobin() Node {
 	nodes := p.liveNodes()
 	nNodes := len(nodes)
 	if nNodes == 0 {
+		p.logger.Critical("No live RPC nodes available")
 		return &erroringNode{errMsg: fmt.Sprintf("no live nodes available for chain %s", p.chainID.String())}
 	}
 
@@ -163,8 +227,11 @@ func (p *Pool) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return p.getRoundRobin().BatchCallContext(ctx, b)
 }
 
-// Wrapped Geth client methods
-func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+// BatchCallContextAll calls BatchCallContext for every single node including
+// sendonlys.
+// CAUTION: This should only be used for mass re-transmitting transactions, it
+// might have unexpected effects to use it for anything else.
+func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -179,20 +246,61 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			// main node is used at the end for the return value
 			continue
 		}
-		// Parallel send to all other nodes with ignored return value
+		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
 		go func(n SendOnlyNode) {
 			defer wg.Done()
-			err := NewSendError(n.SendTransaction(ctx, tx))
-			p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
-			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
-				// Nonce too low or transaction known errors are expected since
-				// the primary SendTransaction may well have succeeded already
-				return
+			err := n.BatchCallContext(ctx, b)
+			if err != nil {
+				p.logger.Debugw("Secondary node BatchCallContext failed", "err", err)
+			} else {
+				p.logger.Trace("Secondary node BatchCallContext success")
 			}
-
-			p.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
 		}(n)
+	}
+
+	return main.BatchCallContext(ctx, b)
+}
+
+// Wrapped Geth client methods
+func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	main := p.getRoundRobin()
+	var all []SendOnlyNode
+	for _, n := range p.nodes {
+		all = append(all, n)
+	}
+	all = append(all, p.sendonlys...)
+	for _, n := range all {
+		if n == main {
+			// main node is used at the end for the return value
+			continue
+		}
+		// Parallel send to all other nodes with ignored return value
+		// Async - we do not want to block the main thread with secondary nodes
+		// in case they are unreliable/slow.
+		// It is purely a "best effort" send.
+		// Resource is not unbounded because the default context has a timeout.
+		ok := p.IfNotStopped(func() {
+			// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
+			p.wg.Add(1)
+			go func(n SendOnlyNode, txCp types.Transaction) {
+				defer p.wg.Done()
+				sendCtx, cancel := utils.ContextFromChan(p.chStop)
+				defer cancel()
+				err := NewSendError(n.SendTransaction(sendCtx, &txCp))
+				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
+				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
+					// Nonce too low or transaction known errors are expected since
+					// the primary SendTransaction may well have succeeded already
+					return
+				}
+
+				p.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
+			}(n, *tx) // copy tx here in case it is mutated after the function returns
+		})
+		if !ok {
+			p.logger.Debug("Cannot send transaction on sendonly node; pool is stopped", "node", n.String())
+		}
 	}
 
 	return main.SendTransaction(ctx, tx)
@@ -255,6 +363,7 @@ func (p *Pool) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return p.getRoundRobin().SuggestGasTipCap(ctx)
 }
 
-func (p *Pool) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {
+// EthSubscribe implements evmclient.Client
+func (p *Pool) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
 	return p.getRoundRobin().EthSubscribe(ctx, channel, args...)
 }

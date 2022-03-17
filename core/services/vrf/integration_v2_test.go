@@ -11,10 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -30,10 +26,11 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_consumer_v2"
@@ -42,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_reverting_example"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -56,6 +54,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // vrfConsumerContract is the common interface implemented by
@@ -466,7 +465,7 @@ func assertNumRandomWords(
 func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
 	return gomega.NewWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		var txs []bulletprooftxmanager.EthTx
+		var txs []txmgr.EthTx
 		err := db.Select(&txs, `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -497,12 +496,12 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
 	}, big.NewInt(10e9))
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
@@ -551,7 +550,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	vrfKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address.Address(), 10)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create BHS key
 	bhsKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -559,7 +558,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	sendEth(t, ownerKey, uni.backend, bhsKey.Address.Address(), 10)
 
 	// Configure VRF and BHS keys
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		vrfKey.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
@@ -650,12 +649,12 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000e9)), // 1000 gwei
 		},
 	}, big.NewInt(1000e9))
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
@@ -686,7 +685,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		return len(runs) == 1
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
-	// Mine the fulfillment. Need to wait for BPTXM to mark the tx as confirmed
+	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
 	mine(t, requestID, subID, uni, db)
 
@@ -719,7 +718,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	expensiveKey, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, expensiveKey.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		cheapKey.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
@@ -727,7 +726,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000e9)), // 1000 gwei
 		},
 	}, big.NewInt(10e9))
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF jobs.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{cheapKey, expensiveKey}, app, uni)
@@ -807,12 +806,12 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		key.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
 	}, big.NewInt(10e9))
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
 	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
@@ -839,10 +838,11 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	t.Log("Done!")
 }
 
-func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
+func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
 	app.Chains.EVM.Configure(
+		testutils.Context(t),
 		big.NewInt(1337),
 		true,
 		types.ChainCfg{
@@ -990,13 +990,13 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// max gas limit of 2M and a key specific max 10 gwei price.
 	// Keep the prices low so we can operate with small link balance subscriptions.
 	gasPrice := decimal.NewFromBigInt(big.NewInt(1000000000), 0)
-	configureSimChain(app, map[string]types.ChainCfg{
+	configureSimChain(t, app, map[string]types.ChainCfg{
 		keys[0].Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)),
 		},
 	}, gasPrice.BigInt())
 
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
@@ -1174,7 +1174,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	config.Overrides.GlobalEvmGasFeeCapDefault = assets.GWei(1)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	err := app.GetKeyStore().Unlock(cltest.Password)
 	require.NoError(t, err)
@@ -1219,10 +1219,10 @@ func TestMaliciousConsumer(t *testing.T) {
 
 	// We expect the request to be serviced
 	// by the node.
-	var attempts []bulletprooftxmanager.EthTxAttempt
+	var attempts []txmgr.EthTxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
-		attempts, _, err = app.BPTXMORM().EthTxAttempts(0, 1000)
+		attempts, _, err = app.TxmORM().EthTxAttempts(0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine
@@ -1230,7 +1230,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
-		return len(attempts) == 1 && attempts[0].EthTx.State == bulletprooftxmanager.EthTxConfirmed
+		return len(attempts) == 1 && attempts[0].EthTx.State == txmgr.EthTxConfirmed
 	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
@@ -1269,7 +1269,7 @@ func TestRequestCost(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
@@ -1312,7 +1312,7 @@ func TestMaxConsumersCost(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	_, err := carolContract.TestCreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
@@ -1347,7 +1347,7 @@ func TestFulfillmentCost(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
@@ -1415,27 +1415,27 @@ func TestStartingCountsV1(t *testing.T) {
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
-	m1 := bulletprooftxmanager.EthTxMeta{
+	m1 := txmgr.EthTxMeta{
 		RequestID: utils.PadByteToHash(0x10),
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
 	md1_ := datatypes.JSON(md1)
-	m2 := bulletprooftxmanager.EthTxMeta{
+	m2 := txmgr.EthTxMeta{
 		RequestID: utils.PadByteToHash(0x11),
 	}
 	md2, err := json.Marshal(&m2)
 	md2_ := datatypes.JSON(md2)
 	require.NoError(t, err)
 	chainID := utils.NewBig(big.NewInt(1337))
-	confirmedTxes := []bulletprooftxmanager.EthTx{
+	confirmedTxes := []txmgr.EthTx{
 		{
 			Nonce:          &n1,
 			FromAddress:    k.Address.Address(),
 			Error:          null.String{},
 			BroadcastAt:    &b,
 			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
+			State:          txmgr.EthTxConfirmed,
 			Meta:           &datatypes.JSON{},
 			EncodedPayload: []byte{},
 			EVMChainID:     *chainID,
@@ -1446,7 +1446,7 @@ func TestStartingCountsV1(t *testing.T) {
 			Error:          null.String{},
 			BroadcastAt:    &b,
 			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
+			State:          txmgr.EthTxConfirmed,
 			Meta:           &md1_,
 			EncodedPayload: []byte{},
 			EVMChainID:     *chainID,
@@ -1457,7 +1457,7 @@ func TestStartingCountsV1(t *testing.T) {
 			Error:          null.String{},
 			BroadcastAt:    &b,
 			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
+			State:          txmgr.EthTxConfirmed,
 			Meta:           &md2_,
 			EncodedPayload: []byte{},
 			EVMChainID:     *chainID,
@@ -1468,27 +1468,27 @@ func TestStartingCountsV1(t *testing.T) {
 			Error:          null.String{},
 			BroadcastAt:    &b,
 			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
+			State:          txmgr.EthTxConfirmed,
 			Meta:           &md2_,
 			EncodedPayload: []byte{},
 			EVMChainID:     *chainID,
 		},
 	}
 	// add unconfirmed txes
-	unconfirmedTxes := []bulletprooftxmanager.EthTx{}
+	unconfirmedTxes := []txmgr.EthTx{}
 	for i := int64(4); i < 6; i++ {
-		md, err := json.Marshal(&bulletprooftxmanager.EthTxMeta{
+		md, err := json.Marshal(&txmgr.EthTxMeta{
 			RequestID: utils.PadByteToHash(0x12),
 		})
 		require.NoError(t, err)
 		md1 := datatypes.JSON(md)
 		newNonce := i + 1
-		unconfirmedTxes = append(unconfirmedTxes, bulletprooftxmanager.EthTx{
+		unconfirmedTxes = append(unconfirmedTxes, txmgr.EthTx{
 			Nonce:          &newNonce,
 			FromAddress:    k.Address.Address(),
 			Error:          null.String{},
 			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxUnconfirmed,
+			State:          txmgr.EthTxUnconfirmed,
 			BroadcastAt:    &b,
 			Meta:           &md1,
 			EncodedPayload: []byte{},
@@ -1505,27 +1505,27 @@ func TestStartingCountsV1(t *testing.T) {
 
 	// add eth_tx_attempts for confirmed
 	broadcastBlock := int64(1)
-	txAttempts := []bulletprooftxmanager.EthTxAttempt{}
+	txAttempts := []txmgr.EthTxAttempt{}
 	for i := range confirmedTxes {
-		txAttempts = append(txAttempts, bulletprooftxmanager.EthTxAttempt{
+		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
 			EthTxID:                 int64(i + 1),
 			GasPrice:                utils.NewBig(big.NewInt(100)),
 			SignedRawTx:             []byte(`blah`),
 			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
-			State:                   bulletprooftxmanager.EthTxAttemptBroadcast,
+			State:                   txmgr.EthTxAttemptBroadcast,
 			CreatedAt:               time.Now(),
 			ChainSpecificGasLimit:   uint64(100),
 		})
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
-		txAttempts = append(txAttempts, bulletprooftxmanager.EthTxAttempt{
+		txAttempts = append(txAttempts, txmgr.EthTxAttempt{
 			EthTxID:               int64(i + 1 + len(confirmedTxes)),
 			GasPrice:              utils.NewBig(big.NewInt(100)),
 			SignedRawTx:           []byte(`blah`),
 			Hash:                  utils.NewHash(),
-			State:                 bulletprooftxmanager.EthTxAttemptInProgress,
+			State:                 txmgr.EthTxAttemptInProgress,
 			CreatedAt:             time.Now(),
 			ChainSpecificGasLimit: uint64(100),
 		})
@@ -1541,9 +1541,9 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 
 	// add eth_receipts
-	receipts := []bulletprooftxmanager.EthReceipt{}
+	receipts := []txmgr.EthReceipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, bulletprooftxmanager.EthReceipt{
+		receipts = append(receipts, txmgr.EthReceipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,

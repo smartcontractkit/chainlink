@@ -34,6 +34,7 @@ import (
 // this permission grants read / write access to file owners only
 const readWritePerms = os.FileMode(0600)
 
+//nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
@@ -126,6 +127,7 @@ type GeneralOnlyConfig interface {
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
+	KeeperBaseFeeBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
@@ -137,7 +139,9 @@ type GeneralOnlyConfig interface {
 	LogFileDir() string
 	LogLevel() zapcore.Level
 	LogSQL() bool
-	LogToDisk() bool
+	LogFileMaxSize() utils.FileSize
+	LogFileMaxAge() int64
+	LogFileMaxBackups() int64
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
@@ -163,6 +167,7 @@ type GeneralOnlyConfig interface {
 	TelemetryIngressBufferSize() uint
 	TelemetryIngressMaxBatchSize() uint
 	TelemetryIngressSendInterval() time.Duration
+	TelemetryIngressSendTimeout() time.Duration
 	TelemetryIngressUseBatchSend() bool
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
@@ -214,6 +219,9 @@ type GlobalConfig interface {
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
+	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
+	GlobalNodePollFailureThreshold() (uint32, bool)
+	GlobalNodePollInterval() (time.Duration, bool)
 
 	OCR1Config
 	OCR2Config
@@ -310,27 +318,27 @@ func (c *generalConfig) Validate() error {
 	}
 
 	if _, exists := os.LookupEnv("ETH_DISABLED"); exists {
-		c.lggr.Warn(`DEPRECATION WARNING: ETH_DISABLED has been deprecated.
+		c.lggr.Error(`ETH_DISABLED is deprecated.
 
-This warning will become a fatal error in a future release. Please switch to using one of the two options below instead:
+This will become a fatal error in a future release. Please switch to using one of the two options below instead:
 
 - EVM_ENABLED=false - set this if you wish to completely disable all EVM chains and jobs and prevent them from ever loading (this is probably the one you want).
 - EVM_RPC_ENABLED=false - set this if you wish to load all EVM chains and jobs, but prevent any RPC calls to the eth node (the old behaviour).
 `)
 	}
 	if _, exists := os.LookupEnv("EVM_DISABLED"); exists {
-		c.lggr.Warn(`DEPRECATION WARNING: EVM_DISABLED has been deprecated and superceded by EVM_ENABLED.
+		c.lggr.Error(`EVM_DISABLED is deprecated and superceded by EVM_ENABLED.
 
-This warning will become a fatal error in a future release. Please use the following instead to disable EVM chains:
+This will become a fatal error in a future release. Please use the following instead to disable EVM chains:
 
 EVM_ENABLED=false
 `)
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {
@@ -359,19 +367,19 @@ EVM_ENABLED=false
 	}
 	// Warn on legacy OCR env vars
 	if c.OCRDHTLookupInterval() != 0 {
-		c.lggr.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
+		c.lggr.Error("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
 	if c.OCRBootstrapCheckInterval() != 0 {
-		c.lggr.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
+		c.lggr.Error("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
 	if c.OCRIncomingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCROutgoingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCRNewStreamTimeout() != 0 {
-		c.lggr.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
+		c.lggr.Error("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 
 	switch c.DatabaseLockingMode() {
@@ -384,8 +392,8 @@ EVM_ENABLED=false
 		return errors.Errorf("LEASE_LOCK_REFRESH_INTERVAL must be less than or equal to half of LEASE_LOCK_DURATION (got LEASE_LOCK_REFRESH_INTERVAL=%s, LEASE_LOCK_DURATION=%s)", c.LeaseLockRefreshInterval().String(), c.LeaseLockDuration().String())
 	}
 
-	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && !c.LogToDisk() {
-		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_TO_DISK is not enabled")
+	if c.viper.GetString(envvar.Name("LogFileDir")) != "" && c.LogFileMaxSize() <= 0 {
+		c.lggr.Warn("LOG_FILE_DIR is ignored and has no effect when LOG_FILE_MAX_SIZE is not set to a value greater than zero")
 	}
 
 	return nil
@@ -792,6 +800,12 @@ func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
 	return c.viper.GetUint32(envvar.Name("KeeperGasTipCapBufferPercent"))
 }
 
+// KeeperBaseFeeBufferPercent adds the specified percentage to the base fee
+// used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
+func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
+	return c.viper.GetUint32(envvar.Name("KeeperBaseFeeBufferPercent"))
+}
+
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
 // sync of the keeper registry contract it is tracking
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
@@ -876,6 +890,11 @@ func (c *generalConfig) TelemetryIngressSendInterval() time.Duration {
 	return c.getDuration("TelemetryIngressSendInterval")
 }
 
+// TelemetryIngressSendTimeout is the max duration to wait for the request to complete when sending batch telemetry
+func (c *generalConfig) TelemetryIngressSendTimeout() time.Duration {
+	return c.getDuration("TelemetryIngressSendTimeout")
+}
+
 // TelemetryIngressUseBatchSend toggles sending telemetry using the batch client to the ingress server
 func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
 	return c.viper.GetBool(envvar.Name("TelemetryIngressUseBatchSend"))
@@ -914,9 +933,20 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	return nil
 }
 
-// LogToDisk configures disk preservation of logs.
-func (c *generalConfig) LogToDisk() bool {
-	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
+// LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.
+func (c *generalConfig) LogFileMaxSize() utils.FileSize {
+	return c.getWithFallback("LogFileMaxSize", parse.FileSize).(utils.FileSize)
+}
+
+// LogFileMaxAge configures disk preservation of logs max age (in days) before file rotation.
+func (c *generalConfig) LogFileMaxAge() int64 {
+	return c.getWithFallback("LogFileMaxAge", parse.Int64).(int64)
+}
+
+// LogFileMaxBackups configures disk preservation of the max amount of old log files to retain.
+// If this is set to 0, the node will retain all old log files instead.
+func (c *generalConfig) LogFileMaxBackups() int64 {
+	return c.getWithFallback("LogFileMaxBackups", parse.Int64).(int64)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger
@@ -1412,6 +1442,30 @@ func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+
+func (c *generalConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodeNoNewHeadsThreshold"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+
+func (c *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollFailureThreshold"), parse.Uint32)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint32), ok
+}
+
+func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollInterval"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

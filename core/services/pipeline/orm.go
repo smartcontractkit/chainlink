@@ -14,10 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-var (
-	ErrNoSuchBridge = errors.New("no such bridge exists")
-)
-
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
@@ -275,10 +271,42 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	return errors.Wrap(err, "InsertFinishedRun failed")
 }
 
+// DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
-	q := o.q.WithOpts(pg.WithParentCtx(ctx))
-	err := q.ExecQ(`DELETE FROM pipeline_runs WHERE finished_at < $1`, time.Now().Add(-threshold))
-	return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	// Addede 1 minute timeout to account for big databases
+	q := o.q.WithOpts(pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
+
+	err := pg.Batch(func(_, limit uint) (count uint, err error) {
+		result, cancel, err := q.ExecQIter(`
+WITH batched_pipeline_runs AS (
+	SELECT * FROM pipeline_runs
+	WHERE finished_at < ($1)
+	ORDER BY finished_at ASC
+	LIMIT $2
+)
+DELETE FROM pipeline_runs
+USING batched_pipeline_runs
+WHERE pipeline_runs.id = batched_pipeline_runs.id`,
+			time.Now().Add(-threshold),
+			limit,
+		)
+		defer cancel()
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to delete old pipeline_runs")
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "DeleteRunsOlderThan failed to get rows affected")
+		}
+
+		return uint(rowsAffected), err
+	})
+	if err != nil {
+		return errors.Wrap(err, "DeleteRunsOlderThan failed")
+	}
+
+	return nil
 }
 
 func (o *orm) FindRun(id int64) (r Run, err error) {

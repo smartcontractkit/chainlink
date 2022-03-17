@@ -3,7 +3,10 @@
 package mocks
 
 import (
+	context "context"
+
 	client "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
+
 	mock "github.com/stretchr/testify/mock"
 
 	terra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
@@ -72,22 +75,6 @@ func (_m *Chain) ID() string {
 	return r0
 }
 
-// MsgEnqueuer provides a mock function with given fields:
-func (_m *Chain) MsgEnqueuer() terra.MsgEnqueuer {
-	ret := _m.Called()
-
-	var r0 terra.MsgEnqueuer
-	if rf, ok := ret.Get(0).(func() terra.MsgEnqueuer); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(terra.MsgEnqueuer)
-		}
-	}
-
-	return r0
-}
-
 // Reader provides a mock function with given fields: nodeName
 func (_m *Chain) Reader(nodeName string) (client.Reader, error) {
 	ret := _m.Called(nodeName)
@@ -125,15 +112,31 @@ func (_m *Chain) Ready() error {
 	return r0
 }
 
-// Start provides a mock function with given fields:
-func (_m *Chain) Start() error {
-	ret := _m.Called()
+// Start provides a mock function with given fields: _a0
+func (_m *Chain) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TxManager provides a mock function with given fields:
+func (_m *Chain) TxManager() terra.TxManager {
+	ret := _m.Called()
+
+	var r0 terra.TxManager
+	if rf, ok := ret.Get(0).(func() terra.TxManager); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(terra.TxManager)
+		}
 	}
 
 	return r0
