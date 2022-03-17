@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -87,17 +88,29 @@ func (s *sendOnlyNode) Close() {
 	close(s.chStop)
 }
 
-func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Transaction) error {
+func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Transaction) (err error) {
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		promEVMPoolSendTransactionTiming.
-			WithLabelValues(s.chainID.String(), s.name, s.uri.Host, "true").
+			WithLabelValues(
+				s.chainID.String(),             // chain ID
+				s.name,                         // node name
+				s.uri.Host,                     // rpc domain
+				"true",                         // is send only
+				strconv.FormatBool(err == nil), // is successful
+			).
 			Observe(float64(duration))
+		s.log.Debugw("evmclient.Client#SendTransaction(...)",
+			"tx", tx,
+			"duration", duration,
+			"rpcDomain", s.uri.Host,
+			"name", s.name,
+			"chainID", s.chainID,
+			"sendOnly", true,
+			"err", err,
+		)
 	}(time.Now())
 
-	s.log.Debugw("evmclient.Client#SendTransaction(...)",
-		"tx", tx,
-	)
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
 	return s.wrap(s.geth.SendTransaction(ctx, tx))

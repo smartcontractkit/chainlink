@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
@@ -64,7 +65,7 @@ var (
 	promEVMPoolSendTransactionTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "evm_pool_rpc_node_send_tx_execution_time",
 		Help: "The duration of a SendTransaction call in nanoseconds",
-	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly"})
+	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success"})
 )
 
 //go:generate mockery --name Node --output ../mocks/ --case=underscore
@@ -456,13 +457,37 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 	return
 }
 
-func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) (err error) {
+	lggr := n.newRqLggr(switching(n)).With("tx", tx)
+
 	var rpcDomain string
 	defer func(start time.Time) {
 		duration := time.Since(start)
+
+		// In the event where the remote node is down, we will return before
+		// we have a chance to set rpcDomain to something useful.
+		if rpcDomain == "" {
+			rpcDomain = "err-no-domain"
+		}
+
 		promEVMPoolSendTransactionTiming.
-			WithLabelValues(n.chainID.String(), n.name, rpcDomain, "false").
+			WithLabelValues(
+				n.chainID.String(),             // chain ID
+				n.name,                         // node name
+				rpcDomain,                      // rpc domain
+				"false",                        // is send only
+				strconv.FormatBool(err == nil), // is successful
+			).
 			Observe(float64(duration))
+
+		lggr.Debugw("RPC call: evmclient.Client#SendTransaction",
+			"duration", duration,
+			"rpcDomain", rpcDomain,
+			"name", n.name,
+			"chainID", n.chainID,
+			"sendOnly", false,
+			"err", err,
+		)
 	}(time.Now())
 
 	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
@@ -470,9 +495,7 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 		return err
 	}
 	defer cancel()
-	lggr := n.newRqLggr(switching(n)).With("tx", tx)
 
-	lggr.Debug("RPC call: evmclient.Client#SendTransaction")
 	if n.http != nil {
 		rpcDomain = n.http.uri.Host
 		err = n.wrapHTTP(n.http.geth.SendTransaction(ctx, tx))
