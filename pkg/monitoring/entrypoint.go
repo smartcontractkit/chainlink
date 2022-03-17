@@ -12,7 +12,7 @@ import (
 )
 
 type Entrypoint struct {
-	Context context.Context
+	RootContext context.Context
 
 	ChainConfig ChainConfig
 	Config      config.Config
@@ -35,7 +35,7 @@ type Entrypoint struct {
 }
 
 func NewEntrypoint(
-	ctx context.Context,
+	rootCtx context.Context,
 	log Logger,
 	chainConfig ChainConfig,
 	envelopeSourceFactory SourceFactory,
@@ -57,7 +57,7 @@ func NewEntrypoint(
 
 	sourceFactories := []SourceFactory{envelopeSourceFactory, txResultsSourceFactory}
 
-	producer, err := NewProducer(ctx, log.With("component", "producer"), cfg.Kafka)
+	producer, err := NewProducer(rootCtx, log.With("component", "producer"), cfg.Kafka)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka producer: %w", err)
 	}
@@ -114,12 +114,12 @@ func NewEntrypoint(
 	)
 
 	// Configure HTTP server
-	httpServer := NewHTTPServer(ctx, cfg.HTTP.Address, log.With("component", "http-server"))
+	httpServer := NewHTTPServer(rootCtx, cfg.HTTP.Address, log.With("component", "http-server"))
 	httpServer.Handle("/metrics", metrics.HTTPHandler())
 	httpServer.Handle("/debug", manager.HTTPHandler())
 
 	return &Entrypoint{
-		ctx,
+		rootCtx,
 
 		chainConfig,
 		cfg,
@@ -143,7 +143,7 @@ func NewEntrypoint(
 }
 
 func (e Entrypoint) Run() {
-	ctx, cancel := context.WithCancel(e.Context)
+	rootCtx, cancel := context.WithCancel(e.RootContext)
 	defer cancel()
 	wg := &sync.WaitGroup{}
 
@@ -153,18 +153,18 @@ func (e Entrypoint) Run() {
 		wg.Add(2)
 		go func(factory *fakeRandomDataSourceFactory) {
 			defer wg.Done()
-			factory.RunWithEnvelope(ctx, e.Log)
+			factory.RunWithEnvelope(rootCtx, e.Log)
 		}(envelopeFactory)
 		go func(factory *fakeRandomDataSourceFactory) {
 			defer wg.Done()
-			factory.RunWithTxResults(ctx, e.Log)
+			factory.RunWithTxResults(rootCtx, e.Log)
 		}(txResultsFactory)
 	}
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.RDDPoller.Run(ctx)
+		e.RDDPoller.Run(rootCtx)
 	}()
 
 	// Instrument all source factories
@@ -185,16 +185,16 @@ func (e Entrypoint) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.Manager.Run(ctx, func(localCtx context.Context, feeds []FeedConfig) {
+		e.Manager.Run(rootCtx, func(localCtx context.Context, feeds []FeedConfig) {
 			e.ChainMetrics.SetNewFeedConfigsDetected(float64(len(feeds)))
-			monitor.Run(ctx, feeds)
+			monitor.Run(localCtx, feeds)
 		})
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.HTTPServer.Run(ctx)
+		e.HTTPServer.Run(rootCtx)
 	}()
 
 	// Handle signals from the OS
@@ -208,7 +208,7 @@ func (e Entrypoint) Run() {
 		case sig = <-osSignalsCh:
 			e.Log.Infow("received signal. Stopping", "signal", sig)
 			cancel()
-		case <-ctx.Done():
+		case <-rootCtx.Done():
 		}
 	}()
 
