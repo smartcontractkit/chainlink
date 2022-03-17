@@ -471,14 +471,13 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) (err 
 	lggr := n.newRqLggr(switching(n)).With("tx", tx)
 
 	var rpcDomain string
+	if n.http != nil {
+		rpcDomain = n.http.uri.Host
+	} else {
+		rpcDomain = n.ws.uri.Host
+	}
 	defer func(start time.Time) {
 		duration := time.Since(start)
-
-		// In the event where the remote node is down, we will return before
-		// we have a chance to set rpcDomain to something useful.
-		if rpcDomain == "" {
-			rpcDomain = "err-no-domain"
-		}
 
 		promEVMPoolSendTransactionTiming.
 			WithLabelValues(
@@ -507,10 +506,8 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) (err 
 	defer cancel()
 
 	if n.http != nil {
-		rpcDomain = n.http.uri.Host
 		err = n.wrapHTTP(n.http.geth.SendTransaction(ctx, tx))
 	} else {
-		rpcDomain = n.ws.uri.Host
 		err = n.wrapWS(n.ws.geth.SendTransaction(ctx, tx))
 	}
 
