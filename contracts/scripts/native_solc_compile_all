@@ -35,6 +35,7 @@ $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
 $SCRIPTPATH/native_solc8_6_compile factories/CronUpkeepFactory.sol
 $SCRIPTPATH/native_solc8_6_compile upkeeps/CronUpkeep.sol
+$SCRIPTPATH/native_solc8_13_compile PermissionedForwardProxy.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
