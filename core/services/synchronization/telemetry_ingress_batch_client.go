@@ -119,7 +119,11 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 					// Blocks until we connect
 					conn, err := wsrpc.DialUniWithContext(ctx, tc.lggr, tc.url.String(), clientPrivKey, serverPubKey)
 					if err != nil {
-						tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+						if ctx.Err() != nil {
+							tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
+						} else {
+							tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
+						}
 					} else {
 						tc.telemClient = telemPb.NewTelemClient(conn)
 						tc.close = conn.Close
