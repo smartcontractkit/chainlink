@@ -38,7 +38,6 @@ RUN go mod download
 
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
-ARG ENVIRONMENT
 
 COPY core core
 # Copy over operator-ui build assets to the web module so that we embed them correctly
