@@ -125,13 +125,13 @@ func Test_CreateCSAKey(t *testing.T) {
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
 			query: query,
-			result: `
+			result: fmt.Sprintf(`
 			{
 				"createCSAKey": {
-					"message": "CSA key does not exist",
+					"message": "%s",
 					"code": "UNPROCESSABLE"
 				}
-			}`,
+			}`, keystore.ErrCSAKeyExists.Error()),
 		},
 	}
 

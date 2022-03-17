@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	fmmocks "github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2/mocks"
 	"github.com/stretchr/testify/assert"
@@ -21,8 +21,8 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 		gasLimit       = uint64(2100)
 		submitter      = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit)
 
-		toAddress   = cltest.NewAddress()
-		fromAddress = cltest.NewAddress()
+		toAddress   = testutils.NewAddress()
+		fromAddress = testutils.NewAddress()
 		roundID     = big.NewInt(1)
 		submission  = big.NewInt(2)
 	)

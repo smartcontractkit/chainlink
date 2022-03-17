@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
@@ -45,17 +45,15 @@ type GeneralConfigOverrides struct {
 	BlockBackfillSkip                         null.Bool
 	ClientNodeURL                             null.String
 	DatabaseURL                               null.String
+	DatabaseLockingMode                       null.String
 	DefaultChainID                            *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess null.Bool
 	DefaultHTTPTimeout                        *time.Duration
+	HTTPServerWriteTimeout                    *time.Duration
 	Dev                                       null.Bool
 	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
-	EVMEnabled                                null.Bool
-	EVMRPCEnabled                             null.Bool
 	EthereumURL                               null.String
-	FeatureExternalInitiators                 null.Bool
-	FeatureFeedsManager                       null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
@@ -96,12 +94,22 @@ type GeneralConfigOverrides struct {
 	LogLevel                                  *zapcore.Level
 	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
-	LogToDisk                                 null.Bool
+	LogFileMaxSize                            null.String
+	LogFileMaxAge                             null.Int
+	LogFileMaxBackups                         null.Int
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
-	FeatureOffchainReporting                  null.Bool
-	FeatureOffchainReporting2                 null.Bool
+	LinkContractAddress                       null.String
+
+	// Feature Flags
+	FeatureExternalInitiators null.Bool
+	FeatureFeedsManager       null.Bool
+	FeatureOffchainReporting  null.Bool
+	FeatureOffchainReporting2 null.Bool
+	EVMEnabled                null.Bool
+	EVMRPCEnabled             null.Bool
+	TerraEnabled              null.Bool
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -132,21 +140,37 @@ type GeneralConfigOverrides struct {
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
+// SetTriggerFallbackDBPollInterval sets test override value for TriggerFallbackDBPollInterval
 func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duration) {
 	o.TriggerFallbackDBPollInterval = &d
 }
+
+// SetOCRBootstrapCheckInterval sets test override value for P2PBootstrapCheckInterval
 func (o *GeneralConfigOverrides) SetOCRBootstrapCheckInterval(d time.Duration) {
 	o.P2PBootstrapCheckInterval = &d
 }
+
+// SetOCRObservationTimeout sets test override value for OCRObservationTimeout
 func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 	o.OCRObservationTimeout = &d
 }
+
+// SetDefaultHTTPTimeout sets test override value for DefaultHTTPTimeout
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
 }
+
+// SetHTTPServerWriteTimeout sets test override value for HTTPServerWriteTimeout
+func (o *GeneralConfigOverrides) SetHTTPServerWriteTimeout(d time.Duration) {
+	o.HTTPServerWriteTimeout = &d
+}
+
+// SetP2PV2DeltaDial sets test override value for P2PV2DeltaDial
 func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 	o.P2PV2DeltaDial = &d
 }
+
+// SetP2PV2DeltaReconcile sets test override value for P2PV2DeltaReconcile
 func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
 	o.P2PV2DeltaReconcile = &d
 }
@@ -256,6 +280,14 @@ func (c *TestGeneralConfig) EVMRPCEnabled() bool {
 	return c.GeneralConfig.EVMRPCEnabled()
 }
 
+// TerraEnabled allows Terra to be used
+func (c *TestGeneralConfig) TerraEnabled() bool {
+	if c.Overrides.TerraEnabled.Valid {
+		return c.Overrides.TerraEnabled.Bool
+	}
+	return c.GeneralConfig.TerraEnabled()
+}
+
 func (c *TestGeneralConfig) EthereumURL() string {
 	if c.Overrides.EthereumURL.Valid {
 		return c.Overrides.EthereumURL.String
@@ -295,6 +327,15 @@ func (c *TestGeneralConfig) DatabaseURL() url.URL {
 	return c.GeneralConfig.DatabaseURL()
 }
 
+// DatabaseLockingMode returns either overridden DatabaseLockingMode value or "none"
+func (c *TestGeneralConfig) DatabaseLockingMode() string {
+	if c.Overrides.DatabaseLockingMode.Valid {
+		return c.Overrides.DatabaseLockingMode.String
+	}
+	// tests do not need DB locks, except for LockedDB tests
+	return "none"
+}
+
 func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
 	if c.Overrides.FeatureExternalInitiators.Valid {
 		return c.Overrides.FeatureExternalInitiators.Bool
@@ -323,6 +364,7 @@ func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
 	return c.GeneralConfig.FeatureOffchainReporting2()
 }
 
+// TriggerFallbackDBPollInterval returns the test configured value for TriggerFallbackDBPollInterval
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
 		return *c.Overrides.TriggerFallbackDBPollInterval
@@ -330,11 +372,33 @@ func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	return c.GeneralConfig.TriggerFallbackDBPollInterval()
 }
 
-func (c *TestGeneralConfig) LogToDisk() bool {
-	if c.Overrides.LogToDisk.Valid {
-		return c.Overrides.LogToDisk.Bool
+// LogFileMaxSize allows to override the log file's max size before file rotation.
+func (c *TestGeneralConfig) LogFileMaxSize() utils.FileSize {
+	if c.Overrides.LogFileMaxSize.Valid {
+		var val utils.FileSize
+
+		err := val.UnmarshalText([]byte(c.Overrides.LogFileMaxSize.String))
+		require.NoError(c.t, err)
+
+		return val
 	}
-	return c.GeneralConfig.LogToDisk()
+	return c.GeneralConfig.LogFileMaxSize()
+}
+
+// LogFileMaxAge allows to override the log file's max age before file rotation.
+func (c *TestGeneralConfig) LogFileMaxAge() int64 {
+	if c.Overrides.LogFileMaxAge.Valid {
+		return c.Overrides.LogFileMaxAge.Int64
+	}
+	return int64(c.GeneralConfig.LogFileMaxAge())
+}
+
+// LogFileMaxBackups allows to override the max amount of old log files to retain.
+func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
+	if c.Overrides.LogFileMaxBackups.Valid {
+		return c.Overrides.LogFileMaxBackups.Int64
+	}
+	return int64(c.GeneralConfig.LogFileMaxBackups())
 }
 
 func (c *TestGeneralConfig) AdminCredentialsFile() string {
@@ -633,11 +697,6 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	return c.GeneralConfig.GlobalEvmGasTipCapMinimum()
 }
 
-// There is no need for any database application locking in tests
-func (c *TestGeneralConfig) DatabaseLockingMode() string {
-	return "none"
-}
-
 func (c *TestGeneralConfig) LeaseLockRefreshInterval() time.Duration {
 	if c.Overrides.LeaseLockRefreshInterval != nil {
 		return *c.Overrides.LeaseLockRefreshInterval
@@ -671,4 +730,12 @@ func (c *TestGeneralConfig) LogFileDir() string {
 		return c.Overrides.LogFileDir.String
 	}
 	return c.RootDir()
+}
+
+// GlobalLinkContractAddress allows to override the LINK contract address
+func (c *TestGeneralConfig) GlobalLinkContractAddress() (string, bool) {
+	if c.Overrides.LinkContractAddress.Valid {
+		return c.Overrides.LinkContractAddress.String, true
+	}
+	return c.GeneralConfig.GlobalLinkContractAddress()
 }

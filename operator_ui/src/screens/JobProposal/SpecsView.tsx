@@ -75,7 +75,7 @@ interface ConfirmationDialogArgs {
 const confirmationDialogText = {
   approve: {
     title: 'Approve Job Proposal',
-    body: 'Approving this job proposal will start running a new job',
+    body: 'Approving this job proposal will start running a new job. WARNING: If a job using the same contract address already exists, it will be deleted before running the new one.',
   },
   cancel: {
     title: 'Cancel Job Proposal',

@@ -1,5 +1,5 @@
 # MAKE ALL CHANGES WITHIN THE DEFAULT WORKDIR FOR YARN AND GO DEP CACHE HITS
-FROM node:12-buster
+FROM node:16-buster
 WORKDIR /chainlink
 
 COPY GNUmakefile VERSION ./
@@ -38,7 +38,6 @@ RUN go mod download
 
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
-ARG ENVIRONMENT
 
 COPY core core
 # Copy over operator-ui build assets to the web module so that we embed them correctly

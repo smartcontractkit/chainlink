@@ -9,51 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again.
+- Added support for the `force` flag on `chainlink blocks replay`. If set to true, already consumed logs that would otherwise be skipped will be rebroadcasted.
+- Added version compatibility check when using CLI to login to a remote node. flag `bypass-version-check` skips this check.
+
+### Changed
+
+- Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
+- EIP-1559 is now enabled by default on mainnet. To disable (go back to legacy mode) set `EVM_EIP1559_DYNAMIC_FEES=false`. The default settings should work well, but if you wish to tune your gas controls, see the [documentation](https://docs.chain.link/docs/configuration-variables/#evm-gas-controls).
+
+Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended to enable this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
+
+See issue: https://github.com/maticnetwork/bor/issues/347
+
+## [1.2.0] - 2022-03-02
+
+### Added
+
+- Added support for the Nethermind Ethereum client.
+- Added support for batch sending telemetry to the ingress server to improve performance.
+- Added v2 P2P networking support (alpha)
 
 New ENV vars:
 
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
 - `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
-- `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
-- `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed. 
+- `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the output directory for logging.
+- `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
+- `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
+- `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
+- `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed.
 - `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
 - `TERRA_ENABLED` (default: false) - set to true to enable Terra support
 - `BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS` - if EIP1559 mode is enabled, this optional env var controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used. It is not recommended to change this unless you know what you are doing.
-- `EVM_GAS_FEE_CAP_DEFAULT` - if EIP1559 mode is enabled, and FixedPrice gas estimator is used, this env var controls the fixed initial fee cap.
+- `TELEMETRY_INGRESS_BUFFER_SIZE` (default: 100) - the number of telemetry messages to buffer before dropping new ones
+- `TELEMETRY_INGRESS_MAX_BATCH_SIZE` (default: 50) - the maximum number of messages to batch into one telemetry request
+- `TELEMETRY_INGRESS_SEND_INTERVAL` (default: 500ms) - the cadence on which batched telemetry is sent to the ingress server
+- `TELEMETRY_INGRESS_SEND_TIMEOUT` (default: 10s) - the max duration to wait for the request to complete when sending batch telemetry
+- `TELEMETRY_INGRESS_USE_BATCH_SEND` (default: true) - toggles sending telemetry using the batch client to the ingress server
+- `NODE_NO_NEW_HEADS_THRESHOLD` (default: 3m) - RPC node will be marked out-of-sync if it does not receive a new block for this length of time. Set to 0 to disable head monitoring for liveness checking,
+- `NODE_POLL_FAILURE_THRESHOLD` (default: 5) - number of consecutive failed polls before an RPC node is marked dead. Set to 0 to disable poll liveness checking.
+- `NODE_POLL_INTERVAL` (default: 10s) - how often to poll. Set to 0 to disable all polling.
 
-### Removed
-
-- `deleteuser` CLI command.
-
-### Changed
-
-`EVM_DISABLED` has been deprecated and replaced by `EVM_ENABLED` for consistency with other feature flags.
-`ETH_DISABLED` has been deprecated and replaced by `EVM_RPC_ENABLED` for consistency, and because this was confusingly named. In most cases you want to set `EVM_ENABLED=false` and not `EVM_RPC_ENABLED=false`.
-
-### Fixed
-
-Fixed issues with EIP-1559 related to gas bumping. Due to [go-ethereum's implementation](https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298) which introduces additional restrictions on top of the EIP-1559 spec, we must bump the FeeCap at least 10% each time in order for the gas bump to be accepted.
-
-The new EIP-1559 implementation works as follows:
-
-If you are using FixedPriceEstimator:
-- With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`
-- With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.  
-
-If you are using BlockHistoryEstimator (default for most chains):
-- With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
-- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
-
-Bumping works as follows:
-
-- Increase tipcap by `max(tipcap * (1 + ETH_GAS_BUMP_PERCENT), tipcap + ETH_GAS_BUMP_WEI)`
-- Increase feecap by `max(feecap * (1 + ETH_GAS_BUMP_PERCENT), feecap + ETH_GAS_BUMP_WEI)`
-
-
-#### Boostrap job
+#### Bootstrap job
 
 Added a new `bootstrap` job type. This job removes the need for every job to implement their own bootstrapping logic.
-It makes OCR2 jobs that currently use `isBootstrapPeer=true` deprecated but still supported.
+OCR2 jobs with `isBootstrapPeer=true` are automatically migrated to the new format.
 The spec parameters are similar to a basic OCR2 job, an example would be:
 
 ```
@@ -65,6 +66,59 @@ contractID      = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 [relayConfig]
 chainID	        = 4
 ```
+
+#### EVM node hot failover and liveness checking
+
+Chainlink now supports hot failover and liveness checking for EVM nodes. This completely supercedes and replaces the Fiews failover proxy and should remove the need for any kind of failover proxy between Chainlink and its RPC nodes.
+
+In order to use this feature, you'll need to set multiple primary RPC nodes.
+
+### Removed
+
+- `deleteuser` CLI command.
+- `LOG_TO_DISK` ENV var.
+
+### Changed
+
+`EVM_DISABLED` has been deprecated and replaced by `EVM_ENABLED` for consistency with other feature flags.
+`ETH_DISABLED` has been deprecated and replaced by `EVM_RPC_ENABLED` for consistency, and because this was confusingly named. In most cases you want to set `EVM_ENABLED=false` and not `EVM_RPC_ENABLED=false`.
+
+Log colorization is now disabled by default because it causes issues when piped to text files. To re-enable log colorization, set `LOG_COLOR=true`.
+
+#### Polygon/matic defaults changed
+
+Due to increasingly hostile network conditions on Polygon we have had to increase a number of default limits. This is to work around numerous and very deep re-orgs, high mempool pressure and a failure by the network to propagate transactions properly. These new limits are likely to increase load on both your Chainlink node and database, so please be sure to monitor CPU and memory usage on both and make sure they are adequately specced to handle the additional load.
+
+## [1.1.1] - 2022-02-14
+
+### Added
+
+- `BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS` - if EIP1559 mode is enabled, this optional env var controls the buffer blocks to add to the current base fee when sending a transaction. By default, the gas bumping threshold + 1 block is used. It is not recommended to change this unless you know what you are doing.
+- `EVM_GAS_FEE_CAP_DEFAULT` - if EIP1559 mode is enabled, and FixedPrice gas estimator is used, this env var controls the fixed initial fee cap.
+- Allow dumping pprof even when not in dev mode, useful for debugging (go to /v2/debug/pprof as a logged in user)
+
+### Fixed
+
+- Update timeout so we don’t exit early on very large log broadcaster backfills
+
+#### EIP-1559 Fixes
+
+Fixed issues with EIP-1559 related to gas bumping. Due to [go-ethereum's implementation](https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298) which introduces additional restrictions on top of the EIP-1559 spec, we must bump the FeeCap at least 10% each time in order for the gas bump to be accepted.
+
+The new EIP-1559 implementation works as follows:
+
+If you are using FixedPriceEstimator:
+- With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`
+- With gas bumping enabled, it will submit all transactions initially with `feecap=EVM_GAS_FEE_CAP_DEFAULT` and `tipcap=EVM_GAS_TIP_CAP_DEFAULT`.
+
+If you are using BlockHistoryEstimator (default for most chains):
+- With gas bumping disabled, it will submit all transactions with `feecap=ETH_MAX_GAS_PRICE_WEI` and `tipcap=<calculated using past blocks>`
+- With gas bumping enabled (default for most chains) it will submit all transactions initially with `feecap=current block base fee * (1.125 ^ N)` where N is configurable by setting BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS but defaults to `gas bump threshold+1` and `tipcap=<calculated using past blocks>`
+
+Bumping works as follows:
+
+- Increase tipcap by `max(tipcap * (1 + ETH_GAS_BUMP_PERCENT), tipcap + ETH_GAS_BUMP_WEI)`
+- Increase feecap by `max(feecap * (1 + ETH_GAS_BUMP_PERCENT), feecap + ETH_GAS_BUMP_WEI)`
 
 ## [1.1.0] - 2022-01-25
 

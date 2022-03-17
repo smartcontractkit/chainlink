@@ -229,6 +229,10 @@ func Test_CreateFeedsManager(t *testing.T) {
 						message
 						code
 					}
+					... on BootstrapXorJobsError {
+						message
+						code
+					}
 					... on NotFoundError {
 						message
 						code
@@ -246,7 +250,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 			"input": map[string]interface{}{
 				"name":            name,
 				"uri":             uri,
-				"jobTypes":        []interface{}{"FLUX_MONITOR"},
+				"jobTypes":        []interface{}{"FLUX_MONITOR", "OCR2"},
 				"publicKey":       pubKeyHex,
 				"isBootstrapPeer": false,
 			},
@@ -266,7 +270,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 					Name:                      name,
 					URI:                       uri,
 					PublicKey:                 *pubKey,
-					JobTypes:                  pq.StringArray([]string{"fluxmonitor"}),
+					JobTypes:                  pq.StringArray([]string{"fluxmonitor", "ocr2"}),
 					IsOCRBootstrapPeer:        false,
 					OCRBootstrapPeerMultiaddr: null.StringFromPtr(nil),
 				}).Return(mgrID, nil)
@@ -275,7 +279,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 					Name:                      name,
 					URI:                       uri,
 					PublicKey:                 *pubKey,
-					JobTypes:                  []string{"fluxmonitor"},
+					JobTypes:                  []string{"fluxmonitor", "ocr2"},
 					IsOCRBootstrapPeer:        false,
 					OCRBootstrapPeerMultiaddr: null.StringFromPtr(nil),
 					IsConnectionActive:        false,
@@ -292,7 +296,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 						"name": "manager1",
 						"uri": "localhost:2000",
 						"publicKey": "3b0f149627adb7b6fafe1497a9dfc357f22295a5440786c3bc566dfdb0176808",
-						"jobTypes": ["FLUX_MONITOR"],
+						"jobTypes": ["FLUX_MONITOR", "OCR2"],
 						"isBootstrapPeer": false,
 						"bootstrapPeerMultiaddr": null,
 						"isConnectionActive": false,
@@ -316,6 +320,25 @@ func Test_CreateFeedsManager(t *testing.T) {
 			{
 				"createFeedsManager": {
 					"message": "only a single feeds manager is supported",
+					"code": "UNPROCESSABLE"
+				}
+			}`,
+		},
+		{
+			name:          "bootstrap or job types error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.
+					On("RegisterManager", mock.IsType(&feeds.FeedsManager{})).
+					Return(int64(0), feeds.ErrBootstrapXorJobs)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"createFeedsManager": {
+					"message": "feeds manager cannot be bootstrap while having assigned job types",
 					"code": "UNPROCESSABLE"
 				}
 			}`,
@@ -389,6 +412,10 @@ func Test_UpdateFeedsManager(t *testing.T) {
 							bootstrapPeerMultiaddr
 							createdAt
 						}
+					}
+					... on BootstrapXorJobsError {
+						message
+						code
 					}
 					... on NotFoundError {
 						message
@@ -479,6 +506,23 @@ func Test_UpdateFeedsManager(t *testing.T) {
 				"updateFeedsManager": {
 					"message": "feeds manager not found",
 					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+		{
+			name:          "bootstrap or job types error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(feeds.ErrBootstrapXorJobs)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"updateFeedsManager": {
+					"message": "feeds manager cannot be bootstrap while having assigned job types",
+					"code": "UNPROCESSABLE"
 				}
 			}`,
 		},

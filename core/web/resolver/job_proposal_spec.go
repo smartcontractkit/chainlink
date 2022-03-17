@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
 
@@ -114,6 +115,37 @@ func (r *ApproveJobProposalSpecPayloadResolver) ToApproveJobProposalSpecSuccess(
 	}
 
 	return nil, false
+}
+
+// ToJobAlreadyExistsError -
+func (r *ApproveJobProposalSpecPayloadResolver) ToJobAlreadyExistsError() (*JobAlreadyExistsErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, feeds.ErrJobAlreadyExists) {
+		return NewJobAlreadyExistsError(r.err.Error()), true
+	}
+
+	return nil, false
+}
+
+// JobAlreadyExistsErrorResolver -
+type JobAlreadyExistsErrorResolver struct {
+	message string
+}
+
+// NewJobAlreadyExistsError -
+func NewJobAlreadyExistsError(message string) *JobAlreadyExistsErrorResolver {
+	return &JobAlreadyExistsErrorResolver{
+		message: message,
+	}
+}
+
+// Message -
+func (r *JobAlreadyExistsErrorResolver) Message() string {
+	return r.message
+}
+
+// Code -
+func (r *JobAlreadyExistsErrorResolver) Code() ErrorCode {
+	return ErrorCodeUnprocessable
 }
 
 // ApproveJobProposalSpecSuccessResolver resolves the approval success response.

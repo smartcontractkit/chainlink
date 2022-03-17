@@ -113,6 +113,7 @@ storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
 usePreflight       = true
 commitment         = "processed"
+txTimeout          = "1m"
 pollingInterval    = "2s"
 pollingCtxTimeout  = "4s"
 staleTimeout       = "30s"`
@@ -173,10 +174,11 @@ chainID			= 1337
 )
 
 type KeeperSpecParams struct {
+	Name                     string
 	ContractAddress          string
 	FromAddress              string
 	EvmChainID               int
-	minIncomingConfirmations int
+	MinIncomingConfirmations int
 }
 
 type KeeperSpec struct {
@@ -192,7 +194,7 @@ func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
 schemaVersion   		 	= 3
-name            		 	= "example keeper spec"
+name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
 evmChainID      		 	= %d
@@ -232,7 +234,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.minIncomingConfirmations),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
 	}
 }
 
@@ -299,9 +301,10 @@ encode_tx    [type=ethabiencode
 submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"
             minConfirmations="0"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
+            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
+            transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
 decode_log->vrf->encode_tx->submit_tx
-`, coordinatorAddress)
+`, coordinatorAddress, coordinatorAddress)
 	if params.V2 {
 		observationSource = fmt.Sprintf(`
 decode_log   [type=ethabidecodelog

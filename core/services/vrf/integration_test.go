@@ -16,10 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -47,7 +48,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			cu := newVRFCoordinatorUniverse(t, key)
 			incomingConfs := 2
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
-			require.NoError(t, app.Start())
+			require.NoError(t, app.Start(testutils.Context(t)))
 
 			jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
 			require.NoError(t, app.JobSpawner().CreateJob(&jb))
@@ -72,7 +73,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				// keep blocks coming in for the lb to send the backfilled logs.
 				cu.backend.Commit()
 				return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
-			}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+			}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
 			assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
@@ -80,10 +81,10 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
+				uc, err2 := txmgr.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
-			}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+			}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 			// Assert the request was fulfilled on-chain.
 			gomega.NewWithT(t).Eventually(func() bool {
@@ -94,7 +95,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 					rf = append(rf, rfIterator.Event)
 				}
 				return len(rf) == 1
-			}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
+			}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 		})
 	}
 }
@@ -107,7 +108,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	incomingConfs := 2
 	config.Overrides.BlockBackfillDepth = null.IntFrom(500)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job but do not start it yet
 	jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
@@ -170,7 +171,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
 		q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-		uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
+		uc, err2 := txmgr.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())

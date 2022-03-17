@@ -18,6 +18,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -37,7 +38,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Setup the bridge
 	mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
@@ -96,7 +97,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Setup the bridges
 	mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
@@ -236,7 +237,7 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	client := app.NewHTTPClient()
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
@@ -252,7 +253,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	cfg.Overrides.EVMRPCEnabled = null.BoolFrom(false)
 	cfg.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 	client := app.NewHTTPClient()
@@ -287,14 +288,14 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, cltest.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
+	`, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)
-	var os job.OffchainReportingOracleSpec
+	var os job.OCROracleSpec
 	err = toml.Unmarshal([]byte(sp), &os)
 	require.NoError(t, err)
-	jb.OffchainreportingOracleSpec = &os
+	jb.OCROracleSpec = &os
 
 	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)

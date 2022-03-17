@@ -9,10 +9,12 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -28,7 +30,7 @@ func Test_FeedsManagersController_Create(t *testing.T) {
 	body, err := json.Marshal(web.CreateFeedsManagerRequest{
 		Name:                   "Chainlink FM",
 		URI:                    "127.0.0.1:2000",
-		JobTypes:               []string{"fluxmonitor"},
+		JobTypes:               []string{},
 		PublicKey:              *pubKey,
 		IsBootstrapPeer:        true,
 		BootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
@@ -76,7 +78,7 @@ func Test_FeedsManagersController_List(t *testing.T) {
 	ms1 := feeds.FeedsManager{
 		Name:                      "Chainlink FM",
 		URI:                       "wss://127.0.0.1:2000",
-		JobTypes:                  []string{"fluxmonitor"},
+		JobTypes:                  []string{},
 		PublicKey:                 *pubKey,
 		IsOCRBootstrapPeer:        true,
 		OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
@@ -110,7 +112,7 @@ func Test_FeedsManagersController_Show(t *testing.T) {
 		ms1 = feeds.FeedsManager{
 			Name:                      "Chainlink FM",
 			URI:                       "wss://127.0.0.1:2000",
-			JobTypes:                  []string{"fluxmonitor"},
+			JobTypes:                  []string{},
 			PublicKey:                 *pubKey,
 			IsOCRBootstrapPeer:        true,
 			OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
@@ -190,7 +192,7 @@ func setupFeedsManagerTest(t *testing.T) (*cltest.TestApplication, cltest.HTTPCl
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureFeedsManager = null.BoolFrom(true)
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.Start(testutils.Context(t)))
 	// We need a CSA key to establish a connection to the FMS
 	app.KeyStore.CSA().Create()
 

@@ -177,13 +177,13 @@ export const generateJobDefinition = (
           'contractID',
           'contractConfigConfirmations',
           'contractConfigTrackerPollInterval',
-          'isBootstrapPeer',
-          'juelsPerFeeCoinSource',
           'ocrKeyBundleID',
           'monitoringEndpoint',
           'p2pBootstrapPeers',
           'relay',
           'relayConfig',
+          'pluginType',
+          'pluginConfig',
         ),
         // We need to call 'extractSpecFields' again here so we get the spec
         // fields displaying in alphabetical order.

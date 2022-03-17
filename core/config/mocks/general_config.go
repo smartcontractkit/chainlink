@@ -1718,6 +1718,69 @@ func (_m *GeneralConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 	return r0, r1
 }
 
+// GlobalNodeNoNewHeadsThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalNodePollFailureThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalNodePollInterval provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodePollInterval() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalOCRContractConfirmations provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	ret := _m.Called()
@@ -1914,6 +1977,20 @@ func (_m *GeneralConfig) JobPipelineResultWriteQueueDepth() uint64 {
 	return r0
 }
 
+// KeeperBaseFeeBufferPercent provides a mock function with given fields:
+func (_m *GeneralConfig) KeeperBaseFeeBufferPercent() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // KeeperCheckUpkeepGasPriceFeatureEnabled provides a mock function with given fields:
 func (_m *GeneralConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	ret := _m.Called()
@@ -2096,6 +2173,48 @@ func (_m *GeneralConfig) LogFileDir() string {
 	return r0
 }
 
+// LogFileMaxAge provides a mock function with given fields:
+func (_m *GeneralConfig) LogFileMaxAge() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
+// LogFileMaxBackups provides a mock function with given fields:
+func (_m *GeneralConfig) LogFileMaxBackups() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
+// LogFileMaxSize provides a mock function with given fields:
+func (_m *GeneralConfig) LogFileMaxSize() utils.FileSize {
+	ret := _m.Called()
+
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(utils.FileSize)
+	}
+
+	return r0
+}
+
 // LogLevel provides a mock function with given fields:
 func (_m *GeneralConfig) LogLevel() zapcore.Level {
 	ret := _m.Called()
@@ -2112,20 +2231,6 @@ func (_m *GeneralConfig) LogLevel() zapcore.Level {
 
 // LogSQL provides a mock function with given fields:
 func (_m *GeneralConfig) LogSQL() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// LogToDisk provides a mock function with given fields:
-func (_m *GeneralConfig) LogToDisk() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -3174,6 +3279,20 @@ func (_m *GeneralConfig) TLSRedirect() bool {
 	return r0
 }
 
+// TelemetryIngressBufferSize provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressBufferSize() uint {
+	ret := _m.Called()
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
 // TelemetryIngressLogging provides a mock function with given fields:
 func (_m *GeneralConfig) TelemetryIngressLogging() bool {
 	ret := _m.Called()
@@ -3183,6 +3302,48 @@ func (_m *GeneralConfig) TelemetryIngressLogging() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TelemetryIngressMaxBatchSize provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressMaxBatchSize() uint {
+	ret := _m.Called()
+
+	var r0 uint
+	if rf, ok := ret.Get(0).(func() uint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint)
+	}
+
+	return r0
+}
+
+// TelemetryIngressSendInterval provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressSendInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// TelemetryIngressSendTimeout provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressSendTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -3213,6 +3374,20 @@ func (_m *GeneralConfig) TelemetryIngressURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// TelemetryIngressUseBatchSend provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressUseBatchSend() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

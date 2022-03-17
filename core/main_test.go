@@ -12,16 +12,24 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
+
+func init() {
+	static.Version = "0.0.0"
+	static.Sha = "exampleSHA"
+}
 
 func run(args ...string) {
 	t := &testing.T{}
 	tc := cltest.NewTestGeneralConfig(t)
 	tc.Overrides.Dev = null.BoolFrom(false)
+	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,
-		Logger:                 logger.TestLogger(t),
+		Logger:                 lggr,
+		CloseLogger:            lggr.Sync,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
@@ -43,7 +51,7 @@ func ExampleRun() {
 	//    core.test [global options] command [command options] [arguments...]
 	//
 	// VERSION:
-	//    unset@unset
+	//    0.0.0@exampleSHA
 	//
 	// COMMANDS:
 	//    admin           Commands for remotely taking admin related actions
@@ -54,16 +62,17 @@ func ExampleRun() {
 	//    jobs            Commands for managing Jobs
 	//    keys            Commands for managing various types of keys used by the Chainlink node
 	//    node, local     Commands for admin actions that must be run locally
-	//    txs             Commands for handling Ethereum transactions
+	//    txs             Commands for handling transactions
 	//    chains          Commands for handling chain configuration
 	//    nodes           Commands for handling node configuration
+	//    forwarders      Commands for managing forwarder addresses.
 	//    help, h         Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
 	//    --json, -j     json output as opposed to table
 	//    --help, -h     show help
 	//    --version, -v  print the version
-	// core.test version unset@unset
+	// core.test version 0.0.0@exampleSHA
 }
 
 func ExampleRun_admin() {
@@ -371,6 +380,7 @@ func ExampleRun_node() {
 	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
 	//    status                    Displays the health of various services running inside the node.
+	//    profile                   Collects profile metrics from the node.
 	//    db                        Commands for managing the database.
 	//
 	// OPTIONS:
@@ -412,19 +422,67 @@ func ExampleRun_node_db() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_node_profile() {
+	run("node", "profile", "--help")
+	// Output:
+	// NAME:
+	//    core.test node profile - Collects profile metrics from the node.
+	//
+	// USAGE:
+	//    core.test node profile [command options] [arguments...]
+	//
+	// OPTIONS:
+	//    --seconds value, -s value     duration of profile capture (default: 8)
+	//    --output_dir value, -o value  output directory of the captured profile (default: "/tmp/")
+
+}
+
 func ExampleRun_txs() {
 	run("txs", "--help")
 	// Output:
 	// NAME:
-	//    core.test txs - Commands for handling Ethereum transactions
+	//    core.test txs - Commands for handling transactions
 	//
 	// USAGE:
 	//    core.test txs command [command options] [arguments...]
 	//
 	// COMMANDS:
+	//    evm    Commands for handling EVM transactions
+	//    terra  Commands for handling Terra transactions
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_txs_evm() {
+	run("txs", "evm", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs evm - Commands for handling EVM transactions
+	//
+	// USAGE:
+	//    core.test txs evm command [command options] [arguments...]
+	//
+	// COMMANDS:
 	//    create  Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.
 	//    list    List the Ethereum Transactions in descending order
 	//    show    get information on a specific Ethereum Transaction
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_txs_terra() {
+	run("txs", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs terra - Commands for handling Terra transactions
+	//
+	// USAGE:
+	//    core.test txs terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> Luna from node Terra account <fromAddress> to destination <toAddress>.
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -533,6 +591,24 @@ func ExampleRun_nodes_terra() {
 	//    create  Create a new Terra node
 	//    delete  Delete a Terra node
 	//    list    List all Terra nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_forwarders() {
+	run("forwarders", "--help")
+	// Output:
+	// NAME:
+	//    core.test forwarders - Commands for managing forwarder addresses.
+	//
+	// USAGE:
+	//    core.test forwarders command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list    List all stored forwarders addresses
+	//    create  Create a new forwarder
+	//    delete  Delete a forwarder address
 	//
 	// OPTIONS:
 	//    --help, -h  show help

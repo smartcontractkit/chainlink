@@ -57,7 +57,7 @@ func ValidateBridgeTypeUniqueness(bt *bridges.BridgeTypeRequest, orm bridges.ORM
 	if err == nil {
 		return fmt.Errorf("bridge type %v already exists", bt.Name)
 	}
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("error determining if bridge type %v already exists", bt.Name)
 	}
 
@@ -73,7 +73,7 @@ func ValidateBridgeType(bt *bridges.BridgeTypeRequest) error {
 	if len(bt.Name.String()) < 1 {
 		return errors.New("No name specified")
 	}
-	if _, err := bridges.NewTaskType(bt.Name.String()); err != nil {
+	if _, err := bridges.ParseBridgeName(bt.Name.String()); err != nil {
 		return errors.Wrap(err, "invalid bridge name")
 	}
 	u := bt.URL.String()

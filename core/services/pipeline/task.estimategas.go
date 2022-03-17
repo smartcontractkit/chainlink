@@ -88,6 +88,10 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars V
 	}
 	gasLimitFinal := gasLimitWithMultiplier.Uint64()
 	if gasLimitFinal > maximumGasLimit {
+		lggr.Warnw("EstimateGas: estimated amount is greater than configured limit, fallback to configured limit",
+			"estimate", gasLimitFinal,
+			"fallback", maximumGasLimit,
+		)
 		gasLimitFinal = maximumGasLimit
 	}
 	return Result{Value: gasLimitFinal}, runInfo

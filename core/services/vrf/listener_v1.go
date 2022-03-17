@@ -10,9 +10,9 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	_ log.Listener = &listenerV1{}
-	_ job.Service  = &listenerV1{}
+	_ log.Listener   = &listenerV1{}
+	_ job.ServiceCtx = &listenerV1{}
 )
 
 type request struct {
@@ -45,7 +45,7 @@ type listenerV1 struct {
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             bulletprooftxmanager.TxManager
+	txm             txmgr.TxManager
 	gethks          GethKeyStore
 	reqLogs         *utils.Mailbox
 	chStop          chan struct{}
@@ -68,6 +68,9 @@ type listenerV1 struct {
 	// respCount map - we repeatedly want remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	blockNumberToReqID *pairing.PairHeap
+
+	// deduper prevents processing duplicate requests from the log broadcaster.
+	deduper *logDeduper
 }
 
 // Note that we have 2 seconds to do this processing
@@ -95,7 +98,7 @@ func (lsn *listenerV1) getLatestHead() uint64 {
 }
 
 // Start complies with job.Service
-func (lsn *listenerV1) Start() error {
+func (lsn *listenerV1) Start(context.Context) error {
 	return lsn.StartOnce("VRFListener", func() error {
 		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
 
@@ -135,6 +138,7 @@ func (lsn *listenerV1) Start() error {
 func (lsn *listenerV1) extractConfirmedLogs() []request {
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
+	updateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, len(lsn.reqs))
 	var toProcess, toKeep []request
 	for i := 0; i < len(lsn.reqs); i++ {
 		if lsn.reqs[i].confirmedAtBlock <= lsn.getLatestHead() {
@@ -311,6 +315,7 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 			"blockHash", req.Raw.BlockHash,
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
+		incDupeReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
 	}
 	return req.Raw.BlockNumber + newConfs
 }
@@ -370,6 +375,7 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	})
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
+	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
 	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx)); err != nil {
@@ -382,10 +388,22 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"reqTxHash", req.Raw.TxHash)
 	} else {
-		lsn.l.Debugw("Executed fulfillment run",
-			"reqID", hex.EncodeToString(req.RequestID[:]),
-			"keyHash", hex.EncodeToString(req.KeyHash[:]),
-			"reqTxHash", req.Raw.TxHash)
+		if run.HasErrors() || run.HasFatalErrors() {
+			lsn.l.Error("VRFV1 pipeline run failed with errors",
+				"reqID", hex.EncodeToString(req.RequestID[:]),
+				"keyHash", hex.EncodeToString(req.KeyHash[:]),
+				"reqTxHash", req.Raw.TxHash,
+				"runErrors", run.AllErrors.ToError(),
+				"runFatalErrors", run.FatalErrors.ToError(),
+			)
+		} else {
+			lsn.l.Debugw("Executed VRFV1 fulfillment run",
+				"reqID", hex.EncodeToString(req.RequestID[:]),
+				"keyHash", hex.EncodeToString(req.KeyHash[:]),
+				"reqTxHash", req.Raw.TxHash,
+			)
+			incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
+		}
 	}
 }
 
@@ -400,9 +418,15 @@ func (lsn *listenerV1) Close() error {
 }
 
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
+	if !lsn.deduper.shouldDeliver(lb.RawLog()) {
+		lsn.l.Tracew("skipping duplicate log broadcast", "log", lb.RawLog())
+		return
+	}
+
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
+		incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, reasonMailboxSize)
 	}
 }
 

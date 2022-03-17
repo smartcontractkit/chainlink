@@ -13,12 +13,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -39,12 +40,12 @@ var registryConfig = keeper_registry_wrapper.GetConfig{
 }
 
 var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
-	Target:              cltest.NewAddress(),
+	Target:              testutils.NewAddress(),
 	ExecuteGas:          2_000_000,
 	CheckData:           common.Hex2Bytes("1234"),
 	Balance:             big.NewInt(1000000000000000000),
-	LastKeeper:          cltest.NewAddress(),
-	Admin:               cltest.NewAddress(),
+	LastKeeper:          testutils.NewAddress(),
+	Admin:               testutils.NewAddress(),
 	MaxValidBlocknumber: 1_000_000_000,
 }
 
@@ -79,7 +80,7 @@ func setupRegistrySync(t *testing.T) (
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
 		Contract:                 contract,
@@ -116,13 +117,13 @@ func Test_RegistrySynchronizer_Start(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", canceledUpkeeps).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	err := synchronizer.Start()
+	err := synchronizer.Start(testutils.Context(t))
 	require.NoError(t, err)
 	defer synchronizer.Close()
 
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 
-	err = synchronizer.Start()
+	err = synchronizer.Start(testutils.Context(t))
 	require.Error(t, err)
 }
 
@@ -196,7 +197,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
@@ -240,13 +241,13 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	var registry keeper.Registry
 	require.NoError(t, db.Get(&registry, `SELECT * FROM keeper_registries`))
 
-	addresses := []common.Address{fromAddress, cltest.NewAddress()} // change from default
+	addresses := []common.Address{fromAddress, testutils.NewAddress()} // change from default
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", addresses).Once()
 
@@ -285,7 +286,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(3)).Once()
 	registryMock.MockResponse("getUpkeep", upkeepConfig).Times(3)
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer func() { require.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
@@ -321,7 +322,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(0)).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 
@@ -361,7 +362,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	registryMock.MockResponse("getUpkeepCount", big.NewInt(1)).Once()
 	registryMock.MockResponse("getUpkeep", upkeepConfig).Once()
 
-	require.NoError(t, synchronizer.Start())
+	require.NoError(t, synchronizer.Start(testutils.Context(t)))
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)

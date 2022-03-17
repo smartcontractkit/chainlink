@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/big"
 	"time"
@@ -32,6 +33,25 @@ func IsBumpErr(err error) bool {
 // NewEstimator returns the estimator for a given config
 func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config) Estimator {
 	s := cfg.GasEstimatorMode()
+	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
+		"estimatorMode", s,
+		"batchSize", cfg.BlockHistoryEstimatorBatchSize(),
+		"blockDelay", cfg.BlockHistoryEstimatorBlockDelay(),
+		"blockHistorySize", cfg.BlockHistoryEstimatorBlockHistorySize(),
+		"eip1559FeeCapBufferBlocks", cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks(),
+		"transactionPercentile", cfg.BlockHistoryEstimatorTransactionPercentile(),
+		"eip1559DynamicFees", cfg.EvmEIP1559DynamicFees(),
+		"gasBumpPercent", cfg.EvmGasBumpPercent(),
+		"gasBumpThreshold", cfg.EvmGasBumpThreshold(),
+		"gasBumpWei", cfg.EvmGasBumpWei(),
+		"feeCapDefault", cfg.EvmGasFeeCapDefault(),
+		"gasLimitMultiplier", cfg.EvmGasLimitMultiplier(),
+		"gasPriceDefault", cfg.EvmGasPriceDefault(),
+		"gasTipCapDefault", cfg.EvmGasTipCapDefault(),
+		"gasTipCapMinimum", cfg.EvmGasTipCapMinimum(),
+		"maxGasPriceWei", cfg.EvmMaxGasPriceWei(),
+		"minGasPriceWei", cfg.EvmMinGasPriceWei(),
+	)
 	switch s {
 	case "BlockHistory":
 		return NewBlockHistoryEstimator(lggr, ethClient, cfg, *ethClient.ChainID())
@@ -57,7 +77,7 @@ type DynamicFee struct {
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
-	Start() error
+	Start(context.Context) error
 	Close() error
 	GetLegacyGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)
 	BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error)
@@ -248,7 +268,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 // BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit
-func BumpLegacyGasPriceOnly(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func BumpLegacyGasPriceOnly(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice)
 	if err != nil {
 		return nil, 0, err
@@ -261,7 +281,7 @@ func BumpLegacyGasPriceOnly(cfg Config, lggr logger.Logger, currentGasPrice, ori
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func bumpGasPrice(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
+func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
 	maxGasPrice := cfg.EvmMaxGasPriceWei()
 
 	var priceByPercentage = new(big.Int)
@@ -274,7 +294,9 @@ func bumpGasPrice(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPr
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if currentGasPrice != nil {
 		if currentGasPrice.Cmp(maxGasPrice) > 0 {
-			lggr.Errorf("invariant violation: ignoring current gas price of %s that would exceed max gas price of %s", currentGasPrice.String(), maxGasPrice.String())
+			// Shouldn't happen because the estimator should not be allowed to
+			// estimate a higher gas than the maximum allowed
+			lggr.AssumptionViolationf("Ignoring current gas price of %s that would exceed max gas price of %s", currentGasPrice.String(), maxGasPrice.String())
 		} else if bumpedGasPrice.Cmp(currentGasPrice) < 0 {
 			// If the current gas price is higher than the old price bumped, use that instead
 			bumpedGasPrice = currentGasPrice
@@ -329,7 +351,7 @@ func bumpDynamicFee(cfg Config, lggr logger.Logger, currentTipCap, currentBaseFe
 
 	if currentTipCap != nil {
 		if currentTipCap.Cmp(maxGasPrice) > 0 {
-			lggr.Errorf("invariant violation: ignoring current tip cap of %s that would exceed max gas price of %s", currentTipCap.String(), maxGasPrice.String())
+			lggr.Errorf("AssumptionViolation: Ignoring current tip cap of %s that would exceed max gas price of %s", currentTipCap.String(), maxGasPrice.String())
 		} else if bumpedTipCap.Cmp(currentTipCap) < 0 {
 			// If the current gas tip cap is higher than the old tip cap with bump applied, use that instead
 			bumpedTipCap = currentTipCap
@@ -354,7 +376,7 @@ func bumpDynamicFee(cfg Config, lggr logger.Logger, currentTipCap, currentBaseFe
 
 	if currentBaseFee != nil {
 		if currentBaseFee.Cmp(maxGasPrice) > 0 {
-			lggr.Warnf("ignoring current base fee of %s which is greater than max gas price of %s", currentBaseFee.String(), maxGasPrice.String())
+			lggr.Warnf("Ignoring current base fee of %s which is greater than max gas price of %s", currentBaseFee.String(), maxGasPrice.String())
 		} else {
 			currentFeeCap := calcFeeCap(currentBaseFee, cfg, bumpedTipCap)
 			bumpedFeeCap = max(bumpedFeeCap, currentFeeCap)

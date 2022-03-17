@@ -63,6 +63,7 @@ type EnvPrinter struct {
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	KeeperGasPriceBufferPercent                uint32          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
 	KeeperGasTipCapBufferPercent               uint32          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
+	KeeperBaseFeeBufferPercent                 uint32          `json:"KEEPER_BASE_FEE_BUFFER_PERCENT"`
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
 	KeeperRegistryCheckGasOverhead             uint64          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
@@ -76,7 +77,9 @@ type EnvPrinter struct {
 	LogFileDir                                 string          `json:"LOG_FILE_DIR"`
 	LogLevel                                   zapcore.Level   `json:"LOG_LEVEL"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
-	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
+	LogFileMaxSize                             utils.FileSize  `json:"LOG_FILE_MAX_SIZE"`
+	LogFileMaxAge                              int64           `json:"LOG_FILE_MAX_AGE"`
+	LogFileMaxBackups                          int64           `json:"LOG_FILE_MAX_BACKUPS"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 
 	// OCR1
@@ -168,12 +171,15 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			KeeperDefaultTransactionQueueDepth: cfg.KeeperDefaultTransactionQueueDepth(),
 			KeeperGasPriceBufferPercent:        cfg.KeeperGasPriceBufferPercent(),
 			KeeperGasTipCapBufferPercent:       cfg.KeeperGasTipCapBufferPercent(),
+			KeeperBaseFeeBufferPercent:         cfg.KeeperBaseFeeBufferPercent(),
 			LeaseLockDuration:                  cfg.LeaseLockDuration(),
 			LeaseLockRefreshInterval:           cfg.LeaseLockRefreshInterval(),
 			LogFileDir:                         cfg.LogFileDir(),
+			LogFileMaxSize:                     cfg.LogFileMaxSize(),
+			LogFileMaxAge:                      cfg.LogFileMaxAge(),
+			LogFileMaxBackups:                  cfg.LogFileMaxBackups(),
 			LogLevel:                           cfg.LogLevel(),
 			LogSQL:                             cfg.LogSQL(),
-			LogToDisk:                          cfg.LogToDisk(),
 
 			// OCRV1
 			OCRContractTransmitterTransmitTimeout: ocrTransmitTimeout,

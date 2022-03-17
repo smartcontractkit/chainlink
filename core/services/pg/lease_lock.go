@@ -215,7 +215,10 @@ func (l *leaseLock) loop(ctx context.Context) {
 			if err != nil {
 				l.logger.Errorw("Error trying to refresh database lease", "err", err)
 			} else if !gotLease {
-				l.logger.Fatal("Another node has taken the lease, exiting")
+				if err := l.db.Close(); err != nil {
+					l.logger.Errorw("Failed to close DB", "err", err)
+				}
+				l.logger.Fatal("Another node has taken the lease, exiting immediately")
 			}
 		}
 	}

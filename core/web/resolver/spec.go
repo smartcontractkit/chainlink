@@ -2,9 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
-	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/gqlscalar"
 )
 
@@ -53,7 +53,7 @@ func (r *SpecResolver) ToOCRSpec() (*OCRSpecResolver, bool) {
 		return nil, false
 	}
 
-	return &OCRSpecResolver{spec: *r.j.OffchainreportingOracleSpec}, true
+	return &OCRSpecResolver{spec: *r.j.OCROracleSpec}, true
 }
 
 func (r *SpecResolver) ToOCR2Spec() (*OCR2SpecResolver, bool) {
@@ -61,7 +61,7 @@ func (r *SpecResolver) ToOCR2Spec() (*OCR2SpecResolver, bool) {
 		return nil, false
 	}
 
-	return &OCR2SpecResolver{spec: *r.j.Offchainreporting2OracleSpec}, true
+	return &OCR2SpecResolver{spec: *r.j.OCR2OracleSpec}, true
 }
 
 func (r *SpecResolver) ToVRFSpec() (*VRFSpecResolver, bool) {
@@ -296,7 +296,7 @@ func (r *KeeperSpecResolver) FromAddress() *string {
 }
 
 type OCRSpecResolver struct {
-	spec job.OffchainReportingOracleSpec
+	spec job.OCROracleSpec
 }
 
 // BlockchainTimeout resolves the spec's blockchain timeout.
@@ -478,7 +478,7 @@ func (r *OCRSpecResolver) TransmitterAddress() *string {
 }
 
 type OCR2SpecResolver struct {
-	spec job.OffchainReporting2OracleSpec
+	spec job.OCR2OracleSpec
 }
 
 // BlockchainTimeout resolves the spec's blockchain timeout.
@@ -525,20 +525,6 @@ func (r *OCR2SpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
-// IsBootstrapPeer resolves whether spec is a bootstrap peer.
-func (r *OCR2SpecResolver) IsBootstrapPeer() bool {
-	return r.spec.IsBootstrapPeer
-}
-
-// JuelsPerFeeCoinSource resolves the spec's juels per fee coin source
-func (r *OCR2SpecResolver) JuelsPerFeeCoinSource() *string {
-	if r.spec.JuelsPerFeeCoinPipeline == "" {
-		return nil
-	}
-
-	return &r.spec.JuelsPerFeeCoinPipeline
-}
-
 // KeyBundleID resolves the spec's key bundle id.
 func (r *OCR2SpecResolver) OcrKeyBundleID() *string {
 	if !r.spec.OCRKeyBundleID.Valid {
@@ -578,7 +564,17 @@ func (r *OCR2SpecResolver) RelayConfig() gqlscalar.Map {
 	return gqlscalar.Map(r.spec.RelayConfig)
 }
 
-// TransmitterAddress resolves the spec's transmitter id
+// PluginType resolves the spec's plugin type
+func (r *OCR2SpecResolver) PluginType() string {
+	return string(r.spec.PluginType)
+}
+
+// PluginConfig resolves the spec's plugin config
+func (r *OCR2SpecResolver) PluginConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.PluginConfig)
+}
+
+// TransmitterID resolves the spec's transmitter id
 func (r *OCR2SpecResolver) TransmitterID() *string {
 	if !r.spec.TransmitterID.Valid {
 		return nil

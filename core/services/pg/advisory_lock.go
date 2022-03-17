@@ -122,7 +122,7 @@ func (l *advisoryLock) checkoutConn(ctx context.Context) (err error) {
 // getLock obtains exclusive session level advisory lock if available.
 // It will either obtain the lock and return true, or return false if the lock cannot be acquired immediately.
 func (l *advisoryLock) getLock(ctx context.Context) (locked bool, err error) {
-	l.logger.Trace("Taking advisory lock")
+	l.logger.Debug("Taking advisory lock")
 	sqlQuery := "SELECT pg_try_advisory_lock($1)"
 	err = l.conn.QueryRowContext(ctx, sqlQuery, l.id).Scan(&locked)
 	return locked, errors.WithStack(err)
@@ -173,7 +173,10 @@ func (l *advisoryLock) loop(ctx context.Context) {
 			if err != nil {
 				l.logger.Errorw("Error while checking advisory lock", "err", err)
 			} else if !gotLock {
-				l.logger.Fatal("Another node has taken the advisory lock, exiting")
+				if err := l.db.Close(); err != nil {
+					l.logger.Errorw("Failed to close DB", "err", err)
+				}
+				l.logger.Fatal("Another node has taken the advisory lock, exiting immediately")
 			}
 			ticker.Reset(utils.WithJitter(l.checkInterval))
 		}

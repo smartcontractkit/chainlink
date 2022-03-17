@@ -34,6 +34,7 @@ const (
     `
 )
 
+//nolint
 func Up36(tx *sql.Tx) error {
 	// Add the external ID column and remove type specific ones.
 	if _, err := tx.Exec(up36_1); err != nil {
@@ -70,6 +71,7 @@ func Up36(tx *sql.Tx) error {
 	return nil
 }
 
+//nolint
 func Down36(tx *sql.Tx) error {
 	if _, err := tx.Exec(down36); err != nil {
 		return err

@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
@@ -33,7 +33,7 @@ func TestFlags_IsLowered(t *testing.T) {
 
 			var (
 				flagsContract = new(mocks.Flags)
-				address       = cltest.NewAddress()
+				address       = testutils.NewAddress()
 			)
 
 			flags := fluxmonitorv2.ContractFlags{FlagsInterface: flagsContract}

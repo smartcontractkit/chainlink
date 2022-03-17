@@ -16,9 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -82,7 +83,7 @@ func TestHead_NextInt(t *testing.T) {
 }
 
 func TestEthTx_GetID(t *testing.T) {
-	tx := bulletprooftxmanager.EthTx{ID: math.MinInt64}
+	tx := txmgr.EthTx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
 }
 
@@ -91,7 +92,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	tx := gethTypes.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)
 
@@ -101,7 +102,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
 
-	attempt := bulletprooftxmanager.EthTxAttempt{SignedRawTx: rlp.Bytes()}
+	attempt := txmgr.EthTxAttempt{SignedRawTx: rlp.Bytes()}
 
 	gotSignedTx, err := attempt.GetSignedTx()
 	require.NoError(t, err)
@@ -353,7 +354,7 @@ func TestHead_MarshalJSON(t *testing.T) {
 }
 
 func Test_NullableEIP2930AccessList(t *testing.T) {
-	addr := cltest.NewAddress()
+	addr := testutils.NewAddress()
 	storageKey := utils.NewHash()
 	al := gethTypes.AccessList{{Address: addr, StorageKeys: []common.Hash{storageKey}}}
 	alb, err := json.Marshal(al)
@@ -361,8 +362,8 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	jsonStr := fmt.Sprintf(`[{"address":"0x%s","storageKeys":["%s"]}]`, hex.EncodeToString(addr.Bytes()), storageKey.Hex())
 	require.Equal(t, jsonStr, string(alb))
 
-	nNull := bulletprooftxmanager.NullableEIP2930AccessList{}
-	nValid := bulletprooftxmanager.NullableEIP2930AccessListFrom(al)
+	nNull := txmgr.NullableEIP2930AccessList{}
+	nValid := txmgr.NullableEIP2930AccessListFrom(al)
 
 	t.Run("MarshalJSON", func(t *testing.T) {
 		_, err := json.Marshal(nNull)
@@ -375,7 +376,7 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	})
 
 	t.Run("UnmarshalJSON", func(t *testing.T) {
-		var n bulletprooftxmanager.NullableEIP2930AccessList
+		var n txmgr.NullableEIP2930AccessList
 		err := json.Unmarshal(nil, &n)
 		require.EqualError(t, err, "unexpected end of JSON input")
 
@@ -401,7 +402,7 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	})
 
 	t.Run("Scan", func(t *testing.T) {
-		n := new(bulletprooftxmanager.NullableEIP2930AccessList)
+		n := new(txmgr.NullableEIP2930AccessList)
 		err := n.Scan(nil)
 		require.NoError(t, err)
 		assert.False(t, n.Valid)

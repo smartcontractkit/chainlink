@@ -1,3 +1,8 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       operator-ui-paths-ignore.yml
+##
+
 name: Operator UI
 
 on:
@@ -6,7 +11,15 @@ on:
       - auto
       - try
       - rollup
+    paths:
+      - 'operator_ui/**'
+      - yarn.lock
+      - 'tools/ci/**'
   pull_request:
+    paths:
+      - 'operator_ui/**'
+      - yarn.lock
+      - 'tools/ci/**'
 
 jobs:
   operator-ui:
@@ -16,7 +29,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache dependencies

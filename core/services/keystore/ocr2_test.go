@@ -8,7 +8,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -124,21 +126,25 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		_, didExist, err := ks.EnsureKeys()
-		require.NoError(t, err)
-		require.False(t, didExist["evm"])
-		require.False(t, didExist["solana"])
-		require.False(t, didExist["terra"])
+		err := ks.EnsureKeys()
+		assert.NoError(t, err)
+
 		keys, err := ks.GetAll()
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		require.Equal(t, 3, len(keys))
-		_, didExist, err = ks.EnsureKeys()
-		require.NoError(t, err)
-		require.True(t, didExist["evm"])
-		require.True(t, didExist["solana"])
-		require.True(t, didExist["terra"])
-		keys, err = ks.GetAll()
-		require.NoError(t, err)
-		require.Equal(t, 3, len(keys))
+
+		err = ks.EnsureKeys()
+		assert.NoError(t, err)
+
+		evmKeys, err := ks.GetAllOfType(chaintype.EVM)
+		assert.NoError(t, err)
+		solanaKeys, err := ks.GetAllOfType(chaintype.Solana)
+		assert.NoError(t, err)
+		terraKeys, err := ks.GetAllOfType(chaintype.Terra)
+		assert.NoError(t, err)
+
+		require.Equal(t, 1, len(evmKeys))
+		require.Equal(t, 1, len(solanaKeys))
+		require.Equal(t, 1, len(terraKeys))
 	})
 }

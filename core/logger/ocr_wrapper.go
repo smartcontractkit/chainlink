@@ -49,7 +49,7 @@ func (ol *ocrWrapper) Error(msg string, fields ocrtypes.LogFields) {
 }
 
 func (ol *ocrWrapper) Critical(msg string, fields ocrtypes.LogFields) {
-	ol.internal.CriticalW(msg, toKeysAndValues(fields)...)
+	ol.internal.Criticalw(msg, toKeysAndValues(fields)...)
 }
 
 func toKeysAndValues(fields ocrtypes.LogFields) []interface{} {

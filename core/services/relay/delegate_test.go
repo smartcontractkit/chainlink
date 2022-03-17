@@ -8,6 +8,7 @@ import (
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -27,10 +28,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 )
 
-func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OffchainReporting2OracleSpec {
+func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OCR2OracleSpec {
 	t.Helper()
 
-	var ocr2spec job.OffchainReporting2OracleSpec
+	var ocr2spec job.OCR2OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecToml), &ocr2spec)
 	require.NoError(t, err)
 
@@ -51,12 +52,12 @@ func TestNewOCR2Provider(t *testing.T) {
 	// setup terra mocks
 	terraChain := new(terraMock.Chain)
 	terraChain.On("Config").Return(terra.NewConfig(terradb.ChainCfg{}, lggr))
-	terraChain.On("MsgEnqueuer").Return(new(terraMock.MsgEnqueuer)).Times(2)
+	terraChain.On("TxManager").Return(new(terraMock.TxManager)).Times(2)
 	terraChain.On("Reader", "").Return(new(terraMock.Reader), nil).Once()
 	terraChain.On("Reader", "some-test-node").Return(new(terraMock.Reader), nil).Once()
 
 	terraChains := new(terraMock.ChainSet)
-	terraChains.On("Chain", "Chainlink-99").Return(terraChain, nil).Times(2)
+	terraChains.On("Chain", mock.Anything, "Chainlink-99").Return(terraChain, nil).Times(2)
 
 	d := relay.NewDelegate(keystore)
 
@@ -74,8 +75,14 @@ func TestNewOCR2Provider(t *testing.T) {
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			spec := makeOCR2JobSpecFromToml(t, s.spec)
-
-			_, err := d.NewOCR2Provider(uuid.UUID{}, &spec)
+			_, err := d.NewOCR2Provider(uuid.UUID{}, &relay.OCR2ProviderArgs{
+				ID:              spec.ID,
+				ContractID:      spec.ContractID,
+				TransmitterID:   spec.TransmitterID,
+				Relay:           spec.Relay,
+				RelayConfig:     spec.RelayConfig,
+				IsBootstrapPeer: false,
+			})
 			require.Error(t, err)
 			assert.Contains(t, strings.ToLower(err.Error()), fmt.Sprintf("no %s relay found", s.name))
 		})
@@ -88,8 +95,14 @@ func TestNewOCR2Provider(t *testing.T) {
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
 			spec := makeOCR2JobSpecFromToml(t, s.spec)
-
-			_, err := d.NewOCR2Provider(uuid.UUID{}, &spec)
+			_, err := d.NewOCR2Provider(uuid.UUID{}, &relay.OCR2ProviderArgs{
+				ID:              spec.ID,
+				ContractID:      spec.ContractID,
+				TransmitterID:   spec.TransmitterID,
+				Relay:           spec.Relay,
+				RelayConfig:     spec.RelayConfig,
+				IsBootstrapPeer: false,
+			})
 			require.NoError(t, err)
 		})
 	}
