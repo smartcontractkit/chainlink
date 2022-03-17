@@ -20,12 +20,14 @@ func ToJobType(s string) (JobType, error) {
 		return JobTypeFluxMonitor, nil
 	case "ocr":
 		return JobTypeOCR, nil
+	case "ocr2":
+		return JobTypeOCR2, nil
 	default:
-		return JobType(""), errors.New("invalid job type")
+		return "", errors.New("invalid job type")
 	}
 }
 
-// FromJobType converts a JoyType into a string which is used to create/update
+// FromJobTypeInput converts a JobType into a string which is used to create/update
 // a feeds manager.
 //
 // FluxMonitor is a special case because the FeedsManager expects a 'fluxmonitor'
@@ -46,6 +48,7 @@ func FromJobTypeInput(jt JobType) string {
 const (
 	JobTypeFluxMonitor JobType = "FLUX_MONITOR"
 	JobTypeOCR         JobType = "OCR"
+	JobTypeOCR2        JobType = "OCR2"
 )
 
 // FeedsManagerResolver resolves the FeedsManager type.
@@ -118,7 +121,7 @@ func (r *FeedsManagerResolver) IsConnectionActive() bool {
 	return r.mgr.IsConnectionActive
 }
 
-// BootstrapPeer resolves the feed managers's isConnectionActive field.
+// BootstrapPeerMultiaddr resolves the feed managers's isConnectionActive field.
 func (r *FeedsManagerResolver) BootstrapPeerMultiaddr() *string {
 	return r.mgr.OCRBootstrapPeerMultiaddr.Ptr()
 }
@@ -170,7 +173,7 @@ func (r *FeedsManagersPayloadResolver) Results() []*FeedsManagerResolver {
 
 // -- CreateFeedsManager Mutation --
 
-// CreateFeedsManagerPayloadResolver
+// CreateFeedsManagerPayloadResolver -
 type CreateFeedsManagerPayloadResolver struct {
 	mgr *feeds.FeedsManager
 	// inputErrors maps an input path to a string
@@ -204,6 +207,15 @@ func (r *CreateFeedsManagerPayloadResolver) ToSingleFeedsManagerError() (*Single
 	return nil, false
 }
 
+// ToBootstrapXorJobsError -
+func (r *CreateFeedsManagerPayloadResolver) ToBootstrapXorJobsError() (*BootstrapXorJobsErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, feeds.ErrBootstrapXorJobs) {
+		return NewBootstrapXorJobsError(r.err.Error()), true
+	}
+
+	return nil, false
+}
+
 func (r *CreateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
 		var errs []*InputErrorResolver
@@ -232,6 +244,7 @@ func (r *CreateFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver
 	return NewFeedsManager(r.mgr)
 }
 
+// SingleFeedsManagerErrorResolver -
 type SingleFeedsManagerErrorResolver struct {
 	message string
 }
@@ -250,9 +263,31 @@ func (r *SingleFeedsManagerErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
 }
 
+// BootstrapXorJobsErrorResolver -
+type BootstrapXorJobsErrorResolver struct {
+	message string
+}
+
+// NewBootstrapXorJobsError -
+func NewBootstrapXorJobsError(message string) *BootstrapXorJobsErrorResolver {
+	return &BootstrapXorJobsErrorResolver{
+		message: message,
+	}
+}
+
+// Message -
+func (r *BootstrapXorJobsErrorResolver) Message() string {
+	return r.message
+}
+
+// Code -
+func (r *BootstrapXorJobsErrorResolver) Code() ErrorCode {
+	return ErrorCodeUnprocessable
+}
+
 // -- UpdateFeedsManager Mutation --
 
-// UpdateFeedsManagerPayloadResolver
+// UpdateFeedsManagerPayloadResolver -
 type UpdateFeedsManagerPayloadResolver struct {
 	mgr       *feeds.FeedsManager
 	inputErrs map[string]string
@@ -272,6 +307,15 @@ func NewUpdateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs 
 func (r *UpdateFeedsManagerPayloadResolver) ToUpdateFeedsManagerSuccess() (*UpdateFeedsManagerSuccessResolver, bool) {
 	if r.mgr != nil {
 		return NewUpdateFeedsManagerSuccessResolver(*r.mgr), true
+	}
+
+	return nil, false
+}
+
+// ToBootstrapXorJobsError -
+func (r *UpdateFeedsManagerPayloadResolver) ToBootstrapXorJobsError() (*BootstrapXorJobsErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, feeds.ErrBootstrapXorJobs) {
+		return NewBootstrapXorJobsError(r.err.Error()), true
 	}
 
 	return nil, false

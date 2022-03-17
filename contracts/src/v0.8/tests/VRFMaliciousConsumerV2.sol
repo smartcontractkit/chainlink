@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../dev/VRFConsumerBaseV2.sol";
+import "../VRFConsumerBaseV2.sol";
 
 contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;

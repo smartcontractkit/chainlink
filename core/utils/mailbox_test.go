@@ -8,14 +8,26 @@ import (
 )
 
 func TestMailbox(t *testing.T) {
-	m := utils.NewMailbox(10)
-
 	var (
 		expected  = []int{2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 		toDeliver = []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
-		recvd     []int
 	)
 
+	const capacity = 10
+	m := utils.NewMailbox(capacity)
+
+	// Queue deliveries
+	for i, d := range toDeliver {
+		atCapacity := m.Deliver(d)
+		if atCapacity && i < capacity {
+			t.Errorf("mailbox at capacity %d", i)
+		} else if !atCapacity && i >= capacity {
+			t.Errorf("mailbox below capacity %d", i)
+		}
+	}
+
+	// Retrieve them
+	var recvd []int
 	chDone := make(chan struct{})
 	go func() {
 		defer close(chDone)
@@ -30,18 +42,9 @@ func TestMailbox(t *testing.T) {
 		}
 	}()
 
-	for _, i := range toDeliver {
-		m.Deliver(i)
-	}
 	close(m.Notify())
-
 	<-chDone
 
-	if len(recvd) > 10 {
-		t.Fatal("received too many")
-	} else if len(recvd) < 10 {
-		t.Fatal("received too few")
-	}
 	require.Equal(t, expected, recvd)
 }
 

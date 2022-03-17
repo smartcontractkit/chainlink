@@ -37,7 +37,6 @@ type TerraNodeResource struct {
 	Name          string    `json:"name"`
 	TerraChainID  string    `json:"terraChainID"`
 	TendermintURL string    `json:"tendermintURL"`
-	FCDURL        string    `json:"fcdURL"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
@@ -54,7 +53,6 @@ func NewTerraNodeResource(node db.Node) TerraNodeResource {
 		Name:          node.Name,
 		TerraChainID:  node.TerraChainID,
 		TendermintURL: node.TendermintURL,
-		FCDURL:        node.FCDURL,
 		CreatedAt:     node.CreatedAt,
 		UpdatedAt:     node.UpdatedAt,
 	}

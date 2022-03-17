@@ -21,7 +21,7 @@ func Test_ToFeatures(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 				f.Mocks.cfg.On("FeatureUICSAKeys").Return(false)
-				f.Mocks.cfg.On("FeatureUIFeedsManager").Return(true)
+				f.Mocks.cfg.On("FeatureFeedsManager").Return(true)
 			},
 			query: query,
 			result: `

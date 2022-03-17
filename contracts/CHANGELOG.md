@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- Ignore status update in `ArbitrumSequencerUptimeFeed` if incoming update has stale timestamp
+- Revert to using current Arbitrum seq status flag in `ArbitrumSequencerUptimeFeed`
+
+## 0.4.0 - 2022-02-07
+
 ### Added
 
 - `ArbitrumSequencerUptimeFeedInterface` and `ArbitrumSequencerUptimeFeed` added in v0.8.
@@ -10,6 +17,7 @@
 
 - Changed `ArbitrumValidator#validate` target to `ArbitrumSequencerUptimeFeed` instead of
   Flags contract.
+- Moved `VRFConsumerBaseV2` out of dev
 
 ## 0.3.1 - 2022-01-05
 
@@ -34,6 +42,7 @@
 - `ChainlinkClient` functions `requestOracleData` and `requestOracleDataFrom` have been changed to `sendChainlinkRequest` and
   `sendChainlinkRequestTo` respectively.
 - Updated function comments in `v0.6/interfaces/KeeperCompatibleInterface.sol` and `v0.8/interfaces/KeeperCompatibleInterface.sol` to match the latest in v0.7.
+- Add `DelegateForwarderInterface` interface and `CrossDomainDelegateForwarder` base contract which implements a new `forwardDelegate()` function to forward delegatecalls from L1 to L2.
 
 ## 0.2.2 - 2021-09-21
 

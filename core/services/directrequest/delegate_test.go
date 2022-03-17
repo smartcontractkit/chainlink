@@ -10,11 +10,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -24,10 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v4"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
@@ -58,7 +60,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 type DirectRequestUniverse struct {
 	spec           *job.Job
 	runner         *pipeline_mocks.Runner
-	service        job.Service
+	service        job.ServiceCtx
 	jobORM         job.ORM
 	listener       log.Listener
 	logBroadcaster *log_mocks.Broadcaster
@@ -150,7 +152,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 				fn(nil)
 			}).Once()
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		require.NotNil(t, uni.listener, "listener was nil; expected broadcaster.Register to have been called")
@@ -189,7 +191,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest).Maybe()
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		log.AssertExpectations(t)
@@ -229,7 +231,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Topics: []common.Hash{{}, {}},
 		})
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
@@ -258,7 +260,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
@@ -303,7 +305,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		cancelLog.On("DecodedLog").Return(&logCancelOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		timeout := 5 * time.Second
@@ -365,7 +367,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			fn(nil)
 		}).Once().Return(false, nil)
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
@@ -410,7 +412,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			markConsumedLogAwaiter.ItHappened()
 		}).Return(nil)
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
@@ -423,12 +425,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("requesters is specified and log is requested by a whitelisted address", func(t *testing.T) {
-		requester := cltest.NewAddress()
+		requester := testutils.NewAddress()
 		cfg := configtest.NewTestGeneralConfig(t)
 		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
-			jb.DirectRequestSpec.Requesters = []common.Address{cltest.NewAddress(), requester}
+			jb.DirectRequestSpec.Requesters = []common.Address{testutils.NewAddress(), requester}
 		})
 		defer uni.Cleanup()
 
@@ -460,7 +462,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			fn(nil)
 		}).Once().Return(false, nil)
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
@@ -479,12 +481,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("requesters is specified and log is requested by a non-whitelisted address", func(t *testing.T) {
-		requester := cltest.NewAddress()
+		requester := testutils.NewAddress()
 		cfg := configtest.NewTestGeneralConfig(t)
 		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
 		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
-			jb.DirectRequestSpec.Requesters = []common.Address{cltest.NewAddress(), cltest.NewAddress()}
+			jb.DirectRequestSpec.Requesters = []common.Address{testutils.NewAddress(), testutils.NewAddress()}
 		})
 		defer uni.Cleanup()
 
@@ -509,7 +511,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			markConsumedLogAwaiter.ItHappened()
 		}).Return(nil)
 
-		err := uni.service.Start()
+		err := uni.service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)

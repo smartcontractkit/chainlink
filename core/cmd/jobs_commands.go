@@ -112,6 +112,10 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.BlockhashStoreSpec != nil {
 			return p.BlockhashStoreSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.BootstrapJobSpec:
+		if p.BootstrapSpec != nil {
+			return p.BootstrapSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

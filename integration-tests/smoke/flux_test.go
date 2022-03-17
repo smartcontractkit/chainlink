@@ -1,5 +1,3 @@
-//go:build smoke
-
 package smoke_test
 
 //revive:disable:dot-imports
@@ -42,7 +40,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			e, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(environment.ChainlinkReplicas(3, nil)),
+				environment.NewChainlinkConfig(environment.ChainlinkReplicas(3, nil), ""),
 				tools.ChartsRoot,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -176,7 +174,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			nets.Default.GasStats().PrintStats()
 		})
 		By("Tearing down the environment", func() {
-			err = actions.TeardownSuite(e, nets, utils.ProjectRoot)
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

@@ -67,35 +67,17 @@ func (_m *OCR2) Delete(id string) error {
 }
 
 // EnsureKeys provides a mock function with given fields:
-func (_m *OCR2) EnsureKeys() (map[chaintype.ChainType]ocr2key.KeyBundle, map[chaintype.ChainType]bool, error) {
+func (_m *OCR2) EnsureKeys() error {
 	ret := _m.Called()
 
-	var r0 map[chaintype.ChainType]ocr2key.KeyBundle
-	if rf, ok := ret.Get(0).(func() map[chaintype.ChainType]ocr2key.KeyBundle); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[chaintype.ChainType]ocr2key.KeyBundle)
-		}
+		r0 = ret.Error(0)
 	}
 
-	var r1 map[chaintype.ChainType]bool
-	if rf, ok := ret.Get(1).(func() map[chaintype.ChainType]bool); ok {
-		r1 = rf()
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(map[chaintype.ChainType]bool)
-		}
-	}
-
-	var r2 error
-	if rf, ok := ret.Get(2).(func() error); ok {
-		r2 = rf()
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0
 }
 
 // Export provides a mock function with given fields: id, password

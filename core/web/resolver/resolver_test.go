@@ -11,10 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
-	bulletprooftxmanagerMocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
 	evmConfigMocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
-	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -48,10 +47,10 @@ type mocks struct {
 	solana      *keystoreMocks.Solana
 	chain       *evmORMMocks.Chain
 	chainSet    *evmORMMocks.ChainSet
-	ethClient   *evmMocks.Client
+	ethClient   *evmORMMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
-	balM        *evmMocks.BalanceMonitor
-	bptxmORM    *bulletprooftxmanagerMocks.ORM
+	balM        *evmORMMocks.BalanceMonitor
+	txmORM      *txmgrMocks.ORM
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -105,10 +104,10 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		solana:      &keystoreMocks.Solana{},
 		chain:       &evmORMMocks.Chain{},
 		chainSet:    &evmORMMocks.ChainSet{},
-		ethClient:   &evmMocks.Client{},
+		ethClient:   &evmORMMocks.Client{},
 		eIMgr:       &webhookmocks.ExternalInitiatorManager{},
-		balM:        &evmMocks.BalanceMonitor{},
-		bptxmORM:    &bulletprooftxmanagerMocks.ORM{},
+		balM:        &evmORMMocks.BalanceMonitor{},
+		txmORM:      &txmgrMocks.ORM{},
 	}
 
 	// Assert expectations for any mocks that we set up
@@ -136,7 +135,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.ethClient,
 			m.eIMgr,
 			m.balM,
-			m.bptxmORM,
+			m.txmORM,
 		)
 	})
 

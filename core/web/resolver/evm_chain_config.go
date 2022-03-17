@@ -403,6 +403,17 @@ func (r *ChainConfigResolver) OCRObservationTimeout() *string {
 	return nil
 }
 
+// LinkContractAddress resolves the LINK contract address for the chain
+func (r *ChainConfigResolver) LinkContractAddress() *string {
+	if r.cfg.LinkContractAddress.Valid {
+		addr := r.cfg.LinkContractAddress.String
+
+		return &addr
+	}
+
+	return nil
+}
+
 func (r *ChainConfigResolver) KeySpecificConfigs() []*KeySpecificChainConfigResolver {
 	var resolvers []*KeySpecificChainConfigResolver
 
@@ -450,6 +461,7 @@ type ChainConfigInput struct {
 	MinRequiredOutgoingConfirmations      *int32
 	MinimumContractPayment                *string
 	OCRObservationTimeout                 *string
+	LinkContractAddress                   *string
 }
 
 type KeySpecificChainConfigInput struct {
@@ -621,6 +633,10 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) 
 		} else {
 			cfg.OCRObservationTimeout = &d
 		}
+	}
+
+	if input.LinkContractAddress != nil {
+		cfg.LinkContractAddress = null.StringFrom(*input.LinkContractAddress)
 	}
 
 	return &cfg, inputErrs

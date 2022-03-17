@@ -1,3 +1,8 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       golangci-lint-paths-ignore.yml
+##
+
 name: golangci-lint
 
 on:
@@ -6,7 +11,11 @@ on:
       - auto
       - try
       - rollup
+    paths:
+      - '**.go'
   pull_request:
+    paths:
+      - '**.go'
 
 jobs:
   golangci:
@@ -14,6 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:

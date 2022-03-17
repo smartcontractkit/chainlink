@@ -26,13 +26,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 func (o *orm) Chain(id string, qopts ...pg.QOpt) (dbchain db.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	chainSQL := `SELECT * FROM terra_chains WHERE id = $1;`
-	if err = q.Get(&dbchain, chainSQL, id); err != nil {
-		return
-	}
-	nodesSQL := `SELECT * FROM terra_nodes WHERE terra_chain_id = $1 ORDER BY created_at, id;`
-	if err = q.Select(&dbchain.Nodes, nodesSQL, id); err != nil {
-		return
-	}
+	err = q.Get(&dbchain, chainSQL, id)
 	return
 }
 
@@ -81,31 +75,19 @@ func (o *orm) Chains(offset, limit int, qopts ...pg.QOpt) (chains []db.Chain, co
 	return
 }
 
-func (o *orm) EnabledChainsWithNodes(qopts ...pg.QOpt) (chains []db.Chain, err error) {
+func (o *orm) EnabledChains(qopts ...pg.QOpt) (chains []db.Chain, err error) {
 	q := o.q.WithOpts(qopts...)
 	chainsSQL := `SELECT * FROM terra_chains WHERE enabled ORDER BY created_at, id;`
 	if err = q.Select(&chains, chainsSQL); err != nil {
 		return
-	}
-	var nodes []db.Node
-	nodesSQL := `SELECT * FROM terra_nodes ORDER BY created_at, id;`
-	if err = q.Select(&nodes, nodesSQL); err != nil {
-		return
-	}
-	nodemap := make(map[string][]db.Node)
-	for _, n := range nodes {
-		nodemap[n.TerraChainID] = append(nodemap[n.TerraChainID], n)
-	}
-	for i, c := range chains {
-		chains[i].Nodes = nodemap[c.ID]
 	}
 	return
 }
 
 func (o *orm) CreateNode(data types.NewNode, qopts ...pg.QOpt) (node db.Node, err error) {
 	q := o.q.WithOpts(qopts...)
-	sql := `INSERT INTO terra_nodes (name, terra_chain_id, tendermint_url, fcd_url, created_at, updated_at)
-	VALUES (:name, :terra_chain_id, :tendermint_url, :fcd_url, now(), now())
+	sql := `INSERT INTO terra_nodes (name, terra_chain_id, tendermint_url, created_at, updated_at)
+	VALUES (:name, :terra_chain_id, :tendermint_url, now(), now())
 	RETURNING *;`
 	stmt, err := q.PrepareNamed(sql)
 	if err != nil {
@@ -135,6 +117,13 @@ func (o *orm) DeleteNode(id int32, qopts ...pg.QOpt) error {
 func (o *orm) Node(id int32, qopts ...pg.QOpt) (node db.Node, err error) {
 	q := o.q.WithOpts(qopts...)
 	err = q.Get(&node, "SELECT * FROM terra_nodes WHERE id = $1;", id)
+
+	return
+}
+
+func (o *orm) NodeNamed(name string, qopts ...pg.QOpt) (node db.Node, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.Get(&node, "SELECT * FROM terra_nodes WHERE name = $1;", name)
 
 	return
 }

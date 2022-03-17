@@ -57,6 +57,20 @@ func (_m *Config) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	return r0
 }
 
+// BlockHistoryEstimatorEIP1559FeeCapBufferBlocks provides a mock function with given fields:
+func (_m *Config) BlockHistoryEstimatorEIP1559FeeCapBufferBlocks() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
 // BlockHistoryEstimatorTransactionPercentile provides a mock function with given fields:
 func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
 	ret := _m.Called()
@@ -127,6 +141,20 @@ func (_m *Config) EvmGasBumpPercent() uint16 {
 	return r0
 }
 
+// EvmGasBumpThreshold provides a mock function with given fields:
+func (_m *Config) EvmGasBumpThreshold() uint64 {
+	ret := _m.Called()
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	return r0
+}
+
 // EvmGasBumpWei provides a mock function with given fields:
 func (_m *Config) EvmGasBumpWei() *big.Int {
 	ret := _m.Called()
@@ -143,8 +171,8 @@ func (_m *Config) EvmGasBumpWei() *big.Int {
 	return r0
 }
 
-// EvmGasFeeCap provides a mock function with given fields:
-func (_m *Config) EvmGasFeeCap() *big.Int {
+// EvmGasFeeCapDefault provides a mock function with given fields:
+func (_m *Config) EvmGasFeeCapDefault() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int

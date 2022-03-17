@@ -19,6 +19,20 @@ import (
 )
 
 // ConfigSchema records the schema of configuration at the type level
+//
+// A note on Feature Flags
+//
+// Feature flags should be used during development of large features that might
+// span more than one release cycle. Most changes that are not considered "complete"
+// when a PR is merged and might affect node operation should be put behind a
+// feature flag.
+//
+// This also allows to disable large parts of the code that may not be needed
+// for all deployments that could introduce attack surface area if it is not
+// needed.
+//
+// Good example usage is for alternative blockchain support, new services like
+// Feeds Manager, external initiators and so on.
 type ConfigSchema struct {
 	// ESSENTIAL
 	DatabaseURL string `env:"DATABASE_URL"`
@@ -36,6 +50,12 @@ type ConfigSchema struct {
 	TelemetryIngressLogging      bool            `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
 	TelemetryIngressServerPubKey string          `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
 	TelemetryIngressURL          *url.URL        `env:"TELEMETRY_INGRESS_URL"`
+	TelemetryIngressBufferSize   uint            `env:"TELEMETRY_INGRESS_BUFFER_SIZE" default:"100"`
+	TelemetryIngressMaxBatchSize uint            `env:"TELEMETRY_INGRESS_MAX_BATCH_SIZE" default:"50"`
+	TelemetryIngressSendInterval time.Duration   `env:"TELEMETRY_INGRESS_SEND_INTERVAL" default:"500ms"`
+	TelemetryIngressSendTimeout  time.Duration   `env:"TELEMETRY_INGRESS_SEND_TIMEOUT" default:"10s"`
+	TelemetryIngressUseBatchSend bool            `env:"TELEMETRY_INGRESS_USE_BATCH_SEND" default:"true"`
+	ShutdownGracePeriod          time.Duration   `env:"SHUTDOWN_GRACE_PERIOD" default:"5s"`
 
 	// Database
 	DatabaseListenerMaxReconnectDuration time.Duration `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"` //nodoc
@@ -58,12 +78,14 @@ type ConfigSchema struct {
 	DatabaseBackupURL              *url.URL      `env:"DATABASE_BACKUP_URL"`
 
 	// Logging
-	JSONConsole bool          `env:"JSON_CONSOLE" default:"false"`
-	LogFileDir  string        `env:"LOG_FILE_DIR"`
-	LogLevel    zapcore.Level `env:"LOG_LEVEL"`
-	LogSQL      bool          `env:"LOG_SQL" default:"false"`
-	LogToDisk   bool          `env:"LOG_TO_DISK" default:"false"`
-	LogUnixTS   bool          `env:"LOG_UNIX_TS" default:"false"`
+	JSONConsole       bool           `env:"JSON_CONSOLE" default:"false"`
+	LogFileDir        string         `env:"LOG_FILE_DIR"`
+	LogLevel          zapcore.Level  `env:"LOG_LEVEL"`
+	LogSQL            bool           `env:"LOG_SQL" default:"false"`
+	LogFileMaxSize    utils.FileSize `env:"LOG_FILE_MAX_SIZE" default:"5120mb"` // 5120mb was determined based on previously collected logs, in which a daily log would be ~2.5GB and compressed would be ~210MB
+	LogFileMaxAge     int64          `env:"LOG_FILE_MAX_AGE" default:"0"`
+	LogFileMaxBackups int64          `env:"LOG_FILE_MAX_BACKUPS" default:"1"`
+	LogUnixTS         bool           `env:"LOG_UNIX_TS" default:"false"`
 
 	// Web Server
 	AllowOrigins                   string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
@@ -89,9 +111,14 @@ type ConfigSchema struct {
 	TLSRedirect bool   `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 
 	// Feeds manager
-	FeatureFeedsManager   bool `env:"FEATURE_FEEDS_MANAGER" default:"false"`    //nodoc
-	FeatureUICSAKeys      bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`      //nodoc
-	FeatureUIFeedsManager bool `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
+	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
+
+	// General chains/RPC
+	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
+	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
@@ -100,9 +127,7 @@ type ConfigSchema struct {
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
 	// Global
-	DefaultChainID   *big.Int `env:"ETH_CHAIN_ID"`
-	EVMDisabled      bool     `env:"EVM_DISABLED" default:"false"`
-	EthereumDisabled bool     `env:"ETH_DISABLED" default:"false"`
+	DefaultChainID *big.Int `env:"ETH_CHAIN_ID"`
 	// Per-chain overrides
 	BalanceMonitorEnabled             bool          `env:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                uint64        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
@@ -121,29 +146,37 @@ type ConfigSchema struct {
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
+	// Node liveness checking
+	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
+	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
+	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
+
 	// EVM Gas Controls
-	EvmEIP1559DynamicFees      bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
-	EvmGasBumpPercent          uint16   `env:"ETH_GAS_BUMP_PERCENT"`
-	EvmGasBumpThreshold        uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
-	EvmGasBumpTxDepth          uint16   `env:"ETH_GAS_BUMP_TX_DEPTH"`
-	EvmGasBumpWei              *big.Int `env:"ETH_GAS_BUMP_WEI"`
-	EvmGasLimitDefault         uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
-	EvmGasLimitMultiplier      float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
-	EvmGasLimitTransfer        uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
-	EvmGasPriceDefault         *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
-	EvmGasTipCapDefault        *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
-	EvmGasTipCapMinimum        *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
-	EvmMaxGasPriceWei          *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
-	EvmMaxInFlightTransactions uint32   `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
-	EvmMaxQueuedTransactions   uint64   `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
-	EvmMinGasPriceWei          *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
-	EvmNonceAutoSync           bool     `env:"ETH_NONCE_AUTO_SYNC"`
+	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
+	EvmGasBumpPercent     uint16   `env:"ETH_GAS_BUMP_PERCENT"`
+	EvmGasBumpThreshold   uint64   `env:"ETH_GAS_BUMP_THRESHOLD"`
+	EvmGasBumpWei         *big.Int `env:"ETH_GAS_BUMP_WEI"`
+	EvmGasFeeCapDefault   *big.Int `env:"EVM_GAS_FEE_CAP_DEFAULT"`
+	EvmGasLimitDefault    uint64   `env:"ETH_GAS_LIMIT_DEFAULT"`
+	EvmGasLimitMultiplier float32  `env:"ETH_GAS_LIMIT_MULTIPLIER"`
+	EvmGasLimitTransfer   uint64   `env:"ETH_GAS_LIMIT_TRANSFER"`
+	EvmGasPriceDefault    *big.Int `env:"ETH_GAS_PRICE_DEFAULT"`
+	EvmGasTipCapDefault   *big.Int `env:"EVM_GAS_TIP_CAP_DEFAULT"`
+	EvmGasTipCapMinimum   *big.Int `env:"EVM_GAS_TIP_CAP_MINIMUM"`
+	EvmMaxGasPriceWei     *big.Int `env:"ETH_MAX_GAS_PRICE_WEI"`
+	EvmMinGasPriceWei     *big.Int `env:"ETH_MIN_GAS_PRICE_WEI"`
 	// Gas Estimation
-	GasEstimatorMode                           string `env:"GAS_ESTIMATOR_MODE"`
-	BlockHistoryEstimatorBatchSize             uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
-	BlockHistoryEstimatorBlockDelay            uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"`
-	BlockHistoryEstimatorBlockHistorySize      uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
-	BlockHistoryEstimatorTransactionPercentile uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
+	GasEstimatorMode                               string `env:"GAS_ESTIMATOR_MODE"`
+	BlockHistoryEstimatorBatchSize                 uint32 `env:"BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE"`
+	BlockHistoryEstimatorBlockDelay                uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY"`
+	BlockHistoryEstimatorBlockHistorySize          uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
+	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16 `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
+	BlockHistoryEstimatorTransactionPercentile     uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
+	// Txm
+	EvmGasBumpTxDepth          uint16 `env:"ETH_GAS_BUMP_TX_DEPTH"`
+	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
+	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
+	EvmNonceAutoSync           bool   `env:"ETH_NONCE_AUTO_SYNC"`
 
 	// Job Pipeline and tasks
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
@@ -226,6 +259,7 @@ type ConfigSchema struct {
 	KeeperDefaultTransactionQueueDepth      uint32        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`            //nodoc
 	KeeperGasPriceBufferPercent             uint32        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
 	KeeperGasTipCapBufferPercent            uint32        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
+	KeeperBaseFeeBufferPercent              uint32        `env:"KEEPER_BASE_FEE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                int64         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperRegistryCheckGasOverhead          uint64        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead        uint64        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
@@ -262,6 +296,7 @@ func Name(field string) string {
 	return item.Tag.Get("env")
 }
 
+// TryName gracefully tries to get the environment variable Name for a config schema field
 func TryName(field string) string {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	item, ok := schemaT.FieldByName(field)
@@ -271,6 +306,7 @@ func TryName(field string) string {
 	return item.Tag.Get("env")
 }
 
+// DefaultValue looks up the default value
 func DefaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
@@ -280,6 +316,7 @@ func DefaultValue(name string) (string, bool) {
 	return "", false
 }
 
+// ZeroValue returns the zero value for a named field, or panics if it does not exist.
 func ZeroValue(name string) interface{} {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {

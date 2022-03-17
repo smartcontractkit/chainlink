@@ -3,12 +3,14 @@ package config
 import (
 	"time"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
+// P2PV2Networking is a subset of global config relevant to p2p v2 networking.
 type P2PV2Networking interface {
 	P2PV2AnnounceAddresses() []string
 	P2PV2Bootstrappers() (locators []ocrcommontypes.BootstrapperLocator)
@@ -46,7 +48,7 @@ func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrcommontypes.Bootstra
 		var locator ocrcommontypes.BootstrapperLocator
 		err := locator.UnmarshalText([]byte(s))
 		if err != nil {
-			c.lggr.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)
+			c.lggr.Panicf("invalid format for bootstrapper '%s', got error: %s", s, err)
 		}
 		locators = append(locators, locator)
 	}

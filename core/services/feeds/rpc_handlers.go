@@ -27,14 +27,13 @@ func (h *RPCHandlers) ProposeJob(ctx context.Context, req *pb.ProposeJobRequest)
 		return nil, err
 	}
 
-	jp := &JobProposal{
+	_, err = h.svc.ProposeJob(ctx, &ProposeJobArgs{
 		Spec:           req.GetSpec(),
 		FeedsManagerID: h.feedsManagerID,
 		RemoteUUID:     remoteUUID,
+		Version:        int32(req.GetVersion()),
 		Multiaddrs:     req.GetMultiaddrs(),
-	}
-
-	_, err = h.svc.ProposeJob(jp)
+	})
 	if err != nil {
 		return nil, err
 	}

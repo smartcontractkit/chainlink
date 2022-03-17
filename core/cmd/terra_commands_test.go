@@ -13,19 +13,17 @@ import (
 func TestClient_TerraInit(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	newNode := types.NewNode{
 		Name:          "first",
 		TerraChainID:  "Columbus-5",
 		TendermintURL: "http://tender.mint.test/columbus-5",
-		FCDURL:        "http://fcd.test/columbus-5",
 	}
 	set := flag.NewFlagSet("cli", 0)
 	set.String("name", newNode.Name, "")
 	set.String("tendermint-url", newNode.TendermintURL, "")
-	set.String("fcd-url", newNode.FCDURL, "")
 	set.String("chain-id", newNode.TerraChainID, "")
 
 	// Try to add node

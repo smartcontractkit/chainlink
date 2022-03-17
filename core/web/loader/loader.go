@@ -14,13 +14,15 @@ type loadersKey struct{}
 type Dataloader struct {
 	app chainlink.Application
 
-	NodesByChainIDLoader          *dataloader.Loader
-	ChainsByIDLoader              *dataloader.Loader
-	FeedsManagersByIDLoader       *dataloader.Loader
-	JobRunsByIDLoader             *dataloader.Loader
-	JobsByPipelineSpecIDLoader    *dataloader.Loader
-	JobProposalsByManagerIDLoader *dataloader.Loader
-	EthTxAttemptsByEthTxIDLoader  *dataloader.Loader
+	ChainsByIDLoader                *dataloader.Loader
+	EthTxAttemptsByEthTxIDLoader    *dataloader.Loader
+	FeedsManagersByIDLoader         *dataloader.Loader
+	JobProposalsByManagerIDLoader   *dataloader.Loader
+	JobProposalSpecsByJobProposalID *dataloader.Loader
+	JobRunsByIDLoader               *dataloader.Loader
+	JobsByExternalJobIDs            *dataloader.Loader
+	JobsByPipelineSpecIDLoader      *dataloader.Loader
+	NodesByChainIDLoader            *dataloader.Loader
 }
 
 func New(app chainlink.Application) *Dataloader {
@@ -29,19 +31,22 @@ func New(app chainlink.Application) *Dataloader {
 	mgrs := &feedsBatcher{app: app}
 	jobRuns := &jobRunBatcher{app: app}
 	jps := &jobProposalBatcher{app: app}
+	jpSpecs := &jobProposalSpecBatcher{app: app}
 	jbs := &jobBatcher{app: app}
 	attmpts := &ethTransactionAttemptBatcher{app: app}
 
 	return &Dataloader{
 		app: app,
 
-		NodesByChainIDLoader:          dataloader.NewBatchedLoader(nodes.loadByChainIDs),
-		ChainsByIDLoader:              dataloader.NewBatchedLoader(chains.loadByIDs),
-		FeedsManagersByIDLoader:       dataloader.NewBatchedLoader(mgrs.loadByIDs),
-		JobRunsByIDLoader:             dataloader.NewBatchedLoader(jobRuns.loadByIDs),
-		JobsByPipelineSpecIDLoader:    dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
-		JobProposalsByManagerIDLoader: dataloader.NewBatchedLoader(jps.loadByManagersIDs),
-		EthTxAttemptsByEthTxIDLoader:  dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
+		ChainsByIDLoader:                dataloader.NewBatchedLoader(chains.loadByIDs),
+		EthTxAttemptsByEthTxIDLoader:    dataloader.NewBatchedLoader(attmpts.loadByEthTransactionIDs),
+		FeedsManagersByIDLoader:         dataloader.NewBatchedLoader(mgrs.loadByIDs),
+		JobProposalsByManagerIDLoader:   dataloader.NewBatchedLoader(jps.loadByManagersIDs),
+		JobProposalSpecsByJobProposalID: dataloader.NewBatchedLoader(jpSpecs.loadByJobProposalsIDs),
+		JobRunsByIDLoader:               dataloader.NewBatchedLoader(jobRuns.loadByIDs),
+		JobsByExternalJobIDs:            dataloader.NewBatchedLoader(jbs.loadByExternalJobIDs),
+		JobsByPipelineSpecIDLoader:      dataloader.NewBatchedLoader(jbs.loadByPipelineSpecIDs),
+		NodesByChainIDLoader:            dataloader.NewBatchedLoader(nodes.loadByChainIDs),
 	}
 }
 
