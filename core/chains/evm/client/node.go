@@ -65,6 +65,16 @@ var (
 	promEVMPoolSendTransactionTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "evm_pool_rpc_node_send_tx_execution_time",
 		Help: "The duration of a SendTransaction call in nanoseconds",
+		Buckets: []float64{
+			float64(50 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(200 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(1 * time.Second),
+			float64(2 * time.Second),
+			float64(4 * time.Second),
+			float64(8 * time.Second),
+		},
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success"})
 )
 
