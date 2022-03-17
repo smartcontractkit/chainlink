@@ -382,7 +382,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		// Run the pipeline to determine the max link that could be billed at maxGasPrice.
 		// The ethcall will error if there is currently insufficient balance onchain.
-		maxLink, run, payload, gaslimit, err := lsn.getMaxLinkForFulfillment(maxGasPriceWei, req)
+		maxLink, run, payload, gaslimit, err := lsn.getMaxLinkForFulfillment(maxGasPriceWei, req, rlog)
 		if err != nil {
 			rlog.Warnw("Unable to get max link for fulfillment, skipping request", "err", err)
 			continue
@@ -466,12 +466,16 @@ func (lsn *listenerV2) estimateFeeJuels(
 
 // Here we use the pipeline to parse the log, generate a vrf response
 // then simulate the transaction at the max gas price to determine its maximum link cost.
-func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPriceWei *big.Int, req pendingRequest) (*big.Int, pipeline.Run, string, uint64, error) {
+func (lsn *listenerV2) getMaxLinkForFulfillment(
+	maxGasPriceWei *big.Int,
+	req pendingRequest,
+	lg logger.Logger,
+) (*big.Int, pipeline.Run, string, uint64, error) {
 	// estimate how much juels are needed so that we can log it if the simulation fails.
 	juelsNeeded, err := lsn.estimateFeeJuels(req.req, maxGasPriceWei)
 	if err != nil {
 		// not critical, just log and continue
-		lsn.l.Warnw("unable to estimate juels needed for request, continuing anyway",
+		lg.Warnw("unable to estimate juels needed for request, continuing anyway",
 			"reqID", req.req.RequestId,
 			"err", err,
 		)
@@ -498,25 +502,25 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPriceWei *big.Int, req pen
 			"logData":        req.req.Raw.Data,
 		},
 	})
-	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
+	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lg)
 	if err != nil {
-		lsn.l.Errorw("Failed executing run", "err", err)
+		lg.Errorw("Failed executing run", "err", err)
 		return maxLink, run, payload, gaslimit, err
 	}
 	// The call task will fail if there are insufficient funds
 	if run.AllErrors.HasError() {
-		lsn.l.Warnw("Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available",
+		lg.Warnw("Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available",
 			"err", run.AllErrors.ToError(), "max gas price", maxGasPriceWei, "reqID", req.req.RequestId, "juelsNeeded", juelsNeeded)
 		return maxLink, run, payload, gaslimit, errors.Wrap(run.AllErrors.ToError(), "simulation errored")
 	}
-	if len(trrs.FinalResult(lsn.l).Values) != 1 {
-		lsn.l.Errorw("Unexpected number of outputs", "expectedNumOutputs", 1, "actualNumOutputs", len(trrs.FinalResult(lsn.l).Values))
+	if len(trrs.FinalResult(lg).Values) != 1 {
+		lg.Errorw("Unexpected number of outputs", "expectedNumOutputs", 1, "actualNumOutputs", len(trrs.FinalResult(lg).Values))
 		return maxLink, run, payload, gaslimit, errors.New("unexpected number of outputs")
 	}
 	// Run succeeded, we expect a byte array representing the billing amount
-	b, ok := trrs.FinalResult(lsn.l).Values[0].([]uint8)
+	b, ok := trrs.FinalResult(lg).Values[0].([]uint8)
 	if !ok {
-		lsn.l.Errorw("Unexpected type, expected []uint8 final result")
+		lg.Errorw("Unexpected type, expected []uint8 final result")
 		return maxLink, run, payload, gaslimit, errors.New("expected []uint8 final result")
 	}
 	maxLink = utils.HexToBig(hexutil.Encode(b)[2:])
