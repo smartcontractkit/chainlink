@@ -1,6 +1,9 @@
 package keeper
 
 import (
+	"database/sql"
+	"fmt"
+	"math/big"
 	"math/rand"
 	"time"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -44,6 +48,13 @@ func (korm ORM) Registries() ([]Registry, error) {
 	return registries, errors.Wrap(err, "failed to get registries")
 }
 
+// RegistryByContractAddress returns a single registry based on provided address
+func (korm ORM) RegistryByContractAddress(registryAddress ethkey.EIP55Address) (Registry, error) {
+	var registry Registry
+	err := korm.q.Get(&registry, `SELECT * FROM keeper_registries WHERE keeper_registries.contract_address = $1`, registryAddress)
+	return registry, errors.Wrap(err, "failed to get registry")
+}
+
 // RegistryForJob returns a specific registry for a job with the given ID
 func (korm ORM) RegistryForJob(jobID int32) (Registry, error) {
 	var registry Registry
@@ -70,12 +81,11 @@ RETURNING *
 // UpsertUpkeep upserts upkeep by the given input
 func (korm ORM) UpsertUpkeep(registration *UpkeepRegistration) error {
 	stmt := `
-INSERT INTO upkeep_registrations (registry_id, execute_gas, check_data, upkeep_id, positioning_constant, last_run_block_height) VALUES (
-:registry_id, :execute_gas, :check_data, :upkeep_id, :positioning_constant, :last_run_block_height
+INSERT INTO upkeep_registrations (registry_id, execute_gas, check_data, upkeep_id, last_run_block_height) VALUES (
+:registry_id, :execute_gas, :check_data, :upkeep_id, :last_run_block_height
 ) ON CONFLICT (registry_id, upkeep_id) DO UPDATE SET
 	execute_gas = :execute_gas,
-	check_data = :check_data,
-	positioning_constant = :positioning_constant
+	check_data = :check_data
 RETURNING *
 `
 	err := korm.q.GetNamed(stmt, registration, registration)
@@ -99,25 +109,45 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 	return rowsAffected, nil
 }
 
-func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber, gracePeriod int64) (upkeeps []UpkeepRegistration, err error) {
+//EligibleUpkeepsForRegistry fetches eligible upkeeps for processing
+//The query checks the following conditions
+// - checks the registry address is correct and the registry has some keepers associated
+// -- is it my turn AND my keeper was not the last perform for this upkeep OR my keeper was the last before BUT it is past the grace period
+// -- OR is it my buddy's turn AND they were the last keeper to do the perform for this upkeep
+func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, head *types.Head, gracePeriod int64) (upkeeps []UpkeepRegistration, err error) {
+	registry, err := korm.RegistryByContractAddress(registryAddress)
+	if err != nil {
+		return nil, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get a registry by address")
+	}
+	blockNumber := head.Number
+	binaryHash := binaryOfFirstHashInTurn(blockNumber, registry, head)
+
 	stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
 WHERE
 	keeper_registries.contract_address = $1 AND
-	keeper_registries.num_keepers > 0 AND
-	(
-		upkeep_registrations.last_run_block_height = 0 OR (
-			upkeep_registrations.last_run_block_height + $2 < $3 AND
-			upkeep_registrations.last_run_block_height < ($3 - ($3 % keeper_registries.block_count_per_turn))
-		)
-	) AND
-	keeper_registries.keeper_index = (
-		upkeep_registrations.positioning_constant + (($3 - ($3 % keeper_registries.block_count_per_turn)) / keeper_registries.block_count_per_turn)
-	) % keeper_registries.num_keepers
-ORDER BY upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC
+	keeper_registries.num_keepers > 0 AND 
+    ((
+                keeper_registries.keeper_index = ((CAST(upkeep_registrations.upkeep_id AS bit(32)) #
+                                                   CAST($4 AS bit(32)))::bigint % keeper_registries.num_keepers)
+            AND
+                (
+				upkeep_registrations.last_keeper_index IS DISTINCT FROM keeper_registries.keeper_index
+				OR
+				(upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM keeper_registries.keeper_index AND upkeep_registrations.last_run_block_height + $2 < $3)
+				)
+        )
+   OR
+    (
+                    (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers =
+                    ((CAST(upkeep_registrations.upkeep_id AS bit(32)) #
+                      CAST($4 AS bit(32)))::bigint % keeper_registries.num_keepers)
+            AND
+                    upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers
+        ))
 `
-	if err = korm.q.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber); err != nil {
+	if err = korm.q.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber, binaryHash); err != nil {
 		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get upkeep_registrations")
 	}
 	if err = loadUpkeepsRegistry(korm.q, upkeeps); err != nil {
@@ -130,6 +160,16 @@ ORDER BY upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC
 	})
 
 	return upkeeps, err
+}
+
+// binaryOfFirstHashInTurn first calculates the first potential head for a turn. It then gets the hash for that head and converts it to binary
+func binaryOfFirstHashInTurn(blockNumber int64, registry Registry, head *types.Head) string {
+	firstHeadInTurn := blockNumber - (blockNumber % int64(registry.BlockCountPerTurn))
+	hashAtHeight := head.HashAtHeight(firstHeadInTurn)
+	bigInt := new(big.Int)
+	bigInt.SetString(hashAtHeight.Hex(), 0)
+	binaryString := fmt.Sprintf("%b", bigInt)
+	return binaryString
 }
 
 func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
@@ -166,13 +206,14 @@ WHERE registry_id = $1
 	return nextID, errors.Wrap(err, "LowestUnsyncedID failed")
 }
 
-func (korm ORM) SetLastRunHeightForUpkeepOnJob(jobID int32, upkeepID, height int64, qopts ...pg.QOpt) error {
+//SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
+func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID, height int64, fromIndex sql.NullInt64, qopts ...pg.QOpt) error {
 	_, err := korm.q.WithOpts(qopts...).Exec(`
 UPDATE upkeep_registrations
-SET last_run_block_height = $1
+SET last_run_block_height = $1,
+    last_keeper_index = $4
 WHERE upkeep_id = $2 AND
-registry_id = (
-	SELECT id FROM keeper_registries WHERE job_id = $3
-)`, height, upkeepID, jobID)
-	return errors.Wrap(err, "SetLastRunHeightForUpkeepOnJob failed")
+registry_id = (SELECT id FROM keeper_registries WHERE job_id = $3) AND
+last_run_block_height < $1`, height, upkeepID, jobID, fromIndex)
+	return errors.Wrap(err, "SetLastRunInfoForUpkeepOnJob failed")
 }

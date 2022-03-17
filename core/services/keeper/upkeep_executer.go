@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"database/sql"
 	"math/big"
 	"strconv"
 	"sync"
@@ -143,7 +144,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 
 	activeUpkeeps, err := ex.orm.EligibleUpkeepsForRegistry(
 		ex.job.KeeperSpec.ContractAddress,
-		head.Number,
+		head,
 		ex.config.KeeperMaximumGracePeriod(),
 	)
 	if err != nil {
@@ -224,7 +225,11 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, pg.WithParentCtx(ctxService))
+		keeperListmutex.RLock()
+		i, ok := keeperList[ex.job.ID][upkeep.Registry.FromAddress.Address()]
+		keeperListmutex.RUnlock()
+		fromIndex := sql.NullInt64{Int64: int64(i), Valid: ok}
+		err := ex.orm.SetLastRunInfoForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, fromIndex, pg.WithParentCtx(ctxService))
 		if err != nil {
 			svcLogger.With("error", err).Error("failed to set last run height for upkeep")
 		}
