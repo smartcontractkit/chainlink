@@ -187,7 +187,7 @@ func (e Entrypoint) Run() {
 		defer wg.Done()
 		e.Manager.Run(ctx, func(localCtx context.Context, feeds []FeedConfig) {
 			e.ChainMetrics.SetNewFeedConfigsDetected(float64(len(feeds)))
-			monitor.Run(ctx, feeds)
+			monitor.Run(localCtx, feeds)
 		})
 	}()
 
