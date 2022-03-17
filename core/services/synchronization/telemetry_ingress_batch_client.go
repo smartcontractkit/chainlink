@@ -146,7 +146,7 @@ func (tc *telemetryIngressBatchClient) Close() error {
 	return tc.StopOnce("TelemetryIngressBatchClient", func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
-		if tc.useUniConn && tc.connected.Load() || !tc.useUniConn {
+		if (tc.useUniConn && tc.connected.Load()) || !tc.useUniConn {
 			return tc.close()
 		}
 		return nil
