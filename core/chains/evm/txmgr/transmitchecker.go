@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -48,7 +49,7 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V2 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
-		return &VRFV2Checker{coord.GetCommitment}, nil
+		return &VRFV2Checker{coord.GetCommitment, c.Client.HeaderByNumber}, nil
 	case "":
 		return NoChecker, nil
 	default:
@@ -184,6 +185,10 @@ type VRFV2Checker struct {
 	// GetCommitment checks whether a VRF V2 request has been fulfilled on the VRFCoordinatorV2
 	// Solidity contract.
 	GetCommitment func(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
+
+	// HeaderByNumber fetches the header given the number. If nil is provided,
+	// the latest header is fetched.
+	HeaderByNumber func(ctx context.Context, n *big.Int) (*gethtypes.Header, error)
 }
 
 // Check satisfies the TransmitChecker interface.
@@ -210,14 +215,29 @@ func (v *VRFV2Checker) Check(
 		return nil
 	}
 
+	h, err := v.HeaderByNumber(ctx, nil)
+	if err != nil {
+		l.Errorw("Failed to fetch latest header. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxId", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
 	vrfRequestID := meta.RequestID.Big()
-	callback, err := v.GetCommitment(&bind.CallOpts{Context: ctx}, vrfRequestID)
+	callback, err := v.GetCommitment(&bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: h.Number,
+	}, vrfRequestID)
 	if err != nil {
 		l.Errorw("Failed to check request fulfillment status, error calling GetCommitment. Attempting to transmit anyway.",
 			"err", err,
 			"ethTxId", tx.ID,
 			"meta", tx.Meta,
-			"vrfRequestId", vrfRequestID)
+			"vrfRequestId", vrfRequestID,
+			"blockNumber", h.Number,
+		)
 		return nil
 	} else if utils.IsEmpty(callback[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled and we should skip it.
