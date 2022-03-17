@@ -309,7 +309,7 @@ func (fm *FluxMonitor) JobID() int32 { return fm.spec.JobID }
 func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		fm.logger.Error("HandleLog: ignoring nil value")
+		fm.logger.Panic("HandleLog: ignoring nil value")
 		return
 	}
 
