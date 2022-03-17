@@ -64,6 +64,20 @@ func (_m *Client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	return r0
 }
 
+// BatchCallContextAll provides a mock function with given fields: ctx, b
+func (_m *Client) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error {
+	ret := _m.Called(ctx, b)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []rpc.BatchElem) error); ok {
+		r0 = rf(ctx, b)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // BlockByNumber provides a mock function with given fields: ctx, number
 func (_m *Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	ret := _m.Called(ctx, number)
@@ -359,6 +373,22 @@ func (_m *Client) HeaderByNumber(_a0 context.Context, _a1 *big.Int) (*types.Head
 	}
 
 	return r0, r1
+}
+
+// NodeStates provides a mock function with given fields:
+func (_m *Client) NodeStates() map[int32]string {
+	ret := _m.Called()
+
+	var r0 map[int32]string
+	if rf, ok := ret.Get(0).(func() map[int32]string); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int32]string)
+		}
+	}
+
+	return r0
 }
 
 // NonceAt provides a mock function with given fields: ctx, account, blockNumber

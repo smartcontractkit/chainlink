@@ -223,6 +223,7 @@ contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pa
     address target,
     bytes memory handler
   ) private {
+    tickTime = tickTime - (tickTime % 60); // remove seconds from tick time
     if (block.timestamp < tickTime) {
       revert TickInFuture();
     }
