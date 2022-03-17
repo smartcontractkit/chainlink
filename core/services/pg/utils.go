@@ -39,6 +39,8 @@ func init() {
 var (
 	// DefaultQueryTimeout is a reasonable upper bound for how long a SQL query should take
 	DefaultQueryTimeout = 10 * time.Second
+	// LongQueryTimeout is a bigger upper bound for how long a SQL query should take
+	LongQueryTimeout = 1 * time.Minute
 	// DefaultLockTimeout controls the max time we will wait for any kind of database lock.
 	// It's good to set this to _something_ because waiting for locks forever is really bad.
 	DefaultLockTimeout = 15 * time.Second

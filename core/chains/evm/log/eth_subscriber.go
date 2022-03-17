@@ -128,9 +128,8 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 				}
 				return true
 			}
-			if len(batchLogs) > 0 {
-				sub.logger.Infow(fmt.Sprintf("LogBroadcaster: Fetched a batch of %v logs from %v to %v%s", len(batchLogs), from, to, elapsedMessage), "len", len(batchLogs), "fromBlock", from, "toBlock", to, "remaining", int64(latestHeight)-to)
-			}
+
+			sub.logger.Infow(fmt.Sprintf("LogBroadcaster: Fetched a batch of %v logs from %v to %v%s", len(batchLogs), from, to, elapsedMessage), "len", len(batchLogs), "fromBlock", from, "toBlock", to, "remaining", int64(latestHeight)-to)
 
 			select {
 			case <-sub.chStop:

@@ -12,7 +12,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+// LogsFile describes the logs file name
+const LogsFile = "chainlink_debug.log"
 
 func init() {
 	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
@@ -115,14 +119,12 @@ type Logger interface {
 
 // Constants for service names for package specific logging configuration
 const (
-	HeadTracker                 = "HeadTracker"
-	HeadListener                = "HeadListener"
-	HeadSaver                   = "HeadSaver"
-	HeadBroadcaster             = "HeadBroadcaster"
-	FluxMonitor                 = "FluxMonitor"
-	Keeper                      = "Keeper"
-	TelemetryIngressBatchClient = "TelemetryIngressBatchClient"
-	TelemetryIngressBatchWorker = "TelemetryIngressBatchWorker"
+	HeadTracker     = "HeadTracker"
+	HeadListener    = "HeadListener"
+	HeadSaver       = "HeadSaver"
+	HeadBroadcaster = "HeadBroadcaster"
+	FluxMonitor     = "FluxMonitor"
+	Keeper          = "Keeper"
 )
 
 func GetLogServices() []string {
@@ -133,19 +135,14 @@ func GetLogServices() []string {
 	}
 }
 
-// newProductionConfig returns a new production zap.Config.
-func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
-	config := newBaseConfig()
+// newZapConfigProd returns a new production zap.Config.
+func newZapConfigProd(jsonConsole bool, unixTS bool) zap.Config {
+	config := newZapConfigBase()
 	if !unixTS {
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
-	}
-	if toDisk {
-		destination := logFileURI(dir)
-		config.OutputPaths = append(config.OutputPaths, destination)
-		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
 	return config
 }
@@ -168,7 +165,7 @@ func verShaName(ver, sha string) string {
 
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
-func NewLogger() Logger {
+func NewLogger() (Logger, func() error) {
 	var c Config
 	var parseErrs []string
 
@@ -192,9 +189,30 @@ func NewLogger() Logger {
 		parseErrs = append(parseErrs, invalid)
 	}
 
-	c.ToDisk, invalid = envvar.LogToDisk.ParseBool()
+	var fileMaxSize utils.FileSize
+	fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
+	c.FileMaxSize = int(fileMaxSize)
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
+	}
+
+	if c.DebugLogsToDisk() {
+		var (
+			fileMaxAge int64
+			maxBackups int64
+		)
+
+		fileMaxAge, invalid = envvar.LogFileMaxAge.ParseInt64()
+		c.FileMaxAge = int(fileMaxAge)
+		if invalid != "" {
+			parseErrs = append(parseErrs, invalid)
+		}
+
+		maxBackups, invalid = envvar.LogFileMaxBackups.ParseInt64()
+		c.FileMaxBackups = int(maxBackups)
+		if invalid != "" {
+			parseErrs = append(parseErrs, invalid)
+		}
 	}
 
 	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
@@ -202,32 +220,49 @@ func NewLogger() Logger {
 		parseErrs = append(parseErrs, invalid)
 	}
 
-	l := c.New()
+	l, close := c.New()
 	for _, msg := range parseErrs {
 		l.Error(msg)
 	}
-	return l.Named(verShaNameStatic())
+	return l.Named(verShaNameStatic()), close
 }
 
 type Config struct {
-	LogLevel    zapcore.Level
-	Dir         string
-	JsonConsole bool
-	ToDisk      bool // if false, the Logger will only log to stdout.
-	UnixTS      bool
+	LogLevel       zapcore.Level
+	Dir            string
+	JsonConsole    bool
+	UnixTS         bool
+	FileMaxSize    int // megabytes
+	FileMaxAge     int // days
+	FileMaxBackups int // files
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
-func (c *Config) New() Logger {
-	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
+func (c *Config) New() (Logger, func() error) {
+	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
-	l, err := newZapLogger(cfg)
+	l, close, err := zapLoggerConfig{
+		local:          *c,
+		Config:         cfg,
+		diskStats:      utils.NewDiskStatsProvider(),
+		diskPollConfig: newDiskPollConfig(diskPollInterval),
+	}.newLogger()
 	if err != nil {
 		log.Fatal(err)
 	}
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l)
+	return newPrometheusLogger(l), close
+}
+
+// DebugLogsToDisk returns whether debug logs should be stored in disk
+func (c Config) DebugLogsToDisk() bool {
+	return c.FileMaxSize > 0
+}
+
+// RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
+func (c Config) RequiredDiskSpace() utils.FileSize {
+	return utils.FileSize(c.FileMaxSize * (c.FileMaxBackups + 1))
 }
 
 // InitColor explicitly sets the global color.NoColor option.
@@ -236,8 +271,8 @@ func InitColor(c bool) {
 	color.NoColor = !c
 }
 
-// newBaseConfig returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
-func newBaseConfig() zap.Config {
+// newZapConfigBase returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
+func newZapConfigBase() zap.Config {
 	cfg := zap.NewProductionConfig()
 	cfg.Sampling = nil
 	cfg.EncoderConfig.EncodeLevel = encodeLevel

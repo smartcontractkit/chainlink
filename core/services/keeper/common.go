@@ -14,6 +14,7 @@ type Config interface {
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
+	KeeperBaseFeeBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
