@@ -52,6 +52,7 @@ type telemetryIngressBatchClient struct {
 	serverPubKeyHex string
 
 	telemClient  telemPb.TelemClient
+	close        func() error
 	globalLogger logger.Logger
 	logging      bool
 	lggr         logger.Logger
@@ -102,24 +103,16 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 
 		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
-		if err != nil {
-			return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
-		}
-
 		// Initialize a new wsrpc client caller
 		// This is used to call RPC methods on the server
 		if tc.telemClient == nil { // only preset for tests
+			conn, err := wsrpc.DialUniWithContext(ctx, tc.lggr, tc.url.String(), clientPrivKey, serverPubKey)
+			if err != nil {
+				return fmt.Errorf("Could not start TelemIngressBatchClient, Dial returned error: %v", err)
+			}
 			tc.telemClient = telemPb.NewTelemClient(conn)
+			tc.close = conn.Close
 		}
-
-		tc.wgDone.Add(1)
-		go func() {
-			// Wait for close
-			<-tc.chDone
-			conn.Close()
-			tc.wgDone.Done()
-		}()
 
 		return nil
 	})
@@ -130,7 +123,7 @@ func (tc *telemetryIngressBatchClient) Close() error {
 	return tc.StopOnce("TelemetryIngressBatchClient", func() error {
 		close(tc.chDone)
 		tc.wgDone.Wait()
-		return nil
+		return tc.close()
 	})
 }
 
