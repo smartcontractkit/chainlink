@@ -906,7 +906,7 @@ func (c *generalConfig) TelemetryIngressLogging() bool {
 	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
 }
 
-// TelemetryIngressUniconn toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
+// TelemetryIngressUniconn toggles which ws connection style is used.
 func (c *generalConfig) TelemetryIngressUniConn() bool {
 	return c.getWithFallback("TelemetryIngressUniConn", parse.Bool).(bool)
 }
