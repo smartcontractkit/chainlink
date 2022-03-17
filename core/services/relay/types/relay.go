@@ -18,31 +18,17 @@ var (
 	Terra  Network = "terra"
 )
 
-type Relayer interface {
-	services.Service
-	// Generic for all OCR2 plugins on the given chain.
-	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2Provider, error)
+// RelayerCtx represents a relayer
+type RelayerCtx interface {
+	services.ServiceCtx
+	// NewOCR2Provider is generic for all OCR2 plugins on the given chain.
+	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2ProviderCtx, error)
 	// TODO: Will need some CCIP plugin providers for chain specific implementations
 	// of request reading and tracking report status on dest chain.
 	// For now, the ocr2/plugins/ccip is EVM specific.
 }
 
-// RelayerCtx is replacing Relayer interface
-type RelayerCtx interface {
-	services.ServiceCtx
-	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2ProviderCtx, error)
-}
-
-// OCR2Provider contains methods needed for job.OCR2OracleSpec functionality
-type OCR2Provider interface {
-	services.Service
-	ContractTransmitter() types.ContractTransmitter
-	ContractConfigTracker() types.ContractConfigTracker
-	OffchainConfigDigester() types.OffchainConfigDigester
-	OCR2MedianProvider
-}
-
-// OCR2ProviderCtx is replacing OCR2Provider interface
+// OCR2ProviderCtx contains methods needed for job.OCR2OracleSpec functionality
 type OCR2ProviderCtx interface {
 	services.ServiceCtx
 	ContractTransmitter() types.ContractTransmitter

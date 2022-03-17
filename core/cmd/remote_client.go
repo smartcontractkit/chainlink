@@ -26,7 +26,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -164,12 +166,21 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
+	lggr := cli.Logger.Named("RemoteLogin")
 	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
 	if err != nil {
 		return cli.errorOut(err)
 	}
 	_, err = cli.CookieAuthenticator.Authenticate(sessionRequest)
-	return cli.errorOut(err)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	err = cli.checkRemoteBuildCompatibility(lggr, c)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	fmt.Println("Successfully Logged In.")
+	return nil
 }
 
 // ChangePassword prompts the user for the old password and a new one, then
@@ -547,4 +558,40 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 		return b, errors.New("Error")
 	}
 	return b, err
+}
+
+func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/v2/build_info")
+	if err != nil {
+		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
+		return nil
+	}
+	b, err := parseResponse(resp)
+	if err != nil {
+		lggr.Warnw("Got error parsing http response for remote version. Remote node version is unknown and CLI may behave in unexpected ways.", "resp", resp, "err", err)
+		return nil
+	}
+
+	var remoteBuildInfo map[string]string
+	if err := json.Unmarshal(b, &remoteBuildInfo); err != nil {
+		lggr.Warnw("Got error json parsing bytes from remote version response. Remote node version is unknown and CLI may behave in unexpected ways.", "bytes", b, "err", err)
+		return nil
+	}
+	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
+	cliVersion, cliSha := static.Version, static.Sha
+
+	remoteSemverUnset := remoteVersion == "unset" || remoteVersion == "" || remoteSha == "unset" || remoteSha == ""
+	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
+
+	if remoteSemverUnset || cliRemoteSemverMismatch {
+		// Show a warning but allow mismatch if using bypass-version-check flag
+		if c.Bool("bypass-version-check") {
+			lggr.Warnf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remoteVersion, remoteSha, cliVersion, cliSha)
+			return nil
+		}
+		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
+		cli.CookieAuthenticator.Logout()
+		return errors.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", remoteVersion, remoteSha, cliVersion, cliSha)
+	}
+	return nil
 }
