@@ -20,7 +20,7 @@ func NewTestTelemetryIngressClient(t *testing.T, url *url.URL, serverPubKeyHex s
 // NewTestTelemetryIngressBatchClient calls NewTelemetryIngressBatchClient and injects telemClient.
 func NewTestTelemetryIngressBatchClient(t *testing.T, url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, telemClient telemPb.TelemClient, sendInterval time.Duration) TelemetryIngressBatchClient {
 	tc := NewTelemetryIngressBatchClient(url, serverPubKeyHex, ks, logging, logger.TestLogger(t), 100, 50, sendInterval, time.Second)
-	tc.(*telemetryIngressBatchClient).close = func() error {return nil}
+	tc.(*telemetryIngressBatchClient).close = func() error { return nil }
 	tc.(*telemetryIngressBatchClient).telemClient = telemClient
 	return tc
 }
