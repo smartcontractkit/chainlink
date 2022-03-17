@@ -114,7 +114,7 @@ func SetupMultiplePrimaries(db *sqlx.DB, cfg LegacyEthNodeConfig, lggr logger.Lo
 
 	var nodes []evmtypes.Node
 	if err := json.Unmarshal([]byte(cfg.EthereumNodes()), &nodes); err != nil {
-		return errors.Wrap(err, "invalid nodes json")
+		return errors.Wrapf(err, "invalid nodes json, got: %q", cfg.EthereumNodes())
 	}
 
 	chainIDs := make(map[string]struct{})
