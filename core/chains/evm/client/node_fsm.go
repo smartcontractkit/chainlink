@@ -179,7 +179,7 @@ func (n *node) transitionToUnreachable(fn func()) {
 		return
 	}
 	switch n.state {
-	case NodeStateDialed, NodeStateAlive, NodeStateOutOfSync:
+	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync:
 		// Need to disconnect all clients subscribed to this node
 		n.ws.rpc.Close()
 		n.cancelInflightRequests()
