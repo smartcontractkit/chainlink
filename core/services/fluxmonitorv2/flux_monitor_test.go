@@ -1448,37 +1448,6 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	tm.AssertExpectations(t)
 }
 
-func TestFluxMonitor_HandlesNilLogs(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	fm, tm := setup(t, db)
-
-	logBroadcast := new(logmocks.Broadcast)
-	var logNewRound *flux_aggregator_wrapper.FluxAggregatorNewRound
-	var logAnswerUpdated *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated
-	var randomType interface{}
-
-	logBroadcast.On("String").Maybe().Return("")
-	logBroadcast.On("DecodedLog").Return(logNewRound).Once()
-	assert.NotPanics(t, func() {
-		fm.HandleLog(logBroadcast)
-	})
-
-	logBroadcast.On("DecodedLog").Return(logAnswerUpdated).Once()
-	assert.NotPanics(t, func() {
-		fm.HandleLog(logBroadcast)
-	})
-
-	logBroadcast.On("DecodedLog").Return(randomType).Once()
-	assert.NotPanics(t, func() {
-		fm.HandleLog(logBroadcast)
-	})
-
-	tm.AssertExpectations(t)
-	logBroadcast.AssertExpectations(t)
-}
-
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 	t.Parallel()
 
