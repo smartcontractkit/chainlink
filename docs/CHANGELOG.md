@@ -22,6 +22,14 @@ Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP15
 
 See issue: https://github.com/maticnetwork/bor/issues/347
 
+## [1.2.1] - 2022-03-17
+
+This release hotfixes issues from moving a new CI/CD system. Featurewise the functionality is the same as `v1.2.0`.
+
+### Fixed
+
+- Fixed CI/CD issue where environment variables were not being passed into the underlying build
+
 ## [1.2.0] - 2022-03-02
 
 ### Added
