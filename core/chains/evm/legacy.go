@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"sort"
 
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
@@ -116,6 +117,10 @@ func SetupMultiplePrimaries(db *sqlx.DB, cfg LegacyEthNodeConfig, lggr logger.Lo
 	if err := json.Unmarshal([]byte(cfg.EthereumNodes()), &nodes); err != nil {
 		return errors.Wrapf(err, "invalid nodes json, got: %q", cfg.EthereumNodes())
 	}
+	// Sorting gives a consistent insert ordering
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Name < nodes[j].Name
+	})
 
 	chainIDs := make(map[string]struct{})
 	for _, n := range nodes {

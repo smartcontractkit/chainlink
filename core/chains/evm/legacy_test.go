@@ -107,40 +107,53 @@ func Test_SetupMultiplePrimaries(t *testing.T) {
 	{
 		"name": "primary_0_2",
 		"evmChainId": "0",
-		"wsUrl": "ws://test1.invalid",
-		"httpUrl": "https://test1.invalid",
+		"wsUrl": "ws://test2.invalid",
+		"httpUrl": "https://test2.invalid",
 		"sendOnly": false
 	},
 	{
 		"name": "primary_1337_1",
 		"evmChainId": "1337",
-		"wsUrl": "ws://test2.invalid",
-		"httpUrl": "http://test2.invalid",
+		"wsUrl": "ws://test3.invalid",
+		"httpUrl": "http://test3.invalid",
 		"sendOnly": false
 	},
 	{
 		"name": "sendonly_1337_1",
 		"evmChainId": "1337",
-		"httpUrl": "http://test1.invalid",
+		"httpUrl": "http://test4.invalid",
 		"sendOnly": true
 	},
 	{
 		"name": "sendonly_0_1",
 		"evmChainId": "0",
-		"httpUrl": "http://test1.invalid",
+		"httpUrl": "http://test5.invalid",
 		"sendOnly": true
 	},
 	{
 		"name": "primary_42_1",
 		"evmChainId": "42",
-		"wsUrl": "ws://test1.invalid",
+		"wsUrl": "ws://test6.invalid",
 		"sendOnly": false
 	},
 	{
 		"name": "sendonly_43_1",
 		"evmChainId": "43",
-		"httpUrl": "http://test1.invalid",
+		"httpUrl": "http://test7.invalid",
 		"sendOnly": true
+	},
+	{
+		"name": "zzzz this will be ignored due to duplicate ws url",
+		"evmChainId": "0",
+		"wsUrl": "ws://test1.invalid",
+		"sendOnly": false
+	},
+	{
+		"name": "zzzz this will be ignored due to duplicate http url",
+		"evmChainId": "0",
+		"wsUrl": "ws://test8.invalid",
+		"httpUrl": "https://test2.invalid",
+		"sendOnly": false
 	}
 ]
 	`
@@ -157,6 +170,8 @@ func Test_SetupMultiplePrimaries(t *testing.T) {
 	var nodes []evmtypes.Node
 	err = db.Select(&nodes, `SELECT * FROM evm_nodes ORDER BY name ASC`)
 	require.NoError(t, err)
+
+	require.Len(t, nodes, 8)
 
 	assert.Equal(t, "eth-test-ws-only-0", nodes[0].Name)
 	assert.Equal(t, "primary_0_1", nodes[1].Name)
