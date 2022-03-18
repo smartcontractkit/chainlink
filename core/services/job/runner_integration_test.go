@@ -477,6 +477,8 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		lggr := logger.TestLogger(t)
+		_, err = keyStore.P2P().Create()
+		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(

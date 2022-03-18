@@ -108,14 +108,9 @@ func (p *SingletonPeerWrapper) IsStarted() bool {
 // Start starts SingletonPeerWrapper.
 func (p *SingletonPeerWrapper) Start(context.Context) error {
 	return p.StartOnce("SingletonPeerWrapper", func() error {
-		// If there are no keys, permit the peer to start without a key
-		// TODO(https://app.shortcut.com/chainlinklabs/story/22677):
-		// This appears only a requirement for the tests, normally the node
-		// always ensures a key is available on boot. We should update the tests
-		// but there is a lot of them...
+		// Peer wrapper panics if no p2p keys are present.
 		if ks, err := p.keyStore.P2P().GetAll(); err == nil && len(ks) == 0 {
-			p.lggr.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
-			return nil
+			return errors.Errorf("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 		}
 		key, err := p.keyStore.P2P().GetOrFirst(p.config.P2PPeerID())
 		if err != nil {
