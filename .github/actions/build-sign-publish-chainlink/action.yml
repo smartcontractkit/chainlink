@@ -57,8 +57,6 @@ runs:
   steps:
   - name: Set shared variables
     shell: sh
-    env:
-      PUBLISH: ${{ inputs.publish }}
     # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
     run: |
       SHARED_IMAGES=${{ inputs.ecr-registry }}/${{ inputs.image-name }}
@@ -74,23 +72,7 @@ runs:
       COMMIT_SHA=${{ github.sha }}
       EOF
       )
-      
-      # If we are not publishing,
-      # then we force an image export
-      # so we can still use the image.name
-      # see https://app.shortcut.com/chainlinklabs/story/33154/docker-image-name-missing-from-metadata  
-      if [ "$PUBLISH" = "false" ]; then
-        SHARED_OUTPUTS=$(
-          cat <<EOF
-        type=image,push=false
-      EOF
-        )
 
-      echo "shared-outputs<<EOF" >> $GITHUB_ENV
-      echo "$SHARED_OUTPUTS" >> $GITHUB_ENV
-      echo "EOF" >> $GITHUB_ENV
-      fi
-      
       echo "shared-images<<EOF" >> $GITHUB_ENV
       echo "$SHARED_IMAGES" >> $GITHUB_ENV
       echo "EOF" >> $GITHUB_ENV
@@ -135,10 +117,10 @@ runs:
     uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-root.outputs.tags }}
       labels: ${{ steps.meta-root.outputs.labels }}
       file: core/chainlink.Dockerfile
-      outputs: ${{ env.shared-outputs }}
       build-args: |
         CHAINLINK_USER=root
         ${{ env.shared-build-args }}
@@ -166,10 +148,10 @@ runs:
     uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-nonroot.outputs.tags }}
       labels: ${{ steps.meta-nonroot.outputs.labels }}
       file: core/chainlink.Dockerfile
-      outputs: ${{ env.shared-outputs }}
       build-args: |
         CHAINLINK_USER=chainlink
         ${{ env.shared-build-args }}
@@ -180,6 +162,13 @@ runs:
     run: |
       IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
       echo "nonroot_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+
+  - name: Check if non-root image runs as root
+    id: check-nonroot-runs-root
+    shell: sh
+    run: |
+      echo "Fail build if non-root image runs as user: root"
+      docker inspect "${nonroot_image_name}" | jq -r '.[].Config.User' | ( ! grep "root" )
 
   - if: inputs.sign-images == 'true'
     name: Install cosign
