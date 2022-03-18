@@ -37,7 +37,7 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	url := &url.URL{}
 	serverPubKeyHex := "33333333333"
 	sendInterval := time.Millisecond * 5
-	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval)
+	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval, false)
 	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
 
 	// Create telemetry payloads for different contracts
