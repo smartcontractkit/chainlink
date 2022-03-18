@@ -54,6 +54,11 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	chainId := backend.Blockchain().Config().ChainID
 	cfg.Overrides.DefaultChainID = chainId
 
+	// Only set P2PEnabled override to false if it wasn't set by calling test
+	if !cfg.Overrides.P2PEnabled.Valid {
+		cfg.Overrides.P2PEnabled = null.BoolFrom(false)
+	}
+
 	client := evmclient.NewSimulatedBackendClient(t, backend, chainId)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
