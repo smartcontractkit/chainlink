@@ -8,8 +8,8 @@ name: golangci-lint
 on:
   push:
     branches:
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
     paths:
       - '**.go'

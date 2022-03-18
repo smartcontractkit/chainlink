@@ -12,8 +12,8 @@ name: Operator UI
 on:
   push:
     branches:
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
     paths-ignore:
       - 'operator_ui/**'
