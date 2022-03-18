@@ -4,8 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestConfigSchema(t *testing.T) {
@@ -162,6 +163,7 @@ func TestConfigSchema(t *testing.T) {
 		"TLSRedirect":                                    "CHAINLINK_TLS_REDIRECT",
 		"TelemetryIngressBufferSize":                     "TELEMETRY_INGRESS_BUFFER_SIZE",
 		"TelemetryIngressLogging":                        "TELEMETRY_INGRESS_LOGGING",
+		"TelemetryIngressUniConn":                        "TELEMETRY_INGRESS_UNICONN",
 		"TelemetryIngressMaxBatchSize":                   "TELEMETRY_INGRESS_MAX_BATCH_SIZE",
 		"TelemetryIngressSendInterval":                   "TELEMETRY_INGRESS_SEND_INTERVAL",
 		"TelemetryIngressSendTimeout":                    "TELEMETRY_INGRESS_SEND_TIMEOUT",
