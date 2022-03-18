@@ -97,12 +97,13 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "local testing job"
 contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
-isBootstrapPeer = false
 p2pBootstrapPeers = []
 relay = "solana"
+pluginType = "median"
 transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
 observationSource = """
 """
+[pluginConfig]
 juelsPerFeeCoinSource = """
 """
 
