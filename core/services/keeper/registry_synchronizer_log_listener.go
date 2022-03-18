@@ -14,7 +14,7 @@ func (rs *RegistrySynchronizer) JobID() int32 {
 func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	eventLog := broadcast.DecodedLog()
 	if eventLog == nil || reflect.ValueOf(eventLog).IsNil() {
-		rs.logger.Errorf("HandleLog: ignoring nil value, type: %T", broadcast)
+		rs.logger.Panicf("HandleLog: ignoring nil value, type: %T", broadcast)
 		return
 	}
 

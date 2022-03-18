@@ -77,7 +77,7 @@ func (cc *TerraChainsController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := terraChains.Add(request.ID, request.Config)
+	chain, err := terraChains.Add(c.Request.Context(), request.ID, request.Config)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -107,7 +107,7 @@ func (cc *TerraChainsController) Update(c *gin.Context) {
 		return
 	}
 
-	chain, err := terraChains.Configure(c.Param("ID"), request.Enabled, request.Config)
+	chain, err := terraChains.Configure(c.Request.Context(), c.Param("ID"), request.Enabled, request.Config)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, err)

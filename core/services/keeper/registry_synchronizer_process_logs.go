@@ -26,7 +26,7 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	}
 	broadcast, ok := i.(log.Broadcast)
 	if !ok {
-		rs.logger.Errorf("invariant violation, expected log.Broadcast but got %T", broadcast)
+		rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
 		return
 	}
 	txHash := broadcast.RawLog().TxHash.Hex()
@@ -58,7 +58,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 		}
 		broadcast, ok := i.(log.Broadcast)
 		if !ok {
-			rs.logger.Errorf("invariant violation, expected log.Broadcast but got %T", broadcast)
+			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
 			continue
 		}
 		rs.handleUpkeepCancelled(broadcast)
@@ -78,7 +78,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	}
 	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepCanceled)
 	if !ok {
-		rs.logger.Errorf("invariant violation, expected UpkeepCanceled log but got %T", broadcastedLog)
+		rs.logger.AssumptionViolationf("expected UpkeepCanceled log but got %T", broadcastedLog)
 		return
 	}
 	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []int64{broadcastedLog.Id.Int64()})
@@ -107,7 +107,7 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 		}
 		broadcast, ok := i.(log.Broadcast)
 		if !ok {
-			rs.logger.Errorf("invariant violation, expected log.Broadcast but got %T", broadcast)
+			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
 			continue
 		}
 		rs.HandleUpkeepRegistered(broadcast, registry)
@@ -127,7 +127,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 	}
 	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepRegistered)
 	if !ok {
-		rs.logger.Errorf("invariant violation, expected UpkeepRegistered log but got %T", broadcastedLog)
+		rs.logger.AssumptionViolationf("expected UpkeepRegistered log but got %T", broadcastedLog)
 		return
 	}
 	err = rs.syncUpkeep(registry, broadcastedLog.Id.Int64())
@@ -149,7 +149,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 		}
 		broadcast, ok := i.(log.Broadcast)
 		if !ok {
-			rs.logger.Errorf("invariant violation, expected log.Broadcast but got %T", broadcast)
+			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
 			continue
 		}
 		rs.handleUpkeepPerformed(broadcast)
@@ -171,7 +171,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 
 	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepPerformed)
 	if !ok {
-		rs.logger.Errorf("invariant violation, expected UpkeepPerformed log but got %T", log)
+		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return
 	}
 

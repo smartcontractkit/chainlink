@@ -413,6 +413,7 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)

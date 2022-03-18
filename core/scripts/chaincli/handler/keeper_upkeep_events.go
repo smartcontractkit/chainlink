@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
-//UpkeepCounterEvents print out emitted events and write to csv file
+// UpkeepCounterEvents print out emitted events and write to csv file
 func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBlock, toBlock uint64) {
 	contractAddress := common.HexToAddress(hexAddr)
 	upkeepCounter, err := upkeep_counter_wrapper.NewUpkeepCounter(contractAddress, k.client)
@@ -35,6 +35,7 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 		log.Fatalln("failed to open file", err)
 	}
 	defer file.Close()
+
 	w := csv.NewWriter(file)
 	defer w.Flush()
 

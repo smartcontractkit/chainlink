@@ -9,9 +9,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -47,6 +48,7 @@ type ConfigSchema struct {
 	InsecureFastScrypt           bool            `env:"INSECURE_FAST_SCRYPT" default:"false"` //nodoc
 	ReaperExpiration             models.Duration `env:"REAPER_EXPIRATION" default:"240h"`     //nodoc
 	RootDir                      string          `env:"ROOT" default:"~/.chainlink"`
+	TelemetryIngressUniConn      bool            `env:"TELEMETRY_INGRESS_UNICONN" default:"true"`
 	TelemetryIngressLogging      bool            `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
 	TelemetryIngressServerPubKey string          `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
 	TelemetryIngressURL          *url.URL        `env:"TELEMETRY_INGRESS_URL"`
