@@ -35,7 +35,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: '12'
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -90,7 +90,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v2
         with:
-          node-version: "12"
+          node-version: '12'
       - name: Yarn cache
         uses: actions/cache@v2
         env:
