@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/monitoring/config"
 )
 
-type Entrypoint struct {
+type Monitor struct {
 	RootContext context.Context
 
 	ChainConfig ChainConfig
@@ -34,22 +34,17 @@ type Entrypoint struct {
 	HTTPServer HTTPServer
 }
 
-func NewEntrypoint(
+func NewMonitor(
 	rootCtx context.Context,
 	log Logger,
 	chainConfig ChainConfig,
 	envelopeSourceFactory SourceFactory,
 	txResultsSourceFactory SourceFactory,
 	feedParser FeedParser,
-) (*Entrypoint, error) {
+) (*Monitor, error) {
 	cfg, err := config.Parse()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse generic configuration: %w", err)
-	}
-
-	if cfg.Feature.TestOnlyFakeReaders {
-		envelopeSourceFactory = &fakeRandomDataSourceFactory{make(chan interface{})}
-		txResultsSourceFactory = &fakeRandomDataSourceFactory{make(chan interface{})}
 	}
 
 	metrics := NewMetrics(log.With("component", "metrics"))
@@ -95,10 +90,6 @@ func NewEntrypoint(
 	exporterFactories := []ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}
 
 	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser, log.With("component", "rdd-source"), cfg.Feeds.IgnoreIDs)
-	if cfg.Feature.TestOnlyFakeRdd {
-		// Generate between 2 and 10 random feeds every RDDPollInterval.
-		rddSource = NewFakeRDDSource(2, 10)
-	}
 
 	rddPoller := NewSourcePoller(
 		rddSource,
@@ -118,7 +109,7 @@ func NewEntrypoint(
 	httpServer.Handle("/metrics", metrics.HTTPHandler())
 	httpServer.Handle("/debug", manager.HTTPHandler())
 
-	return &Entrypoint{
+	return &Monitor{
 		rootCtx,
 
 		chainConfig,
@@ -142,51 +133,37 @@ func NewEntrypoint(
 	}, nil
 }
 
-func (e Entrypoint) Run() {
-	rootCtx, cancel := context.WithCancel(e.RootContext)
+func (m Monitor) Run() {
+	rootCtx, cancel := context.WithCancel(m.RootContext)
 	defer cancel()
 	wg := &sync.WaitGroup{}
-
-	if e.Config.Feature.TestOnlyFakeReaders {
-		envelopeFactory := e.SourceFactories[0].(*fakeRandomDataSourceFactory)
-		txResultsFactory := e.SourceFactories[1].(*fakeRandomDataSourceFactory)
-		wg.Add(2)
-		go func(factory *fakeRandomDataSourceFactory) {
-			defer wg.Done()
-			factory.RunWithEnvelope(rootCtx, e.Log)
-		}(envelopeFactory)
-		go func(factory *fakeRandomDataSourceFactory) {
-			defer wg.Done()
-			factory.RunWithTxResults(rootCtx, e.Log)
-		}(txResultsFactory)
-	}
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.RDDPoller.Run(rootCtx)
+		m.RDDPoller.Run(rootCtx)
 	}()
 
 	// Instrument all source factories
 	instrumentedSourceFactories := []SourceFactory{}
-	for _, factory := range e.SourceFactories {
+	for _, factory := range m.SourceFactories {
 		instrumentedSourceFactories = append(instrumentedSourceFactories,
-			NewInstrumentedSourceFactory(factory, e.ChainMetrics))
+			NewInstrumentedSourceFactory(factory, m.ChainMetrics))
 	}
 
 	monitor := NewMultiFeedMonitor(
-		e.ChainConfig,
-		e.Log,
+		m.ChainConfig,
+		m.Log,
 		instrumentedSourceFactories,
-		e.ExporterFactories,
+		m.ExporterFactories,
 		100, // bufferCapacity for source pollers
 	)
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.Manager.Run(rootCtx, func(localCtx context.Context, feeds []FeedConfig) {
-			e.ChainMetrics.SetNewFeedConfigsDetected(float64(len(feeds)))
+		m.Manager.Run(rootCtx, func(localCtx context.Context, feeds []FeedConfig) {
+			m.ChainMetrics.SetNewFeedConfigsDetected(float64(len(feeds)))
 			monitor.Run(localCtx, feeds)
 		})
 	}()
@@ -194,7 +171,7 @@ func (e Entrypoint) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.HTTPServer.Run(rootCtx)
+		m.HTTPServer.Run(rootCtx)
 	}()
 
 	// Handle signals from the OS
@@ -206,7 +183,7 @@ func (e Entrypoint) Run() {
 		var sig os.Signal
 		select {
 		case sig = <-osSignalsCh:
-			e.Log.Infow("received signal. Stopping", "signal", sig)
+			m.Log.Infow("received signal. Stopping", "signal", sig)
 			cancel()
 		case <-rootCtx.Done():
 		}
