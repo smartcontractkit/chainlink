@@ -43,45 +43,41 @@ func (f *fakeRddSource) Fetch(_ context.Context) (interface{}, error) {
 	return feeds, nil
 }
 
+type fakeEnvelopeSourceFactory struct{}
+type fakeTxResultsSourceFactory struct{}
+
+var _ SourceFactory = (*fakeEnvelopeSourceFactory)(nil)
+var _ SourceFactory = (*fakeTxResultsSourceFactory)(nil)
+
+func (f *fakeEnvelopeSourceFactory) GetType() string {
+	return "fake-envelope"
+}
+func (f *fakeTxResultsSourceFactory) GetType() string {
+	return "fake-txresults"
+}
+
+func (f *fakeEnvelopeSourceFactory) NewSource(_ ChainConfig, _ FeedConfig) (Source, error) {
+	return &fakeEnvelopeSource{}, nil
+}
+func (f *fakeTxResultsSourceFactory) NewSource(_ ChainConfig, _ FeedConfig) (Source, error) {
+	return &fakeTxResultsSource{}, nil
+}
+
+type fakeEnvelopeSource struct{}
+type fakeTxResultsSource struct{}
+
+func (f *fakeEnvelopeSource) Fetch(ctx context.Context) (interface{}, error) {
+	return generateEnvelope()
+}
+func (f *fakeTxResultsSource) Fetch(ctx context.Context) (interface{}, error) {
+	return generateTxResults(), nil
+}
+
 type fakeRandomDataSourceFactory struct {
 	updates chan interface{}
 }
 
 var _ SourceFactory = (*fakeRandomDataSourceFactory)(nil)
-
-func (f *fakeRandomDataSourceFactory) RunWithEnvelope(ctx context.Context, log Logger) {
-	log.With("component", "source-envelope")
-	update, err := generateEnvelope()
-	if err != nil {
-		log.Errorw("failed to generate fake data", "error", err)
-	}
-	for {
-		select {
-		case f.updates <- update:
-			log.Infow("generate Envelope")
-			update, err = generateEnvelope()
-			if err != nil {
-				log.Errorw("failed to generate fake read from chain", "error", err)
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-func (f *fakeRandomDataSourceFactory) RunWithTxResults(ctx context.Context, log Logger) {
-	log.With("component", "source-txresults")
-	update := generateTxResults()
-	for {
-		select {
-		case f.updates <- update:
-			log.Infow("generate TxResults")
-			update = generateTxResults()
-		case <-ctx.Done():
-			return
-		}
-	}
-}
 
 func (f *fakeRandomDataSourceFactory) NewSource(_ ChainConfig, _ FeedConfig) (Source, error) {
 	return &fakeSource{f}, nil

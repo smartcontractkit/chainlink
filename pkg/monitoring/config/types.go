@@ -47,9 +47,6 @@ type HTTP struct {
 	Address string
 }
 
+// Feature is used to add temporary feature flags to the binary.
 type Feature struct {
-	// If set, the monitor will not read from a chain instead from a source of random state snapshots.
-	TestOnlyFakeReaders bool
-	// If set, the monitor will not read from the RDD, instead it will get data from a local source of random feeds configurations.
-	TestOnlyFakeRdd bool
 }
