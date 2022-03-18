@@ -232,6 +232,7 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 		SecretGenerator:     MockSecretGenerator{},
 		Dialect:             dialects.TransactionWrappedPostgres,
 		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		P2PEnabled:          null.BoolFrom(false),
 		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
