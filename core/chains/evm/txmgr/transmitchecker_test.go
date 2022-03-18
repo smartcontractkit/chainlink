@@ -48,9 +48,18 @@ func TestFactory(t *testing.T) {
 		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddress(),
+			VRFRequestBlockNumber: big.NewInt(1),
 		})
 		require.NoError(t, err)
 		require.IsType(t, &txmgr.VRFV2Checker{}, c)
+
+		// request block number not provided should error out.
+		c, err = factory.BuildChecker(txmgr.TransmitCheckerSpec{
+			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
+			VRFCoordinatorAddress: testutils.NewAddress(),
+		})
+		require.Error(t, err)
+		require.Nil(t, c)
 	})
 
 	t.Run("simulate checker", func(t *testing.T) {
@@ -258,6 +267,7 @@ func TestTransmitCheckers(t *testing.T) {
 					Number: big.NewInt(1),
 				}, nil
 			},
+			RequestBlockNumber: big.NewInt(1),
 		}
 
 		t.Run("already fulfilled", func(t *testing.T) {
@@ -281,6 +291,17 @@ func TestTransmitCheckers(t *testing.T) {
 				return nil, errors.New("can't get head")
 			}
 			tx, attempt := newTx(t, big.NewInt(3))
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("nil request block number", func(t *testing.T) {
+			checker.HeaderByNumber = func(ctx context.Context, n *big.Int) (*types.Header, error) {
+				return &types.Header{
+					Number: big.NewInt(1),
+				}, nil
+			}
+			checker.RequestBlockNumber = nil
+			tx, attempt := newTx(t, big.NewInt(4))
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 	})

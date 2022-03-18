@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
@@ -371,18 +372,19 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// Pass max(request.BlockNumber, currentBlockNumber) to the call to ensure we get
 		// the latest state or an error.
 		// This is to avoid a race condition where a request commitment has been written on-chain
-		// but has not been synced fully on the entire network.
-		// If so we just mark it completed.
-		reqBlock := new(big.Int).SetUint64(vrfRequest.Raw.BlockNumber)
+		// but has not been synced fully on the entire network. GetCommitment will return an empty
+		// byte array in that case, and we would think that the request is fulfilled when it actually
+		// isn't.
+		reqBlockNumber := new(big.Int).SetUint64(vrfRequest.Raw.BlockNumber)
 		currBlock := new(big.Int).SetUint64(lsn.getLatestHead())
-		m := bigMax(reqBlock, currBlock)
+		m := bigmath.Max(reqBlockNumber, currBlock)
 		callback, err := lsn.coordinator.GetCommitment(&bind.CallOpts{
 			BlockNumber: m,
 		}, vrfRequest.RequestId)
 		if err != nil {
 			rlog.Errorw("Unable to check if already fulfilled, processing anyways",
 				"err", err,
-				"reqBlock", reqBlock,
+				"reqBlockNumber", reqBlockNumber,
 				"currBlock", currBlock,
 			)
 		} else if utils.IsEmpty(callback[:]) {
@@ -430,6 +432,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				Checker: txmgr.TransmitCheckerSpec{
 					CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 					VRFCoordinatorAddress: lsn.coordinator.Address(),
+					VRFRequestBlockNumber: reqBlockNumber,
 				},
 			}, pg.WithQueryer(tx))
 			return err
@@ -728,11 +731,4 @@ func EstimateFeeJuels(callbackGasLimit uint32, maxGasPriceWei, weiPerUnitLink *b
 	numerator := costWei.Mul(costWei, big.NewInt(1e18))
 	costJuels := numerator.Quo(numerator, weiPerUnitLink)
 	return costJuels, nil
-}
-
-func bigMax(x *big.Int, y *big.Int) *big.Int {
-	if x.Cmp(y) == -1 {
-		return y
-	}
-	return x
 }

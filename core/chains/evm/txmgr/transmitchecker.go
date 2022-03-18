@@ -14,6 +14,7 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
@@ -49,7 +50,14 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V2 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
-		return &VRFV2Checker{coord.GetCommitment, c.Client.HeaderByNumber}, nil
+		if spec.VRFRequestBlockNumber == nil {
+			return nil, errors.New("VRFRequestBlockNumber parameter must be non-nil")
+		}
+		return &VRFV2Checker{
+			GetCommitment:      coord.GetCommitment,
+			HeaderByNumber:     c.Client.HeaderByNumber,
+			RequestBlockNumber: spec.VRFRequestBlockNumber,
+		}, nil
 	case "":
 		return NoChecker, nil
 	default:
@@ -189,6 +197,9 @@ type VRFV2Checker struct {
 	// HeaderByNumber fetches the header given the number. If nil is provided,
 	// the latest header is fetched.
 	HeaderByNumber func(ctx context.Context, n *big.Int) (*gethtypes.Header, error)
+
+	// RequestBlockNumber is the block number of the VRFV2 request.
+	RequestBlockNumber *big.Int
 }
 
 // Check satisfies the TransmitChecker interface.
@@ -225,10 +236,21 @@ func (v *VRFV2Checker) Check(
 		return nil
 	}
 
+	// If the request block number is not provided, transmit anyway just to be safe.
+	// Worst we can do is revert due to the request already being fulfilled.
+	if v.RequestBlockNumber == nil {
+		l.Errorw("Was provided with a nil request block number. Attempting to transmit anyway.",
+			"ethTxId", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
 	vrfRequestID := meta.RequestID.Big()
+	blockNumber := bigmath.Max(h.Number, v.RequestBlockNumber)
 	callback, err := v.GetCommitment(&bind.CallOpts{
 		Context:     ctx,
-		BlockNumber: h.Number,
+		BlockNumber: blockNumber,
 	}, vrfRequestID)
 	if err != nil {
 		l.Errorw("Failed to check request fulfillment status, error calling GetCommitment. Attempting to transmit anyway.",
