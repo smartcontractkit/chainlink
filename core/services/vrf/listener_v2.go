@@ -235,21 +235,11 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 			"time", time.Since(start).String())
 	}()
 
-	keys, err := lsn.gethks.SendingKeys()
-	if err != nil {
-		lsn.l.Errorw("Unable to read sending keys", "err", err)
-		return
-	}
-	fromAddress := keys[0].Address
-	if lsn.job.VRFSpec.FromAddress != nil {
-		fromAddress = *lsn.job.VRFSpec.FromAddress
-	}
-	maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress.Address())
 	// TODO: also probably want to order these by request time so we service oldest first
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
 	if len(confirmed) == 0 {
-		lsn.l.Infow("No pending requests", "maxGasPrice", maxGasPriceWei, "fromAddress", fromAddress.Address())
+		lsn.l.Infow("No pending requests")
 		return
 	}
 	for subID, reqs := range confirmed {
@@ -259,7 +249,7 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 			continue
 		}
 		startBalance := sub.Balance
-		p := lsn.processRequestsPerSub(subID, fromAddress.Address(), startBalance, maxGasPriceWei, reqs)
+		p := lsn.processRequestsPerSub(subID, startBalance, reqs)
 		for reqID := range p {
 			processed[reqID] = struct{}{}
 		}
@@ -270,7 +260,7 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, fromAddress common.Address, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
+func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
 	var reservedLink string
 	err := q.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 				   FROM eth_txes
@@ -316,22 +306,20 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 
 func (lsn *listenerV2) processRequestsPerSub(
 	subID uint64,
-	fromAddress common.Address,
 	startBalance *big.Int,
-	maxGasPriceWei *big.Int,
 	reqs []pendingRequest,
 ) map[string]struct{} {
 	start := time.Now()
 	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.l, lsn.q, fromAddress, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.l, lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
 		return processed
 	}
+
 	lggr := lsn.l.With(
 		"subID", reqs[0].req.SubId,
-		"maxGasPrice", maxGasPriceWei.String(),
 		"reqs", len(reqs),
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
@@ -340,11 +328,19 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	// Attempt to process every request, break if we run out of balance
 	for _, req := range reqs {
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.fromAddresses()...)
+		if err != nil {
+			lggr.Errorw("Couldn't get next from address", "error", err)
+			continue
+		}
+		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
 		vrfRequest := req.req
 		rlog := lggr.With(
 			"reqID", vrfRequest.RequestId.String(),
 			"txHash", vrfRequest.Raw.TxHash,
-		)
+			"maxGasPrice", maxGasPriceWei.String(),
+			"fromAddress", fromAddress)
 
 		// This check to see if the log was consumed needs to be in the same
 		// goroutine as the mark consumed to avoid processing duplicates.
@@ -687,6 +683,14 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 // Job complies with log.Listener
 func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
+}
+
+func (lsn *listenerV2) fromAddresses() []common.Address {
+	var addresses []common.Address
+	for _, a := range lsn.job.VRFSpec.FromAddresses {
+		addresses = append(addresses, a.Address())
+	}
+	return addresses
 }
 
 func uniqueReqs(reqs []pendingRequest) int {
