@@ -72,6 +72,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// your tests, you can manually override and turn it on using
 	// withConfigSet.
 	config.Overrides.EVMEnabled = null.BoolFrom(false)
+	config.Overrides.P2PEnabled = null.BoolFrom(false)
 
 	if sopts.SetConfig != nil {
 		sopts.SetConfig(config)
@@ -412,6 +413,7 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
 	require.NoError(t, err)

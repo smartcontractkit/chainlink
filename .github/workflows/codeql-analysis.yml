@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - develop
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
   pull_request:
     # The branches below must be a subset of the branches above

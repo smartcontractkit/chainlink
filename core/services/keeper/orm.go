@@ -100,8 +100,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 }
 
 func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber, gracePeriod int64) (upkeeps []UpkeepRegistration, err error) {
-	err = korm.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `
+	stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
 WHERE
@@ -118,14 +117,12 @@ WHERE
 	) % keeper_registries.num_keepers
 ORDER BY upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC
 `
-		if err = tx.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber); err != nil {
-			return errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get upkeep_registrations")
-		}
-		if err = loadUpkeepsRegistry(tx, upkeeps); err != nil {
-			return errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
-		}
-		return nil
-	}, pg.OptReadOnlyTx())
+	if err = korm.q.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber); err != nil {
+		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get upkeep_registrations")
+	}
+	if err = loadUpkeepsRegistry(korm.q, upkeeps); err != nil {
+		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
+	}
 
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(upkeeps), func(i, j int) {
