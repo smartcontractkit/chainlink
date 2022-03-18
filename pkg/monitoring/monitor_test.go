@@ -14,9 +14,9 @@ import (
 	"go.uber.org/goleak"
 )
 
-const testEntrypointDurationSec = 15
+const testMonitorDurationSec = 15
 
-func TestEntrypoint(t *testing.T) {
+func TestMonitor(t *testing.T) {
 	if _, isPresent := os.LookupEnv("FEATURE_TEST_ONLY_ENV_RUNNING"); !isPresent {
 		t.Skip()
 	}
@@ -36,8 +36,6 @@ func TestEntrypoint(t *testing.T) {
 	os.Setenv("SCHEMA_REGISTRY_PASSWORD", "")
 	os.Setenv("FEEDS_URL", "http://some-feeds.com")
 	os.Setenv("HTTP_ADDRESS", "http://localhost:3000")
-	os.Setenv("FEATURE_TEST_ONLY_FAKE_READERS", "true")
-	os.Setenv("FEATURE_TEST_ONLY_FAKE_RDD", "true")
 
 	defer os.Unsetenv("KAFKA_BROKERS")
 	defer os.Unsetenv("KAFKA_CLIENT_ID")
@@ -52,10 +50,8 @@ func TestEntrypoint(t *testing.T) {
 	defer os.Unsetenv("SCHEMA_REGISTRY_PASSWORD")
 	defer os.Unsetenv("FEEDS_URL")
 	defer os.Unsetenv("HTTP_ADDRESS")
-	defer os.Unsetenv("FEATURE_TEST_ONLY_FAKE_READERS")
-	defer os.Unsetenv("FEATURE_TEST_ONLY_FAKE_RDD")
 
-	ctx, cancel := context.WithTimeout(context.Background(), testEntrypointDurationSec*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), testMonitorDurationSec*time.Second)
 	defer cancel()
 
 	chainConfig := fakeChainConfig{
@@ -63,30 +59,29 @@ func TestEntrypoint(t *testing.T) {
 		PollInterval: 100 * time.Millisecond,
 	}
 
-	entrypoint, err := NewEntrypoint(
+	monitor, err := NewMonitor(
 		ctx,
 		newNullLogger(),
 		chainConfig,
-		// These are not needed as all the sources are faked. See config.Feature
-		nil,
-		nil,
+		&fakeRandomDataSourceFactory{make(chan interface{})},
+		&fakeRandomDataSourceFactory{make(chan interface{})},
 		func(buf io.ReadCloser) ([]FeedConfig, error) { return []FeedConfig{}, nil },
 	)
 	require.NoError(t, err)
 
-	entrypointWg := &sync.WaitGroup{}
-	entrypointWg.Add(1)
+	monitorWg := &sync.WaitGroup{}
+	monitorWg.Add(1)
 	go func() {
-		defer entrypointWg.Done()
-		entrypoint.Run()
+		defer monitorWg.Done()
+		monitor.Run()
 	}()
-	// Wait for the entrypoint to start.
+	// Wait for the monitor to start.
 	<-time.After(5 * time.Second)
 
 	kafkaConfig := &kafka.ConfigMap{
 		"bootstrap.servers": "localhost:29092",
-		"client.id":         "test-entrypoint",
-		"group.id":          "test-entrypoint",
+		"client.id":         "test-monitor",
+		"group.id":          "test-monitor",
 		"security.protocol": "PLAINTEXT",
 		"sasl.mechanisms":   "PLAIN",
 		"auto.offset.reset": "earliest",
@@ -141,7 +136,7 @@ func TestEntrypoint(t *testing.T) {
 	countersWg.Wait()
 
 	cancel()
-	entrypointWg.Wait()
+	monitorWg.Wait()
 
 	err = consumerConfig.Unsubscribe()
 	require.NoError(t, err)
