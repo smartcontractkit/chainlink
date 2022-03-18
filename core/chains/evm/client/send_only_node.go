@@ -121,7 +121,7 @@ func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Tran
 
 func (s *sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.BatchElem) (err error) {
 	defer func(start time.Time) {
-		s.logTiming(s.log.With("nBatchElems", len(b)), time.Since(start), err, "SendTransaction")
+		s.logTiming(s.log.With("nBatchElems", len(b)), time.Since(start), err, "BatchCallContext")
 	}(time.Now())
 
 	ctx, cancel := s.makeQueryCtx(parentCtx)
