@@ -125,6 +125,7 @@ type ConfigSchema struct {
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
 	EthereumHTTPURL       string `env:"ETH_HTTP_URL"`
+	EthereumNodes         string `env:"EVM_NODES"`
 	EthereumSecondaryURL  string `env:"ETH_SECONDARY_URL"` //nodoc
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
