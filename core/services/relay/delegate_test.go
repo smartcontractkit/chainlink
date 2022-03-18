@@ -12,11 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
 	chainsMock "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	solMock "github.com/smartcontractkit/chainlink/core/chains/solana/mocks"
 	terraMock "github.com/smartcontractkit/chainlink/core/chains/terra/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -43,11 +46,11 @@ func TestNewOCR2Provider(t *testing.T) {
 
 	// setup keystore mock
 	solKey := new(keystoreMock.Solana)
-	solKey.On("Get", "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK").Return(solkey.Key{}, nil).Once()
+	solKey.On("Get", "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK").Return(solkey.Key{}, nil).Times(2)
 
 	// setup solana key mock
 	keystore := new(keystoreMock.Master)
-	keystore.On("Solana").Return(solKey, nil).Once()
+	keystore.On("Solana").Return(solKey, nil).Times(2)
 
 	// setup terra mocks
 	terraChain := new(terraMock.Chain)
@@ -59,6 +62,16 @@ func TestNewOCR2Provider(t *testing.T) {
 	terraChains := new(terraMock.ChainSet)
 	terraChains.On("Chain", mock.Anything, "Chainlink-99").Return(terraChain, nil).Times(2)
 
+	// set up solana mocks
+	solChain := new(solMock.Chain)
+	solChain.On("Config").Return(solconfig.NewConfig(soldb.ChainCfg{}, lggr))
+	solChain.On("TxManager").Return(new(solMock.TxManager)).Times(2)
+	solChain.On("Reader", "").Return(new(solMock.Reader), nil).Once()
+	solChain.On("Reader", "some-test-node").Return(new(solMock.Reader), nil).Once()
+
+	solChains := new(solMock.ChainSet)
+	solChains.On("Chain", mock.Anything, "Chainlink-99").Return(solChain, nil).Times(2)
+
 	d := relay.NewDelegate(keystore)
 
 	// struct for testing multiple specs
@@ -68,6 +81,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	}{
 		// TODO: Where is EVM?
 		{"solana", testspecs.OCR2SolanaSpecMinimal},
+		{"solana", testspecs.OCR2SolanaNodeSpecMinimal}, // nodeName: "some-test-node"
 		{"terra", testspecs.OCR2TerraSpecMinimal},
 		{"terra", testspecs.OCR2TerraNodeSpecMinimal}, // nodeName: "some-test-node"
 	}
@@ -89,7 +103,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	}
 
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
-	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr))
+	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr, solChains))
 	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
 
 	for _, s := range specs {
@@ -111,4 +125,6 @@ func TestNewOCR2Provider(t *testing.T) {
 	solKey.AssertExpectations(t)
 	terraChains.AssertExpectations(t)
 	terraChain.AssertExpectations(t)
+	solChains.AssertExpectations(t)
+	solChain.AssertExpectations(t)
 }

@@ -107,16 +107,12 @@ juelsPerFeeCoinSource = """
 """
 
 [relayConfig]
-nodeEndpointHTTP = "http://127.0.0.1:8899"
 ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
-usePreflight       = true
-commitment         = "processed"
-txTimeout          = "1m"
-pollingInterval    = "2s"
-pollingCtxTimeout  = "4s"
-staleTimeout       = "30s"`
+chainID = "Chainlink-99"`
+	OCR2SolanaNodeSpecMinimal = OCR2SolanaSpecMinimal + `
+nodeName = "some-test-node"`
 	OCR2TerraSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
