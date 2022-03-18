@@ -1,22 +1,26 @@
 package ocrcommon
 
 import (
+	"context"
+
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/config"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type PeerWrapperConfig interface {
@@ -101,7 +105,8 @@ func (p *SingletonPeerWrapper) IsStarted() bool {
 	return p.State() == utils.StartStopOnce_Started
 }
 
-func (p *SingletonPeerWrapper) Start() error {
+// Start starts SingletonPeerWrapper.
+func (p *SingletonPeerWrapper) Start(context.Context) error {
 	return p.StartOnce("SingletonPeerWrapper", func() error {
 		// If there are no keys, permit the peer to start without a key
 		// TODO(https://app.shortcut.com/chainlinklabs/story/22677):

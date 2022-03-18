@@ -20,12 +20,14 @@ func ToJobType(s string) (JobType, error) {
 		return JobTypeFluxMonitor, nil
 	case "ocr":
 		return JobTypeOCR, nil
+	case "ocr2":
+		return JobTypeOCR2, nil
 	default:
 		return "", errors.New("invalid job type")
 	}
 }
 
-// FromJobTypeInput converts a JoyType into a string which is used to create/update
+// FromJobTypeInput converts a JobType into a string which is used to create/update
 // a feeds manager.
 //
 // FluxMonitor is a special case because the FeedsManager expects a 'fluxmonitor'
@@ -46,6 +48,7 @@ func FromJobTypeInput(jt JobType) string {
 const (
 	JobTypeFluxMonitor JobType = "FLUX_MONITOR"
 	JobTypeOCR         JobType = "OCR"
+	JobTypeOCR2        JobType = "OCR2"
 )
 
 // FeedsManagerResolver resolves the FeedsManager type.

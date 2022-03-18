@@ -1,12 +1,21 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       golangci-lint-paths-ignore.yml
+##
+
 name: golangci-lint
 
 on:
   push:
     branches:
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
+    paths:
+      - '**.go'
   pull_request:
+    paths:
+      - '**.go'
 
 jobs:
   golangci:

@@ -9,11 +9,11 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -30,7 +30,7 @@ type TestChainOpts struct {
 	ChainCfg       evmtypes.ChainCfg
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
-	TxManager      bulletprooftxmanager.TxManager
+	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 }
 
@@ -64,7 +64,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 	}
 	if testopts.TxManager != nil {
-		opts.GenTxManager = func(evmtypes.Chain) bulletprooftxmanager.TxManager {
+		opts.GenTxManager = func(evmtypes.Chain) txmgr.TxManager {
 			return testopts.TxManager
 		}
 
@@ -161,19 +161,23 @@ func (mo *MockORM) DeleteNode(id int64) error {
 	panic("not implemented")
 }
 
-func (mo *MockORM) Nodes(offset int, limit int) ([]evmtypes.Node, int, error) {
+// Nodes implements evmtypes.ORM
+func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) ([]evmtypes.Node, int, error) {
 	panic("not implemented")
 }
 
-func (mo *MockORM) Node(id int32) (evmtypes.Node, error) {
+// Node implements evmtypes.ORM
+func (mo *MockORM) Node(id int32, qopts ...pg.QOpt) (evmtypes.Node, error) {
 	panic("not implemented")
 }
 
-func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []evmtypes.Node, err error) {
+// GetNodesByChainIDs implements evmtypes.ORM
+func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []evmtypes.Node, err error) {
 	panic("not implemented")
 }
 
-func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int) ([]evmtypes.Node, int, error) {
+// NodesForChain implements evmtypes.ORM
+func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts ...pg.QOpt) ([]evmtypes.Node, int, error) {
 	panic("not implemented")
 }
 

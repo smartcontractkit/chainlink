@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -19,7 +20,12 @@ type TerraChainsController struct {
 
 // Index lists Terra chains.
 func (cc *TerraChainsController) Index(c *gin.Context, size, page, offset int) {
-	chains, count, err := cc.App.TerraORM().Chains(offset, size)
+	terraChains := cc.App.GetChains().Terra
+	if terraChains == nil {
+		jsonAPIError(c, http.StatusBadRequest, ErrTerraNotEnabled)
+		return
+	}
+	chains, count, err := terraChains.ORM().Chains(offset, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -42,7 +48,12 @@ type CreateTerraChainRequest struct {
 
 // Show gets a Terra chain by chain id.
 func (cc *TerraChainsController) Show(c *gin.Context) {
-	chain, err := cc.App.TerraORM().Chain(c.Param("ID"))
+	terraChains := cc.App.GetChains().Terra
+	if terraChains == nil {
+		jsonAPIError(c, http.StatusBadRequest, ErrTerraNotEnabled)
+		return
+	}
+	chain, err := terraChains.ORM().Chain(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -53,6 +64,12 @@ func (cc *TerraChainsController) Show(c *gin.Context) {
 
 // Create adds a new Terra chain.
 func (cc *TerraChainsController) Create(c *gin.Context) {
+	terraChains := cc.App.GetChains().Terra
+	if terraChains == nil {
+		jsonAPIError(c, http.StatusBadRequest, ErrTerraNotEnabled)
+		return
+	}
+
 	request := &CreateTerraChainRequest{}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -60,7 +77,7 @@ func (cc *TerraChainsController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := cc.App.GetChains().Terra.Add(request.ID, request.Config)
+	chain, err := terraChains.Add(c.Request.Context(), request.ID, request.Config)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -78,13 +95,19 @@ type UpdateTerraChainRequest struct {
 
 // Update configures an existing Terra chain.
 func (cc *TerraChainsController) Update(c *gin.Context) {
+	terraChains := cc.App.GetChains().Terra
+	if terraChains == nil {
+		jsonAPIError(c, http.StatusBadRequest, ErrTerraNotEnabled)
+		return
+	}
+
 	var request UpdateTerraChainRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	chain, err := cc.App.GetChains().Terra.Configure(c.Param("ID"), request.Enabled, request.Config)
+	chain, err := terraChains.Configure(c.Request.Context(), c.Param("ID"), request.Enabled, request.Config)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, err)
@@ -99,7 +122,12 @@ func (cc *TerraChainsController) Update(c *gin.Context) {
 
 // Delete removes a Terra chain.
 func (cc *TerraChainsController) Delete(c *gin.Context) {
-	err := cc.App.GetChains().Terra.Remove(c.Param("ID"))
+	terraChains := cc.App.GetChains().Terra
+	if terraChains == nil {
+		jsonAPIError(c, http.StatusBadRequest, ErrTerraNotEnabled)
+		return
+	}
+	err := terraChains.Remove(c.Param("ID"))
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
