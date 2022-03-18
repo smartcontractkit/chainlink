@@ -41,6 +41,7 @@ type EVMNodeResource struct {
 	EVMChainID utils.Big   `json:"evmChainID"`
 	WSURL      null.String `json:"wsURL"`
 	HTTPURL    null.String `json:"httpURL"`
+	State      string      `json:"state"`
 	CreatedAt  time.Time   `json:"createdAt"`
 	UpdatedAt  time.Time   `json:"updatedAt"`
 }
@@ -58,6 +59,7 @@ func NewEVMNodeResource(node evmtypes.Node) EVMNodeResource {
 		EVMChainID: node.EVMChainID,
 		WSURL:      node.WSURL,
 		HTTPURL:    node.HTTPURL,
+		State:      node.State,
 		CreatedAt:  node.CreatedAt,
 		UpdatedAt:  node.UpdatedAt,
 	}

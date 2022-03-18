@@ -8,7 +8,6 @@ on:
     branches:
       - master
       - develop
-      - 'release/*'
 
 jobs:
   build-sign-publish-chainlink:
@@ -29,5 +28,8 @@ jobs:
           aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
           sign-images: true
+          sign-method: 'keypair'
           cosign-private-key: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          cosign-public-key: ${{ secrets.COSIGN_PUBLIC_KEY }}
           cosign-password: ${{ secrets.COSIGN_PASSWORD }}
+          verify-signature: true

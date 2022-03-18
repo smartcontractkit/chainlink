@@ -109,6 +109,27 @@ func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, 
 	return r0
 }
 
+// MarkBroadcastsUnconsumed provides a mock function with given fields: fromBlock, qopts
+func (_m *ORM) MarkBroadcastsUnconsumed(fromBlock int64, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, fromBlock)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) error); ok {
+		r0 = rf(fromBlock, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Reinitialize provides a mock function with given fields: qopts
 func (_m *ORM) Reinitialize(qopts ...pg.QOpt) (*int64, error) {
 	_va := make([]interface{}, len(qopts))

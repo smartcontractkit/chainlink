@@ -77,7 +77,7 @@ type DynamicFee struct {
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
 	OnNewLongestChain(context.Context, *evmtypes.Head)
-	Start() error
+	Start(context.Context) error
 	Close() error
 	GetLegacyGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)
 	BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error)
@@ -268,7 +268,7 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 // BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit
-func BumpLegacyGasPriceOnly(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+func BumpLegacyGasPriceOnly(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice)
 	if err != nil {
 		return nil, 0, err
@@ -281,7 +281,7 @@ func BumpLegacyGasPriceOnly(cfg Config, lggr logger.Logger, currentGasPrice, ori
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func bumpGasPrice(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
+func bumpGasPrice(cfg Config, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
 	maxGasPrice := cfg.EvmMaxGasPriceWei()
 
 	var priceByPercentage = new(big.Int)
@@ -296,7 +296,7 @@ func bumpGasPrice(cfg Config, lggr logger.Logger, currentGasPrice, originalGasPr
 		if currentGasPrice.Cmp(maxGasPrice) > 0 {
 			// Shouldn't happen because the estimator should not be allowed to
 			// estimate a higher gas than the maximum allowed
-			lggr.Errorf("AssumptionViolation: Ignoring current gas price of %s that would exceed max gas price of %s", currentGasPrice.String(), maxGasPrice.String())
+			lggr.AssumptionViolationf("Ignoring current gas price of %s that would exceed max gas price of %s", currentGasPrice.String(), maxGasPrice.String())
 		} else if bumpedGasPrice.Cmp(currentGasPrice) < 0 {
 			// If the current gas price is higher than the old price bumped, use that instead
 			bumpedGasPrice = currentGasPrice

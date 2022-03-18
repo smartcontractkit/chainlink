@@ -4,8 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestConfigSchema(t *testing.T) {
@@ -116,6 +117,7 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperDefaultTransactionQueueDepth":             "KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"KeeperGasPriceBufferPercent":                    "KEEPER_GAS_PRICE_BUFFER_PERCENT",
 		"KeeperGasTipCapBufferPercent":                   "KEEPER_GAS_TIP_CAP_BUFFER_PERCENT",
+		"KeeperBaseFeeBufferPercent":                     "KEEPER_BASE_FEE_BUFFER_PERCENT",
 		"KeeperMaximumGracePeriod":                       "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperRegistryCheckGasOverhead":                 "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
 		"KeeperRegistryPerformGasOverhead":               "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
@@ -127,7 +129,9 @@ func TestConfigSchema(t *testing.T) {
 		"LogFileDir":                                     "LOG_FILE_DIR",
 		"LogLevel":                                       "LOG_LEVEL",
 		"LogSQL":                                         "LOG_SQL",
-		"LogToDisk":                                      "LOG_TO_DISK",
+		"LogFileMaxSize":                                 "LOG_FILE_MAX_SIZE",
+		"LogFileMaxAge":                                  "LOG_FILE_MAX_AGE",
+		"LogFileMaxBackups":                              "LOG_FILE_MAX_BACKUPS",
 		"LogUnixTS":                                      "LOG_UNIX_TS",
 		"MaximumServiceDuration":                         "MAXIMUM_SERVICE_DURATION",
 		"MigrateDatabase":                                "MIGRATE_DATABASE",
@@ -135,6 +139,9 @@ func TestConfigSchema(t *testing.T) {
 		"MinRequiredOutgoingConfirmations":               "MIN_OUTGOING_CONFIRMATIONS",
 		"MinimumContractPayment":                         "MINIMUM_CONTRACT_PAYMENT_LINK_JUELS",
 		"MinimumServiceDuration":                         "MINIMUM_SERVICE_DURATION",
+		"NodeNoNewHeadsThreshold":                        "NODE_NO_NEW_HEADS_THRESHOLD",
+		"NodePollFailureThreshold":                       "NODE_POLL_FAILURE_THRESHOLD",
+		"NodePollInterval":                               "NODE_POLL_INTERVAL",
 		"ORMMaxIdleConns":                                "ORM_MAX_IDLE_CONNS",
 		"ORMMaxOpenConns":                                "ORM_MAX_OPEN_CONNS",
 		"OptimismGasFees":                                "OPTIMISM_GAS_FEES",
@@ -156,8 +163,10 @@ func TestConfigSchema(t *testing.T) {
 		"TLSRedirect":                                    "CHAINLINK_TLS_REDIRECT",
 		"TelemetryIngressBufferSize":                     "TELEMETRY_INGRESS_BUFFER_SIZE",
 		"TelemetryIngressLogging":                        "TELEMETRY_INGRESS_LOGGING",
+		"TelemetryIngressUniConn":                        "TELEMETRY_INGRESS_UNICONN",
 		"TelemetryIngressMaxBatchSize":                   "TELEMETRY_INGRESS_MAX_BATCH_SIZE",
 		"TelemetryIngressSendInterval":                   "TELEMETRY_INGRESS_SEND_INTERVAL",
+		"TelemetryIngressSendTimeout":                    "TELEMETRY_INGRESS_SEND_TIMEOUT",
 		"TelemetryIngressServerPubKey":                   "TELEMETRY_INGRESS_SERVER_PUB_KEY",
 		"TelemetryIngressURL":                            "TELEMETRY_INGRESS_URL",
 		"TelemetryIngressUseBatchSend":                   "TELEMETRY_INGRESS_USE_BATCH_SEND",
