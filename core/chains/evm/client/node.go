@@ -62,9 +62,9 @@ var (
 		Name: "evm_pool_rpc_node_calls_success",
 		Help: "The approximate total number of successful RPC calls for the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolSendTransactionTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "evm_pool_rpc_node_send_tx_execution_time",
-		Help: "The duration of a SendTransaction call in nanoseconds",
+	promEVMPoolRPCCallTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "evm_pool_rpc_node_rpc_call_time",
+		Help: "The duration of an RPC call in nanoseconds",
 		Buckets: []float64{
 			float64(50 * time.Millisecond),
 			float64(100 * time.Millisecond),
@@ -75,7 +75,7 @@ var (
 			float64(4 * time.Second),
 			float64(8 * time.Second),
 		},
-	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success"})
+	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
 
 //go:generate mockery --name Node --output ../mocks/ --case=underscore
@@ -358,6 +358,34 @@ func (n *node) getChStopInflight() chan struct{} {
 	return n.chStopInFlight
 }
 
+func (n *node) getRpcDomain() string {
+	if n.http != nil {
+		return n.http.uri.Host
+	}
+	return n.ws.uri.Host
+}
+
+func (n *node) logTiming(lggr logger.Logger, duration time.Duration, err error, rpcDomain, callName string) {
+	promEVMPoolRPCCallTiming.
+		WithLabelValues(
+			n.chainID.String(),             // chain id
+			n.name,                         // node name
+			rpcDomain,                      // rpc domain
+			"false",                        // is send only
+			strconv.FormatBool(err == nil), // is successful
+			callName,                       // rpc call name
+		).
+		Observe(float64(duration))
+	lggr.Debugw(fmt.Sprintf("RPC call: evmclient.#%s", callName),
+		"duration", duration,
+		"rpcDomain", rpcDomain,
+		"name", n.name,
+		"chainID", n.chainID,
+		"sendOnly", false,
+		"err", err,
+	)
+}
+
 // RPC wrappers
 
 // CallContext implementation
@@ -372,14 +400,16 @@ func (n *node) CallContext(ctx context.Context, result interface{}, method strin
 		"args", args,
 	)
 
-	lggr.Debug("RPC call: evmclient.Client#CallContext")
+	start := time.Now()
 	if n.http != nil {
 		err = n.wrapHTTP(n.http.rpc.CallContext(ctx, result, method, args...))
 	} else {
 		err = n.wrapWS(n.ws.rpc.CallContext(ctx, result, method, args...))
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "CallContext")
 
 	return err
 }
@@ -392,14 +422,16 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("nBatchElems", len(b))
 
-	lggr.Debug("RPC call: evmclient.Client#BatchCallContext")
+	start := time.Now()
 	if n.http != nil {
 		err = n.wrapHTTP(n.http.rpc.BatchCallContext(ctx, b))
 	} else {
 		err = n.wrapWS(n.ws.rpc.BatchCallContext(ctx, b))
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "BatchCallContext")
 
 	return err
 }
@@ -412,10 +444,12 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 	defer cancel()
 	lggr := n.newRqLggr("websocket").With("args", args)
 
-	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
+	start := time.Now()
 	sub, err := n.ws.rpc.EthSubscribe(ctx, channel, args...)
+	duration := time.Since(start)
 
 	n.logResult(lggr, err)
+	n.logTiming(lggr, duration, err, n.ws.uri.Host, "EthSubscribe")
 
 	return sub, err
 }
@@ -430,8 +464,7 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("txHash", txHash)
 
-	lggr.Debug("RPC call: evmclient.Client#TransactionReceipt")
-
+	start := time.Now()
 	if n.http != nil {
 		receipt, err = n.http.geth.TransactionReceipt(ctx, txHash)
 		err = n.wrapHTTP(err)
@@ -439,8 +472,10 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 		receipt, err = n.ws.geth.TransactionReceipt(ctx, txHash)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "receipt", receipt)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "TransactionReceipt")
 
 	return
 }
@@ -453,7 +488,7 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("number", number)
 
-	lggr.Debug("RPC call: evmclient.Client#HeaderByNumber")
+	start := time.Now()
 	if n.http != nil {
 		header, err = n.http.geth.HeaderByNumber(ctx, number)
 		err = n.wrapHTTP(err)
@@ -461,57 +496,32 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 		header, err = n.ws.geth.HeaderByNumber(ctx, number)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "header", header)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "HeaderByNumber")
 
 	return
 }
 
-func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) (err error) {
-	lggr := n.newRqLggr(switching(n)).With("tx", tx)
-
-	var rpcDomain string
-	if n.http != nil {
-		rpcDomain = n.http.uri.Host
-	} else {
-		rpcDomain = n.ws.uri.Host
-	}
-	defer func(start time.Time) {
-		duration := time.Since(start)
-
-		promEVMPoolSendTransactionTiming.
-			WithLabelValues(
-				n.chainID.String(),             // chain ID
-				n.name,                         // node name
-				rpcDomain,                      // rpc domain
-				"false",                        // is send only
-				strconv.FormatBool(err == nil), // is successful
-			).
-			Observe(float64(duration))
-
-		lggr.Debugw("RPC call: evmclient.Client#SendTransaction",
-			"duration", duration,
-			"rpcDomain", rpcDomain,
-			"name", n.name,
-			"chainID", n.chainID,
-			"sendOnly", false,
-			"err", err,
-		)
-	}(time.Now())
-
+func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	ctx, cancel, err := n.makeLiveQueryCtx(ctx)
 	if err != nil {
 		return err
 	}
 	defer cancel()
+	lggr := n.newRqLggr(switching(n)).With("tx", tx)
 
+	start := time.Now()
 	if n.http != nil {
 		err = n.wrapHTTP(n.http.geth.SendTransaction(ctx, tx))
 	} else {
 		err = n.wrapWS(n.ws.geth.SendTransaction(ctx, tx))
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "SendTransaction")
 
 	return err
 }
@@ -524,7 +534,7 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("account", account)
 
-	lggr.Debug("RPC call: evmclient.Client#PendingNonceAt")
+	start := time.Now()
 	if n.http != nil {
 		nonce, err = n.http.geth.PendingNonceAt(ctx, account)
 		err = n.wrapHTTP(err)
@@ -532,8 +542,10 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 		nonce, err = n.ws.geth.PendingNonceAt(ctx, account)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "nonce", nonce)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "PendingNonceAt")
 
 	return
 }
@@ -549,7 +561,7 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("account", account, "blockNumber", blockNumber)
 
-	lggr.Debug("RPC call: evmclient.Client#NonceAt")
+	start := time.Now()
 	if n.http != nil {
 		nonce, err = n.http.geth.NonceAt(ctx, account, blockNumber)
 		err = n.wrapHTTP(err)
@@ -557,8 +569,10 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 		nonce, err = n.ws.geth.NonceAt(ctx, account, blockNumber)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "nonce", nonce)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "NonceAt")
 
 	return
 }
@@ -571,7 +585,7 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("account", account)
 
-	lggr.Debug("RPC call: evmclient.Client#PendingCodeAt")
+	start := time.Now()
 	if n.http != nil {
 		code, err = n.http.geth.PendingCodeAt(ctx, account)
 		err = n.wrapHTTP(err)
@@ -579,8 +593,10 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 		code, err = n.ws.geth.PendingCodeAt(ctx, account)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "code", code)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "PendingCodeAt")
 
 	return
 }
@@ -593,7 +609,7 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("account", account, "blockNumber", blockNumber)
 
-	lggr.Debug("RPC call: evmclient.Client#CodeAt")
+	start := time.Now()
 	if n.http != nil {
 		code, err = n.http.geth.CodeAt(ctx, account, blockNumber)
 		err = n.wrapHTTP(err)
@@ -601,8 +617,10 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 		code, err = n.ws.geth.CodeAt(ctx, account, blockNumber)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "code", code)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "CodeAt")
 
 	return
 }
@@ -615,7 +633,7 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("call", call)
 
-	lggr.Debug("RPC call: evmclient.Client#EstimateGas")
+	start := time.Now()
 	if n.http != nil {
 		gas, err = n.http.geth.EstimateGas(ctx, call)
 		err = n.wrapHTTP(err)
@@ -623,8 +641,10 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 		gas, err = n.ws.geth.EstimateGas(ctx, call)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "gas", gas)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "EstimateGas")
 
 	return
 }
@@ -637,7 +657,7 @@ func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) 
 	defer cancel()
 	lggr := n.newRqLggr(switching(n))
 
-	lggr.Debug("RPC call: evmclient.Client#SuggestGasPrice")
+	start := time.Now()
 	if n.http != nil {
 		price, err = n.http.geth.SuggestGasPrice(ctx)
 		err = n.wrapHTTP(err)
@@ -645,8 +665,10 @@ func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) 
 		price, err = n.ws.geth.SuggestGasPrice(ctx)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "price", price)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "SuggestGasPrice")
 
 	return
 }
@@ -659,7 +681,7 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("msg", msg, "blockNumber", blockNumber)
 
-	lggr.Debug("RPC call: evmclient.Client#CallContract")
+	start := time.Now()
 	if n.http != nil {
 		val, err = n.http.geth.CallContract(ctx, msg, blockNumber)
 		err = n.wrapHTTP(err)
@@ -667,8 +689,10 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 		val, err = n.ws.geth.CallContract(ctx, msg, blockNumber)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "val", val)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "CallContract")
 
 	return
 
@@ -682,7 +706,7 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("number", number)
 
-	lggr.Debug("RPC call: evmclient.Client#BlockByNumber")
+	start := time.Now()
 	if n.http != nil {
 		b, err = n.http.geth.BlockByNumber(ctx, number)
 		err = n.wrapHTTP(err)
@@ -690,8 +714,10 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 		b, err = n.ws.geth.BlockByNumber(ctx, number)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "block", b)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "BlockByNumber")
 
 	return
 }
@@ -704,7 +730,7 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("account", account.Hex(), "blockNumber", blockNumber)
 
-	lggr.Debug("RPC call: evmclient.Client#BalanceAt")
+	start := time.Now()
 	if n.http != nil {
 		balance, err = n.http.geth.BalanceAt(ctx, account, blockNumber)
 		err = n.wrapHTTP(err)
@@ -712,8 +738,10 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 		balance, err = n.ws.geth.BalanceAt(ctx, account, blockNumber)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "balance", balance)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "BalanceAt")
 
 	return
 }
@@ -726,7 +754,7 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("q", q)
 
-	lggr.Debug("RPC call: evmclient.Client#FilterLogs")
+	start := time.Now()
 	if n.http != nil {
 		l, err = n.http.geth.FilterLogs(ctx, q)
 		err = n.wrapHTTP(err)
@@ -734,8 +762,10 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 		l, err = n.ws.geth.FilterLogs(ctx, q)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "log", l)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "FilterLogs")
 
 	return
 }
@@ -748,11 +778,13 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 	defer cancel()
 	lggr := n.newRqLggr("websocket").With("q", q)
 
-	lggr.Debug("RPC call: evmclient.Client#SubscribeFilterLogs")
+	start := time.Now()
 	sub, err = n.ws.geth.SubscribeFilterLogs(ctx, q, ch)
 	err = n.wrapWS(err)
+	duration := time.Since(start)
 
 	n.logResult(lggr, err)
+	n.logTiming(lggr, duration, err, n.ws.uri.Host, "SubscribeFilterLogs")
 
 	return
 }
@@ -765,7 +797,7 @@ func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error
 	defer cancel()
 	lggr := n.newRqLggr(switching(n))
 
-	lggr.Debug("RPC call: evmclient.Client#SuggestGasTipCap")
+	start := time.Now()
 	if n.http != nil {
 		tipCap, err = n.http.geth.SuggestGasTipCap(ctx)
 		err = n.wrapHTTP(err)
@@ -773,8 +805,10 @@ func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error
 		tipCap, err = n.ws.geth.SuggestGasTipCap(ctx)
 		err = n.wrapWS(err)
 	}
+	duration := time.Since(start)
 
 	n.logResult(lggr, err, "tipCap", tipCap)
+	n.logTiming(lggr, duration, err, n.getRpcDomain(), "SuggestGasTipCap")
 
 	return
 }

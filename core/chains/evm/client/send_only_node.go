@@ -88,27 +88,30 @@ func (s *sendOnlyNode) Close() {
 	close(s.chStop)
 }
 
+func (s *sendOnlyNode) logTiming(lggr logger.Logger, duration time.Duration, err error, callName string) {
+	promEVMPoolRPCCallTiming.
+		WithLabelValues(
+			s.chainID.String(),             // chain id
+			s.name,                         // node name
+			s.uri.Host,                     // rpc domain
+			"true",                         // is send only
+			strconv.FormatBool(err == nil), // is successful
+			callName,                       // rpc call name
+		).
+		Observe(float64(duration))
+	lggr.Debugw(fmt.Sprintf("SendOnly RPC call: evmclient.#%s", callName),
+		"duration", duration,
+		"rpcDomain", s.uri.Host,
+		"name", s.name,
+		"chainID", s.chainID,
+		"sendOnly", false,
+		"err", err,
+	)
+}
+
 func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Transaction) (err error) {
 	defer func(start time.Time) {
-		duration := time.Since(start)
-		promEVMPoolSendTransactionTiming.
-			WithLabelValues(
-				s.chainID.String(),             // chain ID
-				s.name,                         // node name
-				s.uri.Host,                     // rpc domain
-				"true",                         // is send only
-				strconv.FormatBool(err == nil), // is successful
-			).
-			Observe(float64(duration))
-		s.log.Debugw("evmclient.Client#SendTransaction(...)",
-			"tx", tx,
-			"duration", duration,
-			"rpcDomain", s.uri.Host,
-			"name", s.name,
-			"chainID", s.chainID,
-			"sendOnly", true,
-			"err", err,
-		)
+		s.logTiming(s.log, time.Since(start), err, "SendTransaction")
 	}(time.Now())
 
 	ctx, cancel := s.makeQueryCtx(parentCtx)
@@ -116,10 +119,11 @@ func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Tran
 	return s.wrap(s.geth.SendTransaction(ctx, tx))
 }
 
-func (s *sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.BatchElem) error {
-	s.log.Debugw("evmclient.Client#BatchCall(...)",
-		"nBatchElems", len(b),
-	)
+func (s *sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.BatchElem) (err error) {
+	defer func(start time.Time) {
+		s.logTiming(s.log.With("nBatchElems", len(b)), time.Since(start), err, "SendTransaction")
+	}(time.Now())
+
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
 	return s.wrap(s.rpc.BatchCallContext(ctx, b))
