@@ -1,9 +1,4 @@
-##
-# NOTE: any changes to the event triggers or the paths here should be reflected in:
-#       solidity-paths-ignore.yml
-##
-
-name: Solidity
+name: Code Quality
 
 on:
   push:
@@ -11,19 +6,11 @@ on:
       - staging
       - trying
       - rollup
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
   pull_request:
-    paths:
-      - 'contracts/**'
-      - yarn.lock
-      - 'tools/ci/**'
 
 jobs:
-  solidity-coverage:
-    name: Solidity Coverage
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Setup node
@@ -32,7 +19,7 @@ jobs:
           node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Yarn cache
+      - name: Cache dependencies
         uses: actions/cache@v2
         env:
           cache-name: yarn-cache
@@ -46,14 +33,12 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - name: Run coverage
-        env:
-          NODE_OPTIONS: "--max-old-space-size=5120"
-        run: ./tools/ci/solidity_coverage
-
-  solidity:
-    name: Solidity
+      - name: Run yarn install
+        run: yarn install --frozen-lockfile
+      - name: Run yarn lint
+        run: yarn lint
+  prettier:
+    name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
       - name: Setup node
@@ -62,7 +47,7 @@ jobs:
           node-version: "16"
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Yarn cache
+      - name: Cache dependencies
         uses: actions/cache@v2
         env:
           cache-name: yarn-cache
@@ -76,12 +61,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
-      - name: Compile all contracts
-        run: ./contracts/scripts/native_solc_compile_all
-      - name: Verify local solc binaries
-        run: ./tools/ci/check_solc_hashes
-      - name: Run tests
-        run: ./tools/ci/solidity_test_hardhat
-      - name: Run prepublish NPM test
-        run: ./tools/ci/prepublish_npm_test
+      - name: Run yarn install
+        run: yarn install --frozen-lockfile
+      - name: Run prettier check
+        run: yarn prettier:check
