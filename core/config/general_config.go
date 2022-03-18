@@ -162,6 +162,7 @@ type GeneralOnlyConfig interface {
 	TLSPort() uint16
 	TLSRedirect() bool
 	TelemetryIngressLogging() bool
+	TelemetryIngressUniConn() bool
 	TelemetryIngressServerPubKey() string
 	TelemetryIngressURL() *url.URL
 	TelemetryIngressBufferSize() uint
@@ -903,6 +904,11 @@ func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
 func (c *generalConfig) TelemetryIngressLogging() bool {
 	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
+}
+
+// TelemetryIngressUniconn toggles which ws connection style is used.
+func (c *generalConfig) TelemetryIngressUniConn() bool {
+	return c.getWithFallback("TelemetryIngressUniConn", parse.Bool).(bool)
 }
 
 func (c *generalConfig) ORMMaxOpenConns() int {
