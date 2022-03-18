@@ -3379,6 +3379,20 @@ func (_m *GeneralConfig) TelemetryIngressURL() *url.URL {
 	return r0
 }
 
+// TelemetryIngressUniConn provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressUniConn() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // TelemetryIngressUseBatchSend provides a mock function with given fields:
 func (_m *GeneralConfig) TelemetryIngressUseBatchSend() bool {
 	ret := _m.Called()

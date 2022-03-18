@@ -70,7 +70,6 @@ runs:
 
       SHARED_BUILD_ARGS=$(cat << EOF
       COMMIT_SHA=${{ github.sha }}
-      ENVIRONMENT=release
       EOF
       )
 
