@@ -29,6 +29,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -403,6 +405,50 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	ec := txmgr.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
+}
+
+// RenderMetrics will display all prometheus metrics
+func (cli *Client) RenderMetrics(c *clipkg.Context) error {
+	resp, err := cli.HTTP.Get("/render_metrics", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &PromMetricsPresenter{})
+}
+
+type PromMetricPresenter struct {
+	webPresenters.Metric
+}
+
+type PromMetricsPresenter []PromMetricPresenter
+
+func (p *PromMetricPresenter) ToRow() []string {
+	return []string{
+		p.Name,
+		p.Type,
+		strings.Join(p.Labels, ","),
+		p.Help,
+	}
+}
+
+// RenderTable implements TableRenderer
+func (ps PromMetricsPresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"Name", "Type", "Labels", "Help"}
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	renderList(headers, rows, rt.Writer)
+
+	return nil
 }
 
 type HealthCheckPresenter struct {

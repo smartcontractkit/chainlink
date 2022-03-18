@@ -78,6 +78,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 
 	unauthenticatedDevOnlyMetricRoutes(app, api)
 	healthRoutes(app, api)
+	promMetricsRoutes(app, api)
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
@@ -217,6 +218,11 @@ func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	hc := HealthController{app}
 	r.GET("/readyz", hc.Readyz)
 	r.GET("/health", hc.Health)
+}
+
+func promMetricsRoutes(app chainlink.Application, r *gin.RouterGroup) {
+	prom := PromController{app}
+	r.GET("/render_metrics", prom.RenderMetrics)
 }
 
 func v2Routes(app chainlink.Application, r *gin.RouterGroup) {

@@ -812,6 +812,12 @@ func NewApp(client *Client) *cli.App {
 					Flags:  []cli.Flag{},
 				},
 				{
+					Name:   "render_metrics",
+					Usage:  "Displays all prometheus metrics exposed by the node.",
+					Action: client.RenderMetrics,
+					Flags:  []cli.Flag{},
+				},
+				{
 					Name:   "profile",
 					Usage:  "Collects profile metrics from the node.",
 					Action: client.Profile,
