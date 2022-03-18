@@ -19,7 +19,7 @@ func TestClient_SolanaInit(t *testing.T) {
 	newNode := db.NewNode{
 		Name:          "first",
 		SolanaChainID: "Columbus-5",
-		SolanaURL:     "TODO",
+		SolanaURL:     "https://solana.example",
 	}
 	set := flag.NewFlagSet("cli", 0)
 	set.String("name", newNode.Name, "")

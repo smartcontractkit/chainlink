@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -33,14 +34,19 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 
 	newChainId := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 
+	second := models.MustMakeDuration(time.Second)
 	minute := models.MustMakeDuration(time.Minute)
 	hour := models.MustMakeDuration(time.Hour)
 	body, err := json.Marshal(web.CreateSolanaChainRequest{
 		ID: newChainId,
 		Config: db.ChainCfg{
-			ConfirmPollPeriod: &minute,
-			TxTimeout:         &hour,
-			//TODO more
+			BlockRate:           &second,
+			ConfirmPollPeriod:   &minute,
+			OCR2CachePollPeriod: &minute,
+			OCR2CacheTTL:        &second,
+			TxTimeout:           &hour,
+			SkipPreflight:       null.BoolFrom(false),
+			Commitment:          null.StringFrom(string(rpc.CommitmentRecent)),
 		},
 	})
 	require.NoError(t, err)
@@ -58,9 +64,13 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, resource.ID, dbChain.ID)
+	assert.Equal(t, resource.Config.BlockRate, dbChain.Cfg.BlockRate)
 	assert.Equal(t, resource.Config.ConfirmPollPeriod, dbChain.Cfg.ConfirmPollPeriod)
+	assert.Equal(t, resource.Config.OCR2CachePollPeriod, dbChain.Cfg.OCR2CachePollPeriod)
+	assert.Equal(t, resource.Config.OCR2CacheTTL, dbChain.Cfg.OCR2CacheTTL)
 	assert.Equal(t, resource.Config.TxTimeout, dbChain.Cfg.TxTimeout)
-	t.Error("TODO more fields")
+	assert.Equal(t, resource.Config.SkipPreflight, dbChain.Cfg.SkipPreflight)
+	assert.Equal(t, resource.Config.Commitment, dbChain.Cfg.Commitment)
 }
 
 func Test_SolanaChainsController_Show(t *testing.T) {
@@ -68,6 +78,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 
 	const validId = "Chainlink-12"
 
+	hour := models.MustMakeDuration(time.Hour)
 	testCases := []struct {
 		name           string
 		inputId        string
@@ -80,7 +91,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 			want: func(t *testing.T, app *cltest.TestApplication) *db.Chain {
 				newChainConfig := db.ChainCfg{
 					SkipPreflight: null.BoolFrom(false),
-					//TODO more fields
+					TxTimeout:     &hour,
 				}
 
 				chain := db.Chain{
@@ -126,7 +137,7 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 
 				assert.Equal(t, resource1.ID, wantedResult.ID)
 				assert.Equal(t, resource1.Config.SkipPreflight, wantedResult.Cfg.SkipPreflight)
-				t.Error("TODO more fields")
+				assert.Equal(t, resource1.Config.TxTimeout, wantedResult.Cfg.TxTimeout)
 			}
 		})
 	}

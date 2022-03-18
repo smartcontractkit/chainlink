@@ -5,11 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -108,9 +107,10 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 
 	solanaChainID := solanatest.RandomChainID()
 	minute := models.MustMakeDuration(time.Minute)
+	hour := models.MustMakeDuration(time.Hour)
 	original := db.ChainCfg{
-		//TODO more fields
 		ConfirmPollPeriod: &minute,
+		TxTimeout:         &hour,
 	}
 	_, err = orm.CreateChain(solanaChainID, original)
 	require.NoError(t, err)
@@ -133,7 +133,6 @@ func TestClient_ConfigureSolanaChain(t *testing.T) {
 	ch := chains[initialCount]
 
 	assert.Equal(t, solanaChainID, ch.ID)
-	t.Error("TODO more fields")
 	assert.Equal(t, original.ConfirmPollPeriod, ch.Cfg.ConfirmPollPeriod)
 	assert.Equal(t, original.TxTimeout, ch.Cfg.TxTimeout)
 	assertTableRenders(t, r)

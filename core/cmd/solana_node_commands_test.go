@@ -49,7 +49,7 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	params := db.NewNode{
 		Name:          "second",
 		SolanaChainID: chainID,
-		SolanaURL:     "TODO",
+		SolanaURL:     "https://solana.example",
 	}
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
