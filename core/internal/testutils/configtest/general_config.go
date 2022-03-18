@@ -110,6 +110,7 @@ type GeneralConfigOverrides struct {
 	EVMEnabled                null.Bool
 	EVMRPCEnabled             null.Bool
 	TerraEnabled              null.Bool
+	P2PEnabled                null.Bool
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -499,6 +500,14 @@ func (c *TestGeneralConfig) EVMEnabled() bool {
 		return c.Overrides.EVMEnabled.Bool
 	}
 	return c.GeneralConfig.EVMEnabled()
+}
+
+// P2PEnabled overrides
+func (c *TestGeneralConfig) P2PEnabled() bool {
+	if c.Overrides.P2PEnabled.Valid {
+		return c.Overrides.P2PEnabled.Bool
+	}
+	return c.GeneralConfig.P2PEnabled()
 }
 
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
