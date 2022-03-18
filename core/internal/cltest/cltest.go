@@ -49,6 +49,7 @@ import (
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -376,6 +377,20 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
 			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			lggr.Fatal(err)
+		}
+	}
+	if cfg.SolanaEnabled() {
+		terraLggr := lggr.Named("Solana")
+		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
+			Config:           cfg,
+			Logger:           terraLggr,
+			DB:               db,
+			KeyStore:         keyStore.Solana(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              solana.NewORM(db, terraLggr, cfg),
 		})
 		if err != nil {
 			lggr.Fatal(err)

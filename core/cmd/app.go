@@ -1035,6 +1035,44 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
+					Name:  "solana",
+					Usage: "Commands for handling Solana chains",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new Solana chain",
+							Action: client.CreateSolanaChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete a Solana chain",
+							Action: client.RemoveSolanaChain,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all Solana chains",
+							Action: client.IndexSolanaChains,
+						},
+						{
+							Name:   "configure",
+							Usage:  "Configure a Solana chain",
+							Action: client.ConfigureSolanaChain,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+					},
+				},
+				{
 					Name:  "terra",
 					Usage: "Commands for handling Terra chains",
 					Subcommands: cli.Commands{
@@ -1118,6 +1156,41 @@ func NewApp(client *Client) *cli.App {
 							Name:   "list",
 							Usage:  "List all EVM nodes",
 							Action: client.IndexEVMNodes,
+						},
+					},
+				},
+				{
+					Name:  "solana",
+					Usage: "Commands for handling Solana node configuration",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new Solana node",
+							Action: client.CreateSolanaNode,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "name",
+									Usage: "node name",
+								},
+								cli.StringFlag{
+									Name:  "chain-id",
+									Usage: "chain ID",
+								},
+								cli.StringFlag{
+									Name:  "url",
+									Usage: "URL",
+								},
+							},
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete a Solana node",
+							Action: client.RemoveSolanaNode,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all Solana nodes",
+							Action: client.IndexSolanaNodes,
 						},
 					},
 				},
