@@ -159,6 +159,9 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.Terra != nil {
 		s = append(s, c.Terra)
 	}
+	if c.Solana != nil {
+		s = append(s, c.Solana)
+	}
 	return
 }
 
