@@ -122,7 +122,7 @@ func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
 func (l *zapLogger) With(args ...interface{}) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.SugaredLogger.With(args...)
-	newLogger.fields = copyFields(l.fields, args...)
+	newLogger.fields = copyFields(newLogger.fields, args...)
 	return &newLogger
 }
 
@@ -143,7 +143,7 @@ func joinName(old, new string) string {
 
 func (l *zapLogger) Named(name string) Logger {
 	newLogger := *l
-	newLogger.name = joinName(l.name, name)
+	newLogger.name = joinName(newLogger.name, name)
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
 	newLogger.Trace("Named logger created")
 	return &newLogger
