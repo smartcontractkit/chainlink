@@ -121,6 +121,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 			// helps prevent missed heads
 			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 			require.NoError(t, app.Start(testutils.Context(t)))
 
