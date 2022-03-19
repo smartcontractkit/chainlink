@@ -503,7 +503,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					attrs["right"] = template
 				}
 
-				n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_jsonparse", attrs)
+				n2 := pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("merge_jsonparse_%d", i), attrs)
 				dg.AddNode(n2)
 				if last != nil {
 					dg.SetEdge(dg.NewEdge(last, n2))
@@ -511,7 +511,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 
 				attrs2 := map[string]string{
 					"type": pipeline.TaskTypeJSONParse.String(),
-					"path": "$(merge_jsonparse.path)",
+					"path": fmt.Sprintf("$(merge_jsonparse_%d.path)", i),
 					"data": fmt.Sprintf("$(%v)", last.DOTID()),
 				}
 
@@ -547,7 +547,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					attrs["right"] = template
 				}
 
-				n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_multiply", attrs)
+				n2 := pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("merge_multiply_%d", i), attrs)
 				dg.AddNode(n2)
 				if last != nil {
 					dg.SetEdge(dg.NewEdge(last, n2))
@@ -555,7 +555,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 
 				attrs2 := map[string]string{
 					"type":  pipeline.TaskTypeMultiply.String(),
-					"times": "$(merge_multiply.times)",
+					"times": fmt.Sprintf("$(merge_multiply_%d.times)", i),
 					"input": fmt.Sprintf(`$(%v)`, last.DOTID()),
 				}
 
