@@ -66,7 +66,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			head := args.Get(1).(**evmtypes.Head)
 			*head = cltest.Head(10)
 		}).
-		Return(nil)
+		Return(nil).Maybe()
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 
 	t.Run("should respect its dependents", func(t *testing.T) {
