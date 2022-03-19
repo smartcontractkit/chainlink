@@ -391,9 +391,6 @@ func (n *node) CallContext(ctx context.Context, result interface{}, method strin
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "CallContext",
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -420,9 +417,6 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "BatchCallContext",
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -445,9 +439,6 @@ func (n *node) EthSubscribe(ctx context.Context, channel chan<- *evmtypes.Head, 
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "EthSubscribe",
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -480,9 +471,6 @@ func (n *node) TransactionReceipt(ctx context.Context, txHash common.Hash) (rece
 		"receipt", receipt,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -512,9 +500,6 @@ func (n *node) HeaderByNumber(ctx context.Context, number *big.Int) (header *typ
 		"header", header,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -541,9 +526,6 @@ func (n *node) SendTransaction(ctx context.Context, tx *types.Transaction) error
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "SendTransaction",
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -573,9 +555,6 @@ func (n *node) PendingNonceAt(ctx context.Context, account common.Address) (nonc
 		"nonce", nonce,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -608,9 +587,6 @@ func (n *node) NonceAt(ctx context.Context, account common.Address, blockNumber 
 		"nonce", nonce,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -640,9 +616,6 @@ func (n *node) PendingCodeAt(ctx context.Context, account common.Address) (code 
 		"code", code,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -672,9 +645,6 @@ func (n *node) CodeAt(ctx context.Context, account common.Address, blockNumber *
 		"code", code,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -704,9 +674,6 @@ func (n *node) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint
 		"gas", gas,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -736,9 +703,6 @@ func (n *node) SuggestGasPrice(ctx context.Context) (price *big.Int, err error) 
 		"price", price,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -768,9 +732,6 @@ func (n *node) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumb
 		"val", val,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -801,9 +762,6 @@ func (n *node) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Blo
 		"block", b,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -833,9 +791,6 @@ func (n *node) BalanceAt(ctx context.Context, account common.Address, blockNumbe
 		"balance", balance,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -865,9 +820,6 @@ func (n *node) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l []type
 		"log", l,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -891,9 +843,6 @@ func (n *node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, 
 	n.logResult(lggr, err, duration, n.getRPCDomain(), "SubscribeFilterLogs",
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
@@ -923,9 +872,6 @@ func (n *node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error
 		"tipCap", tipCap,
 		"duration", duration,
 		"rpcDomain", n.getRPCDomain(),
-		"name", n.name,
-		"chainID", n.chainID,
-		"sendOnly", false,
 		"err", err,
 	)
 
