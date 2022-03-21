@@ -831,6 +831,20 @@ func (_m *ChainScopedConfig) EthereumHTTPURL() *url.URL {
 	return r0
 }
 
+// EthereumNodes provides a mock function with given fields:
+func (_m *ChainScopedConfig) EthereumNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // EthereumSecondaryURLs provides a mock function with given fields:
 func (_m *ChainScopedConfig) EthereumSecondaryURLs() []url.URL {
 	ret := _m.Called()
