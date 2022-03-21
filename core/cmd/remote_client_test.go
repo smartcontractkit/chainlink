@@ -274,7 +274,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			enteredStrings := []string{test.email, test.pwd}
-			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingClient(prompter)
 
 			set := flag.NewFlagSet("test", 0)
@@ -296,6 +296,40 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
+	enteredStrings := []string{cltest.APIEmail, cltest.Password}
+	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: append(enteredStrings, enteredStrings...)}
+	client := app.NewAuthenticatingClient(prompter)
+
+	remoteVersion, remoteSha := "test"+static.Version, "abcd"+static.Sha
+	client.HTTP = &mockHTTPClient{client.HTTP, remoteVersion, remoteSha}
+
+	expErr := cmd.ErrIncompatible{
+		CLIVersion:    static.Version,
+		CLISha:        static.Sha,
+		RemoteVersion: remoteVersion,
+		RemoteSha:     remoteSha,
+	}.Error()
+
+	// Fails without bypass
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("bypass-version-check", false, "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	assert.Error(t, err)
+	assert.EqualError(t, err, expErr)
+
+	// Defaults to false
+	set = flag.NewFlagSet("test", 0)
+	c = cli.NewContext(nil, set, nil)
+	err = client.RemoteLogin(c)
+	assert.Error(t, err)
+	assert.EqualError(t, err, expErr)
+}
+
+func TestClient_CheckRemoteBuildCompatibility(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
 	tests := []struct {
 		name                         string
 		remoteVersion, remoteSha     string
@@ -311,19 +345,20 @@ func TestClient_RemoteBuildCompatibility(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			enteredStrings := []string{cltest.APIEmail, cltest.Password}
-			prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+			prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 			client := app.NewAuthenticatingClient(prompter)
 
-			static.Version = test.cliVersion
-			static.Sha = test.cliSha
 			client.HTTP = &mockHTTPClient{client.HTTP, test.remoteVersion, test.remoteSha}
 
-			set := flag.NewFlagSet("test", 0)
-			set.Bool("bypass-version-check", test.bypassVersionFlag, "")
-			c := cli.NewContext(nil, set, nil)
-			err := client.RemoteLogin(c)
+			err := client.CheckRemoteBuildCompatibility(logger.TestLogger(t), test.bypassVersionFlag, test.cliVersion, test.cliSha)
 			if test.wantError {
 				assert.Error(t, err)
+				assert.ErrorIs(t, err, cmd.ErrIncompatible{
+					RemoteVersion: test.remoteVersion,
+					RemoteSha:     test.remoteSha,
+					CLIVersion:    test.cliVersion,
+					CLISha:        test.cliSha,
+				})
 			} else {
 				assert.NoError(t, err)
 			}
@@ -372,7 +407,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	app := startNewApplication(t)
 
 	enteredStrings := []string{cltest.APIEmail, cltest.Password}
-	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
 	otherClient := app.NewAuthenticatingClient(prompter)
@@ -407,7 +442,7 @@ func TestClient_Profile_InvalidSecondsParam(t *testing.T) {
 
 	app := startNewApplication(t)
 	enteredStrings := []string{cltest.APIEmail, cltest.Password}
-	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
 
@@ -431,7 +466,7 @@ func TestClient_Profile(t *testing.T) {
 
 	app := startNewApplication(t)
 	enteredStrings := []string{cltest.APIEmail, cltest.Password}
-	prompter := &cltest.MockCountingPrompter{EnteredStrings: enteredStrings}
+	prompter := &cltest.MockCountingPrompter{T: t, EnteredStrings: enteredStrings}
 
 	client := app.NewAuthenticatingClient(prompter)
 
