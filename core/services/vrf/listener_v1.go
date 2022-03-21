@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
@@ -32,6 +33,7 @@ type request struct {
 	confirmedAtBlock uint64
 	req              *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest
 	lb               log.Broadcast
+	utcTimestamp     time.Time
 }
 
 type listenerV1 struct {
@@ -197,9 +199,15 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 		case <-lsn.newHead:
 			recovery.WrapRecover(lsn.l, func() {
 				toProcess := lsn.extractConfirmedLogs()
+				var toRetry []request
 				for _, r := range toProcess {
-					lsn.ProcessRequest(r.req, r.lb)
+					if success := lsn.ProcessRequest(r); !success {
+						toRetry = append(toRetry, r)
+					}
 				}
+				lsn.reqsMu.Lock()
+				defer lsn.reqsMu.Unlock()
+				lsn.reqs = append(lsn.reqs, toRetry...)
 				lsn.pruneConfirmedRequestCounts()
 			})
 		}
@@ -270,6 +278,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 		confirmedAtBlock: confirmedAt,
 		req:              req,
 		lb:               lb,
+		utcTimestamp:     time.Now().UTC(),
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
@@ -320,11 +329,12 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 	return req.Raw.BlockNumber + newConfs
 }
 
-func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {
+// ProcessRequest attempts to process the VRF request. Returns true if successful, false otherwise.
+func (lsn *listenerV1) ProcessRequest(req request) bool {
 	// This check to see if the log was consumed needs to be in the same
 	// goroutine as the mark consumed to avoid processing duplicates.
-	if !lsn.shouldProcessLog(lb) {
-		return
+	if !lsn.shouldProcessLog(req.lb) {
+		return true
 	}
 
 	// Check if the vrf req has already been fulfilled
@@ -337,26 +347,34 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	// 4. The eth node sees the request reorg and tells us about it. We do our fulfillment
 	// check and the node says its already fulfilled (hasn't seen the fulfillment reorged yet),
 	// so we don't process the request.
-	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
+	callback, err := lsn.coordinator.Callbacks(nil, req.req.RequestID)
 	if err != nil {
-		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.req.Raw.TxHash)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
-		lsn.l.Infow("Request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
-		lsn.markLogAsConsumed(lb)
-		return
+		lsn.l.Infow("Request already fulfilled", "txHash", req.req.Raw.TxHash, "reqID", req.req.RequestID)
+		lsn.markLogAsConsumed(req.lb)
+		return true
+	}
+
+	// Check if we can ignore the request due to its age.
+	if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
+		lsn.l.Infow("Request too old, dropping it",
+			"txHash", req.req.Raw.TxHash, "reqID", req.req.RequestID)
+		lsn.markLogAsConsumed(req.lb)
+		return true
 	}
 
 	lsn.l.Infow("Received log request",
-		"log", lb.String(),
-		"reqID", hex.EncodeToString(req.RequestID[:]),
-		"keyHash", hex.EncodeToString(req.KeyHash[:]),
-		"txHash", req.Raw.TxHash,
-		"blockNumber", req.Raw.BlockNumber,
-		"blockHash", req.Raw.BlockHash,
-		"seed", req.Seed,
-		"fee", req.Fee)
+		"log", req.lb.String(),
+		"reqID", hex.EncodeToString(req.req.RequestID[:]),
+		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+		"txHash", req.req.Raw.TxHash,
+		"blockNumber", req.req.Raw.BlockNumber,
+		"blockHash", req.req.Raw.BlockHash,
+		"seed", req.req.Seed,
+		"fee", req.req.Fee)
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -366,11 +384,11 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 		},
 		"jobRun": map[string]interface{}{
-			"logBlockHash":   req.Raw.BlockHash[:],
-			"logBlockNumber": req.Raw.BlockNumber,
-			"logTxHash":      req.Raw.TxHash,
-			"logTopics":      req.Raw.Topics,
-			"logData":        req.Raw.Data,
+			"logBlockHash":   req.req.Raw.BlockHash[:],
+			"logBlockNumber": req.req.Raw.BlockNumber,
+			"logTxHash":      req.req.Raw.TxHash,
+			"logTopics":      req.req.Raw.Topics,
+			"logData":        req.req.Raw.Data,
 		},
 	})
 
@@ -378,31 +396,34 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
 	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx)); err != nil {
+		if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 			lsn.l.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
 	}); err != nil {
 		lsn.l.Errorw("Failed executing run",
 			"err", err,
-			"reqID", hex.EncodeToString(req.RequestID[:]),
-			"reqTxHash", req.Raw.TxHash)
+			"reqID", hex.EncodeToString(req.req.RequestID[:]),
+			"reqTxHash", req.req.Raw.TxHash)
+		return false
 	} else {
 		if run.HasErrors() || run.HasFatalErrors() {
 			lsn.l.Error("VRFV1 pipeline run failed with errors",
-				"reqID", hex.EncodeToString(req.RequestID[:]),
-				"keyHash", hex.EncodeToString(req.KeyHash[:]),
-				"reqTxHash", req.Raw.TxHash,
+				"reqID", hex.EncodeToString(req.req.RequestID[:]),
+				"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+				"reqTxHash", req.req.Raw.TxHash,
 				"runErrors", run.AllErrors.ToError(),
 				"runFatalErrors", run.FatalErrors.ToError(),
 			)
+			return false
 		} else {
 			lsn.l.Debugw("Executed VRFV1 fulfillment run",
-				"reqID", hex.EncodeToString(req.RequestID[:]),
-				"keyHash", hex.EncodeToString(req.KeyHash[:]),
-				"reqTxHash", req.Raw.TxHash,
+				"reqID", hex.EncodeToString(req.req.RequestID[:]),
+				"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+				"reqTxHash", req.req.Raw.TxHash,
 			)
 			incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
+			return true
 		}
 	}
 }
