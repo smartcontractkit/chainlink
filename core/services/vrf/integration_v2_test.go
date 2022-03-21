@@ -25,6 +25,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -54,7 +56,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // vrfConsumerContract is the common interface implemented by
@@ -103,9 +104,7 @@ var (
 )
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
-	if testing.Short() {
-		t.Skip("skipping due to VRFCoordinatorV2Universe")
-	}
+	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
 	var (
 		sergey       = newIdentity(t)
