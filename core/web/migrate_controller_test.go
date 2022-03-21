@@ -137,24 +137,24 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	requestData=<{ "data": $(merge_3) }>
 	type=bridge
 	];
-	merge_jsonparse [
+	merge_jsonparse_3 [
 	left="$(decode_cbor)"
 	right=<{ "path": "result" }>
 	type=merge
 	];
 	jsonparse_3 [
 	data="$(send_to_bridge_3)"
-	path="$(merge_jsonparse.path)"
+	path="$(merge_jsonparse_3.path)"
 	type=jsonparse
 	];
-	merge_multiply [
+	merge_multiply_4 [
 	left="$(decode_cbor)"
 	right=<{ "times": "100000000" }>
 	type=merge
 	];
 	multiply_4 [
 	input="$(jsonparse_3)"
-	times="$(merge_multiply.times)"
+	times="$(merge_multiply_4.times)"
 	type=multiply
 	];
 	encode_data_7 [
@@ -187,10 +187,10 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	http_get_0 -> http_post_1;
 	http_post_1 -> merge_3;
 	merge_3 -> send_to_bridge_3;
-	send_to_bridge_3 -> merge_jsonparse;
-	merge_jsonparse -> jsonparse_3;
-	jsonparse_3 -> merge_multiply;
-	merge_multiply -> multiply_4;
+	send_to_bridge_3 -> merge_jsonparse_3;
+	merge_jsonparse_3 -> jsonparse_3;
+	jsonparse_3 -> merge_multiply_4;
+	merge_multiply_4 -> multiply_4;
 	multiply_4 -> encode_data_7;
 	encode_data_7 -> encode_tx_7;
 	encode_tx_7 -> send_tx_7;
@@ -207,6 +207,317 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	expectedRequesters = append(expectedRequesters, common.HexToAddress("0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"))
 	expectedRequesters = append(expectedRequesters, common.HexToAddress("0xae8F390fFD3c74870367121cE251C744d3DC01Ed"))
 	contractAddress, _ := ethkey.NewEIP55Address("0xfe8F390fFD3c74870367121cE251C744d3DC01Ed")
+	// v2 job migrated should be identical to v1.
+	assert.Equal(t, uint32(1), createdJobV2.SchemaVersion)
+	assert.Equal(t, job.DirectRequest.String(), createdJobV2.Type.String())
+	assert.Equal(t, createdJobV2.Name, jobV1.Name)
+	require.NotNil(t, createdJobV2.DirectRequestSpec)
+	assert.Equal(t, createdJobV2.DirectRequestSpec.ContractAddress, contractAddress)
+	assert.Equal(t, createdJobV2.DirectRequestSpec.MinContractPayment, jobV1.MinPayment)
+	assert.Equal(t, createdJobV2.DirectRequestSpec.MinIncomingConfirmations, clnull.Uint32From(10))
+	assert.Equal(t, createdJobV2.DirectRequestSpec.Requesters, expectedRequesters)
+	assert.Equal(t, expectedDotSpec, createdJobV2.PipelineSpec.DotDAGSource)
+
+	// v1 FM job should be archived
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/specs/%s", jobV1.ID.String()), nil)
+	t.Cleanup(cleanup)
+	assert.Equal(t, 404, resp.StatusCode)
+	errs := cltest.ParseJSONAPIErrors(t, resp.Body)
+	require.NotNil(t, errs)
+	require.Len(t, errs.Errors, 1)
+	require.Equal(t, "JobSpec not found", errs.Errors[0].Detail)
+
+	// v2 job read should be identical to created.
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/jobs/%s", createdJobV2.ID), nil)
+	assert.Equal(t, 200, resp.StatusCode)
+	t.Cleanup(cleanup)
+	var migratedJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
+	assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
+}
+
+func TestMigrateController_MigrateRunLog_MultiMerge(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	config.Set("ETH_DISABLED", true)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	t.Cleanup(cleanup)
+	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
+
+	// Create the v1 job
+	resp, cleanup := client.Post("/v2/specs", strings.NewReader(`
+{
+    "name": "multi-word",
+    "initiators": [
+        {
+            "id": 3,
+            "jobSpecId": "64566152-8ea4-4aa7-b137-ed9f9d54c3d5",
+            "type": "runlog",
+            "params": {
+                "address": "0xc57b33452b4f7bb189bb5afae9cc4aba1f7a4fd8"
+            }
+        }
+    ],
+    "tasks": [
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "httpget",
+            "params": {
+                "get": "https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD,JPY,EUR"
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "jsonparse",
+            "params": {
+                "path": [
+                    "USD"
+                ]
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "multiply",
+            "params": {
+                "times": 100
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "ethuint256"
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "resultcollect"
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "httpget",
+            "params": {
+                "get": "https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD,JPY,EUR"
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "jsonparse",
+            "params": {
+                "path": [
+                    "EUR"
+                ]
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "multiply",
+            "params": {
+                "times": 100
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "ethuint256"
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "resultcollect"
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "httpget",
+            "params": {
+                "get": "https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD,JPY,EUR"
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "jsonparse",
+            "params": {
+                "path": [
+                    "JPY"
+                ]
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "multiply",
+            "params": {
+                "times": 100
+            }
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "ethuint256"
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "resultcollect"
+        },
+        {
+            "jobSpecId": "645661528ea44aa7b137ed9f9d54c3d5",
+            "type": "ethtx",
+            "confirmations": 1,
+            "params": {
+                "abiEncoding": [
+                    "bytes32",
+                    "bytes32",
+                    "bytes32",
+                    "bytes32"
+                ]
+            }
+        }
+    ]
+}
+`))
+	require.Equal(t, 200, resp.StatusCode)
+	t.Cleanup(cleanup)
+	var jobV1 presenters.JobSpec
+	cltest.ParseJSONAPIResponse(t, resp, &jobV1)
+
+	expectedDotSpec := `decode_log [
+	abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
+	data="$(jobRun.logData)"
+	topics="$(jobRun.logTopics)"
+	type=ethabidecodelog
+	];
+	decode_cbor [
+	data="$(decode_log.data)"
+	mode=diet
+	type=cborparse
+	];
+	http_get_0 [
+	method=GET
+	type=http
+	url="https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD,JPY,EUR"
+	];
+	merge_jsonparse_1 [
+	left="$(decode_cbor)"
+	right=<{ "path": "USD" }>
+	type=merge
+	];
+	jsonparse_1 [
+	data="$(http_get_0)"
+	path="$(merge_jsonparse_1.path)"
+	type=jsonparse
+	];
+	merge_multiply_2 [
+	left="$(decode_cbor)"
+	right=<{ "times": "100" }>
+	type=merge
+	];
+	multiply_2 [
+	input="$(jsonparse_1)"
+	times="$(merge_multiply_2.times)"
+	type=multiply
+	];
+	http_get_5 [
+	method=GET
+	type=http
+	url="https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD,JPY,EUR"
+	];
+	merge_jsonparse_6 [
+	left="$(decode_cbor)"
+	right=<{ "path": "EUR" }>
+	type=merge
+	];
+	jsonparse_6 [
+	data="$(http_get_5)"
+	path="$(merge_jsonparse_6.path)"
+	type=jsonparse
+	];
+	merge_multiply_7 [
+	left="$(decode_cbor)"
+	right=<{ "times": "100" }>
+	type=merge
+	];
+	multiply_7 [
+	input="$(jsonparse_6)"
+	times="$(merge_multiply_7.times)"
+	type=multiply
+	];
+	http_get_10 [
+	method=GET
+	type=http
+	url="https://min-api.cryptocompare.com/data/price?fsym=BTC&tsyms=USD,JPY,EUR"
+	];
+	merge_jsonparse_11 [
+	left="$(decode_cbor)"
+	right=<{ "path": "JPY" }>
+	type=merge
+	];
+	jsonparse_11 [
+	data="$(http_get_10)"
+	path="$(merge_jsonparse_11.path)"
+	type=jsonparse
+	];
+	merge_multiply_12 [
+	left="$(decode_cbor)"
+	right=<{ "times": "100" }>
+	type=merge
+	];
+	multiply_12 [
+	input="$(jsonparse_11)"
+	times="$(merge_multiply_12.times)"
+	type=multiply
+	];
+	encode_data_16 [
+	abi="(uint256 value)"
+	data=<{ "value": $(multiply_12) }>
+	type=ethabiencode
+	];
+	encode_tx_16 [
+	abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)"
+	data=<{
+"requestId":          $(decode_log.requestId),
+"payment":            $(decode_log.payment),
+"callbackAddress":    $(decode_log.callbackAddr),
+"callbackFunctionId": $(decode_log.callbackFunctionId),
+"expiration":         $(decode_log.cancelExpiration),
+"data":               $(encode_data_16)
+}
+>
+	type=ethabiencode
+	];
+	send_tx_16 [
+	data="$(encode_tx_16)"
+	to="0xc57B33452b4F7BB189bB5AfaE9cc4aBa1f7a4FD8"
+	type=ethtx
+	];
+
+// Edge definitions.
+decode_log -> decode_cbor;
+decode_cbor -> http_get_0;
+http_get_0 -> merge_jsonparse_1;
+merge_jsonparse_1 -> jsonparse_1;
+jsonparse_1 -> merge_multiply_2;
+merge_multiply_2 -> multiply_2;
+multiply_2 -> http_get_5;
+http_get_5 -> merge_jsonparse_6;
+merge_jsonparse_6 -> jsonparse_6;
+jsonparse_6 -> merge_multiply_7;
+merge_multiply_7 -> multiply_7;
+multiply_7 -> http_get_10;
+http_get_10 -> merge_jsonparse_11;
+merge_jsonparse_11 -> jsonparse_11;
+jsonparse_11 -> merge_multiply_12;
+merge_multiply_12 -> multiply_12;
+multiply_12 -> encode_data_16;
+encode_data_16 -> encode_tx_16;
+encode_tx_16 -> send_tx_16;
+`
+
+	// Migrate it
+	resp, cleanup = client.Post(fmt.Sprintf("/v2/migrate/%s", jobV1.ID.String()), nil)
+	t.Cleanup(cleanup)
+	require.Equal(t, 200, resp.StatusCode)
+	var createdJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &createdJobV2)
+
+	var expectedRequesters models.AddressCollection
+	contractAddress, _ := ethkey.NewEIP55Address("0xc57B33452b4F7BB189bB5AfaE9cc4aBa1f7a4FD8")
 	// v2 job migrated should be identical to v1.
 	assert.Equal(t, uint32(1), createdJobV2.SchemaVersion)
 	assert.Equal(t, job.DirectRequest.String(), createdJobV2.Type.String())
