@@ -376,6 +376,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
 			set.String("api", test.apiFile, "")
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
+			set.Bool("bypass-version-check", true, "")
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {

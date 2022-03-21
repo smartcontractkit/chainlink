@@ -107,6 +107,7 @@ type GeneralOnlyConfig interface {
 	Dev() bool
 	ShutdownGracePeriod() time.Duration
 	EthereumHTTPURL() *url.URL
+	EthereumNodes() string
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string
 	ExplorerAccessKey() string
@@ -162,6 +163,7 @@ type GeneralOnlyConfig interface {
 	TLSPort() uint16
 	TLSRedirect() bool
 	TelemetryIngressLogging() bool
+	TelemetryIngressUniConn() bool
 	TelemetryIngressServerPubKey() string
 	TelemetryIngressURL() *url.URL
 	TelemetryIngressBufferSize() uint
@@ -364,6 +366,8 @@ EVM_ENABLED=false
 		if len(c.EthereumSecondaryURLs()) > 0 {
 			c.lggr.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when ETH_URL is not set")
 		}
+	} else if c.EthereumNodes() != "" {
+		return errors.Errorf("It is not permitted to set both ETH_URL (got %s) and EVM_NODES (got %s). Please set either one or the other.", c.EthereumURL(), c.EthereumNodes())
 	}
 	// Warn on legacy OCR env vars
 	if c.OCRDHTLookupInterval() != 0 {
@@ -663,6 +667,12 @@ func (c *generalConfig) EthereumHTTPURL() (uri *url.URL) {
 	return
 }
 
+// EthereumNodes is a hack to allow node operators to give a JSON string that
+// sets up multiple nodes
+func (c *generalConfig) EthereumNodes() string {
+	return c.viper.GetString(envvar.Name("EthereumNodes"))
+}
+
 // EthereumSecondaryURLs is an optional backup RPC URL
 // Must be http(s) format
 // If specified, transactions will also be broadcast to this ethereum node
@@ -903,6 +913,11 @@ func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
 func (c *generalConfig) TelemetryIngressLogging() bool {
 	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
+}
+
+// TelemetryIngressUniconn toggles which ws connection style is used.
+func (c *generalConfig) TelemetryIngressUniConn() bool {
+	return c.getWithFallback("TelemetryIngressUniConn", parse.Bool).(bool)
 }
 
 func (c *generalConfig) ORMMaxOpenConns() int {
