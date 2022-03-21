@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
-// ErrSolanaNotEnabled is returned when TERRA_ENABLED is not true.
-var ErrSolanaNotEnabled = errors.New("Solana is disabled. Set TERRA_ENABLED=true to enable.")
+// ErrSolanaNotEnabled is returned when SOLANA_ENABLED is not true.
+var ErrSolanaNotEnabled = errors.New("Solana is disabled. Set SOLANA_ENABLED=true to enable.")
 
 // SolanaNodesController manages Solana nodes.
 type SolanaNodesController struct {

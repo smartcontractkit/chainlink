@@ -187,7 +187,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 			ORM:              solana.NewORM(db, solLggr, cfg),
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Terra chainset")
+			return nil, errors.Wrap(err, "failed to load Solana chainset")
 		}
 	}
 
