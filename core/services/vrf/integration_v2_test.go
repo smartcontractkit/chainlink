@@ -530,7 +530,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		return len(runs) == 1
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-	// Mine the fulfillments that were queued.
+	// Mine the fulfillment that was queued.
 	mine(t, requestID1, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
@@ -547,7 +547,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 	mine(t, requestID2, subID, uni, db)
 	assertRandomWordsFulfilled(t, requestID2, true, uni)
-	
+
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
 

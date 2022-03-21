@@ -330,7 +330,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 	for _, req := range reqs {
 		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.fromAddresses()...)
 		if err != nil {
-			lggr.Errorw("Couldn't get next from address", "error", err)
+			lggr.Errorw("Couldn't get next from address", "err", err)
 			continue
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
