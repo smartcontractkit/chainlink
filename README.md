@@ -157,7 +157,11 @@ If you do end up modifying the migrations for the database, you will need to rer
 go test ./...
 ```
 
-Note: You can use flag ```-parallel=1``` to limit CPU usage in background, by default, it is set to the value of GOMAXPROCS
+### Notes
+
+- The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
+- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
+- The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute (you may still need a phony env var to pass some validation: `DATABASE_URL=_test`)
 
 ### Solidity Development
 

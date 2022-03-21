@@ -24,8 +24,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
@@ -65,8 +64,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
 	balance, err := assets.NewEthValueS("2")
 	require.NoError(t, err)
@@ -105,8 +103,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
@@ -174,8 +171,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
 	ethClient.On("PendingNonceAt", mock.Anything, key.Address.Address()).Return(uint64(1), nil)
 	ethClient.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(assets.NewEth(10).ToInt(), nil)
@@ -209,8 +205,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 
 	balance, err := assets.NewEthValueS("0")
 	require.NoError(t, err)
