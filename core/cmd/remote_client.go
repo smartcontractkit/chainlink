@@ -175,7 +175,7 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	err = cli.checkRemoteBuildCompatibility(lggr, c)
+	err = cli.checkRemoteBuildCompatibility(lggr, c.Bool("bypass-version-check"), static.Version, static.Sha)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -560,7 +560,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	return b, err
 }
 
-func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.Context) error {
+func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool, cliVersion, cliSha string) error {
 	resp, err := cli.HTTP.Get("/v2/build_info")
 	if err != nil {
 		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
@@ -578,20 +578,29 @@ func (cli *Client) checkRemoteBuildCompatibility(lggr logger.Logger, c *clipkg.C
 		return nil
 	}
 	remoteVersion, remoteSha := remoteBuildInfo["version"], remoteBuildInfo["commitSHA"]
-	cliVersion, cliSha := static.Version, static.Sha
 
 	remoteSemverUnset := remoteVersion == "unset" || remoteVersion == "" || remoteSha == "unset" || remoteSha == ""
 	cliRemoteSemverMismatch := remoteVersion != cliVersion || remoteSha != cliSha
 
 	if remoteSemverUnset || cliRemoteSemverMismatch {
-		// Show a warning but allow mismatch if using bypass-version-check flag
-		if c.Bool("bypass-version-check") {
+		// Show a warning but allow mismatch
+		if onlyWarn {
 			lggr.Warnf("CLI build (%s@%s) mismatches remote node build (%s@%s), it might behave in unexpected ways", remoteVersion, remoteSha, cliVersion, cliSha)
 			return nil
 		}
 		// Don't allow usage of CLI by unsetting the session cookie to prevent further requests
 		cli.CookieAuthenticator.Logout()
-		return errors.Errorf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", remoteVersion, remoteSha, cliVersion, cliSha)
+		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}
 	return nil
+}
+
+// ErrIncompatible is returned when the cli and remote versions are not compatible.
+type ErrIncompatible struct {
+	CLIVersion, CLISha       string
+	RemoteVersion, RemoteSha string
+}
+
+func (e ErrIncompatible) Error() string {
+	return fmt.Sprintf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", e.CLIVersion, e.CLISha, e.RemoteVersion, e.RemoteSha)
 }
