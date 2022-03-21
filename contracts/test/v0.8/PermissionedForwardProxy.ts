@@ -55,28 +55,27 @@ describe('PermissionedForwardProxy', () => {
     })
 
     describe('when called by the owner', () => {
+      beforeEach(async () => {
+        // Reset permission before testing
+        await controller
+          .connect(personas.Carol)
+          .removePermission(await personas.Carol.getAddress())
+      })
 
-        beforeEach(async () => {
-          // Reset permission before testing
-          await controller
-            .connect(personas.Carol)
-            .removePermission(await personas.Carol.getAddress())
-        })
+      it('adds the permission to the proxy', async () => {
+        await controller
+          .connect(personas.Carol)
+          .addPermission(
+            await personas.Carol.getAddress(),
+            await personas.Eddy.getAddress(),
+          )
 
-        it('adds the permission to the proxy', async () => {
-          await controller
-            .connect(personas.Carol)
-            .addPermission(
-              await personas.Carol.getAddress(),
-              await personas.Eddy.getAddress(),
-            )
-
-          await expect(
-            await controller.forwardPermissionList(
-              await personas.Carol.getAddress(),
-            ),
-          ).to.be.equal(await personas.Eddy.getAddress())
-        })
+        await expect(
+          await controller.forwardPermissionList(
+            await personas.Carol.getAddress(),
+          ),
+        ).to.be.equal(await personas.Eddy.getAddress())
+      })
     })
   })
 
@@ -86,96 +85,84 @@ describe('PermissionedForwardProxy', () => {
         await expect(
           controller
             .connect(personas.Eddy)
-            .removePermission(
-              await personas.Carol.getAddress(),
-            ),
+            .removePermission(await personas.Carol.getAddress()),
         ).to.be.revertedWith('Only callable by owner')
       })
     })
 
     describe('when called by the owner', () => {
+      beforeEach(async () => {
+        // Add permission before testing
+        await controller
+          .connect(personas.Carol)
+          .addPermission(
+            await personas.Carol.getAddress(),
+            await personas.Eddy.getAddress(),
+          )
+      })
 
-        beforeEach(async () => {
-          // Add permission before testing
-          await controller
-            .connect(personas.Carol)
-            .addPermission(
-              await personas.Carol.getAddress(),
-              await personas.Eddy.getAddress(),
-            )
-        })
+      it('removes the permission to the proxy', async () => {
+        await controller
+          .connect(personas.Carol)
+          .removePermission(await personas.Carol.getAddress())
 
-        it('removes the permission to the proxy', async () => {
-          await controller
-            .connect(personas.Carol)
-            .removePermission(await personas.Carol.getAddress())
-
-          await expect(
-            await controller.forwardPermissionList(
-              await personas.Carol.getAddress(),
-            ),
-          ).to.be.equal('0x0000000000000000000000000000000000000000') // Defaults to 0x0 address
-        })
+        await expect(
+          await controller.forwardPermissionList(
+            await personas.Carol.getAddress(),
+          ),
+        ).to.be.equal('0x0000000000000000000000000000000000000000') // Defaults to 0x0 address
+      })
     })
   })
 
-
-  describe('#removePermission', () => {
+  describe('#forward', () => {
     describe('when permission does not exist', () => {
-        beforeEach(async () => {
-          // Reset permission before testing
-          await controller
-            .connect(personas.Carol)
-            .removePermission(await personas.Carol.getAddress())
-        })
+      beforeEach(async () => {
+        // Reset permission before testing
+        await controller
+          .connect(personas.Carol)
+          .removePermission(await personas.Carol.getAddress())
+      })
       it('reverts', async () => {
         await expect(
           controller
             .connect(personas.Carol)
-            .forward(await personas.Eddy.getAddress(), "0x"),
+            .forward(await personas.Eddy.getAddress(), '0x'),
         ).to.be.revertedWith('Forwarding permission not found')
       })
     })
 
     describe('when permission exists', () => {
-        let counter: Contract
-        beforeEach(async () => {
-          // Deploy Counter contract to call
-          counter = await counterFactory.connect(personas.Carol).deploy()
+      let counter: Contract
+      beforeEach(async () => {
+        // Deploy Counter contract to call
+        counter = await counterFactory.connect(personas.Carol).deploy()
 
-          // Add permission before testing
-          await controller
-            .connect(personas.Carol)
-            .addPermission(
-              await personas.Carol.getAddress(),
-              counter.address,
-            )
-        })
-
-        it('calls target successfully', async () => {
-            let encoder = new ethers.utils.Interface( [
-                "function increment()"
-            ]);
-            let handler = encoder.encodeFunctionData("increment")
-
-            await controller
-              .connect(personas.Carol)
-              .forward(counter.address, handler)
-
-            await expect(await counter.count()).to.be.equal(1)
-        })
-
-        it('reverts when target reverts', async () => {
-            let encoder = new ethers.utils.Interface( [
-                "function alwaysRevert()"
-            ]);
-            let handler = encoder.encodeFunctionData("alwaysRevert")
-            await expect(
-              await controller
-                .connect(personas.Carol)
-                .forward(counter.address, handler),
-            ).to.be.revertedWith('always revert')
-        })
+        // Add permission before testing
+        await controller
+          .connect(personas.Carol)
+          .addPermission(await personas.Carol.getAddress(), counter.address)
       })
+
+      it('calls target successfully', async () => {
+        let encoder = new ethers.utils.Interface(['function increment()'])
+        let handler = encoder.encodeFunctionData('increment')
+
+        await controller
+          .connect(personas.Carol)
+          .forward(counter.address, handler)
+
+        await expect(await counter.count()).to.be.equal(1)
+      })
+
+      it('reverts when target reverts', async () => {
+        let encoder = new ethers.utils.Interface(['function alwaysRevert()'])
+        let handler = encoder.encodeFunctionData('alwaysRevert')
+
+        await expect(
+          controller.connect(personas.Carol).forward(counter.address, handler),
+        ).to.be.revertedWith('always revert')
+      })
+    })
   })
 })
