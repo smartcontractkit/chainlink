@@ -10,8 +10,6 @@ import {getRevertMsg} from "./utils/utils.sol";
  * a permission list to check which sender is allowed to call which target
  */
 contract PermissionedForwardProxy is ConfirmedOwner {
-  error CallFailed(string reason);
-
   mapping(address => address) public forwardPermissionList;
 
   constructor() ConfirmedOwner(msg.sender) {}
@@ -25,7 +23,7 @@ contract PermissionedForwardProxy is ConfirmedOwner {
     require(forwardPermissionList[msg.sender] == target, "Forwarding permission not found");
     (bool success, bytes memory payload) = target.call(handler);
     if (!success) {
-      revert CallFailed(getRevertMsg(payload));
+      revert(getRevertMsg(payload));
     }
   }
 
