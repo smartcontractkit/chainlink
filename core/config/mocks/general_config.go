@@ -641,6 +641,20 @@ func (_m *GeneralConfig) EthereumHTTPURL() *url.URL {
 	return r0
 }
 
+// EthereumNodes provides a mock function with given fields:
+func (_m *GeneralConfig) EthereumNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // EthereumSecondaryURLs provides a mock function with given fields:
 func (_m *GeneralConfig) EthereumSecondaryURLs() []url.URL {
 	ret := _m.Called()
@@ -1706,6 +1720,69 @@ func (_m *GeneralConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Link)
 		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalNodeNoNewHeadsThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalNodePollFailureThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalNodePollInterval provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalNodePollInterval() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	var r1 bool
@@ -3311,6 +3388,20 @@ func (_m *GeneralConfig) TelemetryIngressURL() *url.URL {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*url.URL)
 		}
+	}
+
+	return r0
+}
+
+// TelemetryIngressUniConn provides a mock function with given fields:
+func (_m *GeneralConfig) TelemetryIngressUniConn() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

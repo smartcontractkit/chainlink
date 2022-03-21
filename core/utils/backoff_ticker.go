@@ -7,6 +7,7 @@ import (
 	"github.com/jpillora/backoff"
 )
 
+// BackoffTicker sends ticks with periods that increase over time, over a configured range.
 type BackoffTicker struct {
 	b         backoff.Backoff
 	timer     *time.Timer
@@ -16,6 +17,7 @@ type BackoffTicker struct {
 	sync.Mutex
 }
 
+// NewBackoffTicker returns a new BackoffTicker for the given range.
 func NewBackoffTicker(min, max time.Duration) BackoffTicker {
 	c := make(chan time.Time, 1)
 	return BackoffTicker{
@@ -83,6 +85,7 @@ func (t *BackoffTicker) run() {
 	}
 }
 
+// Ticks returns the underlying channel.
 func (t *BackoffTicker) Ticks() <-chan time.Time {
 	return t.C
 }

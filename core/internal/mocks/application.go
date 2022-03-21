@@ -6,8 +6,6 @@ import (
 	big "math/big"
 
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
-	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
 
 	config "github.com/smartcontractkit/chainlink/core/config"
@@ -34,7 +32,7 @@ import (
 
 	sqlx "github.com/smartcontractkit/sqlx"
 
-	terratypes "github.com/smartcontractkit/chainlink/core/chains/terra/types"
+	txmgr "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
@@ -59,22 +57,6 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 *job.Job) error {
 		r0 = rf(ctx, _a1)
 	} else {
 		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// BPTXMORM provides a mock function with given fields:
-func (_m *Application) BPTXMORM() bulletprooftxmanager.ORM {
-	ret := _m.Called()
-
-	var r0 bulletprooftxmanager.ORM
-	if rf, ok := ret.Get(0).(func() bulletprooftxmanager.ORM); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(bulletprooftxmanager.ORM)
-		}
 	}
 
 	return r0
@@ -488,16 +470,16 @@ func (_m *Application) Stop() error {
 	return r0
 }
 
-// TerraORM provides a mock function with given fields:
-func (_m *Application) TerraORM() terratypes.ORM {
+// TxmORM provides a mock function with given fields:
+func (_m *Application) TxmORM() txmgr.ORM {
 	ret := _m.Called()
 
-	var r0 terratypes.ORM
-	if rf, ok := ret.Get(0).(func() terratypes.ORM); ok {
+	var r0 txmgr.ORM
+	if rf, ok := ret.Get(0).(func() txmgr.ORM); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(terratypes.ORM)
+			r0 = ret.Get(0).(txmgr.ORM)
 		}
 	}
 

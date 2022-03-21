@@ -14,7 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -71,7 +71,7 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the OCR services that need to run for this job
-func (d Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error) {
+func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
@@ -163,7 +163,8 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 		}
-		services = append(services, bootstrapper)
+		bootstrapperCtx := job.NewServiceAdapter(bootstrapper)
+		services = append(services, bootstrapperCtx)
 	} else {
 		if len(bootstrapPeers) < 1 {
 			return nil, errors.New("need at least one bootstrap peer")
@@ -178,11 +179,11 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
+		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
 
-		var checker bulletprooftxmanager.TransmitCheckerSpec
+		var checker txmgr.TransmitCheckerSpec
 		if chain.Config().OCRSimulateTransactions() {
-			checker.CheckerType = bulletprooftxmanager.TransmitCheckerTypeSimulate
+			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
 
 		if concreteSpec.TransmitterAddress == nil {
@@ -245,12 +246,13 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err error
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
 		}
-		services = append(services, oracle)
+		oracleCtx := job.NewServiceAdapter(oracle)
+		services = append(services, oracleCtx)
 
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
-		services = append([]job.Service{ocrcommon.NewResultRunSaver(
+		services = append([]job.ServiceCtx{ocrcommon.NewResultRunSaver(
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),

@@ -13,7 +13,7 @@ import (
 func TestClient_TerraInit(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
 	newNode := types.NewNode{

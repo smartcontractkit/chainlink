@@ -8,16 +8,13 @@ import (
 	"reflect"
 	"time"
 
-	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
-
-	"github.com/smartcontractkit/chainlink/core/bridges"
-
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -25,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	medianconfig "github.com/smartcontractkit/chainlink/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
@@ -220,12 +218,12 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			switch jb.OCR2OracleSpec.PluginType {
 			case Median:
-				var config medianconfig.PluginConfig
-				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &config)
+				var cfg medianconfig.PluginConfig
+				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
-					return err
+					return errors.Wrap(err, "failed to parse plugin config")
 				}
-				feePipeline, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline)
+				feePipeline, err := pipeline.Parse(cfg.JuelsPerFeeCoinPipeline)
 				if err != nil {
 					return err
 				}
@@ -270,7 +268,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, :requested_confs_delay, :request_timeout, NOW(), NOW())
 			RETURNING id;`
 			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.VRFSpec)
-			pqErr, ok := err.(*pgconn.PgError)
+			var pqErr *pgconn.PgError
+			ok := errors.As(err, &pqErr)
 			if err != nil && ok && pqErr.Code == "23503" {
 				if pqErr.ConstraintName == "vrf_specs_public_key_fkey" {
 					return errors.Wrapf(ErrNoSuchPublicKey, "%s", jb.VRFSpec.PublicKey.String())
@@ -365,6 +364,10 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	o.lggr.Debugw("Deleting job", "jobID", id)
+	// Added a 1 minute timeout to this query since this can take a long time as data increases.
+	// This was added specifically due to an issue with a database that had a millions of pipeline_runs and pipeline_task_runs
+	// and this query was taking ~40secs.
+	qopts = append(qopts, pg.WithLongQueryTimeout())
 	q := o.q.WithOpts(qopts...)
 	query := `
 		WITH deleted_jobs AS (
@@ -437,7 +440,8 @@ func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) err
 	updated_at = excluded.updated_at`
 	err := q.ExecQ(sql, jobID, description, time.Now())
 	// Noop if the job has been deleted.
-	pqErr, ok := err.(*pgconn.PgError)
+	var pqErr *pgconn.PgError
+	ok := errors.As(err, &pqErr)
 	if err != nil && ok && pqErr.Code == "23503" {
 		if pqErr.ConstraintName == "job_spec_errors_v2_job_id_fkey" {
 			return nil
@@ -619,7 +623,7 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OCROracleSpec) *OCROracleSp
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OCROracleSpec) (*OCROracleSpec, error) {
 	if os.TransmitterAddress == nil {
 		ta, err := cfg.OCRTransmitterAddress()
-		if errors.Cause(err) != config.ErrUnset {
+		if !errors.Is(errors.Cause(err), config.ErrUnset) {
 			if err != nil {
 				return nil, err
 			}

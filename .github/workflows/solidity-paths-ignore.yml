@@ -11,8 +11,8 @@ name: Solidity
 on:
   push:
     branches:
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
     paths-ignore:
       - 'contracts/**'

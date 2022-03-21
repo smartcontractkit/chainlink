@@ -8,6 +8,12 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	htmocks "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/core/chains/evm/log/mocks"
@@ -22,11 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
 	ocrmocks "github.com/smartcontractkit/chainlink/core/services/ocr/mocks"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
@@ -158,7 +159,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 		uni.db.On("LoadLatestRoundRequested").Return(offchainaggregator.OffchainAggregatorRoundRequested{}, nil)
 		uni.lb.On("Register", uni.tracker, mock.Anything).Return(func() {})
 
-		require.NoError(t, uni.tracker.Start())
+		require.NoError(t, uni.tracker.Start(testutils.Context(t)))
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
@@ -363,7 +364,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		uni.db.On("LoadLatestRoundRequested").Return(rr, nil)
 
-		require.NoError(t, uni.tracker.Start())
+		require.NoError(t, uni.tracker.Start(testutils.Context(t)))
 
 		configDigest, epoch, round, err := uni.tracker.LatestRoundRequested(context.Background(), 0)
 		require.NoError(t, err)

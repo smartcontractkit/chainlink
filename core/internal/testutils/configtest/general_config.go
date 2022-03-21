@@ -53,11 +53,7 @@ type GeneralConfigOverrides struct {
 	Dev                                       null.Bool
 	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
-	EVMEnabled                                null.Bool
-	EVMRPCEnabled                             null.Bool
 	EthereumURL                               null.String
-	FeatureExternalInitiators                 null.Bool
-	FeatureFeedsManager                       null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
@@ -104,9 +100,17 @@ type GeneralConfigOverrides struct {
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
-	FeatureOffchainReporting                  null.Bool
-	FeatureOffchainReporting2                 null.Bool
 	LinkContractAddress                       null.String
+
+	// Feature Flags
+	FeatureExternalInitiators null.Bool
+	FeatureFeedsManager       null.Bool
+	FeatureOffchainReporting  null.Bool
+	FeatureOffchainReporting2 null.Bool
+	EVMEnabled                null.Bool
+	EVMRPCEnabled             null.Bool
+	TerraEnabled              null.Bool
+	P2PEnabled                null.Bool
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -275,6 +279,14 @@ func (c *TestGeneralConfig) EVMRPCEnabled() bool {
 		return c.Overrides.EVMRPCEnabled.Bool
 	}
 	return c.GeneralConfig.EVMRPCEnabled()
+}
+
+// TerraEnabled allows Terra to be used
+func (c *TestGeneralConfig) TerraEnabled() bool {
+	if c.Overrides.TerraEnabled.Valid {
+		return c.Overrides.TerraEnabled.Bool
+	}
+	return c.GeneralConfig.TerraEnabled()
 }
 
 func (c *TestGeneralConfig) EthereumURL() string {
@@ -488,6 +500,14 @@ func (c *TestGeneralConfig) EVMEnabled() bool {
 		return c.Overrides.EVMEnabled.Bool
 	}
 	return c.GeneralConfig.EVMEnabled()
+}
+
+// P2PEnabled overrides
+func (c *TestGeneralConfig) P2PEnabled() bool {
+	if c.Overrides.P2PEnabled.Valid {
+		return c.Overrides.P2PEnabled.Bool
+	}
+	return c.GeneralConfig.P2PEnabled()
 }
 
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {

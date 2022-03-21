@@ -8,6 +8,7 @@ import (
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -51,12 +52,12 @@ func TestNewOCR2Provider(t *testing.T) {
 	// setup terra mocks
 	terraChain := new(terraMock.Chain)
 	terraChain.On("Config").Return(terra.NewConfig(terradb.ChainCfg{}, lggr))
-	terraChain.On("MsgEnqueuer").Return(new(terraMock.MsgEnqueuer)).Times(2)
+	terraChain.On("TxManager").Return(new(terraMock.TxManager)).Times(2)
 	terraChain.On("Reader", "").Return(new(terraMock.Reader), nil).Once()
 	terraChain.On("Reader", "some-test-node").Return(new(terraMock.Reader), nil).Once()
 
 	terraChains := new(terraMock.ChainSet)
-	terraChains.On("Chain", "Chainlink-99").Return(terraChain, nil).Times(2)
+	terraChains.On("Chain", mock.Anything, "Chainlink-99").Return(terraChain, nil).Times(2)
 
 	d := relay.NewDelegate(keystore)
 

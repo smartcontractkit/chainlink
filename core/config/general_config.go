@@ -34,6 +34,7 @@ import (
 // this permission grants read / write access to file owners only
 const readWritePerms = os.FileMode(0600)
 
+//nolint
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
@@ -106,6 +107,7 @@ type GeneralOnlyConfig interface {
 	Dev() bool
 	ShutdownGracePeriod() time.Duration
 	EthereumHTTPURL() *url.URL
+	EthereumNodes() string
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string
 	ExplorerAccessKey() string
@@ -161,6 +163,7 @@ type GeneralOnlyConfig interface {
 	TLSPort() uint16
 	TLSRedirect() bool
 	TelemetryIngressLogging() bool
+	TelemetryIngressUniConn() bool
 	TelemetryIngressServerPubKey() string
 	TelemetryIngressURL() *url.URL
 	TelemetryIngressBufferSize() uint
@@ -218,6 +221,9 @@ type GlobalConfig interface {
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
+	GlobalNodeNoNewHeadsThreshold() (time.Duration, bool)
+	GlobalNodePollFailureThreshold() (uint32, bool)
+	GlobalNodePollInterval() (time.Duration, bool)
 
 	OCR1Config
 	OCR2Config
@@ -314,27 +320,27 @@ func (c *generalConfig) Validate() error {
 	}
 
 	if _, exists := os.LookupEnv("ETH_DISABLED"); exists {
-		c.lggr.Warn(`DEPRECATION WARNING: ETH_DISABLED has been deprecated.
+		c.lggr.Error(`ETH_DISABLED is deprecated.
 
-This warning will become a fatal error in a future release. Please switch to using one of the two options below instead:
+This will become a fatal error in a future release. Please switch to using one of the two options below instead:
 
 - EVM_ENABLED=false - set this if you wish to completely disable all EVM chains and jobs and prevent them from ever loading (this is probably the one you want).
 - EVM_RPC_ENABLED=false - set this if you wish to load all EVM chains and jobs, but prevent any RPC calls to the eth node (the old behaviour).
 `)
 	}
 	if _, exists := os.LookupEnv("EVM_DISABLED"); exists {
-		c.lggr.Warn(`DEPRECATION WARNING: EVM_DISABLED has been deprecated and superceded by EVM_ENABLED.
+		c.lggr.Error(`EVM_DISABLED is deprecated and superceded by EVM_ENABLED.
 
-This warning will become a fatal error in a future release. Please use the following instead to disable EVM chains:
+This will become a fatal error in a future release. Please use the following instead to disable EVM chains:
 
 EVM_ENABLED=false
 `)
 	}
 
-	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRKeyBundleID(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
-	if _, err := c.OCRTransmitterAddress(); errors.Cause(err) == ErrInvalid {
+	if _, err := c.OCRTransmitterAddress(); errors.Is(errors.Cause(err), ErrInvalid) {
 		return err
 	}
 	if peers, err := c.P2PBootstrapPeers(); err == nil {
@@ -360,22 +366,24 @@ EVM_ENABLED=false
 		if len(c.EthereumSecondaryURLs()) > 0 {
 			c.lggr.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when ETH_URL is not set")
 		}
+	} else if c.EthereumNodes() != "" {
+		return errors.Errorf("It is not permitted to set both ETH_URL (got %s) and EVM_NODES (got %s). Please set either one or the other.", c.EthereumURL(), c.EthereumNodes())
 	}
 	// Warn on legacy OCR env vars
 	if c.OCRDHTLookupInterval() != 0 {
-		c.lggr.Warn("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
+		c.lggr.Error("OCR_DHT_LOOKUP_INTERVAL is deprecated, use P2P_DHT_LOOKUP_INTERVAL instead")
 	}
 	if c.OCRBootstrapCheckInterval() != 0 {
-		c.lggr.Warn("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
+		c.lggr.Error("OCR_BOOTSTRAP_CHECK_INTERVAL is deprecated, use P2P_BOOTSTRAP_CHECK_INTERVAL instead")
 	}
 	if c.OCRIncomingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_INCOMING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_INCOMING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCROutgoingMessageBufferSize() != 0 {
-		c.lggr.Warn("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
+		c.lggr.Error("OCR_OUTGOING_MESSAGE_BUFFER_SIZE is deprecated, use P2P_OUTGOING_MESSAGE_BUFFER_SIZE instead")
 	}
 	if c.OCRNewStreamTimeout() != 0 {
-		c.lggr.Warn("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
+		c.lggr.Error("OCR_NEW_STREAM_TIMEOUT is deprecated, use P2P_NEW_STREAM_TIMEOUT instead")
 	}
 
 	switch c.DatabaseLockingMode() {
@@ -659,6 +667,12 @@ func (c *generalConfig) EthereumHTTPURL() (uri *url.URL) {
 	return
 }
 
+// EthereumNodes is a hack to allow node operators to give a JSON string that
+// sets up multiple nodes
+func (c *generalConfig) EthereumNodes() string {
+	return c.viper.GetString(envvar.Name("EthereumNodes"))
+}
+
 // EthereumSecondaryURLs is an optional backup RPC URL
 // Must be http(s) format
 // If specified, transactions will also be broadcast to this ethereum node
@@ -899,6 +913,11 @@ func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
 func (c *generalConfig) TelemetryIngressLogging() bool {
 	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
+}
+
+// TelemetryIngressUniconn toggles which ws connection style is used.
+func (c *generalConfig) TelemetryIngressUniConn() bool {
+	return c.getWithFallback("TelemetryIngressUniConn", parse.Bool).(bool)
 }
 
 func (c *generalConfig) ORMMaxOpenConns() int {
@@ -1438,6 +1457,30 @@ func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 		return nil, false
 	}
 	return val.(*big.Int), ok
+}
+
+func (c *generalConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodeNoNewHeadsThreshold"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+
+func (c *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollFailureThreshold"), parse.Uint32)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint32), ok
+}
+
+func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("NodePollInterval"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'

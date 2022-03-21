@@ -166,15 +166,6 @@ func EVMTranscodeInt256(value gjson.Result) ([]byte, error) {
 	return EVMWordSignedBigInt(output)
 }
 
-func EVMWordAddress(val common.Address) []byte {
-	word := make([]byte, EVMWordByteLen)
-	start := EVMWordByteLen - 20
-	for i, b := range val.Bytes() {
-		word[start+i] = b
-	}
-	return word
-}
-
 // EVMWordUint64 returns a uint64 as an EVM word byte array.
 func EVMWordUint64(val uint64) []byte {
 	word := make([]byte, EVMWordByteLen)
@@ -182,6 +173,7 @@ func EVMWordUint64(val uint64) []byte {
 	return word
 }
 
+// EVMWordUint32 returns a uint32 as an EVM word byte array.
 func EVMWordUint32(val uint32) []byte {
 	word := make([]byte, EVMWordByteLen)
 	binary.BigEndian.PutUint32(word[EVMWordByteLen-4:], val)
@@ -226,12 +218,14 @@ func EVMWordBigInt(val *big.Int) ([]byte, error) {
 	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
 }
 
+// Bytes32FromString returns a 32 byte array filled from the given string, which may be of any length.
 func Bytes32FromString(s string) [32]byte {
 	var b32 [32]byte
 	copy(b32[:], s)
 	return b32
 }
 
+// Bytes4FromString returns a 4 byte array filled from the given string, which may be of any length.
 func Bytes4FromString(s string) [4]byte {
 	var b4 [4]byte
 	copy(b4[:], s)

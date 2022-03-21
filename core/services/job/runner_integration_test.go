@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/ocr2"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -57,7 +57,7 @@ func TestRunner(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
-	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
@@ -66,7 +66,7 @@ func TestRunner(t *testing.T) {
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t))
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	runner.Start()
+	runner.Start(testutils.Context(t))
 	defer runner.Close()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -213,7 +213,7 @@ func TestRunner(t *testing.T) {
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
 		cfg2.On("Dev").Return(true)
-		jb2, err := ocr2.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -250,7 +250,7 @@ answer1      [type=median index=0];
 		cfg2.On("OCR2ContractTransmitterTransmitTimeout").Return(time.Second)
 		cfg2.On("OCR2DatabaseTimeout").Return(time.Second)
 		cfg2.On("Dev").Return(true)
-		jb3, err := ocr2.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(cfg2, fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -477,8 +477,10 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		lggr := logger.TestLogger(t)
+		_, err = keyStore.P2P().Create()
+		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -530,7 +532,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -564,7 +566,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -592,7 +594,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
@@ -622,7 +624,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
-		require.NoError(t, pw.Start())
+		require.NoError(t, pw.Start(testutils.Context(t)))
 
 		sd := ocr.NewDelegate(
 			db,
@@ -639,8 +641,9 @@ ds1 -> ds1_parse;
 
 		// Return an error getting the contract code.
 		ethClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
+		ctx := testutils.Context(t)
 		for _, s := range services {
-			err = s.Start()
+			err = s.Start(ctx)
 			require.NoError(t, err)
 		}
 		var se []job.SpecError
@@ -748,8 +751,7 @@ ds1 -> ds1_parse;
 func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
@@ -926,8 +928,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)

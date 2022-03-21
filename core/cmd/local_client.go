@@ -28,7 +28,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -40,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
@@ -88,7 +89,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}()
 
-	go shutdown.HandleShutdown(func() {
+	go shutdown.HandleShutdown(func(sig string) {
+		lggr.Infof("Shutting down due to %s signal received...", sig)
+
 		shutdownStartTime = time.Now()
 		cancelRootCtx()
 
@@ -211,11 +214,11 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
+	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && !errors.Is(err, ErrNoCredentialFile) {
 		return errors.Wrap(err, "error creating api initializer")
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
-		if err == ErrorNoAPICredentialsAvailable {
+		if errors.Is(err, ErrorNoAPICredentialsAvailable) {
 			return errors.WithStack(err)
 		}
 		return errors.Wrap(err, "error creating fallback initializer")
@@ -246,7 +249,7 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 
 	grp.Go(func() error {
 		errInternal := cli.Runner.Run(grpCtx, app)
-		if errInternal == http.ErrServerClosed {
+		if errors.Is(errInternal, http.ErrServerClosed) {
 			errInternal = nil
 		}
 		// In tests we have custom runners that stop the app gracefully,
@@ -394,7 +397,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	ec := txmgr.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }

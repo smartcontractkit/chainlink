@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -28,7 +28,7 @@ type BulletproofBHS struct {
 	config      bpBHSConfig
 	jobID       uuid.UUID
 	fromAddress common.Address
-	bptxm       bulletprooftxmanager.TxManager
+	txm         txmgr.TxManager
 	abi         *abi.ABI
 	bhs         blockhash_store.BlockhashStoreInterface
 }
@@ -37,7 +37,7 @@ type BulletproofBHS struct {
 func NewBulletproofBHS(
 	config bpBHSConfig,
 	fromAddress common.Address,
-	bptxm bulletprooftxmanager.TxManager,
+	txm txmgr.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 ) (*BulletproofBHS, error) {
 	bhsABI, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
@@ -49,7 +49,7 @@ func NewBulletproofBHS(
 	return &BulletproofBHS{
 		config:      config,
 		fromAddress: fromAddress,
-		bptxm:       bptxm,
+		txm:         txm,
 		abi:         bhsABI,
 		bhs:         bhs,
 	}, nil
@@ -62,7 +62,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = c.bptxm.CreateEthTransaction(bulletprooftxmanager.NewTx{
+	_, err = c.txm.CreateEthTransaction(txmgr.NewTx{
 		FromAddress:    c.fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
@@ -70,7 +70,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
-		Strategy: bulletprooftxmanager.NewQueueingTxStrategy(c.jobID, 256),
+		Strategy: txmgr.NewQueueingTxStrategy(c.jobID, 256),
 	}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "creating transaction")

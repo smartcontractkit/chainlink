@@ -20,6 +20,10 @@ const jobTypes = [
     label: 'OCR',
     value: 'OCR',
   },
+  {
+    label: 'OCR2',
+    value: 'OCR2',
+  },
 ]
 
 export type FormValues = {

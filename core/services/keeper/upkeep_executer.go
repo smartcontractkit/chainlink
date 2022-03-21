@@ -30,7 +30,7 @@ const (
 
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
 var (
-	_ job.Service           = (*UpkeepExecuter)(nil)
+	_ job.ServiceCtx        = (*UpkeepExecuter)(nil)
 	_ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 )
 
@@ -87,7 +87,7 @@ func NewUpkeepExecuter(
 }
 
 // Start starts the upkeep executer logic
-func (ex *UpkeepExecuter) Start() error {
+func (ex *UpkeepExecuter) Start(context.Context) error {
 	return ex.StartOnce("UpkeepExecuter", func() error {
 		ex.wgDone.Add(2)
 		go ex.run()
@@ -220,7 +220,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
-		svcLogger.With("error", err).Errorw("failed executing run")
+		svcLogger.With("error", err).Error("failed executing run")
 		return
 	}
 
@@ -228,7 +228,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, pg.WithParentCtx(ctxService))
 		if err != nil {
-			svcLogger.With("error", err).Errorw("failed to set last run height for upkeep")
+			svcLogger.With("error", err).Error("failed to set last run height for upkeep")
 		}
 
 		elapsed := time.Since(start)

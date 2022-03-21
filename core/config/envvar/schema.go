@@ -9,9 +9,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -19,6 +20,20 @@ import (
 )
 
 // ConfigSchema records the schema of configuration at the type level
+//
+// A note on Feature Flags
+//
+// Feature flags should be used during development of large features that might
+// span more than one release cycle. Most changes that are not considered "complete"
+// when a PR is merged and might affect node operation should be put behind a
+// feature flag.
+//
+// This also allows to disable large parts of the code that may not be needed
+// for all deployments that could introduce attack surface area if it is not
+// needed.
+//
+// Good example usage is for alternative blockchain support, new services like
+// Feeds Manager, external initiators and so on.
 type ConfigSchema struct {
 	// ESSENTIAL
 	DatabaseURL string `env:"DATABASE_URL"`
@@ -33,6 +48,7 @@ type ConfigSchema struct {
 	InsecureFastScrypt           bool            `env:"INSECURE_FAST_SCRYPT" default:"false"` //nodoc
 	ReaperExpiration             models.Duration `env:"REAPER_EXPIRATION" default:"240h"`     //nodoc
 	RootDir                      string          `env:"ROOT" default:"~/.chainlink"`
+	TelemetryIngressUniConn      bool            `env:"TELEMETRY_INGRESS_UNICONN" default:"true"`
 	TelemetryIngressLogging      bool            `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
 	TelemetryIngressServerPubKey string          `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
 	TelemetryIngressURL          *url.URL        `env:"TELEMETRY_INGRESS_URL"`
@@ -53,7 +69,7 @@ type ConfigSchema struct {
 	// Database Global Lock
 	AdvisoryLockCheckInterval time.Duration `env:"ADVISORY_LOCK_CHECK_INTERVAL" default:"1s"`
 	AdvisoryLockID            int64         `env:"ADVISORY_LOCK_ID" default:"1027321974924625846"`
-	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"advisorylock"`
+	DatabaseLockingMode       string        `env:"DATABASE_LOCKING_MODE" default:"dual"`
 	LeaseLockDuration         time.Duration `env:"LEASE_LOCK_DURATION" default:"10s"`
 	LeaseLockRefreshInterval  time.Duration `env:"LEASE_LOCK_REFRESH_INTERVAL" default:"1s"`
 	// Database Autobackups
@@ -109,6 +125,7 @@ type ConfigSchema struct {
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
 	EthereumHTTPURL       string `env:"ETH_HTTP_URL"`
+	EthereumNodes         string `env:"EVM_NODES"`
 	EthereumSecondaryURL  string `env:"ETH_SECONDARY_URL"` //nodoc
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`
@@ -132,6 +149,11 @@ type ConfigSchema struct {
 	MinIncomingConfirmations          uint32        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations  uint64        `env:"MIN_OUTGOING_CONFIRMATIONS"`
 	MinimumContractPayment            assets.Link   `env:"MINIMUM_CONTRACT_PAYMENT_LINK_JUELS"`
+	// Node liveness checking
+	NodeNoNewHeadsThreshold  time.Duration `env:"NODE_NO_NEW_HEADS_THRESHOLD"`
+	NodePollFailureThreshold uint32        `env:"NODE_POLL_FAILURE_THRESHOLD"`
+	NodePollInterval         time.Duration `env:"NODE_POLL_INTERVAL"`
+
 	// EVM Gas Controls
 	EvmEIP1559DynamicFees bool     `env:"EVM_EIP1559_DYNAMIC_FEES"`
 	EvmGasBumpPercent     uint16   `env:"ETH_GAS_BUMP_PERCENT"`
@@ -153,7 +175,7 @@ type ConfigSchema struct {
 	BlockHistoryEstimatorBlockHistorySize          uint16 `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorEIP1559FeeCapBufferBlocks uint16 `env:"BLOCK_HISTORY_ESTIMATOR_EIP1559_FEE_CAP_BUFFER_BLOCKS"`
 	BlockHistoryEstimatorTransactionPercentile     uint16 `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
-	// BPTXM
+	// Txm
 	EvmGasBumpTxDepth          uint16 `env:"ETH_GAS_BUMP_TX_DEPTH"`
 	EvmMaxInFlightTransactions uint32 `env:"ETH_MAX_IN_FLIGHT_TRANSACTIONS"`
 	EvmMaxQueuedTransactions   uint64 `env:"ETH_MAX_QUEUED_TRANSACTIONS"`
@@ -277,6 +299,7 @@ func Name(field string) string {
 	return item.Tag.Get("env")
 }
 
+// TryName gracefully tries to get the environment variable Name for a config schema field
 func TryName(field string) string {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	item, ok := schemaT.FieldByName(field)
@@ -286,6 +309,7 @@ func TryName(field string) string {
 	return item.Tag.Get("env")
 }
 
+// DefaultValue looks up the default value
 func DefaultValue(name string) (string, bool) {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {
@@ -295,6 +319,7 @@ func DefaultValue(name string) (string, bool) {
 	return "", false
 }
 
+// ZeroValue returns the zero value for a named field, or panics if it does not exist.
 func ZeroValue(name string) interface{} {
 	schemaT := reflect.TypeOf(ConfigSchema{})
 	if item, ok := schemaT.FieldByName(name); ok {

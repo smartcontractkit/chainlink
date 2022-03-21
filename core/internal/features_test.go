@@ -31,6 +31,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -58,12 +65,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
@@ -71,8 +72,7 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
@@ -247,8 +247,8 @@ observationSource   = """
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+
 	app := cltest.NewApplication(t, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -498,6 +498,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
+	config.Overrides.P2PEnabled = null.BoolFrom(true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -551,9 +552,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 }
 
 func TestIntegration_OCR(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+	testutils.SkipShort(t, "long test")
 	tests := []struct {
 		id        int
 		portStart int // Test need to run in parallel, all need distinct port ranges.
@@ -796,8 +795,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
-	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
-	defer assertMocksCalled()
+	ethClient, sub := cltest.NewEthMocksWithDefaultChain(t)
 	chchNewHeads := make(chan chan<- *evmtypes.Head, 1)
 
 	db := pgtest.NewSqlxDB(t)
@@ -846,12 +844,12 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
-			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" &&
-			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a"
+			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" &&
+			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29"
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &b41
-		elems[1].Result = &b42
+		elems[0].Result = &b42
+		elems[1].Result = &b41
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)

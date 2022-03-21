@@ -8,8 +8,8 @@ name: Operator UI
 on:
   push:
     branches:
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
     paths:
       - 'operator_ui/**'

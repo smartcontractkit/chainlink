@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -15,8 +16,8 @@ import (
 
 // RegistrySynchronizer conforms to the Service and Listener interfaces
 var (
-	_ job.Service  = (*RegistrySynchronizer)(nil)
-	_ log.Listener = (*RegistrySynchronizer)(nil)
+	_ job.ServiceCtx = (*RegistrySynchronizer)(nil)
+	_ log.Listener   = (*RegistrySynchronizer)(nil)
 )
 
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
@@ -49,7 +50,7 @@ type RegistrySynchronizer struct {
 	mailRoom                 MailRoom
 	minIncomingConfirmations uint32
 	orm                      ORM
-	logger                   logger.Logger
+	logger                   logger.SugaredLogger
 	wgDone                   sync.WaitGroup
 	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
 	utils.StartStopOnce
@@ -73,12 +74,13 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		mailRoom:                 mailRoom,
 		minIncomingConfirmations: opts.MinIncomingConfirmations,
 		orm:                      opts.ORM,
-		logger:                   opts.Logger.Named("RegistrySynchronizer"),
+		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 	}
 }
 
-func (rs *RegistrySynchronizer) Start() error {
+// Start starts RegistrySynchronizer.
+func (rs *RegistrySynchronizer) Start(context.Context) error {
 	return rs.StartOnce("RegistrySynchronizer", func() error {
 		rs.wgDone.Add(2)
 		go rs.run()
