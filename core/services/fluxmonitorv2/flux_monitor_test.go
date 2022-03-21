@@ -172,9 +172,7 @@ type setupOptions struct {
 // functional options to configure the setup
 func setup(t *testing.T, db *sqlx.DB, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxMonitor, *testMocks) {
 	t.Helper()
-	if testing.Short() {
-		t.Skip("skipping")
-	}
+	testutils.SkipShort(t, "long test")
 
 	tm := setupMocks(t)
 	options := setupOptions{

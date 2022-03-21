@@ -103,20 +103,15 @@ func withKey() func(opts *startOptions) {
 	}
 }
 
-func newEthMock(t *testing.T) (*evmmocks.Client, func()) {
+func newEthMock(t *testing.T) *evmmocks.Client {
 	t.Helper()
-
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-
-	return ethClient, assertMocksCalled
+	return cltest.NewEthMocksWithStartupAssertions(t)
 }
 
-func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) (*evmmocks.Client, func()) {
+func newEthMockWithTransactionsOnBlocksAssertions(t *testing.T) *evmmocks.Client {
 	t.Helper()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
-
-	return ethClient, assertMocksCalled
+	return cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
 }
 
 func keyNameForTest(t *testing.T) string {
@@ -486,8 +481,7 @@ func TestClient_Profile(t *testing.T) {
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
-	ethMock, assertMocksCalled := newEthMock(t)
-	defer assertMocksCalled()
+	ethMock := newEthMock(t)
 	app := startNewApplication(t,
 		withKey(),
 		withMocks(ethMock),
