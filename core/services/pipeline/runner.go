@@ -264,7 +264,8 @@ func (r *runner) run(
 	vars Vars,
 	l logger.Logger,
 ) (TaskRunResults, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
+	l = l.With("jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
+	l.Debug("Initiating tasks for pipeline run of spec")
 
 	scheduler := newScheduler(pipeline, run, vars, l)
 	go scheduler.Run()
