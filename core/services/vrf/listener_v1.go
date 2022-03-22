@@ -382,6 +382,7 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 			"externalJobID": lsn.job.ExternalJobID,
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
+			"from":          lsn.fromAddresses(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw.BlockHash[:],
@@ -449,6 +450,14 @@ func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
 		incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1, reasonMailboxSize)
 	}
+}
+
+func (lsn *listenerV1) fromAddresses() []common.Address {
+	var addresses []common.Address
+	for _, a := range lsn.job.VRFSpec.FromAddresses {
+		addresses = append(addresses, a.Address())
+	}
+	return addresses
 }
 
 // Job complies with log.Listener
