@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-// ORM manages terra chains and nodes.
+// ORM manages solana chains and nodes.
 type ORM interface {
 	Chain(string, ...pg.QOpt) (db.Chain, error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]db.Chain, int, error)

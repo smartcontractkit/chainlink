@@ -65,11 +65,12 @@ func (txm *Txm) run() {
 			client, err := txm.tc()
 			if err != nil {
 				txm.lggr.Errorw("failed to get client", "err", err)
+				continue
 			}
 			// process tx
 			sig, err := client.SendTx(ctx, tx)
 			if err != nil {
-				txm.lggr.Errorw("failed to send transaction", "err", err)
+				txm.lggr.Criticalw("failed to send transaction", "err", err)
 				continue
 			}
 			txm.lggr.Debugw("successfully sent transaction", "signature", sig)
@@ -95,9 +96,11 @@ func (txm *Txm) Enqueue(accountID string, msg *solanaGo.Transaction) error {
 
 // Close close service
 func (txm *Txm) Close() error {
-	close(txm.stop)
-	<-txm.done
-	return nil
+	return txm.starter.StopOnce("solanatxm", func() error {
+		close(txm.stop)
+		<-txm.done
+		return nil
+	})
 }
 
 // Healthy service is healthy

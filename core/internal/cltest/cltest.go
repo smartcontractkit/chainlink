@@ -383,14 +383,14 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if cfg.SolanaEnabled() {
-		terraLggr := lggr.Named("Solana")
+		solLggr := lggr.Named("Solana")
 		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
 			Config:           cfg,
-			Logger:           terraLggr,
+			Logger:           solLggr,
 			DB:               db,
 			KeyStore:         keyStore.Solana(),
 			EventBroadcaster: eventBroadcaster,
-			ORM:              solana.NewORM(db, terraLggr, cfg),
+			ORM:              solana.NewORM(db, solLggr, cfg),
 		})
 		if err != nil {
 			lggr.Fatal(err)
