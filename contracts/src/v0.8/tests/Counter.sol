@@ -19,4 +19,8 @@ contract Counter {
   function alwaysRevert() public pure {
     revert AlwaysRevert();
   }
+
+  function alwaysRevertWithString() public pure {
+    revert("always revert");
+  }
 }

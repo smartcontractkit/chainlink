@@ -138,7 +138,16 @@ describe('PermissionedForwardProxy', () => {
         expect(await counter.count()).to.be.equal(1)
       })
 
-      it('reverts when target reverts', async () => {
+      it('reverts when target reverts and bubbles up error', async () => {
+        await expect(
+          controller
+            .connect(personas.Carol)
+            .forward(
+              counter.address,
+              counter.interface.encodeFunctionData('alwaysRevertWithString'),
+            ),
+        ).to.be.revertedWith('always revert') // Revert strings should be bubbled up
+
         await expect(
           controller
             .connect(personas.Carol)
@@ -146,7 +155,7 @@ describe('PermissionedForwardProxy', () => {
               counter.address,
               counter.interface.encodeFunctionData('alwaysRevert'),
             ),
-        ).to.be.reverted
+        ).to.be.reverted // Javascript VM not able to parse custom errors defined on another contract
       })
     })
   })
