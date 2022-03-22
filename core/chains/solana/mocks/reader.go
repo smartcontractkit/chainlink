@@ -37,6 +37,27 @@ func (_m *Reader) Balance(addr solana.PublicKey) (uint64, error) {
 	return r0, r1
 }
 
+// ChainID provides a mock function with given fields:
+func (_m *Reader) ChainID() (string, error) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAccountInfoWithOpts provides a mock function with given fields: ctx, addr, opts
 func (_m *Reader) GetAccountInfoWithOpts(ctx context.Context, addr solana.PublicKey, opts *rpc.GetAccountInfoOpts) (*rpc.GetAccountInfoResult, error) {
 	ret := _m.Called(ctx, addr, opts)
@@ -60,16 +81,16 @@ func (_m *Reader) GetAccountInfoWithOpts(ctx context.Context, addr solana.Public
 	return r0, r1
 }
 
-// RecentBlockhash provides a mock function with given fields:
-func (_m *Reader) RecentBlockhash() (*rpc.GetRecentBlockhashResult, error) {
+// LatestBlockhash provides a mock function with given fields:
+func (_m *Reader) LatestBlockhash() (*rpc.GetLatestBlockhashResult, error) {
 	ret := _m.Called()
 
-	var r0 *rpc.GetRecentBlockhashResult
-	if rf, ok := ret.Get(0).(func() *rpc.GetRecentBlockhashResult); ok {
+	var r0 *rpc.GetLatestBlockhashResult
+	if rf, ok := ret.Get(0).(func() *rpc.GetLatestBlockhashResult); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*rpc.GetRecentBlockhashResult)
+			r0 = ret.Get(0).(*rpc.GetLatestBlockhashResult)
 		}
 	}
 

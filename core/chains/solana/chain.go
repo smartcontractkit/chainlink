@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -42,6 +44,10 @@ type chain struct {
 	balanceMonitor services.ServiceCtx
 	orm            types.ORM
 	lggr           logger.Logger
+
+	// tracking node chain id for verification
+	clientChainID map[string]string
+	chainIDLock   *sync.RWMutex
 }
 
 // NewChain returns a new chain backed by node.
@@ -49,10 +55,12 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 	cfg := config.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("solanaChainID", dbchain.ID)
 	var ch = chain{
-		id:   dbchain.ID,
-		cfg:  cfg,
-		orm:  orm,
-		lggr: lggr.Named("Chain"),
+		id:            dbchain.ID,
+		cfg:           cfg,
+		orm:           orm,
+		lggr:          lggr.Named("Chain"),
+		clientChainID: map[string]string{},
+		chainIDLock:   &sync.RWMutex{},
 	}
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient("")
@@ -84,8 +92,8 @@ func (c *chain) Reader(name string) (solanaclient.Reader, error) {
 
 // getClient returns a client, optionally requiring a specific node by name.
 func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
-	//TODO cache clients?
 	var node db.Node
+	var client solanaclient.ReaderWriter
 	if name == "" { // Any node
 		nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
 		if err != nil {
@@ -95,7 +103,25 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 			return nil, errors.New("no nodes available")
 		}
 		// #nosec
-		node = nodes[rand.Intn(len(nodes))]
+		index := rand.Perm(len(nodes)) // list of node indexes to try
+		found := false
+		for _, i := range index {
+			node = nodes[i]
+			// create client and check
+			client, err = c.getOrCreate(node)
+			// if error, try another node
+			if err != nil {
+				c.lggr.Warnw("failed to create node", "name", node.Name, "solana-url", node.SolanaURL, "error", err.Error())
+				continue
+			}
+			// if all checks passed, mark found and break loop
+			found = true
+			break
+		}
+		// if no valid node found, exit with error
+		if !found {
+			return nil, errors.New("no node valid nodes available")
+		}
 	} else { // Named node
 		var err error
 		node, err = c.orm.NodeNamed(name)
@@ -105,12 +131,46 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 		if node.SolanaChainID != c.id {
 			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.SolanaChainID)
 		}
+
+		// create client and check
+		client, err = c.getOrCreate(node)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create node %s", name)
+		}
 	}
+	c.lggr.Debugw("Created client", "name", node.Name, "solana-url", node.SolanaURL)
+	return client, nil
+}
+
+func (c *chain) getOrCreate(node db.Node) (solanaclient.ReaderWriter, error) {
+	// create client
 	client, err := solanaclient.NewClient(node.SolanaURL, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client")
 	}
-	c.lggr.Debugw("Created client", "name", node.Name, "solana-url", node.SolanaURL)
+
+	// if endpoint has not been checked, fetch chainID
+	url := node.SolanaURL
+	c.chainIDLock.RLock()
+	_, exists := c.clientChainID[url]
+	c.chainIDLock.RUnlock()
+	if !exists {
+		id, err := client.ChainID()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch ChainID in checkClient")
+		}
+		c.chainIDLock.Lock()
+		c.clientChainID[url] = id
+		c.chainIDLock.Unlock()
+	}
+
+	// check chainID matches expected chainID
+	expectedID := strings.ToLower(c.id)
+	c.chainIDLock.RLock()
+	defer c.chainIDLock.RUnlock()
+	if c.clientChainID[url] != expectedID {
+		return nil, fmt.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, c.clientChainID[url], url)
+	}
 	return client, nil
 }
 
