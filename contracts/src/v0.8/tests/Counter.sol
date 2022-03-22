@@ -3,6 +3,8 @@
 pragma solidity ^0.8.0;
 
 contract Counter {
+  error AlwaysRevert();
+
   uint256 public count = 0;
 
   function increment() public returns (uint256) {
@@ -10,12 +12,11 @@ contract Counter {
     return count;
   }
 
-  function reset() public returns (uint256) {
+  function reset() public {
     count = 0;
-    return count;
   }
 
   function alwaysRevert() public pure {
-    revert("always revert");
+    revert AlwaysRevert();
   }
 }

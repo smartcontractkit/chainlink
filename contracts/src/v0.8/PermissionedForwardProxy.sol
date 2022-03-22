@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/utils/Address.sol";
 import "./ConfirmedOwner.sol";
-import {getRevertMsg} from "./utils/utils.sol";
 
 /**
  * @title PermissionedForwardProxy
@@ -10,7 +10,11 @@ import {getRevertMsg} from "./utils/utils.sol";
  * a permission list to check which sender is allowed to call which target
  */
 contract PermissionedForwardProxy is ConfirmedOwner {
-  mapping(address => address) public forwardPermissionList;
+  using Address for address;
+
+  error PermissionNotSet();
+
+  mapping(address => address) private s_forwardPermissionList;
 
   constructor() ConfirmedOwner(msg.sender) {}
 
@@ -20,11 +24,10 @@ contract PermissionedForwardProxy is ConfirmedOwner {
    * @param handler bytes to be passed to target in call data
    */
   function forward(address target, bytes calldata handler) external {
-    require(forwardPermissionList[msg.sender] == target, "Forwarding permission not found");
-    (bool success, bytes memory payload) = target.call(handler);
-    if (!success) {
-      revert(getRevertMsg(payload));
+    if (s_forwardPermissionList[msg.sender] != target) {
+      revert PermissionNotSet();
     }
+    target.functionCall(handler);
   }
 
   /**
@@ -33,8 +36,8 @@ contract PermissionedForwardProxy is ConfirmedOwner {
    * @param sender The address who will use this proxy to forward calls
    * @param target The address where sender will be allowed to forward calls
    */
-  function addPermission(address sender, address target) external onlyOwner {
-    forwardPermissionList[sender] = target;
+  function setPermission(address sender, address target) external onlyOwner {
+    s_forwardPermissionList[sender] = target;
   }
 
   /**
@@ -42,6 +45,14 @@ contract PermissionedForwardProxy is ConfirmedOwner {
    * @param sender The address who will use this proxy to forward calls
    */
   function removePermission(address sender) external onlyOwner {
-    delete forwardPermissionList[sender];
+    delete s_forwardPermissionList[sender];
+  }
+
+  /**
+   * @notice Returns the target address that the sender can use this proxy for
+   * @param sender The address to fetch the permissioned target for
+   */
+  function getPermission(address sender) external view returns (address) {
+    return s_forwardPermissionList[sender];
   }
 }
