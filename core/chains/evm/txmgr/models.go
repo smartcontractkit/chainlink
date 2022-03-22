@@ -31,6 +31,8 @@ type EthTxMeta struct {
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
 	SubID uint64 `json:"SubId"`
+	// Used for keepers
+	UpkeepID int64 `json:"UpkeepId"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
