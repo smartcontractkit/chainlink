@@ -367,7 +367,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// If so we just mark it completed
 		callback, err := lsn.coordinator.GetCommitment(nil, vrfRequest.RequestId)
 		if err != nil {
-			rlog.Errorw("Unable to check if already fulfilled, processing anyways", "err", err)
+			rlog.Warnw("Unable to check if already fulfilled, processing anyways", "err", err)
 		} else if utils.IsEmpty(callback[:]) {
 			// If seedAndBlockNumber is zero then the response has been fulfilled
 			// and we should skip it
