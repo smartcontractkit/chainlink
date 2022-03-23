@@ -151,12 +151,14 @@ func TestTransmitCheckers(t *testing.T) {
 	})
 
 	t.Run("VRF V1", func(t *testing.T) {
+		testDefaultSubID := uint64(2)
+		testDefaultMaxLink := "1000000000000000000"
 
 		newTx := func(t *testing.T, vrfReqID [32]byte) (txmgr.EthTx, txmgr.EthTxAttempt) {
 			meta := txmgr.EthTxMeta{
 				RequestID: common.BytesToHash(vrfReqID[:]),
-				MaxLink:   "1000000000000000000", // 1 LINK
-				SubID:     2,
+				MaxLink:   &testDefaultMaxLink, // 1 LINK
+				SubID:     &testDefaultSubID,
 			}
 
 			b, err := json.Marshal(meta)
@@ -219,12 +221,14 @@ func TestTransmitCheckers(t *testing.T) {
 	})
 
 	t.Run("VRF V2", func(t *testing.T) {
+		testDefaultSubID := uint64(2)
+		testDefaultMaxLink := "1000000000000000000"
 
 		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EthTx, txmgr.EthTxAttempt) {
 			meta := txmgr.EthTxMeta{
 				RequestID: common.BytesToHash(vrfReqID.Bytes()),
-				MaxLink:   "1000000000000000000", // 1 LINK
-				SubID:     2,
+				MaxLink:   &testDefaultMaxLink, // 1 LINK
+				SubID:     &testDefaultSubID,
 			}
 
 			b, err := json.Marshal(meta)
