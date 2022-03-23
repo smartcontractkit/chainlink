@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -32,7 +34,7 @@ type EthTxMeta struct {
 	// requester of the VRF.
 	SubID uint64 `json:"SubId"`
 	// Used for keepers
-	UpkeepID int64 `json:"UpkeepId"`
+	UpkeepID *int64 `json:"UpkeepID,omitempty"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -188,6 +190,36 @@ func (e EthTx) GetMeta() (*EthTxMeta, error) {
 	}
 	var m EthTxMeta
 	return &m, errors.Wrap(json.Unmarshal(*e.Meta, &m), "unmarshalling meta")
+}
+
+// GetLogger returns a new logger with metadata fields.
+func (e EthTx) GetLogger(lgr logger.Logger) (logger.Logger, error) {
+	meta, err := e.GetMeta()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get meta of the transaction")
+	}
+
+	lgr = lgr.With(
+		"ethTxID", e.ID,
+		"checker", e.TransmitChecker,
+		"gasLimit", e.GasLimit,
+	)
+
+	if meta != nil {
+		lgr = lgr.With(
+			"jobID", meta.JobID,
+			"subID", meta.SubID,
+			"requestID", meta.RequestID,
+			"requestTxHash", meta.RequestTxHash,
+			"maxLink", meta.MaxLink,
+		)
+
+		if meta.UpkeepID != nil {
+			lgr = lgr.With("upkeepID", *meta.UpkeepID)
+		}
+	}
+
+	return lgr, nil
 }
 
 // GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON

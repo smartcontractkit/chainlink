@@ -365,27 +365,6 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
 
-	lgr := eb.logger.With(
-		"ethTxID", etx.ID,
-		"checker", etx.TransmitChecker,
-		"gasLimit", etx.GasLimit,
-		"gasPrice", attempt.GasPrice,
-		"gasTipCap", attempt.GasTipCap,
-		"gasFeeCap", attempt.GasFeeCap,
-	)
-	if meta, err := etx.GetMeta(); err == nil && meta != nil {
-		lgr = lgr.With(
-			"jobID", meta.JobID,
-			"upkeepID", meta.UpkeepID,
-			"subID", meta.SubID,
-			"requestID", meta.RequestID,
-			"requestTxHash", meta.RequestTxHash,
-			"maxLink", meta.MaxLink,
-		)
-	} else if err != nil {
-		lgr.Errorw("failed to get meta of the transaction", "err", err)
-	}
-
 	checkerSpec, err := etx.GetChecker()
 	if err != nil {
 		return errors.Wrap(err, "parsing transmit checker")
@@ -394,6 +373,15 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	checker, err := eb.checkerFactory.BuildChecker(checkerSpec)
 	if err != nil {
 		return errors.Wrap(err, "building transmit checker")
+	}
+
+	lgr, err := etx.GetLogger(eb.logger.With(
+		"gasPrice", attempt.GasPrice,
+		"gasTipCap", attempt.GasTipCap,
+		"gasFeeCap", attempt.GasFeeCap,
+	))
+	if err != nil {
+		eb.logger.Errorw("failed to get tx logger meta of the transaction", "err", err)
 	}
 
 	// If the transmit check does not complete within the timeout, the transaction will be sent
