@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
@@ -427,6 +428,11 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			chain: chain,
 		})
 	}
+
+	// Put funding keys to the end
+	sort.SliceStable(ethKeys, func(i, j int) bool {
+		return !ethKeys[i].state.IsFunding && ethKeys[j].state.IsFunding
+	})
 
 	return NewETHKeysPayload(ethKeys), nil
 }
