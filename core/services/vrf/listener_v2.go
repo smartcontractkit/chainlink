@@ -398,6 +398,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 				return err
 			}
+
+			maxLinkString := maxLink.String()
 			_, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 				FromAddress:    fromAddress,
 				ToAddress:      lsn.coordinator.Address(),
@@ -405,8 +407,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 				GasLimit:       gaslimit,
 				Meta: &txmgr.EthTxMeta{
 					RequestID: common.BytesToHash(vrfRequest.RequestId.Bytes()),
-					MaxLink:   maxLink.String(),
-					SubID:     vrfRequest.SubId,
+					MaxLink:   &maxLinkString,
+					SubID:     &vrfRequest.SubId,
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
 				Strategy:         txmgr.NewSendEveryStrategy(),

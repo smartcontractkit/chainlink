@@ -348,7 +348,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 
 	t.Run("meta and vrf checker", func(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
-
+		testDefaultSubID := uint64(2)
+		testDefaultMaxLink := "1000000000000000000"
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
@@ -356,8 +357,8 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			JobID:         jobID,
 			RequestID:     requestID,
 			RequestTxHash: requestTxHash,
-			MaxLink:       "1000000000000000000", // 1e18
-			SubID:         2,
+			MaxLink:       &testDefaultMaxLink, // 1e18
+			SubID:         &testDefaultSubID,
 		}
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
 		checker := txmgr.TransmitCheckerSpec{

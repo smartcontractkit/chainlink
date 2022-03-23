@@ -34,8 +34,8 @@ func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgr.EthTxS
 		0,              // limit
 		state,
 		txmgr.EthTxMeta{
-			MaxLink: maxLink,
-			SubID:   subID,
+			MaxLink: &maxLink,
+			SubID:   &subID,
 		},
 		uuid.NullUUID{},
 		1337,
@@ -57,8 +57,8 @@ func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink s
 		0,              // value
 		0,              // limit
 		txmgr.EthTxMeta{
-			MaxLink: maxLink,
-			SubID:   subID,
+			MaxLink: &maxLink,
+			SubID:   &subID,
 		},
 		uuid.NullUUID{},
 		1337,
