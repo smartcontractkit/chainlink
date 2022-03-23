@@ -271,19 +271,20 @@ func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, startBalance *big.Int, c
 				   GROUP BY meta->>'SubId'`, chainID, subID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		l.Errorw("Could not get reserved link", "err", err)
-		return startBalance, err
+		return nil, err
 	}
 
 	if reservedLink != "" {
 		reservedLinkInt, success := big.NewInt(0).SetString(reservedLink, 10)
 		if !success {
 			l.Errorw("Error converting reserved link", "reservedLink", reservedLink)
-			return startBalance, errors.New("unable to convert returned link")
+			return nil, errors.New("unable to convert returned link")
 		}
-		// Subtract the reserved link
-		return startBalance.Sub(startBalance, reservedLinkInt), nil
+
+		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
 	}
-	return startBalance, nil
+
+	return new(big.Int).Set(startBalance), nil
 }
 
 type fulfilledReqV2 struct {
@@ -383,7 +384,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			rlog.Warnw("Unable to get max link for fulfillment, skipping request", "err", err)
 			continue
 		}
-		if startBalance.Cmp(maxLink) < 0 {
+		if startBalanceNoReserveLink.Cmp(maxLink) < 0 {
 			// Insufficient funds, have to wait for a user top up
 			// leave it unprocessed for now
 			rlog.Infow("Insufficient link balance to fulfill a request, breaking", "maxLink", maxLink)
@@ -423,13 +424,16 @@ func (lsn *listenerV2) processRequestsPerSub(
 			rlog.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 			continue
 		}
+
 		// If we successfully enqueued for the txm, subtract that balance
 		// And loop to attempt to enqueue another fulfillment
-		startBalanceNoReserveLink = startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, maxLink)
+		startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, maxLink)
 		processed[vrfRequest.RequestId.String()] = struct{}{}
 		incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2)
 	}
+
 	lggr.Infow("Finished processing for sub",
+		"endBalance", startBalanceNoReserveLink,
 		"total reqs", len(reqs),
 		"total processed", len(processed),
 		"total unique", uniqueReqs(reqs),
