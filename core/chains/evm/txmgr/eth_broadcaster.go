@@ -397,7 +397,8 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 
 	sendError := sendTransaction(ctx, eb.ethClient, attempt, etx, lgr)
 	if sendError.IsTooExpensive() {
-		lgr.Criticalw("Transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+		lgr.Criticalw(fmt.Sprintf("Sending transaction failed; %s", static.EvmRPCTxFeeCapConfiguredIncorrectlyLabel),
+			"ethTxID", etx.ID,
 			"err", sendError,
 			"id", "RPCTxFeeCapExceeded",
 		)
