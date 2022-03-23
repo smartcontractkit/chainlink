@@ -20,9 +20,10 @@ import (
 //     nil
 //
 type JSONParseTask struct {
-	BaseTask `mapstructure:",squash"`
-	Path     string `json:"path"`
-	Data     string `json:"data"`
+	BaseTask  `mapstructure:",squash"`
+	Separator string `json:"separator"`
+	Path      string `json:"path"`
+	Data      string `json:"data"`
 	// Lax when disabled will return an error if the path does not exist
 	// Lax when enabled will return nil with no error if the path does not exist
 	Lax string
@@ -40,11 +41,18 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
 
+	var sep StringParam
+	err = multierr.Append(err, errors.Wrap(ResolveParam(&sep, From(t.Separator)), "separator"))
+
 	var (
 		path JSONPathParam
 		data StringParam
 		lax  BoolParam
 	)
+	if sep != "" {
+		// set custom path separator
+		path = append(path, string(sep))
+	}
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&path, From(VarExpr(t.Path, vars), t.Path)), "path"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),

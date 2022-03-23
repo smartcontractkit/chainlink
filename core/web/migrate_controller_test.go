@@ -623,7 +623,8 @@ func TestMigrateController_MigrateWeb(t *testing.T) {
 	];
 	jsonparse_1 [
 	data="$(http_get_0)"
-	path="data,BNT,quote,USD,price"
+	path="data.BNT.quote.USD.price"
+	separator="."
 	type=jsonparse
 	];
 	multiply_2 [
@@ -750,7 +751,8 @@ func TestMigrateController_MigrateExternal(t *testing.T) {
 	];
 	jsonparse_1 [
 	data="$(http_get_0)"
-	path="data,BNT,quote,USD,price"
+	path="data.BNT.quote.USD.price"
+	separator="."
 	type=jsonparse
 	];
 	multiply_2 [
@@ -889,7 +891,8 @@ func TestMigrateController_MigrateCron(t *testing.T) {
 	];
 	jsonparse_1 [
 	data="$(http_get_0)"
-	path="data,BNT,quote,USD,price"
+	path="data.BNT.quote.USD.price"
+	separator="."
 	type=jsonparse
 	];
 	multiply_4 [

@@ -470,7 +470,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_post_%d", i), attrs)
 
 		case adapters.TaskTypeJSONParse:
-			var pathStr *string
+			var pathStr, pathSep *string
 			if ts.Params.Get("path").Exists() {
 
 				path := ts.Params.Get("path")
@@ -482,7 +482,11 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 						pathSegments = append(pathSegments, value.String())
 						return true
 					})
-					pathString = strings.Join(pathSegments, ",")
+					sep := "."
+					pathString = strings.Join(pathSegments, sep)
+					if len(pathSegments) > 1 {
+						pathSep = &sep
+					}
 				}
 				pathStr = &pathString
 			}
@@ -514,6 +518,9 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					"path": fmt.Sprintf("$(merge_jsonparse_%d.path)", i),
 					"data": fmt.Sprintf("$(%v)", last.DOTID()),
 				}
+				if pathSep != nil {
+					attrs2["separator"] = *pathSep
+				}
 
 				last = n2
 				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs2)
@@ -526,6 +533,9 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 
 				if pathStr != nil {
 					attrs["path"] = *pathStr
+					if pathSep != nil {
+						attrs["separator"] = *pathSep
+					}
 				}
 
 				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs)
