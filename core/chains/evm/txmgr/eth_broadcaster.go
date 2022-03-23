@@ -375,14 +375,11 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		return errors.Wrap(err, "building transmit checker")
 	}
 
-	lgr, err := etx.GetLogger(eb.logger.With(
+	lgr := etx.GetLogger(eb.logger.With(
 		"gasPrice", attempt.GasPrice,
 		"gasTipCap", attempt.GasTipCap,
 		"gasFeeCap", attempt.GasFeeCap,
 	))
-	if err != nil {
-		eb.logger.Errorw("failed to get tx logger meta of the transaction", "err", err)
-	}
 
 	// If the transmit check does not complete within the timeout, the transaction will be sent
 	// anyway.
@@ -393,7 +390,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 		lgr.Error("Transmission checker timed out, sending anyway")
 	} else if err != nil {
 		etx.Error = null.StringFrom(err.Error())
-		lgr.Infow("Transmission checker failed, fatally erroring transaction.", "err", err)
+		lgr.Warnw("Transmission checker failed, fatally erroring transaction.", "err", err)
 		return eb.saveFatallyErroredTransaction(lgr, &etx)
 	}
 	cancel()

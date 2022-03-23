@@ -193,10 +193,11 @@ func (e EthTx) GetMeta() (*EthTxMeta, error) {
 }
 
 // GetLogger returns a new logger with metadata fields.
-func (e EthTx) GetLogger(lgr logger.Logger) (logger.Logger, error) {
+func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
 	meta, err := e.GetMeta()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get meta of the transaction")
+		lgr.Errorw("failed to get meta of the transaction", "err", err)
+		return lgr
 	}
 
 	lgr = lgr.With(
@@ -225,7 +226,7 @@ func (e EthTx) GetLogger(lgr logger.Logger) (logger.Logger, error) {
 		}
 	}
 
-	return lgr, nil
+	return lgr
 }
 
 // GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON
