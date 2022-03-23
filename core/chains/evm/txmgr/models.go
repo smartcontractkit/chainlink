@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -18,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/utils"
