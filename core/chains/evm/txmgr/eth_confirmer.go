@@ -483,10 +483,10 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			return nil, errors.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
 		}
 
-		l := lggr.With(
+		l := logger.Sugared(lggr.With(
 			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID,
 			"ethTxID", attempt.EthTxID, "err", err, "nonce", attempt.EthTx.Nonce,
-		)
+		))
 
 		if err != nil {
 			l.Error("FetchReceipt failed")
@@ -496,7 +496,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		if receipt == nil {
 			// NOTE: This should never happen, but it seems safer to check
 			// regardless to avoid a potential panic
-			l.Error("AssumptionViolation: got nil receipt")
+			l.AssumptionViolation("got nil receipt")
 			continue
 		}
 
@@ -505,7 +505,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			continue
 		}
 
-		l = l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex)
+		l = logger.Sugared(l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex))
 
 		if receipt.IsUnmined() {
 			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")

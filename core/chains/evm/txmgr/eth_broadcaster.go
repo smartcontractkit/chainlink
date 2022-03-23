@@ -647,7 +647,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(ctx context.Context, sendErr
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithNewEstimation failed to estimate gas")
 	}
-	eb.logger.Debugw("Optimism rejected transaction due to incorrect fee, re-estimated and will try again",
+	eb.logger.Warnw("Optimism rejected transaction due to incorrect fee, re-estimated and will try again",
 		"etxID", etx.ID, "err", err, "newGasPrice", gasPrice, "newGasLimit", gasLimit)
 	return eb.tryAgainWithNewLegacyGas(ctx, etx, attempt, initialBroadcastAt, gasPrice, gasLimit)
 }

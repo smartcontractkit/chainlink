@@ -271,7 +271,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
-		b.logger.Debugw("TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
+		b.logger.Debugw("Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
 	}
 }
 
