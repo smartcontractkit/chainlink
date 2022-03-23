@@ -418,7 +418,7 @@ juelsPerFeeCoinSource = "1000000000"
         __typename: 'VRFSpec',
         coordinatorAddress: '0x0000000000000000000000000000000000000000',
         evmChainID: '42',
-        fromAddress: '',
+        fromAddresses: ['0x3cCad4715152693fE3BC4460591e3D3Fbd071b42'],
         minIncomingConfirmations: 6,
         minIncomingConfirmationsEnv: false,
         pollPeriod: '10s',
@@ -437,7 +437,7 @@ name = "vrf job"
 externalJobID = "00000000-0000-0000-0000-0000000000001"
 coordinatorAddress = "0x0000000000000000000000000000000000000000"
 evmChainID = "42"
-fromAddress = ""
+fromAddresses = [ "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42" ]
 minIncomingConfirmations = 6
 pollPeriod = "10s"
 publicKey = "0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301"

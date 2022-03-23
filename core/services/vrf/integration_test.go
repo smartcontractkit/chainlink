@@ -1,6 +1,7 @@
 package vrf_test
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -44,11 +45,14 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), true, true)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
-			key := cltest.MustGenerateRandomKey(t)
-			cu := newVRFCoordinatorUniverse(t, key)
+			key1 := cltest.MustGenerateRandomKey(t)
+			key2 := cltest.MustGenerateRandomKey(t)
+			cu := newVRFCoordinatorUniverse(t, key1, key2)
 			incomingConfs := 2
-			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
+			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key1)
 			require.NoError(t, app.Start(testutils.Context(t)))
+
+			cltest.MustAddKeyToKeystore(t, key2, cu.backend.Blockchain().Config().ChainID, app.KeyStore.Eth())
 
 			jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
 			require.NoError(t, app.JobSpawner().CreateJob(&jb))
@@ -56,8 +60,12 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			_, err := cu.consumerContract.TestRequestRandomness(cu.carol,
 				vrfKey.PublicKey.MustHash(), big.NewInt(100))
 			require.NoError(t, err)
+
+			_, err = cu.consumerContract.TestRequestRandomness(cu.carol,
+				vrfKey.PublicKey.MustHash(), big.NewInt(100))
+			require.NoError(t, err)
 			cu.backend.Commit()
-			t.Log("Sent test request")
+			t.Log("Sent 2 test requests")
 			// Mine the required number of blocks
 			// So our request gets confirmed.
 			for i := 0; i < incomingConfs; i++ {
@@ -72,30 +80,42 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				// the lb will backfill the logs. However we need to
 				// keep blocks coming in for the lb to send the backfilled logs.
 				cu.backend.Commit()
-				return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
+				return len(runs) == 2 && runs[0].State == pipeline.RunStatusCompleted && runs[1].State == pipeline.RunStatusCompleted
 			}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
 			assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
+			assert.Equal(t, 4, len(runs[1].PipelineTaskRuns))
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
+			assert.NotNil(t, 0, runs[1].Outputs.Val)
 
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
-				uc, err2 := txmgr.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
+				uc, err2 := txmgr.CountUnconfirmedTransactions(q, key1.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 			// Assert the request was fulfilled on-chain.
+			var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
 			gomega.NewWithT(t).Eventually(func() bool {
 				rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
 				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
-				var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
+				rf = nil
 				for rfIterator.Next() {
 					rf = append(rf, rfIterator.Event)
 				}
-				return len(rf) == 1
+				return len(rf) == 2
 			}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
+
+			// Check that each sending address sent one transaction
+			n1, err := cu.backend.PendingNonceAt(context.Background(), key1.Address.Address())
+			require.NoError(t, err)
+			require.EqualValues(t, 1, n1)
+
+			n2, err := cu.backend.PendingNonceAt(context.Background(), key2.Address.Address())
+			require.NoError(t, err)
+			require.EqualValues(t, 1, n2)
 		})
 	}
 }
