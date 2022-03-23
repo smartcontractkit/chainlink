@@ -22,10 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// EthTxMeta contains fields of the transaction metadata
 type EthTxMeta struct {
-	JobID         int32
-	RequestID     common.Hash
-	RequestTxHash common.Hash
+	JobID         int32       `json:"JobID"`
+	RequestID     common.Hash `json:"RequestID"`
+	RequestTxHash common.Hash `json:"RequestTxHash"`
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink *string `json:"MaxLink,omitempty"`
