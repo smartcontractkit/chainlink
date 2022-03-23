@@ -726,7 +726,7 @@ contract KeeperRegistry is
     gasUsed = gasUsed - gasleft();
 
     uint96 payment = calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
-    upkeep.balance = upkeep.balance.sub(payment);
+    upkeep.balance = s_upkeep[params.id].balance.sub(payment);
     upkeep.lastKeeper = params.from;
     s_upkeep[params.id] = upkeep;
     uint96 newBalance = s_keeperInfo[params.from].balance.add(payment);
