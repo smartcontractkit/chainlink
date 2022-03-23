@@ -2,6 +2,32 @@ package client
 
 import (
 	"fmt"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	promEVMPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_num_transitions_to_alive",
+		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateAlive),
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_num_transitions_to_in_sync",
+		Help: fmt.Sprintf("Total number of times node has transitioned from %s to %s", NodeStateOutOfSync, NodeStateAlive),
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_num_transitions_to_out_of_sync",
+		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateOutOfSync),
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_num_transitions_to_unreachable",
+		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateUnreachable),
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_num_transitions_to_invalid_chain_id",
+		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateInvalidChainID),
+	}, []string{"evmChainID", "nodeName"})
 )
 
 // NodeState represents the current state of the node
@@ -97,6 +123,7 @@ func (n *node) declareAlive() {
 }
 
 func (n *node) transitionToAlive(fn func()) {
+	promEVMPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
@@ -122,6 +149,8 @@ func (n *node) declareInSync() {
 }
 
 func (n *node) transitionToInSync(fn func()) {
+	promEVMPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promEVMPoolRPCNodeTransitionsToInSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
@@ -147,6 +176,7 @@ func (n *node) declareOutOfSync(latestReceivedBlockNumber int64) {
 }
 
 func (n *node) transitionToOutOfSync(fn func()) {
+	promEVMPoolRPCNodeTransitionsToOutOfSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
@@ -173,13 +203,14 @@ func (n *node) declareUnreachable() {
 }
 
 func (n *node) transitionToUnreachable(fn func()) {
+	promEVMPoolRPCNodeTransitionsToUnreachable.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case NodeStateDialed, NodeStateAlive, NodeStateOutOfSync:
+	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync:
 		// Need to disconnect all clients subscribed to this node
 		n.ws.rpc.Close()
 		n.cancelInflightRequests()
@@ -199,6 +230,7 @@ func (n *node) declareInvalidChainID() {
 }
 
 func (n *node) transitionToInvalidChainID(fn func()) {
+	promEVMPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {

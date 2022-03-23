@@ -571,7 +571,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBatchSize() (size uint32) {
 		valLegacy, set := c.lookupEnv("GAS_UPDATER_BATCH_SIZE", parse.Uint32)
 		if set {
 			c.logEnvOverrideOnce("GAS_UPDATER_BATCH_SIZE", valLegacy)
-			c.logger.Warn("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead (or simply remove to use the default)")
+			c.logger.Error("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead (or simply remove to use the default)")
 			size = valLegacy.(uint32)
 		} else {
 			size = c.defaultSet.blockHistoryEstimatorBatchSize
@@ -601,7 +601,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_DELAY", valLegacy)
-		c.logger.Warn("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	c.persistMu.RLock()
@@ -625,7 +625,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	valLegacy, set := c.lookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_HISTORY_SIZE", valLegacy)
-		c.logger.Warn("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	c.persistMu.RLock()
@@ -670,7 +670,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16 
 	valLegacy, set := c.lookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_TRANSACTION_PERCENTILE", valLegacy)
-		c.logger.Warn("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	return c.defaultSet.blockHistoryEstimatorTransactionPercentile
@@ -687,10 +687,10 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_ENABLED", enabled)
 		if enabled.(bool) {
-			c.logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead (or simply remove to use the default)")
+			c.logger.Error("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead (or simply remove to use the default)")
 			return "BlockHistory"
 		}
-		c.logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead (or simply remove to use the default)")
 		return "FixedPrice"
 	}
 	c.persistMu.RLock()

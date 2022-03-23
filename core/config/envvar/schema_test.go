@@ -4,8 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestConfigSchema(t *testing.T) {
@@ -63,6 +64,7 @@ func TestConfigSchema(t *testing.T) {
 		"EthereumSecondaryURL":                           "ETH_SECONDARY_URL",
 		"EthereumSecondaryURLs":                          "ETH_SECONDARY_URLS",
 		"EthereumURL":                                    "ETH_URL",
+		"EthereumNodes":                                  "EVM_NODES",
 		"EvmBalanceMonitorBlockDelay":                    "ETH_BALANCE_MONITOR_BLOCK_DELAY",
 		"EvmDefaultBatchSize":                            "ETH_DEFAULT_BATCH_SIZE",
 		"EvmEIP1559DynamicFees":                          "EVM_EIP1559_DYNAMIC_FEES",
@@ -162,6 +164,7 @@ func TestConfigSchema(t *testing.T) {
 		"TLSRedirect":                                    "CHAINLINK_TLS_REDIRECT",
 		"TelemetryIngressBufferSize":                     "TELEMETRY_INGRESS_BUFFER_SIZE",
 		"TelemetryIngressLogging":                        "TELEMETRY_INGRESS_LOGGING",
+		"TelemetryIngressUniConn":                        "TELEMETRY_INGRESS_UNICONN",
 		"TelemetryIngressMaxBatchSize":                   "TELEMETRY_INGRESS_MAX_BATCH_SIZE",
 		"TelemetryIngressSendInterval":                   "TELEMETRY_INGRESS_SEND_INTERVAL",
 		"TelemetryIngressSendTimeout":                    "TELEMETRY_INGRESS_SEND_TIMEOUT",

@@ -232,6 +232,7 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 		SecretGenerator:     MockSecretGenerator{},
 		Dialect:             dialects.TransactionWrappedPostgres,
 		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		P2PEnabled:          null.BoolFrom(false),
 		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
@@ -300,6 +301,7 @@ const (
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
 func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
+	testutils.SkipShortDB(t)
 
 	lggr := logger.TestLogger(t)
 
@@ -409,25 +411,23 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription, f func()) {
-	c, s, f = NewEthMocks(t)
+func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription) {
+	testutils.SkipShortDB(t)
+	c, s = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
+func NewEthMocks(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription) {
 	c, s := NewEthClientAndSubMock(t)
-	var assertMocksCalled func()
 	switch tt := t.(type) {
 	case *testing.T:
-		assertMocksCalled = func() {
+		t.Cleanup(func() {
 			c.AssertExpectations(tt)
 			s.AssertExpectations(tt)
-		}
-	case *testing.B:
-		assertMocksCalled = func() {}
+		})
 	}
-	return c, s, assertMocksCalled
+	return c, s
 }
 
 func NewEthClientAndSubMock(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
@@ -456,8 +456,9 @@ func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
 	return c
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
-	c, s, assertMocksCalled := NewEthMocks(t)
+func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
+	testutils.SkipShort(t, "long test")
+	c, s := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -472,12 +473,13 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks
 
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
-	return c, s, assertMocksCalled
+	return c
 }
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
-func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
-	c, s, assertMocksCalled := NewEthMocks(t)
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Client {
+	testutils.SkipShort(t, "long test")
+	c, s := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -507,7 +509,8 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Clie
 
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
-	return c, s, assertMocksCalled
+
+	return c
 }
 
 func newServer(app chainlink.Application) *httptest.Server {

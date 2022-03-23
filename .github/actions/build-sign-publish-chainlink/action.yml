@@ -114,9 +114,10 @@ runs:
 
   - name: Build and push root docker image
     id: buildpush-root
-    uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229 # v2.7.0
+    uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-root.outputs.tags }}
       labels: ${{ steps.meta-root.outputs.labels }}
       file: core/chainlink.Dockerfile
@@ -144,9 +145,10 @@ runs:
 
   - name: Build and push non-root docker image
     id: buildpush-nonroot
-    uses: docker/build-push-action@a66e35b9cbcf4ad0ea91ffcaf7bbad63ad9e0229 # v2.7.0
+    uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v2.10.0
     with:
       push: ${{ inputs.publish }}
+      load: ${{ contains(inputs.publish, false) }}
       tags: ${{ steps.meta-nonroot.outputs.tags }}
       labels: ${{ steps.meta-nonroot.outputs.labels }}
       file: core/chainlink.Dockerfile
@@ -160,6 +162,20 @@ runs:
     run: |
       IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
       echo "nonroot_image_name=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)" >> $GITHUB_ENV
+
+  - name: Check if non-root image runs as root
+    id: check-nonroot-runs-root
+    shell: sh
+    env:
+      PUBLISH: ${{ inputs.publish }}
+    run: |
+      echo "Fail build if non-root image runs as user: root"
+      # if we're publishing the image, it doesn't get loaded into the local docker daemon
+      # so we need to pull the image into our daemon
+      if [ $PUBLISH = "true" ]; then 
+       docker pull "${nonroot_image_name}"
+      fi
+      docker inspect "${nonroot_image_name}" | jq -r '.[].Config.User' | ( ! grep "root" )
 
   - if: inputs.sign-images == 'true'
     name: Install cosign
