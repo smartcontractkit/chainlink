@@ -32,7 +32,7 @@ type EthTxMeta struct {
 	MaxLink *string `json:"MaxLink,omitempty"`
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
-	SubID *uint64 `json:"SubID,omitempty"`
+	SubID *uint64 `json:"SubId,omitempty"`
 	// Used for keepers
 	UpkeepID *int64 `json:"UpkeepID,omitempty"`
 }
