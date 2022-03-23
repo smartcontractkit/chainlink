@@ -29,10 +29,10 @@ type EthTxMeta struct {
 	RequestTxHash common.Hash
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
-	MaxLink string
+	MaxLink *string `json:"MaxLink,omitempty"`
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
-	SubID uint64 `json:"SubId"`
+	SubID *uint64 `json:"SubID,omitempty"`
 	// Used for keepers
 	UpkeepID *int64 `json:"UpkeepID,omitempty"`
 }
@@ -208,14 +208,20 @@ func (e EthTx) GetLogger(lgr logger.Logger) (logger.Logger, error) {
 	if meta != nil {
 		lgr = lgr.With(
 			"jobID", meta.JobID,
-			"subID", meta.SubID,
 			"requestID", meta.RequestID,
 			"requestTxHash", meta.RequestTxHash,
-			"maxLink", meta.MaxLink,
 		)
 
 		if meta.UpkeepID != nil {
 			lgr = lgr.With("upkeepID", *meta.UpkeepID)
+		}
+
+		if meta.SubID != nil {
+			lgr = lgr.With("subID", *meta.SubID)
+		}
+
+		if meta.MaxLink != nil {
+			lgr = lgr.With("maxLink", *meta.MaxLink)
 		}
 	}
 
