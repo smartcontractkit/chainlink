@@ -196,7 +196,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
 		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
 			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), ex.config.KeeperBaseFeeBufferPercent())
-			if gasPrice.Cmp(baseFee) < 0 {
+			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
 				gasPrice = baseFee
 			}
 		}
