@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana/types"
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -35,7 +34,7 @@ type ChainSetOpts struct {
 	DB               *sqlx.DB
 	KeyStore         keystore.Solana
 	EventBroadcaster pg.EventBroadcaster
-	ORM              types.ORM
+	ORM              db.ORM
 }
 
 func (o ChainSetOpts) validate() (err error) {
@@ -78,7 +77,7 @@ type ChainSet interface {
 	Remove(string) error
 	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (db.Chain, error)
 
-	ORM() types.ORM
+	ORM() db.ORM
 }
 
 //go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
@@ -117,7 +116,7 @@ func NewChainSet(opts ChainSetOpts) (*chainSet, error) {
 	return &cs, err
 }
 
-func (c *chainSet) ORM() types.ORM {
+func (c *chainSet) ORM() db.ORM {
 	return c.opts.ORM
 }
 

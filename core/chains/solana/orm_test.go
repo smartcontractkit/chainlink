@@ -11,13 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana/types"
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
+func setupORM(t *testing.T) (*sqlx.DB, db.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)

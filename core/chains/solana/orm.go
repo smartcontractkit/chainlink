@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
-	"github.com/smartcontractkit/chainlink/core/chains/solana/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
@@ -16,10 +15,11 @@ type orm struct {
 	q pg.Q
 }
 
-var _ types.ORM = (*orm)(nil)
+//go:generate mockery --name ORM --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana/db --output ./mocks/ --case=underscore
+var _ db.ORM = (*orm)(nil)
 
 // NewORM returns an ORM backed by db.
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) db.ORM {
 	return &orm{q: pg.NewQ(db, lggr.Named("ORM"), cfg)}
 }
 

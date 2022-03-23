@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
-	"github.com/smartcontractkit/chainlink/core/chains/solana/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -42,7 +41,7 @@ type chain struct {
 	cfg            config.Config
 	txm            *soltxm.Txm
 	balanceMonitor services.ServiceCtx
-	orm            types.ORM
+	orm            db.ORM
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
@@ -51,7 +50,7 @@ type chain struct {
 }
 
 // NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, orm types.ORM, lggr logger.Logger) (*chain, error) {
+func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, orm db.ORM, lggr logger.Logger) (*chain, error) {
 	cfg := config.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("solanaChainID", dbchain.ID)
 	var ch = chain{
@@ -102,6 +101,7 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 		if cnt == 0 {
 			return nil, errors.New("no nodes available")
 		}
+		rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
 		// #nosec
 		index := rand.Perm(len(nodes)) // list of node indexes to try
 		found := false
