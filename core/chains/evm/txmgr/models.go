@@ -194,17 +194,17 @@ func (e EthTx) GetMeta() (*EthTxMeta, error) {
 
 // GetLogger returns a new logger with metadata fields.
 func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
-	meta, err := e.GetMeta()
-	if err != nil {
-		lgr.Errorw("failed to get meta of the transaction", "err", err)
-		return lgr
-	}
-
 	lgr = lgr.With(
 		"ethTxID", e.ID,
 		"checker", e.TransmitChecker,
 		"gasLimit", e.GasLimit,
 	)
+
+	meta, err := e.GetMeta()
+	if err != nil {
+		lgr.Errorw("failed to get meta of the transaction", "err", err)
+		return lgr
+	}
 
 	if meta != nil {
 		lgr = lgr.With(
