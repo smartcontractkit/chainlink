@@ -324,7 +324,7 @@ func max(a, b *big.Int) *big.Int {
 }
 
 // BumpDynamicFeeOnly bumps the tip cap and max gas price if necessary
-func BumpDynamicFeeOnly(config Config, lggr logger.Logger, currentTipCap *big.Int, currentBaseFee *big.Int, originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
+func BumpDynamicFeeOnly(config Config, lggr logger.SugaredLogger, currentTipCap *big.Int, currentBaseFee *big.Int, originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
 	bumped, err = bumpDynamicFee(config, lggr, currentTipCap, currentBaseFee, originalFee)
 	if err != nil {
 		return bumped, 0, err
@@ -343,7 +343,7 @@ func BumpDynamicFeeOnly(config Config, lggr logger.Logger, currentTipCap *big.In
 // the Tip only. Unfortunately due to a flaw of how EIP-1559 is implemented we
 // have to bump FeeCap by at least 10% each time we bump the tip cap.
 // See: https://github.com/ethereum/go-ethereum/issues/24284
-func bumpDynamicFee(cfg Config, lggr logger.Logger, currentTipCap, currentBaseFee *big.Int, originalFee DynamicFee) (bumpedFee DynamicFee, err error) {
+func bumpDynamicFee(cfg Config, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFee DynamicFee) (bumpedFee DynamicFee, err error) {
 	maxGasPrice := cfg.EvmMaxGasPriceWei()
 	baselineTipCap := max(originalFee.TipCap, cfg.EvmGasTipCapDefault())
 
@@ -351,7 +351,7 @@ func bumpDynamicFee(cfg Config, lggr logger.Logger, currentTipCap, currentBaseFe
 
 	if currentTipCap != nil {
 		if currentTipCap.Cmp(maxGasPrice) > 0 {
-			lggr.Errorf("AssumptionViolation: Ignoring current tip cap of %s that would exceed max gas price of %s", currentTipCap.String(), maxGasPrice.String())
+			lggr.AssumptionViolationf("Ignoring current tip cap of %s that would exceed max gas price of %s", currentTipCap.String(), maxGasPrice.String())
 		} else if bumpedTipCap.Cmp(currentTipCap) < 0 {
 			// If the current gas tip cap is higher than the old tip cap with bump applied, use that instead
 			bumpedTipCap = currentTipCap
