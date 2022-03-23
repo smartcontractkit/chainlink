@@ -387,7 +387,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(ctx context.Context, etx EthTx, 
 	defer cancel()
 	err = checker.Check(checkCtx, lgr, etx, attempt)
 	if errors.Is(err, context.Canceled) {
-		lgr.Error("Transmission checker timed out, sending anyway")
+		lgr.Warn("Transmission checker timed out, sending anyway")
 	} else if err != nil {
 		etx.Error = null.StringFrom(err.Error())
 		lgr.Warnw("Transmission checker failed, fatally erroring transaction.", "err", err)
