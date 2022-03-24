@@ -197,7 +197,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		// Note: gasPrice will be null if EvmEIP1559DynamicFees is enabled.
 		if gasPrice != nil && head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
 			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), ex.config.KeeperBaseFeeBufferPercent())
-			if gasPrice.Cmp(baseFee) < 0 {
+			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
 				gasPrice = baseFee
 			}
 		}
