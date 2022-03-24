@@ -264,7 +264,7 @@ func TestTxm_CreateEthTransaction(t *testing.T) {
 			Strategy:       txmgr.SendEveryStrategy{},
 		})
 		require.Error(t, err)
-		assert.Contains(t, err, "Txm#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS")
+		assert.Contains(t, err.Error(), "Txm#CreateEthTransaction: cannot create transaction; too many unstarted transactions in the queue (1/1). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS")
 	})
 
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
