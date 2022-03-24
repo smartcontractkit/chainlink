@@ -14,6 +14,9 @@ contract PermissionedForwardProxy is ConfirmedOwner {
 
   error PermissionNotSet();
 
+  event PermissionSet(address indexed sender, address target);
+  event PermissionRemoved(address indexed sender);
+
   mapping(address => address) private s_forwardPermissionList;
 
   constructor() ConfirmedOwner(msg.sender) {}
@@ -38,6 +41,8 @@ contract PermissionedForwardProxy is ConfirmedOwner {
    */
   function setPermission(address sender, address target) external onlyOwner {
     s_forwardPermissionList[sender] = target;
+
+    emit PermissionSet(sender, target);
   }
 
   /**
@@ -46,6 +51,8 @@ contract PermissionedForwardProxy is ConfirmedOwner {
    */
   function removePermission(address sender) external onlyOwner {
     delete s_forwardPermissionList[sender];
+
+    emit PermissionRemoved(sender);
   }
 
   /**

@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { publicAbi } from '../test-helpers/helpers'
-import { expect } from 'chai'
+import { expect, assert } from 'chai'
 import { Contract, ContractFactory } from 'ethers'
 import { Personas, getUsers } from '../test-helpers/setup'
 
@@ -60,12 +60,19 @@ describe('PermissionedForwardProxy', () => {
 
     describe('when called by the owner', () => {
       it('adds the permission to the proxy', async () => {
-        await controller
+        const tx = await controller
           .connect(personas.Carol)
           .setPermission(
             await personas.Carol.getAddress(),
             await personas.Eddy.getAddress(),
           )
+        const receipt = await tx.wait()
+        const eventLog = receipt?.events
+
+        assert.equal(eventLog?.length, 1)
+        assert.equal(eventLog?.[0].event, 'PermissionSet')
+        assert.equal(eventLog?.[0].args?.[0], await personas.Carol.getAddress())
+        assert.equal(eventLog?.[0].args?.[1], await personas.Eddy.getAddress())
 
         expect(
           await controller.getPermission(await personas.Carol.getAddress()),
@@ -97,9 +104,16 @@ describe('PermissionedForwardProxy', () => {
 
     describe('when called by the owner', () => {
       it('removes the permission to the proxy', async () => {
-        await controller
+        const tx = await controller
           .connect(personas.Carol)
           .removePermission(await personas.Carol.getAddress())
+
+        const receipt = await tx.wait()
+        const eventLog = receipt?.events
+
+        assert.equal(eventLog?.length, 1)
+        assert.equal(eventLog?.[0].event, 'PermissionRemoved')
+        assert.equal(eventLog?.[0].args?.[0], await personas.Carol.getAddress())
 
         expect(
           await controller.getPermission(await personas.Carol.getAddress()),
