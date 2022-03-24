@@ -9,16 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -67,6 +67,10 @@ func setup(t *testing.T) (
 	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
+	estimator.On("GetDynamicFee", mock.Anything).Maybe().Return(gas.DynamicFee{
+		FeeCap: assets.GWei(60),
+		TipCap: assets.GWei(60),
+	}, uint64(60), nil)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
@@ -144,8 +148,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		txm.AssertExpectations(t)
 	})
 
-	t.Run("runs upkeep on triggering block number on EIP1559 chain", func(t *testing.T) {
+	t.Run("runs upkeep on triggering block number on non-EIP1559 chain", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t)
+
+		config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(false)
 
 		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
 		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
@@ -191,16 +197,13 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		txm.AssertExpectations(t)
 	})
 
-	// Copy of above test with GlobalEvmEIP1559DynamicFees set to true it will cause the upkeep executor to panic
-	t.Run("runs upkeep on triggering block number on EIP1559 chain GlobalEvmEIP1559DynamicFees true", func(t *testing.T) {
+	t.Run("runs upkeep on triggering block number on EIP1559 chain", func(t *testing.T) {
 		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t)
 
 		config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
 
 		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
-		//once you know where the root nil pointer dereference is youll need to fix these gas values
-		//so the mocks get what they expect based on GasPrice nil
-		gasPrice := assets.GWei(0)
+		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
 		baseFeePerGas := utils.NewBig(big.NewInt(0).Mul(gasPrice, big.NewInt(2)))
 
 		ethTxCreated := cltest.NewAwaiter()
