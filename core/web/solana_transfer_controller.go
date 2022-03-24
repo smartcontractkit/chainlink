@@ -75,14 +75,6 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	if !tr.AllowHigherAmounts {
-		err = solanaValidateBalance(reader, tr.From, tr.Amount)
-		if err != nil {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("failed to validate balance: %v", err))
-			return
-		}
-	}
-
 	blockhash, err := reader.LatestBlockhash()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to get latest block hash: %v", err))
@@ -103,6 +95,13 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to create tx: %v", err))
 		return
+	}
+
+	if !tr.AllowHigherAmounts {
+		if err := solanaValidateBalance(reader, tr.From, tr.Amount, tx.Message.ToBase64()); err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("failed to validate balance: %v", err))
+			return
+		}
 	}
 
 	// marshal transaction
@@ -136,14 +135,19 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	jsonAPIResponse(c, resource, "solana_tx")
 }
 
-func solanaValidateBalance(reader client.Reader, from solanaGo.PublicKey, amount uint64) error {
+func solanaValidateBalance(reader client.Reader, from solanaGo.PublicKey, amount uint64, msg string) error {
 	balance, err := reader.Balance(from)
 	if err != nil {
 		return err
 	}
 
-	if balance < amount {
-		return errors.Errorf("balance %q is too low for this transaction to be executed: amount %d", balance, amount)
+	fee, err := reader.GetFeeForMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	if balance < (amount + fee) {
+		return errors.Errorf("balance %d is too low for this transaction to be executed: amount %d", balance, amount)
 	}
 	return nil
 }
