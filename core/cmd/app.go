@@ -975,7 +975,7 @@ func NewApp(client *Client) *cli.App {
 					Subcommands: []cli.Command{
 						{
 							Name:   "create",
-							Usage:  "Send <amount> sol from node Solana account <fromAddress> to destination <toAddress>.",
+							Usage:  "Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.",
 							Action: client.SolanaSendSol,
 							Flags: []cli.Flag{
 								cli.BoolFlag{

@@ -257,6 +257,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/transfers/evm", ets.Create)
 		tts := TerraTransfersController{app}
 		authv2.POST("/transfers/terra", tts.Create)
+		sts := SolanaTransfersController{app}
+		authv2.POST("/transfers/solana", sts.Create)
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)

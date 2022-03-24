@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	solanamodels "github.com/smartcontractkit/chainlink/core/store/models/solana"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // SolanaTransfersController can send LINK tokens to another address
@@ -104,19 +105,22 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	_, err = tx.Sign(
-		func(key solanaGo.PublicKey) *solanaGo.PrivateKey {
-			if tr.From.Equals(key) {
-				r := solanaGo.PrivateKey(fromKey.Raw())
-				return &r
-			}
-			return nil
-		},
-	)
+	// marshal transaction
+	msg, err := tx.Message.MarshalBinary()
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to marshal tx: %v", err))
+		return
+	}
+
+	// sign tx
+	sigBytes, err := fromKey.Sign(msg)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("failed to sign tx: %v", err))
 		return
 	}
+	var finalSig [64]byte
+	copy(finalSig[:], sigBytes)
+	tx.Signatures = append(tx.Signatures, finalSig)
 
 	err = txm.Enqueue("", tx)
 	if err != nil {
@@ -124,7 +128,12 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, map[string]interface{}{"message": "transaction sent"}, "solana_tx")
+	resource := presenters.NewSolanaMsgResource("", tr.SolanaChainID)
+	resource.Amount = tr.Amount
+	resource.From = tr.From.String()
+	resource.To = tr.To.String()
+
+	jsonAPIResponse(c, resource, "solana_tx")
 }
 
 func solanaValidateBalance(reader client.Reader, from solanaGo.PublicKey, amount uint64) error {

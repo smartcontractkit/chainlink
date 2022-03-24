@@ -73,7 +73,7 @@ func (txm *Txm) run() {
 				txm.lggr.Criticalw("failed to send transaction", "err", err)
 				continue
 			}
-			txm.lggr.Debugw("successfully sent transaction", "signature", sig)
+			txm.lggr.Debugw("successfully sent transaction", "signature", sig.String())
 		case <-txm.stop:
 			return
 		}
