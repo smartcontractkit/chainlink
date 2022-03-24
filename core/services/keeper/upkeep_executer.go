@@ -194,10 +194,10 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 		// Make sure the gas price is at least as large as the basefee to avoid ErrFeeCapTooLow error from geth during eth call.
 		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
-		// Note: gasPrice will be null if EvmEIP1559DynamicFees is enabled.
-		if gasPrice != nil && head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
+		// Note: gasPrice will be nil if EvmEIP1559DynamicFees is enabled.
+		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
 			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), ex.config.KeeperBaseFeeBufferPercent())
-			if gasPrice.Cmp(baseFee) < 0 {
+			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
 				gasPrice = baseFee
 			}
 		}
