@@ -35,6 +35,17 @@ func Mod(dividend, divisor interface{}) *big.Int { return I().Mod(bnIfy(dividend
 // Sub performs subtraction with the given values after coercing them to big.Int, or panics if it cannot.
 func Sub(minuend, subtrahend interface{}) *big.Int { return I().Sub(bnIfy(minuend), bnIfy(subtrahend)) }
 
+// Max returns the maximum of the two given values after coercing them to big.Int,
+// or panics if it cannot.
+func Max(x, y interface{}) *big.Int {
+	xBig := bnIfy(x)
+	yBig := bnIfy(y)
+	if xBig.Cmp(yBig) == 1 {
+		return xBig
+	}
+	return yBig
+}
+
 func bnIfy(val interface{}) *big.Int {
 	switch v := val.(type) {
 	case uint:

@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -46,6 +47,10 @@ type TransmitCheckerSpec struct {
 	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
 	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
 	VRFCoordinatorAddress common.Address
+
+	// VRFRequestBlockNumber is the block number in which the provided VRF request has been made.
+	// This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
+	VRFRequestBlockNumber *big.Int
 }
 
 type EthTxState string

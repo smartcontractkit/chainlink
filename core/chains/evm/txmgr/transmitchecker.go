@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -13,6 +14,7 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
@@ -48,7 +50,14 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V2 coordinator at address %v", spec.VRFCoordinatorAddress)
 		}
-		return &VRFV2Checker{coord.GetCommitment}, nil
+		if spec.VRFRequestBlockNumber == nil {
+			return nil, errors.New("VRFRequestBlockNumber parameter must be non-nil")
+		}
+		return &VRFV2Checker{
+			GetCommitment:      coord.GetCommitment,
+			HeaderByNumber:     c.Client.HeaderByNumber,
+			RequestBlockNumber: spec.VRFRequestBlockNumber,
+		}, nil
 	case "":
 		return NoChecker, nil
 	default:
@@ -184,6 +193,13 @@ type VRFV2Checker struct {
 	// GetCommitment checks whether a VRF V2 request has been fulfilled on the VRFCoordinatorV2
 	// Solidity contract.
 	GetCommitment func(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
+
+	// HeaderByNumber fetches the header given the number. If nil is provided,
+	// the latest header is fetched.
+	HeaderByNumber func(ctx context.Context, n *big.Int) (*gethtypes.Header, error)
+
+	// RequestBlockNumber is the block number of the VRFV2 request.
+	RequestBlockNumber *big.Int
 }
 
 // Check satisfies the TransmitChecker interface.
@@ -210,14 +226,40 @@ func (v *VRFV2Checker) Check(
 		return nil
 	}
 
+	h, err := v.HeaderByNumber(ctx, nil)
+	if err != nil {
+		l.Errorw("Failed to fetch latest header. Attempting to transmit anyway.",
+			"err", err,
+			"ethTxId", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
+	// If the request block number is not provided, transmit anyway just to be safe.
+	// Worst we can do is revert due to the request already being fulfilled.
+	if v.RequestBlockNumber == nil {
+		l.Errorw("Was provided with a nil request block number. Attempting to transmit anyway.",
+			"ethTxId", tx.ID,
+			"meta", tx.Meta,
+		)
+		return nil
+	}
+
 	vrfRequestID := meta.RequestID.Big()
-	callback, err := v.GetCommitment(&bind.CallOpts{Context: ctx}, vrfRequestID)
+	blockNumber := bigmath.Max(h.Number, v.RequestBlockNumber)
+	callback, err := v.GetCommitment(&bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: blockNumber,
+	}, vrfRequestID)
 	if err != nil {
 		l.Errorw("Failed to check request fulfillment status, error calling GetCommitment. Attempting to transmit anyway.",
 			"err", err,
 			"ethTxId", tx.ID,
 			"meta", tx.Meta,
-			"vrfRequestId", vrfRequestID)
+			"vrfRequestId", vrfRequestID,
+			"blockNumber", h.Number,
+		)
 		return nil
 	} else if utils.IsEmpty(callback[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled and we should skip it.
