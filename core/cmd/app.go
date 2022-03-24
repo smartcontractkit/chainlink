@@ -984,7 +984,7 @@ func NewApp(client *Client) *cli.App {
 								},
 								cli.StringFlag{
 									Name:  "id",
-									Usage: "chain ID",
+									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
 								},
 							},
 						},
@@ -1066,7 +1066,7 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "id",
-									Usage: "chain ID",
+									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
 								},
 							},
 						},
@@ -1087,7 +1087,7 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "id",
-									Usage: "chain ID",
+									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
 								},
 							},
 						},
@@ -1195,7 +1195,7 @@ func NewApp(client *Client) *cli.App {
 								},
 								cli.StringFlag{
 									Name:  "chain-id",
-									Usage: "chain ID",
+									Usage: "chain ID, options: [mainnet, testnet, devnet, localnet]",
 								},
 								cli.StringFlag{
 									Name:  "url",
