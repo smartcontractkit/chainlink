@@ -970,6 +970,27 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
+					Name:  "solana",
+					Usage: "Commands for handling Solana transactions",
+					Subcommands: []cli.Command{
+						{
+							Name:   "create",
+							Usage:  "Send <amount> sol from node Solana account <fromAddress> to destination <toAddress>.",
+							Action: client.SolanaSendSol,
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "force",
+									Usage: "allows to send a higher amount than the account's balance",
+								},
+								cli.StringFlag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
+					},
+				},
+				{
 					Name:  "terra",
 					Usage: "Commands for handling Terra transactions",
 					Subcommands: []cli.Command{

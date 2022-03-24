@@ -447,8 +447,9 @@ func ExampleRun_txs() {
 	//    core.test txs command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm    Commands for handling EVM transactions
-	//    terra  Commands for handling Terra transactions
+	//    evm     Commands for handling EVM transactions
+	//    solana  Commands for handling Solana transactions
+	//    terra   Commands for handling Terra transactions
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -467,6 +468,22 @@ func ExampleRun_txs_evm() {
 	//    create  Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.
 	//    list    List the Ethereum Transactions in descending order
 	//    show    get information on a specific Ethereum Transaction
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_txs_solana() {
+	run("txs", "solana", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs solana - Commands for handling Solana transactions
+	//
+	// USAGE:
+	//    core.test txs solana command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> sol from node Solana account <fromAddress> to destination <toAddress>.
 	//
 	// OPTIONS:
 	//    --help, -h  show help
