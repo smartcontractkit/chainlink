@@ -45,7 +45,7 @@ type chain struct {
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
-	clientChainID map[string]string
+	clientChainID map[string]string // map URL -> chainId [mainnet/testnet/devnet/localnet]
 	chainIDLock   *sync.RWMutex
 }
 
@@ -108,7 +108,7 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 		for _, i := range index {
 			node = nodes[i]
 			// create client and check
-			client, err = c.getOrCreate(node)
+			client, err = c.verifiedClient(node)
 			// if error, try another node
 			if err != nil {
 				c.lggr.Warnw("failed to create node", "name", node.Name, "solana-url", node.SolanaURL, "error", err.Error())
@@ -133,7 +133,7 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 		}
 
 		// create client and check
-		client, err = c.getOrCreate(node)
+		client, err = c.verifiedClient(node)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to create node %s", name)
 		}
@@ -142,7 +142,8 @@ func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
 	return client, nil
 }
 
-func (c *chain) getOrCreate(node db.Node) (solanaclient.ReaderWriter, error) {
+// verifiedClient returns a client for node or an error if the chain id does not match.
+func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) {
 	// create client
 	client, err := solanaclient.NewClient(node.SolanaURL, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
 	if err != nil {
@@ -152,10 +153,10 @@ func (c *chain) getOrCreate(node db.Node) (solanaclient.ReaderWriter, error) {
 	// if endpoint has not been checked, fetch chainID
 	url := node.SolanaURL
 	c.chainIDLock.RLock()
-	_, exists := c.clientChainID[url]
+	id, exists := c.clientChainID[url]
 	c.chainIDLock.RUnlock()
 	if !exists {
-		id, err := client.ChainID()
+		id, err = client.ChainID()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch ChainID in checkClient")
 		}
@@ -166,10 +167,8 @@ func (c *chain) getOrCreate(node db.Node) (solanaclient.ReaderWriter, error) {
 
 	// check chainID matches expected chainID
 	expectedID := strings.ToLower(c.id)
-	c.chainIDLock.RLock()
-	defer c.chainIDLock.RUnlock()
-	if c.clientChainID[url] != expectedID {
-		return nil, fmt.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, c.clientChainID[url], url)
+	if id != expectedID {
+		return nil, fmt.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, id, url)
 	}
 	return client, nil
 }

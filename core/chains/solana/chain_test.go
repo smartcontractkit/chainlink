@@ -117,7 +117,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestSolanaChain_GetOrCreate(t *testing.T) {
+func TestSolanaChain_VerifiedClient(t *testing.T) {
 	called := false
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// should only be called once, chainID will be cached in chain
@@ -144,12 +144,12 @@ func TestSolanaChain_GetOrCreate(t *testing.T) {
 
 	// happy path
 	testChain.id = "devnet"
-	_, err := testChain.getOrCreate(node)
+	_, err := testChain.verifiedClient(node)
 	assert.NoError(t, err)
 	assert.Equal(t, testChain.id, testChain.clientChainID[node.SolanaURL])
 
 	// expect error from id mismatch
 	testChain.id = "incorrect"
-	_, err = testChain.getOrCreate(node)
+	_, err = testChain.verifiedClient(node)
 	assert.Error(t, err)
 }
