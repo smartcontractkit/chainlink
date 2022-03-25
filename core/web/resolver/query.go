@@ -389,7 +389,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 	if r.App.GetConfig().Dev() {
 		keys, err = ks.GetAll()
 	} else {
-		keys, err = ks.SendingKeys()
+		keys, err = ks.SendingKeys(nil)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
