@@ -147,7 +147,7 @@ func solanaValidateBalance(reader client.Reader, from solanaGo.PublicKey, amount
 	}
 
 	if balance < (amount + fee) {
-		return errors.Errorf("balance %d is too low for this transaction to be executed: amount %d", balance, amount)
+		return errors.Errorf("balance %d is too low for this transaction to be executed: amount %d + fee %d", balance, amount, fee)
 	}
 	return nil
 }
