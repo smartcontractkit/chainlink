@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -50,6 +51,11 @@ func ParseStandardCBOR(b []byte) (a interface{}, err error) {
 		return nil, err
 	}
 	return
+}
+
+// EncodeCBOR encodes given value to CBOR.
+func EncodeCBOR(v interface{}) ([]byte, error) {
+	return cbor.Marshal(v)
 }
 
 // Automatically add missing start map and end map to a CBOR encoded buffer
