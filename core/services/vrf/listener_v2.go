@@ -58,6 +58,7 @@ type listenerV2 struct {
 	cfg            Config
 	l              logger.Logger
 	ethClient      evmclient.Client
+	chainID        *big.Int
 	logBroadcaster log.Broadcaster
 	txm            txmgr.TxManager
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
@@ -330,7 +331,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	// Attempt to process every request, break if we run out of balance
 	for _, req := range reqs {
-		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.fromAddresses()...)
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
 		if err != nil {
 			lggr.Errorw("Couldn't get next from address", "err", err)
 			continue
