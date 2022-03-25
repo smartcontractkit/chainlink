@@ -46,11 +46,11 @@ func TestNewOCR2Provider(t *testing.T) {
 
 	// setup keystore mock
 	solKey := new(keystoreMock.Solana)
-	solKey.On("Get", "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK").Return(solkey.Key{}, nil).Times(2)
+	solKey.On("Get", "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK").Return(solkey.Key{}, nil).Once()
 
 	// setup solana key mock
 	keystore := new(keystoreMock.Master)
-	keystore.On("Solana").Return(solKey, nil).Times(2)
+	keystore.On("Solana").Return(solKey, nil).Once()
 
 	// setup terra mocks
 	terraChain := new(terraMock.Chain)
@@ -65,12 +65,11 @@ func TestNewOCR2Provider(t *testing.T) {
 	// set up solana mocks
 	solChain := new(solMock.Chain)
 	solChain.On("Config").Return(solconfig.NewConfig(soldb.ChainCfg{}, lggr))
-	solChain.On("TxManager").Return(new(solMock.TxManager)).Times(2)
-	solChain.On("Reader", "").Return(new(solMock.Reader), nil).Once()
-	solChain.On("Reader", "some-test-node").Return(new(solMock.Reader), nil).Once()
+	solChain.On("TxManager").Return(new(solMock.TxManager)).Once()
+	solChain.On("Reader").Return(new(solMock.Reader), nil).Once()
 
 	solChains := new(solMock.ChainSet)
-	solChains.On("Chain", mock.Anything, "Chainlink-99").Return(solChain, nil).Times(2)
+	solChains.On("Chain", mock.Anything, "Chainlink-99").Return(solChain, nil).Once()
 
 	d := relay.NewDelegate(keystore)
 
