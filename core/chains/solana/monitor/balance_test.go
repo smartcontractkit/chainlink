@@ -41,7 +41,7 @@ func TestBalanceMonitor(t *testing.T) {
 		client.On("Balance", acc).Return(bals[i], nil)
 		exp = append(exp, update{acc.String(), expBals[i]})
 	}
-	cfg := &config{blockRate: time.Second}
+	cfg := &config{balancePollPeriod: time.Second}
 	b := newBalanceMonitor(chainID, cfg, logger.TestLogger(t), ks, nil)
 	var got []update
 	done := make(chan struct{})
@@ -74,11 +74,11 @@ func TestBalanceMonitor(t *testing.T) {
 }
 
 type config struct {
-	blockRate time.Duration
+	balancePollPeriod time.Duration
 }
 
-func (c *config) BlockRate() time.Duration {
-	return c.blockRate
+func (c *config) BalancePollPeriod() time.Duration {
+	return c.balancePollPeriod
 }
 
 type keystore []solkey.Key

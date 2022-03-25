@@ -81,6 +81,27 @@ func (_m *Reader) GetAccountInfoWithOpts(ctx context.Context, addr solana.Public
 	return r0, r1
 }
 
+// GetFeeForMessage provides a mock function with given fields: msg
+func (_m *Reader) GetFeeForMessage(msg string) (uint64, error) {
+	ret := _m.Called(msg)
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func(string) uint64); ok {
+		r0 = rf(msg)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(msg)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LatestBlockhash provides a mock function with given fields:
 func (_m *Reader) LatestBlockhash() (*rpc.GetLatestBlockhashResult, error) {
 	ret := _m.Called()

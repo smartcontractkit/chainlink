@@ -76,13 +76,13 @@ func (_m *Chain) ID() string {
 	return r0
 }
 
-// Reader provides a mock function with given fields: nodeName
-func (_m *Chain) Reader(nodeName string) (client.Reader, error) {
-	ret := _m.Called(nodeName)
+// Reader provides a mock function with given fields:
+func (_m *Chain) Reader() (client.Reader, error) {
+	ret := _m.Called()
 
 	var r0 client.Reader
-	if rf, ok := ret.Get(0).(func(string) client.Reader); ok {
-		r0 = rf(nodeName)
+	if rf, ok := ret.Get(0).(func() client.Reader); ok {
+		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(client.Reader)
@@ -90,8 +90,8 @@ func (_m *Chain) Reader(nodeName string) (client.Reader, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(nodeName)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}

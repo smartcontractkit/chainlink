@@ -16,7 +16,7 @@ import (
 
 // Config defines the monitor configuration.
 type Config interface {
-	BlockRate() time.Duration
+	BalancePollPeriod() time.Duration
 }
 
 // Keystore provides the keys to be monitored.
@@ -25,11 +25,11 @@ type Keystore interface {
 }
 
 // NewBalanceMonitor returns a balance monitoring services.Service which reports the luna balance of all ks keys to prometheus.
-func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (solanaClient.Reader, error)) services.ServiceCtx {
+func NewBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func() (solanaClient.Reader, error)) services.ServiceCtx {
 	return newBalanceMonitor(chainID, cfg, lggr, ks, newReader)
 }
 
-func newBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func(string) (solanaClient.Reader, error)) *balanceMonitor {
+func newBalanceMonitor(chainID string, cfg Config, lggr logger.Logger, ks Keystore, newReader func() (solanaClient.Reader, error)) *balanceMonitor {
 	b := balanceMonitor{
 		chainID:   chainID,
 		cfg:       cfg,
@@ -49,7 +49,7 @@ type balanceMonitor struct {
 	cfg       Config
 	lggr      logger.Logger
 	ks        Keystore
-	newReader func(string) (solanaClient.Reader, error)
+	newReader func() (solanaClient.Reader, error)
 	updateFn  func(acc solana.PublicKey, lamports uint64) // overridable for testing
 
 	reader solanaClient.Reader
@@ -75,14 +75,14 @@ func (b *balanceMonitor) Close() error {
 func (b *balanceMonitor) monitor() {
 	defer close(b.done)
 
-	tick := time.After(utils.WithJitter(b.cfg.BlockRate()))
+	tick := time.After(utils.WithJitter(b.cfg.BalancePollPeriod()))
 	for {
 		select {
 		case <-b.stop:
 			return
 		case <-tick:
 			b.updateBalances()
-			tick = time.After(utils.WithJitter(b.cfg.BlockRate()))
+			tick = time.After(utils.WithJitter(b.cfg.BalancePollPeriod()))
 		}
 	}
 }
@@ -91,7 +91,7 @@ func (b *balanceMonitor) monitor() {
 func (b *balanceMonitor) getReader() (solanaClient.Reader, error) {
 	if b.reader == nil {
 		var err error
-		b.reader, err = b.newReader("")
+		b.reader, err = b.newReader()
 		if err != nil {
 			return nil, err
 		}

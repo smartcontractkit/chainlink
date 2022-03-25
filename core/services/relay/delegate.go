@@ -171,7 +171,6 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
 			ChainID:            config.ChainID,
-			NodeName:           config.NodeName,
 			ProgramID:          programID,
 			StateID:            stateID,
 			StoreProgramID:     storeProgramID,

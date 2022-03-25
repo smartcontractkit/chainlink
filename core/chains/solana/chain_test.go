@@ -41,16 +41,8 @@ func TestSolanaChain_GetClient(t *testing.T) {
 		chainIDLock:   &sync.RWMutex{},
 	}
 
-	// named nodes response (happy path)
-	solORM.On("NodeNamed", mock.Anything).Return(db.Node{
-		SolanaChainID: "devnet",
-		SolanaURL:     mockServer.URL + "/0",
-	}, nil).Once()
-	_, err := testChain.getClient("namedNode")
-	assert.NoError(t, err)
-
-  // random nodes (happy path, all valid)
-  solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
+	// random nodes (happy path, all valid)
+	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
 		db.Node{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/1",
@@ -60,46 +52,38 @@ func TestSolanaChain_GetClient(t *testing.T) {
 			SolanaURL:     mockServer.URL + "/2",
 		},
 	}, 2, nil).Once()
-	_, err = testChain.getClient("")
+	_, err := testChain.getClient()
 	assert.NoError(t, err)
 
-  // random nodes (happy path, 1 valid + multiple invalid)
-  solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
-    db.Node{
-      SolanaChainID: "devnet",
-      SolanaURL:     mockServer.URL + "/A",
-    },
-    db.Node{
-      SolanaChainID: "devnet",
-      SolanaURL:     mockServer.URL + "/mismatch/A",
-    },
-    db.Node{
-      SolanaChainID: "devnet",
-      SolanaURL:     mockServer.URL + "/mismatch/B",
-    },
-    db.Node{
-      SolanaChainID: "devnet",
-      SolanaURL:     mockServer.URL + "/mismatch/C",
-    },
-    db.Node{
-      SolanaChainID: "devnet",
-      SolanaURL:     mockServer.URL + "/mismatch/D",
-    },
-  }, 2, nil).Once()
-  _, err = testChain.getClient("")
-  assert.NoError(t, err)
+	// random nodes (happy path, 1 valid + multiple invalid)
+	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
+		db.Node{
+			SolanaChainID: "devnet",
+			SolanaURL:     mockServer.URL + "/A",
+		},
+		db.Node{
+			SolanaChainID: "devnet",
+			SolanaURL:     mockServer.URL + "/mismatch/A",
+		},
+		db.Node{
+			SolanaChainID: "devnet",
+			SolanaURL:     mockServer.URL + "/mismatch/B",
+		},
+		db.Node{
+			SolanaChainID: "devnet",
+			SolanaURL:     mockServer.URL + "/mismatch/C",
+		},
+		db.Node{
+			SolanaChainID: "devnet",
+			SolanaURL:     mockServer.URL + "/mismatch/D",
+		},
+	}, 2, nil).Once()
+	_, err = testChain.getClient()
+	assert.NoError(t, err)
 
 	// empty nodes response
 	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{}, 0, nil).Once()
-	_, err = testChain.getClient("")
-	assert.Error(t, err)
-
-	// named nodes response wrong genesis hash
-	solORM.On("NodeNamed", mock.Anything).Return(db.Node{
-		SolanaChainID: "devnet",
-		SolanaURL:     mockServer.URL + "/mismatch/0",
-	}, nil).Once()
-	_, err = testChain.getClient("namedNode")
+	_, err = testChain.getClient()
 	assert.Error(t, err)
 
 	// no valid nodes to select from
@@ -113,7 +97,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 			SolanaURL:     mockServer.URL + "/mismatch/2",
 		},
 	}, 2, nil).Once()
-	_, err = testChain.getClient("")
+	_, err = testChain.getClient()
 	assert.Error(t, err)
 }
 

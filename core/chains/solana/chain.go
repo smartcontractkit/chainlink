@@ -62,7 +62,7 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 		chainIDLock:   &sync.RWMutex{},
 	}
 	tc := func() (solanaclient.ReaderWriter, error) {
-		return ch.getClient("")
+		return ch.getClient()
 	}
 	ch.txm = soltxm.NewTxm(tc, cfg, lggr)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
@@ -85,58 +85,41 @@ func (c *chain) TxManager() solana.TxManager {
 	return c.txm
 }
 
-func (c *chain) Reader(name string) (solanaclient.Reader, error) {
-	return c.getClient(name)
+func (c *chain) Reader() (solanaclient.Reader, error) {
+	return c.getClient()
 }
 
-// getClient returns a client, optionally requiring a specific node by name.
-func (c *chain) getClient(name string) (solanaclient.ReaderWriter, error) {
+// getClient returns a client, randomly selecting one from available and valid nodes
+func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 	var node db.Node
 	var client solanaclient.ReaderWriter
-	if name == "" { // Any node
-		nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get nodes")
-		}
-		if cnt == 0 {
-			return nil, errors.New("no nodes available")
-		}
-		rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
-		// #nosec
-		index := rand.Perm(len(nodes)) // list of node indexes to try
-		found := false
-		for _, i := range index {
-			node = nodes[i]
-			// create client and check
-			client, err = c.verifiedClient(node)
-			// if error, try another node
-			if err != nil {
-				c.lggr.Warnw("failed to create node", "name", node.Name, "solana-url", node.SolanaURL, "error", err.Error())
-				continue
-			}
-			// if all checks passed, mark found and break loop
-			found = true
-			break
-		}
-		// if no valid node found, exit with error
-		if !found {
-			return nil, errors.New("no node valid nodes available")
-		}
-	} else { // Named node
-		var err error
-		node, err = c.orm.NodeNamed(name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get node named %s", name)
-		}
-		if node.SolanaChainID != c.id {
-			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.SolanaChainID)
-		}
-
+	nodes, cnt, err := c.orm.NodesForChain(c.id, 0, math.MaxInt)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get nodes")
+	}
+	if cnt == 0 {
+		return nil, errors.New("no nodes available")
+	}
+	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
+	// #nosec
+	index := rand.Perm(len(nodes)) // list of node indexes to try
+	found := false
+	for _, i := range index {
+		node = nodes[i]
 		// create client and check
 		client, err = c.verifiedClient(node)
+		// if error, try another node
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create node %s", name)
+			c.lggr.Warnw("failed to create node", "name", node.Name, "solana-url", node.SolanaURL, "error", err.Error())
+			continue
 		}
+		// if all checks passed, mark found and break loop
+		found = true
+		break
+	}
+	// if no valid node found, exit with error
+	if !found {
+		return nil, errors.New("no node valid nodes available")
 	}
 	c.lggr.Debugw("Created client", "name", node.Name, "solana-url", node.SolanaURL)
 	return client, nil

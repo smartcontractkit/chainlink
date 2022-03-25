@@ -54,7 +54,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
-	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220324211245-37581e01397e
+	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220325182516-b7c508bd4823
 	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220315114020-a15962b0ed9b
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb

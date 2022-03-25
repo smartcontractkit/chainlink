@@ -69,7 +69,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 
 	txm := chain.TxManager()
 	var reader client.Reader
-	reader, err = chain.Reader("")
+	reader, err = chain.Reader()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("chain unreachable: %v", err))
 		return

@@ -81,7 +81,6 @@ func TestNewOCR2Provider(t *testing.T) {
 	}{
 		// TODO: Where is EVM?
 		{"solana", testspecs.OCR2SolanaSpecMinimal},
-		{"solana", testspecs.OCR2SolanaNodeSpecMinimal}, // nodeName: "some-test-node"
 		{"terra", testspecs.OCR2TerraSpecMinimal},
 		{"terra", testspecs.OCR2TerraNodeSpecMinimal}, // nodeName: "some-test-node"
 	}
