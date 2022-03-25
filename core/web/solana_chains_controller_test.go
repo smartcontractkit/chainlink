@@ -40,7 +40,7 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 	body, err := json.Marshal(web.CreateSolanaChainRequest{
 		ID: newChainId,
 		Config: db.ChainCfg{
-			BlockRate:           &second,
+			BalancePollPeriod:   &second,
 			ConfirmPollPeriod:   &minute,
 			OCR2CachePollPeriod: &minute,
 			OCR2CacheTTL:        &second,
@@ -64,7 +64,7 @@ func Test_SolanaChainsController_Create(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, resource.ID, dbChain.ID)
-	assert.Equal(t, resource.Config.BlockRate, dbChain.Cfg.BlockRate)
+	assert.Equal(t, resource.Config.BalancePollPeriod, dbChain.Cfg.BalancePollPeriod)
 	assert.Equal(t, resource.Config.ConfirmPollPeriod, dbChain.Cfg.ConfirmPollPeriod)
 	assert.Equal(t, resource.Config.OCR2CachePollPeriod, dbChain.Cfg.OCR2CachePollPeriod)
 	assert.Equal(t, resource.Config.OCR2CacheTTL, dbChain.Cfg.OCR2CacheTTL)

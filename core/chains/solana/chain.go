@@ -46,7 +46,7 @@ type chain struct {
 
 	// tracking node chain id for verification
 	clientChainID map[string]string // map URL -> chainId [mainnet/testnet/devnet/localnet]
-	chainIDLock   *sync.RWMutex
+	chainIDLock   sync.RWMutex
 }
 
 // NewChain returns a new chain backed by node.
@@ -59,7 +59,6 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 		orm:           orm,
 		lggr:          lggr.Named("Chain"),
 		clientChainID: map[string]string{},
-		chainIDLock:   &sync.RWMutex{},
 	}
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient()
@@ -103,7 +102,6 @@ func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 	rand.Seed(time.Now().Unix()) // seed randomness otherwise it will return the same each time
 	// #nosec
 	index := rand.Perm(len(nodes)) // list of node indexes to try
-	found := false
 	for _, i := range index {
 		node = nodes[i]
 		// create client and check
@@ -114,11 +112,10 @@ func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 			continue
 		}
 		// if all checks passed, mark found and break loop
-		found = true
 		break
 	}
 	// if no valid node found, exit with error
-	if !found {
+	if client == nil {
 		return nil, errors.New("no node valid nodes available")
 	}
 	c.lggr.Debugw("Created client", "name", node.Name, "solana-url", node.SolanaURL)

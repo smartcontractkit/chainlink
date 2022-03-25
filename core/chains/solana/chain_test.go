@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -38,7 +37,6 @@ func TestSolanaChain_GetClient(t *testing.T) {
 		cfg:           config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:          logger.TestLogger(t),
 		clientChainID: map[string]string{},
-		chainIDLock:   &sync.RWMutex{},
 	}
 
 	// random nodes (happy path, all valid)
@@ -122,7 +120,6 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 		cfg:           config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:          logger.TestLogger(t),
 		clientChainID: map[string]string{},
-		chainIDLock:   &sync.RWMutex{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
