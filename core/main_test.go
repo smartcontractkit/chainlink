@@ -483,7 +483,7 @@ func ExampleRun_txs_solana() {
 	//    core.test txs solana command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Send <amount> sol from node Solana account <fromAddress> to destination <toAddress>.
+	//    create  Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.
 	//
 	// OPTIONS:
 	//    --help, -h  show help
