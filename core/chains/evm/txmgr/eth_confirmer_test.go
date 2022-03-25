@@ -2236,7 +2236,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	keys, err := ethKeyStore.SendingKeys()
+	keys, err := ethKeyStore.SendingKeys(nil)
 	require.NoError(t, err)
 	keyStates, err := ethKeyStore.GetStatesForKeys(keys)
 	require.NoError(t, err)

@@ -76,7 +76,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
 	_, err := ks.Eth().Create(big.NewInt(0))
 	require.NoError(t, err)
-	submitter, err := ks.Eth().GetRoundRobinAddress()
+	submitter, err := ks.Eth().GetRoundRobinAddress(nil)
 	require.NoError(t, err)
 	vrfkey, err := ks.VRF().Create()
 	require.NoError(t, err)
