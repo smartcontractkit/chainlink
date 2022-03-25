@@ -36,7 +36,7 @@ type Delegate struct {
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
 
 type GethKeyStore interface {
-	GetRoundRobinAddress(addresses ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
 type Config interface {
@@ -114,6 +114,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				cfg:                chain.Config(),
 				l:                  lV2,
 				ethClient:          chain.Client(),
+				chainID:            chain.ID(),
 				logBroadcaster:     chain.LogBroadcaster(),
 				q:                  d.q,
 				coordinator:        coordinatorV2,

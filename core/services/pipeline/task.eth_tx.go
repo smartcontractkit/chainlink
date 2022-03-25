@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"math/big"
 	"reflect"
 	"strconv"
 
@@ -38,7 +39,7 @@ type ETHTxTask struct {
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
 
 type ETHKeyStore interface {
-	GetRoundRobinAddress(addrs ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -104,7 +105,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: err}, runInfo
 	}
 
-	fromAddr, err := t.keyStore.GetRoundRobinAddress(fromAddrs...)
+	fromAddr, err := t.keyStore.GetRoundRobinAddress(chain.ID(), fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		lggr.Error(err)

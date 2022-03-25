@@ -113,7 +113,7 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 
 	config.Overrides.P2PPeerID = peerID
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address.Address()
