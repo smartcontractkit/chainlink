@@ -157,23 +157,45 @@ func unmarshalMsg(msgType string, raw []byte) (sdk.Msg, string, error) {
 	return nil, "", errors.Errorf("unrecognized message type: %s", msgType)
 }
 
+type msgValidator struct {
+	cutoff         time.Time
+	expired, valid terra.Msgs
+}
+
+func (e *msgValidator) add(msg terra.Msg) {
+	if msg.CreatedAt.Before(e.cutoff) {
+		e.expired = append(e.expired, msg)
+	} else {
+		e.valid = append(e.valid, msg)
+	}
+}
+
 func (txm *Txm) sendMsgBatch(ctx context.Context) {
-	var notExpired, expired terra.Msgs
+	msgs := msgValidator{cutoff: time.Now().Add(-txm.cfg.TxMsgTimeout())}
 	err := txm.orm.q.Transaction(func(tx pg.Queryer) error {
-		unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
+		started, err := txm.orm.GetMsgsState(db.Started, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
 		if err != nil {
 			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 			return err
 		}
-		cutoff := time.Now().Add(-txm.cfg.TxMsgTimeout())
-		for _, msg := range unstarted {
-			if msg.CreatedAt.Before(cutoff) {
-				expired = append(expired, msg)
-			} else {
-				notExpired = append(notExpired, msg)
-			}
+		for _, msg := range started {
+			msgs.add(msg)
 		}
-		err = txm.orm.UpdateMsgs(expired.GetIDs(), db.Errored, nil, pg.WithQueryer(tx))
+		unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch()-int64(len(started)), pg.WithQueryer(tx))
+		if err != nil {
+			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
+			return err
+		}
+		for _, msg := range unstarted {
+			msgs.add(msg)
+		}
+		err = txm.orm.UpdateMsgs(unstarted.GetIDs(), db.Started, nil, pg.WithQueryer(tx))
+		if err != nil {
+			// Assume transient db error retry
+			txm.lggr.Errorw("unable to mark unstarted txes as started", "err", err)
+			return err
+		}
+		err = txm.orm.UpdateMsgs(msgs.expired.GetIDs(), db.Errored, nil, pg.WithQueryer(tx))
 		if err != nil {
 			// Assume transient db error retry
 			txm.lggr.Errorw("unable to mark expired txes as errored", "err", err)
@@ -184,12 +206,12 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	if len(notExpired) == 0 {
+	if len(msgs.valid) == 0 {
 		return
 	}
-	txm.lggr.Debugw("building a batch", "not expired", notExpired, "marked expired", expired)
+	txm.lggr.Debugw("building a batch", "not expired", msgs.valid, "marked expired", msgs.expired)
 	var msgsByFrom = make(map[string]terra.Msgs)
-	for _, m := range notExpired {
+	for _, m := range msgs.valid {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
 		if err2 != nil {
 			// Should be impossible given the check in Enqueue
@@ -293,6 +315,8 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 	// We need to ensure that we either broadcast successfully and mark the tx as
 	// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
 	// We do this by first marking it broadcasted then rolling back if the broadcast api call fails.
+	// There is still a small chance of network failure or node/db crash after broadcasting but before committing the tx,
+	// in which case the msgs would be picked up again and re-broadcast, ensuring at-least once delivery.
 	var resp *txtypes.BroadcastTxResponse
 	err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
 		txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
@@ -424,8 +448,19 @@ func (txm *Txm) Enqueue(contractID string, msg sdk.Msg) (int64, error) {
 	// We could consider simulating here too, but that would
 	// introduce another network call and essentially double
 	// the enqueue time. Enqueue is used in the context of OCRs Transmit
-	// and must be fast, so we do the minimum of a db write.
-	return txm.orm.InsertMsg(contractID, typeURL, raw)
+	// and must be fast, so we do the minimum.
+
+	var id int64
+	err = txm.orm.q.Transaction(func(tx pg.Queryer) (err error) {
+		// cancel any unstarted msgs (normally just one, at most two in edge case of failed cleanup on start)
+		err = txm.orm.UpdateMsgsContract(contractID, db.Unstarted, db.Errored, pg.WithQueryer(tx))
+		if err != nil {
+			return err
+		}
+		id, err = txm.orm.InsertMsg(contractID, typeURL, raw, pg.WithQueryer(tx))
+		return err
+	})
+	return id, err
 }
 
 // GetMsgs returns any messages matching ids.
