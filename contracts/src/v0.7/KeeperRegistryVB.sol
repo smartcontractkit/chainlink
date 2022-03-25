@@ -16,8 +16,7 @@ import "./KeeperBase.sol";
 import "./ConfirmedOwner.sol";
 
 /**
- * @notice Registry for adding work for Chainlink Keepers to perform on client
- * contracts. Clients must support the Upkeep interface.
+ * @notice This registry is deprecated and may not function correctly. Please use KeeperRegistry
  */
 contract KeeperRegistryVB is
   TypeAndVersionInterface,
@@ -526,6 +525,7 @@ contract KeeperRegistryVB is
       bytes memory checkData,
       uint96 balance,
       address lastKeeper,
+      uint256 lastBlockNumber,
       address admin,
       uint64 maxValidBlocknumber
     )
@@ -537,6 +537,7 @@ contract KeeperRegistryVB is
       s_checkData[id],
       reg.balance,
       reg.lastKeeper,
+      0,
       reg.admin,
       reg.maxValidBlocknumber
     );

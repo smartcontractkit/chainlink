@@ -40,7 +40,7 @@ contract KeeperRegistry is
   uint256 private constant CALL_GAS_MIN = 2_300;
   uint256 private constant CANCELATION_DELAY = 50;
   uint256 private constant CUSHION = 5_000;
-  uint256 private constant REGISTRY_GAS_OVERHEAD = 80_000;
+  uint256 private constant REGISTRY_GAS_OVERHEAD = 100_000;
   uint256 private constant PPB_BASE = 1_000_000_000;
   uint64 private constant UINT64_MAX = 2**64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
@@ -77,6 +77,7 @@ contract KeeperRegistry is
     address admin;
     uint64 maxValidBlocknumber;
     address lastKeeper;
+    uint256 lastBlockNumber;
   }
 
   struct KeeperInfo {
@@ -206,7 +207,8 @@ contract KeeperRegistry is
       balance: 0,
       admin: admin,
       maxValidBlocknumber: UINT64_MAX,
-      lastKeeper: address(0)
+      lastKeeper: address(0),
+      lastBlockNumber: 0
     });
     s_checkData[id] = checkData;
     s_upkeepCount++;
@@ -518,6 +520,7 @@ contract KeeperRegistry is
       bytes memory checkData,
       uint96 balance,
       address lastKeeper,
+      uint256 lastBlockNumber,
       address admin,
       uint64 maxValidBlocknumber
     )
@@ -529,6 +532,7 @@ contract KeeperRegistry is
       s_checkData[id],
       reg.balance,
       reg.lastKeeper,
+      reg.lastBlockNumber,
       reg.admin,
       reg.maxValidBlocknumber
     );
@@ -730,6 +734,7 @@ contract KeeperRegistry is
     uint96 newUpkeepBalance = s_upkeep[params.id].balance.sub(payment);
     s_upkeep[params.id].balance = newUpkeepBalance;
     s_upkeep[params.id].lastKeeper = params.from;
+    s_upkeep[params.id].lastBlockNumber = block.number;
 
     uint96 newKeeperBalance = s_keeperInfo[params.from].balance.add(payment);
     s_keeperInfo[params.from].balance = newKeeperBalance;
@@ -753,9 +758,13 @@ contract KeeperRegistry is
     address from,
     uint256 maxLinkPayment
   ) private view {
+    uint256 blockCountPerTurn = s_config.blockCountPerTurn;
+    bool inSameBlockTurn = block.number.sub(block.number.mod(blockCountPerTurn)) ==
+      upkeep.lastBlockNumber.sub(upkeep.lastBlockNumber.mod(blockCountPerTurn));
+
     require(s_keeperInfo[from].active, "only active keepers");
     require(upkeep.balance >= maxLinkPayment, "insufficient funds");
-    require(upkeep.lastKeeper != from, "keepers must take turns");
+    require(upkeep.lastKeeper != from || inSameBlockTurn, "keepers must change after block turn");
   }
 
   /**

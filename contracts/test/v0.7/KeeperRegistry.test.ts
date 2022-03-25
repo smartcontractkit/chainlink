@@ -22,7 +22,7 @@ async function getUpkeepID(tx: any) {
 
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
-const PERFORM_GAS_OVERHEAD = BigNumber.from(90000)
+const PERFORM_GAS_OVERHEAD = BigNumber.from(110000)
 const CHECK_GAS_OVERHEAD = BigNumber.from(170000)
 // -----------------------------------------------------------------------------------------------
 
@@ -51,10 +51,10 @@ before(async () => {
 })
 
 describe('KeeperRegistry', () => {
-  const linkEth = BigNumber.from(300000000)
+  const linkEth = BigNumber.from(500000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
-  const executeGas = BigNumber.from('100000')
+  const executeGas = BigNumber.from('120000')
   const paymentPremiumBase = BigNumber.from('1000000000')
   const paymentPremiumPPB = BigNumber.from('250000000')
   const flatFeeMicroLink = BigNumber.from(0)
@@ -62,7 +62,7 @@ describe('KeeperRegistry', () => {
   const emptyBytes = '0x00'
   const zeroAddress = ethers.constants.AddressZero
   const extraGas = BigNumber.from('250000')
-  const registryGasOverhead = BigNumber.from('80000')
+  const registryGasOverhead = BigNumber.from('100000')
   const stalenessSeconds = BigNumber.from(43820)
   const gasCeilingMultiplier = BigNumber.from(1)
   const maxCheckGas = BigNumber.from(20000000)
@@ -705,6 +705,7 @@ describe('KeeperRegistry', () => {
         const max = linkForGas(executeGas.toNumber())
         const totalTx = linkForGas(receipt.gasUsed.toNumber())
         const difference = after.sub(before)
+
         assert.isTrue(max.gt(totalTx))
         assert.isTrue(totalTx.gt(difference))
         assert.isTrue(linkForGas(5700).lt(difference)) // exact number is flaky
@@ -885,18 +886,48 @@ describe('KeeperRegistry', () => {
         assert.isTrue(normalAmount.lt(amountWithZeroFeed))
       })
 
-      it('reverts if the same caller calls twice in a row', async () => {
-        await registry.connect(keeper1).performUpkeep(id, '0x')
+      it('reverts if the same caller calls twice in a row within same block turn', async () => {
+        await (await registry.connect(keeper1).performUpkeep(id, '0x')).wait(1)
+        // Mine 2 more blocks to go to next blockTurn (blockCountPerTurn  = 3)
+        await ethers.provider.send('evm_mine', [])
+        await ethers.provider.send('evm_mine', [])
+        // Now keeper1 shouldn't be allowed to perform upkeep but keeper2 can
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'keepers must take turns',
+          'keepers must change after block turn',
         )
-        await registry.connect(keeper2).performUpkeep(id, '0x')
+        await (await registry.connect(keeper2).performUpkeep(id, '0x')).wait(1)
+        // Mine 2 more blocks to go to next blockTurn (blockCountPerTurn  = 3)
+        await ethers.provider.send('evm_mine', [])
+        await ethers.provider.send('evm_mine', [])
+
+        // Now keeper2 shouldn't be allowed to perform upkeep but keeper1 can
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'keepers must take turns',
+          'keepers must change after block turn',
         )
         await registry.connect(keeper1).performUpkeep(id, '0x')
+      })
+
+      it('allows same keeper to upkeep multiple times within a block turn', async () => {
+        while (
+          (await ethers.provider.getBlockNumber()) %
+            blockCountPerTurn.toNumber() !=
+          blockCountPerTurn.toNumber() - 1
+        ) {
+          // Go to the start of block turn
+          await ethers.provider.send('evm_mine', [])
+        }
+        // blockCountPerTurn  = 3, so keeper should be able to upkeep for 3 blocks
+        await (await registry.connect(keeper1).performUpkeep(id, '0x')).wait(1)
+        await (await registry.connect(keeper1).performUpkeep(id, '0x')).wait(1)
+        await (await registry.connect(keeper1).performUpkeep(id, '0x')).wait(1)
+
+        // Now keeper should fail
+        await evmRevert(
+          registry.connect(keeper1).performUpkeep(id, '0x'),
+          'keepers must change after block turn',
+        )
       })
 
       it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
