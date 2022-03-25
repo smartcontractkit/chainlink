@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -231,25 +231,24 @@ func (n *node) dial(callerCtx context.Context) error {
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(n.chainID.String(), n.name).Inc()
-	var httpuri string
+	lggr := n.log.With("wsuri", n.ws.uri.Redacted())
 	if n.http != nil {
-		httpuri = n.http.uri.String()
+		lggr = lggr.With("httpuri", n.http.uri.Redacted())
 	}
-	n.log.Debugw("RPC dial: evmclient.Client#dial", "wsuri", n.ws.uri.String(), "httpuri", httpuri)
+	lggr.Debugw("RPC dial: evmclient.Client#dial")
 
-	uri := n.ws.uri.String()
-	wsrpc, err := rpc.DialWebsocket(ctx, uri, "")
+	wsrpc, err := rpc.DialWebsocket(ctx, n.ws.uri.String(), "")
 	if err != nil {
 		promEVMPoolRPCNodeDialsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-		return errors.Wrapf(err, "error while dialing websocket: %v", uri)
+		return errors.Wrapf(err, "error while dialing websocket: %v", n.ws.uri.Redacted())
 	}
 
 	var httprpc *rpc.Client
 	if n.http != nil {
-		httprpc, err = rpc.DialHTTP(httpuri)
+		httprpc, err = rpc.DialHTTP(n.http.uri.String())
 		if err != nil {
 			promEVMPoolRPCNodeDialsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
-			return errors.Wrapf(err, "error while dialing HTTP: %v", uri)
+			return errors.Wrapf(err, "error while dialing HTTP: %v", n.http.uri.Redacted())
 		}
 	}
 
@@ -261,7 +260,7 @@ func (n *node) dial(callerCtx context.Context) error {
 		n.http.geth = ethclient.NewClient(httprpc)
 	}
 
-	n.log.Debugw("RPC dial: success", "wsuri", n.ws.uri.String(), "httpuri", httpuri)
+	n.log.Debugw("RPC dial: success")
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 
 	return nil
@@ -923,12 +922,12 @@ func (n *node) logResult(
 }
 
 func (n *node) wrapWS(err error) error {
-	err = wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.String()))
+	err = wrap(err, fmt.Sprintf("primary websocket (%s)", n.ws.uri.Redacted()))
 	return err
 }
 
 func (n *node) wrapHTTP(err error) error {
-	err = wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.String()))
+	err = wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.Redacted()))
 	if err != nil {
 		n.log.Debugw("Call failed", "err", err)
 	} else {
@@ -991,9 +990,9 @@ func switching(n *node) string {
 }
 
 func (n *node) String() string {
-	s := fmt.Sprintf("(primary)%s:%s", n.name, n.ws.uri.String())
+	s := fmt.Sprintf("(primary)%s:%s", n.name, n.ws.uri.Redacted())
 	if n.http != nil {
-		s = s + fmt.Sprintf(":%s", n.http.uri.String())
+		s = s + fmt.Sprintf(":%s", n.http.uri.Redacted())
 	}
 	return s
 }
