@@ -244,6 +244,7 @@ type VRFSpecParams struct {
 	RequestedConfsDelay      int
 	RequestTimeout           time.Duration
 	V2                       bool
+	ChunkSize                int
 }
 
 type VRFSpec struct {
@@ -279,6 +280,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
 		publicKey = params.PublicKey
+	}
+	chunkSize := 20
+	if params.ChunkSize != 0 {
+		chunkSize = params.ChunkSize
 	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
@@ -339,12 +344,13 @@ minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
 publicKey = "%s"
+chunkSize = %d
 observationSource = """
 %s
 """
 `
 	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay,
-		requestTimeout.String(), publicKey, observationSource)
+		requestTimeout.String(), publicKey, chunkSize, observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {
@@ -362,6 +368,7 @@ observationSource = """
 		ObservationSource:        observationSource,
 		RequestedConfsDelay:      params.RequestedConfsDelay,
 		RequestTimeout:           requestTimeout,
+		ChunkSize:                chunkSize,
 	}, toml: toml}
 }
 

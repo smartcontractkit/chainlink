@@ -435,8 +435,11 @@ type VRFSpec struct {
 	PollPeriodEnv            bool
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
-	CreatedAt                time.Time     `toml:"-"`
-	UpdatedAt                time.Time     `toml:"-"`
+
+	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults to 20 if not provided.
+	ChunkSize uint32    `toml:"chunkSize"`
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
 }
 
 // BlockhashStoreSpec defines the job spec for the blockhash store feeder.

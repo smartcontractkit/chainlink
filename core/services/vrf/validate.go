@@ -57,6 +57,11 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	if spec.RequestTimeout == 0 {
 		spec.RequestTimeout = 24 * time.Hour
 	}
+
+	if spec.ChunkSize == 0 {
+		spec.ChunkSize = 20
+	}
+
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {
 		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 {
