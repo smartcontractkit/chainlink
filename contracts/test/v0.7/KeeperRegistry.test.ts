@@ -8,6 +8,7 @@ import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechai
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
+import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../typechain/factories/UpkeepAutoFunder__factory'
 import { KeeperRegistry } from '../../typechain/KeeperRegistry'
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
@@ -31,6 +32,7 @@ let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory: KeeperRegistryFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
+let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
 
 let personas: Personas
 
@@ -45,6 +47,7 @@ before(async () => {
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
+  upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
 })
 
 describe('KeeperRegistry', () => {
@@ -914,6 +917,86 @@ describe('KeeperRegistry', () => {
         assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress())
         assert.isNotEmpty(eventLog?.[1].args?.[3])
         assert.equal(eventLog?.[1].args?.[4], performData)
+      })
+
+      it('can self fund', async () => {
+        const autoFunderUpkeep = await upkeepAutoFunderFactory
+          .connect(owner)
+          .deploy(linkToken.address, registry.address)
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            autoFunderUpkeep.address,
+            executeGas,
+            autoFunderUpkeep.address,
+            emptyBytes,
+          )
+        const upkeepID = await getUpkeepID(tx)
+        await autoFunderUpkeep.setUpkeepId(upkeepID)
+        // Give enough funds for upkeep as well as to the upkeep contract
+        await linkToken.connect(owner).approve(registry.address, toWei('1000'))
+        await linkToken
+          .connect(owner)
+          .transfer(autoFunderUpkeep.address, toWei('1000'))
+        let maxPayment = await registry.getMaxPaymentForGas(executeGas)
+
+        // First set auto funding amount to 0 and verify that balance is deducted upon performUpkeep
+        let initialBalance = toWei('100')
+        await registry.connect(owner).addFunds(upkeepID, initialBalance)
+        await autoFunderUpkeep.setAutoFundLink(0)
+        await autoFunderUpkeep.setIsEligible(true)
+        await registry.connect(keeper1).performUpkeep(upkeepID, '0x')
+
+        let postUpkeepBalance = (await registry.getUpkeep(upkeepID)).balance
+        assert.isTrue(postUpkeepBalance.lt(initialBalance)) // Balance should be deducted
+        assert.isTrue(postUpkeepBalance.gte(initialBalance.sub(maxPayment))) // Balance should not be deducted more than maxPayment
+
+        // Now set auto funding amount to 100 wei and verify that the balance increases
+        initialBalance = postUpkeepBalance
+        let autoTopupAmount = toWei('100')
+        await autoFunderUpkeep.setAutoFundLink(autoTopupAmount)
+        await autoFunderUpkeep.setIsEligible(true)
+        await registry.connect(keeper2).performUpkeep(upkeepID, '0x')
+
+        postUpkeepBalance = (await registry.getUpkeep(upkeepID)).balance
+        // Balance should increase by autoTopupAmount and decrease by max maxPayment
+        assert.isTrue(
+          postUpkeepBalance.gte(
+            initialBalance.add(autoTopupAmount).sub(maxPayment),
+          ),
+        )
+      })
+
+      it('can self cancel', async () => {
+        const autoFunderUpkeep = await upkeepAutoFunderFactory
+          .connect(owner)
+          .deploy(linkToken.address, registry.address)
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(
+            autoFunderUpkeep.address,
+            executeGas,
+            autoFunderUpkeep.address,
+            emptyBytes,
+          )
+        const upkeepID = await getUpkeepID(tx)
+        await autoFunderUpkeep.setUpkeepId(upkeepID)
+
+        await linkToken.connect(owner).approve(registry.address, toWei('1000'))
+        await registry.connect(owner).addFunds(upkeepID, toWei('100'))
+        await autoFunderUpkeep.setIsEligible(true)
+        await autoFunderUpkeep.setShouldCancel(true)
+
+        let registration = await registry.getUpkeep(upkeepID)
+        const oldExpiration = registration.maxValidBlocknumber
+
+        // Do the thing
+        await registry.connect(keeper1).performUpkeep(upkeepID, '0x')
+
+        // Verify upkeep gets cancelled
+        registration = await registry.getUpkeep(upkeepID)
+        const newExpiration = registration.maxValidBlocknumber
+        assert.isTrue(newExpiration.lt(oldExpiration))
       })
     })
   })
