@@ -68,10 +68,9 @@ func (s *sendOnlyNode) Start(startCtx context.Context) error {
 		panic("evmclient.Client.Dial(...) should only be called once during the node's lifetime.")
 	}
 
-	uri := s.uri.String()
-	rpc, err := rpc.DialHTTP(uri)
+	rpc, err := rpc.DialHTTP(s.uri.String())
 	if err != nil {
-		return errors.Wrapf(err, "failed to dial secondary client: %v", uri)
+		return errors.Wrapf(err, "failed to dial secondary client: %v", s.uri.Redacted())
 	}
 	s.dialed = true
 	s.rpc = rpc
@@ -134,11 +133,11 @@ func (s *sendOnlyNode) ChainID() (chainID *big.Int) {
 }
 
 func (s *sendOnlyNode) wrap(err error) error {
-	return wrap(err, fmt.Sprintf("sendonly http (%s)", s.uri.String()))
+	return wrap(err, fmt.Sprintf("sendonly http (%s)", s.uri.Redacted()))
 }
 
 func (s *sendOnlyNode) String() string {
-	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.String())
+	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.Redacted())
 }
 
 func (s *sendOnlyNode) verify(parentCtx context.Context) (err error) {
