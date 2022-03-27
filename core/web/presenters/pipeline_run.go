@@ -16,7 +16,6 @@ type PipelineRunResource struct {
 	Errors       []*string                 `json:"errors"`
 	AllErrors    []*string                 `json:"allErrors"`
 	FatalErrors  []*string                 `json:"fatalErrors"`
-	Inputs       pipeline.JSONSerializable `json:"inputs"`
 	TaskRuns     []PipelineTaskRunResource `json:"taskRuns"`
 	CreatedAt    time.Time                 `json:"createdAt"`
 	FinishedAt   time.Time                 `json:"finishedAt"`
@@ -48,7 +47,6 @@ func NewPipelineRunResource(pr pipeline.Run, lggr logger.Logger) PipelineRunReso
 		Errors:       fatalErrors,
 		AllErrors:    pr.StringAllErrors(),
 		FatalErrors:  fatalErrors,
-		Inputs:       pr.Inputs,
 		TaskRuns:     trs,
 		CreatedAt:    pr.CreatedAt,
 		FinishedAt:   pr.FinishedAt.ValueOrZero(),
@@ -61,7 +59,6 @@ type PipelineTaskRunResource struct {
 	Type       pipeline.TaskType `json:"type"`
 	CreatedAt  time.Time         `json:"createdAt"`
 	FinishedAt time.Time         `json:"finishedAt"`
-	Output     *string           `json:"output"`
 	Error      *string           `json:"error"`
 	DotID      string            `json:"dotId"`
 }
@@ -72,12 +69,6 @@ func (r PipelineTaskRunResource) GetName() string {
 }
 
 func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
-	var output *string
-	if tr.Output.Valid {
-		outputBytes, _ := tr.Output.MarshalJSON()
-		outputStr := string(outputBytes)
-		output = &outputStr
-	}
 	var error *string
 	if tr.Error.Valid {
 		error = &tr.Error.String
@@ -86,7 +77,6 @@ func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
 		Type:       tr.Type,
 		CreatedAt:  tr.CreatedAt,
 		FinishedAt: tr.FinishedAt.ValueOrZero(),
-		Output:     output,
 		Error:      error,
 		DotID:      tr.GetDotID(),
 	}

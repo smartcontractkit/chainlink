@@ -2,6 +2,8 @@ package pipeline_test
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -97,10 +99,10 @@ func TestCBORParseTask(t *testing.T) {
 			nil,
 			map[string]interface{}{
 				"bignums": []interface{}{
-					float64(18446744073709551616),
-					float64(28948022309329048855892746252171976963317496166410141009864396001978282409984),
-					float64(-18446744073709551617),
-					float64(-28948022309329048855892746252171976963317496166410141009864396001978282409984),
+					mustParseBigInt(t, "18446744073709551616"),
+					mustParseBigInt(t, "28948022309329048855892746252171976963317496166410141009864396001978282409984"),
+					mustParseBigInt(t, "-18446744073709551617"),
+					mustParseBigInt(t, "-28948022309329048855892746252171976963317496166410141009864396001978282409984"),
 				},
 			},
 			nil,
@@ -154,4 +156,11 @@ func TestCBORParseTask(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustParseBigInt(t *testing.T, str string) *big.Int {
+	i := new(big.Int)
+	_, err := fmt.Sscan(str, i)
+	assert.NoError(t, err)
+	return i
 }

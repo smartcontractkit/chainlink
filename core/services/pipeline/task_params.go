@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -232,23 +231,17 @@ type BytesParam []byte
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
-		// try hex first
-		if len(v) >= 2 && v[:2] == "0x" {
-			bs, err := hex.DecodeString(v[2:])
+		if utils.HasHexPrefix(v) {
+			noHexPrefix := utils.RemoveHexPrefix(v)
+			bs, err := hex.DecodeString(noHexPrefix)
 			if err == nil {
-				*b = BytesParam(bs)
+				*b = bs
 				return nil
 			}
-			// The base64 encoding for the binary 0b110100110001 is '0x', so carry on.
 		}
-		// try decoding as base64 first, in case this is a string from the database
-		bs, err := base64.StdEncoding.DecodeString(v)
-		if err != nil {
-			bs = []byte(v)
-		}
-		*b = BytesParam(bs)
+		*b = BytesParam(v) // TODO: this can be "$(data)", need to review this case
 	case []byte:
-		*b = BytesParam(v)
+		*b = v
 	case nil:
 		*b = BytesParam(nil)
 	default:

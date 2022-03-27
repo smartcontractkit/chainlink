@@ -178,8 +178,8 @@ func NewRun(spec Spec, vars Vars) Run {
 		State:          RunStatusRunning,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
-		Inputs:         JSONSerializable{Val: vars.vars, Valid: true},
-		Outputs:        JSONSerializable{Val: nil, Valid: false},
+		Inputs:         CBORSerializable{Val: vars.vars, Valid: true},
+		Outputs:        CBORSerializable{Val: nil, Valid: false},
 		CreatedAt:      time.Now(),
 	}
 }
@@ -355,7 +355,7 @@ func (r *runner) run(
 		}
 		run.AllErrors = errors
 		run.FatalErrors = fatalErrors
-		run.Outputs = JSONSerializable{Val: outputs, Valid: true}
+		run.Outputs = CBORSerializable{Val: outputs, Valid: true}
 
 		if run.HasFatalErrors() {
 			run.State = RunStatusErrored

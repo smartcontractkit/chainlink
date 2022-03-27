@@ -338,9 +338,10 @@ juelsPerFeeCoinSource = """
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
 			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
-			jb, err := pr[0].Outputs.MarshalJSON()
-			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+			output, ok := pr[0].Outputs.Val.([]int)
+			require.True(t, ok)
+			require.Equal(t, 1, len(output))
+			assert.Equal(t, 10*ic, output[0], "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 			require.NoError(t, err)
 		}()
 	}

@@ -58,7 +58,7 @@ func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM) pipeline.Run {
 
 	run := pipeline.Run{
 		State:       pipeline.RunStatusRunning,
-		Outputs:     pipeline.JSONSerializable{},
+		Outputs:     pipeline.CBORSerializable{},
 		AllErrors:   pipeline.RunErrors{},
 		FatalErrors: pipeline.RunErrors{},
 		FinishedAt:  null.Time{},
@@ -102,7 +102,7 @@ answer2 [type=bridge name=election_winner index=1];
 	run := &pipeline.Run{
 		PipelineSpecID: specID,
 		State:          pipeline.RunStatusRunning,
-		Outputs:        pipeline.JSONSerializable{},
+		Outputs:        pipeline.CBORSerializable{},
 		CreatedAt:      time.Now(),
 	}
 
@@ -135,7 +135,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        pipeline.CBORSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -166,7 +166,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
-			Output:        pipeline.JSONSerializable{Val: 2, Valid: true},
+			Output:        pipeline.CBORSerializable{Val: 2, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -213,7 +213,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		PipelineRunID: run.ID,
 		Type:          "bridge",
 		DotID:         "ds1",
-		Output:        pipeline.JSONSerializable{Val: 2, Valid: true},
+		Output:        pipeline.CBORSerializable{Val: 2, Valid: true},
 		CreatedAt:     now,
 		FinishedAt:    null.TimeFrom(now),
 	})
@@ -235,7 +235,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        pipeline.CBORSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -250,7 +250,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 	// confirm we now contain the latest restart data merged with local task data
 	ds1 := run.ByDotID("ds1")
-	require.Equal(t, ds1.Output.Val, float64(2))
+	require.Equal(t, ds1.Output.Val, uint64(2))
 	require.True(t, ds1.FinishedAt.Valid)
 
 }
@@ -279,7 +279,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        pipeline.CBORSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -306,7 +306,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	// assert that the task is now updated
 	task := run.ByDotID("ds1")
 	require.True(t, task.FinishedAt.Valid)
-	require.Equal(t, pipeline.JSONSerializable{Val: "foo", Valid: true}, task.Output)
+	require.Equal(t, pipeline.CBORSerializable{Val: "foo", Valid: true}, task.Output)
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
@@ -332,7 +332,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+			Output:        pipeline.CBORSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -368,14 +368,14 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 				PipelineRunID: run.ID,
 				Type:          "median",
 				DotID:         "answer2",
-				Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
+				Output:        pipeline.CBORSerializable{Val: 1, Valid: true},
 				CreatedAt:     now,
 				FinishedAt:    null.TimeFrom(now.Add(-1 * time.Second)),
 			},
 		}
 		run.State = pipeline.RunStatusCompleted
 		run.FinishedAt = null.TimeFrom(now.Add(-1 * time.Second))
-		run.Outputs = pipeline.JSONSerializable{Val: 1, Valid: true}
+		run.Outputs = pipeline.CBORSerializable{Val: 1, Valid: true}
 		run.FatalErrors = pipeline.RunErrors{null.StringFrom("SOMETHING")}
 
 		restart, err := orm.StoreRun(run)

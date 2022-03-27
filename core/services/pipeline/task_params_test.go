@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"encoding/base64"
 	"net/url"
 	"testing"
 
@@ -52,17 +51,10 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 		expected interface{}
 		err      error
 	}{
-		{"string", "foo bar baz", pipeline.BytesParam("foo bar baz"), nil},
+		{"string", []byte("$(data)"), pipeline.BytesParam("$(data)"), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.BytesParam("foo bar baz"), nil},
 		{"int", 12345, pipeline.BytesParam(nil), pipeline.ErrBadInput},
-
-		// The base64 encoding for the binary 0b110100110001 is '0x', so we must not error when hex fails, since it might actually be b64.
-		{"hex-invalid", "0xh",
-			pipeline.BytesParam("0xh"), nil},
-		{"b64-hex-prefix", base64.StdEncoding.EncodeToString([]byte{0b11010011, 0b00011000, 0b01001101}),
-			pipeline.BytesParam([]byte{0b11010011, 0b00011000, 0b01001101}), nil},
-		{"b64-hex-prefix-2", base64.StdEncoding.EncodeToString(hexutil.MustDecode("0xd3184d")),
-			pipeline.BytesParam(hexutil.MustDecode("0xd3184d")), nil},
+		{"valid-hex", hexutil.MustDecode("0xd3184d"), pipeline.BytesParam(hexutil.MustDecode("0xd3184d")), nil},
 	}
 
 	for _, test := range tests {

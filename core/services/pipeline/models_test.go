@@ -39,7 +39,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				AllErrors:   pipeline.RunErrors{},
 				FatalErrors: pipeline.RunErrors{},
-				Outputs:     pipeline.JSONSerializable{},
+				Outputs:     pipeline.CBORSerializable{},
 				FinishedAt:  null.Time{},
 			},
 			want: pipeline.RunStatusRunning,
@@ -49,7 +49,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				AllErrors:   pipeline.RunErrors{},
 				FatalErrors: pipeline.RunErrors{},
-				Outputs:     pipeline.JSONSerializable{Val: []interface{}{10, 10}, Valid: true},
+				Outputs:     pipeline.CBORSerializable{Val: []interface{}{10, 10}, Valid: true},
 				FinishedAt:  now,
 			},
 			want: pipeline.RunStatusCompleted,
@@ -59,7 +59,7 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				AllErrors:   pipeline.RunErrors{null.StringFrom(errors.New("fail").Error())},
 				FatalErrors: pipeline.RunErrors{null.StringFrom(errors.New("fail").Error())},
-				Outputs:     pipeline.JSONSerializable{},
+				Outputs:     pipeline.CBORSerializable{},
 				FinishedAt:  null.Time{},
 			},
 			want: pipeline.RunStatusErrored,

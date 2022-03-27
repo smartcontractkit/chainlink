@@ -19,6 +19,9 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -28,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/require"
 )
 
 func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
@@ -602,7 +603,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Now simulate a new result coming in
 	task := run.ByDotID("ds1")
 	task.Error = null.NewString("", false)
-	task.Output = pipeline.JSONSerializable{
+	task.Output = pipeline.CBORSerializable{
 		Val:   `{"data":{"result":"9700"}}` + "\n",
 		Valid: true,
 	}
@@ -714,7 +715,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
-		task.Output = pipeline.JSONSerializable{
+		task.Output = pipeline.CBORSerializable{
 			Val:   `{"data":{"result":"9700"}}` + "\n",
 			Valid: true,
 		}

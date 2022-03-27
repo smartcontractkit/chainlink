@@ -116,8 +116,8 @@ type Result struct {
 }
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
-func (result Result) OutputDB() JSONSerializable {
-	return JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
+func (result Result) OutputDB() CBORSerializable {
+	return CBORSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
 }
 
 // ErrorDB dumps a single result error for a pipeline_task_run

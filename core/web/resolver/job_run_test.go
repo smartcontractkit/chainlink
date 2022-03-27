@@ -116,11 +116,11 @@ func TestResolver_JobRun(t *testing.T) {
 	gError := errors.New("error")
 	_, idError := stringutils.ToInt64("asdasads")
 
-	inputs := pipeline.JSONSerializable{}
+	inputs := pipeline.CBORSerializable{}
 	err := inputs.UnmarshalJSON([]byte(`{"foo": "bar"}`))
 	require.NoError(t, err)
 
-	outputs := pipeline.JSONSerializable{}
+	outputs := pipeline.CBORSerializable{}
 	err = outputs.UnmarshalJSON([]byte(`[{"baz": "bar"}]`))
 	require.NoError(t, err)
 
@@ -267,11 +267,11 @@ func TestResolver_RunJob(t *testing.T) {
 		"id": idStr,
 	}
 
-	inputs := pipeline.JSONSerializable{}
+	inputs := pipeline.CBORSerializable{}
 	err := inputs.UnmarshalJSON([]byte(`{"foo": "bar"}`))
 	require.NoError(t, err)
 
-	outputs := pipeline.JSONSerializable{}
+	outputs := pipeline.CBORSerializable{}
 	err = outputs.UnmarshalJSON([]byte(`[{"baz": "bar"}]`))
 	require.NoError(t, err)
 

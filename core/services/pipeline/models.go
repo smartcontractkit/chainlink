@@ -41,10 +41,10 @@ type Run struct {
 	// DB example: [null, null, "my error"]
 	AllErrors   RunErrors        `json:"all_errors"`
 	FatalErrors RunErrors        `json:"fatal_errors"`
-	Inputs      JSONSerializable `json:"inputs"`
+	Inputs      CBORSerializable `json:"inputs"`
 	// Its expected that Output.Val is of type []interface{}.
 	// DB example: [1234, {"a": 10}, null]
-	Outputs          JSONSerializable `json:"outputs"`
+	Outputs          CBORSerializable `json:"outputs"`
 	CreatedAt        time.Time        `json:"createdAt"`
 	FinishedAt       null.Time        `json:"finishedAt"`
 	PipelineTaskRuns []TaskRun        `json:"taskRuns"`
@@ -244,7 +244,7 @@ type TaskRun struct {
 	Type          TaskType         `json:"type"`
 	PipelineRun   Run              `json:"-"`
 	PipelineRunID int64            `json:"-"`
-	Output        JSONSerializable `json:"output"`
+	Output        CBORSerializable `json:"output"`
 	Error         null.String      `json:"error"`
 	CreatedAt     time.Time        `json:"createdAt"`
 	FinishedAt    null.Time        `json:"finishedAt"`

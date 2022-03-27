@@ -2,12 +2,14 @@ package cbor
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
+	"math/big"
 	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +20,7 @@ func Test_ParseCBOR(t *testing.T) {
 	tests := []struct {
 		name        string
 		in          string
-		want        models.JSON
+		want        interface{}
 		wantErrored bool
 	}{
 		{
@@ -46,7 +48,7 @@ func Test_ParseCBOR(t *testing.T) {
 			false,
 		},
 		{
-			"bignums",
+			"bignums1",
 			"0x" +
 				"bf" + // map(*)
 				"67" + // text(7)
@@ -70,11 +72,18 @@ func Test_ParseCBOR(t *testing.T) {
 				// int(28948022309329048855892746252171976963317496166410141009864396001978282409983)
 				"ff" + // primitive(*)
 				"ff", // primitive(*)
-			jsonMustUnmarshal(t, `{"bignums":[18446744073709551616,28948022309329048855892746252171976963317496166410141009864396001978282409984,-18446744073709551617,-28948022309329048855892746252171976963317496166410141009864396001978282409984]}`),
+			map[string]interface{}{
+				"bignums": []interface{}{
+					mustParseBigInt(t, "18446744073709551616"),
+					mustParseBigInt(t, "28948022309329048855892746252171976963317496166410141009864396001978282409984"),
+					mustParseBigInt(t, "-18446744073709551617"),
+					mustParseBigInt(t, "-28948022309329048855892746252171976963317496166410141009864396001978282409984"),
+				},
+			},
 			false,
 		},
 		{
-			"bignums",
+			"bignums2",
 			"0x" +
 				"67" + // text(7)
 				"6269676e756d73" + // "bignums"
@@ -96,12 +105,19 @@ func Test_ParseCBOR(t *testing.T) {
 				"3fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff" +
 				// int(28948022309329048855892746252171976963317496166410141009864396001978282409983)
 				"ff", // primitive(*)
-			jsonMustUnmarshal(t, `{"bignums":[18446744073709551616,28948022309329048855892746252171976963317496166410141009864396001978282409984,-18446744073709551617,-28948022309329048855892746252171976963317496166410141009864396001978282409984]}`),
+			map[string]interface{}{
+				"bignums": []interface{}{
+					mustParseBigInt(t, "18446744073709551616"),
+					mustParseBigInt(t, "28948022309329048855892746252171976963317496166410141009864396001978282409984"),
+					mustParseBigInt(t, "-18446744073709551617"),
+					mustParseBigInt(t, "-28948022309329048855892746252171976963317496166410141009864396001978282409984"),
+				},
+			},
 			false,
 		},
 		{"empty object", `0xa0`, jsonMustUnmarshal(t, `{}`), false},
 		{"empty string", `0x`, jsonMustUnmarshal(t, `{}`), false},
-		{"invalid CBOR", `0xff`, models.JSON{}, true},
+		{"invalid CBOR", `0xff`, jsonMustUnmarshal(t, `{}`), true},
 	}
 
 	for _, test := range tests {
@@ -110,6 +126,8 @@ func Test_ParseCBOR(t *testing.T) {
 			assert.NoError(t, err)
 
 			json, err := ParseDietCBOR(b)
+			log.Printf("parsed CBOR: %#v\n", json)
+			log.Printf("wanted JSON: %#v\n", test.want)
 			if test.wantErrored {
 				assert.Error(t, err)
 			} else {
@@ -177,8 +195,15 @@ func Test_autoAddMapDelimiters(t *testing.T) {
 	}
 }
 
-func jsonMustUnmarshal(t *testing.T, in string) models.JSON {
-	var j models.JSON
+func mustParseBigInt(t *testing.T, str string) *big.Int {
+	i := new(big.Int)
+	_, err := fmt.Sscan(str, i)
+	require.NoError(t, err)
+	return i
+}
+
+func jsonMustUnmarshal(t *testing.T, in string) interface{} {
+	var j interface{}
 	err := json.Unmarshal([]byte(in), &j)
 	require.NoError(t, err)
 	return j
@@ -252,9 +277,9 @@ func TestJSON_CBOR(t *testing.T) {
 
 	tests := []struct {
 		name string
-		in   models.JSON
+		in   interface{}
 	}{
-		{"empty object", models.JSON{}},
+		{"empty object", jsonMustUnmarshal(t, `{}`)},
 		{"array", jsonMustUnmarshal(t, `[1,2,3,4]`)},
 		{
 			"basic object",
@@ -276,14 +301,14 @@ func TestJSON_CBOR(t *testing.T) {
 
 			decoded, err = CoerceInterfaceMapToStringMap(decoded)
 			require.NoError(t, err)
-			assert.True(t, reflect.DeepEqual(test.in.Result.Value(), decoded))
+			assert.True(t, reflect.DeepEqual(test.in, decoded))
 		})
 	}
 }
 
 // mustMarshal returns a bytes array of the JSON map or array encoded to CBOR.
-func mustMarshal(t *testing.T, j models.JSON) []byte {
-	switch v := j.Result.Value().(type) {
+func mustMarshal(t *testing.T, j interface{}) []byte {
+	switch v := j.(type) {
 	case map[string]interface{}, []interface{}, nil:
 		b, err := cbor.Marshal(v)
 		if err != nil {

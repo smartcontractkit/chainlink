@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/cbor"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/cbor"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -59,9 +60,9 @@ func (t *CBORParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		if err != nil {
 			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
-		m, ok := parsed.Result.Value().(map[string]interface{})
+		m, ok := parsed.(map[string]interface{})
 		if !ok {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed.Result.Value())}, runInfo
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed)}, runInfo
 		}
 		return Result{Value: m}, runInfo
 	case "standard":
