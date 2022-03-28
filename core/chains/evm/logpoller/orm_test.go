@@ -1,10 +1,12 @@
 package logpoller
 
 import (
+	"database/sql"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -32,18 +34,20 @@ func TestORM(t *testing.T) {
 	require.NoError(t, o.DeleteRangeBlocks(10, 10))
 	_, err = o.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.Error(t, err)
+	t.Log(errors.Is(err, sql.ErrNoRows))
 
 	// Should be able to insert and read back a log.
+	topic := common.HexToHash("0x1599")
 	require.NoError(t, o.InsertLogs([]Log{
 		{
-			EvmChainId: utils.NewBigI(137),
-			LogIndex: 1,
-			BlockHash: common.HexToHash("0x1234"),
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    1,
+			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
-			EventSignature:  "MyLog(uint64)",
-			Address: common.HexToAddress("0x1234"),
-			TxHash: common.HexToHash("0x1888"),
-			Data: []byte("hello"),
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello"),
 		},
 	}))
 	logs, err := o.SelectLogsByBlockRange(10, 10)

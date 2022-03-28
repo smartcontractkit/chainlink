@@ -50,6 +50,15 @@ func (o *ORM) SelectBlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, e
 	return &b, nil
 }
 
+func (o *ORM) SelectLatestBlock(qopts ...pg.QOpt) (*LogPollerBlock, error) {
+	q := o.q.WithOpts(qopts...)
+	var b LogPollerBlock
+	if err := q.Get(&b, `SELECT * FROM log_poller_blocks WHERE block_number = (SELECT MAX(block_number) FROM log_poller_blocks) AND evm_chain_id = $1`, utils.NewBig(o.chainID)); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
 func (o *ORM) DeleteRangeBlocks(start, end int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.Exec(`DELETE FROM log_poller_blocks WHERE block_number >= $1 AND block_number <= $2 AND evm_chain_id = $3`, start, end, utils.NewBig(o.chainID))
@@ -59,8 +68,8 @@ func (o *ORM) DeleteRangeBlocks(start, end int64, qopts ...pg.QOpt) error {
 func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.NamedExec(`INSERT INTO logs 
-(evm_chain_id, log_index, block_hash, block_number, address, event_signature, tx_hash, data, created_at) VALUES 
-(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_signature, :tx_hash, :data, NOW())`, logs)
+(evm_chain_id, log_index, block_hash, block_number, address, topics, tx_hash, data, created_at) VALUES 
+(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :topics, :tx_hash, :data, NOW())`, logs)
 	return err
 }
 

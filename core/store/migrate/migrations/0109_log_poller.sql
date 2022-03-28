@@ -5,7 +5,7 @@ CREATE TABLE logs (
   block_hash bytea NOT NULL,
   block_number bigint NOT NULL,
   address bytea NOT NULL,
-  event_signature text NOT NULL,
+  topics bytea[] NOT NULL,
   tx_hash bytea NOT NULL,
   data bytea NOT NULL,
   created_at timestamptz NOT NULL,
