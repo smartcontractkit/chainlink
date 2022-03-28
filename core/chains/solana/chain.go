@@ -52,7 +52,7 @@ type chain struct {
 // NewChain returns a new chain backed by node.
 func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, orm db.ORM, lggr logger.Logger) (*chain, error) {
 	cfg := config.NewConfig(dbchain.Cfg, lggr)
-	lggr = lggr.With("solanaChainID", dbchain.ID)
+	lggr = lggr.With("chainID", dbchain.ID, "chainSet", "solana")
 	var ch = chain{
 		id:            dbchain.ID,
 		cfg:           cfg,

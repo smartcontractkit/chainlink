@@ -1,3 +1,4 @@
+// TODO: Improve code reuse (mostly c/p of core/chains/terra/orm_test.go)
 package solana_test
 
 import (

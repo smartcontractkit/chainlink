@@ -148,19 +148,19 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM    evm.ChainSet
-	Terra  terra.ChainSet  // nil if disabled
 	Solana solana.ChainSet // nil if disabled
+	Terra  terra.ChainSet  // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
-	if c.Terra != nil {
-		s = append(s, c.Terra)
-	}
 	if c.Solana != nil {
 		s = append(s, c.Solana)
+	}
+	if c.Terra != nil {
+		s = append(s, c.Terra)
 	}
 	return
 }
