@@ -1045,7 +1045,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	select {
 	case <-pollOccured:
 		t.Fatal("Poll should not occur for next few seconds because we are in hibernation mode and all other tickers should be stopped")
-	case <-time.After(testutils.WaitTimeout(t)):
+	case <-time.After(2 * time.Second):
 	}
 
 	select {
