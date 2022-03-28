@@ -32,6 +32,9 @@ import (
 // "test" chain ID to be used without clashes
 var FixtureChainID = big.NewInt(0)
 
+// SimulatedChainID is the chain ID for the go-ethereum simulated backend
+var SimulatedChainID = big.NewInt(1337)
+
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
