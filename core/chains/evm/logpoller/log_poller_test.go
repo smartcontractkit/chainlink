@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -22,13 +23,13 @@ import (
 )
 
 func TestLogPoller(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
+	_, db := heavyweight.FullTestDB(t, "logs", true, false)
+	chainID := big.NewInt(42)
+	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
+	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 
 	// Set up a test chain with a log emitting contract deployed.
-	chainID := big.NewInt(42)
 	orm := NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
 	id := cltest.NewSimulatedBackendIdentity(t)
 	ec := cltest.NewSimulatedBackend(t, map[common.Address]core.GenesisAccount{
@@ -107,8 +108,9 @@ func TestLogPoller(t *testing.T) {
 	require.NoError(t, ec.Fork(context.Background(), lca.Hash()))
 	_, err = emitter.EmitLog1(id, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
+	// Create 2'
 	ec.Commit()
-	// Note we need a new block for us to detect the reorg.
+	// Create 3 (we need a new block for us to do any polling and detect the reorg).
 	ec.Commit()
 
 	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
@@ -119,8 +121,6 @@ func TestLogPoller(t *testing.T) {
 	lgs, err = orm.SelectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
-	//assert.Equal(t, emitterAddress, lgs[0].Address)
-	//assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), emitterABI.Events["Log1"].ID.String())
-	//assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`),
-	//	lgs[0].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[1].Data)
 }
