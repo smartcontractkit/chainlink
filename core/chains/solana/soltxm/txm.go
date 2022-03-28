@@ -2,9 +2,9 @@ package soltxm
 
 import (
 	"context"
-	"fmt"
 
 	solanaGo "github.com/gagliardetto/solana-go"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+const MaxQueueLen = 1000
 
 var (
 	_ services.ServiceCtx = (*Txm)(nil)
@@ -38,7 +40,7 @@ func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lgg
 		starter: utils.StartStopOnce{},
 		tc:      tc,
 		lggr:    lggr,
-		queue:   make(chan *solanaGo.Transaction, 1000), // queue can support 1000 pending txs
+		queue:   make(chan *solanaGo.Transaction, MaxQueueLen), // queue can support 1000 pending txs
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 		cfg:     cfg,
@@ -89,7 +91,7 @@ func (txm *Txm) Enqueue(accountID string, msg *solanaGo.Transaction) error {
 	case txm.queue <- msg:
 	default:
 		txm.lggr.Errorw("failed to enqeue tx", "queueLength", len(txm.queue), "tx", msg)
-		return fmt.Errorf("failed to enqueue transaction for %s", accountID)
+		return errors.Errorf("failed to enqueue transaction for %s", accountID)
 	}
 	return nil
 }

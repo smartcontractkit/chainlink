@@ -2,7 +2,6 @@ package solana
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -148,7 +147,7 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 	// check chainID matches expected chainID
 	expectedID := strings.ToLower(c.id)
 	if id != expectedID {
-		return nil, fmt.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, id, url)
+		return nil, errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, id, url)
 	}
 	return client, nil
 }

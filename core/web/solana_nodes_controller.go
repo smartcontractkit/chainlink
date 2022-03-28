@@ -2,7 +2,6 @@ package web
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -73,7 +72,7 @@ func (nc *SolanaNodesController) Create(c *gin.Context) {
 	// Ensure chain exists.
 	if _, err := orm.Chain(request.SolanaChainID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("Solana chain %s must be added first", request.SolanaChainID))
+			jsonAPIError(c, http.StatusBadRequest, errors.Errorf("Solana chain %s must be added first", request.SolanaChainID))
 			return
 		}
 		jsonAPIError(c, http.StatusInternalServerError, err)

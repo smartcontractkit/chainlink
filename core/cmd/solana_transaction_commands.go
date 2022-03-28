@@ -3,11 +3,10 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"strconv"
 
 	solanaGo "github.com/gagliardetto/solana-go"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -22,14 +21,14 @@ func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 
 	amount, err := strconv.ParseUint(c.Args().Get(0), 10, 64)
 	if err != nil {
-		return cli.errorOut(fmt.Errorf("invalid amount: %w", err))
+		return cli.errorOut(errors.Errorf("invalid amount: %w", err))
 	}
 
 	unparsedFromAddress := c.Args().Get(1)
 	fromAddress, err := solanaGo.PublicKeyFromBase58(unparsedFromAddress)
 	if err != nil {
 		return cli.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal source address %v",
+			errors.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
 
@@ -37,7 +36,7 @@ func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 	destinationAddress, err := solanaGo.PublicKeyFromBase58(unparsedDestinationAddress)
 	if err != nil {
 		return cli.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal destination address %v",
+			errors.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}
 

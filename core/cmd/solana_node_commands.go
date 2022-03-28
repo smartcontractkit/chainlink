@@ -3,10 +3,10 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
@@ -79,7 +79,7 @@ func (cli *Client) CreateSolanaNode(c *cli.Context) (err error) {
 	}
 
 	if _, err2 := url.Parse(urlStr); err2 != nil {
-		return cli.errorOut(fmt.Errorf("invalid url: %v", err2))
+		return cli.errorOut(errors.Errorf("invalid url: %v", err2))
 	}
 
 	params := db.NewNode{
