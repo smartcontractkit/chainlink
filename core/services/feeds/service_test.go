@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"math/big"
 	"testing"
 	"time"
 
@@ -450,7 +451,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", feedsMgr.ID).Return(feedsMgr, nil)
-	svc.ethKeystore.On("SendingKeys").Return(evmKeys, nil)
+	svc.ethKeystore.On("SendingKeys", (*big.Int)(nil)).Return(evmKeys, nil)
 	svc.ethKeystore.
 		On("GetStatesForKeys", evmKeys).
 		Return([]ethkey.State{{Address: sendingKey.Address, EVMChainID: *utils.NewBigI(42)}}, nil)
