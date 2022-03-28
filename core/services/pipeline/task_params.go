@@ -239,7 +239,7 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 				return nil
 			}
 		}
-		*b = BytesParam(v) // TODO: this can be "$(data)", need to review this case
+		*b = BytesParam(v) // TODO: this can be string?
 	case []byte:
 		*b = v
 	case nil:

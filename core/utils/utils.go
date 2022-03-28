@@ -1005,17 +1005,3 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
 }
-
-// CopyMap returns a deep-copy of the given map[string]interface{}
-func CopyMap(m map[string]interface{}) map[string]interface{} {
-	cp := make(map[string]interface{})
-	for k, v := range m {
-		vm, ok := v.(map[string]interface{})
-		if ok {
-			cp[k] = CopyMap(vm)
-		} else {
-			cp[k] = v
-		}
-	}
-	return cp
-}
