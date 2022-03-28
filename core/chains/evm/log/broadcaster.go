@@ -188,7 +188,7 @@ func (b *broadcaster) Start(context.Context) error {
 
 // ReplayFromBlock implements the Broadcaster interface.
 func (b *broadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {
-	b.logger.Infof("Replay requested from block number: %v", number)
+	b.logger.Infof("Replay requested from block number: %v, force: %t", number, forceBroadcast)
 	select {
 	case b.replayChannel <- replayRequest{
 		fromBlock:      number,
