@@ -9,18 +9,19 @@ import "../ConfirmedOwner.sol";
 contract UpkeepAutoFunder is KeeperCompatible, ConfirmedOwner {
   bool public s_isEligible;
   bool public s_shouldCancel;
-  uint256 s_upkeepId;
+  uint256 public s_upkeepId;
+  uint96 public s_autoFundLink;
   LinkTokenInterface public immutable LINK;
-  KeeperRegistryBaseInterface private s_keeperRegistry;
-  uint96 private s_autoFundLink;
+  KeeperRegistryBaseInterface public immutable s_keeperRegistry;
 
   constructor(address linkAddress, address registryAddress) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(linkAddress);
     s_keeperRegistry = KeeperRegistryBaseInterface(registryAddress);
+
     s_isEligible = false;
+    s_shouldCancel = false;
     s_upkeepId = 0;
     s_autoFundLink = 0;
-    s_shouldCancel = false;
   }
 
   function setShouldCancel(bool value) external onlyOwner {
