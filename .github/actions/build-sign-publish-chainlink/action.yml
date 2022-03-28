@@ -41,8 +41,12 @@ inputs:
   cosign-private-key:
     description: The private key to be used with cosign to sign the image
     required: false
+  cosign-public-key:
+    description: The public key to be used with cosign for verification
+    required: false
   cosign-password:
     description: The password to decrypt the cosign private key needed to sign the image
+    required: false
   sign-method:
     description: Build image will be signed using keypair or keyless methods
     default: "keypair"
