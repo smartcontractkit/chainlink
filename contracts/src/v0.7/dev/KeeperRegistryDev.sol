@@ -41,10 +41,9 @@ contract KeeperRegistryDev is
   address private constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
   bytes4 private constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
   bytes4 private constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
-  uint256 private constant CALL_GAS_MAX = 5_000_000;
-  uint256 private constant CALL_GAS_MIN = 2_300;
+  uint256 private constant PERFORM_GAS_MIN = 2_300;
   uint256 private constant CANCELATION_DELAY = 50;
-  uint256 private constant CUSHION = 5_000;
+  uint256 private constant PERFORM_GAS_CUSHION = 5_000;
   uint256 private constant REGISTRY_GAS_OVERHEAD = 80_000;
   uint256 private constant PPB_BASE = 1_000_000_000;
   uint64 private constant UINT64_MAX = 2**64 - 1;
@@ -71,6 +70,8 @@ contract KeeperRegistryDev is
   /**
    * @notice versions:
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
+   *                       : allow configurable registry maxPerformGas
+   *                       : add function to let admin change upkeep gas limit
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
@@ -98,6 +99,7 @@ contract KeeperRegistryDev is
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
+    uint32 maxPerformGas;
   }
 
   struct PerformParams {
@@ -128,7 +130,8 @@ contract KeeperRegistryDev is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
+    uint256 fallbackLinkPrice,
+    uint32 maxPerformGas
   );
   event FlatFeeSet(uint32 flatFeeMicroLink);
   event KeepersUpdated(address[] keepers, address[] payees);
@@ -136,6 +139,7 @@ contract KeeperRegistryDev is
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
   event RegistrarChanged(address indexed from, address indexed to);
+  event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
 
   /**
    * @param link address of the LINK Token
@@ -155,6 +159,7 @@ contract KeeperRegistryDev is
    * when calculating the payment ceiling for keepers
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
+   * @param maxPerformGas max executeGas allowed for an upkeep on this registry
    */
   constructor(
     address link,
@@ -167,7 +172,8 @@ contract KeeperRegistryDev is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
+    uint256 fallbackLinkPrice,
+    uint32 maxPerformGas
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
@@ -181,7 +187,8 @@ contract KeeperRegistryDev is
       stalenessSeconds,
       gasCeilingMultiplier,
       fallbackGasPrice,
-      fallbackLinkPrice
+      fallbackLinkPrice,
+      maxPerformGas
     );
   }
 
@@ -202,8 +209,8 @@ contract KeeperRegistryDev is
     bytes calldata checkData
   ) external override onlyOwnerOrRegistrar returns (uint256 id) {
     require(target.isContract(), "target is not a contract");
-    require(gasLimit >= CALL_GAS_MIN, "min gas is 2300");
-    require(gasLimit <= CALL_GAS_MAX, "max gas is 5000000");
+    require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
+    require(gasLimit <= s_config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
 
     id = s_upkeepCount;
     s_upkeep[id] = Upkeep({
@@ -302,8 +309,7 @@ contract KeeperRegistryDev is
    * @param id upkeep to fund
    * @param amount number of LINK to transfer
    */
-  function addFunds(uint256 id, uint96 amount) external override {
-    require(s_upkeep[id].maxValidBlocknumber == UINT64_MAX, "upkeep must be active");
+  function addFunds(uint256 id, uint96 amount) external override onlyActiveUpkeep(id) {
     s_upkeep[id].balance = s_upkeep[id].balance.add(amount);
     s_expectedLinkBalance = s_expectedLinkBalance.add(amount);
     LINK.transferFrom(msg.sender, address(this), amount);
@@ -337,8 +343,7 @@ contract KeeperRegistryDev is
    * @param id upkeep to withdraw funds from
    * @param to destination address for sending remaining funds
    */
-  function withdrawFunds(uint256 id, address to) external validateRecipient(to) {
-    require(s_upkeep[id].admin == msg.sender, "only callable by admin");
+  function withdrawFunds(uint256 id, address to) external validateRecipient(to) onlyUpkeepAdmin(id) {
     require(s_upkeep[id].maxValidBlocknumber <= block.number, "upkeep must be canceled");
 
     uint256 amount = s_upkeep[id].balance;
@@ -347,6 +352,20 @@ contract KeeperRegistryDev is
     emit FundsWithdrawn(id, amount, to);
 
     LINK.transfer(to, amount);
+  }
+
+  /**
+   * @notice allows the admin of an upkeep to modify gas limit
+   * @param id upkeep to be change the gas limit for
+   * @param gasLimit new gas limit for the upkeep
+   */
+  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override onlyActiveUpkeep(id) onlyUpkeepAdmin(id) {
+    require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
+    require(gasLimit <= s_config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
+
+    s_upkeep[id].executeGas = gasLimit;
+
+    emit UpkeepGasLimitSet(id, gasLimit);
   }
 
   /**
@@ -434,6 +453,8 @@ contract KeeperRegistryDev is
    * be stale before switching to the fallback pricing
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
+   * @param maxPerformGas The max performGas that can be used by an upkeep.
+   *        Note: maxPerformGas can only be increased to keep upkeeps consistent
    */
   function setConfig(
     uint32 paymentPremiumPPB,
@@ -443,15 +464,18 @@ contract KeeperRegistryDev is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
+    uint256 fallbackLinkPrice,
+    uint32 maxPerformGas
   ) public onlyOwner {
+    require(maxPerformGas >= s_config.maxPerformGas, "maxPerformGas can only be increased");
     s_config = Config({
       paymentPremiumPPB: paymentPremiumPPB,
       flatFeeMicroLink: flatFeeMicroLink,
       blockCountPerTurn: blockCountPerTurn,
       checkGasLimit: checkGasLimit,
       stalenessSeconds: stalenessSeconds,
-      gasCeilingMultiplier: gasCeilingMultiplier
+      gasCeilingMultiplier: gasCeilingMultiplier,
+      maxPerformGas: maxPerformGas
     });
     s_fallbackGasPrice = fallbackGasPrice;
     s_fallbackLinkPrice = fallbackLinkPrice;
@@ -463,7 +487,8 @@ contract KeeperRegistryDev is
       stalenessSeconds,
       gasCeilingMultiplier,
       fallbackGasPrice,
-      fallbackLinkPrice
+      fallbackLinkPrice,
+      maxPerformGas
     );
     emit FlatFeeSet(flatFeeMicroLink);
   }
@@ -599,7 +624,8 @@ contract KeeperRegistryDev is
       uint24 stalenessSeconds,
       uint16 gasCeilingMultiplier,
       uint256 fallbackGasPrice,
-      uint256 fallbackLinkPrice
+      uint256 fallbackLinkPrice,
+      uint32 maxPerformGas
     )
   {
     Config memory config = s_config;
@@ -610,7 +636,8 @@ contract KeeperRegistryDev is
       config.stalenessSeconds,
       config.gasCeilingMultiplier,
       s_fallbackGasPrice,
-      s_fallbackLinkPrice
+      s_fallbackLinkPrice,
+      config.maxPerformGas
     );
   }
 
@@ -693,11 +720,11 @@ contract KeeperRegistryDev is
   ) private returns (bool success) {
     assembly {
       let g := gas()
-      // Compute g -= CUSHION and check for underflow
-      if lt(g, CUSHION) {
+      // Compute g -= PERFORM_GAS_CUSHION and check for underflow
+      if lt(g, PERFORM_GAS_CUSHION) {
         revert(0, 0)
       }
-      g := sub(g, CUSHION)
+      g := sub(g, PERFORM_GAS_CUSHION)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
@@ -818,6 +845,22 @@ contract KeeperRegistryDev is
    */
   modifier validUpkeep(uint256 id) {
     validateUpkeep(id);
+    _;
+  }
+
+  /**
+   * @dev Reverts if called by anyone other than the admin of upkeep #id
+   */
+  modifier onlyUpkeepAdmin(uint256 id) {
+    require(msg.sender == s_upkeep[id].admin, "only callable by admin");
+    _;
+  }
+
+  /**
+   * @dev Reverts if called on a cancelled upkeep
+   */
+  modifier onlyActiveUpkeep(uint256 id) {
+    require(s_upkeep[id].maxValidBlocknumber == UINT64_MAX, "upkeep must be active");
     _;
   }
 
