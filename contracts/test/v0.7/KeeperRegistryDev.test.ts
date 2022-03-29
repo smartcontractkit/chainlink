@@ -78,6 +78,7 @@ describe('KeeperRegistry', () => {
   const maxCheckGas = BigNumber.from(20000000)
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
+  const maxPerformGas = BigNumber.from(5000000)
 
   let owner: Signer
   let keeper1: Signer
@@ -142,6 +143,7 @@ describe('KeeperRegistry', () => {
         gasCeilingMultiplier,
         fallbackGasPrice,
         fallbackLinkPrice,
+        maxPerformGas,
       )
 
     mock = await upkeepMockFactory.deploy()
@@ -376,7 +378,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'max gas is 5000000',
+        'gasLimit exceeds registry maxPerformGas',
       )
     })
 
@@ -434,6 +436,62 @@ describe('KeeperRegistry', () => {
         registry.connect(keeper1).addFunds(id, amount),
         'upkeep must be active',
       )
+    })
+  })
+
+  describe('#setUpkeepGasLimit', () => {
+    const newGasLimit = BigNumber.from('500000')
+
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(keeper1).setUpkeepGasLimit(id.add(1), newGasLimit),
+        'upkeep must be active',
+      )
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(id)
+      await evmRevert(
+        registry.connect(keeper1).setUpkeepGasLimit(id, newGasLimit),
+        'upkeep must be active',
+      )
+    })
+
+    it('reverts if called by anyone but the admin', async () => {
+      await evmRevert(
+        registry.connect(owner).setUpkeepGasLimit(id, newGasLimit),
+        'only callable by admin',
+      )
+    })
+
+    it('reverts if new gas limit is out of bounds', async () => {
+      await evmRevert(
+        registry.connect(admin).setUpkeepGasLimit(id, BigNumber.from('100')),
+        'min gas is 2300',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepGasLimit(id, BigNumber.from('6000000')),
+        'gasLimit exceeds registry maxPerformGas',
+      )
+    })
+
+    it('updates the gas limit successfully', async () => {
+      const initialGasLimit = (await registry.getUpkeep(id)).executeGas
+      assert.equal(initialGasLimit, executeGas.toNumber())
+      await registry.connect(admin).setUpkeepGasLimit(id, newGasLimit)
+      const updatedGasLimit = (await registry.getUpkeep(id)).executeGas
+      assert.equal(updatedGasLimit, newGasLimit.toNumber())
+    })
+
+    it('emits a log', async () => {
+      const tx = await registry
+        .connect(admin)
+        .setUpkeepGasLimit(id, newGasLimit)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepGasLimitSet')
+        .withArgs(id, newGasLimit)
     })
   })
 
@@ -556,6 +614,7 @@ describe('KeeperRegistry', () => {
               newGasMultiplier,
               fallbackGasPrice,
               fallbackLinkPrice,
+              maxPerformGas,
             )
           const response = await registry
             .connect(zeroAddress)
@@ -735,6 +794,7 @@ describe('KeeperRegistry', () => {
             multiplier,
             fallbackGasPrice,
             fallbackLinkPrice,
+            maxPerformGas,
           )
 
         const before = (
@@ -771,6 +831,7 @@ describe('KeeperRegistry', () => {
             multiplier,
             fallbackGasPrice,
             fallbackLinkPrice,
+            maxPerformGas,
           )
 
         const before = (
@@ -1438,6 +1499,7 @@ describe('KeeperRegistry', () => {
             gasCeilingMultiplier,
             fbGasEth,
             fbLinkEth,
+            maxPerformGas,
           ),
         'Only callable by owner',
       )
@@ -1463,6 +1525,7 @@ describe('KeeperRegistry', () => {
           ceiling,
           fbGasEth,
           fbLinkEth,
+          maxPerformGas,
         )
 
       const updated = await registry.getConfig()
@@ -1489,6 +1552,7 @@ describe('KeeperRegistry', () => {
           ceiling,
           fbGasEth,
           fbLinkEth,
+          maxPerformGas,
         )
       await expect(tx)
         .to.emit(registry, 'ConfigSet')
@@ -1500,6 +1564,7 @@ describe('KeeperRegistry', () => {
           ceiling,
           fbGasEth,
           fbLinkEth,
+          maxPerformGas,
         )
     })
   })
@@ -1715,6 +1780,7 @@ describe('KeeperRegistry', () => {
                 gasCeilingMultiplier,
                 fallbackGasPrice,
                 fallbackLinkPrice,
+                maxPerformGas,
               )
             const price = await registry.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
@@ -1742,6 +1808,7 @@ describe('KeeperRegistry', () => {
           multiplier,
           fallbackGasPrice,
           fallbackLinkPrice,
+          maxPerformGas,
         )
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
 

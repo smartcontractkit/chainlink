@@ -19,6 +19,8 @@ interface KeeperRegistryBaseInterface {
 
   function addFunds(uint256 id, uint96 amount) external;
 
+  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external;
+
   function getUpkeep(uint256 id)
     external
     view
@@ -57,7 +59,8 @@ interface KeeperRegistryBaseInterface {
       uint24 stalenessSeconds,
       uint16 gasCeilingMultiplier,
       uint256 fallbackGasPrice,
-      uint256 fallbackLinkPrice
+      uint256 fallbackLinkPrice,
+      uint32 maxPerformGas
     );
 }
 
