@@ -76,7 +76,7 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG }}
       - name: Cache Vendor Packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: cache-packages
         with:
           path: |

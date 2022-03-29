@@ -37,7 +37,7 @@ jobs:
         with:
           go-version: ^1.18
       - name: Cache Go vendor packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: /go/pkg/mod
           key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
@@ -48,7 +48,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Yarn cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           cache-name: yarn-cache
         with:
