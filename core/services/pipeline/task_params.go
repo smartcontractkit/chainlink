@@ -244,6 +244,18 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 		*b = v
 	case nil:
 		*b = BytesParam(nil)
+
+	case ObjectParam:
+		if v.Type == StringType {
+			*b = BytesParam(v.StringValue)
+			return nil
+		}
+	case *ObjectParam:
+		if v.Type == StringType {
+			*b = BytesParam(v.StringValue)
+			return nil
+		}
+
 	default:
 		return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
 	}
