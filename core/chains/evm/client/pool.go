@@ -27,8 +27,6 @@ var (
 		Name: "evm_pool_rpc_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"evmChainID", "state"})
-	// NotAcceptedSendOnlyChainID holds the value of the chain ID that gets ignored for sendonly nodes
-	NotAcceptedSendOnlyChainID = big.NewInt(0)
 )
 
 // Pool represents an abstraction over one or more primary nodes
@@ -85,12 +83,13 @@ func (p *Pool) Dial(ctx context.Context) error {
 				return err
 			}
 		}
+		zero := big.NewInt(0)
 		for _, s := range p.sendonlys {
 			chainID := s.ChainID()
-			if chainID.Cmp(NotAcceptedSendOnlyChainID) != 0 {
-				// Log warning here?
+			if chainID.Cmp(zero) != 0 {
+				p.logger.Warnf("sendonly node %s was unable to verify the chain ID %s", s.String(), chainID.String())
 			} else if chainID.Cmp(p.chainID) != 0 {
-				return errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), p.chainID.String())
+				return errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), chainID.String(), p.chainID.String())
 			}
 			err := s.Start(ctx)
 			if err != nil {
