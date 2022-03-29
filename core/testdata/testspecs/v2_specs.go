@@ -223,7 +223,7 @@ perform_upkeep_tx        [type=ethtx
                           evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
 """
 `
@@ -238,7 +238,7 @@ type VRFSpecParams struct {
 	Name                     string
 	CoordinatorAddress       string
 	MinIncomingConfirmations int
-	FromAddress              string
+	FromAddresses            []string
 	PublicKey                string
 	ObservationSource        string
 	RequestedConfsDelay      int
@@ -296,6 +296,7 @@ encode_tx    [type=ethabiencode
 submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"
             minConfirmations="0"
+            from="$(jobSpec.from)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
             transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
 decode_log->vrf->encode_tx->submit_tx
@@ -344,8 +345,12 @@ observationSource = """
 `
 	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay,
 		requestTimeout.String(), publicKey, observationSource)
-	if params.FromAddress != "" {
-		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
+	if len(params.FromAddresses) != 0 {
+		var addresses []string
+		for _, address := range params.FromAddresses {
+			addresses = append(addresses, fmt.Sprintf("%q", address))
+		}
+		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
 	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{

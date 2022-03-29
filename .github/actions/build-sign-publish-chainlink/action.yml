@@ -41,8 +41,12 @@ inputs:
   cosign-private-key:
     description: The private key to be used with cosign to sign the image
     required: false
+  cosign-public-key:
+    description: The public key to be used with cosign for verification
+    required: false
   cosign-password:
     description: The password to decrypt the cosign private key needed to sign the image
+    required: false
   sign-method:
     description: Build image will be signed using keypair or keyless methods
     default: "keypair"
@@ -166,8 +170,15 @@ runs:
   - name: Check if non-root image runs as root
     id: check-nonroot-runs-root
     shell: sh
+    env:
+      PUBLISH: ${{ inputs.publish }}
     run: |
       echo "Fail build if non-root image runs as user: root"
+      # if we're publishing the image, it doesn't get loaded into the local docker daemon
+      # so we need to pull the image into our daemon
+      if [ $PUBLISH = "true" ]; then 
+       docker pull "${nonroot_image_name}"
+      fi
       docker inspect "${nonroot_image_name}" | jq -r '.[].Config.User' | ( ! grep "root" )
 
   - if: inputs.sign-images == 'true'

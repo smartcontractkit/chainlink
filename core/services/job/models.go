@@ -425,16 +425,16 @@ type KeeperSpec struct {
 
 type VRFSpec struct {
 	ID                       int32
-	CoordinatorAddress       ethkey.EIP55Address  `toml:"coordinatorAddress"`
-	PublicKey                secp256k1.PublicKey  `toml:"publicKey"`
-	MinIncomingConfirmations uint32               `toml:"minIncomingConfirmations"`
-	ConfirmationsEnv         bool                 `toml:"-"`
-	EVMChainID               *utils.Big           `toml:"evmChainID"`
-	FromAddress              *ethkey.EIP55Address `toml:"fromAddress"`
-	PollPeriod               time.Duration        `toml:"pollPeriod"` // For v2 jobs
+	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
+	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
+	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`
+	ConfirmationsEnv         bool                  `toml:"-"`
+	EVMChainID               *utils.Big            `toml:"evmChainID"`
+	FromAddresses            []ethkey.EIP55Address `toml:"fromAddresses"`
+	PollPeriod               time.Duration         `toml:"pollPeriod"` // For v2 jobs
 	PollPeriodEnv            bool
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
-	RequestTimeout           time.Duration `toml:"requestTimeout"`      // For v2 jobs. Optional, defaults to 24hr if not provided.
+	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 	CreatedAt                time.Time     `toml:"-"`
 	UpdatedAt                time.Time     `toml:"-"`
 }

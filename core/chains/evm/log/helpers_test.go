@@ -84,9 +84,6 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 }
 
 func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient.Client) *broadcasterHelper {
-	if testing.Short() {
-		t.Skip("skipping due to broadcasterHelper")
-	}
 	if c.db == nil {
 		c.db = pgtest.NewSqlxDB(t)
 	}

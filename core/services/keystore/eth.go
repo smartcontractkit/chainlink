@@ -32,9 +32,9 @@ type Eth interface {
 
 	SignTx(fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
-	SendingKeys() (keys []ethkey.KeyV2, err error)
+	SendingKeys(chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	FundingKeys() (keys []ethkey.KeyV2, err error)
-	GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error)
+	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
 
 	GetState(id string) (ethkey.State, error)
 	SetState(ethkey.State) error
@@ -131,7 +131,7 @@ func (ks *eth) EnsureKeys(chainID *big.Int) (err error) {
 	var fundingKey ethkey.KeyV2
 
 	// check & setup sending key
-	sendingKeys := ks.sendingKeys()
+	sendingKeys := ks.sendingKeys(chainID)
 	if len(sendingKeys) > 0 {
 		sendingKey = sendingKeys[0]
 		sendDidExist = true
@@ -258,13 +258,15 @@ func (ks *eth) SignTx(address common.Address, tx *types.Transaction, chainID *bi
 	return types.SignTx(tx, signer, key.ToEcdsaPrivKey())
 }
 
-func (ks *eth) SendingKeys() (sendingKeys []ethkey.KeyV2, err error) {
+// SendingKeys returns all sending keys for the given chain
+// If chainID is nil, returns all sending keys for all chains
+func (ks *eth) SendingKeys(chainID *big.Int) (sendingKeys []ethkey.KeyV2, err error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
 		return nil, ErrLocked
 	}
-	return ks.sendingKeys(), nil
+	return ks.sendingKeys(chainID), nil
 }
 
 func (ks *eth) FundingKeys() (fundingKeys []ethkey.KeyV2, err error) {
@@ -276,7 +278,7 @@ func (ks *eth) FundingKeys() (fundingKeys []ethkey.KeyV2, err error) {
 	return ks.fundingKeys(), nil
 }
 
-func (ks *eth) GetRoundRobinAddress(whitelist ...common.Address) (common.Address, error) {
+func (ks *eth) GetRoundRobinAddress(chainID *big.Int, whitelist ...common.Address) (common.Address, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -285,9 +287,9 @@ func (ks *eth) GetRoundRobinAddress(whitelist ...common.Address) (common.Address
 
 	var keys []ethkey.KeyV2
 	if len(whitelist) == 0 {
-		keys = ks.sendingKeys()
+		keys = ks.sendingKeys(chainID)
 	} else if len(whitelist) > 0 {
-		for _, k := range ks.sendingKeys() {
+		for _, k := range ks.sendingKeys(chainID) {
 			for _, addr := range whitelist {
 				if addr == k.Address.Address() {
 					keys = append(keys, k)
@@ -297,7 +299,17 @@ func (ks *eth) GetRoundRobinAddress(whitelist ...common.Address) (common.Address
 	}
 
 	if len(keys) == 0 {
-		return common.Address{}, errors.New("no keys available")
+		var err error
+		if chainID == nil && len(whitelist) == 0 {
+			err = errors.New("no sending keys available")
+		} else if chainID == nil {
+			err = errors.Errorf("no sending keys available that match whitelist: %v", whitelist)
+		} else if len(whitelist) == 0 {
+			err = errors.Errorf("no sending keys available for chain %s", chainID.String())
+		} else {
+			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID.String(), whitelist)
+		}
+		return common.Address{}, err
 	}
 
 	sort.SliceStable(keys, func(i, j int) bool {
@@ -425,9 +437,11 @@ func (ks *eth) fundingKeys() (fundingKeys []ethkey.KeyV2) {
 }
 
 // caller must hold lock!
-func (ks *eth) sendingKeys() (sendingKeys []ethkey.KeyV2) {
+// if chainID is nil, returns keys for all chains
+func (ks *eth) sendingKeys(chainID *big.Int) (sendingKeys []ethkey.KeyV2) {
 	for _, k := range ks.keyRing.Eth {
-		if !ks.keyStates.Eth[k.ID()].IsFunding {
+		state := ks.keyStates.Eth[k.ID()]
+		if !state.IsFunding && (chainID == nil || (((*big.Int)(&state.EVMChainID)).Cmp(chainID) == 0)) {
 			sendingKeys = append(sendingKeys, k)
 		}
 	}

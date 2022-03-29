@@ -33,7 +33,7 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.17](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.18](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/). See the current version in `package.json` at the root of this repo under the `engines.node` key.
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
@@ -157,7 +157,11 @@ If you do end up modifying the migrations for the database, you will need to rer
 go test ./...
 ```
 
-Note: You can use flag ```-parallel=1``` to limit CPU usage in background, by default, it is set to the value of GOMAXPROCS
+### Notes
+
+- The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
+- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
+- The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute (you may still need a phony env var to pass some validation: `DATABASE_URL=_test`)
 
 ### Solidity Development
 

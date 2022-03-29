@@ -172,9 +172,7 @@ type setupOptions struct {
 // functional options to configure the setup
 func setup(t *testing.T, db *sqlx.DB, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxMonitor, *testMocks) {
 	t.Helper()
-	if testing.Short() {
-		t.Skip("skipping")
-	}
+	testutils.SkipShort(t, "long test")
 
 	tm := setupMocks(t)
 	options := setupOptions{
@@ -381,7 +379,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			fm, tm := setup(t, db)
 
-			tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+			tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 			tm.logBroadcaster.On("IsConnected").Return(tc.connected).Once()
 
 			// Setup Answers
@@ -531,7 +529,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 
 	fm, tm := setup(t, db)
 
-	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 	tm.logBroadcaster.On("IsConnected").Return(true).Once()
 
 	tm.jobORM.
@@ -583,7 +581,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	readyToFillQueue := cltest.NewAwaiter()
 	logsAwaiter := cltest.NewAwaiter()
 
-	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Maybe()
@@ -779,7 +777,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
 
-			tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+			tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer)
@@ -859,7 +857,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		setHibernationState(true),
 	)
 
-	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -962,7 +960,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 		setFlags(flags),
 	)
 
-	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -995,7 +993,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	select {
 	case <-pollOccured:
-	case <-time.After(3 * time.Second):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur!")
 	}
 
@@ -1021,7 +1019,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	select {
 	case <-pollOccured:
-	case <-time.After(3 * time.Second):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur!")
 	}
 
@@ -1052,7 +1050,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	select {
 	case <-pollOccured:
-	case <-time.After(3 * time.Second):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur, though it should have via hibernation ticker")
 	}
 
@@ -1073,7 +1071,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		setIdleTimerPeriod(2*time.Second),
 	)
 
-	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -1181,7 +1179,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
 	tm.keyStore.
-		On("SendingKeys").
+		On("SendingKeys", (*big.Int)(nil)).
 		Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).
 		Twice() // Once called from the test, once during start
 
@@ -1245,7 +1243,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
-			tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+			tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
@@ -1321,7 +1319,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			)
 			initialPollOccurred := make(chan struct{}, 1)
 
-			tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+			tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 			tm.fluxAggregator.On("Address").Return(common.Address{})
@@ -1381,7 +1379,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
-	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -1519,7 +1517,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			answer       = 100
 		)
 
-		tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+		tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
 		// Mocks initiated by the New Round log
@@ -1633,7 +1631,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			roundID = 3
 			answer  = 100
 		)
-		tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+		tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
 		// First, force the node to try to poll, which should result in a submission
@@ -1729,7 +1727,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			roundID      = 3
 			answer       = 100
 		)
-		tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
+		tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
 		// First, force the node to try to poll, which should result in a submission
@@ -1877,7 +1875,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
 
-	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
+	tm.keyStore.On("SendingKeys", (*big.Int)(nil)).Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)

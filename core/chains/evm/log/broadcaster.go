@@ -188,7 +188,7 @@ func (b *broadcaster) Start(context.Context) error {
 
 // ReplayFromBlock implements the Broadcaster interface.
 func (b *broadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {
-	b.logger.Infof("Replay requested from block number: %v", number)
+	b.logger.Infow("Replay requested", "block number", number, "force", forceBroadcast)
 	select {
 	case b.replayChannel <- replayRequest{
 		fromBlock:      number,
@@ -271,7 +271,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
-		b.logger.Debugw("TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
+		b.logger.Debugw("Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
 	}
 }
 

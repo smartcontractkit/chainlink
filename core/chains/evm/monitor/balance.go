@@ -164,7 +164,7 @@ func (w *worker) Work() {
 }
 
 func (w *worker) WorkCtx(ctx context.Context) {
-	keys, err := w.bm.ethKeyStore.SendingKeys()
+	keys, err := w.bm.ethKeyStore.SendingKeys(nil)
 	if err != nil {
 		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}

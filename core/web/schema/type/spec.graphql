@@ -94,7 +94,7 @@ type VRFSpec {
     coordinatorAddress: String!
     createdAt: Time!
     evmChainID: String
-    fromAddress: String
+    fromAddresses: [String!]
     minIncomingConfirmations: Int!
     minIncomingConfirmationsEnv: Boolean!
     pollPeriod: String!

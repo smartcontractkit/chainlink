@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink
 
-go 1.17
+go 1.18
 
 require (
 	github.com/Depado/ginprom v1.7.3
@@ -81,7 +81,7 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
 	golang.org/x/tools v0.1.9
-	gonum.org/v1/gonum v0.9.3
+	gonum.org/v1/gonum v0.11.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/guregu/null.v4 v4.0.0
 )

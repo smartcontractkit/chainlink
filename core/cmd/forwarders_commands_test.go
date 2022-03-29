@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -81,6 +81,7 @@ func TestClient_CreateEVMForwarder(t *testing.T) {
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	set.String("address", "0x5431F5F973781809D18643b87B44921b11355d81", "")
 	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
 	err = client.CreateForwarder(cli.NewContext(nil, set, nil))
@@ -128,6 +129,7 @@ func TestClient_CreateEVMForwarder_BadAddress(t *testing.T) {
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	set.String("address", "0xWrongFormatAddress", "")
 	set.Int("evmChainID", int(chain.ID.ToInt().Int64()), "")
 	err = client.CreateForwarder(cli.NewContext(nil, set, nil))

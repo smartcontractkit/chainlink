@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
@@ -57,6 +58,7 @@ type listenerV2 struct {
 	cfg            Config
 	l              logger.Logger
 	ethClient      evmclient.Client
+	chainID        *big.Int
 	logBroadcaster log.Broadcaster
 	txm            txmgr.TxManager
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
@@ -235,21 +237,11 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 			"time", time.Since(start).String())
 	}()
 
-	keys, err := lsn.gethks.SendingKeys()
-	if err != nil {
-		lsn.l.Errorw("Unable to read sending keys", "err", err)
-		return
-	}
-	fromAddress := keys[0].Address
-	if lsn.job.VRFSpec.FromAddress != nil {
-		fromAddress = *lsn.job.VRFSpec.FromAddress
-	}
-	maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress.Address())
 	// TODO: also probably want to order these by request time so we service oldest first
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
 	if len(confirmed) == 0 {
-		lsn.l.Infow("No pending requests", "maxGasPrice", maxGasPriceWei, "fromAddress", fromAddress.Address())
+		lsn.l.Infow("No pending requests")
 		return
 	}
 	for subID, reqs := range confirmed {
@@ -259,7 +251,7 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 			continue
 		}
 		startBalance := sub.Balance
-		p := lsn.processRequestsPerSub(subID, fromAddress.Address(), startBalance, maxGasPriceWei, reqs)
+		p := lsn.processRequestsPerSub(subID, startBalance, reqs)
 		for reqID := range p {
 			processed[reqID] = struct{}{}
 		}
@@ -270,7 +262,7 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, fromAddress common.Address, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
+func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
 	var reservedLink string
 	err := q.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 				   FROM eth_txes
@@ -281,19 +273,20 @@ func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, fromAddress common.Addre
 				   GROUP BY meta->>'SubId'`, chainID, subID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		l.Errorw("Could not get reserved link", "err", err)
-		return startBalance, err
+		return nil, err
 	}
 
 	if reservedLink != "" {
 		reservedLinkInt, success := big.NewInt(0).SetString(reservedLink, 10)
 		if !success {
 			l.Errorw("Error converting reserved link", "reservedLink", reservedLink)
-			return startBalance, errors.New("unable to convert returned link")
+			return nil, errors.New("unable to convert returned link")
 		}
-		// Subtract the reserved link
-		return startBalance.Sub(startBalance, reservedLinkInt), nil
+
+		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
 	}
-	return startBalance, nil
+
+	return new(big.Int).Set(startBalance), nil
 }
 
 type fulfilledReqV2 struct {
@@ -316,22 +309,20 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 
 func (lsn *listenerV2) processRequestsPerSub(
 	subID uint64,
-	fromAddress common.Address,
 	startBalance *big.Int,
-	maxGasPriceWei *big.Int,
 	reqs []pendingRequest,
 ) map[string]struct{} {
 	start := time.Now()
 	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.l, lsn.q, fromAddress, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.l, lsn.q, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
 		return processed
 	}
+
 	lggr := lsn.l.With(
 		"subID", reqs[0].req.SubId,
-		"maxGasPrice", maxGasPriceWei.String(),
 		"reqs", len(reqs),
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
@@ -340,11 +331,19 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	// Attempt to process every request, break if we run out of balance
 	for _, req := range reqs {
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
+		if err != nil {
+			lggr.Errorw("Couldn't get next from address", "err", err)
+			continue
+		}
+		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
 		vrfRequest := req.req
 		rlog := lggr.With(
 			"reqID", vrfRequest.RequestId.String(),
 			"txHash", vrfRequest.Raw.TxHash,
-		)
+			"maxGasPrice", maxGasPriceWei.String(),
+			"fromAddress", fromAddress)
 
 		// This check to see if the log was consumed needs to be in the same
 		// goroutine as the mark consumed to avoid processing duplicates.
@@ -367,11 +366,25 @@ func (lsn *listenerV2) processRequestsPerSub(
 			continue
 		}
 
-		// Check if the vrf req has already been fulfilled
-		// If so we just mark it completed
-		callback, err := lsn.coordinator.GetCommitment(nil, vrfRequest.RequestId)
+		// Check if the vrf req has already been fulfilled.
+		// Pass max(request.BlockNumber, currentBlockNumber) to the call to ensure we get
+		// the latest state or an error.
+		// This is to avoid a race condition where a request commitment has been written on-chain
+		// but has not been synced fully on the entire network. GetCommitment will return an empty
+		// byte array in that case, and we would think that the request is fulfilled when it actually
+		// isn't.
+		reqBlockNumber := new(big.Int).SetUint64(vrfRequest.Raw.BlockNumber)
+		currBlock := new(big.Int).SetUint64(lsn.getLatestHead())
+		m := bigmath.Max(reqBlockNumber, currBlock)
+		callback, err := lsn.coordinator.GetCommitment(&bind.CallOpts{
+			BlockNumber: m,
+		}, vrfRequest.RequestId)
 		if err != nil {
-			rlog.Errorw("Unable to check if already fulfilled, processing anyways", "err", err)
+			rlog.Warnw("Unable to check if already fulfilled, processing anyways",
+				"err", err,
+				"reqBlockNumber", reqBlockNumber,
+				"currBlock", currBlock,
+			)
 		} else if utils.IsEmpty(callback[:]) {
 			// If seedAndBlockNumber is zero then the response has been fulfilled
 			// and we should skip it
@@ -387,7 +400,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			rlog.Warnw("Unable to get max link for fulfillment, skipping request", "err", err)
 			continue
 		}
-		if startBalance.Cmp(maxLink) < 0 {
+		if startBalanceNoReserveLink.Cmp(maxLink) < 0 {
 			// Insufficient funds, have to wait for a user top up
 			// leave it unprocessed for now
 			rlog.Infow("Insufficient link balance to fulfill a request, breaking", "maxLink", maxLink)
@@ -402,6 +415,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 				return err
 			}
+
+			maxLinkString := maxLink.String()
 			_, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 				FromAddress:    fromAddress,
 				ToAddress:      lsn.coordinator.Address(),
@@ -409,14 +424,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 				GasLimit:       gaslimit,
 				Meta: &txmgr.EthTxMeta{
 					RequestID: common.BytesToHash(vrfRequest.RequestId.Bytes()),
-					MaxLink:   maxLink.String(),
-					SubID:     vrfRequest.SubId,
+					MaxLink:   &maxLinkString,
+					SubID:     &vrfRequest.SubId,
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
 				Strategy:         txmgr.NewSendEveryStrategy(),
 				Checker: txmgr.TransmitCheckerSpec{
 					CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 					VRFCoordinatorAddress: lsn.coordinator.Address(),
+					VRFRequestBlockNumber: reqBlockNumber,
 				},
 			}, pg.WithQueryer(tx))
 			return err
@@ -425,13 +441,16 @@ func (lsn *listenerV2) processRequestsPerSub(
 			rlog.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 			continue
 		}
+
 		// If we successfully enqueued for the txm, subtract that balance
 		// And loop to attempt to enqueue another fulfillment
-		startBalanceNoReserveLink = startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, maxLink)
+		startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, maxLink)
 		processed[vrfRequest.RequestId.String()] = struct{}{}
 		incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2)
 	}
+
 	lggr.Infow("Finished processing for sub",
+		"endBalance", startBalanceNoReserveLink,
 		"total reqs", len(reqs),
 		"total processed", len(processed),
 		"total unique", uniqueReqs(reqs),
@@ -687,6 +706,14 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 // Job complies with log.Listener
 func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
+}
+
+func (lsn *listenerV2) fromAddresses() []common.Address {
+	var addresses []common.Address
+	for _, a := range lsn.job.VRFSpec.FromAddresses {
+		addresses = append(addresses, a.Address())
+	}
+	return addresses
 }
 
 func uniqueReqs(reqs []pendingRequest) int {

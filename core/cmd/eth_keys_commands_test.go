@@ -83,8 +83,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
-	ethClient, assertMocksCalled := newEthMock(t)
-	defer assertMocksCalled()
+	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -109,8 +108,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 func TestClient_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient, assertMocksCalled := newEthMock(t)
-	defer assertMocksCalled()
+	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -164,8 +162,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 func TestClient_UpdateETHKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient, assertMocksCalled := newEthMock(t)
-	defer assertMocksCalled()
+	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -202,8 +199,7 @@ func TestClient_UpdateETHKey(t *testing.T) {
 func TestClient_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient, assertMocksCalled := newEthMock(t)
-	defer assertMocksCalled()
+	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -240,8 +236,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
-	ethClient, assertMocksCalled := newEthMock(t)
-	defer assertMocksCalled()
+	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -321,6 +316,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	set = flag.NewFlagSet("test Eth export invalid id", 0)
 	set.Parse([]string{"999"})
 	set.String("newpassword", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	set.String("output", keyName, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.ExportETHKey(c)
@@ -332,8 +328,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
-	ethClient, assertMocksCalled := newEthMock(t)
-	defer assertMocksCalled()
+	ethClient := newEthMock(t)
 	app := startNewApplication(t,
 		withMocks(ethClient),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
@@ -413,6 +408,7 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	set = flag.NewFlagSet("test Eth export invalid id", 0)
 	set.Parse([]string{"999"})
 	set.String("newpassword", "../internal/fixtures/apicredentials", "")
+	set.Bool("bypass-version-check", true, "")
 	set.String("output", keyName, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.ExportETHKey(c)
