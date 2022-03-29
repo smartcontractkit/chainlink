@@ -64,6 +64,8 @@ jobs:
       - run: yarn install --frozen-lockfile
       - name: Install terrad
         run: ./tools/ci/install_terrad
+      - name: Install solana cli
+        run: ./tools/ci/install_solana
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
@@ -81,4 +83,3 @@ jobs:
         uses: docker://docker:latest
         with:
           args: logs ${{ job.services.postgres.id }}
-
