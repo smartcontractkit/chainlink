@@ -532,6 +532,17 @@ func main() {
 			keyHashBytes, uint16(*requests))
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "eoa-load-test-read":
+		cmd := flag.NewFlagSet("eoa-load-test-read", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer-address", "", "consumer address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer-address")
+		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
+			common.HexToAddress(*consumerAddress),
+			ec)
+		helpers.PanicErr(err)
+		rc, err := consumer.SResponseCount(nil)
+		helpers.PanicErr(err)
+		fmt.Println("load tester", *consumerAddress, "response count:", rc)
 	case "eoa-transfer-sub":
 		trans := flag.NewFlagSet("eoa-transfer-sub", flag.ExitOnError)
 		coordinatorAddress := trans.String("coordinator-address", "", "coordinator address")
