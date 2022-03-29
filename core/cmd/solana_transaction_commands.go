@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store/models/solana"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // SolanaSendSol transfers sol from the node's account to a specified address.
@@ -71,6 +72,6 @@ func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 		}
 	}()
 
-	err = cli.printResponseBody(resp)
+	err = cli.renderAPIResponse(resp, &presenters.SolanaMsgResource{})
 	return err
 }

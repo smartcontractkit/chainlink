@@ -5,6 +5,7 @@ import (
 
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -127,7 +128,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	resource := presenters.NewSolanaMsgResource("", tr.SolanaChainID)
+	resource := presenters.NewSolanaMsgResource("sol_transfer_"+uuid.New().String(), tr.SolanaChainID)
 	resource.Amount = tr.Amount
 	resource.From = tr.From.String()
 	resource.To = tr.To.String()

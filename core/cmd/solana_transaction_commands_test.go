@@ -4,6 +4,7 @@ package cmd_test
 
 import (
 	"flag"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -62,8 +63,8 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	}{
 		{amount: "1000000000"},
 		{amount: "100000000000", expErr: "is too low for this transaction to be executed:"},
-		{amount: "0", expErr: "amount must be greater than zero:"},
-		{amount: "asdf", expErr: "invalid amount: failed to set decimal string:"},
+		{amount: "0", expErr: "amount must be greater than zero"},
+		{amount: "asdf", expErr: "invalid amount:"},
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
@@ -87,11 +88,14 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			require.Greater(t, len(r.Renders), 0)
 			renderer := r.Renders[len(r.Renders)-1]
 			renderedMsg := renderer.(*presenters.SolanaMsgResource)
+			fmt.Printf("%+v\n", renderedMsg)
 			require.NotEmpty(t, renderedMsg.ID)
 			assert.Equal(t, chainID, renderedMsg.ChainID)
 			assert.Equal(t, from.PublicKey().String(), renderedMsg.From)
 			assert.Equal(t, to.PublicKey().String(), renderedMsg.To)
-			assert.Equal(t, tt.amount, renderedMsg.Amount)
+			assert.Equal(t, tt.amount, strconv.FormatUint(renderedMsg.Amount, 10))
+
+      time.Sleep(time.Second) // wait for tx execution
 
 			// Check balance
 			endBal, err := reader.Balance(from.PublicKey())
