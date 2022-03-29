@@ -1014,3 +1014,12 @@ func AllEqual[T comparable](elems ...T) bool {
 	}
 	return true
 }
+
+// UnstableDeleteAt removes an element from the array at index i and does not
+// preserve ordering
+func UnstableDeleteAt[T any](slice []T, i int) {
+	slice[i] = slice[len(slice)-1] // Copy last element to i
+	var zero T
+	slice[len(slice)-1] = zero   // Erase last element
+	slice = slice[:len(slice)-1] // Truncate
+}

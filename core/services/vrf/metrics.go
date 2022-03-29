@@ -2,8 +2,8 @@ package vrf
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/promauto"
 )
 
 // version describes a VRF version.

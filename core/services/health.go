@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink/core/promauto"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )

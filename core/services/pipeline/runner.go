@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/promauto"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"

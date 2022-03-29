@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink/core/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -41,7 +41,6 @@ func init() {
 	for _, f := range metricsFamilies {
 		fmt.Println(f)
 	}
-	panic("DONE")
 }
 
 func main() {

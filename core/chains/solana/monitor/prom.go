@@ -3,8 +3,8 @@ package monitor
 import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink/core/promauto"
 )
 
 var promSolanaBalance = promauto.NewGaugeVec(

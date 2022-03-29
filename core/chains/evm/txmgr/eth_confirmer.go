@@ -17,8 +17,8 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/promauto"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/sqlx"

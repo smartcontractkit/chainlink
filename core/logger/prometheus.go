@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink/core/promauto"
 	"go.uber.org/zap/zapcore"
 )
 
