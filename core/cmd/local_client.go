@@ -155,6 +155,15 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 	}
 	err = keyStore.Migrate(vrfpwd, DefaultEVMChainIDFunc)
 
+	ocr2keys, err := keyStore.OCR2().GetAll()
+	if err != nil {
+		panic(err)
+	}
+	for _, k := range ocr2keys {
+		lggr.Info("Deleting OCR2 key")
+		keyStore.OCR2().Delete(k.ID())
+	}
+
 	if cli.Config.EVMEnabled() {
 		if err != nil {
 			return errors.Wrap(err, "error migrating keystore")

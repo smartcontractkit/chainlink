@@ -2,6 +2,7 @@ package ocr2key
 
 import (
 	"crypto/ed25519"
+	cryptorand "crypto/rand"
 	"encoding/binary"
 	"io"
 
@@ -84,8 +85,8 @@ func (tk *terraKeyring) marshal() ([]byte, error) {
 }
 
 func (tk *terraKeyring) unmarshal(in []byte) error {
-	privKey := ed25519.NewKeyFromSeed(in)
-	tk.privKey = privKey
-	tk.pubKey = ed25519.PublicKey(privKey[32:])
-	return nil
+	terraKeyRing, err := newTerraKeyring(cryptorand.Reader)
+	tk.privKey = terraKeyRing.privKey
+	tk.pubKey = terraKeyRing.pubKey
+	return err
 }
