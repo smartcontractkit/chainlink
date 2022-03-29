@@ -6,7 +6,7 @@ require (
 	github.com/Depado/ginprom v1.7.3
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/btcsuite/btcd v0.22.0-beta
-	github.com/cosmos/cosmos-sdk v0.44.5
+	github.com/cosmos/cosmos-sdk v0.45.1
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/docker/docker v20.10.12+incompatible
 	github.com/docker/go-connections v0.4.0
