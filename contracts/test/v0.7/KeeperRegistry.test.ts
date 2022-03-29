@@ -174,7 +174,7 @@ describe('KeeperRegistry', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistry 1.1.0')
+      assert.equal(typeAndVersion, 'KeeperRegistry 1.2.0')
     })
   })
 

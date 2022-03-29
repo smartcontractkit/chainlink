@@ -65,10 +65,11 @@ contract KeeperRegistry is
 
   /**
    * @notice versions:
+   * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 1.1.0";
+  string public constant override typeAndVersion = "KeeperRegistry 1.2.0";
 
   struct Upkeep {
     address target;
