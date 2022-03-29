@@ -1,10 +1,9 @@
 package solanatest
 
 import (
-	"fmt"
-	"math/rand"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 
@@ -20,7 +19,7 @@ INSERT INTO solana_chains (id, cfg, enabled, created_at, updated_at) VALUES (:id
 	require.NoError(t, err)
 }
 
-// RandomChainID returns a random chain id for testing. Use this instead of a constant to prevent DB collisions.
+// RandomChainID returns a random uuid id for testing. Use this instead of a constant to prevent DB collisions.
 func RandomChainID() string {
-	return fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
+	return uuid.New().String()
 }
