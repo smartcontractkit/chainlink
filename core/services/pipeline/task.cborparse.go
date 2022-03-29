@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/cbor"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/cbor"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
@@ -55,13 +56,13 @@ func (t *CBORParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		// NOTE: In diet mode, cbor_parse ASSUMES that the incoming CBOR is a
 		// map. In the case that data is entirely missing, we assume it was the
 		// empty map
-		parsed, err := cbor.ParseDietCBOR([]byte(data))
+		parsed, err := cbor.ParseDietCBOR(data)
 		if err != nil {
 			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
-		m, ok := parsed.Result.Value().(map[string]interface{})
+		m, ok := parsed.(map[string]interface{})
 		if !ok {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed.Result.Value())}, runInfo
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed)}, runInfo
 		}
 		return Result{Value: m}, runInfo
 	case "standard":
