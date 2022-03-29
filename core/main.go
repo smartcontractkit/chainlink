@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -12,6 +15,34 @@ import (
 	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 )
+
+var (
+	simpleCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "simple_counter",
+		Help: "Some help message",
+	})
+
+	simpleCounterVec = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "simple_counter_vec",
+		Help: "Some help message",
+	}, []string{"label1", "label2"})
+)
+
+func init() {
+	// prometheus.DefaultRegisterer.MustRegister(simpleCounterVec)
+	simpleCounterVec.WithLabelValues("foo", "bar")
+	simpleCounterVec.WithLabelValues("qux", "baz")
+	simpleCounterVec.WithLabelValues("1", "2")
+
+	metricsFamilies, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		panic(err)
+	}
+	for _, f := range metricsFamilies {
+		fmt.Println(f)
+	}
+	panic("DONE")
+}
 
 func main() {
 	recovery.ReportPanics(func() {
