@@ -86,7 +86,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		zero := big.NewInt(0)
 		for _, s := range p.sendonlys {
 			chainID := s.ChainID()
-			if chainID.Cmp(zero) != 0 {
+			if chainID.Cmp(zero) == 0 {
 				p.logger.Warnf("sendonly node %s was unable to verify the chain ID %s", s.String(), chainID.String())
 			} else if chainID.Cmp(p.chainID) != 0 {
 				return errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), chainID.String(), p.chainID.String())
