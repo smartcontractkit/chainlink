@@ -10,8 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-// ParseDietCBOR attempts to coerce the input byte array into valid CBOR
-// and then coerces it into a JSON object.
+// ParseDietCBOR attempts to coerce the input byte array into valid CBOR.
 // Assumes the input is "diet" CBOR which is like CBOR, except:
 // 1. It is guaranteed to always be a map
 // 2. It may or may not include the opening and closing markers "{}"
