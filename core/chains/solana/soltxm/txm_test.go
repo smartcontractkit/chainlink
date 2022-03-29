@@ -1,14 +1,14 @@
+//go:build integration
+
 package soltxm_test
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
-	solanaGo "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
@@ -18,26 +18,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTxm_HappyPath(t *testing.T) {
-	received := make(chan struct{})
-
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		out := fmt.Sprintf(`{"jsonrpc":"2.0","result":"5vwvmiymecC16SA6nt1YNNNrMEvMX4YpCJ6Et7N3M9bM3YFVNQJsThHnZPsA8AwnmTJ9LR2u8CUsVXkQ5vnMkKEo","id":1}`)
-		_, err := w.Write([]byte(out))
-		require.NoError(t, err)
-		close(received)
-	}))
-	defer mockServer.Close()
+func TestTxm_Integration(t *testing.T) {
+	url := solanaClient.SetupLocalSolNode(t)
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	pubKey := privKey.PublicKey()
+	solanaClient.FundTestAccounts(t, []solana.PublicKey{pubKey}, url)
 
 	// set up txm
 	lggr := logger.TestLogger(t)
 	cfg := config.NewConfig(db.ChainCfg{}, lggr)
-	client, err := solanaClient.NewClient(mockServer.URL, cfg, 2*time.Second, lggr)
+	client, err := solanaClient.NewClient(url, cfg, 2*time.Second, lggr)
 	require.NoError(t, err)
 	getClient := func() (solanaClient.ReaderWriter, error) {
 		return client, nil
 	}
 	txm := soltxm.NewTxm(getClient, cfg, lggr)
+
+	// track initial balance
+	initBal, err := client.Balance(pubKey)
+	assert.NoError(t, err)
+	assert.NotEqual(t, uint64(0), initBal) // should be funded
 
 	// start
 	require.NoError(t, txm.Start(context.Background()))
@@ -45,10 +46,48 @@ func TestTxm_HappyPath(t *testing.T) {
 	// already started
 	assert.Error(t, txm.Start(context.Background()))
 
-	// submit tx
-	tx := solanaGo.Transaction{}
-	tx.Signatures = append(tx.Signatures, solanaGo.Signature{})
-	tx.Message.Header.NumRequiredSignatures = 1
-	assert.NoError(t, txm.Enqueue("testAccount", &tx))
-	<-received
+	// create receiver
+	privKeyReceiver, err := solana.NewRandomPrivateKey()
+	pubKeyReceiver := privKeyReceiver.PublicKey()
+
+	// create transfer tx
+	hash, err := client.LatestBlockhash()
+	assert.NoError(t, err)
+	tx, err := solana.NewTransaction(
+		[]solana.Instruction{
+			system.NewTransferInstruction(
+				solana.LAMPORTS_PER_SOL,
+				pubKey,
+				pubKeyReceiver,
+			).Build(),
+		},
+		hash.Value.Blockhash,
+		solana.TransactionPayer(pubKey),
+	)
+	assert.NoError(t, err)
+
+	// sign tx
+	_, err = tx.Sign(
+		func(key solana.PublicKey) *solana.PrivateKey {
+			if privKey.PublicKey().Equals(key) {
+				return &privKey
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+
+	// enqueue tx
+	assert.NoError(t, txm.Enqueue("testTransmission", tx))
+	time.Sleep(time.Second) // wait for tx
+
+	// check balance changes
+	senderBal, err := client.Balance(pubKey)
+	assert.NoError(t, err)
+	assert.Greater(t, initBal, senderBal)
+	assert.Greater(t, initBal - senderBal, solana.LAMPORTS_PER_SOL) // balance change = sent + fees
+
+	receiverBal, err := client.Balance(pubKeyReceiver)
+	assert.NoError(t, err)
+	assert.Equal(t, solana.LAMPORTS_PER_SOL, receiverBal)
 }
