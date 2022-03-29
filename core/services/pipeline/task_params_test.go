@@ -56,6 +56,7 @@ func TestBytesParam_UnmarshalPipelineParam(t *testing.T) {
 		{"int", 12345, pipeline.BytesParam(nil), pipeline.ErrBadInput},
 		{"hex-invalid", "0xh", pipeline.BytesParam("0xh"), nil},
 		{"valid-hex", hexutil.MustDecode("0xd3184d"), pipeline.BytesParam(hexutil.MustDecode("0xd3184d")), nil},
+		{"object", pipeline.MustNewObjectParam(`boz bar bap`), pipeline.BytesParam("boz bar bap"), nil},
 	}
 
 	for _, test := range tests {
