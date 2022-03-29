@@ -50,6 +50,7 @@ type FeatureFlags interface {
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
+	FeatureLogPoller() bool
 
 	AutoPprofEnabled() bool
 	EVMEnabled() bool
@@ -624,6 +625,10 @@ func (c *generalConfig) FeatureExternalInitiators() bool {
 // FeatureFeedsManager enables the feeds manager
 func (c *generalConfig) FeatureFeedsManager() bool {
 	return c.viper.GetBool(envvar.Name("FeatureFeedsManager"))
+}
+
+func (c *generalConfig) FeatureLogPoller() bool {
+	return c.viper.GetBool(envvar.Name("FeatureLogPoller"))
 }
 
 // FeatureOffchainReporting enables the OCR job type.

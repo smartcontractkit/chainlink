@@ -116,6 +116,9 @@ type ConfigSchema struct {
 	FeatureFeedsManager bool `env:"FEATURE_FEEDS_MANAGER" default:"false"` //nodoc
 	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
+	// LogPoller
+	FeatureLogPoller bool `env:"FEATURE_LOG_POLLER" default:"false"` //nodoc
+
 	// General chains/RPC
 	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
 	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`

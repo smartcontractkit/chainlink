@@ -14,6 +14,8 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 
+	logpoller "github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
+
 	mock "github.com/stretchr/testify/mock"
 
 	monitor "github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
@@ -162,6 +164,22 @@ func (_m *Chain) LogBroadcaster() log.Broadcaster {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(log.Broadcaster)
+		}
+	}
+
+	return r0
+}
+
+// LogPoller provides a mock function with given fields:
+func (_m *Chain) LogPoller() *logpoller.LogPoller {
+	ret := _m.Called()
+
+	var r0 *logpoller.LogPoller
+	if rf, ok := ret.Get(0).(func() *logpoller.LogPoller); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*logpoller.LogPoller)
 		}
 	}
 

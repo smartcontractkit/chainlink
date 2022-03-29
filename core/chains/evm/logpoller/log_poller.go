@@ -5,10 +5,12 @@ import (
 	"context"
 	"database/sql"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -18,54 +20,215 @@ import (
 )
 
 type LogPoller struct {
-	ec        client.Client
-	orm       *ORM
-	lggr      logger.Logger
-	addresses []common.Address
-	topics    [][]common.Hash
+	ec   client.Client
+	orm  *ORM
+	lggr logger.Logger
+	// poll period set by block production rate
+	pollPeriod                          time.Duration
+	blocksToFinality, backfillBatchSize int64
+
+	filterMu  sync.Mutex
+	addresses map[common.Address]struct{}
+	topics    map[int]map[common.Hash]struct{}
+
+	replay chan int64
+	ctx    context.Context
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger) *LogPoller {
-	return &LogPoller{ec: ec, orm: orm, lggr: lggr}
+func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, blocksToFinality, backfillBatchSize int64) *LogPoller {
+	return &LogPoller{
+		ec:                ec,
+		orm:               orm,
+		lggr:              lggr,
+		replay:            make(chan int64),
+		done:              make(chan struct{}),
+		pollPeriod:        pollPeriod,
+		blocksToFinality:  blocksToFinality,
+		backfillBatchSize: backfillBatchSize,
+		addresses:         make(map[common.Address]struct{}),
+		topics:            make(map[int]map[common.Hash]struct{}),
+	}
 }
 
-func (lp *LogPoller) Start(ctx context.Context) error {
-	go lp.run(ctx)
-	return nil
-}
-
-func (lp *LogPoller) run(ctx context.Context) {
-	tick := time.After(0)
-	var start *int64
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick:
-			if start == nil {
-				lastProcessed, err := lp.orm.SelectLatestBlock()
-				if err != nil {
-					lp.lggr.Warnw("unable to get starting block", "err", err)
-					continue
-				}
-				start = &lastProcessed.BlockNumber
-			}
-			newStart := lp.pollAndSaveLogs(ctx, *start)
-			start = &newStart
-			tick = time.After(15 * time.Second) // poll period set by block production rate
+// MergeFilter will update the filter with the new topics and addresses.
+// Clients may chose to MergeFilter and then replay in order to ensure desired logs are present.
+func (lp *LogPoller) MergeFilter(topics [][]common.Hash, addresses []common.Address) {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+	for _, addr := range addresses {
+		lp.addresses[addr] = struct{}{}
+	}
+	// [[A, B], [C]] + [[D], [], [E]] = [[A, B, D], [C], [E]]
+	for i := 0; i < len(topics); i++ {
+		if lp.topics[i] == nil {
+			lp.topics[i] = make(map[common.Hash]struct{})
+		}
+		for j := 0; j < len(topics[i]); j++ {
+			lp.topics[i][topics[i][j]] = struct{}{}
 		}
 	}
 }
 
-// On startup/crash start is the most recent saveBlockHash
-func (lp *LogPoller) pollAndSaveLogs(ctx context.Context, current int64) int64 {
+func (lp *LogPoller) FilterAddresses() []common.Address {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+	var addresses []common.Address
+	for addr := range lp.addresses {
+		addresses = append(addresses, addr)
+	}
+	return addresses
+}
+
+func (lp *LogPoller) FilterTopics() [][]common.Hash {
+	lp.filterMu.Lock()
+	defer lp.filterMu.Unlock()
+	var topics [][]common.Hash
+	for i := 0; i < len(lp.topics); i++ {
+		var topicPosition []common.Hash
+		// Order not important within each position.
+		for topic := range lp.topics[i] {
+			topicPosition = append(topicPosition, topic)
+		}
+		topics = append(topics, topicPosition)
+	}
+	return topics
+}
+
+// Replay signals that the poller should resume from a new block.
+func (lp *LogPoller) Replay(fromBlock int64) {
+	lp.replay <- fromBlock
+}
+
+func (lp *LogPoller) Start(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	lp.ctx = ctx
+	lp.cancel = cancel
+	go lp.run()
+	return nil
+}
+
+func (lp *LogPoller) Close() error {
+	lp.cancel()
+	<-lp.done
+	return nil
+}
+
+func (lp *LogPoller) Ready() error {
+	return nil
+}
+
+func (lp *LogPoller) Healthy() error {
+	return nil
+}
+
+func (lp *LogPoller) run() {
+	defer close(lp.done)
+	tick := time.After(0)
+	var start int64
+	for {
+		select {
+		case <-lp.ctx.Done():
+			return
+		case fromBlock := <-lp.replay:
+			start = fromBlock
+		case <-tick:
+			if start == 0 {
+				lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
+				if err != nil {
+					lp.lggr.Warnw("unable to get starting block", "err", err)
+					continue
+				}
+				start = lastProcessed.BlockNumber + 1
+				continue
+			}
+			start = lp.PollAndSaveLogs(lp.ctx, start)
+			tick = time.After(lp.pollPeriod)
+		}
+	}
+}
+
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func convertLogs(chainID *big.Int, logs []types.Log) []Log {
+	var lgs []Log
+	for _, l := range logs {
+		lgs = append(lgs, Log{
+			EvmChainId: utils.NewBig(chainID),
+			LogIndex:   int64(l.Index),
+			BlockHash:  l.BlockHash,
+			// We assume block numbers fit in int64
+			// in many places.
+			BlockNumber: int64(l.BlockNumber),
+			Topics:      convertTopics(l.Topics),
+			Address:     l.Address,
+			TxHash:      l.TxHash,
+			Data:        l.Data,
+		})
+	}
+	return lgs
+}
+
+func convertTopics(topics []common.Hash) [][]byte {
+	var topicsForDB [][]byte
+	for _, t := range topics {
+		topicsForDB = append(topicsForDB, t.Bytes())
+	}
+	return topicsForDB
+}
+
+func (lp *LogPoller) backfill(ctx context.Context, start, end int64) int64 {
+	for i := start; i <= end; i += lp.backfillBatchSize {
+		var (
+			logs []types.Log
+			err  error
+		)
+		utils.RetryWithBackoff(ctx, func() bool {
+			logs, err = lp.ec.FilterLogs(ctx, ethereum.FilterQuery{
+				FromBlock: big.NewInt(i),
+				ToBlock:   big.NewInt(min(i+lp.backfillBatchSize, end)),
+				Addresses: lp.FilterAddresses(),
+				Topics:    lp.FilterTopics(),
+			})
+			if err != nil {
+				lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", i, "to", min(i+lp.backfillBatchSize, end))
+				return true
+			}
+			return false
+		})
+		if len(logs) == 0 {
+			continue
+		}
+		utils.RetryWithBackoff(ctx, func() bool {
+			if err := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs)); err != nil {
+				lp.lggr.Warnw("Unable to insert logs logs, retrying", "err", err, "from", i, "to", min(i+lp.backfillBatchSize, end))
+				return true
+			}
+			return false
+		})
+	}
+	return end + 1
+}
+
+// PollAndSaveLogs On startup/crash current is the first block after the last processed block.
+func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 	// Get latest block on chain
 	latestBlock, err := lp.ec.BlockByNumber(ctx, nil)
 	if err != nil {
 		return current
 	}
 	latest := latestBlock.Number().Int64()
-	// TODO: batch FilterLogs up until unfinalized logs.
+	// 1<-2<-3(current)<-4<-5<-6<-7(latest). Finality is 2, so 3,4,5 can be batched.
+	// start = current = 3, end = latest-current+1 = 7-3+1 = 5 (inclusive range).
+	if (latest - current) > lp.blocksToFinality {
+		current = lp.backfill(ctx, current, latest-current+1)
+	}
 
 	for current <= latest {
 		block, err := lp.ec.BlockByNumber(ctx, big.NewInt(current))
@@ -95,11 +258,12 @@ func (lp *LogPoller) pollAndSaveLogs(ctx context.Context, current int64) int64 {
 			current = lca + 1
 			continue
 		}
+
 		h := block.Hash()
 		logs, err := lp.ec.FilterLogs(ctx, ethereum.FilterQuery{
 			BlockHash: &h,
-			Addresses: lp.addresses,
-			Topics:    lp.topics,
+			Addresses: lp.FilterAddresses(),
+			Topics:    lp.FilterTopics(),
 		})
 		if err != nil {
 			lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "block", block.Number())
@@ -109,29 +273,10 @@ func (lp *LogPoller) pollAndSaveLogs(ctx context.Context, current int64) int64 {
 			if err := lp.orm.InsertBlock(block.Hash(), block.Number().Int64()); err != nil {
 				return err
 			}
-			if len(logs) > 0 {
-				var lgs []Log
-				for _, l := range logs {
-					var topics [][]byte
-					for _, t := range l.Topics {
-						topics = append(topics, t.Bytes())
-					}
-					lgs = append(lgs, Log{
-						EvmChainId: utils.NewBig(lp.ec.ChainID()),
-						LogIndex:   int64(l.Index),
-						BlockHash:  l.BlockHash,
-						// We assume block numbers fit in int64
-						// in many places.
-						BlockNumber: int64(l.BlockNumber),
-						Topics:      topics,
-						Address:     l.Address,
-						TxHash:      l.TxHash,
-						Data:        l.Data,
-					})
-				}
-				return lp.orm.InsertLogs(lgs)
+			if len(logs) == 0 {
+				return nil
 			}
-			return nil
+			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs))
 		})
 		if err != nil {
 			// If we're unable to insert just retry
@@ -158,11 +303,6 @@ func (lp *LogPoller) findLCA(h common.Hash) int64 {
 	return block.Number().Int64()
 }
 
-func (lp *LogPoller) Stop() error {
-	return nil
-}
-
-func (lp *LogPoller) CanonicalLogs(start, end int64, topic common.Hash) []Log {
-	// Group by blockhash and take the latest
-	return nil
+func (lp *LogPoller) CanonicalLogs(start, end int64, topics []common.Hash, address common.Address) ([]Log, error) {
+	return lp.orm.SelectCanonicalLogsByBlockRangeTopicAddress(start, end, address, convertTopics(topics))
 }

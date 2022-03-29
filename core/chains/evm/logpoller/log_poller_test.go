@@ -1,19 +1,23 @@
-package logpoller
+package logpoller_test
 
 import (
 	"context"
+	"database/sql"
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/log_emitter"
@@ -30,32 +34,34 @@ func TestLogPoller(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	// Set up a test chain with a log emitting contract deployed.
-	orm := NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
+	orm := logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
 	id := cltest.NewSimulatedBackendIdentity(t)
 	ec := cltest.NewSimulatedBackend(t, map[common.Address]core.GenesisAccount{
 		id.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
 	}, 10e6)
-	emitterAddress, _, emitter, err := log_emitter.DeployLogEmitter(id, ec)
+	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(id, ec)
+	require.NoError(t, err)
+	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(id, ec)
 	require.NoError(t, err)
 	ec.Commit()
 
 	// Set up a log poller listening for log emitter logs.
-	lp := NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr)
+	lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 4, 3)
 	emitterABI, err := abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
 	require.NoError(t, err)
-	lp.addresses = []common.Address{emitterAddress}
-	lp.topics = [][]common.Hash{{emitterABI.Events["Log1"].ID, emitterABI.Events["Log2"].ID}}
-	t.Log(emitter, lp)
+	lp.MergeFilter([][]common.Hash{{emitterABI.Events["Log1"].ID, emitterABI.Events["Log2"].ID}}, []common.Address{emitterAddress1})
+	lp.MergeFilter([][]common.Hash{{emitterABI.Events["Log1"].ID, emitterABI.Events["Log2"].ID}}, []common.Address{emitterAddress2})
 
 	b, err := ec.BlockByNumber(context.Background(), nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), b.NumberU64())
 
+	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
 	// DB: empty
-	newStart := lp.pollAndSaveLogs(context.Background(), 1)
+	newStart := lp.PollAndSaveLogs(context.Background(), 1)
 	assert.Equal(t, int64(2), newStart)
 
 	// We expect to have saved block 1.
@@ -70,20 +76,21 @@ func TestLogPoller(t *testing.T) {
 	assert.Equal(t, 0, len(lgs))
 
 	// Polling again should be a noop, since we are at the latest.
-	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(2), newStart)
 	latest, err := orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), latest.BlockNumber)
 
+	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
 	// DB: 1
-	_, err = emitter.EmitLog1(id, []*big.Int{big.NewInt(1)})
+	_, err = emitter1.EmitLog1(id, []*big.Int{big.NewInt(1)})
 	require.NoError(t, err)
 	ec.Commit()
 
-	// Polling should get us the L1 hello log.
-	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
+	// Polling should get us the L1 log.
+	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(3), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -91,14 +98,15 @@ func TestLogPoller(t *testing.T) {
 	lgs, err = orm.SelectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
-	assert.Equal(t, emitterAddress, lgs[0].Address)
+	assert.Equal(t, emitterAddress1, lgs[0].Address)
 	assert.Equal(t, latest.BlockHash, lgs[0].BlockHash)
 	assert.Equal(t, hexutil.Encode(lgs[0].Topics[0]), emitterABI.Events["Log1"].ID.String())
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`),
 		lgs[0].Data)
 
-	// Chain gen <- 1 <- 2 (L1)
-	//                \ 2'(L1') <- 3
+	// Test scenario: single block reorg with log.
+	// Chain gen <- 1 <- 2 (L1_1)
+	//                \ 2'(L1_2) <- 3
 	// DB: 1, 2
 	// - Detect a reorg,
 	// - Update the block 2's hash
@@ -106,14 +114,14 @@ func TestLogPoller(t *testing.T) {
 	lca, err := ec.BlockByNumber(context.Background(), big.NewInt(1))
 	require.NoError(t, err)
 	require.NoError(t, ec.Fork(context.Background(), lca.Hash()))
-	_, err = emitter.EmitLog1(id, []*big.Int{big.NewInt(2)})
+	_, err = emitter1.EmitLog1(id, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
 	// Create 2'
 	ec.Commit()
 	// Create 3 (we need a new block for us to do any polling and detect the reorg).
 	ec.Commit()
 
-	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(4), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -123,4 +131,154 @@ func TestLogPoller(t *testing.T) {
 	require.Equal(t, 2, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[1].Data)
+
+	// Test scenario: multiple logs per block for many blocks (also after reorg).
+	// Chain gen <- 1 <- 2 (L1_1)
+	//                \ 2'(L1_2) <- 3 <- 4 (L1_3, L2_4) <- 5 (L1_5)
+	// DB: 1, 2, 3
+	// - Should save 4, 5, 6 blocks
+	// - Should obtain logs L1_3, L2_4, L1_5, L2_6
+	_, err = emitter1.EmitLog1(id, []*big.Int{big.NewInt(3)})
+	require.NoError(t, err)
+	_, err = emitter2.EmitLog1(id, []*big.Int{big.NewInt(4)})
+	require.NoError(t, err)
+	// Create 4
+	ec.Commit()
+	_, err = emitter2.EmitLog1(id, []*big.Int{big.NewInt(5)})
+	require.NoError(t, err)
+	// Create 5
+	ec.Commit()
+
+	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	assert.Equal(t, int64(6), newStart)
+	lgs, err = orm.SelectLogsByBlockRange(4, 5)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(lgs))
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000003`), lgs[0].Data)
+	assert.Equal(t, emitterAddress1, lgs[0].Address)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000004`), lgs[1].Data)
+	assert.Equal(t, emitterAddress2, lgs[1].Address)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000005`), lgs[2].Data)
+	assert.Equal(t, emitterAddress2, lgs[2].Address)
+
+	// Test scenario: node down for exactly finality + 1 block
+	// Chain gen <- 1 <- 2 (L1_1)
+	//                \ 2'(L1_2) <- 3 <- 4 (L1_3, L2_4) <- 5 (L1_5) <- 6 (L2_6) <- 7 (L1_7) <- 8 <- 9 <- 10 <- 11 (L1_8)
+	// DB: 1, 2, 3, 4, 5
+	// - We expect block 6 to backfilled
+	// - Then block 7-11 to be handled block by block (treated as unfinalized).
+	_, err = emitter2.EmitLog1(id, []*big.Int{big.NewInt(6)})
+	require.NoError(t, err)
+	ec.Commit()
+	for i := 0; i < 5; i++ {
+		if i == 0 {
+			_, err = emitter1.EmitLog1(id, []*big.Int{big.NewInt(7)})
+			require.NoError(t, err)
+		}
+		if i == 4 {
+			_, err = emitter1.EmitLog1(id, []*big.Int{big.NewInt(8)})
+			require.NoError(t, err)
+		}
+		ec.Commit()
+	}
+	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	assert.Equal(t, int64(12), newStart)
+	lgs, err = orm.SelectLogsByBlockRange(6, 11)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(lgs))
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000006`), lgs[0].Data)
+	assert.Equal(t, int64(6), lgs[0].BlockNumber)
+	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000007`), lgs[1].Data)
+	assert.Equal(t, int64(7), lgs[1].BlockNumber)
+	_, err = orm.SelectBlockByNumber(6)
+	require.True(t, errors.Is(err, sql.ErrNoRows)) // Do not expect to save backfilled blocks.
+}
+
+func TestCanonicalQuery(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	_, db := heavyweight.FullTestDB(t, "logs", true, false)
+	chainID := big.NewInt(137)
+	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
+	require.NoError(t, err)
+	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewPGCfg(true))
+	topic := common.HexToHash("0x1599")
+
+	// Block 1 and 2
+	// TODO: Helper for inserting logs
+	require.NoError(t, o.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    1,
+			BlockHash:   common.HexToHash("0x1"),
+			BlockNumber: int64(1),
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1234"),
+			Data:        []byte("hello"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    2,
+			BlockHash:   common.HexToHash("0x1"),
+			BlockNumber: int64(1),
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1234"),
+			Data:        []byte("hello"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    1,
+			BlockHash:   common.HexToHash("0x2"),
+			BlockNumber: int64(2),
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1234"),
+			Data:        []byte("hello"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    2,
+			BlockHash:   common.HexToHash("0x2"),
+			BlockNumber: int64(2),
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1234"),
+			Data:        []byte("hello"),
+		},
+	}))
+
+	// Block 1' and 2'
+	require.NoError(t, o.InsertLogs([]logpoller.Log{
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    3,
+			BlockHash:   common.HexToHash("0x3"),
+			BlockNumber: int64(1),
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1234"),
+			Data:        []byte("hello"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    4,
+			BlockHash:   common.HexToHash("0x4"),
+			BlockNumber: int64(2),
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1234"),
+			Data:        []byte("hello"),
+		},
+	}))
+
+	lgs, err := o.SelectCanonicalLogsByBlockRange(1, 2)
+	require.NoError(t, err)
+	// We expect only logs from block hash 0x3 and 0x4.
+	require.Equal(t, 2, len(lgs))
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[0].BlockHash.String())
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[1].BlockHash.String())
+
+	// TODO: Remaining canonical query filtering and
+	// benchmarking.
 }
