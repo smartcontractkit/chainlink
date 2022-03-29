@@ -57,7 +57,7 @@ jobs:
           ref: ${{ github.event.inputs.cl_ref }}
       - uses: actions/setup-go@v2
         with:
-          go-version: ^1.17
+          go-version: ^1.18
       - name: Replace Solana deps manual flow
         if: ${{ github.event.inputs.dep_solana_sha }}
         run: |
@@ -76,7 +76,7 @@ jobs:
           go get github.com/smartcontractkit/chainlink-terra@${{ inputs.dep_terra_sha }}
       - name: Tidy
         run: |
-          go mod tidy -compat=1.17
+          go mod tidy
       - name: Env vars
         run: env
       - name: Cat go.mod
