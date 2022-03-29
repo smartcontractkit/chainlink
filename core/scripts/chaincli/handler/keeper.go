@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_vb_wrapper"
+	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,7 +45,7 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 }
 
 func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, owners []common.Address) common.Address {
-	var registry *keeper.KeeperRegistryVB
+	var registry *keeper.KeeperRegistry
 	var registryAddr common.Address
 	var upkeepCount int64
 	if k.cfg.RegistryAddress != "" {
@@ -102,8 +102,8 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 	return registryAddr
 }
 
-func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistryVB) {
-	registryAddr, deployKeeperRegistryTx, registryInstance, err := keeper.DeployKeeperRegistryVB(k.buildTxOpts(ctx), k.client,
+func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
+	registryAddr, deployKeeperRegistryTx, registryInstance, err := keeper.DeployKeeperRegistry(k.buildTxOpts(ctx), k.client,
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
@@ -115,7 +115,6 @@ func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.Ke
 		k.cfg.GasCeilingMultiplier,
 		big.NewInt(k.cfg.FallbackGasPrice),
 		big.NewInt(k.cfg.FallbackLinkPrice),
-		k.cfg.MustTakeTurns,
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
@@ -126,9 +125,9 @@ func (k *Keeper) deployRegistry(ctx context.Context) (common.Address, *keeper.Ke
 }
 
 // GetRegistry is used to attach to an existing registry
-func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistryVB) {
+func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.KeeperRegistry) {
 	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
-	registryInstance, err := keeper.NewKeeperRegistryVB(
+	registryInstance, err := keeper.NewKeeperRegistry(
 		registryAddr,
 		k.client,
 	)
@@ -145,8 +144,7 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 			big.NewInt(k.cfg.StalenessSeconds),
 			k.cfg.GasCeilingMultiplier,
 			big.NewInt(k.cfg.FallbackGasPrice),
-			big.NewInt(k.cfg.FallbackLinkPrice),
-			k.cfg.MustTakeTurns)
+			big.NewInt(k.cfg.FallbackLinkPrice))
 		if err != nil {
 			log.Fatal("Registry config update: ", err)
 		}
@@ -159,7 +157,7 @@ func (k *Keeper) GetRegistry(ctx context.Context) (common.Address, *keeper.Keepe
 }
 
 // deployUpkeeps deploys N amount of upkeeps and register them in the keeper registry deployed above
-func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistryVB, existingCount int64) {
+func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address, registryInstance *keeper.KeeperRegistry, existingCount int64) {
 	fmt.Println()
 	log.Println("Deploying upkeeps...")
 	for i := existingCount; i < k.cfg.UpkeepCount+existingCount; i++ {
