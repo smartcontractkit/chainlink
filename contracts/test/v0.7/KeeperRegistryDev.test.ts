@@ -69,6 +69,7 @@ describe('KeeperRegistry', () => {
   const paymentPremiumPPB = BigNumber.from('250000000')
   const flatFeeMicroLink = BigNumber.from(0)
   const blockCountPerTurn = BigNumber.from(3)
+  const keepersMustTakeTurns = true
   const emptyBytes = '0x00'
   const zeroAddress = ethers.constants.AddressZero
   const extraGas = BigNumber.from('250000')
@@ -142,6 +143,7 @@ describe('KeeperRegistry', () => {
         gasCeilingMultiplier,
         fallbackGasPrice,
         fallbackLinkPrice,
+        keepersMustTakeTurns,
       )
 
     mock = await upkeepMockFactory.deploy()
@@ -556,6 +558,7 @@ describe('KeeperRegistry', () => {
               newGasMultiplier,
               fallbackGasPrice,
               fallbackLinkPrice,
+              keepersMustTakeTurns,
             )
           const response = await registry
             .connect(zeroAddress)
@@ -735,6 +738,7 @@ describe('KeeperRegistry', () => {
             multiplier,
             fallbackGasPrice,
             fallbackLinkPrice,
+            keepersMustTakeTurns,
           )
 
         const before = (
@@ -771,6 +775,7 @@ describe('KeeperRegistry', () => {
             multiplier,
             fallbackGasPrice,
             fallbackLinkPrice,
+            keepersMustTakeTurns,
           )
 
         const before = (
@@ -895,7 +900,19 @@ describe('KeeperRegistry', () => {
         assert.isTrue(normalAmount.lt(amountWithZeroFeed))
       })
 
-      it('reverts if the same caller calls twice in a row', async () => {
+      it('reverts if the same caller calls twice in a row if keepersMustTakeTurns = true', async () => {
+        await registry.connect(owner).setConfig(
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          maxCheckGas,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          true, // keepersMustTakeTurns
+        )
+
         await registry.connect(keeper1).performUpkeep(id, '0x')
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
@@ -907,6 +924,25 @@ describe('KeeperRegistry', () => {
           'keepers must take turns',
         )
         await registry.connect(keeper1).performUpkeep(id, '0x')
+      })
+
+      it('allows the same caller calls twice in a row if keepersMustTakeTurns = false', async () => {
+        await registry.connect(owner).setConfig(
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          maxCheckGas,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          false, // keepersMustTakeTurns
+        )
+
+        await registry.connect(keeper1).performUpkeep(id, '0x')
+        await registry.connect(keeper1).performUpkeep(id, '0x')
+        await registry.connect(keeper2).performUpkeep(id, '0x')
+        await registry.connect(keeper2).performUpkeep(id, '0x')
       })
 
       it('has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]', async () => {
@@ -1424,6 +1460,7 @@ describe('KeeperRegistry', () => {
     const maxGas = BigNumber.from(6)
     const fbGasEth = BigNumber.from(7)
     const fbLinkEth = BigNumber.from(8)
+    const newKeepersMustTakeTurns = false
 
     it('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
@@ -1438,6 +1475,7 @@ describe('KeeperRegistry', () => {
             gasCeilingMultiplier,
             fbGasEth,
             fbLinkEth,
+            newKeepersMustTakeTurns,
           ),
         'Only callable by owner',
       )
@@ -1451,6 +1489,7 @@ describe('KeeperRegistry', () => {
       assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn))
       assert.isTrue(stalenessSeconds.eq(old.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(old.gasCeilingMultiplier))
+      assert.equal(keepersMustTakeTurns, old.keepersMustTakeTurns)
 
       await registry
         .connect(owner)
@@ -1463,6 +1502,7 @@ describe('KeeperRegistry', () => {
           ceiling,
           fbGasEth,
           fbLinkEth,
+          newKeepersMustTakeTurns,
         )
 
       const updated = await registry.getConfig()
@@ -1475,6 +1515,7 @@ describe('KeeperRegistry', () => {
       assert.equal(updated.checkGasLimit, maxGas.toNumber())
       assert.equal(updated.fallbackGasPrice.toNumber(), fbGasEth.toNumber())
       assert.equal(updated.fallbackLinkPrice.toNumber(), fbLinkEth.toNumber())
+      assert.equal(updated.keepersMustTakeTurns, newKeepersMustTakeTurns)
     })
 
     it('emits an event', async () => {
@@ -1489,6 +1530,7 @@ describe('KeeperRegistry', () => {
           ceiling,
           fbGasEth,
           fbLinkEth,
+          newKeepersMustTakeTurns,
         )
       await expect(tx)
         .to.emit(registry, 'ConfigSet')
@@ -1500,6 +1542,7 @@ describe('KeeperRegistry', () => {
           ceiling,
           fbGasEth,
           fbLinkEth,
+          newKeepersMustTakeTurns,
         )
     })
   })
@@ -1715,6 +1758,7 @@ describe('KeeperRegistry', () => {
                 gasCeilingMultiplier,
                 fallbackGasPrice,
                 fallbackLinkPrice,
+                keepersMustTakeTurns,
               )
             const price = await registry.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
@@ -1742,6 +1786,7 @@ describe('KeeperRegistry', () => {
           multiplier,
           fallbackGasPrice,
           fallbackLinkPrice,
+          keepersMustTakeTurns,
         )
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
 

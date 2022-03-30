@@ -57,7 +57,8 @@ interface KeeperRegistryBaseInterface {
       uint24 stalenessSeconds,
       uint16 gasCeilingMultiplier,
       uint256 fallbackGasPrice,
-      uint256 fallbackLinkPrice
+      uint256 fallbackLinkPrice,
+      bool keepersMustTakeTurns
     );
 }
 

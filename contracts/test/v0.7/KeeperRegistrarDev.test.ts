@@ -39,8 +39,8 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
-  // Lifts the Dev contract
+  // Lifts the Dev contracts
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
   keeperRegistrar = await ethers.getContractFactory('KeeperRegistrarDev')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
@@ -74,6 +74,7 @@ describe('KeeperRegistrar', () => {
   const maxCheckGas = BigNumber.from(20000000)
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
+  const keepersMustTakeTurns = true
   const minLINKJuels = BigNumber.from('1000000000000000000')
   const amount = BigNumber.from('5000000000000000000')
   const amount1 = BigNumber.from('6000000000000000000')
@@ -119,6 +120,7 @@ describe('KeeperRegistrar', () => {
         gasCeilingMultiplier,
         fallbackGasPrice,
         fallbackLinkPrice,
+        keepersMustTakeTurns,
       )
 
     mock = await upkeepMockFactory.deploy()

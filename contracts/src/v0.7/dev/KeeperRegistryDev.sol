@@ -71,6 +71,7 @@ contract KeeperRegistryDev is
   /**
    * @notice versions:
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
+   *                       : add config for keeperMustTakeTurns
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
@@ -98,9 +99,11 @@ contract KeeperRegistryDev is
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
+    bool keepersMustTakeTurns;
   }
 
   struct PerformParams {
+    Config config;
     address from;
     uint256 id;
     bytes performData;
@@ -128,7 +131,8 @@ contract KeeperRegistryDev is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
+    uint256 fallbackLinkPrice,
+    bool keepersMustTakeTurns
   );
   event FlatFeeSet(uint32 flatFeeMicroLink);
   event KeepersUpdated(address[] keepers, address[] payees);
@@ -155,6 +159,7 @@ contract KeeperRegistryDev is
    * when calculating the payment ceiling for keepers
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
+   * @param keepersMustTakeTurns flag if true requires node performing Upkeep be different then previous
    */
   constructor(
     address link,
@@ -167,7 +172,8 @@ contract KeeperRegistryDev is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
+    uint256 fallbackLinkPrice,
+    bool keepersMustTakeTurns
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
@@ -181,7 +187,8 @@ contract KeeperRegistryDev is
       stalenessSeconds,
       gasCeilingMultiplier,
       fallbackGasPrice,
-      fallbackLinkPrice
+      fallbackLinkPrice,
+      keepersMustTakeTurns
     );
   }
 
@@ -258,7 +265,7 @@ contract KeeperRegistryDev is
     require(success, "upkeep not needed");
 
     PerformParams memory params = generatePerformParams(from, id, performData, false);
-    prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
+    prePerformUpkeep(upkeep, params.from, params.maxLinkPayment, params.config.keepersMustTakeTurns);
 
     return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
   }
@@ -434,6 +441,7 @@ contract KeeperRegistryDev is
    * be stale before switching to the fallback pricing
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
+   * @param keepersMustTakeTurns flag if true requires node performing Upkeep be different then previous
    */
   function setConfig(
     uint32 paymentPremiumPPB,
@@ -443,7 +451,8 @@ contract KeeperRegistryDev is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
+    uint256 fallbackLinkPrice,
+    bool keepersMustTakeTurns
   ) public onlyOwner {
     s_config = Config({
       paymentPremiumPPB: paymentPremiumPPB,
@@ -451,7 +460,8 @@ contract KeeperRegistryDev is
       blockCountPerTurn: blockCountPerTurn,
       checkGasLimit: checkGasLimit,
       stalenessSeconds: stalenessSeconds,
-      gasCeilingMultiplier: gasCeilingMultiplier
+      gasCeilingMultiplier: gasCeilingMultiplier,
+      keepersMustTakeTurns: keepersMustTakeTurns
     });
     s_fallbackGasPrice = fallbackGasPrice;
     s_fallbackLinkPrice = fallbackLinkPrice;
@@ -463,7 +473,8 @@ contract KeeperRegistryDev is
       stalenessSeconds,
       gasCeilingMultiplier,
       fallbackGasPrice,
-      fallbackLinkPrice
+      fallbackLinkPrice,
+      keepersMustTakeTurns
     );
     emit FlatFeeSet(flatFeeMicroLink);
   }
@@ -599,7 +610,8 @@ contract KeeperRegistryDev is
       uint24 stalenessSeconds,
       uint16 gasCeilingMultiplier,
       uint256 fallbackGasPrice,
-      uint256 fallbackLinkPrice
+      uint256 fallbackLinkPrice,
+      bool keepersMustTakeTurns
     )
   {
     Config memory config = s_config;
@@ -610,7 +622,8 @@ contract KeeperRegistryDev is
       config.stalenessSeconds,
       config.gasCeilingMultiplier,
       s_fallbackGasPrice,
-      s_fallbackLinkPrice
+      s_fallbackLinkPrice,
+      config.keepersMustTakeTurns
     );
   }
 
@@ -633,9 +646,10 @@ contract KeeperRegistryDev is
    * @notice calculates the maximum payment for a given gas limit
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
+    Config memory config = s_config;
     (uint256 gasWei, uint256 linkEth) = getFeedData();
     uint256 adjustedGasWei = adjustGasPrice(gasWei, false);
-    return calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    return calculatePaymentAmount(config, gasLimit, adjustedGasWei, linkEth);
   }
 
   // PRIVATE
@@ -670,11 +684,11 @@ contract KeeperRegistryDev is
    * @dev calculates LINK paid for gas spent plus a configure premium percentage
    */
   function calculatePaymentAmount(
+    Config memory config,
     uint256 gasLimit,
     uint256 gasWei,
     uint256 linkEth
   ) private view returns (uint96 payment) {
-    Config memory config = s_config;
     uint256 weiForGas = gasWei.mul(gasLimit.add(REGISTRY_GAS_OVERHEAD));
     uint256 premium = PPB_BASE.add(config.paymentPremiumPPB);
     uint256 total = weiForGas.mul(1e9).mul(premium).div(linkEth).add(uint256(config.flatFeeMicroLink).mul(1e12));
@@ -724,14 +738,14 @@ contract KeeperRegistryDev is
     returns (bool success)
   {
     Upkeep memory upkeep = s_upkeep[params.id];
-    prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
+    prePerformUpkeep(upkeep, params.from, params.maxLinkPayment, params.config.keepersMustTakeTurns);
 
     uint256 gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
     success = callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
-    uint96 payment = calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
+    uint96 payment = calculatePaymentAmount(params.config, gasUsed, params.adjustedGasWei, params.linkEth);
 
     uint96 newUpkeepBalance = s_upkeep[params.id].balance.sub(payment);
     s_upkeep[params.id].balance = newUpkeepBalance;
@@ -757,11 +771,14 @@ contract KeeperRegistryDev is
   function prePerformUpkeep(
     Upkeep memory upkeep,
     address from,
-    uint256 maxLinkPayment
+    uint256 maxLinkPayment,
+    bool keepersMustTakeTurns
   ) private view {
     require(s_keeperInfo[from].active, "only active keepers");
     require(upkeep.balance >= maxLinkPayment, "insufficient funds");
-    require(upkeep.lastKeeper != from, "keepers must take turns");
+    if (keepersMustTakeTurns) {
+      require(upkeep.lastKeeper != from, "keepers must take turns");
+    }
   }
 
   /**
@@ -783,13 +800,15 @@ contract KeeperRegistryDev is
     bytes memory performData,
     bool useTxGasPrice
   ) private view returns (PerformParams memory) {
+    Config memory config = s_config;
     uint256 gasLimit = s_upkeep[id].executeGas;
     (uint256 gasWei, uint256 linkEth) = getFeedData();
     uint256 adjustedGasWei = adjustGasPrice(gasWei, useTxGasPrice);
-    uint96 maxLinkPayment = calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+    uint96 maxLinkPayment = calculatePaymentAmount(config, gasLimit, adjustedGasWei, linkEth);
 
     return
       PerformParams({
+        config: config,
         from: from,
         id: id,
         performData: performData,
