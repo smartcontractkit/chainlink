@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"net/url"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -144,8 +143,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}
-	// TODO: per chain poll periods.
-	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, 15*time.Second, 1000, 100)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
 
 	// AddDependent for this chain
 	// log broadcaster will not start until dependent ready is called by a

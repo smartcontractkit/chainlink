@@ -210,6 +210,7 @@ type GlobalConfig interface {
 	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
 	GlobalEvmLogBackfillBatchSize() (uint32, bool)
+	GlobalEvmLogPollInterval() (time.Duration, bool)
 	GlobalEvmMaxGasPriceWei() (*big.Int, bool)
 	GlobalEvmMaxInFlightTransactions() (uint32, bool)
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
@@ -1347,6 +1348,13 @@ func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 		return 0, false
 	}
 	return val.(uint32), ok
+}
+func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	val, ok := c.lookupEnv(envvar.Name("EvmLogPollInterval"), parse.Duration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
 }
 func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	val, ok := c.lookupEnv(envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)

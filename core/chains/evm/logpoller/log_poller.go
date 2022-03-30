@@ -24,8 +24,8 @@ type LogPoller struct {
 	orm  *ORM
 	lggr logger.Logger
 	// poll period set by block production rate
-	pollPeriod                          time.Duration
-	blocksToFinality, backfillBatchSize int64
+	pollPeriod                       time.Duration
+	finalityDepth, backfillBatchSize int64
 
 	filterMu  sync.Mutex
 	addresses map[common.Address]struct{}
@@ -37,7 +37,7 @@ type LogPoller struct {
 	done   chan struct{}
 }
 
-func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, blocksToFinality, backfillBatchSize int64) *LogPoller {
+func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod time.Duration, finalityDepth, backfillBatchSize int64) *LogPoller {
 	return &LogPoller{
 		ec:                ec,
 		orm:               orm,
@@ -45,7 +45,7 @@ func NewLogPoller(orm *ORM, ec client.Client, lggr logger.Logger, pollPeriod tim
 		replay:            make(chan int64),
 		done:              make(chan struct{}),
 		pollPeriod:        pollPeriod,
-		blocksToFinality:  blocksToFinality,
+		finalityDepth:     finalityDepth,
 		backfillBatchSize: backfillBatchSize,
 		addresses:         make(map[common.Address]struct{}),
 		topics:            make(map[int]map[common.Hash]struct{}),
@@ -219,14 +219,15 @@ func (lp *LogPoller) backfill(ctx context.Context, start, end int64) int64 {
 // PollAndSaveLogs On startup/crash current is the first block after the last processed block.
 func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 	// Get latest block on chain
-	latestBlock, err := lp.ec.BlockByNumber(ctx, nil)
-	if err != nil {
+	latestBlock, err1 := lp.ec.BlockByNumber(ctx, nil)
+	if err1 != nil {
+		lp.lggr.Warnw("Unable to get latest block", "err", err1, "current", current)
 		return current
 	}
 	latest := latestBlock.Number().Int64()
 	// 1<-2<-3(current)<-4<-5<-6<-7(latest). Finality is 2, so 3,4,5 can be batched.
 	// start = current = 3, end = latest-current+1 = 7-3+1 = 5 (inclusive range).
-	if (latest - current) > lp.blocksToFinality {
+	if (latest - current) > lp.finalityDepth {
 		current = lp.backfill(ctx, current, latest-current+1)
 	}
 
@@ -240,16 +241,24 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 		// If not, there was a reorg, so we need to rewind.
 		expectedParent, err := lp.orm.SelectBlockByNumber(current - 1)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			// If not a no rows error, assume transient db issue and retry
+			// If err is not a no rows error, assume transient db issue and retry
+			lp.lggr.Warnw("Unable to read latest block saved", "err", err, "current", current)
 			return current
 		}
-		// The very first time we poll, we will not have the previous block.
+		// We will not have the previous block on initial poll or after a backfill.
 		havePreviousBlock := !errors.Is(err, sql.ErrNoRows)
 		if havePreviousBlock && !bytes.Equal(block.ParentHash().Bytes(), expectedParent.BlockHash.Bytes()) {
 			// There can be another reorg while we're finding the LCA.
 			// That is ok, since we'll detect it on the next iteration of current.
-			lca := lp.findLCA(block.ParentHash())
+			lca, err := lp.findLCA(block.ParentHash())
+			if err != nil {
+				lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err)
+				return current
+			}
+
 			// We truncate all the blocks after the LCA.
+			// TODO: We could mark all the logs after this reorg to be excluded
+			// from canonical queries?
 			err = lp.orm.DeleteRangeBlocks(lca+1, latest)
 			if err != nil {
 				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
@@ -279,28 +288,31 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs))
 		})
 		if err != nil {
-			// If we're unable to insert just retry
+			// If we're unable to insert, don't increment current and just retry
 			lp.lggr.Warnw("Unable to save logs, retrying", "err", err, "block", block.Number())
 			return current
 		}
-
-		// Continue from the end boundary block.
-		// Ok to poll the same block again, saveLogs is idempotent.
 		current++
 	}
 	return current
 }
 
-func (lp *LogPoller) findLCA(h common.Hash) int64 {
+func (lp *LogPoller) findLCA(h common.Hash) (int64, error) {
 	// Find the first place where our chain and their chain have the same block,
 	// that block number is the LCA.
-	block, _ := lp.ec.BlockByHash(context.Background(), h)
-	ourBlockHash, _ := lp.orm.SelectBlockByNumber(block.Number().Int64())
+	block, err := lp.ec.BlockByHash(context.Background(), h)
+	if err != nil {
+		return 0, err
+	}
+	ourBlockHash, err := lp.orm.SelectBlockByNumber(block.Number().Int64())
+	if err != nil {
+		return 0, err
+	}
 	if !bytes.Equal(block.Hash().Bytes(), ourBlockHash.BlockHash.Bytes()) {
 		return lp.findLCA(block.ParentHash())
 	}
 	// If we do have the blockhash, that is the LCA
-	return block.Number().Int64()
+	return block.Number().Int64(), nil
 }
 
 func (lp *LogPoller) CanonicalLogs(start, end int64, topics []common.Hash, address common.Address) ([]Log, error) {

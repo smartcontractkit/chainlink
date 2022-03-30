@@ -57,6 +57,7 @@ type ChainScopedOnlyConfig interface {
 	EvmHeadTrackerMaxBufferSize() uint32
 	EvmHeadTrackerSamplingInterval() time.Duration
 	EvmLogBackfillBatchSize() uint32
+	EvmLogPollInterval() time.Duration
 	EvmMaxGasPriceWei() *big.Int
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
@@ -941,6 +942,23 @@ func (c *chainScopedConfig) EthTxReaperThreshold() time.Duration {
 		return p.Duration()
 	}
 	return c.defaultSet.ethTxReaperThreshold
+}
+
+// EvmLogPollInterval how fast we poll for new logs.
+func (c *chainScopedConfig) EvmLogPollInterval() time.Duration {
+	val, ok := c.GeneralConfig.GlobalEvmLogPollInterval()
+	if ok {
+		c.logEnvOverrideOnce("EvmLogPollInterval", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmLogPollInterval
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmLogPollInterval", *p)
+		return p.Duration()
+	}
+	return c.defaultSet.logPollInterval
 }
 
 // EvmLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs

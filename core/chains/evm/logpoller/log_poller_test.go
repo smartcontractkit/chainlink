@@ -26,6 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+var (
+	emitterABI, _ = abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
+)
+
 func TestLogPoller(t *testing.T) {
 	_, db := heavyweight.FullTestDB(t, "logs", true, false)
 	chainID := big.NewInt(42)
@@ -49,8 +53,6 @@ func TestLogPoller(t *testing.T) {
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, 4, 3)
-	emitterABI, err := abi.JSON(strings.NewReader(log_emitter.LogEmitterABI))
-	require.NoError(t, err)
 	lp.MergeFilter([][]common.Hash{{emitterABI.Events["Log1"].ID, emitterABI.Events["Log2"].ID}}, []common.Address{emitterAddress1})
 	lp.MergeFilter([][]common.Hash{{emitterABI.Events["Log1"].ID, emitterABI.Events["Log2"].ID}}, []common.Address{emitterAddress2})
 
@@ -194,6 +196,19 @@ func TestLogPoller(t *testing.T) {
 	require.True(t, errors.Is(err, sql.ErrNoRows)) // Do not expect to save backfilled blocks.
 }
 
+func genLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, topic1 []byte, address common.Address) logpoller.Log {
+	return logpoller.Log{
+		EvmChainId:  utils.NewBig(chainID),
+		LogIndex:    logIndex,
+		BlockHash:   common.HexToHash(blockHash),
+		BlockNumber: blockNum,
+		Topics:      [][]byte{topic1},
+		Address:     address,
+		TxHash:      common.HexToHash("0x1234"),
+		Data:        []byte("hello"),
+	}
+}
+
 func TestCanonicalQuery(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDB(t, "logs", true, false)
@@ -201,84 +216,58 @@ func TestCanonicalQuery(t *testing.T) {
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
 	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewPGCfg(true))
-	topic := common.HexToHash("0x1599")
+	topic1 := emitterABI.Events["Log1"].ID
+	topic2 := emitterABI.Events["Log2"].ID
+	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
+	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
 
 	// Block 1 and 2
-	// TODO: Helper for inserting logs
 	require.NoError(t, o.InsertLogs([]logpoller.Log{
-		{
-			EvmChainId:  utils.NewBigI(137),
-			LogIndex:    1,
-			BlockHash:   common.HexToHash("0x1"),
-			BlockNumber: int64(1),
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1234"),
-			Data:        []byte("hello"),
-		},
-		{
-			EvmChainId:  utils.NewBigI(137),
-			LogIndex:    2,
-			BlockHash:   common.HexToHash("0x1"),
-			BlockNumber: int64(1),
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1234"),
-			Data:        []byte("hello"),
-		},
-		{
-			EvmChainId:  utils.NewBigI(137),
-			LogIndex:    1,
-			BlockHash:   common.HexToHash("0x2"),
-			BlockNumber: int64(2),
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1234"),
-			Data:        []byte("hello"),
-		},
-		{
-			EvmChainId:  utils.NewBigI(137),
-			LogIndex:    2,
-			BlockHash:   common.HexToHash("0x2"),
-			BlockNumber: int64(2),
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1234"),
-			Data:        []byte("hello"),
-		},
+		genLog(chainID, 1, 1, "0x1", topic1[:], address1),
+		genLog(chainID, 2, 1, "0x1", topic2[:], address2),
+		genLog(chainID, 1, 2, "0x2", topic1[:], address2),
+		genLog(chainID, 2, 2, "0x2", topic2[:], address1),
 	}))
 
-	// Block 1' and 2'
+	// Block 1' and 2' and 3
 	require.NoError(t, o.InsertLogs([]logpoller.Log{
-		{
-			EvmChainId:  utils.NewBigI(137),
-			LogIndex:    3,
-			BlockHash:   common.HexToHash("0x3"),
-			BlockNumber: int64(1),
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1234"),
-			Data:        []byte("hello"),
-		},
-		{
-			EvmChainId:  utils.NewBigI(137),
-			LogIndex:    4,
-			BlockHash:   common.HexToHash("0x4"),
-			BlockNumber: int64(2),
-			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
-			TxHash:      common.HexToHash("0x1234"),
-			Data:        []byte("hello"),
-		},
+		genLog(chainID, 1, 1, "0x3", topic1[:], address1),
+		genLog(chainID, 2, 1, "0x3", topic2[:], address2),
+		genLog(chainID, 1, 2, "0x4", topic1[:], address2),
+		genLog(chainID, 2, 2, "0x4", topic2[:], address1),
+		genLog(chainID, 1, 3, "0x5", topic1[:], address1),
+		genLog(chainID, 2, 3, "0x5", topic2[:], address2),
 	}))
 
-	lgs, err := o.SelectCanonicalLogsByBlockRange(1, 2)
+	lgs, err := o.SelectCanonicalLogsByBlockRange(1, 3)
 	require.NoError(t, err)
-	// We expect only logs from block hash 0x3 and 0x4.
+	// We expect only logs from block hash 0x3 and 0x4 as they are more recent for the same block height.
+	require.Equal(t, 6, len(lgs))
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[0].BlockHash.String())
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[1].BlockHash.String())
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[2].BlockHash.String())
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[3].BlockHash.String())
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[4].BlockHash.String())
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[5].BlockHash.String())
+
+	// Filter by address and topic
+	lgs, err = o.SelectCanonicalLogsByBlockRangeTopicAddress(1, 3, address1, [][]byte{topic1[:]})
+	require.NoError(t, err)
 	require.Equal(t, 2, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[0].BlockHash.String())
-	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[1].BlockHash.String())
+	assert.Equal(t, address1, lgs[0].Address)
+	assert.Equal(t, topic1.Bytes(), lgs[0].Topics[0])
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000005", lgs[1].BlockHash.String())
+	assert.Equal(t, address1, lgs[1].Address)
 
-	// TODO: Remaining canonical query filtering and
-	// benchmarking.
+	// Filter by block
+	lgs, err = o.SelectCanonicalLogsByBlockRangeTopicAddress(2, 2, address2, [][]byte{topic1[:]})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(lgs))
+	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", lgs[0].BlockHash.String())
+	assert.Equal(t, int64(1), lgs[0].LogIndex)
+	assert.Equal(t, address2, lgs[0].Address)
+	assert.Equal(t, topic1.Bytes(), lgs[0].Topics[0])
+
+	// TODO: Benchmarking
 }

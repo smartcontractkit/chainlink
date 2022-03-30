@@ -71,6 +71,7 @@ type ChainCfg struct {
 	EvmHeadTrackerMaxBufferSize                    null.Int
 	EvmHeadTrackerSamplingInterval                 *models.Duration
 	EvmLogBackfillBatchSize                        null.Int
+	EvmLogPollInterval                             *models.Duration
 	EvmMaxGasPriceWei                              *utils.Big
 	EvmNonceAutoSync                               null.Bool
 	EvmRPCDefaultBatchSize                         null.Int
