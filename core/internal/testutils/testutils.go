@@ -273,6 +273,17 @@ func AssertEventually(t *testing.T, f func() bool) {
 	assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
 }
 
+// RequireLogMessage fails the test if emitted logs don't contain the given message
+func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
+	for _, l := range observedLogs.All() {
+		if strings.Contains(l.Message, msg) {
+			return
+		}
+	}
+	t.Log("observed logs", observedLogs.All())
+	t.Fatalf("expected observed logs to contain msg %q, but it didn't", msg)
+}
+
 // WaitForLogMessage waits until at least one log message containing the
 // specified msg is emitted.
 // NOTE: This does not "pop" messages so it cannot be used multiple times to
