@@ -267,7 +267,7 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 // 2) the max gas price provides a very large buffer most of the time.
 // Its easier to optimistically assume it will go though and in the rare case of a reversion
 // we simply retry TODO: follow up where if we see a fulfillment revert, return log to the queue.
-func (lsn *listenerV2) processPendingVRFRequests() {
+func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 	confirmed := lsn.getAndRemoveConfirmedLogsBySub(lsn.getLatestHead())
 	processed := make(map[string]struct{})
 	start := time.Now()
@@ -307,7 +307,7 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 			continue
 		}
 		startBalance := sub.Balance
-		p := lsn.processRequestsPerSub(subID, startBalance, reqs)
+		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
 		for reqID := range p {
 			processed[reqID] = struct{}{}
 		}
@@ -364,6 +364,7 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 }
 
 func (lsn *listenerV2) processRequestsPerSub(
+	ctx context.Context,
 	subID uint64,
 	startBalance *big.Int,
 	reqs []pendingRequest,
@@ -434,7 +435,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		chunk := unconsumed[chunkStart:chunkEnd]
 
 		var unfulfilled []pendingRequest
-		alreadyFulfilled := lsn.checkReqsFulfilled(l, chunk)
+		alreadyFulfilled := lsn.checkReqsFulfilled(ctx, l, chunk)
 		for i, a := range alreadyFulfilled {
 			if a {
 				lsn.markLogAsConsumed(chunk[i].lb)
@@ -451,7 +452,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
-		pipelines := lsn.runPipelines(l, maxGasPriceWei, unfulfilled)
+		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
 			ll := l.With("reqID", p.req.req.RequestId.String(),
 				"txHash", p.req.req.Raw.TxHash,
@@ -499,7 +500,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 						VRFCoordinatorAddress: lsn.coordinator.Address(),
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
 					},
-				}, pg.WithQueryer(tx))
+				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
 				return err
 			})
 			if err != nil {
@@ -518,7 +519,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 	return processed
 }
 
-func (lsn *listenerV2) checkReqsFulfilled(l logger.Logger, reqs []pendingRequest) []bool {
+func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, reqs []pendingRequest) []bool {
 	var (
 		start     = time.Now()
 		calls     = make([]rpc.BatchElem, len(reqs))
@@ -553,7 +554,7 @@ func (lsn *listenerV2) checkReqsFulfilled(l logger.Logger, reqs []pendingRequest
 		}
 	}
 
-	err := lsn.ethClient.BatchCallContext(context.Background(), calls)
+	err := lsn.ethClient.BatchCallContext(ctx, calls)
 	if err != nil {
 		l.Errorw("Unable to check if already fulfilled, failed batch call, processing anyways",
 			"err", err)
@@ -599,6 +600,7 @@ func (lsn *listenerV2) checkReqsFulfilled(l logger.Logger, reqs []pendingRequest
 }
 
 func (lsn *listenerV2) runPipelines(
+	ctx context.Context,
 	l logger.Logger,
 	maxGasPriceWei *big.Int,
 	reqs []pendingRequest,
@@ -613,7 +615,7 @@ func (lsn *listenerV2) runPipelines(
 		wg.Add(1)
 		go func(i int, req pendingRequest) {
 			defer wg.Done()
-			results[i] = lsn.getMaxLinkForFulfillment(maxGasPriceWei, req, l)
+			results[i] = lsn.getMaxLinkForFulfillment(ctx, maxGasPriceWei, req, l)
 		}(i, req)
 	}
 	wg.Wait()
@@ -651,6 +653,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 // Here we use the pipeline to parse the log, generate a vrf response
 // then simulate the transaction at the max gas price to determine its maximum link cost.
 func (lsn *listenerV2) getMaxLinkForFulfillment(
+	ctx context.Context,
 	maxGasPriceWei *big.Int,
 	req pendingRequest,
 	lg logger.Logger,
@@ -687,7 +690,7 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(
 		},
 	})
 	var trrs pipeline.TaskRunResults
-	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lg)
+	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars, lg)
 	if err != nil {
 		res.err = errors.Wrap(err, "executing run")
 		return res
@@ -724,12 +727,14 @@ func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration, wg *sync.Wait
 	defer wg.Done()
 	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
+	ctx, cancel := utils.ContextFromChan(lsn.chStop)
+	defer cancel()
 	for {
 		select {
 		case <-lsn.chStop:
 			return
 		case <-tick.C:
-			lsn.processPendingVRFRequests()
+			lsn.processPendingVRFRequests(ctx)
 		}
 	}
 }
