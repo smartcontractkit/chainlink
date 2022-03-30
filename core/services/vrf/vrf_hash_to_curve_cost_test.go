@@ -1,11 +1,12 @@
 package vrf_test
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
@@ -66,7 +67,7 @@ func estimateGas(t *testing.T, backend *backends.SimulatedBackend,
 	require.NoError(t, err, "failed to construct raw %s transaction with args %s",
 		method, args)
 	callMsg := ethereum.CallMsg{From: from, To: &to, Data: rawData}
-	estimate, err := backend.EstimateGas(context.TODO(), callMsg)
+	estimate, err := backend.EstimateGas(testutils.Context(t), callMsg)
 	require.NoError(t, err, "failed to estimate gas from %s call with args %s",
 		method, args)
 	return estimate

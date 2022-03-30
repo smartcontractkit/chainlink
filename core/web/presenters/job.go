@@ -3,18 +3,16 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/types"
-
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -147,8 +145,8 @@ type OffChainReportingSpec struct {
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
-// job.OffchainReportingOracleSpec
-func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainReportingSpec {
+// job.OCROracleSpec
+func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 	return &OffChainReportingSpec{
 		ContractAddress:                           spec.ContractAddress,
 		P2PBootstrapPeers:                         spec.P2PBootstrapPeers,
@@ -194,8 +192,8 @@ type OffChainReporting2Spec struct {
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
-// job.OffchainReporting2OracleSpec
-func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChainReporting2Spec {
+// job.OCR2OracleSpec
+func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec {
 	return &OffChainReporting2Spec{
 		ContractID:                        spec.ContractID,
 		Relay:                             spec.Relay,
@@ -278,26 +276,28 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress       ethkey.EIP55Address  `json:"coordinatorAddress"`
-	PublicKey                secp256k1.PublicKey  `json:"publicKey"`
-	FromAddress              *ethkey.EIP55Address `json:"fromAddress"`
-	PollPeriod               models.Duration      `json:"pollPeriod"`
-	MinIncomingConfirmations uint32               `json:"confirmations"`
-	CreatedAt                time.Time            `json:"createdAt"`
-	UpdatedAt                time.Time            `json:"updatedAt"`
-	EVMChainID               *utils.Big           `json:"evmChainID"`
+	CoordinatorAddress       ethkey.EIP55Address   `json:"coordinatorAddress"`
+	PublicKey                secp256k1.PublicKey   `json:"publicKey"`
+	FromAddresses            []ethkey.EIP55Address `json:"fromAddresses"`
+	PollPeriod               models.Duration       `json:"pollPeriod"`
+	MinIncomingConfirmations uint32                `json:"confirmations"`
+	CreatedAt                time.Time             `json:"createdAt"`
+	UpdatedAt                time.Time             `json:"updatedAt"`
+	EVMChainID               *utils.Big            `json:"evmChainID"`
+	ChunkSize                uint32                `json:"chunkSize"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	return &VRFSpec{
 		CoordinatorAddress:       spec.CoordinatorAddress,
 		PublicKey:                spec.PublicKey,
-		FromAddress:              spec.FromAddress,
+		FromAddresses:            spec.FromAddresses,
 		PollPeriod:               models.MustMakeDuration(spec.PollPeriod),
 		MinIncomingConfirmations: spec.MinIncomingConfirmations,
 		CreatedAt:                spec.CreatedAt,
 		UpdatedAt:                spec.UpdatedAt,
 		EVMChainID:               spec.EVMChainID,
+		ChunkSize:                spec.ChunkSize,
 	}
 }
 
@@ -419,9 +419,9 @@ func NewJobResource(j job.Job) *JobResource {
 	case job.Cron:
 		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.OffchainReporting:
-		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
+		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OCROracleSpec)
 	case job.OffchainReporting2:
-		resource.OffChainReporting2Spec = NewOffChainReporting2Spec(j.Offchainreporting2OracleSpec)
+		resource.OffChainReporting2Spec = NewOffChainReporting2Spec(j.OCR2OracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	case job.VRF:

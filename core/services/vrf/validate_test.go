@@ -25,6 +25,8 @@ schemaVersion   = 1
 minIncomingConfirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+requestTimeout = "168h" # 7 days
+chunkSize = 25
 observationSource = """
 decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
@@ -50,6 +52,8 @@ decode_log->vrf->encode_tx->submit_tx
 				assert.Equal(t, uint32(10), s.VRFSpec.MinIncomingConfirmations)
 				assert.Equal(t, "0xB3b7874F13387D44a3398D298B075B7A3505D8d4", s.VRFSpec.CoordinatorAddress.String())
 				assert.Equal(t, "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f8179800", s.VRFSpec.PublicKey.String())
+				require.Equal(t, 168*time.Hour, s.VRFSpec.RequestTimeout)
+				require.EqualValues(t, 25, s.VRFSpec.ChunkSize)
 			},
 		},
 		{
@@ -80,7 +84,7 @@ decode_log->vrf->encode_tx->submit_tx
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				require.True(t, ErrKeyNotSet == errors.Cause(err))
+				require.True(t, errors.Is(ErrKeyNotSet, errors.Cause(err)))
 			},
 		},
 		{
@@ -111,7 +115,7 @@ decode_log->vrf->encode_tx->submit_tx
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				require.True(t, ErrKeyNotSet == errors.Cause(err))
+				require.True(t, errors.Is(ErrKeyNotSet, errors.Cause(err)))
 			},
 		},
 		{

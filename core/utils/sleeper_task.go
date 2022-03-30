@@ -102,6 +102,7 @@ type sleeperTaskWorker struct {
 	work func()
 }
 
+// SleeperFuncTask returns a Worker to execute the given work function.
 func SleeperFuncTask(work func(), name string) Worker {
 	return &sleeperTaskWorker{name: name, work: work}
 }

@@ -25,7 +25,7 @@ import (
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
 
 type Runner interface {
-	services.Service
+	services.ServiceCtx
 
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
@@ -112,7 +112,8 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 	return r
 }
 
-func (r *runner) Start() error {
+// Start starts Runner.
+func (r *runner) Start(context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
 		r.wgDone.Add(2)
 		go r.scheduleUnfinishedRuns()
@@ -143,7 +144,7 @@ func (r *runner) runReaperLoop() {
 		return
 	}
 
-	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
+	runReaperTicker := time.NewTicker(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 	defer runReaperTicker.Stop()
 	for {
 		select {
@@ -151,6 +152,7 @@ func (r *runner) runReaperLoop() {
 			return
 		case <-runReaperTicker.C:
 			r.runReaperWorker.WakeUp()
+			runReaperTicker.Reset(utils.WithJitter(r.config.JobPipelineReaperInterval()))
 		}
 	}
 }
@@ -262,7 +264,8 @@ func (r *runner) run(
 	vars Vars,
 	l logger.Logger,
 ) (TaskRunResults, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
+	l = l.With("jobID", run.PipelineSpec.JobID, "jobName", run.PipelineSpec.JobName)
+	l.Debug("Initiating tasks for pipeline run of spec")
 
 	scheduler := newScheduler(pipeline, run, vars, l)
 	go scheduler.Run()
@@ -387,7 +390,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	// below. It has already been changed several times trying to "fix" a bug,
 	// but actually introducing new ones. Please leave it as-is unless you have
 	// an extremely good reason to change it.
-	ctx, cancel := utils.CombinedContext(ctx, r.chStop)
+	ctx, cancel := utils.WithCloseChan(ctx, r.chStop)
 	defer cancel()
 	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet && taskTimeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
@@ -576,13 +579,11 @@ func (r *runner) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts 
 }
 
 func (r *runner) runReaper() {
-	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
-	if ctx.Err() != nil {
-		return
-	} else if err != nil {
+	if err != nil {
 		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }
@@ -598,7 +599,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// immediately run reaper so we don't consider runs that are too old
 	r.runReaper()
 
-	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	ctx, cancel := utils.ContextFromChan(r.chStop)
 	defer cancel()
 
 	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {

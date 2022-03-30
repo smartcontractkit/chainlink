@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -36,11 +38,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -86,6 +90,7 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
+	config.Overrides.P2PEnabled = null.BoolFrom(true)
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
 	config.Overrides.P2PListenPort = null.NewInt(0, true)
 	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
@@ -108,7 +113,7 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 
 	config.Overrides.P2PPeerID = peerID
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address.Address()
@@ -176,7 +181,7 @@ func TestIntegration_OCR2(t *testing.T) {
 		}
 	}()
 
-	lggr.Debugw("Setting Payees on Oracle Contract", "transmitters", transmitters)
+	lggr.Debugw("Setting Payees on OraclePlugin Contract", "transmitters", transmitters)
 	_, err := ocrContract.SetPayees(
 		owner,
 		transmitters,
@@ -208,7 +213,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	b.Commit()
 
-	err = appBootstrap.Start()
+	err = appBootstrap.Start(testutils.Context(t))
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
@@ -240,7 +245,7 @@ chainID 			= 1337
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
 	for i := 0; i < 4; i++ {
-		err = apps[i].Start()
+		err = apps[i].Start(testutils.Context(t))
 		require.NoError(t, err)
 		defer apps[i].Stop()
 
@@ -267,21 +272,22 @@ chainID 			= 1337
 		defer servers[i].Close()
 		u, _ := url.Parse(servers[i].URL)
 		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
+			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		})
 
-		ocrJob, err := offchainreporting2.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
+		ocrJob, err := validate.ValidatedOracleSpecToml(apps[i].Config, fmt.Sprintf(`
 type               = "offchainreporting2"
-relay = "evm"
+relay              = "evm"
 schemaVersion      = 1
+pluginType         = "median"
 name               = "web oracle spec"
-contractID = "%s"
-ocrKeyBundleID        = "%s"
-transmitterID = "%s"
+contractID         = "%s"
+ocrKeyBundleID     = "%s"
+transmitterID      = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
-observationSource = """
+observationSource  = """
     // data source 1
     ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
@@ -297,6 +303,9 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
+[relayConfig]
+chainID = 1337
+[pluginConfig]
 juelsPerFeeCoinSource = """
 		// data source 1
 		ds1          [type=bridge name="%s"];
@@ -313,8 +322,6 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-[relayConfig]
-chainID = 1337
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
@@ -362,4 +369,17 @@ chainID = 1337
 		}
 	}
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+
+	// Assert we can read the latest config digest and epoch after a report has been submitted.
+	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
+	require.NoError(t, err)
+	ct := evm.NewOCRContractTransmitter(ocrContractAddress, apps[0].Chains.EVM.Chains()[0].Client(), contractABI, nil, lggr)
+	configDigest, epoch, err := ct.LatestConfigDigestAndEpoch(context.Background())
+	require.NoError(t, err)
+	details, err := ocrContract.LatestConfigDetails(nil)
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(configDigest[:], details.ConfigDigest[:]))
+	digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
+	require.NoError(t, err)
+	assert.Equal(t, digestAndEpoch.Epoch, epoch)
 }

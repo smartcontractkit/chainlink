@@ -24,10 +24,12 @@ func run(args ...string) {
 	t := &testing.T{}
 	tc := cltest.NewTestGeneralConfig(t)
 	tc.Overrides.Dev = null.BoolFrom(false)
+	lggr := logger.TestLogger(t)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,
-		Logger:                 logger.TestLogger(t),
+		Logger:                 lggr,
+		CloseLogger:            lggr.Sync,
 		AppFactory:             cmd.ChainlinkAppFactory{},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
@@ -60,9 +62,10 @@ func ExampleRun() {
 	//    jobs            Commands for managing Jobs
 	//    keys            Commands for managing various types of keys used by the Chainlink node
 	//    node, local     Commands for admin actions that must be run locally
-	//    txs             Commands for handling Ethereum transactions
+	//    txs             Commands for handling transactions
 	//    chains          Commands for handling chain configuration
 	//    nodes           Commands for handling node configuration
+	//    forwarders      Commands for managing forwarder addresses.
 	//    help, h         Shows a list of commands or help for one command
 	//
 	// GLOBAL OPTIONS:
@@ -438,15 +441,65 @@ func ExampleRun_txs() {
 	run("txs", "--help")
 	// Output:
 	// NAME:
-	//    core.test txs - Commands for handling Ethereum transactions
+	//    core.test txs - Commands for handling transactions
 	//
 	// USAGE:
 	//    core.test txs command [command options] [arguments...]
 	//
 	// COMMANDS:
+	//    evm     Commands for handling EVM transactions
+	//    solana  Commands for handling Solana transactions
+	//    terra   Commands for handling Terra transactions
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_txs_evm() {
+	run("txs", "evm", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs evm - Commands for handling EVM transactions
+	//
+	// USAGE:
+	//    core.test txs evm command [command options] [arguments...]
+	//
+	// COMMANDS:
 	//    create  Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.
 	//    list    List the Ethereum Transactions in descending order
 	//    show    get information on a specific Ethereum Transaction
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_txs_solana() {
+	run("txs", "solana", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs solana - Commands for handling Solana transactions
+	//
+	// USAGE:
+	//    core.test txs solana command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_txs_terra() {
+	run("txs", "terra", "--help")
+	// Output:
+	// NAME:
+	//    core.test txs terra - Commands for handling Terra transactions
+	//
+	// USAGE:
+	//    core.test txs terra command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Send <amount> Luna from node Terra account <fromAddress> to destination <toAddress>.
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -462,8 +515,9 @@ func ExampleRun_chains() {
 	//    core.test chains command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm    Commands for handling EVM chains
-	//    terra  Commands for handling Terra chains
+	//    evm     Commands for handling EVM chains
+	//    solana  Commands for handling Solana chains
+	//    terra   Commands for handling Terra chains
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -483,6 +537,25 @@ func ExampleRun_chains_evm() {
 	//    delete     Delete an EVM chain
 	//    list       List all EVM chains
 	//    configure  Configure an EVM chain
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_chains_solana() {
+	run("chains", "solana", "--help")
+	// Output:
+	// NAME:
+	//    core.test chains solana - Commands for handling Solana chains
+	//
+	// USAGE:
+	//    core.test chains solana command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create     Create a new Solana chain
+	//    delete     Delete a Solana chain
+	//    list       List all Solana chains
+	//    configure  Configure a Solana chain
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -517,8 +590,9 @@ func ExampleRun_nodes() {
 	//    core.test nodes command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    evm    Commands for handling EVM node configuration
-	//    terra  Commands for handling Terra node configuration
+	//    evm     Commands for handling EVM node configuration
+	//    solana  Commands for handling Solana node configuration
+	//    terra   Commands for handling Terra node configuration
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -542,6 +616,24 @@ func ExampleRun_nodes_evm() {
 	//    --help, -h  show help
 }
 
+func ExampleRun_nodes_solana() {
+	run("nodes", "solana", "--help")
+	// Output:
+	// NAME:
+	//    core.test nodes solana - Commands for handling Solana node configuration
+	//
+	// USAGE:
+	//    core.test nodes solana command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    create  Create a new Solana node
+	//    delete  Delete a Solana node
+	//    list    List all Solana nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
 func ExampleRun_nodes_terra() {
 	run("nodes", "terra", "--help")
 	// Output:
@@ -555,6 +647,24 @@ func ExampleRun_nodes_terra() {
 	//    create  Create a new Terra node
 	//    delete  Delete a Terra node
 	//    list    List all Terra nodes
+	//
+	// OPTIONS:
+	//    --help, -h  show help
+}
+
+func ExampleRun_forwarders() {
+	run("forwarders", "--help")
+	// Output:
+	// NAME:
+	//    core.test forwarders - Commands for managing forwarder addresses.
+	//
+	// USAGE:
+	//    core.test forwarders command [command options] [arguments...]
+	//
+	// COMMANDS:
+	//    list    List all stored forwarders addresses
+	//    create  Create a new forwarder
+	//    delete  Delete a forwarder address
 	//
 	// OPTIONS:
 	//    --help, -h  show help

@@ -10,12 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
 func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) db.Chain {
@@ -24,13 +26,21 @@ func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) db.Chain {
 	return chain
 }
 
+func terraStartNewApplication(t *testing.T) *cltest.TestApplication {
+	return startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.TerraEnabled = null.BoolFrom(true)
+		c.Overrides.EVMEnabled = null.BoolFrom(false)
+		c.Overrides.EVMRPCEnabled = null.BoolFrom(false)
+	}))
+}
+
 func TestClient_IndexTerraNodes(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.TerraORM()
+	orm := app.Chains.Terra.ORM()
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
@@ -59,10 +69,10 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 func TestClient_CreateTerraNode(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.TerraORM()
+	orm := app.Chains.Terra.ORM()
 	_, initialNodesCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
 	chainIDA := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
@@ -92,13 +102,13 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, nodes, initialNodesCount+2)
 	n := nodes[initialNodesCount]
-	assertEqual(t, types.NewNode{
+	assertEqualNodesTerra(t, types.NewNode{
 		Name:          "first",
 		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 	}, n)
 	n = nodes[initialNodesCount+1]
-	assertEqual(t, types.NewNode{
+	assertEqualNodesTerra(t, types.NewNode{
 		Name:          "second",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
@@ -110,10 +120,10 @@ func TestClient_CreateTerraNode(t *testing.T) {
 func TestClient_RemoveTerraNode(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := terraStartNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	orm := app.TerraORM()
+	orm := app.Chains.Terra.ORM()
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
@@ -143,7 +153,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
+func assertEqualNodesTerra(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -21,6 +22,17 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 	if c.Param("number") == "" {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("missing 'number' parameter"))
 		return
+	}
+
+	// check if force_broadcast query string parameter provided
+	var force bool
+	var err error
+	if fb := c.Query("force"); fb != "" {
+		force, err = strconv.ParseBool(fb)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "boolean value required for 'force_broadcast' query string param"))
+			return
+		}
 	}
 
 	blockNumber, err := strconv.ParseInt(c.Param("number"), 10, 0)
@@ -46,7 +58,7 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 	}
 	chainID := chain.ID()
 
-	if err := bdc.App.ReplayFromBlock(chainID, uint64(blockNumber)); err != nil {
+	if err := bdc.App.ReplayFromBlock(chainID, uint64(blockNumber), force); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

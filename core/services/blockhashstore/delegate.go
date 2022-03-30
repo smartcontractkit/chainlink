@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var _ job.Service = &service{}
+var _ job.ServiceCtx = &service{}
 
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
@@ -45,7 +45,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockhashStoreSpec == nil {
 		return nil, errors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
@@ -63,7 +63,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			chain.Config().EvmFinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
 	}
 
-	keys, err := d.ks.SendingKeys()
+	keys, err := d.ks.SendingKeys(chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}
@@ -118,7 +118,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 			return uint64(head.Number), nil
 		})
 
-	return []job.Service{&service{
+	return []job.ServiceCtx{&service{
 		feeder:     feeder,
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
@@ -147,19 +147,19 @@ type service struct {
 }
 
 // Start the BHS feeder service, satisfying the job.Service interface.
-func (s *service) Start() error {
+func (s *service) Start(context.Context) error {
 	return s.StartOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Starting BHS feeder")
-		ticker := time.NewTicker(s.pollPeriod)
+		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
 		go func() {
 			defer close(s.done)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-ticker.C:
 					s.runFeeder()
 				case <-s.stop:
-					ticker.Stop()
 					return
 				}
 			}

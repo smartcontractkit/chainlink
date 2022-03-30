@@ -2,7 +2,9 @@ package static
 
 import (
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -16,6 +18,7 @@ var Version = "unset"
 // Sha string "unset"
 var Sha = "unset"
 
+// InitTime holds the initial start timestamp, based on this package's init func.
 var InitTime time.Time
 
 const (
@@ -35,7 +38,10 @@ func init() {
 
 func checkVersion() {
 	if Version == "unset" {
-		return
+		if os.Getenv("CHAINLINK_DEV") == "true" {
+			return
+		}
+		log.Println(`Version was unset but CHAINLINK_DEV was not set to "true". Chainlink should be built with static.Version set to a valid semver for production builds.`)
 	} else if _, err := semver.NewVersion(Version); err != nil {
 		panic(fmt.Sprintf("Version invalid: %q is not valid semver", Version))
 	}
@@ -63,9 +69,3 @@ func SetConsumerName(uri *url.URL, name string, id *uuid.UUID) {
 	q.Set("application_name", applicationName)
 	uri.RawQuery = q.Encode()
 }
-
-const (
-	EvmMaxInFlightTransactionsWarningLabel = `WARNING: If this happens a lot, you may need to increase ETH_MAX_IN_FLIGHT_TRANSACTIONS to boost your node's transaction throughput, however you do this at your own risk. You MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise the node can get permanently stuck`
-	EvmMaxQueuedTransactionsLabel          = `WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse`
-	EthNodeConnectivityProblemLabel        = `WARNING: If this happens a lot, it may be a sign that your eth node has a connectivity problem, and your transactions are not making it to any miners`
-)

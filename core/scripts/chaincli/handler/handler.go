@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	link "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -21,6 +22,7 @@ import (
 type baseHandler struct {
 	cfg *config.Config
 
+	rpcClient     *rpc.Client
 	client        *ethclient.Client
 	privateKey    *ecdsa.PrivateKey
 	linkToken     *link.LinkToken
@@ -31,10 +33,11 @@ type baseHandler struct {
 // NewBaseHandler is the constructor of baseHandler
 func NewBaseHandler(cfg *config.Config) *baseHandler {
 	// Created a client by the given node address
-	nodeClient, err := ethclient.Dial(cfg.NodeURL)
+	rpcClient, err := rpc.Dial(cfg.NodeURL)
 	if err != nil {
 		log.Fatal("failed to deal with ETH node", err)
 	}
+	nodeClient := ethclient.NewClient(rpcClient)
 
 	// Parse private key
 	d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
@@ -68,6 +71,7 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	return &baseHandler{
 		cfg:           cfg,
 		client:        nodeClient,
+		rpcClient:     rpcClient,
 		privateKey:    privateKey,
 		linkToken:     linkToken,
 		fromAddr:      fromAddr,

@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	txmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -167,11 +167,11 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	strategy := new(bptxmmocks.TxStrategy)
+	strategy := new(txmmocks.TxStrategy)
 
 	var (
-		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, bulletprooftxmanager.TransmitCheckerSpec{})
+		txm = new(txmmocks.TxManager)
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
@@ -179,14 +179,14 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
+	txm.On("CreateEthTransaction", txmgr.NewTx{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
-	}).Return(bulletprooftxmanager.EthTx{}, nil).Once()
+	}).Return(txmgr.EthTx{}, nil).Once()
 
 	orm.CreateEthTransaction(from, to, payload, gasLimit)
 

@@ -1,10 +1,11 @@
 package services
 
+import "context"
+
 type (
-	// Service represents a long running service inside the
-	// Application.
+	// Service represents a long-running service inside the Application.
 	//
-	// Typically a Service will leverage utils.StartStopOnce to implement these
+	// Typically, a ServiceCtx will leverage utils.StartStopOnce to implement these
 	// calls in a safe manner.
 	//
 	// Template
@@ -14,7 +15,7 @@ type (
 	//  type (
 	//  	// Expose a public interface so we can mock the service.
 	//  	Foo interface {
-	//  		service.Service
+	//  		service.ServiceCtx
 	//
 	//  		// ...
 	//  	}
@@ -39,7 +40,7 @@ type (
 	//  	return f
 	//  }
 	//
-	//  func (f *foo) Start() error {
+	//  func (f *foo) Start(ctx context.Context) error {
 	//  	return f.StartOnce("Foo", func() error {
 	//  		go f.run()
 	//
@@ -71,9 +72,13 @@ type (
 	//  	}
 	//
 	//  }
-	Service interface {
-		// Start the service.
-		Start() error
+
+	// ServiceCtx is a former Service interface, that changed Start function to receive a context.
+	// This is needed for services that make HTTP calls or DB queries in Start.
+	ServiceCtx interface {
+		// Start the service. Must quit immediately if the context is cancelled.
+		// The given context applies to Start function only and must not be retained.
+		Start(context.Context) error
 		// Close stops the Service.
 		// Invariants: Usually after this call the Service cannot be started
 		// again, you need to build a new Service to do so.

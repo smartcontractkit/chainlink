@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
@@ -26,6 +27,8 @@ import (
 )
 
 type ChainScopedOnlyConfig interface {
+	evmclient.NodeConfig
+
 	BalanceMonitorEnabled() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	BlockHistoryEstimatorBatchSize() (size uint32)
@@ -68,6 +71,7 @@ type ChainScopedOnlyConfig interface {
 	MinIncomingConfirmations() uint32
 	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
+	NodeNoNewHeadsThreshold() time.Duration
 
 	// OCR2 chain specific config
 	OCR2ContractConfirmations() uint16
@@ -160,6 +164,9 @@ func (c *chainScopedConfig) validate() (err error) {
 
 	if uint32(c.EvmGasBumpTxDepth()) > c.EvmMaxInFlightTransactions() {
 		err = multierr.Combine(err, errors.New("ETH_GAS_BUMP_TX_DEPTH must be less than or equal to ETH_MAX_IN_FLIGHT_TRANSACTIONS"))
+	}
+	if c.EvmGasTipCapDefault().Cmp(c.EvmGasTipCapMinimum()) < 0 {
+		err = multierr.Combine(err, errors.Errorf("EVM_GAS_TIP_CAP_DEFAULT (%s) must be greater than or equal to EVM_GAS_TIP_CAP_MINIMUM (%s)", c.EvmGasTipCapDefault(), c.EvmGasTipCapMinimum()))
 	}
 	if c.EvmGasFeeCapDefault().Cmp(c.EvmGasTipCapDefault()) < 0 {
 		err = multierr.Combine(err, errors.Errorf("EVM_GAS_FEE_CAP_DEFAULT (%s) must be greater than or equal to EVM_GAS_TIP_CAP_DEFAULT (%s)", c.EvmGasFeeCapDefault(), c.EvmGasTipCapDefault()))
@@ -564,7 +571,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBatchSize() (size uint32) {
 		valLegacy, set := c.lookupEnv("GAS_UPDATER_BATCH_SIZE", parse.Uint32)
 		if set {
 			c.logEnvOverrideOnce("GAS_UPDATER_BATCH_SIZE", valLegacy)
-			c.logger.Warn("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead (or simply remove to use the default)")
+			c.logger.Error("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead (or simply remove to use the default)")
 			size = valLegacy.(uint32)
 		} else {
 			size = c.defaultSet.blockHistoryEstimatorBatchSize
@@ -594,7 +601,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_DELAY", valLegacy)
-		c.logger.Warn("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	c.persistMu.RLock()
@@ -618,7 +625,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	valLegacy, set := c.lookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_HISTORY_SIZE", valLegacy)
-		c.logger.Warn("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	c.persistMu.RLock()
@@ -663,7 +670,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16 
 	valLegacy, set := c.lookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_TRANSACTION_PERCENTILE", valLegacy)
-		c.logger.Warn("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	return c.defaultSet.blockHistoryEstimatorTransactionPercentile
@@ -680,10 +687,10 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_ENABLED", enabled)
 		if enabled.(bool) {
-			c.logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead (or simply remove to use the default)")
+			c.logger.Error("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead (or simply remove to use the default)")
 			return "BlockHistory"
 		}
-		c.logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead (or simply remove to use the default)")
+		c.logger.Error("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead (or simply remove to use the default)")
 		return "FixedPrice"
 	}
 	c.persistMu.RLock()
@@ -1067,6 +1074,41 @@ func (c *chainScopedConfig) EvmGasTipCapMinimum() *big.Int {
 		return p.ToInt()
 	}
 	return &c.defaultSet.gasTipCapMinimum
+}
+
+// NodeNoNewHeadsThreshold controls how long to wait after receiving no new
+// heads before marking the node as out-of-sync
+// Set to zero to disable out-of-sync checking
+func (c *chainScopedConfig) NodeNoNewHeadsThreshold() time.Duration {
+	val, ok := c.GeneralConfig.GlobalNodeNoNewHeadsThreshold()
+	if ok {
+		c.logEnvOverrideOnce("NodeNoNewHeadsThreshold", val)
+		return val
+	}
+	return c.defaultSet.nodeDeadAfterNoNewHeadersThreshold
+}
+
+// NodePollFailureThreshold indicates how many consecutive polls must fail in
+// order to mark a node as unreachable.
+// Set to zero to disable poll checking.
+func (c *chainScopedConfig) NodePollFailureThreshold() uint32 {
+	val, ok := c.GeneralConfig.GlobalNodePollFailureThreshold()
+	if ok {
+		c.logEnvOverrideOnce("NodePollFailureThreshold", val)
+		return val
+	}
+	return c.defaultSet.nodePollFailureThreshold
+}
+
+// NodePollInterval controls how often to poll the node to check for liveness.
+// Set to zero to disable poll checking.
+func (c *chainScopedConfig) NodePollInterval() time.Duration {
+	val, ok := c.GeneralConfig.GlobalNodePollInterval()
+	if ok {
+		c.logEnvOverrideOnce("NodePollInterval", val)
+		return val
+	}
+	return c.defaultSet.nodePollInterval
 }
 
 func (c *chainScopedConfig) lookupEnv(k string, parse func(string) (interface{}, error)) (interface{}, bool) {

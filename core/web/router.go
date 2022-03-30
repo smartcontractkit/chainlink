@@ -23,8 +23,9 @@ import (
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/pkg/errors"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -251,8 +252,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/bridge_types/:BridgeName", bt.Update)
 		authv2.DELETE("/bridge_types/:BridgeName", bt.Destroy)
 
-		ts := TransfersController{app}
-		authv2.POST("/transfers", ts.Create)
+		ets := EVMTransfersController{app}
+		authv2.POST("/transfers", ets.Create)
+		authv2.POST("/transfers/evm", ets.Create)
+		tts := TerraTransfersController{app}
+		authv2.POST("/transfers/terra", tts.Create)
+		sts := SolanaTransfersController{app}
+		authv2.POST("/transfers/solana", sts.Create)
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
@@ -266,8 +272,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		tas := TxAttemptsController{app}
 		authv2.GET("/tx_attempts", paginatedRequest(tas.Index))
+		authv2.GET("/tx_attempts/evm", paginatedRequest(tas.Index))
 
 		txs := TransactionsController{app}
+		authv2.GET("/transactions/evm", paginatedRequest(txs.Index))
+		authv2.GET("/transactions/evm/:TxHash", txs.Show)
 		authv2.GET("/transactions", paginatedRequest(txs.Index))
 		authv2.GET("/transactions/:TxHash", txs.Show)
 
@@ -359,6 +368,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/chains/evm/:ID", echc.Update)
 		authv2.DELETE("/chains/evm/:ID", echc.Delete)
 
+		schc := SolanaChainsController{app}
+		authv2.GET("/chains/solana", paginatedRequest(schc.Index))
+		authv2.POST("/chains/solana", schc.Create)
+		authv2.GET("/chains/solana/:ID", schc.Show)
+		authv2.PATCH("/chains/solana/:ID", schc.Update)
+		authv2.DELETE("/chains/solana/:ID", schc.Delete)
+
 		tchc := TerraChainsController{app}
 		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
 		authv2.POST("/chains/terra", tchc.Create)
@@ -377,11 +393,25 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/nodes/evm", enc.Create)
 		authv2.DELETE("/nodes/evm/:ID", enc.Delete)
 
+		efc := EVMForwardersController{app}
+		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
+		authv2.POST("/nodes/evm/forwarders", efc.Create)
+		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
+
+		snc := SolanaNodesController{app}
+		authv2.GET("/nodes/solana", paginatedRequest(snc.Index))
+		authv2.GET("/chains/solana/:ID/nodes", paginatedRequest(snc.Index))
+		authv2.POST("/nodes/solana", snc.Create)
+		authv2.DELETE("/nodes/solana/:ID", snc.Delete)
+
 		tnc := TerraNodesController{app}
 		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))
 		authv2.GET("/chains/terra/:ID/nodes", paginatedRequest(tnc.Index))
 		authv2.POST("/nodes/terra", tnc.Create)
 		authv2.DELETE("/nodes/terra/:ID", tnc.Delete)
+
+		build_info := BuildInfoController{app}
+		authv2.GET("/build_info", build_info.Show)
 
 		// Debug routes accessible via authentication
 		metricRoutes(authv2)
@@ -455,7 +485,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 		// Render the React index page for any other unknown requests
 		file, err := assetFs.Open("index.html")
 		if err != nil {
-			if err == fs.ErrNotExist {
+			if errors.Is(err, fs.ErrNotExist) {
 				c.AbortWithStatus(http.StatusNotFound)
 			} else {
 				lggr.Errorf("failed to open static file '%s': %+v", path, err)

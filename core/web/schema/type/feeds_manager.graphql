@@ -1,6 +1,7 @@
 enum JobType {
 	FLUX_MONITOR
 	OCR
+	OCR2
 }
 
 type FeedsManager {

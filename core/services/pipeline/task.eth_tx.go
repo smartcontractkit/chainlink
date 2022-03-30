@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"math/big"
 	"reflect"
 	"strconv"
 
@@ -11,7 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 )
@@ -38,7 +39,7 @@ type ETHTxTask struct {
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
 
 type ETHKeyStore interface {
-	GetRoundRobinAddress(addrs ...common.Address) (common.Address, error)
+	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -104,7 +105,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: err}, runInfo
 	}
 
-	fromAddr, err := t.keyStore.GetRoundRobinAddress(fromAddrs...)
+	fromAddr, err := t.keyStore.GetRoundRobinAddress(chain.ID(), fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		lggr.Error(err)
@@ -112,9 +113,9 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
-	strategy := bulletprooftxmanager.NewSendEveryStrategy()
+	strategy := txmgr.NewSendEveryStrategy()
 
-	newTx := bulletprooftxmanager.NewTx{
+	newTx := txmgr.NewTx{
 		FromAddress:    fromAddr,
 		ToAddress:      common.Address(toAddr),
 		EncodedPayload: []byte(data),
@@ -142,8 +143,8 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	return Result{Value: nil}, runInfo
 }
 
-func decodeMeta(metaMap MapParam) (*bulletprooftxmanager.EthTxMeta, error) {
-	var txMeta bulletprooftxmanager.EthTxMeta
+func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
+	var txMeta txmgr.EthTxMeta
 	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &txMeta,
 		ErrorUnused: true,
@@ -172,8 +173,8 @@ func decodeMeta(metaMap MapParam) (*bulletprooftxmanager.EthTxMeta, error) {
 	return &txMeta, nil
 }
 
-func decodeTransmitChecker(checkerMap MapParam) (bulletprooftxmanager.TransmitCheckerSpec, error) {
-	var transmitChecker bulletprooftxmanager.TransmitCheckerSpec
+func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, error) {
+	var transmitChecker txmgr.TransmitCheckerSpec
 	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &transmitChecker,
 		ErrorUnused: true,

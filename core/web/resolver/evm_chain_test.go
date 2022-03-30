@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/ethereum/go-ethereum/common"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
@@ -95,7 +97,8 @@ func TestResolver_Chains(t *testing.T) {
 						},
 					},
 				}, 1, nil)
-				f.Mocks.evmORM.On("GetNodesByChainIDs", []utils.Big{chainID}).
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+				f.Mocks.chainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainID}).
 					Return([]types.Node{
 						{
 							ID:         nodeID,
@@ -193,6 +196,7 @@ func TestResolver_Chain(t *testing.T) {
 				require.NoError(t, err)
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{
 					ID:        chainID,
 					Enabled:   true,
@@ -213,7 +217,7 @@ func TestResolver_Chain(t *testing.T) {
 						},
 					},
 				}, nil)
-				f.Mocks.evmORM.On("GetNodesByChainIDs", []utils.Big{chainID}).
+				f.Mocks.chainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainID}).
 					Return([]types.Node{
 						{
 							ID:         nodeID,
@@ -383,7 +387,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, big.NewInt(1233), cfg).Return(types.Chain{
 					ID:        *utils.NewBigI(1),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -458,7 +462,7 @@ func TestResolver_CreateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Add", mock.Anything, big.NewInt(1233), cfg).Return(types.Chain{
 					ID:        *utils.NewBigI(1),
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -691,7 +695,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -766,7 +770,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,
@@ -799,7 +803,7 @@ func TestResolver_UpdateChain(t *testing.T) {
 					},
 				}
 
-				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
+				f.Mocks.chainSet.On("Configure", mock.Anything, chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query:     mutation,

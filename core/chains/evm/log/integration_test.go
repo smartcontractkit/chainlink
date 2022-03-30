@@ -180,13 +180,84 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.WaitTimeout(t), time.Second)
 		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.WaitTimeout(t), time.Second)
 
-		helper.lb.ReplayFromBlock(replayFrom)
+		helper.lb.ReplayFromBlock(replayFrom, false)
 
 		require.Eventually(t, func() bool { return backfillCount.Load() >= 2 }, cltest.WaitTimeout(t), time.Second)
 	}()
 
 	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
 	helper.mockEth.assertExpectations(t)
+}
+
+func TestBroadcaster_ReplaysLogs(t *testing.T) {
+	const (
+		blockHeight = 10
+	)
+
+	blocks := cltest.NewBlocks(t, blockHeight+3)
+	contract, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
+	require.NoError(t, err)
+	sentLogs := []types.Log{
+		blocks.LogOnBlockNum(3, contract.Address()),
+		blocks.LogOnBlockNum(7, contract.Address()),
+	}
+
+	mockEth := newMockEthClient(t, make(chan chan<- types.Log, 4), blockHeight, mockEthClientExpectedCalls{
+		FilterLogs:       4,
+		FilterLogsResult: sentLogs,
+	})
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(blockHeight))
+	helper.mockEth = mockEth
+
+	listener := helper.newLogListenerWithJob("listener")
+	helper.register(listener, contract, 2)
+
+	func() {
+		helper.start()
+		defer helper.stop()
+
+		// To start, no logs are sent
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 0 }, cltest.WaitTimeout(t), time.Second,
+			"expected unique logs to be 0 but was %d", len(listener.getUniqueLogs()))
+
+		// Replay from block 2, the logs should be delivered. An incoming head must be simulated to
+		// trigger log delivery.
+		helper.lb.ReplayFromBlock(2, false)
+		<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+			StartBlock:     10,
+			EndBlock:       10,
+			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			Blocks:         blocks,
+		})
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, cltest.WaitTimeout(t), time.Second,
+			"expected unique logs to be 2 but was %d", len(listener.getUniqueLogs()))
+
+		// Replay again, the logs are already marked consumed so they should not be included in
+		// getUniqueLogs.
+		helper.lb.ReplayFromBlock(2, false)
+		<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+			StartBlock:     11,
+			EndBlock:       11,
+			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			Blocks:         blocks,
+		})
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, cltest.WaitTimeout(t), time.Second,
+			"expected unique logs to be 2 but was %d", len(listener.getUniqueLogs()))
+
+		// Replay again with forceBroadcast. The logs are consumed again.
+		helper.lb.ReplayFromBlock(2, true)
+		<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+			StartBlock:     12,
+			EndBlock:       12,
+			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			Blocks:         blocks,
+		})
+		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, cltest.WaitTimeout(t), time.Second,
+			"expected unique logs to be 4 but was %d", len(listener.getUniqueLogs()))
+
+	}()
+
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.WaitTimeout(t), time.Second)
 }
 
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
@@ -456,7 +527,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	// the first backfill should start from before the last stored head
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
-		lggr.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
+		lggr.Infof("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 
 		if times <= 7 {
 			require.Equal(t, backfillStart+batchSize*times, fromBlock)
@@ -1172,7 +1243,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	}
 
 	// ReplayFrom will not lead to backfill because the number is above current height
-	helper.lb.ReplayFromBlock(125)
+	helper.lb.ReplayFromBlock(125, false)
 
 	select {
 	case <-chchRawLogs:
@@ -1300,7 +1371,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				EndBlock:   test.blockHeight2 + 1,
 				Blocks:     blocks,
 				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
-					lggr.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
+					lggr.Infof("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						lggr.Warnf("  ** not exists")
 						return

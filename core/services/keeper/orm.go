@@ -1,26 +1,29 @@
 package keeper
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
 	q        pg.Q
 	config   Config
-	strategy bulletprooftxmanager.TxStrategy
+	strategy txmgr.TxStrategy
 	logger   logger.Logger
 }
 
 // NewORM is the constructor of postgresORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, config Config, strategy txmgr.TxStrategy) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
 		q:        pg.NewQ(db, lggr, config),
@@ -96,12 +99,8 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 	return rowsAffected, nil
 }
 
-func (korm ORM) EligibleUpkeepsForRegistry(
-	registryAddress ethkey.EIP55Address,
-	blockNumber, gracePeriod int64,
-) (upkeeps []UpkeepRegistration, err error) {
-	err = korm.q.Transaction(func(tx pg.Queryer) error {
-		stmt := `
+func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber, gracePeriod int64) (upkeeps []UpkeepRegistration, err error) {
+	stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
 WHERE
@@ -118,14 +117,17 @@ WHERE
 	) % keeper_registries.num_keepers
 ORDER BY upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC
 `
-		if err = tx.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber); err != nil {
-			return errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get upkeep_registrations")
-		}
-		if err = loadUpkeepsRegistry(tx, upkeeps); err != nil {
-			return errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
-		}
-		return nil
-	}, pg.OptReadOnlyTx())
+	if err = korm.q.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber); err != nil {
+		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get upkeep_registrations")
+	}
+	if err = loadUpkeepsRegistry(korm.q, upkeeps); err != nil {
+		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(upkeeps), func(i, j int) {
+		upkeeps[i], upkeeps[j] = upkeeps[j], upkeeps[i]
+	})
 
 	return upkeeps, err
 }

@@ -142,7 +142,7 @@ func Authenticate(store Authenticator, methods ...authMethod) gin.HandlerFunc {
 		var err error
 		for _, method := range methods {
 			err = method(c, store)
-			if err != auth.ErrorAuthFailed {
+			if !errors.Is(err, auth.ErrorAuthFailed) {
 				break
 			}
 		}

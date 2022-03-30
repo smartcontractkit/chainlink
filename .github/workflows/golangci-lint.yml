@@ -1,12 +1,21 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       golangci-lint-paths-ignore.yml
+##
+
 name: golangci-lint
 
 on:
   push:
     branches:
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
+    paths:
+      - '**.go'
   pull_request:
+    paths:
+      - '**.go'
 
 jobs:
   golangci:
@@ -14,11 +23,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
-          version: v1.43.0
+          version: v1.45.2
 
           # Optional: working directory, useful for monorepos
           # working-directory: somedir

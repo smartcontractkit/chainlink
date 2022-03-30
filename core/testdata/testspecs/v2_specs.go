@@ -97,26 +97,21 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "local testing job"
 contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
-isBootstrapPeer = false
 p2pBootstrapPeers = []
 relay = "solana"
+pluginType = "median"
 transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
 observationSource = """
 """
+[pluginConfig]
 juelsPerFeeCoinSource = """
 """
 
 [relayConfig]
-nodeEndpointHTTP = "http://127.0.0.1:8899"
 ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
-usePreflight       = true
-commitment         = "processed"
-txTimeout          = "1m"
-pollingInterval    = "2s"
-pollingCtxTimeout  = "4s"
-staleTimeout       = "30s"`
+chainID = "Chainlink-99"`
 	OCR2TerraSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
@@ -174,6 +169,7 @@ chainID			= 1337
 )
 
 type KeeperSpecParams struct {
+	Name                     string
 	ContractAddress          string
 	FromAddress              string
 	EvmChainID               int
@@ -193,7 +189,7 @@ func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
 type            		 	= "keeper"
 schemaVersion   		 	= 3
-name            		 	= "example keeper spec"
+name            		 	= "%s"
 contractAddress 		 	= "%s"
 fromAddress     		 	= "%s"
 evmChainID      		 	= %d
@@ -227,13 +223,13 @@ perform_upkeep_tx        [type=ethtx
                           evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
 """
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
+		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, params.MinIncomingConfirmations),
 	}
 }
 
@@ -242,12 +238,13 @@ type VRFSpecParams struct {
 	Name                     string
 	CoordinatorAddress       string
 	MinIncomingConfirmations int
-	FromAddress              string
+	FromAddresses            []string
 	PublicKey                string
 	ObservationSource        string
 	RequestedConfsDelay      int
 	RequestTimeout           time.Duration
 	V2                       bool
+	ChunkSize                int
 }
 
 type VRFSpec struct {
@@ -284,6 +281,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.PublicKey != "" {
 		publicKey = params.PublicKey
 	}
+	chunkSize := 20
+	if params.ChunkSize != 0 {
+		chunkSize = params.ChunkSize
+	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
@@ -300,6 +301,7 @@ encode_tx    [type=ethabiencode
 submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"
             minConfirmations="0"
+            from="$(jobSpec.from)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
             transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
 decode_log->vrf->encode_tx->submit_tx
@@ -342,14 +344,19 @@ minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
 publicKey = "%s"
+chunkSize = %d
 observationSource = """
 %s
 """
 `
 	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay,
-		requestTimeout.String(), publicKey, observationSource)
-	if params.FromAddress != "" {
-		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
+		requestTimeout.String(), publicKey, chunkSize, observationSource)
+	if len(params.FromAddresses) != 0 {
+		var addresses []string
+		for _, address := range params.FromAddresses {
+			addresses = append(addresses, fmt.Sprintf("%q", address))
+		}
+		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
 	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
@@ -361,6 +368,7 @@ observationSource = """
 		ObservationSource:        observationSource,
 		RequestedConfsDelay:      params.RequestedConfsDelay,
 		RequestTimeout:           requestTimeout,
+		ChunkSize:                chunkSize,
 	}, toml: toml}
 }
 

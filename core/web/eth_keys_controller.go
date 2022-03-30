@@ -35,7 +35,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	if ekc.App.GetConfig().Dev() {
 		keys, err = ethKeyStore.GetAll()
 	} else {
-		keys, err = ethKeyStore.SendingKeys()
+		keys, err = ethKeyStore.SendingKeys(nil)
 	}
 	if err != nil {
 		err = errors.Errorf("error getting unlocked keys: %v", err)
@@ -307,7 +307,7 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.St
 		bal, err = ethClient.BalanceAt(ctx, state.Address.Address(), nil)
 	}
 	return func(r *presenters.ETHKeyResource) error {
-		if errors.Cause(err) == evm.ErrNoChains {
+		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			return nil
 		}
 
@@ -334,7 +334,7 @@ func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewE
 	}
 
 	return func(r *presenters.ETHKeyResource) error {
-		if errors.Cause(err) == evm.ErrNoChains {
+		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			return nil
 		}
 		if err != nil {
@@ -358,7 +358,7 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	}
 
 	return func(r *presenters.ETHKeyResource) error {
-		if errors.Cause(err) == evm.ErrNoChains {
+		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			return nil
 		}
 		if err != nil {

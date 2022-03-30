@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"math/big"
 	"testing"
 	"time"
 
@@ -433,7 +434,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
 		feedsMgr  = &feeds.FeedsManager{
 			ID:                        1,
-			JobTypes:                  pq.StringArray{feeds.JobTypeFluxMonitor},
+			JobTypes:                  pq.StringArray{feeds.JobTypeFluxMonitor, feeds.JobTypeOffchainReporting2},
 			IsOCRBootstrapPeer:        true,
 			OCRBootstrapPeerMultiaddr: null.StringFrom(multiaddr),
 		}
@@ -450,7 +451,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", feedsMgr.ID).Return(feedsMgr, nil)
-	svc.ethKeystore.On("SendingKeys").Return(evmKeys, nil)
+	svc.ethKeystore.On("SendingKeys", (*big.Int)(nil)).Return(evmKeys, nil)
 	svc.ethKeystore.
 		On("GetStatesForKeys", evmKeys).
 		Return([]ethkey.State{{Address: sendingKey.Address, EVMChainID: *utils.NewBigI(42)}}, nil)
@@ -459,7 +460,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
-		JobTypes: []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
+		JobTypes: []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR, proto.JobType_JOB_TYPE_OCR2},
 		Chains: []*proto.Chain{{
 			Id:   svc.cc.Chains()[0].ID().String(),
 			Type: proto.ChainType_CHAIN_TYPE_EVM,

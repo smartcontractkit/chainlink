@@ -33,6 +33,7 @@ func TestValidatedKeeperSpec(t *testing.T) {
 			name: "valid job spec",
 			args: args{
 				tomlString: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
+					Name:            "example keeper spec",
 					ContractAddress: "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
 					FromAddress:     "0xa8037A20989AFcBC51798de9762b351D63ff462e",
 				}).Toml(),
@@ -86,7 +87,7 @@ perform_upkeep_tx        [type=ethtx
                           from="[$(jobSpec.fromAddress)]"
                           evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
 """
 `,
@@ -135,7 +136,7 @@ perform_upkeep_tx        [type=ethtx
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
                           data="$(encode_perform_upkeep_tx)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
 """
 `,

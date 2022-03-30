@@ -15,14 +15,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -72,7 +75,118 @@ func main() {
 	gp, err := ec.SuggestGasPrice(context.Background())
 	helpers.PanicErr(err)
 	owner.GasPrice = gp
+
+	// Uncomment the block below if transactions are not getting picked up due to nonce issues:
+	//
+	//block, err := ec.BlockNumber(context.Background())
+	//helpers.PanicErr(err)
+	//
+	//nonce, err := ec.NonceAt(context.Background(), owner.From, big.NewInt(int64(block)))
+	//helpers.PanicErr(err)
+	//
+	//owner.Nonce = big.NewInt(int64(nonce))
+	//owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+
 	switch os.Args[1] {
+	case "batch-bhs-deploy":
+		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
+		bhsAddr := cmd.String("bhs-address", "", "address of the blockhash store contract")
+		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
+		batchBHSAddress, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(owner, ec, common.HexToAddress(*bhsAddr))
+		helpers.PanicErr(err)
+		fmt.Println("BatchBlockhashStore:", batchBHSAddress.Hex(), "tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "batch-bhs-store":
+		cmd := flag.NewFlagSet("batch-bhs-store", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		blockNumbersArg := cmd.String("block-numbers", "", "block numbers to store in a single transaction")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "block-numbers")
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+		blockNumbers, err := parseIntSlice(*blockNumbersArg)
+		helpers.PanicErr(err)
+		tx, err := batchBHS.Store(owner, blockNumbers)
+		helpers.PanicErr(err)
+		fmt.Println("Store tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "batch-bhs-get":
+		cmd := flag.NewFlagSet("batch-bhs-get", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		blockNumbersArg := cmd.String("block-numbers", "", "block numbers to store in a single transaction")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "block-numbers")
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+		blockNumbers, err := parseIntSlice(*blockNumbersArg)
+		helpers.PanicErr(err)
+		blockhashes, err := batchBHS.GetBlockhashes(nil, blockNumbers)
+		helpers.PanicErr(err)
+		for i, bh := range blockhashes {
+			fmt.Println("blockhash(", blockNumbers[i], ") = ", common.Bytes2Hex(bh[:]))
+		}
+	case "batch-bhs-storeVerify":
+		cmd := flag.NewFlagSet("batch-bhs-storeVerify", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
+		numBlocks := cmd.Int64("num-blocks", -1, "number of blockhashes to store. will be stored in a single tx, can't be > 150")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "num-blocks")
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
+		helpers.PanicErr(err)
+		rlpHeaders, err := getRlpHeaders(ec, blockRange)
+		helpers.PanicErr(err)
+		tx, err := batchBHS.StoreVerifyHeader(owner, blockRange, rlpHeaders)
+		helpers.PanicErr(err)
+		fmt.Println("storeVerifyHeader(", blockRange, ", ...) tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "batch-bhs-backwards":
+		cmd := flag.NewFlagSet("batch-bhs-backwards", flag.ExitOnError)
+		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
+		startBlock := cmd.Int64("start-block", -1, "block number to start from. Must be in the BHS already.")
+		endBlock := cmd.Int64("end-block", -1, "block number to end at. Must be less than startBlock")
+		batchSize := cmd.Int64("batch-size", -1, "batch size")
+		gasMultiplier := cmd.Int64("gas-price-multiplier", 1, "gas price multiplier to use, defaults to 1 (no multiplication)")
+		helpers.ParseArgs(cmd, os.Args[2:], "batch-bhs-address", "start-block", "end-block", "batch-size")
+
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchAddr), ec)
+		helpers.PanicErr(err)
+
+		blockRange, err := decreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*endBlock))
+		helpers.PanicErr(err)
+
+		for i := 0; i < len(blockRange); i += int(*batchSize) {
+			j := i + int(*batchSize)
+			if j > len(blockRange) {
+				j = len(blockRange)
+			}
+
+			// Get suggested gas price and multiply by multiplier on every iteration
+			// so we don't have our transaction getting stuck. Need to be as fast as
+			// possible.
+			gp, err := ec.SuggestGasPrice(context.Background())
+			helpers.PanicErr(err)
+			owner.GasPrice = new(big.Int).Mul(gp, big.NewInt(*gasMultiplier))
+
+			fmt.Println("using gas price", owner.GasPrice, "wei")
+
+			blockNumbers := blockRange[i:j]
+			blockHeaders, err := getRlpHeaders(ec, blockNumbers)
+			fmt.Println("storing blockNumbers:", blockNumbers)
+			helpers.PanicErr(err)
+
+			tx, err := batchBHS.StoreVerifyHeader(owner, blockNumbers, blockHeaders)
+			helpers.PanicErr(err)
+
+			fmt.Println("sent tx:", helpers.ExplorerLink(chainID, tx.Hash()))
+
+			fmt.Println("waiting for it to mine...")
+			_, err = bind.WaitMined(context.Background(), ec, tx)
+			helpers.PanicErr(err)
+
+			fmt.Println("received receipt, continuing")
+		}
+		fmt.Println("done")
+	case "latest-head":
+		h, err := ec.HeaderByNumber(context.Background(), nil)
+		helpers.PanicErr(err)
+		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
 		bhsAddress, tx, _, err := blockhash_store.DeployBlockhashStore(owner, ec)
 		helpers.PanicErr(err)
@@ -91,30 +205,61 @@ func main() {
 			common.HexToAddress(*coordinatorDeployLinkEthFeedAddress))
 		helpers.PanicErr(err)
 		fmt.Println("Coordinator", coordinatorAddress.String(), "TX", helpers.ExplorerLink(chainID, tx.Hash()))
-	case "coordinator-set-config":
-		coordinatorSetConfigCmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
-		setConfigAddress := coordinatorSetConfigCmd.String("address", "", "coordinator address")
-		// TODO: add config parameters as cli args here
-		helpers.PanicErr(coordinatorSetConfigCmd.Parse(os.Args[2:]))
+	case "coordinator-get-config":
+		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
+		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
+		helpers.ParseArgs(cmd, os.Args[2:], "address")
+
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
 		helpers.PanicErr(err)
-		helpers.ParseArgs(coordinatorSetConfigCmd, os.Args[2:], "address")
+
+		cfg, err := coordinator.GetConfig(nil)
+		helpers.PanicErr(err)
+
+		feeConfig, err := coordinator.GetFeeConfig(nil)
+		helpers.PanicErr(err)
+
+		fmt.Printf("config: %+v\n", cfg)
+		fmt.Printf("fee config: %+v\n", feeConfig)
+	case "coordinator-set-config":
+		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
+		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
+		minConfs := cmd.Int("min-confs", 3, "min confs")
+		maxGasLimit := cmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
+		stalenessSeconds := cmd.Int64("staleness-seconds", 86400, "staleness in seconds")
+		gasAfterPayment := cmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
+		fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "fallback wei per unit link")
+		flatFeeTier1 := cmd.Int64("flat-fee-tier-1", 500, "flat fee tier 1")
+		flatFeeTier2 := cmd.Int64("flat-fee-tier-2", 500, "flat fee tier 2")
+		flatFeeTier3 := cmd.Int64("flat-fee-tier-3", 500, "flat fee tier 3")
+		flatFeeTier4 := cmd.Int64("flat-fee-tier-4", 500, "flat fee tier 4")
+		flatFeeTier5 := cmd.Int64("flat-fee-tier-5", 500, "flat fee tier 5")
+		reqsForTier2 := cmd.Int64("reqs-for-tier-2", 0, "requests for tier 2")
+		reqsForTier3 := cmd.Int64("reqs-for-tier-3", 0, "requests for tier 3")
+		reqsForTier4 := cmd.Int64("reqs-for-tier-4", 0, "requests for tier 4")
+		reqsForTier5 := cmd.Int64("reqs-for-tier-5", 0, "requests for tier 5")
+
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "fallback-wei-per-unit-link")
+
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
+		helpers.PanicErr(err)
+
 		tx, err := coordinator.SetConfig(owner,
-			uint16(1),                              // minRequestConfirmations
-			uint32(1000000),                        // max gas limit
-			uint32(60*60*24),                       // stalenessSeconds
-			uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
-			big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
+			uint16(*minConfs),         // minRequestConfirmations
+			uint32(*maxGasLimit),      // max gas limit
+			uint32(*stalenessSeconds), // stalenessSeconds
+			uint32(*gasAfterPayment),  // gasAfterPaymentCalculation
+			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(), // 0.01 eth per link fallbackLinkPrice
 			vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-				FulfillmentFlatFeeLinkPPMTier1: uint32(10000),
-				FulfillmentFlatFeeLinkPPMTier2: uint32(1000),
-				FulfillmentFlatFeeLinkPPMTier3: uint32(100),
-				FulfillmentFlatFeeLinkPPMTier4: uint32(10),
-				FulfillmentFlatFeeLinkPPMTier5: uint32(1),
-				ReqsForTier2:                   big.NewInt(10),
-				ReqsForTier3:                   big.NewInt(20),
-				ReqsForTier4:                   big.NewInt(30),
-				ReqsForTier5:                   big.NewInt(40),
+				FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
+				FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
+				FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3),
+				FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4),
+				FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5),
+				ReqsForTier2:                   big.NewInt(*reqsForTier2),
+				ReqsForTier3:                   big.NewInt(*reqsForTier3),
+				ReqsForTier4:                   big.NewInt(*reqsForTier4),
+				ReqsForTier5:                   big.NewInt(*reqsForTier5),
 			},
 		)
 		helpers.PanicErr(err)
@@ -279,6 +424,18 @@ func main() {
 			common.HexToAddress(*consumerLinkAddress))
 		helpers.PanicErr(err)
 		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "eoa-load-test-consumer-deploy":
+		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
+		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
+		consumerLinkAddress := loadTestConsumerDeployCmd.String("link-address", "", "link-address")
+		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
+		consumerAddress, tx, _, err := vrf_load_test_external_sub_owner.DeployVRFLoadTestExternalSubOwner(
+			owner,
+			ec,
+			common.HexToAddress(*consumerCoordinator),
+			common.HexToAddress(*consumerLinkAddress))
+		helpers.PanicErr(err)
+		fmt.Println("Consumer address", consumerAddress, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
@@ -298,7 +455,7 @@ func main() {
 		helpers.PanicErr(err)
 		txadd, err := coordinator.AddConsumer(owner, *subID, common.HexToAddress(*consumerAddress))
 		helpers.PanicErr(err)
-		fmt.Println("Adding consumer", "TX hash", txadd.Hash())
+		fmt.Println("Adding consumer", "TX hash", helpers.ExplorerLink(chainID, txadd.Hash()))
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -358,6 +515,23 @@ func main() {
 		tx, err := consumer.RequestRandomWords(owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes)
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
+	case "eoa-load-test-request":
+		request := flag.NewFlagSet("eoa-load-test-request", flag.ExitOnError)
+		consumerAddress := request.String("consumer-address", "", "consumer address")
+		subID := request.Uint64("sub-id", 0, "subscription ID")
+		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
+		keyHash := request.String("key-hash", "", "key hash")
+		requests := request.Uint("requests", 10, "number of randomness requests to make")
+		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
+		keyHashBytes := common.HexToHash(*keyHash)
+		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
+			common.HexToAddress(*consumerAddress),
+			ec)
+		helpers.PanicErr(err)
+		tx, err := consumer.RequestRandomWords(owner, *subID, uint16(*requestConfirmations),
+			keyHashBytes, uint16(*requests))
+		helpers.PanicErr(err)
+		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
 	case "eoa-transfer-sub":
 		trans := flag.NewFlagSet("eoa-transfer-sub", flag.ExitOnError)
 		coordinatorAddress := trans.String("coordinator-address", "", "coordinator address")
@@ -414,6 +588,19 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Println("Funding sub", *subID, "TX", helpers.ExplorerLink(chainID, tx.Hash()))
 		helpers.PanicErr(err)
+	case "eoa-read":
+		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
+		consumerAddress := cmd.String("consumer", "", "consumer address")
+		helpers.ParseArgs(cmd, os.Args[2:], "consumer")
+		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(common.HexToAddress(*consumerAddress), ec)
+		helpers.PanicErr(err)
+		word, err := consumer.SRandomWords(nil, big.NewInt(0))
+		if err != nil {
+			fmt.Println("no words (yet?)")
+		}
+		reqID, err := consumer.SRequestId(nil)
+		helpers.PanicErr(err)
+		fmt.Println("request id:", reqID.String(), "1st random word:", word)
 	case "owner-cancel-sub":
 		cancel := flag.NewFlagSet("owner-cancel-sub", flag.ExitOnError)
 		coordinatorAddress := cancel.String("coordinator-address", "", "coordinator address")
@@ -437,4 +624,57 @@ func main() {
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
+}
+
+func parseIntSlice(arg string) (ret []*big.Int, err error) {
+	parts := strings.Split(arg, ",")
+	ret = []*big.Int{}
+	for _, part := range parts {
+		i, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, big.NewInt(i))
+	}
+	return ret, nil
+}
+
+// decreasingBlockRange creates a continugous block range starting with
+// block `start` and ending at block `end`.
+func decreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
+	if start.Cmp(end) == -1 {
+		return nil, fmt.Errorf("start (%s) must be greater than end (%s)", start.String(), end.String())
+	}
+	ret = []*big.Int{}
+	for i := new(big.Int).Set(start); i.Cmp(end) >= 0; i.Sub(i, big.NewInt(1)) {
+		ret = append(ret, new(big.Int).Set(i))
+	}
+	return
+}
+
+func getRlpHeaders(ec *ethclient.Client, blockNumbers []*big.Int) (headers [][]byte, err error) {
+	headers = [][]byte{}
+	for _, blockNum := range blockNumbers {
+		// Get child block since it's the one that has the parent hash in it's header.
+		h, err := ec.HeaderByNumber(
+			context.Background(),
+			new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get header: %+v", err)
+		}
+		rlpHeader, err := rlp.EncodeToBytes(h)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode rlp: %+v", err)
+		}
+		// Uncomment in case storeVerifyHeader calls are reverting, there may be an issue with the RLP
+		// encoding.
+		// h2, err := ec.HeaderByNumber(context.Background(), blockNum)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("failed to get header: %v", err)
+		// }
+		// fmt.Println("block number:", blockNum, "blockhash:", h2.Hash(), "encoded header of next block:", common.Bytes2Hex(rlpHeader))
+		headers = append(headers, rlpHeader)
+	}
+	return
 }

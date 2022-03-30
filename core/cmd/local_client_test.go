@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/kylelemons/godebug/diff"
@@ -46,11 +46,13 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.Empty(t, invalid)
 	require.Equal(t, zapcore.InfoLevel, ll)
 
-	cfg := config.NewGeneralConfig(logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+
+	cfg := config.NewGeneralConfig(lggr)
 	require.NoError(t, cfg.SetLogLevel(zapcore.DebugLevel))
 
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	sessionORM := sessions.NewORM(db, time.Minute, lggr)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -63,20 +65,31 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-	app.On("Start").Return(nil)
+	app.On("Start", mock.Anything).Return(nil)
 	app.On("Stop").Return(nil)
 	app.On("ID").Return(uuid.NewV4())
 
+	var logFileSize utils.FileSize
+	err = logFileSize.UnmarshalText([]byte("100mb"))
+	assert.NoError(t, err)
+
 	lcfg := logger.Config{
-		LogLevel: zapcore.DebugLevel,
-		ToDisk:   true,
-		Dir:      t.TempDir(),
+		LogLevel:    zapcore.DebugLevel,
+		FileMaxSize: int(logFileSize),
+		Dir:         t.TempDir(),
 	}
+
+	tmpFile, err := os.CreateTemp(lcfg.Dir, "*")
+	assert.NoError(t, err)
+	defer tmpFile.Close()
+
+	newLogger, closeLogger := lcfg.New()
 
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 lcfg.New(),
+		Logger:                 newLogger,
+		CloseLogger:            closeLogger,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -98,14 +111,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	}
 
 	awaiter.AwaitOrFail(t)
-	require.NoError(t, client.Logger.Sync())
-
-	logs, err := cltest.ReadLogs(lcfg.Dir)
-	require.NoError(t, err)
-	msg := cltest.FindLogMessage(logs, func(msg string) bool {
-		return strings.HasPrefix(msg, "Environment variables")
-	})
-	require.NotEmpty(t, msg, "No env var message found")
 
 	expected := fmt.Sprintf(`Environment variables
 ADVISORY_LOCK_CHECK_INTERVAL: 1s
@@ -121,7 +126,7 @@ CLIENT_NODE_URL: http://localhost:6688
 DATABASE_BACKUP_FREQUENCY: 1h0m0s
 DATABASE_BACKUP_MODE: none
 DATABASE_BACKUP_ON_VERSION_UPGRADE: true
-DATABASE_LOCKING_MODE: advisorylock
+DATABASE_LOCKING_MODE: dual
 ETH_CHAIN_ID: <nil>
 DEFAULT_HTTP_LIMIT: 32768
 DEFAULT_HTTP_TIMEOUT: 15s
@@ -143,6 +148,7 @@ JOB_PIPELINE_REAPER_THRESHOLD: 24h0m0s
 KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH: 1
 KEEPER_GAS_PRICE_BUFFER_PERCENT: 20
 KEEPER_GAS_TIP_CAP_BUFFER_PERCENT: 20
+KEEPER_BASE_FEE_BUFFER_PERCENT: 20
 KEEPER_MAXIMUM_GRACE_PERIOD: 0
 KEEPER_REGISTRY_CHECK_GAS_OVERHEAD: 0
 KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD: 0
@@ -156,7 +162,9 @@ LINK_CONTRACT_ADDRESS:
 LOG_FILE_DIR: %[1]s
 LOG_LEVEL: debug
 LOG_SQL: false
-LOG_TO_DISK: false
+LOG_FILE_MAX_SIZE: 5.12gb
+LOG_FILE_MAX_AGE: 0
+LOG_FILE_MAX_BACKUPS: 1
 TRIGGER_FALLBACK_DB_POLL_INTERVAL: 30s
 OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT: 
 OCR_DATABASE_TIMEOUT: 
@@ -189,9 +197,10 @@ CHAINLINK_TLS_HOST:
 CHAINLINK_TLS_PORT: 6689
 CHAINLINK_TLS_REDIRECT: false`, cfg.RootDir())
 
-	if !strings.Contains(msg, expected) {
-		t.Errorf("Expected to find:\n\n%s\n\nWithin:\n\n%s\n\nDiff:\n\n%s", expected, msg, diff.Diff(expected, msg))
-	}
+	logs, err := cltest.ReadLogs(lcfg.Dir)
+	assert.NoError(t, err)
+
+	require.Contains(t, logs, expected, fmt.Sprintf("Expected to find:\n\n%s\n\nWithin:\n\n%s\n\nDiff:\n\n%s", expected, logs, diff.Diff(expected, logs)))
 
 	app.AssertExpectations(t)
 }
@@ -223,7 +232,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-			app.On("Start").Maybe().Return(nil)
+			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
@@ -234,12 +243,15 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			apiPrompt := cltest.NewMockAPIInitializer(t)
+			lggr := logger.TestLogger(t)
+
 			client := cmd.Client{
 				Config:                 cfg,
-				Logger:                 logger.TestLogger(t),
-				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				Logger:                 lggr,
+				CloseLogger:            lggr.Sync,
 			}
 
 			set := flag.NewFlagSet("test", 0)
@@ -260,9 +272,10 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	t.Parallel()
 
+	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	sessionORM := sessions.NewORM(db, time.Minute, lggr)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -271,7 +284,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-	app.On("Start").Maybe().Return(nil)
+	app.On("Start", mock.Anything).Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
 
@@ -282,12 +295,15 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	require.NoError(t, err)
 
 	apiPrompt := cltest.NewMockAPIInitializer(t)
+	cLggr := logger.TestLogger(t)
+
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 logger.TestLogger(t),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: apiPrompt,
 		Runner:                 cltest.EmptyRunner{},
+		Logger:                 cLggr,
+		CloseLogger:            cLggr.Sync,
 	}
 
 	var keyState = ethkey.State{}
@@ -337,7 +353,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-			app.On("Start").Maybe().Return(nil)
+			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
 
@@ -345,18 +361,22 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			prompter.On("IsTerminal").Return(false).Once().Maybe()
 
 			apiPrompt := cltest.NewMockAPIInitializer(t)
+			lggr := logger.TestLogger(t)
+
 			client := cmd.Client{
 				Config:                 cfg,
-				Logger:                 logger.TestLogger(t),
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{prompter},
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
+				Logger:                 lggr,
+				CloseLogger:            lggr.Sync,
 			}
 
 			set := flag.NewFlagSet("test", 0)
 			set.String("api", test.apiFile, "")
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
+			set.Bool("bypass-version-check", true, "")
 			c := cli.NewContext(nil, set, nil)
 
 			if test.wantError {
@@ -375,32 +395,45 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	}
 }
 
-func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
+func TestClient_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 	tests := []struct {
 		name            string
-		logToDiskValue  bool
+		logFileSize     func(t *testing.T) utils.FileSize
 		fileShouldExist bool
 	}{
-		{"LogToDisk = false => no log on disk", false, false},
-		{"LogToDisk = true => log on disk (positive control)", true, true},
+		{"DiskMaxSizeBeforeRotate = 0 => no log on disk", func(t *testing.T) utils.FileSize {
+			return 0
+		}, false},
+		{"DiskMaxSizeBeforeRotate > 0 => log on disk (positive control)", func(t *testing.T) utils.FileSize {
+			var logFileSize utils.FileSize
+			err := logFileSize.UnmarshalText([]byte("100mb"))
+			assert.NoError(t, err)
+
+			return logFileSize
+		}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
-				ToDisk: tt.logToDiskValue,
-				Dir:    t.TempDir(),
+				Dir:         t.TempDir(),
+				FileMaxSize: int(tt.logFileSize(t)),
 			}
-			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
+			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
-			cfg.New().Sync()
-			filepath := filepath.Join(cfg.Dir, "log.jsonl")
+			lggr, close := cfg.New()
+			defer close()
+
+			// Tries to create a log file by logging. The log file won't be created if there's no logging happening.
+			lggr.Debug("Trying to create a log file by logging.")
+
+			filepath := filepath.Join(cfg.Dir, logger.LogsFile)
 			_, err := os.Stat(filepath)
-			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
+			require.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
 		})
 	}
 }
 
-func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
+func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -422,7 +455,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
+	borm := cltest.NewTxmORM(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := new(mocks.Application)
@@ -435,12 +468,15 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
+	lggr := logger.TestLogger(t)
+
 	client := cmd.Client{
 		Config:                 config,
-		Logger:                 logger.TestLogger(t),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cltest.EmptyRunner{},
+		Logger:                 lggr,
+		CloseLogger:            lggr.Sync,
 	}
 
 	config.Overrides.Dialect = dialects.TransactionWrappedPostgres
@@ -458,7 +494,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
+func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -494,7 +530,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			c := cli.NewContext(nil, set, nil)
 
-			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
+			borm := cltest.NewTxmORM(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
 			app := new(mocks.Application)
@@ -507,12 +543,15 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 
+			lggr := logger.TestLogger(t)
+
 			client := cmd.Client{
 				Config:                 config,
-				Logger:                 logger.TestLogger(t),
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 				Runner:                 cltest.EmptyRunner{},
+				Logger:                 lggr,
+				CloseLogger:            lggr.Sync,
 			}
 
 			config.Overrides.Dialect = dialects.TransactionWrappedPostgres
@@ -537,11 +576,13 @@ func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
 	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce", true, true)
 	ethKeyStore := cltest.NewKeyStore(t, sqlxDB, config).Eth()
+	lggr := logger.TestLogger(t)
 
 	client := cmd.Client{
-		Config: config,
-		Logger: logger.TestLogger(t),
-		Runner: cltest.EmptyRunner{},
+		Config:      config,
+		Runner:      cltest.EmptyRunner{},
+		Logger:      lggr,
+		CloseLogger: lggr.Sync,
 	}
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)

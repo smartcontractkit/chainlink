@@ -15,6 +15,7 @@ import (
 type telemetryIngressBatchWorker struct {
 	telemMaxBatchSize uint
 	telemSendInterval time.Duration
+	telemSendTimeout  time.Duration
 	telemClient       telemPb.TelemClient
 	wgDone            *sync.WaitGroup
 	chDone            chan struct{}
@@ -30,6 +31,7 @@ type telemetryIngressBatchWorker struct {
 func NewTelemetryIngressBatchWorker(
 	telemMaxBatchSize uint,
 	telemSendInterval time.Duration,
+	telemSendTimeout time.Duration,
 	telemClient telemPb.TelemClient,
 	wgDone *sync.WaitGroup,
 	chDone chan struct{},
@@ -40,6 +42,7 @@ func NewTelemetryIngressBatchWorker(
 ) *telemetryIngressBatchWorker {
 	return &telemetryIngressBatchWorker{
 		telemSendInterval: telemSendInterval,
+		telemSendTimeout:  telemSendTimeout,
 		telemMaxBatchSize: telemMaxBatchSize,
 		telemClient:       telemClient,
 		wgDone:            wgDone,
@@ -68,7 +71,9 @@ func (tw *telemetryIngressBatchWorker) Start() {
 
 				// Send batched telemetry to the ingress server, log any errors
 				telemBatchReq := tw.BuildTelemBatchReq()
-				_, err := tw.telemClient.TelemBatch(context.Background(), telemBatchReq)
+				ctx, cancel := context.WithTimeout(context.Background(), tw.telemSendTimeout)
+				_, err := tw.telemClient.TelemBatch(ctx, telemBatchReq)
+				cancel()
 
 				if err != nil {
 					tw.lggr.Warnf("Could not send telemetry: %v", err)
