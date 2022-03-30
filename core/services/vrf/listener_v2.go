@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
+	"go.uber.org/multierr"
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
@@ -435,7 +436,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 		chunk := unconsumed[chunkStart:chunkEnd]
 
 		var unfulfilled []pendingRequest
-		alreadyFulfilled := lsn.checkReqsFulfilled(ctx, l, chunk)
+		alreadyFulfilled, err := lsn.checkReqsFulfilled(ctx, l, chunk)
+		if errors.Is(err, context.Canceled) {
+			l.Errorw("Context canceled, stopping request processing", "err", err)
+			return processed
+		} else if err != nil {
+			l.Errorw("Error checking for already fulfilled requests, proceeding anyway", "err", err)
+		}
 		for i, a := range alreadyFulfilled {
 			if a {
 				lsn.markLogAsConsumed(chunk[i].lb)
@@ -519,7 +526,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 	return processed
 }
 
-func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, reqs []pendingRequest) []bool {
+func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, reqs []pendingRequest) ([]bool, error) {
 	var (
 		start     = time.Now()
 		calls     = make([]rpc.BatchElem, len(reqs))
@@ -530,9 +537,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		payload, err := coordinatorV2ABI.Pack("getCommitment", req.req.RequestId)
 		if err != nil {
 			// This shouldn't happen
-			l.Errorw("Error creating getCommitment payload. Proceeding anyway.",
-				"err", err)
-			return fulfilled
+			return fulfilled, errors.Wrap(err, "creating getCommitment payload")
 		}
 
 		reqBlockNumber := new(big.Int).SetUint64(req.req.Raw.BlockNumber)
@@ -556,34 +561,30 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 
 	err := lsn.ethClient.BatchCallContext(ctx, calls)
 	if err != nil {
-		l.Errorw("Unable to check if already fulfilled, failed batch call, processing anyways",
-			"err", err)
-		return fulfilled
+		return fulfilled, errors.Wrap(err, "making batch call")
 	}
 
+	err = nil
 	for i, call := range calls {
 		if call.Error != nil {
-			l.Errorw("Unable to check if already fulfilled, processing anyways",
-				"reqID", reqs[i].req.RequestId.String(),
-				"txHash", reqs[i].req.Raw.TxHash,
-				"err", call.Error)
+			err = multierr.Append(err, fmt.Errorf("checking request %s with hash %s: %w",
+				reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String(), err))
 			continue
 		}
 
 		rString, ok := call.Result.(*string)
 		if !ok {
-			l.Errorw("Unexpected result from batch call",
-				"result", call.Result,
-				"reqID", reqs[i].req.RequestId.String(),
-				"txHash", reqs[i].req.Raw.TxHash)
+			err = multierr.Append(err,
+				fmt.Errorf("unexpected result %+v on request %s with hash %s: %w",
+					call.Result, reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String(), err))
+			continue
 		}
 		result, err := hexutil.Decode(*rString)
 		if err != nil {
-			l.Errorw("Error decoding batch call result",
-				"result", call.Result,
-				"resultString", rString,
-				"reqID", reqs[i].req.RequestId.String(),
-				"txHash", reqs[i].req.Raw.TxHash)
+			err = multierr.Append(err,
+				fmt.Errorf("decoding batch call result %+v %s request %s with hash %s: %w",
+					call.Result, *rString, reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String(), err))
+			continue
 		}
 
 		if utils.IsEmpty(result) {
@@ -596,7 +597,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 
 	l.Debugw("Done checking fulfillment status",
 		"numChecked", len(reqs), "time", time.Since(start).String())
-	return fulfilled
+	return fulfilled, err
 }
 
 func (lsn *listenerV2) runPipelines(
