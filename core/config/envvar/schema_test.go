@@ -64,6 +64,7 @@ func TestConfigSchema(t *testing.T) {
 		"EthereumSecondaryURL":                           "ETH_SECONDARY_URL",
 		"EthereumSecondaryURLs":                          "ETH_SECONDARY_URLS",
 		"EthereumURL":                                    "ETH_URL",
+		"EthereumNodes":                                  "EVM_NODES",
 		"EvmBalanceMonitorBlockDelay":                    "ETH_BALANCE_MONITOR_BLOCK_DELAY",
 		"EvmDefaultBatchSize":                            "ETH_DEFAULT_BATCH_SIZE",
 		"EvmEIP1559DynamicFees":                          "EVM_EIP1559_DYNAMIC_FEES",

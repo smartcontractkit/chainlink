@@ -199,11 +199,12 @@ export const generateJobDefinition = (
           job.spec,
           'coordinatorAddress',
           'evmChainID',
-          'fromAddress',
+          'fromAddresses',
           'minIncomingConfirmations',
           'pollPeriod',
           'publicKey',
           'requestedConfsDelay',
+          'chunkSize',
         ),
         ...extractObservationSourceField(job),
       }

@@ -32,6 +32,9 @@ import (
 // "test" chain ID to be used without clashes
 var FixtureChainID = big.NewInt(0)
 
+// SimulatedChainID is the chain ID for the go-ethereum simulated backend
+var SimulatedChainID = big.NewInt(1337)
+
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
@@ -308,4 +311,16 @@ func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, m
 		}
 		return false
 	})
+}
+
+// SkipShort skips tb during -short runs, and notes why.
+func SkipShort(tb testing.TB, why string) {
+	if testing.Short() {
+		tb.Skipf("skipping: %s", why)
+	}
+}
+
+// SkipShortDB skips tb during -short runs, and notes the DB dependency.
+func SkipShortDB(tb testing.TB) {
+	SkipShort(tb, "DB dependency")
 }

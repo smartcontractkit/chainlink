@@ -98,8 +98,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
 	}
 
-	lggr := d.lggr.With(
-		"OCRLogger", "true",
+	lggr := d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,

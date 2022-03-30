@@ -619,14 +619,17 @@ func (r *VRFSpecResolver) EVMChainID() *string {
 	return &chainID
 }
 
-// FromAddress resolves the spec's from address.
-func (r *VRFSpecResolver) FromAddress() *string {
-	if r.spec.FromAddress == nil {
+// FromAddresses resolves the spec's from addresses.
+func (r *VRFSpecResolver) FromAddresses() *[]string {
+	if len(r.spec.FromAddresses) == 0 {
 		return nil
 	}
 
-	addr := r.spec.FromAddress.String()
-	return &addr
+	var addresses []string
+	for _, a := range r.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
 }
 
 // PollPeriod resolves the spec's poll period.
@@ -648,6 +651,11 @@ func (r *VRFSpecResolver) RequestedConfsDelay() int32 {
 // RequestTimeout resolves the spec's request timeout.
 func (r *VRFSpecResolver) RequestTimeout() string {
 	return r.spec.RequestTimeout.String()
+}
+
+// ChunkSize resolves the spec's chunk size.
+func (r *VRFSpecResolver) ChunkSize() int32 {
+	return int32(r.spec.ChunkSize)
 }
 
 type WebhookSpecResolver struct {

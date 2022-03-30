@@ -23,6 +23,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
@@ -40,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
@@ -88,7 +88,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}()
 
-	go shutdown.HandleShutdown(func() {
+	go shutdown.HandleShutdown(func(sig string) {
+		lggr.Infof("Shutting down due to %s signal received...", sig)
+
 		shutdownStartTime = time.Now()
 		cancelRootCtx()
 

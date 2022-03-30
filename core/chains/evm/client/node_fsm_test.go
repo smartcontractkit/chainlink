@@ -102,6 +102,9 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		n.setState(NodeStateOutOfSync)
 		n.transitionToUnreachable(m.Fn)
 		m.AssertNumberOfCalls(t, 3)
+		n.setState(NodeStateUndialed)
+		n.transitionToUnreachable(m.Fn)
+		m.AssertNumberOfCalls(t, 4)
 	})
 	t.Run("transitionToInvalidChainID", func(t *testing.T) {
 		m := new(fnMock)

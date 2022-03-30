@@ -196,7 +196,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		// If head.BaseFeePerGas, we assume it is a EIP-1559 chain.
 		if head.BaseFeePerGas != nil && head.BaseFeePerGas.ToInt().BitLen() > 0 {
 			baseFee := addBuffer(head.BaseFeePerGas.ToInt(), ex.config.KeeperBaseFeeBufferPercent())
-			if gasPrice.Cmp(baseFee) < 0 {
+			if gasPrice == nil || gasPrice.Cmp(baseFee) < 0 {
 				gasPrice = baseFee
 			}
 		}
@@ -220,7 +220,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
 	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
-		svcLogger.With("error", err).Errorw("failed executing run")
+		svcLogger.With("error", err).Error("failed executing run")
 		return
 	}
 
@@ -228,7 +228,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, head.Number, pg.WithParentCtx(ctxService))
 		if err != nil {
-			svcLogger.With("error", err).Errorw("failed to set last run height for upkeep")
+			svcLogger.With("error", err).Error("failed to set last run height for upkeep")
 		}
 
 		elapsed := time.Since(start)

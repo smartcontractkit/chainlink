@@ -309,8 +309,7 @@ func (fm *FluxMonitor) JobID() int32 { return fm.spec.JobID }
 func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		fm.logger.Error("HandleLog: ignoring nil value")
-		return
+		fm.logger.Panic("HandleLog: failed to handle log of type nil")
 	}
 
 	switch log := log.(type) {
@@ -453,7 +452,7 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	keys, err := fm.keyStore.SendingKeys()
+	keys, err := fm.keyStore.SendingKeys(nil) // FIXME: FluxMonitor is probably not compatible with multichain here
 	if err != nil {
 		return errors.Wrap(err, "failed to load keys")
 	}

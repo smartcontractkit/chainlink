@@ -95,22 +95,29 @@ func newVRFCoordinatorUniverseWithV08Consumer(t *testing.T, key ethkey.KeyV2) co
 
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
-func newVRFCoordinatorUniverse(t *testing.T, key ethkey.KeyV2) coordinatorUniverse {
-	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
+func newVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) coordinatorUniverse {
+	var oracleTransactors []*bind.TransactOpts
+	for _, key := range keys {
+		oracleTransactors = append(oracleTransactors, cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey()))
+	}
+
 	var (
-		sergey  = newIdentity(t)
-		neil    = newIdentity(t)
-		ned     = newIdentity(t)
-		carol   = newIdentity(t)
-		nallory = oracleTransactor
+		sergey = newIdentity(t)
+		neil   = newIdentity(t)
+		ned    = newIdentity(t)
+		carol  = newIdentity(t)
 	)
 	genesisData := core.GenesisAlloc{
-		sergey.From:  {Balance: assets.Ether(1000)},
-		neil.From:    {Balance: assets.Ether(1000)},
-		ned.From:     {Balance: assets.Ether(1000)},
-		carol.From:   {Balance: assets.Ether(1000)},
-		nallory.From: {Balance: assets.Ether(1000)},
+		sergey.From: {Balance: assets.Ether(1000)},
+		neil.From:   {Balance: assets.Ether(1000)},
+		ned.From:    {Balance: assets.Ether(1000)},
+		carol.From:  {Balance: assets.Ether(1000)},
 	}
+
+	for _, t := range oracleTransactors {
+		genesisData[t.From] = core.GenesisAccount{Balance: assets.Ether(1000)}
+	}
+
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	consumerABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_consumer_interface.VRFConsumerABI))
