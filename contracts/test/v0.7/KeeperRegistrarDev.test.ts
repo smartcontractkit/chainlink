@@ -23,6 +23,7 @@ import { KeeperRegistrarDev__factory as KeeperRegistrarFactory } from '../../typ
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
+import { toWei } from '../test-helpers/helpers'
 
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
@@ -78,11 +79,17 @@ describe('KeeperRegistrar', () => {
   const amount = BigNumber.from('5000000000000000000')
   const amount1 = BigNumber.from('6000000000000000000')
 
+  // Enum values are not auto exported in ABI so have to manually declare
+  const autoApproveType_DISABLED = 0
+  const autoApproveType_ENABLED_SENDER_ALLOWLIST = 1
+  const autoApproveType_ENABLED_ALL = 2
+
   let owner: Signer
   let admin: Signer
   let someAddress: Signer
   let registrarOwner: Signer
   let stranger: Signer
+  let requestSender: Signer
 
   let linkToken: LinkToken
   let linkEthFeed: MockV3Aggregator
@@ -97,6 +104,7 @@ describe('KeeperRegistrar', () => {
     someAddress = personas.Ned
     registrarOwner = personas.Nelly
     stranger = personas.Nancy
+    requestSender = personas.Norbert
 
     linkToken = await linkTokenFactory.connect(owner).deploy()
     gasPriceFeed = await mockV3AggregatorFactory
@@ -127,13 +135,17 @@ describe('KeeperRegistrar', () => {
       .connect(registrarOwner)
       .deploy(linkToken.address, minLINKJuels)
 
+    await linkToken
+      .connect(owner)
+      .transfer(await requestSender.getAddress(), toWei('1000'))
+
     await registry.setRegistrar(registrar.address)
   })
 
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registrar.typeAndVersion()
-      assert.equal(typeAndVersion, 'KeeperRegistrar 1.0.0')
+      assert.equal(typeAndVersion, 'KeeperRegistrar 1.1.0')
     })
   })
 
@@ -151,6 +163,7 @@ describe('KeeperRegistrar', () => {
             emptyBytes,
             amount,
             source,
+            await requestSender.getAddress(),
           ),
         'Must use LINK token',
       )
@@ -160,7 +173,7 @@ describe('KeeperRegistrar', () => {
       await registrar
         .connect(registrarOwner)
         .setRegistrationConfig(
-          true,
+          autoApproveType_ENABLED_ALL,
           window_small,
           threshold_big,
           registry.address,
@@ -178,12 +191,38 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           amount1,
           source,
+          await requestSender.getAddress(),
         ],
       )
 
       await evmRevert(
-        linkToken.transferAndCall(registrar.address, amount, abiEncodedBytes),
+        linkToken
+          .connect(requestSender)
+          .transferAndCall(registrar.address, amount, abiEncodedBytes),
         'Amount mismatch',
+      )
+    })
+
+    it('reverts if the sender passed in data mismatches actual sender', async () => {
+      const abiEncodedBytes = registrar.interface.encodeFunctionData(
+        'register',
+        [
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+          source,
+          await admin.getAddress(), // Should have been requestSender.getAddress()
+        ],
+      )
+      await evmRevert(
+        linkToken
+          .connect(requestSender)
+          .transferAndCall(registrar.address, amount, abiEncodedBytes),
+        'Sender address mismatch',
       )
     })
 
@@ -199,11 +238,14 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           amount,
           source,
+          await requestSender.getAddress(),
         ],
       )
 
       await evmRevert(
-        linkToken.transferAndCall(registrar.address, amount, abiEncodedBytes),
+        linkToken
+          .connect(requestSender)
+          .transferAndCall(registrar.address, amount, abiEncodedBytes),
         'Unable to create request',
       )
     })
@@ -216,7 +258,7 @@ describe('KeeperRegistrar', () => {
       await registrar
         .connect(registrarOwner)
         .setRegistrationConfig(
-          true,
+          autoApproveType_ENABLED_ALL,
           window_small,
           threshold_big,
           registry.address,
@@ -235,13 +277,12 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           amount,
           source,
+          await requestSender.getAddress(),
         ],
       )
-      const tx = await linkToken.transferAndCall(
-        registrar.address,
-        amount,
-        abiEncodedBytes,
-      )
+      const tx = await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
 
       //confirm if a new upkeep has been registered and the details are the same as the one just registered
       const newupkeep = await registry.getUpkeep(upkeepCount)
@@ -263,7 +304,7 @@ describe('KeeperRegistrar', () => {
       await registrar
         .connect(registrarOwner)
         .setRegistrationConfig(
-          false,
+          autoApproveType_DISABLED,
           window_small,
           threshold_big,
           registry.address,
@@ -282,13 +323,12 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           amount,
           source,
+          await requestSender.getAddress(),
         ],
       )
-      const tx = await linkToken.transferAndCall(
-        registrar.address,
-        amount,
-        abiEncodedBytes,
-      )
+      const tx = await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
       const receipt = await tx.wait()
 
       //get upkeep count after attempting registration
@@ -314,7 +354,7 @@ describe('KeeperRegistrar', () => {
       await registrar
         .connect(registrarOwner)
         .setRegistrationConfig(
-          true,
+          autoApproveType_ENABLED_ALL,
           window_big,
           threshold_small,
           registry.address,
@@ -330,14 +370,13 @@ describe('KeeperRegistrar', () => {
         emptyBytes,
         amount,
         source,
+        await requestSender.getAddress(),
       ])
 
       //register within threshold, new upkeep should be registered
-      await linkToken.transferAndCall(
-        registrar.address,
-        amount,
-        abiEncodedBytes,
-      )
+      await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
       const intermediateCount = await registry.getUpkeepCount()
       //make sure 1 upkeep was registered
       assert.equal(beforeCount.toNumber() + 1, intermediateCount.toNumber())
@@ -353,13 +392,12 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           amount,
           source,
+          await requestSender.getAddress(),
         ])
 
-        await linkToken.transferAndCall(
-          registrar.address,
-          amount,
-          abiEncodedBytes,
-        )
+        await linkToken
+          .connect(requestSender)
+          .transferAndCall(registrar.address, amount, abiEncodedBytes)
       }
       const afterCount = await registry.getUpkeepCount()
       //count of newly registered upkeeps should be equal to the threshold set for auto approval
@@ -370,6 +408,148 @@ describe('KeeperRegistrar', () => {
         'Registrations beyond threshold',
       )
     })
+
+    it('Auto Approve Sender Allowlist - sender in allowlist - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
+      const upkeepCount = await registry.getUpkeepCount()
+      const senderAddress = await requestSender.getAddress()
+
+      //set auto approve to ENABLED_SENDER_ALLOWLIST type with high threshold limits
+      await registrar
+        .connect(registrarOwner)
+        .setRegistrationConfig(
+          autoApproveType_ENABLED_SENDER_ALLOWLIST,
+          window_small,
+          threshold_big,
+          registry.address,
+          minLINKJuels,
+        )
+
+      // Add sender to allowlist
+      await registrar
+        .connect(registrarOwner)
+        .setAutoApproveAllowedSender(senderAddress, true)
+
+      //register with auto approve ON
+      const abiEncodedBytes = registrar.interface.encodeFunctionData(
+        'register',
+        [
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+          source,
+          await requestSender.getAddress(),
+        ],
+      )
+      const tx = await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
+
+      //confirm if a new upkeep has been registered and the details are the same as the one just registered
+      const newupkeep = await registry.getUpkeep(upkeepCount)
+      assert.equal(newupkeep.target, mock.address)
+      assert.equal(newupkeep.admin, await admin.getAddress())
+      assert.equal(newupkeep.checkData, emptyBytes)
+      assert.equal(newupkeep.balance.toString(), amount.toString())
+      assert.equal(newupkeep.executeGas, executeGas.toNumber())
+
+      await expect(tx).to.emit(registrar, 'RegistrationRequested')
+      await expect(tx).to.emit(registrar, 'RegistrationApproved')
+    })
+
+    it('Auto Approve Sender Allowlist - sender NOT in allowlist - does not registers an upkeep on KeeperRegistry, emits only RegistrationRequested event', async () => {
+      const beforeCount = await registry.getUpkeepCount()
+      const senderAddress = await requestSender.getAddress()
+
+      //set auto approve to ENABLED_SENDER_ALLOWLIST type with high threshold limits
+      await registrar
+        .connect(registrarOwner)
+        .setRegistrationConfig(
+          autoApproveType_ENABLED_SENDER_ALLOWLIST,
+          window_small,
+          threshold_big,
+          registry.address,
+          minLINKJuels,
+        )
+
+      // Explicitly remove sender from allowlist
+      await registrar
+        .connect(registrarOwner)
+        .setAutoApproveAllowedSender(senderAddress, false)
+
+      //register. auto approve shouldn't happen
+      const abiEncodedBytes = registrar.interface.encodeFunctionData(
+        'register',
+        [
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+          source,
+          await requestSender.getAddress(),
+        ],
+      )
+      const tx = await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
+      const receipt = await tx.wait()
+
+      //get upkeep count after attempting registration
+      const afterCount = await registry.getUpkeepCount()
+      //confirm that a new upkeep has NOT been registered and upkeep count is still the same
+      assert.deepEqual(beforeCount, afterCount)
+
+      //confirm that only RegistrationRequested event is emitted and RegistrationApproved event is not
+      await expect(tx).to.emit(registrar, 'RegistrationRequested')
+      await expect(tx).not.to.emit(registrar, 'RegistrationApproved')
+
+      const hash = receipt.logs[2].topics[1]
+      const pendingRequest = await registrar.getPendingRequest(hash)
+      assert.equal(await admin.getAddress(), pendingRequest[0])
+      assert.ok(amount.eq(pendingRequest[1]))
+    })
+  })
+
+  describe('#setAutoApproveAllowedSender', () => {
+    it('reverts if not called by the owner', async () => {
+      const tx = registrar
+        .connect(stranger)
+        .setAutoApproveAllowedSender(await admin.getAddress(), false)
+      await evmRevert(tx, 'Only callable by owner')
+    })
+
+    it('sets the allowed status correctly and emits log', async () => {
+      const senderAddress = await stranger.getAddress()
+      let tx = await registrar
+        .connect(registrarOwner)
+        .setAutoApproveAllowedSender(senderAddress, true)
+      await expect(tx)
+        .to.emit(registrar, 'AutoApproveAllowedSenderSet')
+        .withArgs(senderAddress, true)
+
+      let senderAllowedStatus = await registrar
+        .connect(owner)
+        .getAutoApproveAllowedSender(senderAddress)
+      assert.isTrue(senderAllowedStatus)
+
+      tx = await registrar
+        .connect(registrarOwner)
+        .setAutoApproveAllowedSender(senderAddress, false)
+      await expect(tx)
+        .to.emit(registrar, 'AutoApproveAllowedSenderSet')
+        .withArgs(senderAddress, false)
+
+      senderAllowedStatus = await registrar
+        .connect(owner)
+        .getAutoApproveAllowedSender(senderAddress)
+      assert.isFalse(senderAllowedStatus)
+    })
   })
 
   describe('#approve', () => {
@@ -379,7 +559,7 @@ describe('KeeperRegistrar', () => {
       await registrar
         .connect(registrarOwner)
         .setRegistrationConfig(
-          false,
+          autoApproveType_DISABLED,
           window_small,
           threshold_big,
           registry.address,
@@ -398,14 +578,13 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           amount,
           source,
+          await requestSender.getAddress(),
         ],
       )
 
-      const tx = await linkToken.transferAndCall(
-        registrar.address,
-        amount,
-        abiEncodedBytes,
-      )
+      const tx = await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
       const receipt = await tx.wait()
       hash = receipt.logs[2].topics[1]
     })
@@ -531,7 +710,7 @@ describe('KeeperRegistrar', () => {
       await registrar
         .connect(registrarOwner)
         .setRegistrationConfig(
-          false,
+          autoApproveType_DISABLED,
           window_small,
           threshold_big,
           registry.address,
@@ -550,21 +729,18 @@ describe('KeeperRegistrar', () => {
           emptyBytes,
           amount,
           source,
+          await requestSender.getAddress(),
         ],
       )
-      const tx = await linkToken.transferAndCall(
-        registrar.address,
-        amount,
-        abiEncodedBytes,
-      )
+      const tx = await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
       const receipt = await tx.wait()
       hash = receipt.logs[2].topics[1]
       // submit duplicate request (increase balance)
-      await linkToken.transferAndCall(
-        registrar.address,
-        amount,
-        abiEncodedBytes,
-      )
+      await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
     })
 
     it('reverts if not called by the admin / owner', async () => {
