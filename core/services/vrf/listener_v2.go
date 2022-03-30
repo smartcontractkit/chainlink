@@ -564,24 +564,24 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		return fulfilled, errors.Wrap(err, "making batch call")
 	}
 
-	err = nil
+	var errs error
 	for i, call := range calls {
 		if call.Error != nil {
-			err = multierr.Append(err, fmt.Errorf("checking request %s with hash %s: %w",
-				reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String(), err))
+			errs = multierr.Append(errs, fmt.Errorf("checking request %s with hash %s: %w",
+				reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String(), call.Error))
 			continue
 		}
 
 		rString, ok := call.Result.(*string)
 		if !ok {
-			err = multierr.Append(err,
-				fmt.Errorf("unexpected result %+v on request %s with hash %s: %w",
-					call.Result, reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String(), err))
+			errs = multierr.Append(errs,
+				fmt.Errorf("unexpected result %+v on request %s with hash %s",
+					call.Result, reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String()))
 			continue
 		}
 		result, err := hexutil.Decode(*rString)
 		if err != nil {
-			err = multierr.Append(err,
+			errs = multierr.Append(errs,
 				fmt.Errorf("decoding batch call result %+v %s request %s with hash %s: %w",
 					call.Result, *rString, reqs[i].req.RequestId.String(), reqs[i].req.Raw.TxHash.String(), err))
 			continue
@@ -597,7 +597,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 
 	l.Debugw("Done checking fulfillment status",
 		"numChecked", len(reqs), "time", time.Since(start).String())
-	return fulfilled, err
+	return fulfilled, errs
 }
 
 func (lsn *listenerV2) runPipelines(
