@@ -124,7 +124,8 @@ type node struct {
 	utils.StartStopOnce
 	ws      rawclient
 	http    *rawclient
-	log     logger.Logger
+	lfcLog  logger.Logger
+	rpcLog  logger.Logger
 	name    string
 	id      int32
 	chainID *big.Int
@@ -170,12 +171,14 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 	}
 	n.chStopInFlight = make(chan struct{})
 	n.chStop = make(chan struct{})
-	n.log = lggr.Named("Node").With(
+	lggr = lggr.Named("Node").With(
 		"nodeTier", "primary",
 		"nodeName", name,
 		"node", n.String(),
 		"evmChainID", chainID,
 	)
+	n.lfcLog = lggr.Named("Lifecycle")
+	n.rpcLog = lggr.Named("RPC")
 	return n
 }
 
@@ -203,7 +206,7 @@ func (n *node) start(startCtx context.Context) {
 	dialCtx, cancel := n.makeQueryCtx(startCtx)
 	defer cancel()
 	if err := n.dial(dialCtx); err != nil {
-		n.log.Errorw("Dial failed: EVM Node is unreachable", "err", err)
+		n.lfcLog.Errorw("Dial failed: EVM Node is unreachable", "err", err)
 		n.declareUnreachable()
 		return
 	}
@@ -212,11 +215,11 @@ func (n *node) start(startCtx context.Context) {
 	verifyCtx, cancel := n.makeQueryCtx(startCtx)
 	defer cancel()
 	if err := n.verify(verifyCtx); errors.Is(err, errInvalidChainID) {
-		n.log.Errorw("Verify failed: EVM Node has the wrong chain ID", "err", err)
+		n.lfcLog.Errorw("Verify failed: EVM Node has the wrong chain ID", "err", err)
 		n.declareInvalidChainID()
 		return
 	} else if err != nil {
-		n.log.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
+		n.lfcLog.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
 		n.declareUnreachable()
 		return
 	}
@@ -231,7 +234,7 @@ func (n *node) dial(callerCtx context.Context) error {
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(n.chainID.String(), n.name).Inc()
-	lggr := n.log.With("wsuri", n.ws.uri.Redacted())
+	lggr := n.lfcLog.With("wsuri", n.ws.uri.Redacted())
 	if n.http != nil {
 		lggr = lggr.With("httpuri", n.http.uri.Redacted())
 	}
@@ -260,7 +263,7 @@ func (n *node) dial(callerCtx context.Context) error {
 		n.http.geth = ethclient.NewClient(httprpc)
 	}
 
-	n.log.Debugw("RPC dial: success")
+	n.lfcLog.Debugw("RPC dial: success")
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 
 	return nil
@@ -881,7 +884,7 @@ func (n *node) ChainID() (chainID *big.Int) { return n.chainID }
 
 // newRqLggr generates a new logger with a unique request ID
 func (n *node) newRqLggr(mode string) logger.Logger {
-	return n.log.With(
+	return n.rpcLog.With(
 		"requestID", uuid.NewV4(),
 		"mode", mode,
 	)
@@ -929,9 +932,9 @@ func (n *node) wrapWS(err error) error {
 func (n *node) wrapHTTP(err error) error {
 	err = wrap(err, fmt.Sprintf("primary http (%s)", n.http.uri.Redacted()))
 	if err != nil {
-		n.log.Debugw("Call failed", "err", err)
+		n.rpcLog.Debugw("Call failed", "err", err)
 	} else {
-		n.log.Trace("Call succeeded")
+		n.rpcLog.Trace("Call succeeded")
 	}
 	return err
 }
