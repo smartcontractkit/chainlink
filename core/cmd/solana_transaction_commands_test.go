@@ -16,8 +16,8 @@ import (
 
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 func TestClient_SolanaSendSol(t *testing.T) {
@@ -87,7 +87,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			// Check CLI output
 			require.Greater(t, len(r.Renders), 0)
 			renderer := r.Renders[len(r.Renders)-1]
-			renderedMsg := renderer.(*presenters.SolanaMsgResource)
+			renderedMsg := renderer.(*cmd.SolanaMsgPresenter)
 			fmt.Printf("%+v\n", renderedMsg)
 			require.NotEmpty(t, renderedMsg.ID)
 			assert.Equal(t, chainID, renderedMsg.ChainID)
@@ -95,7 +95,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 			assert.Equal(t, to.PublicKey().String(), renderedMsg.To)
 			assert.Equal(t, tt.amount, strconv.FormatUint(renderedMsg.Amount, 10))
 
-      time.Sleep(time.Second) // wait for tx execution
+			time.Sleep(time.Second) // wait for tx execution
 
 			// Check balance
 			endBal, err := reader.Balance(from.PublicKey())

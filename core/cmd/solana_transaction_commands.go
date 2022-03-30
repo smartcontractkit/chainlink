@@ -15,6 +15,25 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
+type SolanaMsgPresenter struct {
+	JAID
+	presenters.SolanaMsgResource
+}
+
+// RenderTable implements TableRenderer
+func (p *SolanaMsgPresenter) RenderTable(rt RendererTable) error {
+	table := rt.newTable([]string{"Chain ID", "From", "To", "Amount"})
+	table.Append([]string{
+		p.ChainID,
+		p.From,
+		p.To,
+		strconv.FormatUint(p.Amount, 10),
+	})
+
+	render(fmt.Sprintf("Solana Message %v", p.ID), table)
+	return nil
+}
+
 // SolanaSendSol transfers sol from the node's account to a specified address.
 func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
@@ -72,6 +91,6 @@ func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 		}
 	}()
 
-	err = cli.renderAPIResponse(resp, &presenters.SolanaMsgResource{})
+	err = cli.renderAPIResponse(resp, &SolanaMsgPresenter{})
 	return err
 }
