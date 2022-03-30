@@ -89,6 +89,7 @@ const JOB_PAYLOAD__SPEC = gql`
       pollPeriod
       publicKey
       requestedConfsDelay
+      chunkSize
     }
     ... on BlockhashStoreSpec {
       coordinatorV1Address
