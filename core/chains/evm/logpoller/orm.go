@@ -26,6 +26,7 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig)
 	}
 }
 
+// InsertBlock is idempotent to support replays.
 func (o *ORM) InsertBlock(h common.Hash, n int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.Exec(`INSERT INTO log_poller_blocks (evm_chain_id, block_hash, block_number, created_at) 
@@ -66,6 +67,13 @@ func (o *ORM) DeleteRangeBlocks(start, end int64, qopts ...pg.QOpt) error {
 	return err
 }
 
+func (o *ORM) DeleteLogs(start, end int64, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	_, err := q.Exec(`DELETE FROM logs WHERE block_number >= $1 AND block_number <= $2 AND evm_chain_id = $3`, start, end, utils.NewBig(o.chainID))
+	return err
+}
+
+// InsertLogs is idempotent to support replays.
 func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.NamedExec(`INSERT INTO logs 
@@ -86,29 +94,15 @@ func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
 	return logs, nil
 }
 
-func (o *ORM) SelectCanonicalLogsByBlockRange(start, end int64) ([]Log, error) {
+// SelectLogsByBlockRangeTopicAddress finds the latest logs by block.
+// Assumes that logs inserted later for a given block are "more" canonical.
+func (o *ORM) SelectLogsByBlockRangeTopicAddress(start, end int64, address common.Address, topics [][]byte) ([]Log, error) {
 	var logs []Log
 	err := o.q.Select(&logs, `
 		SELECT * FROM logs 
-            JOIN (SELECT block_number, max(created_at) AS created_at FROM logs GROUP BY block_number) AS latest_blocks 
-			ON latest_blocks.block_number = logs.block_number AND latest_blocks.created_at = logs.created_at
-		 	WHERE logs.block_number >= $1 AND logs.block_number <= $2 AND logs.evm_chain_id = $3 
-            ORDER BY (logs.block_number, logs.log_index)`, start, end, utils.NewBig(o.chainID))
-	if err != nil {
-		return nil, err
-	}
-	return logs, nil
-}
-
-func (o *ORM) SelectCanonicalLogsByBlockRangeTopicAddress(start, end int64, address common.Address, topics [][]byte) ([]Log, error) {
-	var logs []Log
-	err := o.q.Select(&logs, `
-		SELECT * FROM logs 
-            JOIN (SELECT block_number, max(created_at) AS created_at FROM logs GROUP BY block_number) AS latest_blocks 
-			ON latest_blocks.block_number = logs.block_number AND latest_blocks.created_at = logs.created_at
-		 	WHERE logs.block_number >= $1 AND logs.block_number <= $2 AND logs.evm_chain_id = $3 
-				AND address = $4 AND topics = $5 
-            ORDER BY (logs.block_number, logs.log_index)`, start, end, utils.NewBig(o.chainID), address, topics)
+			WHERE logs.block_number >= $1 AND logs.block_number <= $2 AND logs.evm_chain_id = $3 
+			AND address = $4 AND topics = $5 
+			ORDER BY (logs.block_number, logs.log_index)`, start, end, utils.NewBig(o.chainID), address, topics)
 	if err != nil {
 		return nil, err
 	}

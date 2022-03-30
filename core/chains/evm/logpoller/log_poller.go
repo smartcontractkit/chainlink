@@ -256,12 +256,23 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 				return current
 			}
 
-			// We truncate all the blocks after the LCA.
-			// TODO: We could mark all the logs after this reorg to be excluded
-			// from canonical queries?
-			err3 = lp.orm.DeleteRangeBlocks(lca+1, latest)
+			// We truncate all the blocks and logs after the LCA.
+			err3 = lp.orm.q.Transaction(func(tx pg.Queryer) error {
+				err3 = lp.orm.DeleteRangeBlocks(lca+1, latest, pg.WithQueryer(tx))
+				if err3 != nil {
+					lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
+					return err3
+				}
+				err3 = lp.orm.DeleteLogs(lca+1, latest, pg.WithQueryer(tx))
+				if err3 != nil {
+					lp.lggr.Warnw("Unable to clear reorged logs, retrying", "err", err3)
+					return err3
+				}
+				return nil
+			})
 			if err3 != nil {
-				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
+				// If we crash or fail to update state we simply do not increment current so we'll detect the same
+				// reorg (if still present) and retry.
 				return current
 			}
 			current = lca + 1
@@ -315,6 +326,8 @@ func (lp *LogPoller) findLCA(h common.Hash) (int64, error) {
 	return block.Number().Int64(), nil
 }
 
-func (lp *LogPoller) CanonicalLogs(start, end int64, topics []common.Hash, address common.Address) ([]Log, error) {
-	return lp.orm.SelectCanonicalLogsByBlockRangeTopicAddress(start, end, address, convertTopics(topics))
+// Logs returns logs matching topics and address (exactly) in the given block range,
+// which are canonical at time of query.
+func (lp *LogPoller) Logs(start, end int64, topics []common.Hash, address common.Address) ([]Log, error) {
+	return lp.orm.SelectLogsByBlockRangeTopicAddress(start, end, address, convertTopics(topics))
 }
