@@ -452,7 +452,7 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	keys, err := fm.keyStore.SendingKeys()
+	keys, err := fm.keyStore.SendingKeys(nil) // FIXME: FluxMonitor is probably not compatible with multichain here
 	if err != nil {
 		return errors.Wrap(err, "failed to load keys")
 	}

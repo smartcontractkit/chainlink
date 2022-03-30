@@ -127,18 +127,17 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 
 // ReplayFromBlock replays chain data from the given block number until the most recent
 func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
-
 	blockNumber := c.Int64("block-number")
 	if blockNumber <= 0 {
 		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
 	}
 
-	forceBroadcast := c.Bool("force-broadcast")
+	forceBroadcast := c.Bool("force")
 
 	buf := bytes.NewBufferString("{}")
 	resp, err := cli.HTTP.Post(
 		fmt.Sprintf(
-			"/v2/replay_from_block/%v?force_broadcast=%s",
+			"/v2/replay_from_block/%v?force=%s",
 			blockNumber,
 			strconv.FormatBool(forceBroadcast),
 		), buf)

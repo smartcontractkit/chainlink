@@ -425,6 +425,7 @@ juelsPerFeeCoinSource = "1000000000"
         publicKey:
           '0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301',
         requestedConfsDelay: 0,
+        chunkSize: 25,
       },
       observationSource:
         '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
@@ -442,6 +443,7 @@ minIncomingConfirmations = 6
 pollPeriod = "10s"
 publicKey = "0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301"
 requestedConfsDelay = 0
+chunkSize = 25
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
