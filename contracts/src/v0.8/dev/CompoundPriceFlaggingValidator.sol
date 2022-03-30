@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
 import "../ConfirmedOwner.sol";
-import "../vendor/SafeMathChainlink.sol";
 import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/UniswapAnchoredView.sol";
@@ -16,7 +15,6 @@ import "../interfaces/KeeperCompatibleInterface.sol";
  * by more than the configured threshold from the aggregator price.
  */
 contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface {
-  using SafeMathChainlink for uint256;
 
   struct CompoundFeedDetails {
     // Used to call the Compound Open Oracle
@@ -320,14 +318,14 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
     uint32 deviationThresholdNumerator
   ) private pure returns (bool beyondThreshold) {
     // Deviation amount threshold from the aggregator price
-    uint256 deviationAmountThreshold = aggregatorPrice.mul(deviationThresholdNumerator).div(BILLION);
+    uint256 deviationAmountThreshold = aggregatorPrice * deviationThresholdNumerator / BILLION;
 
     // Calculate deviation
     uint256 deviation;
     if (aggregatorPrice > compPrice) {
-      deviation = aggregatorPrice.sub(compPrice);
+      deviation = aggregatorPrice - compPrice;
     } else if (aggregatorPrice < compPrice) {
-      deviation = compPrice.sub(aggregatorPrice);
+      deviation = compPrice - aggregatorPrice;
     }
     beyondThreshold = (deviation >= deviationAmountThreshold);
   }

@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
 import "../ConfirmedOwner.sol";
-import "../vendor/SafeMathChainlink.sol";
 import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 
 contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface {
-  using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
   mapping(address => uint256) private s_thresholdSeconds;
@@ -150,7 +148,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
       return false;
     }
     (, , , uint256 updatedAt, ) = AggregatorV3Interface(aggregator).latestRoundData();
-    uint256 diff = currentTimestamp.sub(updatedAt);
+    uint256 diff = currentTimestamp - updatedAt;
     if (diff > s_thresholdSeconds[aggregator]) {
       return true;
     }

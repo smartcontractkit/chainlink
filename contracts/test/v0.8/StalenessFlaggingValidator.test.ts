@@ -21,7 +21,7 @@ before(async () => {
   personas = (await getUsers()).personas
 
   validatorFactory = await ethers.getContractFactory(
-    'src/v0.7/dev/StalenessFlaggingValidator.sol:StalenessFlaggingValidator',
+    'src/v0.8/dev/StalenessFlaggingValidator.sol:StalenessFlaggingValidator',
     personas.Carol,
   )
   flagsFactory = await ethers.getContractFactory(

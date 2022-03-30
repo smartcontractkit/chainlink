@@ -52,7 +52,7 @@ before(async () => {
     defaultAccount,
   )
   aggregatorProxyFactory = await ethers.getContractFactory(
-    'src/v0.7/dev/AggregatorProxy.sol:AggregatorProxy',
+    'src/v0.8/dev/AggregatorProxy.sol:AggregatorProxy',
     defaultAccount,
   )
   fluxAggregatorFactory = await ethers.getContractFactory(
