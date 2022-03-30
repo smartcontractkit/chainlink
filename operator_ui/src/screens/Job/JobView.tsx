@@ -83,12 +83,13 @@ const JOB_PAYLOAD__SPEC = gql`
     ... on VRFSpec {
       evmChainID
       coordinatorAddress
-      fromAddress
+      fromAddresses
       minIncomingConfirmations
       minIncomingConfirmationsEnv
       pollPeriod
       publicKey
       requestedConfsDelay
+      chunkSize
     }
     ... on BlockhashStoreSpec {
       coordinatorV1Address

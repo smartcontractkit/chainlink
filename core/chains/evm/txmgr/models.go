@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,21 +17,25 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// EthTxMeta contains fields of the transaction metadata
 type EthTxMeta struct {
-	JobID         int32
-	RequestID     common.Hash
-	RequestTxHash common.Hash
+	JobID         int32       `json:"JobID"`
+	RequestID     common.Hash `json:"RequestID"`
+	RequestTxHash common.Hash `json:"RequestTxHash"`
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
-	MaxLink string
+	MaxLink *string `json:"MaxLink,omitempty"`
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
-	SubID uint64 `json:"SubId"`
+	SubID *uint64 `json:"SubId,omitempty"`
+	// Used for keepers
+	UpkeepID *int64 `json:"UpkeepID,omitempty"`
 }
 
 // TransmitCheckerSpec defines the check that should be performed before a transaction is submitted
@@ -42,6 +47,10 @@ type TransmitCheckerSpec struct {
 	// VRFCoordinatorAddress is the address of the VRF coordinator that should be used to perform
 	// VRF transmit checks. This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
 	VRFCoordinatorAddress common.Address
+
+	// VRFRequestBlockNumber is the block number in which the provided VRF request has been made.
+	// This should be set iff CheckerType is TransmitCheckerTypeVRFV2.
+	VRFRequestBlockNumber *big.Int
 }
 
 type EthTxState string
@@ -186,6 +195,43 @@ func (e EthTx) GetMeta() (*EthTxMeta, error) {
 	}
 	var m EthTxMeta
 	return &m, errors.Wrap(json.Unmarshal(*e.Meta, &m), "unmarshalling meta")
+}
+
+// GetLogger returns a new logger with metadata fields.
+func (e EthTx) GetLogger(lgr logger.Logger) logger.Logger {
+	lgr = lgr.With(
+		"ethTxID", e.ID,
+		"checker", e.TransmitChecker,
+		"gasLimit", e.GasLimit,
+	)
+
+	meta, err := e.GetMeta()
+	if err != nil {
+		lgr.Errorw("failed to get meta of the transaction", "err", err)
+		return lgr
+	}
+
+	if meta != nil {
+		lgr = lgr.With(
+			"jobID", meta.JobID,
+			"requestID", meta.RequestID,
+			"requestTxHash", meta.RequestTxHash,
+		)
+
+		if meta.UpkeepID != nil {
+			lgr = lgr.With("upkeepID", *meta.UpkeepID)
+		}
+
+		if meta.SubID != nil {
+			lgr = lgr.With("subID", *meta.SubID)
+		}
+
+		if meta.MaxLink != nil {
+			lgr = lgr.With("maxLink", *meta.MaxLink)
+		}
+	}
+
+	return lgr
 }
 
 // GetChecker returns an EthTx's transmit checker spec in struct form, unmarshalling it from JSON

@@ -75,7 +75,7 @@ testdb-user-only: ## Prepares the test database with user only.
 presubmit: ## Format go files and imports.
 	goimports -w ./core
 	gofmt -w ./core
-	go mod tidy -compat=1.17
+	go mod tidy
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.

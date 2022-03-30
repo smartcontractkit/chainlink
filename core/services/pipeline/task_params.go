@@ -102,7 +102,7 @@ func JSONWithVarExprs(s string, vars Vars, allowErrors bool) GetterFunc {
 		var val interface{}
 		err := json.Unmarshal(replaced, &val)
 		if err != nil {
-			return nil, errors.Wrapf(ErrBadInput, "while interpolating variables in JSON payload: %v", err)
+			return nil, errors.Wrapf(ErrBadInput, "while interpolating variables in JSON payload: %v; got input: %v", err, replaced)
 		}
 		return mapGoValue(val, func(val interface{}) (interface{}, error) {
 			if m, is := val.(map[string]interface{}); is {

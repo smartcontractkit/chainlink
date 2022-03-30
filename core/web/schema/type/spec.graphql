@@ -94,13 +94,14 @@ type VRFSpec {
     coordinatorAddress: String!
     createdAt: Time!
     evmChainID: String
-    fromAddress: String
+    fromAddresses: [String!]
     minIncomingConfirmations: Int!
     minIncomingConfirmationsEnv: Boolean!
     pollPeriod: String!
     publicKey: String!
     requestedConfsDelay: Int!
     requestTimeout: String!
+    chunkSize: Int!
 }
 
 type WebhookSpec {
