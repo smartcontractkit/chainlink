@@ -144,8 +144,12 @@ func (s *sendOnlyNode) verify(parentCtx context.Context) (err error) {
 	s.log.Debugw("evmclient.Client#ChainID(...)")
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
+	zero := big.NewInt(0)
 	if chainID, err := s.geth.ChainID(ctx); err != nil {
 		return errors.Wrap(err, "failed to verify chain ID")
+	} else if chainID.Cmp(zero) == 0 {
+		s.log.Warn("failed to verify chain ID 0")
+		return nil
 	} else if chainID.Cmp(s.chainID) != 0 {
 		return errors.Errorf(
 			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
