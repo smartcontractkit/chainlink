@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terraclient "github.com/smartcontractkit/chainlink-terra/pkg/terra/client"
 	tcmocks "github.com/smartcontractkit/chainlink-terra/pkg/terra/client/mocks"
-	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -54,11 +53,13 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	contract, err := cosmostypes.AccAddressFromBech32("terra1pp76d50yv2ldaahsdxdv8mmzqfjr2ax97gmue8")
 	require.NoError(t, err)
+	contract2, err := cosmostypes.AccAddressFromBech32("terra1mx72uukvzqtzhc6gde7shrjqfu5srk22v7gmww")
+	require.NoError(t, err)
 	logCfg := pgtest.NewPGCfg(true)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
-	terratest.MustInsertChain(t, db, &terradb.Chain{ID: chainID})
+	terratest.MustInsertChain(t, db, &Chain{ID: chainID})
 	require.NoError(t, err)
-	cfg := terra.NewConfig(terradb.ChainCfg{
+	cfg := terra.NewConfig(ChainCfg{
 		MaxMsgsPerBatch: null.IntFrom(2),
 	}, lggr)
 	gpe := terraclient.NewMustGasPriceEstimator([]terraclient.GasPricesEstimator{
@@ -116,8 +117,70 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		id2, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender2, contract))
 		require.NoError(t, err)
+
+		tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil).Once()
+		// Note this must be arg dependent, we don't know which order
+		// the procesing will happen in (map iteration by from address).
+		tc.On("BatchSimulateUnsigned", terraclient.SimMsgs{
+			{
+				ID: id2,
+				Msg: &wasmtypes.MsgExecuteContract{
+					Sender:     sender2.String(),
+					ExecuteMsg: []byte(`1`),
+					Contract:   contract.String(),
+				},
+			},
+		}, mock.Anything).Return(&terraclient.BatchSimResults{
+			Failed: nil,
+			Succeeded: terraclient.SimMsgs{
+				{
+					ID: id2,
+					Msg: &wasmtypes.MsgExecuteContract{
+						Sender:     sender2.String(),
+						ExecuteMsg: []byte(`1`),
+						Contract:   contract.String(),
+					},
+				},
+			},
+		}, nil).Once()
+		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
+			GasUsed: 1_000_000,
+		}}, nil).Once()
+		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
+			Header: tmtypes.Header{Height: 1},
+		}}, nil).Once()
+		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil).Once()
+		tc.On("Broadcast", mock.Anything, mock.Anything).Return(&txtypes.BroadcastTxResponse{
+			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
+		}, nil).Once()
+		tc.On("Tx", mock.Anything).Return(&txtypes.GetTxResponse{
+			Tx:         &txtypes.Tx{},
+			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
+		}, nil).Once()
+
+		txm.sendMsgBatch(testutils.Context(t))
+
+		// Should be in completed state
+		completed, err := txm.orm.GetMsgs(id1, id2)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(completed))
+		assert.Equal(t, Errored, completed[0].State) // cancelled
+		assert.Equal(t, Confirmed, completed[1].State)
+		tc.AssertExpectations(t)
+	})
+
+	t.Run("two msgs different contracts", func(t *testing.T) {
+		tc := new(tcmocks.ReaderWriter)
+		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+
+		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
+		require.NoError(t, err)
+		id2, err := txm.Enqueue(contract2.String(), generateExecuteMsg(t, []byte(`1`), sender2, contract2))
+		require.NoError(t, err)
 		ids := []int64{id1, id2}
 		senders := []string{sender1.String(), sender2.String()}
+		contracts := []string{contract.String(), contract2.String()}
 		for i := 0; i < 2; i++ {
 			tc.On("Account", mock.Anything).Return(uint64(0), uint64(0), nil).Once()
 			// Note this must be arg dependent, we don't know which order
@@ -128,7 +191,7 @@ func TestTxm(t *testing.T) {
 					Msg: &wasmtypes.MsgExecuteContract{
 						Sender:     senders[i],
 						ExecuteMsg: []byte(fmt.Sprintf(`%d`, i)),
-						Contract:   contract.String(),
+						Contract:   contracts[i],
 					},
 				},
 			}, mock.Anything).Return(&terraclient.BatchSimResults{
@@ -139,7 +202,7 @@ func TestTxm(t *testing.T) {
 						Msg: &wasmtypes.MsgExecuteContract{
 							Sender:     senders[i],
 							ExecuteMsg: []byte(fmt.Sprintf(`%d`, i)),
-							Contract:   contract.String(),
+							Contract:   contracts[i],
 						},
 					},
 				},
@@ -165,8 +228,8 @@ func TestTxm(t *testing.T) {
 		completed, err := txm.orm.GetMsgs(id1, id2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(completed))
-		assert.Equal(t, completed[0].State, Confirmed)
-		assert.Equal(t, completed[1].State, Confirmed)
+		assert.Equal(t, Confirmed, completed[0].State)
+		assert.Equal(t, Confirmed, completed[1].State)
 		tc.AssertExpectations(t)
 	})
 
@@ -176,12 +239,13 @@ func TestTxm(t *testing.T) {
 			Tx:         &txtypes.Tx{},
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
-		cfg := terra.NewConfig(terradb.ChainCfg{}, lggr)
+		cfg := terra.NewConfig(ChainCfg{}, lggr)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
 		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
 		i, err := txm.orm.InsertMsg("blah", "", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
+		require.NoError(t, txm.orm.UpdateMsgs([]int64{i}, Started, &txh))
 		require.NoError(t, txm.orm.UpdateMsgs([]int64{i}, Broadcasted, &txh))
 		err = txm.confirmTx(testutils.Context(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
@@ -217,6 +281,12 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
+		err = txm.orm.UpdateMsgs([]int64{id1}, Started, &txHash1)
+		require.NoError(t, err)
+		err = txm.orm.UpdateMsgs([]int64{id2}, Started, &txHash2)
+		require.NoError(t, err)
+		err = txm.orm.UpdateMsgs([]int64{id3}, Started, &txHash3)
+		require.NoError(t, err)
 		err = txm.orm.UpdateMsgs([]int64{id1}, Broadcasted, &txHash1)
 		require.NoError(t, err)
 		err = txm.orm.UpdateMsgs([]int64{id2}, Broadcasted, &txHash2)
@@ -239,7 +309,7 @@ func TestTxm(t *testing.T) {
 		tc := new(tcmocks.ReaderWriter)
 		timeout := models.MustMakeDuration(1 * time.Millisecond)
 		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
-		cfgShortExpiry := terra.NewConfig(terradb.ChainCfg{
+		cfgShortExpiry := terra.NewConfig(ChainCfg{
 			MaxMsgsPerBatch: null.IntFrom(2),
 			TxMsgTimeout:    &timeout,
 		}, lggr)
@@ -253,17 +323,50 @@ func TestTxm(t *testing.T) {
 		// Should be marked errored
 		m, err := txm.orm.GetMsgs(id1)
 		require.NoError(t, err)
-		assert.Equal(t, terradb.Errored, m[0].State)
+		assert.Equal(t, Errored, m[0].State)
 
 		// Send a batch which is all expired
 		id2, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
+		require.NoError(t, err)
 		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
 		time.Sleep(1 * time.Millisecond)
 		txm.sendMsgBatch(context.Background())
 		require.NoError(t, err)
 		ms, err := txm.orm.GetMsgs(id2, id3)
-		assert.Equal(t, terradb.Errored, ms[0].State)
-		assert.Equal(t, terradb.Errored, ms[1].State)
+		assert.Equal(t, Errored, ms[0].State)
+		assert.Equal(t, Errored, ms[1].State)
+	})
+
+	t.Run("started msgs", func(t *testing.T) {
+		tc := new(tcmocks.ReaderWriter)
+		tcFn := func() (terraclient.ReaderWriter, error) { return tc, nil }
+		cfg := terra.NewConfig(ChainCfg{
+			MaxMsgsPerBatch: null.IntFrom(2),
+		}, lggr)
+		txm := NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Terra(), lggr, pgtest.NewPGCfg(true), nil)
+
+		// Leftover started is processed
+		id1, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
+		require.NoError(t, err)
+		require.NoError(t, txm.orm.UpdateMsgs([]int64{id1}, Started, nil))
+		time.Sleep(1 * time.Millisecond)
+		txm.sendMsgBatch(context.Background())
+		m, err := txm.orm.GetMsgs(id1)
+		require.NoError(t, err)
+		assert.Equal(t, Broadcasted, m[0].State)
+
+		// Leftover started is not cancelled
+		id2, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
+		require.NoError(t, err)
+		require.NoError(t, txm.orm.UpdateMsgs([]int64{id2}, Started, nil))
+		id3, err := txm.orm.InsertMsg("blah", "", []byte{0x03})
+		require.NoError(t, err)
+		time.Sleep(1 * time.Millisecond)
+		txm.sendMsgBatch(context.Background())
+		require.NoError(t, err)
+		ms, err := txm.orm.GetMsgs(id2, id3)
+		assert.Equal(t, Broadcasted, ms[0].State)
+		assert.Equal(t, Broadcasted, ms[1].State)
 	})
 }

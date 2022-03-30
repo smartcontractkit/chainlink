@@ -173,28 +173,34 @@ func (e *msgValidator) add(msg terra.Msg) {
 func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	msgs := msgValidator{cutoff: time.Now().Add(-txm.cfg.TxMsgTimeout())}
 	err := txm.orm.q.Transaction(func(tx pg.Queryer) error {
+		// There may be leftover Started messages after a crash or failed send attempt.
 		started, err := txm.orm.GetMsgsState(db.Started, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
 		if err != nil {
 			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 			return err
 		}
+		if limit := txm.cfg.MaxMsgsPerBatch() - int64(len(started)); limit > 0 {
+			// Use the remaining batch budget for Unstarted
+			unstarted, err := txm.orm.GetMsgsState(db.Unstarted, limit, pg.WithQueryer(tx))
+			if err != nil {
+				txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
+				return err
+			}
+			for _, msg := range unstarted {
+				msgs.add(msg)
+			}
+			// Update valid, Unstarted messages to Started
+			err = txm.orm.UpdateMsgs(msgs.valid.GetIDs(), db.Started, nil, pg.WithQueryer(tx))
+			if err != nil {
+				// Assume transient db error retry
+				txm.lggr.Errorw("unable to mark unstarted txes as started", "err", err)
+				return err
+			}
+		}
 		for _, msg := range started {
 			msgs.add(msg)
 		}
-		unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch()-int64(len(started)), pg.WithQueryer(tx))
-		if err != nil {
-			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
-			return err
-		}
-		for _, msg := range unstarted {
-			msgs.add(msg)
-		}
-		err = txm.orm.UpdateMsgs(unstarted.GetIDs(), db.Started, nil, pg.WithQueryer(tx))
-		if err != nil {
-			// Assume transient db error retry
-			txm.lggr.Errorw("unable to mark unstarted txes as started", "err", err)
-			return err
-		}
+		// Update expired messages (Unstarted or Started) to Errored
 		err = txm.orm.UpdateMsgs(msgs.expired.GetIDs(), db.Errored, nil, pg.WithQueryer(tx))
 		if err != nil {
 			// Assume transient db error retry
@@ -452,7 +458,7 @@ func (txm *Txm) Enqueue(contractID string, msg sdk.Msg) (int64, error) {
 
 	var id int64
 	err = txm.orm.q.Transaction(func(tx pg.Queryer) (err error) {
-		// cancel any unstarted msgs (normally just one, at most two in edge case of failed cleanup on start)
+		// cancel any unstarted msgs (normally just one)
 		err = txm.orm.UpdateMsgsContract(contractID, db.Unstarted, db.Errored, pg.WithQueryer(tx))
 		if err != nil {
 			return err

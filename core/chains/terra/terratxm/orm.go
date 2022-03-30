@@ -44,9 +44,8 @@ func (o *ORM) InsertMsg(contractID, typeURL string, msg []byte, qopts ...pg.QOpt
 // UpdateMsgsContract updates messages for the given contract.
 func (o *ORM) UpdateMsgsContract(contractID string, from, to db.State, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	// TODO index
 	_, err := q.Exec(`UPDATE terra_msgs SET state = $1, updated_at = NOW() 
-	WHERE contract_id = $2 AND state = $3`, to, contractID, from)
+	WHERE terra_chain_id = $2 AND contract_id = $3 AND state = $4`, to, o.chainID, contractID, from)
 	if err != nil {
 		return err
 	}
