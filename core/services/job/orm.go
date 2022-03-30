@@ -266,8 +266,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.CronSpecID = &specID
 		case VRF:
 			var specID int32
-			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_addresses, poll_period, requested_confs_delay, request_timeout, created_at, updated_at)
-			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, :request_timeout, NOW(), NOW())
+			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_addresses, poll_period, requested_confs_delay, request_timeout, chunk_size, created_at, updated_at)
+			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, :request_timeout, :chunk_size, NOW(), NOW())
 			RETURNING id;`
 
 			err := pg.PrepareQueryRowx(tx, sql, &specID, toVRFSpecRow(jb.VRFSpec))

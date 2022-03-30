@@ -204,6 +204,7 @@ export const generateJobDefinition = (
           'pollPeriod',
           'publicKey',
           'requestedConfsDelay',
+          'chunkSize',
         ),
         ...extractObservationSourceField(job),
       }
