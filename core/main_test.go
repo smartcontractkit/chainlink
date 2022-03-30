@@ -434,7 +434,6 @@ func ExampleRun_node_profile() {
 	// OPTIONS:
 	//    --seconds value, -s value     duration of profile capture (default: 8)
 	//    --output_dir value, -o value  output directory of the captured profile (default: "/tmp/")
-
 }
 
 func ExampleRun_txs() {
