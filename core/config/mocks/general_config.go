@@ -1488,6 +1488,27 @@ func (_m *GeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmLogPollInterval provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmMaxGasPriceWei provides a mock function with given fields:
 func (_m *GeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	ret := _m.Called()

@@ -232,36 +232,36 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 	}
 
 	for current <= latest {
-		block, err := lp.ec.BlockByNumber(ctx, big.NewInt(current))
-		if err != nil {
-			lp.lggr.Warnw("Unable to get block", "err", err, "current", current)
+		block, err2 := lp.ec.BlockByNumber(ctx, big.NewInt(current))
+		if err2 != nil {
+			lp.lggr.Warnw("Unable to get block", "err", err2, "current", current)
 			return current
 		}
 		// Does this block point to the same parent that we have saved?
 		// If not, there was a reorg, so we need to rewind.
-		expectedParent, err := lp.orm.SelectBlockByNumber(current - 1)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		expectedParent, err2 := lp.orm.SelectBlockByNumber(current - 1)
+		if err2 != nil && !errors.Is(err2, sql.ErrNoRows) {
 			// If err is not a no rows error, assume transient db issue and retry
-			lp.lggr.Warnw("Unable to read latest block saved", "err", err, "current", current)
+			lp.lggr.Warnw("Unable to read latest block saved", "err", err2, "current", current)
 			return current
 		}
 		// We will not have the previous block on initial poll or after a backfill.
-		havePreviousBlock := !errors.Is(err, sql.ErrNoRows)
+		havePreviousBlock := !errors.Is(err2, sql.ErrNoRows)
 		if havePreviousBlock && !bytes.Equal(block.ParentHash().Bytes(), expectedParent.BlockHash.Bytes()) {
 			// There can be another reorg while we're finding the LCA.
 			// That is ok, since we'll detect it on the next iteration of current.
-			lca, err := lp.findLCA(block.ParentHash())
-			if err != nil {
-				lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err)
+			lca, err3 := lp.findLCA(block.ParentHash())
+			if err3 != nil {
+				lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err3)
 				return current
 			}
 
 			// We truncate all the blocks after the LCA.
 			// TODO: We could mark all the logs after this reorg to be excluded
 			// from canonical queries?
-			err = lp.orm.DeleteRangeBlocks(lca+1, latest)
-			if err != nil {
-				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err)
+			err3 = lp.orm.DeleteRangeBlocks(lca+1, latest)
+			if err3 != nil {
+				lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
 				return current
 			}
 			current = lca + 1
@@ -269,27 +269,27 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 		}
 
 		h := block.Hash()
-		logs, err := lp.ec.FilterLogs(ctx, ethereum.FilterQuery{
+		logs, err2 := lp.ec.FilterLogs(ctx, ethereum.FilterQuery{
 			BlockHash: &h,
 			Addresses: lp.FilterAddresses(),
 			Topics:    lp.FilterTopics(),
 		})
-		if err != nil {
-			lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "block", block.Number())
+		if err2 != nil {
+			lp.lggr.Warnw("Unable query for logs, retrying", "err", err2, "block", block.Number())
 			return current
 		}
-		err = lp.orm.q.Transaction(func(q pg.Queryer) error {
-			if err := lp.orm.InsertBlock(block.Hash(), block.Number().Int64()); err != nil {
-				return err
+		err2 = lp.orm.q.Transaction(func(q pg.Queryer) error {
+			if err3 := lp.orm.InsertBlock(block.Hash(), block.Number().Int64()); err3 != nil {
+				return err3
 			}
 			if len(logs) == 0 {
 				return nil
 			}
 			return lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs))
 		})
-		if err != nil {
+		if err2 != nil {
 			// If we're unable to insert, don't increment current and just retry
-			lp.lggr.Warnw("Unable to save logs, retrying", "err", err, "block", block.Number())
+			lp.lggr.Warnw("Unable to save logs, retrying", "err", err2, "block", block.Number())
 			return current
 		}
 		current++
