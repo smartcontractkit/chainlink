@@ -380,7 +380,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	if cfg.FeatureFeedsManager() {
+	if cfg.FeatureLogPoller() {
 		for _, c := range chains.EVM.Chains() {
 			subservices = append(subservices, c.LogPoller())
 		}
