@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /*
- * This is a development version of UpkeepRegistrationRequests. Once it's audited and finalised
- * it will be copied to UpkeepRegistrationRequests
+ * This is a development version of UpkeepRegistrationRequests (soon to be renamed to KeeperRegistrar).
+ * Once this is audited and finalised it will be copied to KeeperRegistrar
  */
 pragma solidity ^0.7.0;
 
@@ -21,7 +21,7 @@ import "../ConfirmedOwner.sol";
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract UpkeepRegistrationRequestsDev is TypeAndVersionInterface, ConfirmedOwner {
+contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
   using SafeMath96 for uint96;
 
   bytes4 private constant REGISTER_REQUEST_SELECTOR = this.register.selector;
@@ -35,7 +35,7 @@ contract UpkeepRegistrationRequestsDev is TypeAndVersionInterface, ConfirmedOwne
    * @notice versions:
    * - UpkeepRegistration 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "UpkeepRegistrationRequests 1.0.0";
+  string public constant override typeAndVersion = "KeeperRegistrar 1.0.0";
 
   struct AutoApprovedConfig {
     bool enabled;
