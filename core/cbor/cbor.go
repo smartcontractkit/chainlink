@@ -6,24 +6,32 @@ import (
 	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/pkg/errors"
 )
 
 // ParseDietCBOR attempts to coerce the input byte array into valid CBOR.
 // Assumes the input is "diet" CBOR which is like CBOR, except:
 // 1. It is guaranteed to always be a map
 // 2. It may or may not include the opening and closing markers "{}"
-func ParseDietCBOR(b []byte) (interface{}, error) {
+func ParseDietCBOR(b []byte) (map[string]interface{}, error) {
 	b = autoAddMapDelimiters(b)
 
 	var m map[interface{}]interface{}
-
 	if err := cbor.Unmarshal(b, &m); err != nil {
-		return models.JSON{}, err
+		return nil, err
 	}
 
-	return CoerceInterfaceMapToStringMap(m)
+	coerced, err := CoerceInterfaceMapToStringMap(m)
+	if err != nil {
+		return nil, err
+	}
+
+	output, ok := coerced.(map[string]interface{})
+	if !ok {
+		return nil, errors.New("cbor data cannot be coerced to map")
+	}
+
+	return output, nil
 }
 
 // ParseStandardCBOR parses CBOR in "standards compliant" mode.

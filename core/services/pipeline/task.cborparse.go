@@ -60,11 +60,7 @@ func (t *CBORParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		if err != nil {
 			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
-		m, ok := parsed.(map[string]interface{})
-		if !ok {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed)}, runInfo
-		}
-		return Result{Value: m}, runInfo
+		return Result{Value: parsed}, runInfo
 	case "standard":
 		parsed, err := cbor.ParseStandardCBOR([]byte(data))
 		if err != nil {

@@ -208,19 +208,16 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 	case []byte:
 		*s = StringParam(string(v))
 		return nil
-
 	case ObjectParam:
 		if v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
-
 	case *ObjectParam:
 		if v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
-
 	}
 	return errors.Wrapf(ErrBadInput, "expected string, got %T", val)
 }
@@ -240,11 +237,13 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 			}
 		}
 		*b = BytesParam(v)
+		return nil
 	case []byte:
 		*b = v
+		return nil
 	case nil:
 		*b = BytesParam(nil)
-
+		return nil
 	case ObjectParam:
 		if v.Type == StringType {
 			*b = BytesParam(v.StringValue)
@@ -255,11 +254,9 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 			*b = BytesParam(v.StringValue)
 			return nil
 		}
-
-	default:
-		return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
 	}
-	return nil
+
+	return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
 }
 
 type Uint64Param uint64
@@ -438,20 +435,18 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 	case bool:
 		*b = BoolParam(v)
 		return nil
-
 	case ObjectParam:
 		if v.Type == BoolType {
 			*b = v.BoolValue
 			return nil
 		}
-
 	case *ObjectParam:
 		if v.Type == BoolType {
 			*b = v.BoolValue
 			return nil
 		}
-
 	}
+
 	return errors.Wrapf(ErrBadInput, "expected true or false, got %T", val)
 }
 
@@ -511,13 +506,12 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 			copy((*a)[:], v)
 			return nil
 		}
-		return ErrBadInput
 	case common.Address:
 		*a = AddressParam(v)
-	default:
-		return ErrBadInput
+		return nil
 	}
-	return nil
+
+	return errors.Wrapf(ErrBadInput, "expected common.Address, got %T", val)
 }
 
 // MapParam accepts maps or JSON-encoded strings

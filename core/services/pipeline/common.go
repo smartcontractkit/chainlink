@@ -224,21 +224,19 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
-	str := string(bs)
-	if str == "" || str == "null" {
+	if len(bs) == 0 {
 		js.Valid = false
 		return nil
 	}
-
 	err := json.Unmarshal(bs, &js.Val)
-	js.Valid = err == nil
+	js.Valid = err == nil && js.Val != nil
 	return err
 }
 
 // MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
-	if !js.Valid || js.Val == nil {
-		return []byte("null"), nil
+	if !js.Valid {
+		return json.Marshal(nil)
 	}
 	jsWithHex := replaceBytesWithHex(js.Val)
 	return json.Marshal(jsWithHex)
@@ -448,6 +446,8 @@ func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 // replaceBytesWithHex replaces all []byte with hex-encoded strings
 func replaceBytesWithHex(val interface{}) interface{} {
 	switch value := val.(type) {
+	case nil:
+		return value
 	case []byte:
 		return utils.StringToHex(string(value))
 	case common.Address:
