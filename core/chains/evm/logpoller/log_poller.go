@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/hex"
-	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -26,11 +24,9 @@ type LogPoller struct {
 	ec   client.Client
 	orm  *ORM
 	lggr logger.Logger
-	// poll period set by block production rate
-	pollPeriod time.Duration
-	// finality depth is taken to mean that
-	// block (head - finality) is finalized and cannot be reorged
-	finalityDepth, backfillBatchSize int64
+	pollPeriod time.Duration // poll period set by block production rate
+	finalityDepth int64 // finality depth is taken to mean that block (head - finality) is finalized
+	backfillBatchSize int64 // batch size to use when backfilling finalized logs
 
 	filterMu  sync.Mutex
 	addresses map[common.Address]struct{}
@@ -183,7 +179,6 @@ func min(a, b int64) int64 {
 func convertLogs(chainID *big.Int, logs []types.Log) []Log {
 	var lgs []Log
 	for _, l := range logs {
-		fmt.Println("topic", l.Topics[0].Bytes())
 		lgs = append(lgs, Log{
 			EvmChainId: utils.NewBig(chainID),
 			LogIndex:   int64(l.Index),
@@ -204,7 +199,6 @@ func convertLogs(chainID *big.Int, logs []types.Log) []Log {
 func convertTopics(topics []common.Hash) [][]byte {
 	var topicsForDB [][]byte
 	for _, t := range topics {
-		fmt.Println(hex.EncodeToString(t.Bytes()))
 		topicsForDB = append(topicsForDB, t.Bytes())
 	}
 	return topicsForDB
@@ -281,8 +275,9 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 		havePreviousBlock := !errors.Is(err2, sql.ErrNoRows)
 		if havePreviousBlock && !bytes.Equal(block.ParentHash().Bytes(), expectedParent.BlockHash.Bytes()) {
 			// There can be another reorg while we're finding the LCA.
-			// That is ok, since we'll detect it on the next iteration of current.
-			lca, err3 := lp.findLCA(block.ParentHash())
+			// That is ok, since we'll detect it on the next iteration.
+			// Since we go block by block for unfinalized logs, the mismatch starts at current block - 1.
+			lca, err3 := lp.findLCA(block.ParentHash(), block.Number().Int64()-1)
 			if err3 != nil {
 				lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err3)
 				return current
@@ -350,20 +345,24 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 	return current
 }
 
-func (lp *LogPoller) findLCA(h common.Hash) (int64, error) {
+func (lp *LogPoller) findLCA(h common.Hash, mismatchStart int64) (int64, error) {
 	// Find the first place where our chain and their chain have the same block,
 	// that block number is the LCA.
 	block, err := lp.ec.BlockByHash(context.Background(), h)
 	if err != nil {
 		return 0, err
 	}
-	// TODO: this does not gracefully handle reorgs deeper than finality depth
+	number := block.Number().Int64()
+	if (mismatchStart - number) > lp.finalityDepth {
+		lp.lggr.Criticalw("Reorg greater than finality depth detected", "depth", (mismatchStart - number), "finality", lp.finalityDepth)
+		return 0, errors.New("reorg greater than finality depth")
+	}
 	ourBlockHash, err := lp.orm.SelectBlockByNumber(block.Number().Int64())
 	if err != nil {
 		return 0, err
 	}
 	if !bytes.Equal(block.Hash().Bytes(), ourBlockHash.BlockHash.Bytes()) {
-		return lp.findLCA(block.ParentHash())
+		return lp.findLCA(block.ParentHash(), mismatchStart)
 	}
 	// If we do have the blockhash, that is the LCA
 	return block.Number().Int64(), nil

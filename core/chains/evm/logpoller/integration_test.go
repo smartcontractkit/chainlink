@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/client"
@@ -87,24 +86,24 @@ func TestLogPollerIntegration(t *testing.T) {
 		ec.Commit()
 	}
 	// We should eventually receive all those Log1 logs.
-	assert.Eventually(t, func() bool {
+	testutils.AssertEventually(t, func() bool {
 		logs, err := lp.Logs(1, 6, logpoller.EmitterABI.Events["Log1"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 5)
 		return len(logs) == 5
-	}, 5*time.Second, 500*time.Millisecond)
+	})
 	// Now let's update the filter and replay to get Log2 logs.
 	lp.MergeFilter([]common.Hash{logpoller.EmitterABI.Events["Log2"].ID}, emitterAddress1)
 	// Replay only from block 3, so we should see logs in block 3,4,5,6 (4 logs)
 	lp.Replay(3)
 
 	// We should eventually see 4 logs2 logs.
-	assert.Eventually(t, func() bool {
+	testutils.AssertEventually(t, func() bool {
 		logs, err := lp.Logs(1, 6, logpoller.EmitterABI.Events["Log2"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 4)
 		return len(logs) == 4
-	}, 5*time.Second, 500*time.Millisecond)
+	})
 
 	require.NoError(t, lp.Close())
 }
