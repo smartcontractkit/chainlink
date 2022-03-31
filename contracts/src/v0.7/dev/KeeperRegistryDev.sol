@@ -106,6 +106,23 @@ contract KeeperRegistryDev is
     bool active;
   }
 
+  /**
+   * @notice config for the registry
+   * @param paymentPremiumPPB payment premium rate oracles receive on top of
+   * being reimbursed for gas, measured in parts per billion
+   * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+   * priced in MicroLink; can be used in conjunction with or independently of
+   * paymentPremiumPPB
+   * @param blockCountPerTurn number of blocks each oracle has during their turn to
+   * perform upkeep before it will be the next keeper's turn to submit
+   * @param checkGasLimit gas limit when checking for upkeep
+   * @param stalenessSeconds number of seconds that is allowed for feed data to
+   * be stale before switching to the fallback pricing
+   * @param gasCeilingMultiplier multiplier to apply to the fast gas feed price
+   * when calculating the payment ceiling for keepers
+   * @param minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
+   * @param maxPerformGas max executeGas allowed for an upkeep on this registry
+   */
   struct Config {
     uint32 paymentPremiumPPB;
     uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
@@ -113,8 +130,8 @@ contract KeeperRegistryDev is
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
+    uint96 minUpkeepSpend; // 1 evm word
     uint32 maxPerformGas;
-    uint96 minUpkeepSpend;
   }
 
   struct PerformParams {
@@ -141,17 +158,7 @@ contract KeeperRegistryDev is
   event OwnerFundsWithdrawn(uint96 amount);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepImported(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event ConfigSet(
-    uint32 paymentPremiumPPB,
-    uint24 blockCountPerTurn,
-    uint32 checkGasLimit,
-    uint24 stalenessSeconds,
-    uint16 gasCeilingMultiplier,
-    uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice,
-    uint32 maxPerformGas,
-    uint96 minUpkeepSpend
-  );
+  event ConfigSet(Config config, uint256 fallbackGasPrice, uint256 fallbackLinkPrice);
   event FlatFeeSet(uint32 flatFeeMicroLink);
   event KeepersUpdated(address[] keepers, address[] payees);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
@@ -162,58 +169,28 @@ contract KeeperRegistryDev is
   event TranscoderChanged(address indexed from, address indexed to);
 
   /**
+   * @param chainID chain id of this network
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
-   * @param paymentPremiumPPB payment premium rate oracles receive on top of
-   * being reimbursed for gas, measured in parts per billion
-   * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
-   * priced in MicroLink; can be used in conjunction with or independently of
-   * paymentPremiumPPB
-   * @param blockCountPerTurn number of blocks each oracle has during their turn to
-   * perform upkeep before it will be the next keeper's turn to submit
-   * @param checkGasLimit gas limit when checking for upkeep
-   * @param stalenessSeconds number of seconds that is allowed for feed data to
-   * be stale before switching to the fallback pricing
-   * @param gasCeilingMultiplier multiplier to apply to the fast gas feed price
-   * when calculating the payment ceiling for keepers
+   * @param config registry config settings
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
-   * @param maxPerformGas max executeGas allowed for an upkeep on this registry
-   * @param minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
    */
   constructor(
     uint256 chainID,
     address link,
     address linkEthFeed,
     address fastGasFeed,
-    uint32 paymentPremiumPPB,
-    uint32 flatFeeMicroLink,
-    uint24 blockCountPerTurn,
-    uint32 checkGasLimit,
-    uint24 stalenessSeconds,
-    uint16 gasCeilingMultiplier,
+    Config memory config,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice,
-    uint32 maxPerformGas,
-    uint96 minUpkeepSpend
+    uint256 fallbackLinkPrice
   ) ConfirmedOwner(msg.sender) {
     CHAIN_ID = chainID;
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
-    setConfig(
-      paymentPremiumPPB,
-      flatFeeMicroLink,
-      blockCountPerTurn,
-      checkGasLimit,
-      stalenessSeconds,
-      gasCeilingMultiplier,
-      fallbackGasPrice,
-      fallbackLinkPrice,
-      maxPerformGas,
-      minUpkeepSpend
-    );
+    setConfig(config, fallbackGasPrice, fallbackLinkPrice);
   }
 
   // ACTIONS
@@ -479,58 +456,21 @@ contract KeeperRegistryDev is
 
   /**
    * @notice updates the configuration of the registry
-   * @param paymentPremiumPPB payment premium rate oracles receive on top of
-   * being reimbursed for gas, measured in parts per billion
-   * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps
-   * @param blockCountPerTurn number of blocks an oracle should wait before
-   * checking for upkeep
-   * @param checkGasLimit gas limit when checking for upkeep
-   * @param stalenessSeconds number of seconds that is allowed for feed data to
-   * be stale before switching to the fallback pricing
+   * @param config registry config fields
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
-   * @param maxPerformGas The max performGas that can be used by an upkeep.
-   *        Note: maxPerformGas can only be increased to keep upkeeps consistent
-   * @param minUpkeepSpend minimum spend required by an upkeep before cancelling
    */
   function setConfig(
-    uint32 paymentPremiumPPB,
-    uint32 flatFeeMicroLink,
-    uint24 blockCountPerTurn,
-    uint32 checkGasLimit,
-    uint24 stalenessSeconds,
-    uint16 gasCeilingMultiplier,
+    Config memory config,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice,
-    uint32 maxPerformGas,
-    uint96 minUpkeepSpend
+    uint256 fallbackLinkPrice
   ) public onlyOwner {
-    require(maxPerformGas >= s_config.maxPerformGas, "maxPerformGas can only be increased");
-    s_config = Config({
-      paymentPremiumPPB: paymentPremiumPPB,
-      flatFeeMicroLink: flatFeeMicroLink,
-      blockCountPerTurn: blockCountPerTurn,
-      checkGasLimit: checkGasLimit,
-      stalenessSeconds: stalenessSeconds,
-      gasCeilingMultiplier: gasCeilingMultiplier,
-      maxPerformGas: maxPerformGas,
-      minUpkeepSpend: minUpkeepSpend
-    });
+    require(config.maxPerformGas >= s_config.maxPerformGas, "maxPerformGas can only be increased");
+    s_config = config;
     s_fallbackGasPrice = fallbackGasPrice;
     s_fallbackLinkPrice = fallbackLinkPrice;
 
-    emit ConfigSet(
-      paymentPremiumPPB,
-      blockCountPerTurn,
-      checkGasLimit,
-      stalenessSeconds,
-      gasCeilingMultiplier,
-      fallbackGasPrice,
-      fallbackLinkPrice,
-      maxPerformGas,
-      minUpkeepSpend
-    );
-    emit FlatFeeSet(flatFeeMicroLink);
+    emit ConfigSet(config, fallbackGasPrice, fallbackLinkPrice);
   }
 
   /**
@@ -712,8 +652,8 @@ contract KeeperRegistryDev is
       uint16 gasCeilingMultiplier,
       uint256 fallbackGasPrice,
       uint256 fallbackLinkPrice,
-      uint32 maxPerformGas,
-      uint96 minUpkeepSpend
+      uint96 minUpkeepSpend,
+      uint32 maxPerformGas
     )
   {
     Config memory config = s_config;
@@ -725,8 +665,8 @@ contract KeeperRegistryDev is
       config.gasCeilingMultiplier,
       s_fallbackGasPrice,
       s_fallbackLinkPrice,
-      config.maxPerformGas,
-      config.minUpkeepSpend
+      config.minUpkeepSpend,
+      config.maxPerformGas
     );
   }
 
@@ -869,8 +809,8 @@ contract KeeperRegistryDev is
     bytes memory checkData
   ) internal {
     require(target.isContract(), "target is not a contract");
-    require(gasLimit >= CALL_GAS_MIN, "min gas is 2300");
-    require(gasLimit <= CALL_GAS_MAX, "max gas is 5000000");
+    require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
+    require(gasLimit <= s_config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
     s_upkeep[id] = Upkeep({
       target: target,
       executeGas: gasLimit,
