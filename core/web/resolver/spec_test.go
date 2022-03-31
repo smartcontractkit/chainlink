@@ -609,6 +609,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						PublicKey:                pubKey,
 						RequestedConfsDelay:      10,
 						RequestTimeout:           24 * time.Hour,
+						ChunkSize:                25,
 					},
 				}, nil)
 			},
@@ -628,6 +629,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									publicKey
 									requestedConfsDelay
 									requestTimeout
+									chunkSize
 								}
 							}
 						}
@@ -647,7 +649,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"pollPeriod": "1m0s",
 							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01",
 							"requestedConfsDelay": 10,
-							"requestTimeout": "24h0m0s"
+							"requestTimeout": "24h0m0s",
+							"chunkSize": 25
 						}
 					}
 				}
