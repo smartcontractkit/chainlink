@@ -1,8 +1,8 @@
 /*
- * This test is for UpkeepRegistrationRequestsDev contract which is the
- * development version of UpkeepRegistrationRequests. Until it's audited and finalised
- * this test will be used for development. There are 2 places marked in the test
- * which will need to be changed when these tests are ported back to the prod version
+ * This test is for KeeperRegistrarDev contract which is the development version of
+ * UpkeepRegistrationRequests (to be renamed to KeeperRegistrar). Until it's audited
+ * and finalised this test will be used for development. There are 2 places marked in
+ * the test which will need to be changed when these tests are ported back to the prod version
  */
 
 import { ethers } from 'hardhat'
@@ -16,9 +16,9 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../type
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
 // These 4 dependencies are mocked from Dev
 import { KeeperRegistryDev as KeeperRegistry } from '../../typechain/KeeperRegistryDev'
-import { UpkeepRegistrationRequestsDev as UpkeepRegistrationRequests } from '../../typechain/UpkeepRegistrationRequestsDev'
+import { KeeperRegistrarDev as KeeperRegistrar } from '../../typechain/KeeperRegistrarDev'
 import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistryDev__factory'
-import { UpkeepRegistrationRequestsDev__factory as UpkeepRegistrationRequestsFactory } from '../../typechain/factories/UpkeepRegistrationRequestsDev__factory'
+import { KeeperRegistrarDev__factory as KeeperRegistrarFactory } from '../../typechain/factories/KeeperRegistrarDev__factory'
 
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
@@ -27,7 +27,7 @@ import { UpkeepMock } from '../../typechain/UpkeepMock'
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let keeperRegistryFactory: KeeperRegistryFactory
-let upkeepRegistrationRequestsFactory: UpkeepRegistrationRequestsFactory
+let keeperRegistrar: KeeperRegistrarFactory
 let upkeepMockFactory: UpkeepMockFactory
 
 let personas: Personas
@@ -41,9 +41,7 @@ before(async () => {
   )) as unknown as MockV3AggregatorFactory
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   // Lifts the Dev contract
-  upkeepRegistrationRequestsFactory = await ethers.getContractFactory(
-    'UpkeepRegistrationRequestsDev',
-  )
+  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrarDev')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
 
@@ -54,7 +52,7 @@ const errorMsgs = {
   requestNotFound: 'request not found',
 }
 
-describe('UpkeepRegistrationRequests', () => {
+describe('KeeperRegistrar', () => {
   const upkeepName = 'SampleUpkeep'
 
   const linkEth = BigNumber.from(300000000)
@@ -91,7 +89,7 @@ describe('UpkeepRegistrationRequests', () => {
   let gasPriceFeed: MockV3Aggregator
   let registry: KeeperRegistry
   let mock: UpkeepMock
-  let registrar: UpkeepRegistrationRequests
+  let registrar: KeeperRegistrar
 
   beforeEach(async () => {
     owner = personas.Default
@@ -125,7 +123,7 @@ describe('UpkeepRegistrationRequests', () => {
 
     mock = await upkeepMockFactory.deploy()
 
-    registrar = await upkeepRegistrationRequestsFactory
+    registrar = await keeperRegistrar
       .connect(registrarOwner)
       .deploy(linkToken.address, minLINKJuels)
 
@@ -135,7 +133,7 @@ describe('UpkeepRegistrationRequests', () => {
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registrar.typeAndVersion()
-      assert.equal(typeAndVersion, 'UpkeepRegistrationRequests 1.0.0')
+      assert.equal(typeAndVersion, 'KeeperRegistrar 1.0.0')
     })
   })
 

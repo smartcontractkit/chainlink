@@ -118,6 +118,14 @@ func MustParseURL(t *testing.T, input string) *url.URL {
 	return u
 }
 
+// MustParseBigInt parses a big int value from string or fails the test
+func MustParseBigInt(t *testing.T, input string) *big.Int {
+	i := new(big.Int)
+	_, err := fmt.Sscan(input, i)
+	require.NoError(t, err)
+	return i
+}
+
 // JSONRPCHandler is called with the method and request param(s).
 // respResult will be sent immediately. notifyResult is optional, and sent after a short delay.
 type JSONRPCHandler func(reqMethod string, reqParams gjson.Result) (respResult, notifyResult string)
