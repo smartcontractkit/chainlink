@@ -9,7 +9,7 @@ pragma solidity ^0.7.0;
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import "../interfaces/KeeperRegistryInterface.sol";
+import "./KeeperRegistryInterfaceDev.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
 import "../vendor/Address.sol";
