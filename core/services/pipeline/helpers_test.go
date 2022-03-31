@@ -3,12 +3,9 @@ package pipeline
 import (
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/sqlx"
-)
 
-var (
-	NewKeypathFromString = newKeypathFromString
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 )
 
 const (

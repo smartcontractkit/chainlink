@@ -149,10 +149,14 @@ func (s *scheduler) reconstructResults() {
 		}
 
 		// store the result in vars
+		var err error
 		if result.Error != nil {
-			s.vars.Set(task.DotID(), result.Error)
+			err = s.vars.Set(task.DotID(), result.Error)
 		} else {
-			s.vars.Set(task.DotID(), result.Value)
+			err = s.vars.Set(task.DotID(), result.Value)
+		}
+		if err != nil {
+			s.logger.Fatalf("Vars.Set error: %v", err)
 		}
 
 		// mark all outputs as complete
@@ -195,10 +199,14 @@ func (s *scheduler) Run() {
 		}
 
 		// store the result in vars
+		var err error
 		if result.Result.Error != nil {
-			s.vars.Set(result.Task.DotID(), result.Result.Error)
+			err = s.vars.Set(result.Task.DotID(), result.Result.Error)
 		} else {
-			s.vars.Set(result.Task.DotID(), result.Result.Value)
+			err = s.vars.Set(result.Task.DotID(), result.Result.Value)
+		}
+		if err != nil {
+			s.logger.Fatalf("Vars.Set error: %v", err)
 		}
 
 		// if the task was marked as fail early, and the result is a fail
