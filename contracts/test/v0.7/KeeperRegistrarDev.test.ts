@@ -129,6 +129,7 @@ describe('KeeperRegistrar', () => {
         fallbackGasPrice,
         fallbackLinkPrice,
         maxPerformGas,
+        minLINKJuels,
       )
 
     mock = await upkeepMockFactory.deploy()
