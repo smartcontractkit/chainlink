@@ -43,10 +43,10 @@ func Test_EVMForwardersController_Create(t *testing.T) {
 	controller := setupEVMForwardersControllerTest(t)
 
 	// Setting up chain
-	chainId := *utils.NewBigI(42)
+	chainId := testutils.NewRandomEVMChainID()
 	chaincfg := types.ChainCfg{}
 	chainSet := controller.app.GetChains().EVM
-	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId.ToInt()), chaincfg)
+	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId), chaincfg)
 	require.NoError(t, err)
 
 	// Build EVMForwarderRequest
@@ -75,10 +75,10 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	controller := setupEVMForwardersControllerTest(t)
 
 	// Setting up chain
-	chainId := *utils.NewBigI(42)
+	chainId := testutils.NewRandomEVMChainID()
 	chaincfg := types.ChainCfg{}
 	chainSet := controller.app.GetChains().EVM
-	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId.ToInt()), chaincfg)
+	dbChain, err := chainSet.ORM().CreateChain(utils.Big(*chainId), chaincfg)
 	require.NoError(t, err)
 
 	// Build EVMForwarderRequest

@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strings"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -110,28 +109,25 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err != nil {
 				return nil, err
 			}
-			return []job.ServiceCtx{&listenerV2{
-				cfg:                chain.Config(),
-				l:                  lV2,
-				ethClient:          chain.Client(),
-				chainID:            chain.ID(),
-				logBroadcaster:     chain.LogBroadcaster(),
-				q:                  d.q,
-				coordinator:        coordinatorV2,
-				aggregator:         aggregator,
-				txm:                chain.TxManager(),
-				pipelineRunner:     d.pr,
-				gethks:             d.ks.Eth(),
-				job:                jb,
-				reqLogs:            utils.NewHighCapacityMailbox(),
-				chStop:             make(chan struct{}),
-				respCount:          GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
-				blockNumberToReqID: pairing.New(),
-				reqAdded:           func() {},
-				headBroadcaster:    chain.HeadBroadcaster(),
-				wg:                 &sync.WaitGroup{},
-				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
-			}}, nil
+
+			return []job.ServiceCtx{newListenerV2(
+				chain.Config(),
+				lV2,
+				chain.Client(),
+				chain.ID(),
+				chain.LogBroadcaster(),
+				d.q,
+				coordinatorV2,
+				aggregator,
+				chain.TxManager(),
+				d.pr,
+				d.ks.Eth(),
+				jb,
+				utils.NewHighCapacityMailbox(),
+				func() {},
+				GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				chain.HeadBroadcaster(),
+				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.ServiceCtx{&listenerV1{
