@@ -113,6 +113,7 @@ describe('KeeperRegistrar', () => {
     registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
+        1234,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -255,9 +256,6 @@ describe('KeeperRegistrar', () => {
     })
 
     it('Auto Approve ON - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
-      //get current upkeep count
-      const upkeepCount = await registry.getUpkeepCount()
-
       //set auto approve ON with high threshold limits
       await registrar
         .connect(registrarOwner)
@@ -287,8 +285,10 @@ describe('KeeperRegistrar', () => {
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
 
+      const [id] = await registry.getActiveUpkeepIDs(0, 1)
+
       //confirm if a new upkeep has been registered and the details are the same as the one just registered
-      const newupkeep = await registry.getUpkeep(upkeepCount)
+      const newupkeep = await registry.getUpkeep(id)
       assert.equal(newupkeep.target, mock.address)
       assert.equal(newupkeep.admin, await admin.getAddress())
       assert.equal(newupkeep.checkData, emptyBytes)

@@ -5,12 +5,16 @@
  */
 
 pragma solidity ^0.7.0;
+pragma abicoder v2;
 
+import "@openzeppelin/contracts-v0.7/utils/EnumerableSet.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 import "./KeeperRegistryInterfaceDev.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
+import "./MigratableKeeperRegistryInterface.sol";
+import "./UpkeepTranscoderInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
 import "../vendor/Address.sol";
 import "../vendor/Pausable.sol";
@@ -30,12 +34,15 @@ contract KeeperRegistryDev is
   KeeperBase,
   ReentrancyGuard,
   Pausable,
-  KeeperRegistryExecutableInterface
+  KeeperRegistryExecutableInterface,
+  MigratableKeeperRegistryInterface
 {
   using Address for address;
   using SafeMathChainlink for uint256;
   using SafeMath96 for uint96;
   using SignedSafeMath for int256;
+  using EnumerableSet for EnumerableSet.AddressSet;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   address private constant ZERO_ADDRESS = address(0);
   address private constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
@@ -49,9 +56,9 @@ contract KeeperRegistryDev is
   uint64 private constant UINT64_MAX = 2**64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
 
-  uint256 private s_upkeepCount;
-  uint256[] private s_canceledUpkeepList;
+  uint256 private s_nonce;
   address[] private s_keeperList;
+  EnumerableSet.UintSet private s_upkeepIDs;
   mapping(uint256 => Upkeep) private s_upkeep;
   mapping(address => KeeperInfo) private s_keeperInfo;
   mapping(address => address) private s_proposedPayee;
@@ -61,7 +68,11 @@ contract KeeperRegistryDev is
   uint256 private s_fallbackLinkPrice; // not in config object for gas savings
   uint96 private s_ownerLinkBalance;
   uint256 private s_expectedLinkBalance;
+  UpkeepTranscoderInterface private s_transcoder;
+  EnumerableSet.AddressSet private s_permittedIncomingRegistryAddresses;
+  EnumerableSet.AddressSet private s_permittedOutgoingRegistryAddresses;
 
+  uint256 public immutable CHAIN_ID;
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
@@ -128,6 +139,8 @@ contract KeeperRegistryDev is
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
+  event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
+  event UpkeepImported(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event ConfigSet(
     uint32 paymentPremiumPPB,
     uint24 blockCountPerTurn,
@@ -146,6 +159,7 @@ contract KeeperRegistryDev is
   event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
   event RegistrarChanged(address indexed from, address indexed to);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
+  event TranscoderChanged(address indexed from, address indexed to);
 
   /**
    * @param link address of the LINK Token
@@ -169,6 +183,7 @@ contract KeeperRegistryDev is
    * @param minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
    */
   constructor(
+    uint256 chainID,
     address link,
     address linkEthFeed,
     address fastGasFeed,
@@ -183,10 +198,10 @@ contract KeeperRegistryDev is
     uint32 maxPerformGas,
     uint96 minUpkeepSpend
   ) ConfirmedOwner(msg.sender) {
+    CHAIN_ID = chainID;
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
-
     setConfig(
       paymentPremiumPPB,
       flatFeeMicroLink,
@@ -217,25 +232,10 @@ contract KeeperRegistryDev is
     address admin,
     bytes calldata checkData
   ) external override onlyOwnerOrRegistrar returns (uint256 id) {
-    require(target.isContract(), "target is not a contract");
-    require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
-    require(gasLimit <= s_config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
-
-    id = s_upkeepCount;
-    s_upkeep[id] = Upkeep({
-      target: target,
-      executeGas: gasLimit,
-      balance: 0,
-      admin: admin,
-      maxValidBlocknumber: UINT64_MAX,
-      lastKeeper: address(0),
-      amountSpent: 0
-    });
-    s_checkData[id] = checkData;
-    s_upkeepCount++;
-
+    id = uint256(keccak256(abi.encodePacked(CHAIN_ID, address(this), s_nonce)));
+    createUpkeep(id, target, gasLimit, admin, 0, checkData);
+    s_nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
-
     return id;
   }
 
@@ -306,9 +306,7 @@ contract KeeperRegistryDev is
       height = height.add(CANCELATION_DELAY);
     }
     s_upkeep[id].maxValidBlocknumber = uint64(height);
-    if (notCanceled) {
-      s_canceledUpkeepList.push(id);
-    }
+    s_upkeepIDs.remove(id);
 
     emit UpkeepCanceled(id, uint64(height));
   }
@@ -567,13 +565,24 @@ contract KeeperRegistryDev is
 
   /**
    * @notice update registrar
-   * @param registrar new registrar
+   * @param registrar new registrar address
    */
-  function setRegistrar(address registrar) external onlyOwnerOrRegistrar {
+  function setRegistrar(address registrar) external onlyOwner {
     address previous = s_registrar;
     require(registrar != previous, "Same registrar");
     s_registrar = registrar;
     emit RegistrarChanged(previous, registrar);
+  }
+
+  /**
+   * @notice update transcoder
+   * @param transcoder new transcoder address
+   */
+  function setTranscoder(UpkeepTranscoderInterface transcoder) external onlyOwner {
+    address previous = address(s_transcoder);
+    require(address(transcoder) != previous, "Same transcoder");
+    s_transcoder = transcoder;
+    emit TranscoderChanged(previous, address(transcoder));
   }
 
   // GETTERS
@@ -613,14 +622,34 @@ contract KeeperRegistryDev is
    * @notice read the total number of upkeep's registered
    */
   function getUpkeepCount() external view override returns (uint256) {
-    return s_upkeepCount;
+    return s_upkeepIDs.length();
   }
 
   /**
-   * @notice read the current list canceled upkeep IDs
+   * @notice read the nonce used for generating upkeep IDs
    */
-  function getCanceledUpkeepList() external view override returns (uint256[] memory) {
-    return s_canceledUpkeepList;
+  function getNonce() external view override returns (uint256) {
+    return s_nonce;
+  }
+
+  /**
+   * @notice retrieve active upkeep IDs
+   * @param startIndex starting index in list
+   * @param maxCount max count to retrieve (0 = unlimited)
+   * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
+   * should consider keeping the blockheight constant to ensure a wholistic picture of the contract state
+   */
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
+    uint256 maxIdx = s_upkeepIDs.length();
+    require(startIndex < maxIdx, "start index out of range");
+    if (maxCount == 0) {
+      maxCount = maxIdx.sub(startIndex);
+    }
+    uint256[] memory ids = new uint256[](maxCount);
+    for (uint256 idx = 0; idx < maxCount; idx++) {
+      ids[idx] = s_upkeepIDs.at(startIndex.add(idx));
+    }
+    return ids;
   }
 
   /**
@@ -642,6 +671,13 @@ contract KeeperRegistryDev is
    */
   function getOwnerLinkBalance() external view returns (uint96) {
     return s_ownerLinkBalance;
+  }
+
+  /**
+   * @notice read the current transcoder
+   */
+  function getTranscoder() external view returns (address) {
+    return address(s_transcoder);
   }
 
   /**
@@ -704,6 +740,7 @@ contract KeeperRegistryDev is
 
   /**
    * @notice calculates the minimum balance required for an upkeep to remain eligible
+   * @param id the upkeep id to calculate minimum balance for
    */
   function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
     return getMaxPaymentForGas(s_upkeep[id].executeGas);
@@ -711,11 +748,140 @@ contract KeeperRegistryDev is
 
   /**
    * @notice calculates the maximum payment for a given gas limit
+   * @param gasLimit the gas to calculate payment for
    */
   function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     (uint256 gasWei, uint256 linkEth) = getFeedData();
     uint256 adjustedGasWei = adjustGasPrice(gasWei, false);
     return calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
+  }
+
+  /**
+   * @notice retrieves the permited incoming and outgoing registries from storage
+   */
+  function getPermittedRegistries() external view returns (address[] memory, address[] memory) {
+    uint256 idx;
+    address[] memory incoming = new address[](s_permittedIncomingRegistryAddresses.length());
+    address[] memory outgoing = new address[](s_permittedOutgoingRegistryAddresses.length());
+    for (; idx < incoming.length; idx++) {
+      incoming[idx] = s_permittedIncomingRegistryAddresses.at(idx);
+    }
+    for (idx = 0; idx < outgoing.length; idx++) {
+      outgoing[idx] = s_permittedOutgoingRegistryAddresses.at(idx);
+    }
+    return (incoming, outgoing);
+  }
+
+  /**
+   * @notice sets the approved registry addresses
+   * @dev this function wastes so much gas 🤦
+   */
+  function setPermittedRegistries(address[] calldata incoming, address[] calldata outgoing) external onlyOwner {
+    uint256 idx;
+    uint256 numIncoming = s_permittedIncomingRegistryAddresses.length();
+    uint256 numOutgoing = s_permittedOutgoingRegistryAddresses.length();
+    // delete old set members
+    for (idx = numIncoming; idx > 0; idx--) {
+      s_permittedIncomingRegistryAddresses.remove(s_permittedIncomingRegistryAddresses.at(idx - 1));
+    }
+    for (idx = numOutgoing; idx > 0; idx--) {
+      s_permittedOutgoingRegistryAddresses.remove(s_permittedOutgoingRegistryAddresses.at(idx - 1));
+    }
+    // add new ones
+    for (idx = 0; idx < incoming.length; idx++) {
+      s_permittedIncomingRegistryAddresses.add(incoming[idx]);
+    }
+    for (idx = 0; idx < outgoing.length; idx++) {
+      s_permittedOutgoingRegistryAddresses.add(outgoing[idx]);
+    }
+  }
+
+  function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
+    require(s_permittedOutgoingRegistryAddresses.contains(destination), "invalid destination");
+    require(address(s_transcoder) != address(0), "no transcoder");
+    require(ids.length > 0, "no IDs");
+    uint256 id;
+    Upkeep memory upkeep;
+    address admin;
+    uint256 totalBalanceRemaining;
+    address[] memory targets = new address[](ids.length);
+    uint32[] memory gasLimits = new uint32[](ids.length);
+    uint96[] memory balances = new uint96[](ids.length);
+    bytes[] memory checkDatas = new bytes[](ids.length);
+    bool isOwner = msg.sender == owner();
+    for (uint256 idx = 0; idx < ids.length; idx++) {
+      id = ids[idx];
+      upkeep = s_upkeep[id];
+      if (idx == 0) {
+        admin = upkeep.admin;
+      }
+      // TODO isOwner && autoupgrade enabled
+      require(msg.sender == admin || (isOwner && true));
+      require(upkeep.maxValidBlocknumber == UINT64_MAX, "upkeep must be active");
+      targets[idx] = upkeep.target;
+      gasLimits[idx] = upkeep.executeGas;
+      balances[idx] = upkeep.balance;
+      checkDatas[idx] = s_checkData[id];
+      totalBalanceRemaining = totalBalanceRemaining.add(upkeep.balance);
+      delete s_upkeep[id];
+      delete s_checkData[id];
+      s_upkeepIDs.remove(id);
+      emit UpkeepMigrated(id, upkeep.balance, destination);
+    }
+    s_expectedLinkBalance = s_expectedLinkBalance.sub(totalBalanceRemaining);
+    bytes memory encodedUpkeeps = abi.encode(admin, ids, targets, gasLimits, balances, checkDatas);
+    MigratableKeeperRegistryInterface(destination).importUpkeeps(
+      s_transcoder.transcodeUpkeeps(address(this), destination, encodedUpkeeps)
+    );
+    LINK.transfer(destination, totalBalanceRemaining);
+  }
+
+  function importUpkeeps(bytes calldata encodedUpkeeps) external override {
+    require(s_permittedIncomingRegistryAddresses.contains(msg.sender));
+    (
+      address admin,
+      uint256[] memory ids,
+      address[] memory targets,
+      uint32[] memory gasLimits,
+      uint96[] memory balances,
+      bytes[] memory checkDatas
+    ) = abi.decode(encodedUpkeeps, (address, uint256[], address[], uint32[], uint96[], bytes[]));
+    for (uint256 idx = 0; idx < ids.length; idx++) {
+      createUpkeep(ids[idx], targets[idx], gasLimits[idx], admin, balances[idx], checkDatas[idx]);
+      emit UpkeepImported(ids[idx], balances[idx], msg.sender);
+    }
+  }
+
+  /**
+   * @notice creates a new upkeep with the given fields
+   * @param target address to perform upkeep on
+   * @param gasLimit amount of gas to provide the target contract when
+   * performing upkeep
+   * @param admin address to cancel upkeep and withdraw remaining funds
+   * @param checkData data passed to the contract when checking for upkeep
+   */
+  function createUpkeep(
+    uint256 id,
+    address target,
+    uint32 gasLimit,
+    address admin,
+    uint96 balance,
+    bytes memory checkData
+  ) internal {
+    require(target.isContract(), "target is not a contract");
+    require(gasLimit >= CALL_GAS_MIN, "min gas is 2300");
+    require(gasLimit <= CALL_GAS_MAX, "max gas is 5000000");
+    s_upkeep[id] = Upkeep({
+      target: target,
+      executeGas: gasLimit,
+      balance: balance,
+      admin: admin,
+      maxValidBlocknumber: UINT64_MAX,
+      lastKeeper: address(0),
+      amountSpent: 0
+    });
+    s_checkData[id] = checkData;
+    s_upkeepIDs.add(id);
   }
 
   // PRIVATE

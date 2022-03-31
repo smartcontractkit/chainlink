@@ -3,6 +3,7 @@
  * This is a development version of KeeperRegistryInterface. Once it's audited and finalised
  * it will be copied to KeeperRegistryInterface
  */
+
 pragma solidity ^0.7.0;
 
 interface KeeperRegistryBaseInterface {
@@ -37,7 +38,9 @@ interface KeeperRegistryBaseInterface {
 
   function getUpkeepCount() external view returns (uint256);
 
-  function getCanceledUpkeepList() external view returns (uint256[] memory);
+  function getNonce() external view returns (uint256);
+
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
   function getKeeperList() external view returns (address[] memory);
 
