@@ -993,7 +993,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	select {
 	case <-pollOccured:
-	case <-time.After(3 * time.Second):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur!")
 	}
 
@@ -1019,7 +1019,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	select {
 	case <-pollOccured:
-	case <-time.After(3 * time.Second):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur!")
 	}
 
@@ -1050,7 +1050,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	select {
 	case <-pollOccured:
-	case <-time.After(3 * time.Second):
+	case <-time.After(testutils.WaitTimeout(t)):
 		t.Fatal("Poll did not occur, though it should have via hibernation ticker")
 	}
 
