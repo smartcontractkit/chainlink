@@ -127,6 +127,27 @@ func (_m *Runner) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bo
 	return r0
 }
 
+// InsertFinishedRuns provides a mock function with given fields: runs, saveSuccessfulTaskRuns, qopts
+func (_m *Runner) InsertFinishedRuns(runs []*pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, runs, saveSuccessfulTaskRuns)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]*pipeline.Run, bool, ...pg.QOpt) error); ok {
+		r0 = rf(runs, saveSuccessfulTaskRuns, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // OnRunFinished provides a mock function with given fields: _a0
 func (_m *Runner) OnRunFinished(_a0 func(*pipeline.Run)) {
 	_m.Called(_a0)

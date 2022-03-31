@@ -138,5 +138,10 @@ func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []
 	results["output"] = hexutil.Encode(b)
 	// RequestID needs to be a [32]byte for EthTxMeta.
 	results["requestID"] = hexutil.Encode(requestId.Bytes())
+
+	// store vrf proof and request commitment separately so they can be used in a batch fashion
+	results["proof"] = onChainProof
+	results["requestCommitment"] = rc
+
 	return Result{Value: results}, runInfo
 }

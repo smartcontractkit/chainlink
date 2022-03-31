@@ -101,6 +101,9 @@ type VRFSpec {
     publicKey: String!
     requestedConfsDelay: Int!
     requestTimeout: String!
+    batchCoordinatorAddress: String
+    batchFulfillmentEnabled: Boolean!
+    batchFulfillmentGasMultiplier: Float!
     chunkSize: Int!
 }
 

@@ -107,6 +107,27 @@ func (_m *Broadcaster) MarkConsumed(lb log.Broadcast, qopts ...pg.QOpt) error {
 	return r0
 }
 
+// MarkManyConsumed provides a mock function with given fields: lbs, qopts
+func (_m *Broadcaster) MarkManyConsumed(lbs []log.Broadcast, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, lbs)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]log.Broadcast, ...pg.QOpt) error); ok {
+		r0 = rf(lbs, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // OnNewLongestChain provides a mock function with given fields: ctx, head
 func (_m *Broadcaster) OnNewLongestChain(ctx context.Context, head *types.Head) {
 	_m.Called(ctx, head)
