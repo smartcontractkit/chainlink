@@ -307,6 +307,7 @@ func (n *node) unreachableLoop() {
 		case <-time.After(dialRetryBackoff.Duration()):
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
 
+			// Need to redial since unreachable nodes are automatically disconnected
 			err := n.dial(context.Background())
 			if err != nil {
 				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; still unreachable: %v", err), "err", err, "nodeState", n.State())
@@ -360,7 +361,15 @@ func (n *node) invalidChainIDLoop() {
 		case <-n.chStop:
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
-			err := n.verify(context.Background())
+			// Need to redial since invalid nodes are automatically disconnected
+			err := n.dial(context.Background())
+			if err != nil {
+				lggr.Errorw("Failed to dial RPC node to verify chain ID", "nodeState", n.State())
+				n.declareUnreachable()
+				return
+			}
+
+			err = n.verify(context.Background())
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				continue
