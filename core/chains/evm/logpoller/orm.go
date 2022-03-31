@@ -77,8 +77,8 @@ func (o *ORM) DeleteLogs(start, end int64, qopts ...pg.QOpt) error {
 func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.NamedExec(`INSERT INTO logs 
-(evm_chain_id, log_index, block_hash, block_number, address, topics, tx_hash, data, created_at) VALUES 
-(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs)
+(evm_chain_id, log_index, block_hash, block_number, address, event_sig, topics, tx_hash, data, created_at) VALUES 
+(:evm_chain_id, :log_index, :block_hash, :block_number, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs)
 	return err
 }
 
@@ -94,15 +94,15 @@ func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
 	return logs, nil
 }
 
-// SelectLogsByBlockRangeTopicAddress finds the latest logs by block.
+// SelectLogsByBlockRangeFilter finds the latest logs by block.
 // Assumes that logs inserted later for a given block are "more" canonical.
-func (o *ORM) SelectLogsByBlockRangeTopicAddress(start, end int64, address common.Address, topics [][]byte) ([]Log, error) {
+func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Address, eventSig []byte) ([]Log, error) {
 	var logs []Log
 	err := o.q.Select(&logs, `
 		SELECT * FROM logs 
 			WHERE logs.block_number >= $1 AND logs.block_number <= $2 AND logs.evm_chain_id = $3 
-			AND address = $4 AND topics = $5 
-			ORDER BY (logs.block_number, logs.log_index)`, start, end, utils.NewBig(o.chainID), address, topics)
+			AND address = $4 AND event_sig = $5 
+			ORDER BY (logs.block_number, logs.log_index)`, start, end, utils.NewBig(o.chainID), address, eventSig)
 	if err != nil {
 		return nil, err
 	}

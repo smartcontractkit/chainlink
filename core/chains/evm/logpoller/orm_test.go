@@ -44,6 +44,7 @@ func TestORM(t *testing.T) {
 			LogIndex:    1,
 			BlockHash:   common.HexToHash("0x1234"),
 			BlockNumber: int64(10),
+			EventSig:    topic[:],
 			Topics:      [][]byte{topic[:]},
 			Address:     common.HexToAddress("0x1234"),
 			TxHash:      common.HexToHash("0x1888"),
@@ -54,4 +55,8 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))
 	assert.Equal(t, []byte("hello"), logs[0].Data)
+
+	logs, err = o.SelectLogsByBlockRangeFilter(10, 10, common.HexToAddress("0x1234"), topic[:])
+	require.NoError(t, err)
+	require.Equal(t, 1, len(logs))
 }
