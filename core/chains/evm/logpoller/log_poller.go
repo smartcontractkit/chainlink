@@ -24,7 +24,9 @@ type LogPoller struct {
 	orm  *ORM
 	lggr logger.Logger
 	// poll period set by block production rate
-	pollPeriod                       time.Duration
+	pollPeriod time.Duration
+	// finality depth is taken to mean that
+	// block (head - finality) is finalized and cannot be reorged
 	finalityDepth, backfillBatchSize int64
 
 	filterMu  sync.Mutex
@@ -225,10 +227,10 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 		return current
 	}
 	latest := latestBlock.Number().Int64()
-	// 1<-2<-3(current)<-4<-5<-6<-7(latest). Finality is 2, so 3,4,5 can be batched.
-	// start = current = 3, end = latest-current+1 = 7-3+1 = 5 (inclusive range).
-	if (latest - current) > lp.finalityDepth {
-		current = lp.backfill(ctx, current, latest-current+1)
+	// E.g. 1<-2<-3(current)<-4<-5<-6<-7(latest), finality is 2. So 3,4,5 can be batched.
+	// start = current = 3, end = latest - finality = 7-2 = 5 (inclusive range).
+	if (latest - current) >= lp.finalityDepth {
+		current = lp.backfill(ctx, current, latest-lp.finalityDepth)
 	}
 
 	for current <= latest {
