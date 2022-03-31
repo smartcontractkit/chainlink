@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
+// Envelope contains data that is required for all the chain.
 type Envelope struct {
 	// latest transmission details
 	ConfigDigest    types.ConfigDigest
@@ -19,9 +20,10 @@ type Envelope struct {
 	ContractConfig types.ContractConfig
 
 	// extra
-	BlockNumber uint64
-	Transmitter types.Account
-	LinkBalance *big.Int
+	BlockNumber             uint64
+	Transmitter             types.Account
+	LinkBalance             *big.Int
+	LinkAvailableForPayment *big.Int
 
 	// The "fee coin" is different for each chain.
 	JuelsPerFeeCoin   *big.Int

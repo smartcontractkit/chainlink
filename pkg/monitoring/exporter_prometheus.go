@@ -114,6 +114,18 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkID(),
 		p.chainConfig.GetNetworkName(),
 	)
+	linkAvailableForPayment, _ := new(big.Float).SetInt(envelope.LinkAvailableForPayment).Float64()
+	p.metrics.SetLinkAvailableForPayment(
+		linkAvailableForPayment,
+		p.feedConfig.GetID(),
+		p.chainConfig.GetChainID(),
+		p.feedConfig.GetContractStatus(),
+		p.feedConfig.GetContractType(),
+		p.feedConfig.GetName(),
+		p.feedConfig.GetPath(),
+		p.chainConfig.GetNetworkID(),
+		p.chainConfig.GetNetworkName(),
+	)
 	p.metrics.SetNodeMetadata(
 		p.chainConfig.GetChainID(),
 		p.chainConfig.GetNetworkID(),

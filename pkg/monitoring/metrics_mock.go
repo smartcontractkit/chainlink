@@ -64,6 +64,11 @@ func (_m *MetricsMock) SetHeadTrackerCurrentHead(blockNumber float64, networkNam
 	_m.Called(blockNumber, networkName, chainID, networkID)
 }
 
+// SetLinkAvailableForPayment provides a mock function with given fields: amount, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *MetricsMock) SetLinkAvailableForPayment(amount float64, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(amount, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
 // SetNodeMetadata provides a mock function with given fields: chainID, networkID, networkName, oracleName, sender
 func (_m *MetricsMock) SetNodeMetadata(chainID string, networkID string, networkName string, oracleName string, sender string) {
 	_m.Called(chainID, networkID, networkName, oracleName, sender)

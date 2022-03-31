@@ -65,6 +65,17 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkID(),       // networkID
 			chainConfig.GetNetworkName(),     // networkName
 		).Once()
+		metrics.On("SetLinkAvailableForPayment",
+			toFloat64(envelope1.LinkAvailableForPayment), //link available for payment
+			feedConfig.GetID(),                           // feedID
+			chainConfig.GetChainID(),                     // chainID
+			feedConfig.GetContractStatus(),               // contractStatus
+			feedConfig.GetContractType(),                 // contractType
+			feedConfig.GetName(),                         // feedName
+			feedConfig.GetPath(),                         // feedPath
+			chainConfig.GetNetworkID(),                   // networkID
+			chainConfig.GetNetworkName(),                 // networkName
+		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
@@ -187,6 +198,17 @@ func TestPrometheusExporter(t *testing.T) {
 			feedConfig.GetPath(),             // feedPath
 			chainConfig.GetNetworkID(),       // networkID
 			chainConfig.GetNetworkName(),     // networkName
+		).Once()
+		metrics.On("SetLinkAvailableForPayment",
+			toFloat64(envelope2.LinkAvailableForPayment), //link available for payment
+			feedConfig.GetID(),                           // feedID
+			chainConfig.GetChainID(),                     // chainID
+			feedConfig.GetContractStatus(),               // contractStatus
+			feedConfig.GetContractType(),                 // contractType
+			feedConfig.GetName(),                         // feedName
+			feedConfig.GetPath(),                         // feedPath
+			chainConfig.GetNetworkID(),                   // networkID
+			chainConfig.GetNetworkName(),                 // networkName
 		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
@@ -379,6 +401,17 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkID(),       // networkID
 			chainConfig.GetNetworkName(),     // networkName
 		).Once()
+		metrics.On("SetLinkAvailableForPayment",
+			toFloat64(envelope1.LinkAvailableForPayment), //link available for payment
+			feedConfig.GetID(),                           // feedID
+			chainConfig.GetChainID(),                     // chainID
+			feedConfig.GetContractStatus(),               // contractStatus
+			feedConfig.GetContractType(),                 // contractType
+			feedConfig.GetName(),                         // feedName
+			feedConfig.GetPath(),                         // feedPath
+			chainConfig.GetNetworkID(),                   // networkID
+			chainConfig.GetNetworkName(),                 // networkName
+		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
@@ -501,6 +534,17 @@ func TestPrometheusExporter(t *testing.T) {
 			feedConfig.GetPath(),             // feedPath
 			chainConfig.GetNetworkID(),       // networkID
 			chainConfig.GetNetworkName(),     // networkName
+		).Once()
+		metrics.On("SetLinkAvailableForPayment",
+			toFloat64(envelope2.LinkAvailableForPayment), //link available for payment
+			feedConfig.GetID(),                           // feedID
+			chainConfig.GetChainID(),                     // chainID
+			feedConfig.GetContractStatus(),               // contractStatus
+			feedConfig.GetContractType(),                 // contractType
+			feedConfig.GetName(),                         // feedName
+			feedConfig.GetPath(),                         // feedPath
+			chainConfig.GetNetworkID(),                   // networkID
+			chainConfig.GetNetworkName(),                 // networkName
 		).Once()
 		metrics.On("SetNodeMetadata",
 			chainConfig.GetChainID(),      // chainID
