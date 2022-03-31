@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
+	"golang.org/x/exp/slices"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -170,6 +171,16 @@ func (e *msgValidator) add(msg terra.Msg) {
 	}
 }
 
+func (e *msgValidator) sortValid() {
+	slices.SortFunc(e.valid, func(a, b terra.Msg) bool {
+		ac, bc := a.CreatedAt, b.CreatedAt
+		if ac.Equal(bc) {
+			return a.ID < b.ID
+		}
+		return ac.Before(bc)
+	})
+}
+
 func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	msgs := msgValidator{cutoff: time.Now().Add(-txm.cfg.TxMsgTimeout())}
 	err := txm.orm.q.Transaction(func(tx pg.Queryer) error {
@@ -215,6 +226,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	if len(msgs.valid) == 0 {
 		return
 	}
+	msgs.sortValid()
 	txm.lggr.Debugw("building a batch", "not expired", msgs.valid, "marked expired", msgs.expired)
 	var msgsByFrom = make(map[string]terra.Msgs)
 	for _, m := range msgs.valid {
@@ -426,28 +438,8 @@ func (txm *Txm) confirmTx(ctx context.Context, tc terraclient.Reader, txHash str
 
 // Enqueue enqueue a msg destined for the terra chain.
 func (txm *Txm) Enqueue(contractID string, msg sdk.Msg) (int64, error) {
-	switch ms := msg.(type) {
-	case *wasmtypes.MsgExecuteContract:
-		_, err := sdk.AccAddressFromBech32(ms.Sender)
-		if err != nil {
-			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.Sender)
-			return 0, err
-		}
-
-	case *types.MsgSend:
-		_, err := sdk.AccAddressFromBech32(ms.FromAddress)
-		if err != nil {
-			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.FromAddress)
-			return 0, err
-		}
-
-	default:
-		return 0, &terra.ErrMsgUnsupported{Msg: msg}
-	}
-	typeURL := sdk.MsgTypeURL(msg)
-	raw, err := proto.Marshal(msg)
+	typeURL, raw, err := txm.marshalMsg(msg)
 	if err != nil {
-		txm.lggr.Errorw("failed to marshal msg, skipping", "err", err, "msg", msg)
 		return 0, err
 	}
 
@@ -467,6 +459,34 @@ func (txm *Txm) Enqueue(contractID string, msg sdk.Msg) (int64, error) {
 		return err
 	})
 	return id, err
+}
+
+func (txm *Txm) marshalMsg(msg sdk.Msg) (string, []byte, error) {
+	switch ms := msg.(type) {
+	case *wasmtypes.MsgExecuteContract:
+		_, err := sdk.AccAddressFromBech32(ms.Sender)
+		if err != nil {
+			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.Sender)
+			return "", nil, err
+		}
+
+	case *types.MsgSend:
+		_, err := sdk.AccAddressFromBech32(ms.FromAddress)
+		if err != nil {
+			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.FromAddress)
+			return "", nil, err
+		}
+
+	default:
+		return "", nil, &terra.ErrMsgUnsupported{Msg: msg}
+	}
+	typeURL := sdk.MsgTypeURL(msg)
+	raw, err := proto.Marshal(msg)
+	if err != nil {
+		txm.lggr.Errorw("failed to marshal msg, skipping", "err", err, "msg", msg)
+		return "", nil, err
+	}
+	return typeURL, raw, nil
 }
 
 // GetMsgs returns any messages matching ids.
