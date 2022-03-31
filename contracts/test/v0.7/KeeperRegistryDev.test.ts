@@ -6,7 +6,8 @@
  */
 
 import { ethers } from 'hardhat'
-import { assert, expect } from 'chai'
+import chai, { assert, expect } from 'chai'
+import deepEqualInAnyOrder from 'deep-equal-in-any-order'
 import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { BigNumber, Signer, BigNumberish } from 'ethers'
@@ -15,6 +16,7 @@ import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../type
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../typechain/factories/UpkeepAutoFunder__factory'
+import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../typechain/factories/UpkeepTranscoder__factory'
 // These 2 dependencies are mocked from Dev
 import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistryDev__factory'
 import { KeeperRegistryDev as KeeperRegistry } from '../../typechain/KeeperRegistryDev'
@@ -22,11 +24,18 @@ import { KeeperRegistryDev as KeeperRegistry } from '../../typechain/KeeperRegis
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
+import { UpkeepTranscoder } from '../../typechain'
 import { toWei } from '../test-helpers/helpers'
+
+chai.use(deepEqualInAnyOrder)
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
   return receipt.events[0].args.id
+}
+
+function randomAddress() {
+  return ethers.Wallet.createRandom().address
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -42,7 +51,7 @@ let keeperRegistryFactory: KeeperRegistryFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepReverterFactory: UpkeepReverterFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-
+let upkeepTranscoderFactory: UpkeepTranscoderFactory
 let personas: Personas
 
 before(async () => {
@@ -58,9 +67,11 @@ before(async () => {
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
+  upkeepTranscoderFactory = await ethers.getContractFactory('UpkeepTranscoder')
 })
 
 describe('KeeperRegistry', () => {
+  const chainID = BigNumber.from(1234)
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -70,6 +81,7 @@ describe('KeeperRegistry', () => {
   const flatFeeMicroLink = BigNumber.from(0)
   const blockCountPerTurn = BigNumber.from(3)
   const emptyBytes = '0x00'
+  const randomBytes = '0x1234abcd'
   const zeroAddress = ethers.constants.AddressZero
   const extraGas = BigNumber.from('250000')
   const registryGasOverhead = BigNumber.from('80000')
@@ -95,7 +107,9 @@ describe('KeeperRegistry', () => {
   let linkEthFeed: MockV3Aggregator
   let gasPriceFeed: MockV3Aggregator
   let registry: KeeperRegistry
+  let registry2: KeeperRegistry
   let mock: UpkeepMock
+  let transcoder: UpkeepTranscoder
 
   let id: BigNumber
   let keepers: string[]
@@ -133,6 +147,7 @@ describe('KeeperRegistry', () => {
     registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(
+        chainID,
         linkToken.address,
         linkEthFeed.address,
         gasPriceFeed.address,
@@ -147,7 +162,23 @@ describe('KeeperRegistry', () => {
         maxPerformGas,
         minUpkeepSpend,
       )
-
+    registry2 = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(
+        chainID,
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+        blockCountPerTurn,
+        maxCheckGas,
+        stalenessSeconds,
+        gasCeilingMultiplier,
+        fallbackGasPrice,
+        fallbackLinkPrice,
+      )
+    transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mock = await upkeepMockFactory.deploy()
     await linkToken
       .connect(owner)
@@ -166,8 +197,9 @@ describe('KeeperRegistry', () => {
         mock.address,
         executeGas,
         await admin.getAddress(),
-        emptyBytes,
+        randomBytes,
       )
+    await registry.setTranscoder(transcoder.address)
     id = await getUpkeepID(tx)
   })
 
@@ -189,6 +221,12 @@ describe('KeeperRegistry', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
       assert.equal(typeAndVersion, 'KeeperRegistry 1.2.0')
+    })
+  })
+
+  describe('#constructor', () => {
+    it('sets the chainID', async () => {
+      expect(await registry.CHAIN_ID()).to.equal(chainID)
     })
   })
 
@@ -730,7 +768,7 @@ describe('KeeperRegistry', () => {
 
         assert.equal(eventLog?.length, 2)
         assert.equal(eventLog?.[1].event, 'UpkeepPerformed')
-        assert.equal(eventLog?.[1].args?.[0].toNumber(), id.toNumber())
+        expect(eventLog?.[1].args?.[0]).to.equal(id)
         assert.equal(eventLog?.[1].args?.[1], true)
         assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress())
         assert.isNotEmpty(eventLog?.[1].args?.[3])
@@ -1009,7 +1047,7 @@ describe('KeeperRegistry', () => {
 
         assert.equal(eventLog?.length, 2)
         assert.equal(eventLog?.[1].event, 'UpkeepPerformed')
-        assert.equal(eventLog?.[1].args?.[0].toNumber(), id.toNumber())
+        expect(eventLog?.[1].args?.[0]).to.equal(id)
         assert.equal(eventLog?.[1].args?.[1], true)
         assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress())
         assert.isNotEmpty(eventLog?.[1].args?.[3])
@@ -1109,7 +1147,7 @@ describe('KeeperRegistry', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .withdrawFunds(id.add(1).toNumber(), await payee1.getAddress()),
+          .withdrawFunds(id.add(1), await payee1.getAddress()),
         'only callable by admin',
       )
     })
@@ -1330,7 +1368,7 @@ describe('KeeperRegistry', () => {
   describe('#cancelUpkeep', () => {
     it('reverts if the ID is not valid', async () => {
       await evmRevert(
-        registry.connect(owner).cancelUpkeep(id.add(1).toNumber()),
+        registry.connect(owner).cancelUpkeep(id.add(1)),
         'too late to cancel upkeep',
       )
     })
@@ -1361,15 +1399,15 @@ describe('KeeperRegistry', () => {
           .withArgs(id, BigNumber.from(receipt.blockNumber))
       })
 
-      it('updates the canceled registrations list', async () => {
-        let canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([], canceled)
+      // it('updates the canceled registrations list', async () => {
+      //   let canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([], canceled)
 
-        await registry.connect(owner).cancelUpkeep(id)
+      //   await registry.connect(owner).cancelUpkeep(id)
 
-        canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([id], canceled)
-      })
+      //   canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([id], canceled)
+      // })
 
       it('immediately prevents upkeep', async () => {
         await registry.connect(owner).cancelUpkeep(id)
@@ -1428,15 +1466,15 @@ describe('KeeperRegistry', () => {
           .withArgs(id, BigNumber.from(receipt.blockNumber + delay))
       })
 
-      it('updates the canceled registrations list', async () => {
-        let canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([], canceled)
+      // it('updates the canceled registrations list', async () => {
+      //   let canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([], canceled)
 
-        await registry.connect(admin).cancelUpkeep(id)
+      //   await registry.connect(admin).cancelUpkeep(id)
 
-        canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([id], canceled)
-      })
+      //   canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([id], canceled)
+      // })
 
       it('immediately prevents upkeep', async () => {
         await linkToken.connect(owner).approve(registry.address, toWei('100'))
@@ -1463,14 +1501,14 @@ describe('KeeperRegistry', () => {
         )
       })
 
-      it('does not revert or double add the cancellation record if called by the owner immediately after', async () => {
-        await registry.connect(admin).cancelUpkeep(id)
+      // it('does not revert or double add the cancellation record if called by the owner immediately after', async () => {
+      //   await registry.connect(admin).cancelUpkeep(id)
 
-        await registry.connect(owner).cancelUpkeep(id)
+      //   await registry.connect(owner).cancelUpkeep(id)
 
-        const canceled = await registry.callStatic.getCanceledUpkeepList()
-        assert.deepEqual([id], canceled)
-      })
+      //   const canceled = await registry.callStatic.getCanceledUpkeepList()
+      //   assert.deepEqual([id], canceled)
+      // })
 
       it('reverts if called by the owner after the timeout', async () => {
         await registry.connect(admin).cancelUpkeep(id)
@@ -1773,10 +1811,7 @@ describe('KeeperRegistry', () => {
     const amount = toWei('1')
 
     it('reverts if not called by the LINK token', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(
-        ['uint256'],
-        [id.toNumber().toString()],
-      )
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id])
 
       await evmRevert(
         registry
@@ -1814,10 +1849,7 @@ describe('KeeperRegistry', () => {
     })
 
     it('updates the funds of the job id passed', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(
-        ['uint256'],
-        [id.toNumber().toString()],
-      )
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id])
 
       const before = (await registry.getUpkeep(id)).balance
       await linkToken
@@ -1881,10 +1913,7 @@ describe('KeeperRegistry', () => {
         )
 
       // transfer funds using onTokenTransfer
-      const data = ethers.utils.defaultAbiCoder.encode(
-        ['uint256'],
-        [id2.toNumber().toString()],
-      )
+      const data = ethers.utils.defaultAbiCoder.encode(['uint256'], [id2])
       await linkToken
         .connect(owner)
         .transferAndCall(registry.address, toWei('1'), data)
@@ -1988,6 +2017,83 @@ describe('KeeperRegistry', () => {
           }
         }
       }
+    })
+  })
+
+  describe('#setPermittedRegistries() / #getPermittedRegistries()', () => {
+    const set1 = [
+      randomAddress(),
+      randomAddress(),
+      randomAddress(),
+      randomAddress(),
+      randomAddress(),
+      randomAddress(),
+      randomAddress(),
+    ]
+    const set2 = [randomAddress(), randomAddress()]
+    it('allows the owner to set the peer registries', async () => {
+      await registry.setPermittedRegistries(set1, set2)
+      let [incoming, outgoing] = await registry.getPermittedRegistries()
+      expect(incoming).to.deep.equalInAnyOrder(set1)
+      expect(outgoing).to.deep.equalInAnyOrder(set2)
+
+      await registry.setPermittedRegistries(set2, set1)
+      ;[incoming, outgoing] = await registry.getPermittedRegistries()
+      expect(incoming).to.deep.equalInAnyOrder(set2)
+      expect(outgoing).to.deep.equalInAnyOrder(set1)
+    })
+    it.skip('reverts if there are duplicates', async () => {})
+    it.skip('reverts if any addresses are the zero address', async () => {})
+    it.skip('reverts if not called by the owner', async () => {})
+  })
+
+  describe('migrateUpkeeps() / #importUpkeeps()', async () => {
+    context('when permissions are set', () => {
+      beforeEach(async () => {
+        await linkToken.connect(owner).approve(registry.address, toWei('100'))
+        await registry.connect(owner).addFunds(id, toWei('100'))
+        await registry.setPermittedRegistries([], [registry2.address])
+        await registry2.setPermittedRegistries([registry.address], [])
+      })
+
+      it('migrates an upkeep', async () => {
+        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect(await registry.getUpkeepCount()).to.equal(1)
+        // migrate
+        await registry.connect(admin).migrateUpkeeps([id], registry2.address)
+        expect(await registry.getUpkeepCount()).to.equal(0)
+        expect(await registry2.getUpkeepCount()).to.equal(1)
+        expect((await registry.getUpkeep(id)).balance).to.equal(0)
+        expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
+        expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
+      })
+    })
+
+    context('when permissions are not set', () => {
+      it('reverts', async () => {
+        // no permissions
+        await registry.setPermittedRegistries([], [])
+        await registry2.setPermittedRegistries([], [])
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+        // only outgoing permissions
+        await registry.setPermittedRegistries([], [registry2.address])
+        await registry2.setPermittedRegistries([], [])
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+        // only incoming permissions
+        await registry.setPermittedRegistries([], [])
+        await registry2.setPermittedRegistries([registry.address], [])
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+        // permissions opposite direction
+        await registry.setPermittedRegistries([registry2.address], [])
+        await registry2.setPermittedRegistries([], [registry.address])
+        await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
+          .reverted
+      })
     })
   })
 
