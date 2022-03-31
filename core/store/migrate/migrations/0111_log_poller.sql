@@ -26,6 +26,6 @@ CREATE TABLE log_poller_blocks (
 );
 
 -- +goose Down
+DROP INDEX logs_idx;
 DROP TABLE logs;
 DROP TABLE log_poller_blocks;
-DROP INDEX logs_idx;
