@@ -333,14 +333,20 @@ func TestPopulateLoadedDB(t *testing.T) {
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
 
-	var logs []logpoller.Log
-	for i := 0; i < 1000; i++ {
-		logs = append(logs, genLog(chainID, 1, int64(i), fmt.Sprintf("0x%d", i), topic1[:], address1))
+	for j := 0; j < 1000; j++ {
+		var logs []logpoller.Log
+		// Max we can insert per batch
+		for i := 0; i < 1000; i++ {
+			addr := address1
+			if (i+(1000*j))%2 == 0 {
+				addr = address2
+			}
+			logs = append(logs, genLog(chainID, 1, int64(i+(1000*j)), fmt.Sprintf("0x%d", i+(1000*j)), topic1[:], addr))
+		}
+		require.NoError(t, o.InsertLogs(logs))
 	}
-	require.NoError(t, o.InsertLogs(logs))
-	var logs2 []logpoller.Log
-	for i := 1001; i < 2000; i++ {
-		logs2 = append(logs2, genLog(chainID, 1, int64(i), fmt.Sprintf("0x%d", i), topic1[:], address2))
-	}
-	require.NoError(t, o.InsertLogs(logs2))
+	s := time.Now()
+	lgs, err := o.SelectLogsByBlockRangeTopicAddress(750000, 800000, address1, [][]byte{topic1[:]})
+	require.NoError(t, err)
+	t.Log(time.Since(s), len(lgs))
 }

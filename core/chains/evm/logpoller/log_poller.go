@@ -259,7 +259,15 @@ func (lp *LogPoller) PollAndSaveLogs(ctx context.Context, current int64) int64 {
 			}
 
 			// We truncate all the blocks and logs after the LCA.
+			// We could preserve the logs for forensics, since its possible
+			// that applications see them and take action upon it, however that
+			// results in significantly slower reads since we must then compute
+			// the canonical set per read. Typically if an application took action on a log
+			// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
+			// Its also nicely analogous to reading from the chain itself.
 			err3 = lp.orm.q.Transaction(func(tx pg.Queryer) error {
+				// These deletes are bounded by reorg depth, so they are
+				// fast and should not slow down the log readers.
 				err3 = lp.orm.DeleteRangeBlocks(lca+1, latest, pg.WithQueryer(tx))
 				if err3 != nil {
 					lp.lggr.Warnw("Unable to clear reorged blocks, retrying", "err", err3)
@@ -317,6 +325,7 @@ func (lp *LogPoller) findLCA(h common.Hash) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// TODO: this does not gracefully handle reorgs deeper than finality depth
 	ourBlockHash, err := lp.orm.SelectBlockByNumber(block.Number().Int64())
 	if err != nil {
 		return 0, err

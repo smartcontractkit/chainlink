@@ -12,6 +12,9 @@ CREATE TABLE logs (
   PRIMARY KEY (block_hash, log_index, evm_chain_id)
 );
 
+-- Hot path query - clients searching for their logs.
+CREATE INDEX logs_idx ON logs(evm_chain_id, block_number, address, topics);
+
 CREATE TABLE log_poller_blocks (
     evm_chain_id numeric(78,0) NOT NULL REFERENCES evm_chains (id) DEFERRABLE,
     block_hash bytea NOT NULL,
@@ -25,3 +28,4 @@ CREATE TABLE log_poller_blocks (
 -- +goose Down
 DROP TABLE logs;
 DROP TABLE log_poller_blocks;
+DROP INDEX logs_idx;
