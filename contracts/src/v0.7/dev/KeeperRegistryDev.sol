@@ -59,6 +59,7 @@ contract KeeperRegistryDev is
   Config private s_config;
   uint256 private s_fallbackGasPrice; // not in config object for gas savings
   uint256 private s_fallbackLinkPrice; // not in config object for gas savings
+  uint96 private s_ownerLinkBalance;
   uint256 private s_expectedLinkBalance;
 
   LinkTokenInterface public immutable LINK;
@@ -72,18 +73,20 @@ contract KeeperRegistryDev is
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
+   *                       : add minUpkeepSpend requirement
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
   string public constant override typeAndVersion = "KeeperRegistry 1.2.0";
 
   struct Upkeep {
-    address target;
-    uint32 executeGas;
     uint96 balance;
-    address admin;
+    address lastKeeper; // 1 storage slot full
+    uint32 executeGas;
     uint64 maxValidBlocknumber;
-    address lastKeeper;
+    address target; // 2 storage slots full
+    uint96 amountSpent;
+    address admin; // 3 storage slots full
   }
 
   struct KeeperInfo {
@@ -100,6 +103,7 @@ contract KeeperRegistryDev is
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
     uint32 maxPerformGas;
+    uint96 minUpkeepSpend;
   }
 
   struct PerformParams {
@@ -123,6 +127,7 @@ contract KeeperRegistryDev is
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+  event OwnerFundsWithdrawn(uint96 amount);
   event ConfigSet(
     uint32 paymentPremiumPPB,
     uint24 blockCountPerTurn,
@@ -131,7 +136,8 @@ contract KeeperRegistryDev is
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
     uint256 fallbackLinkPrice,
-    uint32 maxPerformGas
+    uint32 maxPerformGas,
+    uint96 minUpkeepSpend
   );
   event FlatFeeSet(uint32 flatFeeMicroLink);
   event KeepersUpdated(address[] keepers, address[] payees);
@@ -160,6 +166,7 @@ contract KeeperRegistryDev is
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
    * @param maxPerformGas max executeGas allowed for an upkeep on this registry
+   * @param minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
    */
   constructor(
     address link,
@@ -173,7 +180,8 @@ contract KeeperRegistryDev is
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
     uint256 fallbackLinkPrice,
-    uint32 maxPerformGas
+    uint32 maxPerformGas,
+    uint96 minUpkeepSpend
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
@@ -188,7 +196,8 @@ contract KeeperRegistryDev is
       gasCeilingMultiplier,
       fallbackGasPrice,
       fallbackLinkPrice,
-      maxPerformGas
+      maxPerformGas,
+      minUpkeepSpend
     );
   }
 
@@ -219,7 +228,8 @@ contract KeeperRegistryDev is
       balance: 0,
       admin: admin,
       maxValidBlocknumber: UINT64_MAX,
-      lastKeeper: address(0)
+      lastKeeper: address(0),
+      amountSpent: 0
     });
     s_checkData[id] = checkData;
     s_upkeepCount++;
@@ -346,12 +356,40 @@ contract KeeperRegistryDev is
   function withdrawFunds(uint256 id, address to) external validateRecipient(to) onlyUpkeepAdmin(id) {
     require(s_upkeep[id].maxValidBlocknumber <= block.number, "upkeep must be canceled");
 
-    uint256 amount = s_upkeep[id].balance;
-    s_upkeep[id].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance.sub(amount);
-    emit FundsWithdrawn(id, amount, to);
+    uint96 minUpkeepSpend = s_config.minUpkeepSpend;
+    uint96 amountLeft = s_upkeep[id].balance;
+    uint96 amountSpent = s_upkeep[id].amountSpent;
 
-    LINK.transfer(to, amount);
+    uint96 cancellationFee = 0;
+    // cancellationFee is supposed to be min(max(minUpkeepSpend - amountSpent,0), amountLeft)
+    if (amountSpent < minUpkeepSpend) {
+      cancellationFee = minUpkeepSpend.sub(amountSpent);
+      if (cancellationFee > amountLeft) {
+        cancellationFee = amountLeft;
+      }
+    }
+    uint96 amountToWithdraw = amountLeft.sub(cancellationFee);
+
+    s_upkeep[id].balance = 0;
+    s_ownerLinkBalance = s_ownerLinkBalance.add(cancellationFee);
+
+    s_expectedLinkBalance = s_expectedLinkBalance.sub(amountToWithdraw);
+    emit FundsWithdrawn(id, amountToWithdraw, to);
+
+    LINK.transfer(to, amountToWithdraw);
+  }
+
+  /**
+   * @notice withdraws LINK funds collected through cancellation fees
+   */
+  function ownerWithdrawFunds() external onlyOwner {
+    uint96 amount = s_ownerLinkBalance;
+
+    s_expectedLinkBalance = s_expectedLinkBalance.sub(amount);
+    s_ownerLinkBalance = 0;
+
+    emit OwnerFundsWithdrawn(amount);
+    LINK.transfer(msg.sender, amount);
   }
 
   /**
@@ -455,6 +493,7 @@ contract KeeperRegistryDev is
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
    * @param maxPerformGas The max performGas that can be used by an upkeep.
    *        Note: maxPerformGas can only be increased to keep upkeeps consistent
+   * @param minUpkeepSpend minimum spend required by an upkeep before cancelling
    */
   function setConfig(
     uint32 paymentPremiumPPB,
@@ -465,7 +504,8 @@ contract KeeperRegistryDev is
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
     uint256 fallbackLinkPrice,
-    uint32 maxPerformGas
+    uint32 maxPerformGas,
+    uint96 minUpkeepSpend
   ) public onlyOwner {
     require(maxPerformGas >= s_config.maxPerformGas, "maxPerformGas can only be increased");
     s_config = Config({
@@ -475,7 +515,8 @@ contract KeeperRegistryDev is
       checkGasLimit: checkGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasCeilingMultiplier: gasCeilingMultiplier,
-      maxPerformGas: maxPerformGas
+      maxPerformGas: maxPerformGas,
+      minUpkeepSpend: minUpkeepSpend
     });
     s_fallbackGasPrice = fallbackGasPrice;
     s_fallbackLinkPrice = fallbackLinkPrice;
@@ -488,7 +529,8 @@ contract KeeperRegistryDev is
       gasCeilingMultiplier,
       fallbackGasPrice,
       fallbackLinkPrice,
-      maxPerformGas
+      maxPerformGas,
+      minUpkeepSpend
     );
     emit FlatFeeSet(flatFeeMicroLink);
   }
@@ -550,7 +592,8 @@ contract KeeperRegistryDev is
       uint96 balance,
       address lastKeeper,
       address admin,
-      uint64 maxValidBlocknumber
+      uint64 maxValidBlocknumber,
+      uint96 amountSpent
     )
   {
     Upkeep memory reg = s_upkeep[id];
@@ -561,7 +604,8 @@ contract KeeperRegistryDev is
       reg.balance,
       reg.lastKeeper,
       reg.admin,
-      reg.maxValidBlocknumber
+      reg.maxValidBlocknumber,
+      reg.amountSpent
     );
   }
 
@@ -591,6 +635,13 @@ contract KeeperRegistryDev is
    */
   function getRegistrar() external view returns (address) {
     return s_registrar;
+  }
+
+  /**
+   * @notice reads the funds accumulated with owner due to cancellation fees
+   */
+  function getOwnerLinkBalance() external view returns (uint96) {
+    return s_ownerLinkBalance;
   }
 
   /**
@@ -625,7 +676,8 @@ contract KeeperRegistryDev is
       uint16 gasCeilingMultiplier,
       uint256 fallbackGasPrice,
       uint256 fallbackLinkPrice,
-      uint32 maxPerformGas
+      uint32 maxPerformGas,
+      uint96 minUpkeepSpend
     )
   {
     Config memory config = s_config;
@@ -637,7 +689,8 @@ contract KeeperRegistryDev is
       config.gasCeilingMultiplier,
       s_fallbackGasPrice,
       s_fallbackLinkPrice,
-      config.maxPerformGas
+      config.maxPerformGas,
+      config.minUpkeepSpend
     );
   }
 
@@ -760,12 +813,10 @@ contract KeeperRegistryDev is
 
     uint96 payment = calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
 
-    uint96 newUpkeepBalance = s_upkeep[params.id].balance.sub(payment);
-    s_upkeep[params.id].balance = newUpkeepBalance;
+    s_upkeep[params.id].balance = s_upkeep[params.id].balance.sub(payment);
+    s_upkeep[params.id].amountSpent = s_upkeep[params.id].amountSpent.add(payment);
     s_upkeep[params.id].lastKeeper = params.from;
-
-    uint96 newKeeperBalance = s_keeperInfo[params.from].balance.add(payment);
-    s_keeperInfo[params.from].balance = newKeeperBalance;
+    s_keeperInfo[params.from].balance = s_keeperInfo[params.from].balance.add(payment);
 
     emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
     return success;

@@ -79,6 +79,7 @@ describe('KeeperRegistry', () => {
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
   const maxPerformGas = BigNumber.from(5000000)
+  const minUpkeepSpend = BigNumber.from(0)
 
   let owner: Signer
   let keeper1: Signer
@@ -144,6 +145,7 @@ describe('KeeperRegistry', () => {
         fallbackGasPrice,
         fallbackLinkPrice,
         maxPerformGas,
+        minUpkeepSpend,
       )
 
     mock = await upkeepMockFactory.deploy()
@@ -615,6 +617,7 @@ describe('KeeperRegistry', () => {
               fallbackGasPrice,
               fallbackLinkPrice,
               maxPerformGas,
+              minUpkeepSpend,
             )
           const response = await registry
             .connect(zeroAddress)
@@ -762,6 +765,27 @@ describe('KeeperRegistry', () => {
         assert.isTrue(registryLinkBefore.eq(registryLinkAfter))
       })
 
+      it('updates amount spent correctly', async () => {
+        const registrationBefore = await registry.getUpkeep(id)
+        const balanceBefore = registrationBefore.balance
+        const amountSpentBefore = registrationBefore.amountSpent
+
+        // Do the thing
+        await registry.connect(keeper1).performUpkeep(id, '0x')
+
+        const registrationAfter = await registry.getUpkeep(id)
+        const balanceAfter = registrationAfter.balance
+        const amountSpentAfter = registrationAfter.amountSpent
+
+        assert.isTrue(balanceAfter.lt(balanceBefore))
+        assert.isTrue(amountSpentAfter.gt(amountSpentBefore))
+        assert.isTrue(
+          amountSpentAfter
+            .sub(amountSpentBefore)
+            .eq(balanceBefore.sub(balanceAfter)),
+        )
+      })
+
       it('only pays for gas used [ @skip-coverage ]', async () => {
         const before = (
           await registry.getKeeperInfo(await keeper1.getAddress())
@@ -795,6 +819,7 @@ describe('KeeperRegistry', () => {
             fallbackGasPrice,
             fallbackLinkPrice,
             maxPerformGas,
+            minUpkeepSpend,
           )
 
         const before = (
@@ -832,6 +857,7 @@ describe('KeeperRegistry', () => {
             fallbackGasPrice,
             fallbackLinkPrice,
             maxPerformGas,
+            minUpkeepSpend,
           )
 
         const before = (
@@ -1075,7 +1101,8 @@ describe('KeeperRegistry', () => {
   describe('#withdrawFunds', () => {
     beforeEach(async () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await registry.connect(keeper1).addFunds(id, toWei('1'))
+      await registry.connect(keeper1).addFunds(id, toWei('100'))
+      await registry.connect(keeper1).performUpkeep(id, '0x')
     })
 
     it('reverts if called by anyone but the admin', async () => {
@@ -1113,7 +1140,7 @@ describe('KeeperRegistry', () => {
         const registryBefore = await linkToken.balanceOf(registry.address)
 
         let registration = await registry.getUpkeep(id)
-        assert.isTrue(toWei('1').eq(registration.balance))
+        let previousBalance = registration.balance
 
         await registry
           .connect(admin)
@@ -1122,12 +1149,181 @@ describe('KeeperRegistry', () => {
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
         const registryAfter = await linkToken.balanceOf(registry.address)
 
-        assert.isTrue(payee1Before.add(toWei('1')).eq(payee1After))
-        assert.isTrue(registryBefore.sub(toWei('1')).eq(registryAfter))
+        assert.isTrue(payee1Before.add(previousBalance).eq(payee1After))
+        assert.isTrue(registryBefore.sub(previousBalance).eq(registryAfter))
 
         registration = await registry.getUpkeep(id)
         assert.equal(0, registration.balance.toNumber())
       })
+
+      it('deducts cancellation fees from upkeep and gives to owner', async () => {
+        let minUpkeepSpend = toWei('10')
+        await registry
+          .connect(owner)
+          .setConfig(
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            blockCountPerTurn,
+            maxCheckGas,
+            stalenessSeconds,
+            gasCeilingMultiplier,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+            maxPerformGas,
+            minUpkeepSpend,
+          )
+
+        const payee1Before = await linkToken.balanceOf(
+          await payee1.getAddress(),
+        )
+        let upkeepBefore = (await registry.getUpkeep(id)).balance
+        let ownerBefore = await registry.getOwnerLinkBalance()
+        assert.equal(0, ownerBefore.toNumber())
+
+        let amountSpent = toWei('100').sub(upkeepBefore)
+        let cancellationFee = minUpkeepSpend.sub(amountSpent)
+
+        await registry
+          .connect(admin)
+          .withdrawFunds(id, await payee1.getAddress())
+
+        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
+        let upkeepAfter = (await registry.getUpkeep(id)).balance
+        let ownerAfter = await registry.getOwnerLinkBalance()
+
+        // Post upkeep balance should be 0
+        assert.equal(0, upkeepAfter.toNumber())
+        // balance - cancellationFee should be transferred to payee
+        assert.isTrue(
+          payee1Before.add(upkeepBefore.sub(cancellationFee)).eq(payee1After),
+        )
+        assert.isTrue(ownerAfter.eq(cancellationFee))
+      })
+
+      it('deducts max upto balance as cancellation fees', async () => {
+        // Very high min spend, should deduct whole balance as cancellation fees
+        let minUpkeepSpend = toWei('1000')
+        await registry
+          .connect(owner)
+          .setConfig(
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            blockCountPerTurn,
+            maxCheckGas,
+            stalenessSeconds,
+            gasCeilingMultiplier,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+            maxPerformGas,
+            minUpkeepSpend,
+          )
+        const payee1Before = await linkToken.balanceOf(
+          await payee1.getAddress(),
+        )
+        let upkeepBefore = (await registry.getUpkeep(id)).balance
+        let ownerBefore = await registry.getOwnerLinkBalance()
+        assert.equal(0, ownerBefore.toNumber())
+
+        await registry
+          .connect(admin)
+          .withdrawFunds(id, await payee1.getAddress())
+        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
+        let ownerAfter = await registry.getOwnerLinkBalance()
+        let upkeepAfter = (await registry.getUpkeep(id)).balance
+
+        assert.equal(0, upkeepAfter.toNumber())
+        // No funds should be transferred, all of upkeepBefore should be given to owner
+        assert.isTrue(payee1After.eq(payee1Before))
+        assert.isTrue(ownerAfter.eq(upkeepBefore))
+      })
+
+      it('does not deduct cancellation fees if enough is spent', async () => {
+        // Very low min spend, already spent in one upkeep
+        let minUpkeepSpend = BigNumber.from(420)
+        await registry
+          .connect(owner)
+          .setConfig(
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            blockCountPerTurn,
+            maxCheckGas,
+            stalenessSeconds,
+            gasCeilingMultiplier,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+            maxPerformGas,
+            minUpkeepSpend,
+          )
+        const payee1Before = await linkToken.balanceOf(
+          await payee1.getAddress(),
+        )
+        let upkeepBefore = (await registry.getUpkeep(id)).balance
+        let ownerBefore = await registry.getOwnerLinkBalance()
+        assert.equal(0, ownerBefore.toNumber())
+
+        await registry
+          .connect(admin)
+          .withdrawFunds(id, await payee1.getAddress())
+        const payee1After = await linkToken.balanceOf(await payee1.getAddress())
+        let ownerAfter = await registry.getOwnerLinkBalance()
+        let upkeepAfter = (await registry.getUpkeep(id)).balance
+
+        assert.equal(0, upkeepAfter.toNumber())
+        // No cancellation fees for owner
+        assert.equal(0, ownerAfter.toNumber())
+        // Whole balance transferred to payee
+        assert.isTrue(payee1Before.add(upkeepBefore).eq(payee1After))
+      })
+    })
+  })
+
+  describe('#ownerWithdrawFunds', () => {
+    it('can only be called by owner', async () => {
+      await evmRevert(
+        registry.connect(keeper1).ownerWithdrawFunds(),
+        'Only callable by owner',
+      )
+    })
+
+    it('withdraws the collected fees to owner', async () => {
+      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
+      await registry.connect(keeper1).addFunds(id, toWei('100'))
+      // Very high min spend, whole balance as cancellation fees
+      let minUpkeepSpend = toWei('1000')
+      await registry
+        .connect(owner)
+        .setConfig(
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          maxCheckGas,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+          maxPerformGas,
+          minUpkeepSpend,
+        )
+      let upkeepBalance = (await registry.getUpkeep(id)).balance
+      const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
+
+      await registry.connect(owner).cancelUpkeep(id)
+      await registry.connect(admin).withdrawFunds(id, await payee1.getAddress())
+      // Transfered to owner balance on registry
+      let ownerRegistryBalance = await registry.getOwnerLinkBalance()
+      assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
+
+      // Now withdraw
+      await registry.connect(owner).ownerWithdrawFunds()
+
+      ownerRegistryBalance = await registry.getOwnerLinkBalance()
+      const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
+
+      // Owner registry balance should be changed to 0
+      assert.isTrue(ownerRegistryBalance.eq(BigNumber.from('0')))
+
+      // Owner should be credited with the balance
+      assert.isTrue(ownerBefore.add(upkeepBalance).eq(ownerAfter))
     })
   })
 
@@ -1500,6 +1696,7 @@ describe('KeeperRegistry', () => {
             fbGasEth,
             fbLinkEth,
             maxPerformGas,
+            minUpkeepSpend,
           ),
         'Only callable by owner',
       )
@@ -1526,6 +1723,7 @@ describe('KeeperRegistry', () => {
           fbGasEth,
           fbLinkEth,
           maxPerformGas,
+          minUpkeepSpend,
         )
 
       const updated = await registry.getConfig()
@@ -1553,6 +1751,7 @@ describe('KeeperRegistry', () => {
           fbGasEth,
           fbLinkEth,
           maxPerformGas,
+          minUpkeepSpend,
         )
       await expect(tx)
         .to.emit(registry, 'ConfigSet')
@@ -1565,6 +1764,7 @@ describe('KeeperRegistry', () => {
           fbGasEth,
           fbLinkEth,
           maxPerformGas,
+          minUpkeepSpend,
         )
     })
   })
@@ -1781,6 +1981,7 @@ describe('KeeperRegistry', () => {
                 fallbackGasPrice,
                 fallbackLinkPrice,
                 maxPerformGas,
+                minUpkeepSpend,
               )
             const price = await registry.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
@@ -1809,6 +2010,7 @@ describe('KeeperRegistry', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           maxPerformGas,
+          minUpkeepSpend,
         )
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
 
