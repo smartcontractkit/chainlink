@@ -55,7 +55,7 @@ func (r *registry) remove(c prometheus.Collector) {
 	defer r.collectorsMu.Unlock()
 	for i, c2 := range r.collectors {
 		if c == c2 {
-			UnstableDeleteAt(slice, i)
+			utils.UnstableDeleteAt(r.collectors, i)
 			return
 		}
 	}
