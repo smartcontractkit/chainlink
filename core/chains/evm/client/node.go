@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -334,6 +334,9 @@ func (n *node) Close() {
 		n.state = NodeStateClosed
 		if n.ws.rpc != nil {
 			n.ws.rpc.Close()
+			if n.http != nil {
+				n.http.rpc.Close()
+			}
 		}
 		return nil
 	})
