@@ -428,7 +428,8 @@ func generateEnvelope() (Envelope, error) {
 		Transmitter: types.Account(hexutil.Encode([]byte{
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(rand.Intn(32)),
 		})),
-		LinkBalance: generateBigInt(150),
+		LinkBalance:             generateBigInt(150),
+		LinkAvailableForPayment: generateBigInt(150),
 
 		JuelsPerFeeCoin:   generateBigInt(150),
 		AggregatorRoundID: rand.Uint32(),
@@ -488,6 +489,8 @@ func (d *devnullMetrics) SetHeadTrackerCurrentHead(blockNumber float64, networkN
 func (d *devnullMetrics) SetFeedContractMetadata(chainID, contractAddress, feedID, contractStatus, contractType, feedName, feedPath, networkID, networkName, symbol string) {
 }
 func (d *devnullMetrics) SetFeedContractLinkBalance(balance float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+}
+func (d *devnullMetrics) SetLinkAvailableForPayment(amount float64, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
 func (d *devnullMetrics) SetFeedContractTransactionsSucceeded(numSucceeded float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 }
