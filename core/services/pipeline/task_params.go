@@ -1,8 +1,6 @@
 package pipeline
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -210,19 +208,16 @@ func (s *StringParam) UnmarshalPipelineParam(val interface{}) error {
 	case []byte:
 		*s = StringParam(string(v))
 		return nil
-
 	case ObjectParam:
 		if v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
-
 	case *ObjectParam:
 		if v.Type == StringType {
 			*s = v.StringValue
 			return nil
 		}
-
 	}
 	return errors.Wrapf(ErrBadInput, "expected string, got %T", val)
 }
@@ -232,29 +227,36 @@ type BytesParam []byte
 func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 	switch v := val.(type) {
 	case string:
-		// try hex first
-		if len(v) >= 2 && v[:2] == "0x" {
-			bs, err := hex.DecodeString(v[2:])
+		// first check if this is a valid hex-encoded string
+		if utils.HasHexPrefix(v) {
+			noHexPrefix := utils.RemoveHexPrefix(v)
+			bs, err := hex.DecodeString(noHexPrefix)
 			if err == nil {
-				*b = BytesParam(bs)
+				*b = bs
 				return nil
 			}
-			// The base64 encoding for the binary 0b110100110001 is '0x', so carry on.
 		}
-		// try decoding as base64 first, in case this is a string from the database
-		bs, err := base64.StdEncoding.DecodeString(v)
-		if err != nil {
-			bs = []byte(v)
-		}
-		*b = BytesParam(bs)
-	case []byte:
 		*b = BytesParam(v)
+		return nil
+	case []byte:
+		*b = v
+		return nil
 	case nil:
 		*b = BytesParam(nil)
-	default:
-		return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
+		return nil
+	case ObjectParam:
+		if v.Type == StringType {
+			*b = BytesParam(v.StringValue)
+			return nil
+		}
+	case *ObjectParam:
+		if v.Type == StringType {
+			*b = BytesParam(v.StringValue)
+			return nil
+		}
 	}
-	return nil
+
+	return errors.Wrapf(ErrBadInput, "expected array of bytes, got %T", val)
 }
 
 type Uint64Param uint64
@@ -433,20 +435,18 @@ func (b *BoolParam) UnmarshalPipelineParam(val interface{}) error {
 	case bool:
 		*b = BoolParam(v)
 		return nil
-
 	case ObjectParam:
 		if v.Type == BoolType {
 			*b = v.BoolValue
 			return nil
 		}
-
 	case *ObjectParam:
 		if v.Type == BoolType {
 			*b = v.BoolValue
 			return nil
 		}
-
 	}
+
 	return errors.Wrapf(ErrBadInput, "expected true or false, got %T", val)
 }
 
@@ -499,20 +499,19 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		return a.UnmarshalPipelineParam([]byte(v))
 	case []byte:
-		if bytes.Equal(v[:2], []byte("0x")) && len(v) == 42 {
+		if utils.HasHexPrefix(string(v)) && len(v) == 42 {
 			*a = AddressParam(common.HexToAddress(string(v)))
 			return nil
 		} else if len(v) == 20 {
 			copy((*a)[:], v)
 			return nil
 		}
-		return ErrBadInput
 	case common.Address:
 		*a = AddressParam(v)
-	default:
-		return ErrBadInput
+		return nil
 	}
-	return nil
+
+	return errors.Wrapf(ErrBadInput, "expected common.Address, got %T", val)
 }
 
 // MapParam accepts maps or JSON-encoded strings
