@@ -21,12 +21,12 @@ import (
 )
 
 type LogPoller struct {
-	ec   client.Client
-	orm  *ORM
-	lggr logger.Logger
-	pollPeriod time.Duration // poll period set by block production rate
-	finalityDepth int64 // finality depth is taken to mean that block (head - finality) is finalized
-	backfillBatchSize int64 // batch size to use when backfilling finalized logs
+	ec                client.Client
+	orm               *ORM
+	lggr              logger.Logger
+	pollPeriod        time.Duration // poll period set by block production rate
+	finalityDepth     int64         // finality depth is taken to mean that block (head - finality) is finalized
+	backfillBatchSize int64         // batch size to use when backfilling finalized logs
 
 	filterMu  sync.Mutex
 	addresses map[common.Address]struct{}
