@@ -31,7 +31,8 @@ interface KeeperRegistryBaseInterface {
       uint96 balance,
       address lastKeeper,
       address admin,
-      uint64 maxValidBlocknumber
+      uint64 maxValidBlocknumber,
+      uint96 amountSpent
     );
 
   function getUpkeepCount() external view returns (uint256);
@@ -60,7 +61,8 @@ interface KeeperRegistryBaseInterface {
       uint16 gasCeilingMultiplier,
       uint256 fallbackGasPrice,
       uint256 fallbackLinkPrice,
-      uint32 maxPerformGas
+      uint32 maxPerformGas,
+      uint96 minUpkeepSpend
     );
 }
 
