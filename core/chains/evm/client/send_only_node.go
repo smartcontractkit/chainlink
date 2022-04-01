@@ -147,6 +147,8 @@ func (s *sendOnlyNode) verify(parentCtx context.Context) error {
 	chainID, err := s.geth.ChainID(ctx)
 	if err != nil {
 		s.log.Warnf("sendonly rpc ChainID responded with error, chainID verification is skipped: %v", err)
+	} else if chainID.Cmp(big.NewInt(0)) == 0 {
+		s.log.Warnf("sendonly rpc ChainID responded with zero value, verification is skipped")
 	} else if chainID.Cmp(s.chainID) != 0 {
 		return errors.Errorf(
 			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
