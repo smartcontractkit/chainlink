@@ -62,6 +62,7 @@ func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
 // TODO: Failures to dial should put it into a retry loop
+// https://app.shortcut.com/chainlinklabs/story/28182/eth-node-failover-consider-introducing-a-state-for-sendonly-nodes
 func (s *sendOnlyNode) Start(startCtx context.Context) error {
 	s.log.Debugw("evmclient.Client#Dial(...)")
 	if s.dialed {
