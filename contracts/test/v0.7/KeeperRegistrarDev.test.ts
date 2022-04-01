@@ -62,11 +62,7 @@ describe('KeeperRegistrar', () => {
   const source = BigNumber.from(100)
   const paymentPremiumPPB = BigNumber.from(250000000)
   const flatFeeMicroLink = BigNumber.from(0)
-
-  const window_big = BigNumber.from(1000)
-  const window_small = BigNumber.from(2)
-  const threshold_big = BigNumber.from(1000)
-  const threshold_small = BigNumber.from(5)
+  const maxAllowedAutoApprove = 5
 
   const blockCountPerTurn = BigNumber.from(3)
   const emptyBytes = '0x00'
@@ -136,7 +132,13 @@ describe('KeeperRegistrar', () => {
 
     registrar = await keeperRegistrar
       .connect(registrarOwner)
-      .deploy(linkToken.address, minLINKJuels)
+      .deploy(
+        linkToken.address,
+        autoApproveType_DISABLED,
+        BigNumber.from('0'),
+        registry.address,
+        minLINKJuels,
+      )
 
     await linkToken
       .connect(owner)
@@ -177,8 +179,7 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setRegistrationConfig(
           autoApproveType_ENABLED_ALL,
-          window_small,
-          threshold_big,
+          maxAllowedAutoApprove,
           registry.address,
           minLINKJuels,
         )
@@ -262,8 +263,7 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setRegistrationConfig(
           autoApproveType_ENABLED_ALL,
-          window_small,
-          threshold_big,
+          maxAllowedAutoApprove,
           registry.address,
           minLINKJuels,
         )
@@ -308,8 +308,7 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setRegistrationConfig(
           autoApproveType_DISABLED,
-          window_small,
-          threshold_big,
+          maxAllowedAutoApprove,
           registry.address,
           minLINKJuels,
         )
@@ -349,21 +348,18 @@ describe('KeeperRegistrar', () => {
       assert.ok(amount.eq(pendingRequest[1]))
     })
 
-    it('Auto Approve ON - Throttle max approvals - does not registers an upkeep on KeeperRegistry beyond the throttle limit, emits only RegistrationRequested event after throttle starts', async () => {
-      //get upkeep count before attempting registration
-      const beforeCount = await registry.getUpkeepCount()
+    it('Auto Approve ON - Throttle max approvals - does not register an upkeep on KeeperRegistry beyond the max limit, emits only RegistrationRequested event after limit is hit', async () => {
+      assert.equal((await registry.getUpkeepCount()).toNumber(), 0)
 
-      //set auto approve on, with low threshold limits
-      await registrar
-        .connect(registrarOwner)
-        .setRegistrationConfig(
-          autoApproveType_ENABLED_ALL,
-          window_big,
-          threshold_small,
-          registry.address,
-          minLINKJuels,
-        )
+      //set auto approve on, with max 1 allowed
+      await registrar.connect(registrarOwner).setRegistrationConfig(
+        autoApproveType_ENABLED_ALL,
+        1, // maxAllowedAutoApprove
+        registry.address,
+        minLINKJuels,
+      )
 
+      //register within threshold, new upkeep should be registered
       let abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
         upkeepName,
         emptyBytes,
@@ -375,41 +371,67 @@ describe('KeeperRegistrar', () => {
         source,
         await requestSender.getAddress(),
       ])
-
-      //register within threshold, new upkeep should be registered
       await linkToken
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      const intermediateCount = await registry.getUpkeepCount()
-      //make sure 1 upkeep was registered
-      assert.equal(beforeCount.toNumber() + 1, intermediateCount.toNumber())
+      assert.equal((await registry.getUpkeepCount()).toNumber(), 1) // 0 -> 1
 
-      //try registering more than threshold(say 2x), new upkeeps should not be registered after the threshold amount is reached
-      for (let step = 0; step < threshold_small.toNumber() * 2; step++) {
-        abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
-          upkeepName,
-          emptyBytes,
-          mock.address,
-          executeGas.toNumber() + step, // make unique hash
-          await admin.getAddress(),
-          emptyBytes,
-          amount,
-          source,
-          await requestSender.getAddress(),
-        ])
+      //try registering another one, new upkeep should not be registered
+      abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
+        upkeepName,
+        emptyBytes,
+        mock.address,
+        executeGas.toNumber() + 1, // make unique hash
+        await admin.getAddress(),
+        emptyBytes,
+        amount,
+        source,
+        await requestSender.getAddress(),
+      ])
+      await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
+      assert.equal((await registry.getUpkeepCount()).toNumber(), 1) // Still 1
 
-        await linkToken
-          .connect(requestSender)
-          .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      }
-      const afterCount = await registry.getUpkeepCount()
-      //count of newly registered upkeeps should be equal to the threshold set for auto approval
-      const newRegistrationsCount =
-        afterCount.toNumber() - beforeCount.toNumber()
-      assert(
-        newRegistrationsCount == threshold_small.toNumber(),
-        'Registrations beyond threshold',
+      // Now set new max limit to 2. One more upkeep should get auto approved
+      await registrar.connect(registrarOwner).setRegistrationConfig(
+        autoApproveType_ENABLED_ALL,
+        2, // maxAllowedAutoApprove
+        registry.address,
+        minLINKJuels,
       )
+      abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
+        upkeepName,
+        emptyBytes,
+        mock.address,
+        executeGas.toNumber() + 2, // make unique hash
+        await admin.getAddress(),
+        emptyBytes,
+        amount,
+        source,
+        await requestSender.getAddress(),
+      ])
+      await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
+      assert.equal((await registry.getUpkeepCount()).toNumber(), 2) // 1 -> 2
+
+      // One more upkeep should not get registered
+      abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
+        upkeepName,
+        emptyBytes,
+        mock.address,
+        executeGas.toNumber() + 3, // make unique hash
+        await admin.getAddress(),
+        emptyBytes,
+        amount,
+        source,
+        await requestSender.getAddress(),
+      ])
+      await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
+      assert.equal((await registry.getUpkeepCount()).toNumber(), 2) // Still 2
     })
 
     it('Auto Approve Sender Allowlist - sender in allowlist - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
@@ -421,8 +443,7 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setRegistrationConfig(
           autoApproveType_ENABLED_SENDER_ALLOWLIST,
-          window_small,
-          threshold_big,
+          maxAllowedAutoApprove,
           registry.address,
           minLINKJuels,
         )
@@ -472,8 +493,7 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setRegistrationConfig(
           autoApproveType_ENABLED_SENDER_ALLOWLIST,
-          window_small,
-          threshold_big,
+          maxAllowedAutoApprove,
           registry.address,
           minLINKJuels,
         )
@@ -563,8 +583,7 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setRegistrationConfig(
           autoApproveType_DISABLED,
-          window_small,
-          threshold_big,
+          maxAllowedAutoApprove,
           registry.address,
           minLINKJuels,
         )
@@ -714,8 +733,7 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setRegistrationConfig(
           autoApproveType_DISABLED,
-          window_small,
-          threshold_big,
+          maxAllowedAutoApprove,
           registry.address,
           minLINKJuels,
         )
