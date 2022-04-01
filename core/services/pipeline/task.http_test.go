@@ -166,8 +166,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 			}
 			task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
-			err = test.vars.Set("meta", test.meta)
-			require.NoError(t, err)
+			test.vars.Set("meta", test.meta)
 
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
