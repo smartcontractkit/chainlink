@@ -110,11 +110,9 @@ describe('KeeperRegistrar', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
-    registry = await keeperRegistryFactory.connect(owner).deploy(
-      linkToken.address,
-      linkEthFeed.address,
-      gasPriceFeed.address,
-      {
+    registry = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,
@@ -123,10 +121,9 @@ describe('KeeperRegistrar', () => {
         gasCeilingMultiplier,
         minUpkeepSpend,
         maxPerformGas,
-      },
-      fallbackGasPrice,
-      fallbackLinkPrice,
-    )
+        fallbackGasPrice,
+        fallbackLinkPrice,
+      })
 
     mock = await upkeepMockFactory.deploy()
 
@@ -397,7 +394,7 @@ describe('KeeperRegistrar', () => {
         autoApproveType_ENABLED_ALL,
         2, // maxAllowedAutoApprove
         registry.address,
-        minLINKJuels,
+        minUpkeepSpend,
       )
       abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
         upkeepName,

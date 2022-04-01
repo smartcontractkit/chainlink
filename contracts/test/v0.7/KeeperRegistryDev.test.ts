@@ -143,11 +143,9 @@ describe('KeeperRegistry', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
-    registry = await keeperRegistryFactory.connect(owner).deploy(
-      linkToken.address,
-      linkEthFeed.address,
-      gasPriceFeed.address,
-      {
+    registry = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,
@@ -156,15 +154,12 @@ describe('KeeperRegistry', () => {
         gasCeilingMultiplier,
         minUpkeepSpend,
         maxPerformGas,
-      },
-      fallbackGasPrice,
-      fallbackLinkPrice,
-    )
-    registry2 = await keeperRegistryFactory.connect(owner).deploy(
-      linkToken.address,
-      linkEthFeed.address,
-      gasPriceFeed.address,
-      {
+        fallbackGasPrice,
+        fallbackLinkPrice,
+      })
+    registry2 = await keeperRegistryFactory
+      .connect(owner)
+      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
         paymentPremiumPPB,
         flatFeeMicroLink,
         blockCountPerTurn,
@@ -173,10 +168,9 @@ describe('KeeperRegistry', () => {
         gasCeilingMultiplier,
         minUpkeepSpend,
         maxPerformGas,
-      },
-      fallbackGasPrice,
-      fallbackLinkPrice,
-    )
+        fallbackGasPrice,
+        fallbackLinkPrice,
+      })
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mock = await upkeepMockFactory.deploy()
     await linkToken
@@ -636,20 +630,18 @@ describe('KeeperRegistry', () => {
 
         it('returns true with pricing info if the target can execute', async () => {
           const newGasMultiplier = BigNumber.from(10)
-          await registry.connect(owner).setConfig(
-            {
-              paymentPremiumPPB,
-              flatFeeMicroLink,
-              blockCountPerTurn,
-              checkGasLimit,
-              stalenessSeconds,
-              gasCeilingMultiplier: newGasMultiplier,
-              minUpkeepSpend,
-              maxPerformGas,
-            },
+          await registry.connect(owner).setConfig({
+            paymentPremiumPPB,
+            flatFeeMicroLink,
+            blockCountPerTurn,
+            checkGasLimit,
+            stalenessSeconds,
+            gasCeilingMultiplier: newGasMultiplier,
+            minUpkeepSpend,
+            maxPerformGas,
             fallbackGasPrice,
             fallbackLinkPrice,
-          )
+          })
           const response = await registry
             .connect(zeroAddress)
             .callStatic.checkUpkeep(id, await keeper1.getAddress())
@@ -838,20 +830,18 @@ describe('KeeperRegistry', () => {
       it('only pays at a rate up to the gas ceiling [ @skip-coverage ]', async () => {
         const multiplier = BigNumber.from(10)
         const gasPrice = BigNumber.from('1000000000') // 10M x the gas feed's rate
-        await registry.connect(owner).setConfig(
-          {
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier: multiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-          },
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier: multiplier,
+          minUpkeepSpend,
+          maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
-        )
+        })
 
         const before = (
           await registry.getKeeperInfo(await keeper1.getAddress())
@@ -876,20 +866,18 @@ describe('KeeperRegistry', () => {
         const multiplier = BigNumber.from(10)
         const gasPrice = BigNumber.from(200) // 2X the gas feed's rate
         const effectiveMultiplier = BigNumber.from(2)
-        await registry.connect(owner).setConfig(
-          {
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier: multiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-          },
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier: multiplier,
+          minUpkeepSpend,
+          maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
-        )
+        })
 
         const before = (
           await registry.getKeeperInfo(await keeper1.getAddress())
@@ -1189,20 +1177,18 @@ describe('KeeperRegistry', () => {
 
       it('deducts cancellation fees from upkeep and gives to owner', async () => {
         let minUpkeepSpend = toWei('10')
-        await registry.connect(owner).setConfig(
-          {
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-          },
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
-        )
+        })
 
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
@@ -1234,20 +1220,18 @@ describe('KeeperRegistry', () => {
       it('deducts max upto balance as cancellation fees', async () => {
         // Very high min spend, should deduct whole balance as cancellation fees
         let minUpkeepSpend = toWei('1000')
-        await registry.connect(owner).setConfig(
-          {
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-          },
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
-        )
+        })
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
@@ -1271,20 +1255,18 @@ describe('KeeperRegistry', () => {
       it('does not deduct cancellation fees if enough is spent', async () => {
         // Very low min spend, already spent in one upkeep
         let minUpkeepSpend = BigNumber.from(420)
-        await registry.connect(owner).setConfig(
-          {
-            paymentPremiumPPB,
-            flatFeeMicroLink,
-            blockCountPerTurn,
-            checkGasLimit,
-            stalenessSeconds,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-          },
+        await registry.connect(owner).setConfig({
+          paymentPremiumPPB,
+          flatFeeMicroLink,
+          blockCountPerTurn,
+          checkGasLimit,
+          stalenessSeconds,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
-        )
+        })
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
@@ -1321,20 +1303,18 @@ describe('KeeperRegistry', () => {
       await registry.connect(keeper1).addFunds(id, toWei('100'))
       // Very high min spend, whole balance as cancellation fees
       let minUpkeepSpend = toWei('1000')
-      await registry.connect(owner).setConfig(
-        {
-          paymentPremiumPPB,
-          flatFeeMicroLink,
-          blockCountPerTurn,
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier,
-          minUpkeepSpend,
-          maxPerformGas,
-        },
+      await registry.connect(owner).setConfig({
+        paymentPremiumPPB,
+        flatFeeMicroLink,
+        blockCountPerTurn,
+        checkGasLimit,
+        stalenessSeconds,
+        gasCeilingMultiplier,
+        minUpkeepSpend,
+        maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
-      )
+      })
       let upkeepBalance = (await registry.getUpkeep(id)).balance
       const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
 
@@ -1391,16 +1371,6 @@ describe('KeeperRegistry', () => {
           .to.emit(registry, 'UpkeepCanceled')
           .withArgs(id, BigNumber.from(receipt.blockNumber))
       })
-
-      // it('updates the canceled registrations list', async () => {
-      //   let canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([], canceled)
-
-      //   await registry.connect(owner).cancelUpkeep(id)
-
-      //   canceled = await registry.callStatic.getCanceledUpkeepList()
-      //   assert.deepEqual([id], canceled)
-      // })
 
       it('immediately prevents upkeep', async () => {
         await registry.connect(owner).cancelUpkeep(id)
@@ -1715,20 +1685,18 @@ describe('KeeperRegistry', () => {
 
     it('reverts when called by anyone but the proposed owner', async () => {
       await evmRevert(
-        registry.connect(payee1).setConfig(
-          {
-            paymentPremiumPPB: payment,
-            flatFeeMicroLink: flatFee,
-            blockCountPerTurn: checks,
-            checkGasLimit: maxGas,
-            stalenessSeconds: staleness,
-            gasCeilingMultiplier,
-            minUpkeepSpend,
-            maxPerformGas,
-          },
-          fbGasEth,
-          fbLinkEth,
-        ),
+        registry.connect(payee1).setConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          blockCountPerTurn: checks,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+        }),
         'Only callable by owner',
       )
     })
@@ -1741,20 +1709,18 @@ describe('KeeperRegistry', () => {
       assert.isTrue(stalenessSeconds.eq(old.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(old.gasCeilingMultiplier))
 
-      await registry.connect(owner).setConfig(
-        {
-          paymentPremiumPPB: payment,
-          flatFeeMicroLink: flatFee,
-          blockCountPerTurn: checks,
-          checkGasLimit: maxGas,
-          stalenessSeconds: staleness,
-          gasCeilingMultiplier: ceiling,
-          minUpkeepSpend,
-          maxPerformGas,
-        },
-        fbGasEth,
-        fbLinkEth,
-      )
+      await registry.connect(owner).setConfig({
+        paymentPremiumPPB: payment,
+        flatFeeMicroLink: flatFee,
+        blockCountPerTurn: checks,
+        checkGasLimit: maxGas,
+        stalenessSeconds: staleness,
+        gasCeilingMultiplier: ceiling,
+        minUpkeepSpend,
+        maxPerformGas,
+        fallbackGasPrice: fbGasEth,
+        fallbackLinkPrice: fbLinkEth,
+      })
 
       const updated = await registry.getConfig()
       assert.equal(updated.paymentPremiumPPB, payment.toNumber())
@@ -1768,36 +1734,32 @@ describe('KeeperRegistry', () => {
     })
 
     it('emits an event', async () => {
-      const tx = await registry.connect(owner).setConfig(
-        {
-          paymentPremiumPPB: payment,
-          flatFeeMicroLink: flatFee,
-          blockCountPerTurn: checks,
-          checkGasLimit: maxGas,
-          stalenessSeconds: staleness,
-          gasCeilingMultiplier: ceiling,
-          minUpkeepSpend,
-          maxPerformGas,
-        },
-        fbGasEth,
-        fbLinkEth,
-      )
+      const tx = await registry.connect(owner).setConfig({
+        paymentPremiumPPB: payment,
+        flatFeeMicroLink: flatFee,
+        blockCountPerTurn: checks,
+        checkGasLimit: maxGas,
+        stalenessSeconds: staleness,
+        gasCeilingMultiplier: ceiling,
+        minUpkeepSpend,
+        maxPerformGas,
+        fallbackGasPrice: fbGasEth,
+        fallbackLinkPrice: fbLinkEth,
+      })
       await expect(tx)
         .to.emit(registry, 'ConfigSet')
-        .withArgs(
-          [
-            payment,
-            flatFee,
-            checks,
-            maxGas,
-            staleness,
-            ceiling,
-            minUpkeepSpend,
-            maxPerformGas,
-          ],
+        .withArgs([
+          payment,
+          flatFee,
+          checks,
+          maxGas,
+          staleness,
+          ceiling,
+          minUpkeepSpend,
+          maxPerformGas,
           fbGasEth,
           fbLinkEth,
-        )
+        ])
     })
   })
 
@@ -1992,20 +1954,18 @@ describe('KeeperRegistry', () => {
           const premium = premiums[jdx]
           for (let kdx = 0; kdx < flatFees.length; kdx++) {
             const flatFee = flatFees[kdx]
-            await registry.connect(owner).setConfig(
-              {
-                paymentPremiumPPB: premium,
-                flatFeeMicroLink: flatFee,
-                blockCountPerTurn,
-                checkGasLimit,
-                stalenessSeconds,
-                gasCeilingMultiplier,
-                minUpkeepSpend,
-                maxPerformGas,
-              },
+            await registry.connect(owner).setConfig({
+              paymentPremiumPPB: premium,
+              flatFeeMicroLink: flatFee,
+              blockCountPerTurn,
+              checkGasLimit,
+              stalenessSeconds,
+              gasCeilingMultiplier,
+              minUpkeepSpend,
+              maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
-            )
+            })
             const price = await registry.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
           }
@@ -2014,40 +1974,32 @@ describe('KeeperRegistry', () => {
     })
   })
 
-  describe('#setPermittedRegistries() / #getPermittedRegistries()', () => {
-    const set1 = [
-      randomAddress(),
-      randomAddress(),
-      randomAddress(),
-      randomAddress(),
-      randomAddress(),
-      randomAddress(),
-      randomAddress(),
-    ]
-    const set2 = [randomAddress(), randomAddress()]
+  describe('#setPeerRegistryMigrationPermission() / #getPeerRegistryMigrationPermission()', () => {
+    const peer = randomAddress()
     it('allows the owner to set the peer registries', async () => {
-      await registry.setPermittedRegistries(set1, set2)
-      let [incoming, outgoing] = await registry.getPermittedRegistries()
-      expect(incoming).to.deep.equalInAnyOrder(set1)
-      expect(outgoing).to.deep.equalInAnyOrder(set2)
-
-      await registry.setPermittedRegistries(set2, set1)
-      ;[incoming, outgoing] = await registry.getPermittedRegistries()
-      expect(incoming).to.deep.equalInAnyOrder(set2)
-      expect(outgoing).to.deep.equalInAnyOrder(set1)
+      let permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(0)
+      await registry.setPeerRegistryMigrationPermission(peer, 1)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(1)
+      await registry.setPeerRegistryMigrationPermission(peer, 2)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(2)
     })
-    it.skip('reverts if there are duplicates', async () => {})
-    it.skip('reverts if any addresses are the zero address', async () => {})
-    it.skip('reverts if not called by the owner', async () => {})
+    it('reverts if not called by the owner', async () => {
+      await expect(
+        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 1),
+      ).to.be.revertedWith('Only callable by owner')
+    })
   })
 
-  describe('migrateUpkeeps() / #importUpkeeps()', async () => {
+  describe('migrateUpkeeps() / #receiveUpkeeps()', async () => {
     context('when permissions are set', () => {
       beforeEach(async () => {
         await linkToken.connect(owner).approve(registry.address, toWei('100'))
         await registry.connect(owner).addFunds(id, toWei('100'))
-        await registry.setPermittedRegistries([], [registry2.address])
-        await registry2.setPermittedRegistries([registry.address], [])
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
       })
 
       it('migrates an upkeep', async () => {
@@ -2068,23 +2020,23 @@ describe('KeeperRegistry', () => {
     context('when permissions are not set', () => {
       it('reverts', async () => {
         // no permissions
-        await registry.setPermittedRegistries([], [])
-        await registry2.setPermittedRegistries([], [])
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
         await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
           .reverted
         // only outgoing permissions
-        await registry.setPermittedRegistries([], [registry2.address])
-        await registry2.setPermittedRegistries([], [])
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 0)
         await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
           .reverted
         // only incoming permissions
-        await registry.setPermittedRegistries([], [])
-        await registry2.setPermittedRegistries([registry.address], [])
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 0)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
         await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
           .reverted
         // permissions opposite direction
-        await registry.setPermittedRegistries([registry2.address], [])
-        await registry2.setPermittedRegistries([], [registry.address])
+        await registry.setPeerRegistryMigrationPermission(registry2.address, 2)
+        await registry2.setPeerRegistryMigrationPermission(registry.address, 1)
         await expect(registry.migrateUpkeeps([id], registry2.address)).to.be
           .reverted
       })
@@ -2098,20 +2050,18 @@ describe('KeeperRegistry', () => {
     const callGasPrice = 1
 
     it('uses the same minimum balance calculation [ @skip-coverage ]', async () => {
-      await registry.connect(owner).setConfig(
-        {
-          paymentPremiumPPB,
-          flatFeeMicroLink: flatFee,
-          blockCountPerTurn,
-          checkGasLimit,
-          stalenessSeconds,
-          gasCeilingMultiplier: multiplier,
-          minUpkeepSpend,
-          maxPerformGas,
-        },
+      await registry.connect(owner).setConfig({
+        paymentPremiumPPB,
+        flatFeeMicroLink: flatFee,
+        blockCountPerTurn,
+        checkGasLimit,
+        stalenessSeconds,
+        gasCeilingMultiplier: multiplier,
+        minUpkeepSpend,
+        maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
-      )
+      })
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
 
       const tx1 = await registry
