@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type fnMock struct{ calls int }
@@ -105,6 +106,9 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		n.setState(NodeStateUndialed)
 		n.transitionToUnreachable(m.Fn)
 		m.AssertNumberOfCalls(t, 4)
+		n.setState(NodeStateInvalidChainID)
+		n.transitionToUnreachable(m.Fn)
+		m.AssertNumberOfCalls(t, 5)
 	})
 	t.Run("transitionToInvalidChainID", func(t *testing.T) {
 		m := new(fnMock)

@@ -55,7 +55,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220329173754-3b42bb02b12f
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220315114020-a15962b0ed9b
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220329201232-f561b9a79014
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -77,6 +77,7 @@ require (
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220210151621-f4118a5b28e2
+	golang.org/x/exp v0.0.0-20220328175248-053ad81199eb
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
