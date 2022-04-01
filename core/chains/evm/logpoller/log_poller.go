@@ -104,9 +104,9 @@ func (lp *LogPoller) Replay(fromBlock int64) {
 	lp.replay <- fromBlock
 }
 
-func (lp *LogPoller) Start(ctx context.Context) error {
+func (lp *LogPoller) Start(parentCtx context.Context) error {
 	return lp.StartOnce("LogPoller", func() error {
-		ctx, cancel := context.WithCancel(ctx)
+		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
 		lp.cancel = cancel
 		go lp.run()
