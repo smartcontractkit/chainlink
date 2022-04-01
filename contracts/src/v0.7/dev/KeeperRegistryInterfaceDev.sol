@@ -5,6 +5,40 @@
  */
 
 pragma solidity ^0.7.0;
+pragma abicoder v2;
+
+/**
+ * @notice see State struct for field descriptions
+ * @param paymentPremiumPPB payment premium rate oracles receive on top of
+ * being reimbursed for gas, measured in parts per billion
+ * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+ * priced in MicroLink; can be used in conjunction with or independently of
+ * paymentPremiumPPB
+ * @param blockCountPerTurn number of blocks each oracle has during their turn to
+ * perform upkeep before it will be the next keeper's turn to submit
+ * @param checkGasLimit gas limit when checking for upkeep
+ * @param stalenessSeconds number of seconds that is allowed for feed data to
+ * be stale before switching to the fallback pricing
+ * @param gasCeilingMultiplier multiplier to apply to the fast gas feed price
+ * when calculating the payment ceiling for keepers
+ * @param minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
+ * @param maxPerformGas max executeGas allowed for an upkeep on this registry
+ * @param fallbackGasPrice gas price used if the gas price feed is stale
+ * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
+ * @dev config struct is only used for arguments and return vals
+ */
+struct Config {
+  uint32 paymentPremiumPPB;
+  uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
+  uint24 blockCountPerTurn;
+  uint32 checkGasLimit;
+  uint24 stalenessSeconds;
+  uint16 gasCeilingMultiplier;
+  uint96 minUpkeepSpend; // 1 evm word
+  uint32 maxPerformGas;
+  uint256 fallbackGasPrice;
+  uint256 fallbackLinkPrice;
+}
 
 interface KeeperRegistryBaseInterface {
   function registerUpkeep(
@@ -53,22 +87,7 @@ interface KeeperRegistryBaseInterface {
       uint96 balance
     );
 
-  function getConfig()
-    external
-    view
-    returns (
-      uint32 paymentPremiumPPB,
-      uint32 flatFeeMicroLink,
-      uint24 checkFrequencyBlocks,
-      uint32 checkGasLimit,
-      uint24 stalenessSeconds,
-      uint16 gasCeilingMultiplier,
-      uint96 minUpkeepSpend,
-      uint32 maxPerformGas,
-      uint256 fallbackGasPrice,
-      uint256 fallbackLinkPrice,
-      uint32 nonce
-    );
+  function getConfig() external view returns (Config memory);
 }
 
 /**
