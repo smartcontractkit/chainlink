@@ -63,7 +63,7 @@ contract KeeperRegistryDev is
   mapping(address => KeeperInfo) private s_keeperInfo;
   mapping(address => address) private s_proposedPayee;
   mapping(uint256 => bytes) private s_checkData;
-  Config private s_config;
+  State private s_state;
   uint256 private s_fallbackGasPrice; // not in config object for gas savings
   uint256 private s_fallbackLinkPrice; // not in config object for gas savings
   uint96 private s_ownerLinkBalance;
@@ -132,6 +132,11 @@ contract KeeperRegistryDev is
     uint16 gasCeilingMultiplier;
     uint96 minUpkeepSpend; // 1 evm word
     uint32 maxPerformGas;
+  }
+
+  struct State {
+    Config config;
+    uint32 nonce;
   }
 
   struct PerformParams {
@@ -240,7 +245,7 @@ contract KeeperRegistryDev is
     Upkeep memory upkeep = s_upkeep[id];
 
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_config.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_state.config.checkGasLimit}(callData);
 
     if (!success) {
       string memory upkeepRevertReason = getRevertMsg(result);
@@ -331,7 +336,7 @@ contract KeeperRegistryDev is
   function withdrawFunds(uint256 id, address to) external validateRecipient(to) onlyUpkeepAdmin(id) {
     require(s_upkeep[id].maxValidBlocknumber <= block.number, "upkeep must be canceled");
 
-    uint96 minUpkeepSpend = s_config.minUpkeepSpend;
+    uint96 minUpkeepSpend = s_state.config.minUpkeepSpend;
     uint96 amountLeft = s_upkeep[id].balance;
     uint96 amountSpent = s_upkeep[id].amountSpent;
 
@@ -374,7 +379,7 @@ contract KeeperRegistryDev is
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override onlyActiveUpkeep(id) onlyUpkeepAdmin(id) {
     require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
-    require(gasLimit <= s_config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
+    require(gasLimit <= s_state.config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
 
     s_upkeep[id].executeGas = gasLimit;
 
@@ -465,8 +470,8 @@ contract KeeperRegistryDev is
     uint256 fallbackGasPrice,
     uint256 fallbackLinkPrice
   ) public onlyOwner {
-    require(config.maxPerformGas >= s_config.maxPerformGas, "maxPerformGas can only be increased");
-    s_config = config;
+    require(config.maxPerformGas >= s_state.config.maxPerformGas, "maxPerformGas can only be increased");
+    s_state.config = config;
     s_fallbackGasPrice = fallbackGasPrice;
     s_fallbackLinkPrice = fallbackLinkPrice;
 
@@ -650,32 +655,26 @@ contract KeeperRegistryDev is
       uint32 checkGasLimit,
       uint24 stalenessSeconds,
       uint16 gasCeilingMultiplier,
+      uint96 minUpkeepSpend,
+      uint32 maxPerformGas,
       uint256 fallbackGasPrice,
       uint256 fallbackLinkPrice,
-      uint96 minUpkeepSpend,
-      uint32 maxPerformGas
+      uint32 nonce
     )
   {
-    Config memory config = s_config;
+    State memory state = s_state;
     return (
-      config.paymentPremiumPPB,
-      config.blockCountPerTurn,
-      config.checkGasLimit,
-      config.stalenessSeconds,
-      config.gasCeilingMultiplier,
+      state.config.paymentPremiumPPB,
+      state.config.blockCountPerTurn,
+      state.config.checkGasLimit,
+      state.config.stalenessSeconds,
+      state.config.gasCeilingMultiplier,
+      state.config.minUpkeepSpend,
+      state.config.maxPerformGas,
       s_fallbackGasPrice,
       s_fallbackLinkPrice,
-      config.minUpkeepSpend,
-      config.maxPerformGas
+      state.nonce
     );
-  }
-
-  /**
-   * @notice getFlatFee gets the flat rate fee charged to customers when performing upkeep,
-   * in units of of micro LINK
-   */
-  function getFlatFee() external view returns (uint32) {
-    return s_config.flatFeeMicroLink;
   }
 
   /**
@@ -810,7 +809,7 @@ contract KeeperRegistryDev is
   ) internal {
     require(target.isContract(), "target is not a contract");
     require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
-    require(gasLimit <= s_config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
+    require(gasLimit <= s_state.config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
     s_upkeep[id] = Upkeep({
       target: target,
       executeGas: gasLimit,
@@ -833,7 +832,7 @@ contract KeeperRegistryDev is
    * price in order to reduce costs for the upkeep clients.
    */
   function getFeedData() private view returns (uint256 gasWei, uint256 linkEth) {
-    uint32 stalenessSeconds = s_config.stalenessSeconds;
+    uint32 stalenessSeconds = s_state.config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
@@ -860,7 +859,7 @@ contract KeeperRegistryDev is
     uint256 gasWei,
     uint256 linkEth
   ) private view returns (uint96 payment) {
-    Config memory config = s_config;
+    Config memory config = s_state.config;
     uint256 weiForGas = gasWei.mul(gasLimit.add(REGISTRY_GAS_OVERHEAD));
     uint256 premium = PPB_BASE.add(config.paymentPremiumPPB);
     uint256 total = weiForGas.mul(1e9).mul(premium).div(linkEth).add(uint256(config.flatFeeMicroLink).mul(1e12));
@@ -952,7 +951,7 @@ contract KeeperRegistryDev is
    * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
    */
   function adjustGasPrice(uint256 gasWei, bool useTxGasPrice) private view returns (uint256 adjustedPrice) {
-    adjustedPrice = gasWei.mul(s_config.gasCeilingMultiplier);
+    adjustedPrice = gasWei.mul(s_state.config.gasCeilingMultiplier);
     if (useTxGasPrice && tx.gasprice < adjustedPrice) {
       adjustedPrice = tx.gasprice;
     }
