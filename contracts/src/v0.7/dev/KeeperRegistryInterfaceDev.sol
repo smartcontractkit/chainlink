@@ -58,6 +58,7 @@ interface KeeperRegistryBaseInterface {
     view
     returns (
       uint32 paymentPremiumPPB,
+      uint32 flatFeeMicroLink,
       uint24 checkFrequencyBlocks,
       uint32 checkGasLimit,
       uint24 stalenessSeconds,
