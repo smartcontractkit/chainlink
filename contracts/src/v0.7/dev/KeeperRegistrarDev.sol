@@ -25,8 +25,8 @@ import "../ConfirmedOwner.sol";
 contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
-   * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to rate limits. Manual for rest.
-   * ENABLED_ALL: Auto approvals for all new upkeeps subject to rate limits.
+   * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.
+   * ENABLED_ALL: Auto approvals for all new upkeeps subject to max allowed.
    */
   enum AutoApproveType {
     DISABLED,
@@ -38,7 +38,6 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
 
   bytes4 private constant REGISTER_REQUEST_SELECTOR = this.register.selector;
 
-  uint256 private s_minLINKJuels;
   mapping(bytes32 => PendingRequest) private s_pendingRequests;
 
   LinkTokenInterface public immutable LINK;
@@ -46,16 +45,17 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
   /**
    * @notice versions:
    * - KeeperRegistrar 1.1.0: Add functionality for sender allowlist in auto approve
+   *                        : Remove rate limit and add max allowed for auto approve
    * - KeeperRegistrar 1.0.0: initial release
    */
   string public constant override typeAndVersion = "KeeperRegistrar 1.1.0";
 
-  struct AutoApprovedConfig {
-    AutoApproveType configType;
-    uint16 allowedPerWindow;
-    uint32 windowSizeInBlocks;
-    uint64 windowStart;
-    uint16 approvedInCurrentWindow;
+  struct Config {
+    AutoApproveType autoApproveConfigType;
+    uint32 autoApproveMaxAllowed;
+    uint32 approvedCount;
+    KeeperRegistryBaseInterface keeperRegistry;
+    uint96 minLINKJuels;
   }
 
   struct PendingRequest {
@@ -63,10 +63,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint96 balance;
   }
 
-  AutoApprovedConfig private s_config;
+  Config private s_config;
   // Only applicable if s_config.configType is ENABLED_SENDER_ALLOWLIST
   mapping(address => bool) private s_autoApproveAllowedSenders;
-  KeeperRegistryBaseInterface private s_keeperRegistry;
 
   event RegistrationRequested(
     bytes32 indexed hash,
@@ -87,16 +86,28 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
   event AutoApproveAllowedSenderSet(address indexed senderAddress, bool allowed);
 
   event ConfigChanged(
-    AutoApproveType configType,
-    uint32 windowSizeInBlocks,
-    uint16 allowedPerWindow,
+    AutoApproveType autoApproveConfigType,
+    uint32 autoApproveMaxAllowed,
     address keeperRegistry,
-    uint256 minLINKJuels
+    uint96 minLINKJuels
   );
 
-  constructor(address LINKAddress, uint256 minimumLINKJuels) ConfirmedOwner(msg.sender) {
+  /*
+   * @param LINKAddress Address of Link token
+   * @param autoApproveConfigType setting for auto-approve registrations
+   * @param autoApproveMaxAllowed max number of registrations that can be auto approved
+   * @param keeperRegistry keeper registry address
+   * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
+   */
+  constructor(
+    address LINKAddress,
+    AutoApproveType autoApproveConfigType,
+    uint16 autoApproveMaxAllowed,
+    address keeperRegistry,
+    uint96 minLINKJuels
+  ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(LINKAddress);
-    s_minLINKJuels = minimumLINKJuels;
+    setRegistrationConfig(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
   }
 
   //EXTERNAL
@@ -139,9 +150,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
       source
     );
 
-    AutoApprovedConfig memory config = s_config;
+    Config memory config = s_config;
     if (_shouldAutoApprove(config, sender)) {
-      _incrementApprovedCount(config);
+      s_config.approvedCount = config.approvedCount + 1;
 
       _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
     } else {
@@ -184,30 +195,28 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
 
   /**
    * @notice owner calls this function to set if registration requests should be sent directly to the Keeper Registry
-   * @param configType setting for auto-approve registrations
+   * @param autoApproveConfigType setting for auto-approve registrations
    *                   note: autoApproveAllowedSenders list persists across config changes irrespective of type
-   * @param windowSizeInBlocks window size defined in number of blocks
-   * @param allowedPerWindow number of registrations that can be auto approved in above window
+   * @param autoApproveMaxAllowed max number of registrations that can be auto approved
    * @param keeperRegistry new keeper registry address
+   * @param minLINKJuels minimum LINK that new registrations should fund their upkeep with
    */
   function setRegistrationConfig(
-    AutoApproveType configType,
-    uint32 windowSizeInBlocks,
-    uint16 allowedPerWindow,
+    AutoApproveType autoApproveConfigType,
+    uint16 autoApproveMaxAllowed,
     address keeperRegistry,
-    uint256 minLINKJuels
-  ) external onlyOwner {
-    s_config = AutoApprovedConfig({
-      configType: configType,
-      allowedPerWindow: allowedPerWindow,
-      windowSizeInBlocks: windowSizeInBlocks,
-      windowStart: 0,
-      approvedInCurrentWindow: 0
+    uint96 minLINKJuels
+  ) public onlyOwner {
+    uint32 approvedCount = s_config.approvedCount;
+    s_config = Config({
+      autoApproveConfigType: autoApproveConfigType,
+      autoApproveMaxAllowed: autoApproveMaxAllowed,
+      approvedCount: approvedCount,
+      minLINKJuels: minLINKJuels,
+      keeperRegistry: KeeperRegistryBaseInterface(keeperRegistry)
     });
-    s_minLINKJuels = minLINKJuels;
-    s_keeperRegistry = KeeperRegistryBaseInterface(keeperRegistry);
 
-    emit ConfigChanged(configType, windowSizeInBlocks, allowedPerWindow, keeperRegistry, minLINKJuels);
+    emit ConfigChanged(autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels);
   }
 
   /**
@@ -236,24 +245,20 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     external
     view
     returns (
-      AutoApproveType configType,
-      uint32 windowSizeInBlocks,
-      uint16 allowedPerWindow,
+      AutoApproveType autoApproveConfigType,
+      uint32 autoApproveMaxAllowed,
+      uint32 approvedCount,
       address keeperRegistry,
-      uint256 minLINKJuels,
-      uint64 windowStart,
-      uint16 approvedInCurrentWindow
+      uint256 minLINKJuels
     )
   {
-    AutoApprovedConfig memory config = s_config;
+    Config memory config = s_config;
     return (
-      config.configType,
-      config.windowSizeInBlocks,
-      config.allowedPerWindow,
-      address(s_keeperRegistry),
-      s_minLINKJuels,
-      config.windowStart,
-      config.approvedInCurrentWindow
+      config.autoApproveConfigType,
+      config.autoApproveMaxAllowed,
+      config.approvedCount,
+      address(config.keeperRegistry),
+      config.minLINKJuels
     );
   }
 
@@ -276,25 +281,13 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint256 amount,
     bytes calldata data
   ) external onlyLINK permittedFunctionsForLINK(data) isActualAmount(amount, data) isActualSender(sender, data) {
-    require(amount >= s_minLINKJuels, "Insufficient payment");
+    require(amount >= s_config.minLINKJuels, "Insufficient payment");
     (bool success, ) = address(this).delegatecall(data);
     // calls register
     require(success, "Unable to create request");
   }
 
   //PRIVATE
-
-  /**
-   * @dev reset auto approve window if passed end of current window
-   */
-  function _resetWindowIfRequired(AutoApprovedConfig memory config) private {
-    uint64 blocksPassed = uint64(block.number - config.windowStart);
-    if (blocksPassed >= config.windowSizeInBlocks) {
-      config.windowStart = uint64(block.number);
-      config.approvedInCurrentWindow = 0;
-      s_config = config;
-    }
-  }
 
   /**
    * @dev register upkeep on KeeperRegistry contract and emit RegistrationApproved event
@@ -308,7 +301,7 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint96 amount,
     bytes32 hash
   ) private {
-    KeeperRegistryBaseInterface keeperRegistry = s_keeperRegistry;
+    KeeperRegistryBaseInterface keeperRegistry = s_config.keeperRegistry;
 
     // register upkeep
     uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
@@ -320,28 +313,21 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
   }
 
   /**
-   * @dev verify sender allowlist if needed and check rate limits
+   * @dev verify sender allowlist if needed and check max limit
    */
-  function _shouldAutoApprove(AutoApprovedConfig memory config, address sender) private returns (bool) {
-    if (config.configType == AutoApproveType.DISABLED) {
+  function _shouldAutoApprove(Config memory config, address sender) private returns (bool) {
+    if (config.autoApproveConfigType == AutoApproveType.DISABLED) {
       return false;
     }
-    if (config.configType == AutoApproveType.ENABLED_SENDER_ALLOWLIST && (!s_autoApproveAllowedSenders[sender])) {
+    if (
+      config.autoApproveConfigType == AutoApproveType.ENABLED_SENDER_ALLOWLIST && (!s_autoApproveAllowedSenders[sender])
+    ) {
       return false;
     }
-    _resetWindowIfRequired(config);
-    if (config.approvedInCurrentWindow < config.allowedPerWindow) {
+    if (config.approvedCount < config.autoApproveMaxAllowed) {
       return true;
     }
     return false;
-  }
-
-  /**
-   * @dev record new latest approved count
-   */
-  function _incrementApprovedCount(AutoApprovedConfig memory config) private {
-    config.approvedInCurrentWindow++;
-    s_config = config;
   }
 
   //MODIFIERS
