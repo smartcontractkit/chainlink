@@ -41,7 +41,6 @@ contract KeeperRegistryDev is
   using SafeMathChainlink for uint256;
   using SafeMath96 for uint96;
   using SignedSafeMath for int256;
-  using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
 
   address private constant ZERO_ADDRESS = address(0);
@@ -56,21 +55,19 @@ contract KeeperRegistryDev is
   uint64 private constant UINT64_MAX = 2**64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
 
-  uint256 private s_nonce;
   address[] private s_keeperList;
   EnumerableSet.UintSet private s_upkeepIDs;
   mapping(uint256 => Upkeep) private s_upkeep;
   mapping(address => KeeperInfo) private s_keeperInfo;
   mapping(address => address) private s_proposedPayee;
   mapping(uint256 => bytes) private s_checkData;
+  mapping(address => MigrationPermission) private s_peerRegistryMigrationPermission;
   State private s_state;
   uint256 private s_fallbackGasPrice; // not in config object for gas savings
   uint256 private s_fallbackLinkPrice; // not in config object for gas savings
   uint96 private s_ownerLinkBalance;
   uint256 private s_expectedLinkBalance;
   UpkeepTranscoderInterface private s_transcoder;
-  EnumerableSet.AddressSet private s_permittedIncomingRegistryAddresses;
-  EnumerableSet.AddressSet private s_permittedOutgoingRegistryAddresses;
 
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
@@ -89,6 +86,13 @@ contract KeeperRegistryDev is
    */
   string public constant override typeAndVersion = "KeeperRegistry 1.2.0";
 
+  enum MigrationPermission {
+    NONE,
+    OUTGOING,
+    INCOMING,
+    BIDIRECTIONAL
+  }
+
   struct Upkeep {
     uint96 balance;
     address lastKeeper; // 1 storage slot full
@@ -106,23 +110,9 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @notice config for the registry
-   * @param paymentPremiumPPB payment premium rate oracles receive on top of
-   * being reimbursed for gas, measured in parts per billion
-   * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
-   * priced in MicroLink; can be used in conjunction with or independently of
-   * paymentPremiumPPB
-   * @param blockCountPerTurn number of blocks each oracle has during their turn to
-   * perform upkeep before it will be the next keeper's turn to submit
-   * @param checkGasLimit gas limit when checking for upkeep
-   * @param stalenessSeconds number of seconds that is allowed for feed data to
-   * be stale before switching to the fallback pricing
-   * @param gasCeilingMultiplier multiplier to apply to the fast gas feed price
-   * when calculating the payment ceiling for keepers
-   * @param minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
-   * @param maxPerformGas max executeGas allowed for an upkeep on this registry
+   * @notice state of the registry
    */
-  struct Config {
+  struct State {
     uint32 paymentPremiumPPB;
     uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
     uint24 blockCountPerTurn;
@@ -131,10 +121,6 @@ contract KeeperRegistryDev is
     uint16 gasCeilingMultiplier;
     uint96 minUpkeepSpend; // 1 evm word
     uint32 maxPerformGas;
-  }
-
-  struct State {
-    Config config;
     uint32 nonce;
   }
 
@@ -162,8 +148,7 @@ contract KeeperRegistryDev is
   event OwnerFundsWithdrawn(uint96 amount);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
   event UpkeepImported(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event ConfigSet(Config config, uint256 fallbackGasPrice, uint256 fallbackLinkPrice);
-  event FlatFeeSet(uint32 flatFeeMicroLink);
+  event ConfigSet(Config config);
   event KeepersUpdated(address[] keepers, address[] payees);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
@@ -177,21 +162,17 @@ contract KeeperRegistryDev is
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
    * @param config registry config settings
-   * @param fallbackGasPrice gas price used if the gas price feed is stale
-   * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
    */
   constructor(
     address link,
     address linkEthFeed,
     address fastGasFeed,
-    Config memory config,
-    uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
+    Config memory config
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
-    setConfig(config, fallbackGasPrice, fallbackLinkPrice);
+    setConfig(config);
   }
 
   // ACTIONS
@@ -210,14 +191,9 @@ contract KeeperRegistryDev is
     address admin,
     bytes calldata checkData
   ) external override onlyOwnerOrRegistrar returns (uint256 id) {
-    // TODO use block.chainID in solidity 0.8
-    uint256 chainID;
-    assembly {
-      chainID := chainid()
-    }
-    id = uint256(keccak256(abi.encodePacked(chainID, address(this), s_nonce)));
+    id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_state.nonce)));
     createUpkeep(id, target, gasLimit, admin, 0, checkData);
-    s_nonce++;
+    s_state.nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
     return id;
   }
@@ -246,7 +222,7 @@ contract KeeperRegistryDev is
     Upkeep memory upkeep = s_upkeep[id];
 
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_state.config.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_state.checkGasLimit}(callData);
 
     if (!success) {
       string memory upkeepRevertReason = getRevertMsg(result);
@@ -337,7 +313,7 @@ contract KeeperRegistryDev is
   function withdrawFunds(uint256 id, address to) external validateRecipient(to) onlyUpkeepAdmin(id) {
     require(s_upkeep[id].maxValidBlocknumber <= block.number, "upkeep must be canceled");
 
-    uint96 minUpkeepSpend = s_state.config.minUpkeepSpend;
+    uint96 minUpkeepSpend = s_state.minUpkeepSpend;
     uint96 amountLeft = s_upkeep[id].balance;
     uint96 amountSpent = s_upkeep[id].amountSpent;
 
@@ -380,7 +356,7 @@ contract KeeperRegistryDev is
    */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external override onlyActiveUpkeep(id) onlyUpkeepAdmin(id) {
     require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
-    require(gasLimit <= s_state.config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
+    require(gasLimit <= s_state.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
 
     s_upkeep[id].executeGas = gasLimit;
 
@@ -463,20 +439,23 @@ contract KeeperRegistryDev is
   /**
    * @notice updates the configuration of the registry
    * @param config registry config fields
-   * @param fallbackGasPrice gas price used if the gas price feed is stale
-   * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
    */
-  function setConfig(
-    Config memory config,
-    uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice
-  ) public onlyOwner {
-    require(config.maxPerformGas >= s_state.config.maxPerformGas, "maxPerformGas can only be increased");
-    s_state.config = config;
-    s_fallbackGasPrice = fallbackGasPrice;
-    s_fallbackLinkPrice = fallbackLinkPrice;
-
-    emit ConfigSet(config, fallbackGasPrice, fallbackLinkPrice);
+  function setConfig(Config memory config) public onlyOwner {
+    require(config.maxPerformGas >= s_state.maxPerformGas, "maxPerformGas can only be increased");
+    s_state = State({
+      paymentPremiumPPB: config.paymentPremiumPPB,
+      flatFeeMicroLink: config.flatFeeMicroLink,
+      blockCountPerTurn: config.blockCountPerTurn,
+      checkGasLimit: config.checkGasLimit,
+      stalenessSeconds: config.stalenessSeconds,
+      gasCeilingMultiplier: config.gasCeilingMultiplier,
+      minUpkeepSpend: config.minUpkeepSpend,
+      maxPerformGas: config.maxPerformGas,
+      nonce: s_state.nonce
+    });
+    s_fallbackGasPrice = config.fallbackGasPrice;
+    s_fallbackLinkPrice = config.fallbackLinkPrice;
+    emit ConfigSet(config);
   }
 
   /**
@@ -575,7 +554,7 @@ contract KeeperRegistryDev is
    * @notice read the nonce used for generating upkeep IDs
    */
   function getNonce() external view override returns (uint256) {
-    return s_nonce;
+    return s_state.nonce;
   }
 
   /**
@@ -646,37 +625,21 @@ contract KeeperRegistryDev is
   /**
    * @notice read the current configuration of the registry
    */
-  function getConfig()
-    external
-    view
-    override
-    returns (
-      uint32 paymentPremiumPPB,
-      uint32 flatFeeMicroLink,
-      uint24 blockCountPerTurn,
-      uint32 checkGasLimit,
-      uint24 stalenessSeconds,
-      uint16 gasCeilingMultiplier,
-      uint96 minUpkeepSpend,
-      uint32 maxPerformGas,
-      uint256 fallbackGasPrice,
-      uint256 fallbackLinkPrice,
-      uint32 nonce
-    )
-  {
+  function getConfig() external view override returns (Config memory) {
     State memory state = s_state;
     return (
-      state.config.paymentPremiumPPB,
-      state.config.flatFeeMicroLink,
-      state.config.blockCountPerTurn,
-      state.config.checkGasLimit,
-      state.config.stalenessSeconds,
-      state.config.gasCeilingMultiplier,
-      state.config.minUpkeepSpend,
-      state.config.maxPerformGas,
-      s_fallbackGasPrice,
-      s_fallbackLinkPrice,
-      state.nonce
+      Config({
+        paymentPremiumPPB: state.paymentPremiumPPB,
+        flatFeeMicroLink: state.flatFeeMicroLink,
+        blockCountPerTurn: state.blockCountPerTurn,
+        checkGasLimit: state.checkGasLimit,
+        stalenessSeconds: state.stalenessSeconds,
+        gasCeilingMultiplier: state.gasCeilingMultiplier,
+        minUpkeepSpend: state.minUpkeepSpend,
+        maxPerformGas: state.maxPerformGas,
+        fallbackGasPrice: s_fallbackGasPrice,
+        fallbackLinkPrice: s_fallbackLinkPrice
+      })
     );
   }
 
@@ -699,47 +662,24 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @notice retrieves the permited incoming and outgoing registries from storage
+   * @notice retrieves the migration permission for a peer registry
    */
-  function getPermittedRegistries() external view returns (address[] memory, address[] memory) {
-    uint256 idx;
-    address[] memory incoming = new address[](s_permittedIncomingRegistryAddresses.length());
-    address[] memory outgoing = new address[](s_permittedOutgoingRegistryAddresses.length());
-    for (; idx < incoming.length; idx++) {
-      incoming[idx] = s_permittedIncomingRegistryAddresses.at(idx);
-    }
-    for (idx = 0; idx < outgoing.length; idx++) {
-      outgoing[idx] = s_permittedOutgoingRegistryAddresses.at(idx);
-    }
-    return (incoming, outgoing);
+  function getPeerRegistryMigrationPermission(address peer) external view returns (MigrationPermission) {
+    return s_peerRegistryMigrationPermission[peer];
   }
 
   /**
-   * @notice sets the approved registry addresses
-   * @dev this function wastes so much gas 🤦
+   * @notice sets the peer registry migration permission
    */
-  function setPermittedRegistries(address[] calldata incoming, address[] calldata outgoing) external onlyOwner {
-    uint256 idx;
-    uint256 numIncoming = s_permittedIncomingRegistryAddresses.length();
-    uint256 numOutgoing = s_permittedOutgoingRegistryAddresses.length();
-    // delete old set members
-    for (idx = numIncoming; idx > 0; idx--) {
-      s_permittedIncomingRegistryAddresses.remove(s_permittedIncomingRegistryAddresses.at(idx - 1));
-    }
-    for (idx = numOutgoing; idx > 0; idx--) {
-      s_permittedOutgoingRegistryAddresses.remove(s_permittedOutgoingRegistryAddresses.at(idx - 1));
-    }
-    // add new ones
-    for (idx = 0; idx < incoming.length; idx++) {
-      s_permittedIncomingRegistryAddresses.add(incoming[idx]);
-    }
-    for (idx = 0; idx < outgoing.length; idx++) {
-      s_permittedOutgoingRegistryAddresses.add(outgoing[idx]);
-    }
+  function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external onlyOwner {
+    s_peerRegistryMigrationPermission[peer] = permission;
   }
 
   function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
-    require(s_permittedOutgoingRegistryAddresses.contains(destination), "invalid destination");
+    require(
+      s_peerRegistryMigrationPermission[destination] == MigrationPermission.OUTGOING ||
+        s_peerRegistryMigrationPermission[destination] == MigrationPermission.BIDIRECTIONAL
+    );
     require(address(s_transcoder) != address(0), "no transcoder");
     require(ids.length > 0, "no IDs");
     uint256 id;
@@ -757,8 +697,7 @@ contract KeeperRegistryDev is
       if (idx == 0) {
         admin = upkeep.admin;
       }
-      // TODO isOwner && autoupgrade enabled
-      require(msg.sender == admin || (isOwner && true));
+      require(msg.sender == admin || isOwner);
       require(upkeep.maxValidBlocknumber == UINT64_MAX, "upkeep must be active");
       targets[idx] = upkeep.target;
       gasLimits[idx] = upkeep.executeGas;
@@ -772,14 +711,17 @@ contract KeeperRegistryDev is
     }
     s_expectedLinkBalance = s_expectedLinkBalance.sub(totalBalanceRemaining);
     bytes memory encodedUpkeeps = abi.encode(admin, ids, targets, gasLimits, balances, checkDatas);
-    MigratableKeeperRegistryInterface(destination).importUpkeeps(
+    MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
       s_transcoder.transcodeUpkeeps(address(this), destination, encodedUpkeeps)
     );
     LINK.transfer(destination, totalBalanceRemaining);
   }
 
-  function importUpkeeps(bytes calldata encodedUpkeeps) external override {
-    require(s_permittedIncomingRegistryAddresses.contains(msg.sender));
+  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
+    require(
+      s_peerRegistryMigrationPermission[msg.sender] == MigrationPermission.INCOMING ||
+        s_peerRegistryMigrationPermission[msg.sender] == MigrationPermission.BIDIRECTIONAL
+    );
     (
       address admin,
       uint256[] memory ids,
@@ -812,7 +754,7 @@ contract KeeperRegistryDev is
   ) internal {
     require(target.isContract(), "target is not a contract");
     require(gasLimit >= PERFORM_GAS_MIN, "min gas is 2300");
-    require(gasLimit <= s_state.config.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
+    require(gasLimit <= s_state.maxPerformGas, "gasLimit exceeds registry maxPerformGas");
     s_upkeep[id] = Upkeep({
       target: target,
       executeGas: gasLimit,
@@ -835,7 +777,7 @@ contract KeeperRegistryDev is
    * price in order to reduce costs for the upkeep clients.
    */
   function getFeedData() private view returns (uint256 gasWei, uint256 linkEth) {
-    uint32 stalenessSeconds = s_state.config.stalenessSeconds;
+    uint32 stalenessSeconds = s_state.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
@@ -862,10 +804,9 @@ contract KeeperRegistryDev is
     uint256 gasWei,
     uint256 linkEth
   ) private view returns (uint96 payment) {
-    Config memory config = s_state.config;
     uint256 weiForGas = gasWei.mul(gasLimit.add(REGISTRY_GAS_OVERHEAD));
-    uint256 premium = PPB_BASE.add(config.paymentPremiumPPB);
-    uint256 total = weiForGas.mul(1e9).mul(premium).div(linkEth).add(uint256(config.flatFeeMicroLink).mul(1e12));
+    uint256 premium = PPB_BASE.add(s_state.paymentPremiumPPB);
+    uint256 total = weiForGas.mul(1e9).mul(premium).div(linkEth).add(uint256(s_state.flatFeeMicroLink).mul(1e12));
     require(total <= LINK_TOTAL_SUPPLY, "payment greater than all LINK");
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
@@ -954,7 +895,7 @@ contract KeeperRegistryDev is
    * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
    */
   function adjustGasPrice(uint256 gasWei, bool useTxGasPrice) private view returns (uint256 adjustedPrice) {
-    adjustedPrice = gasWei.mul(s_state.config.gasCeilingMultiplier);
+    adjustedPrice = gasWei.mul(s_state.gasCeilingMultiplier);
     if (useTxGasPrice && tx.gasprice < adjustedPrice) {
       adjustedPrice = tx.gasprice;
     }
