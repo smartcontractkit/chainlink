@@ -72,7 +72,7 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	}
 	for _, c := range cll.Chains() {
 		if err := c.Start(ctx); err != nil {
-			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
+			cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
 			continue
 		}
 		cll.startedChains = append(cll.startedChains, c)
