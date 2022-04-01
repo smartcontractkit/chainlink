@@ -1277,10 +1277,10 @@ describe('KeeperRegistry', () => {
     })
   })
 
-  describe('#ownerWithdrawFunds', () => {
+  describe('#withdrawOwnerFunds', () => {
     it('can only be called by owner', async () => {
       await evmRevert(
-        registry.connect(keeper1).ownerWithdrawFunds(),
+        registry.connect(keeper1).withdrawOwnerFunds(),
         'Only callable by owner',
       )
     })
@@ -1314,7 +1314,7 @@ describe('KeeperRegistry', () => {
       assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
 
       // Now withdraw
-      await registry.connect(owner).ownerWithdrawFunds()
+      await registry.connect(owner).withdrawOwnerFunds()
 
       ownerRegistryBalance = await registry.getOwnerLinkBalance()
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
