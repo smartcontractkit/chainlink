@@ -382,7 +382,7 @@ contract KeeperRegistryDev is
   /**
    * @notice withdraws LINK funds collected through cancellation fees
    */
-  function ownerWithdrawFunds() external onlyOwner {
+  function withdrawOwnerFunds() external onlyOwner {
     uint96 amount = s_ownerLinkBalance;
 
     s_expectedLinkBalance = s_expectedLinkBalance.sub(amount);
