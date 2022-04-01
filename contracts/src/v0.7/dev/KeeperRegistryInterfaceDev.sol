@@ -62,10 +62,11 @@ interface KeeperRegistryBaseInterface {
       uint32 checkGasLimit,
       uint24 stalenessSeconds,
       uint16 gasCeilingMultiplier,
+      uint96 minUpkeepSpend,
+      uint32 maxPerformGas,
       uint256 fallbackGasPrice,
       uint256 fallbackLinkPrice,
-      uint96 minUpkeepSpend,
-      uint32 maxPerformGas
+      uint32 nonce
     );
 }
 
