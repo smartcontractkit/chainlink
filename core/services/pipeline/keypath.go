@@ -1,15 +1,16 @@
 package pipeline
 
 import (
-	"bytes"
+	"strings"
 
 	"github.com/pkg/errors"
 )
 
 var (
-	ErrWrongKeypath  = errors.New("wrong keypath format")
-	KeypathSeparator = []byte(".")
+	ErrWrongKeypath = errors.New("wrong keypath format")
 )
+
+const KeypathSeparator = "."
 
 // Keypath contains keypath parsed by NewKeypathFromString.
 type Keypath struct {
@@ -25,21 +26,18 @@ func NewKeypathFromString(keypathStr string) (Keypath, error) {
 		return Keypath{}, nil
 	}
 
-	parts := bytes.Split([]byte(keypathStr), KeypathSeparator)
+	parts := strings.Split(keypathStr, KeypathSeparator)
 
 	switch len(parts) {
 	case 0:
 		return Keypath{}, errors.Wrapf(ErrWrongKeypath, "empty keypath")
 	case 1:
 		if len(parts[0]) > 0 {
-			part0 := string(parts[0])
-			return Keypath{1, part0, ""}, nil
+			return Keypath{1, parts[0], ""}, nil
 		}
 	case 2:
 		if len(parts[0]) > 0 && len(parts[1]) > 0 {
-			part0 := string(parts[0])
-			part1 := string(parts[1])
-			return Keypath{2, part0, part1}, nil
+			return Keypath{2, parts[0], parts[1]}, nil
 		}
 	}
 

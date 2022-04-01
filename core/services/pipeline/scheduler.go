@@ -156,7 +156,7 @@ func (s *scheduler) reconstructResults() {
 			err = s.vars.Set(task.DotID(), result.Value)
 		}
 		if err != nil {
-			s.logger.Fatalf("Vars.Set error: %v", err)
+			s.logger.Panicf("Vars.Set error: %v", err)
 		}
 
 		// mark all outputs as complete
@@ -206,7 +206,7 @@ func (s *scheduler) Run() {
 			err = s.vars.Set(result.Task.DotID(), result.Result.Value)
 		}
 		if err != nil {
-			s.logger.Fatalf("Vars.Set error: %v", err)
+			s.logger.Panicf("Vars.Set error: %v", err)
 		}
 
 		// if the task was marked as fail early, and the result is a fail

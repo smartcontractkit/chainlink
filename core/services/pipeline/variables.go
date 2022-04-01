@@ -81,7 +81,7 @@ func (vars Vars) Set(dotID string, value interface{}) error {
 	dotID = strings.TrimSpace(dotID)
 	if len(dotID) == 0 {
 		return ErrVarsRoot
-	} else if strings.Contains(dotID, string(KeypathSeparator[0])) {
+	} else if strings.Contains(dotID, KeypathSeparator) {
 		return errors.Wrapf(ErrVarsSetNested, "%s", dotID)
 	}
 

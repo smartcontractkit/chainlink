@@ -3,7 +3,7 @@ package pipeline_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -15,16 +15,16 @@ func TestKeypath(t *testing.T) {
 		t.Parallel()
 
 		kp, err := pipeline.NewKeypathFromString("")
-		require.NoError(t, err)
-		require.Equal(t, pipeline.Keypath{}, kp)
+		assert.NoError(t, err)
+		assert.Equal(t, pipeline.Keypath{}, kp)
 
 		kp, err = pipeline.NewKeypathFromString("foo")
-		require.NoError(t, err)
-		require.Equal(t, pipeline.Keypath{NumParts: 1, Part0: "foo"}, kp)
+		assert.NoError(t, err)
+		assert.Equal(t, pipeline.Keypath{NumParts: 1, Part0: "foo"}, kp)
 
 		kp, err = pipeline.NewKeypathFromString("foo.bar")
-		require.NoError(t, err)
-		require.Equal(t, pipeline.Keypath{NumParts: 2, Part0: "foo", Part1: "bar"}, kp)
+		assert.NoError(t, err)
+		assert.Equal(t, pipeline.Keypath{NumParts: 2, Part0: "foo", Part1: "bar"}, kp)
 	})
 
 	t.Run("wrong keypath", func(t *testing.T) {
@@ -40,8 +40,12 @@ func TestKeypath(t *testing.T) {
 		}
 
 		for _, keypath := range wrongKeyPath {
-			_, err := pipeline.NewKeypathFromString(keypath)
-			require.ErrorIs(t, err, pipeline.ErrWrongKeypath)
+			t.Run("keypath", func(t *testing.T) {
+				t.Parallel()
+
+				_, err := pipeline.NewKeypathFromString(keypath)
+				assert.ErrorIs(t, err, pipeline.ErrWrongKeypath)
+			})
 		}
 	})
 }
