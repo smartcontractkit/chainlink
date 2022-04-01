@@ -192,7 +192,6 @@ type GlobalConfig interface {
 	GlobalEthTxReaperInterval() (time.Duration, bool)
 	GlobalEthTxReaperThreshold() (time.Duration, bool)
 	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
-	GlobalEvmDefaultBatchSize() (uint32, bool)
 	GlobalEvmEIP1559DynamicFees() (bool, bool)
 	GlobalEvmFinalityDepth() (uint32, bool)
 	GlobalEvmGasBumpPercent() (uint16, bool)
@@ -1236,13 +1235,6 @@ func (c *generalConfig) GlobalEthTxResendAfterThreshold() (time.Duration, bool) 
 		return 0, false
 	}
 	return val.(time.Duration), ok
-}
-func (c *generalConfig) GlobalEvmDefaultBatchSize() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmDefaultBatchSize"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
 }
 func (c *generalConfig) GlobalEvmFinalityDepth() (uint32, bool) {
 	val, ok := c.lookupEnv(envvar.Name("EvmFinalityDepth"), parse.Uint32)
