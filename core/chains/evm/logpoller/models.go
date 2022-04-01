@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+// LogPollerBlock represents an unfinalized block
+// used for reorg detection when polling.
 type LogPollerBlock struct {
 	EvmChainId *utils.Big
 	BlockHash  common.Hash
@@ -18,6 +20,7 @@ type LogPollerBlock struct {
 	CreatedAt   time.Time
 }
 
+// Log represents an EVM log.
 type Log struct {
 	EvmChainId  *utils.Big
 	LogIndex    int64

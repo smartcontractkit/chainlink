@@ -37,6 +37,8 @@ var FixtureChainID = big.NewInt(0)
 // SimulatedChainID is the chain ID for the go-ethereum simulated backend
 var SimulatedChainID = big.NewInt(1337)
 
+// MustNewSimTransactor returns a transactor for interacting with the
+// geth simulated backend.
 func MustNewSimTransactor(t *testing.T) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)

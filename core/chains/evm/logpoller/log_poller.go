@@ -122,14 +122,6 @@ func (lp *LogPoller) Close() error {
 	})
 }
 
-func (lp *LogPoller) Ready() error {
-	return nil
-}
-
-func (lp *LogPoller) Healthy() error {
-	return nil
-}
-
 func (lp *LogPoller) run() {
 	defer close(lp.done)
 	tick := time.After(0)
@@ -147,7 +139,7 @@ func (lp *LogPoller) run() {
 				lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
 				if err != nil {
 					if !errors.Is(err, sql.ErrNoRows) {
-						lp.lggr.Warnw("unable to get starting block", "err", err)
+						lp.lggr.Errorw("unable to get starting block", "err", err)
 						continue
 					}
 					// Otherwise this is the first poll _ever_ on a new chain.
@@ -217,6 +209,8 @@ func (lp *LogPoller) backfill(ctx context.Context, start, end int64) int64 {
 		)
 		from := i
 		to := min(i+lp.backfillBatchSize-1, end)
+		// Retry forever to query for logs,
+		// unblocked by resolving node connectivity issues.
 		utils.RetryWithBackoff(ctx, func() bool {
 			logs, err = lp.ec.FilterLogs(ctx, ethereum.FilterQuery{
 				FromBlock: big.NewInt(from),
@@ -234,6 +228,8 @@ func (lp *LogPoller) backfill(ctx context.Context, start, end int64) int64 {
 			continue
 		}
 		lp.lggr.Infow("Backfill found logs", "from", from, "to", to, "logs", len(logs))
+		// Retry forever to save logs,
+		// unblocked by resolving db connectivity issues.
 		utils.RetryWithBackoff(ctx, func() bool {
 			if err := lp.orm.InsertLogs(convertLogs(lp.ec.ChainID(), logs)); err != nil {
 				lp.lggr.Warnw("Unable to insert logs logs, retrying", "err", err, "from", from, "to", to)
@@ -377,4 +373,12 @@ func (lp *LogPoller) findLCA(h common.Hash, mismatchStart int64) (int64, error) 
 // which are canonical at time of query.
 func (lp *LogPoller) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig[:], qopts...)
+}
+
+func (lp *LogPoller) LatestBlock() (int64, error) {
+	b, err := lp.orm.SelectLatestBlock()
+	if err != nil {
+		return 0, err
+	}
+	return b.BlockNumber, nil
 }

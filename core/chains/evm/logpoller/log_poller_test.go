@@ -59,7 +59,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 	}
 }
 
-func TestLogPoller(t *testing.T) {
+func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	chainID := big.NewInt(42)
@@ -267,7 +267,7 @@ func TestLogPoller(t *testing.T) {
 	assertDontHave(t, 10, 13, orm) // Do not expect to save backfilled blocks.
 }
 
-func TestLogsQuerying(t *testing.T) {
+func TestUnit_LogPoller_Logs(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	chainID := big.NewInt(137)
 	db := pgtest.NewSqlxDB(t)
@@ -320,7 +320,7 @@ func TestLogsQuerying(t *testing.T) {
 	assert.Equal(t, event1.Bytes(), lgs[0].Topics[0])
 }
 
-func TestMergeFilter(t *testing.T) {
+func TestUnit_LogPoller_MergeFilter(t *testing.T) {
 	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")

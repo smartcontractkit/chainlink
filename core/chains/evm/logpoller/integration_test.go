@@ -52,7 +52,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	t.Log(time.Since(s), len(lgs))
 }
 
-func TestLogPollerIntegration(t *testing.T) {
+func TestIntegration_LogPoller(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	chainID := big.NewInt(42)
