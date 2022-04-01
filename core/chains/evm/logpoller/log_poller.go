@@ -375,6 +375,6 @@ func (lp *LogPoller) findLCA(h common.Hash, mismatchStart int64) (int64, error) 
 
 // Logs returns logs matching topics and address (exactly) in the given block range,
 // which are canonical at time of query.
-func (lp *LogPoller) Logs(start, end int64, eventSig common.Hash, address common.Address) ([]Log, error) {
-	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig[:])
+func (lp *LogPoller) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig[:], qopts...)
 }
