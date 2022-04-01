@@ -54,7 +54,8 @@ func TestPopulateLoadedDB(t *testing.T) {
 
 func TestLogPollerIntegration(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	_, db := heavyweight.FullTestDB(t, "log", true, false)
+	//_, db := heavyweight.FullTestDB(t, "log", true, false)
+	db := pgtest.NewSqlxDB(t)
 	chainID := big.NewInt(42)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
@@ -70,6 +71,8 @@ func TestLogPollerIntegration(t *testing.T) {
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	ec.Commit() // Block 2.
+	b, _ := ec.BlockByNumber(context.Background(), nil)
+	t.Log("BLOCK", b.NumberU64())
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
