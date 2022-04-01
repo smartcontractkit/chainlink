@@ -71,7 +71,6 @@ before(async () => {
 })
 
 describe('KeeperRegistry', () => {
-  const chainID = BigNumber.from(1234)
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
   const linkDivisibility = BigNumber.from('1000000000000000000')
@@ -145,7 +144,6 @@ describe('KeeperRegistry', () => {
       .connect(owner)
       .deploy(9, linkEth)
     registry = await keeperRegistryFactory.connect(owner).deploy(
-      chainID,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
@@ -163,7 +161,6 @@ describe('KeeperRegistry', () => {
       fallbackLinkPrice,
     )
     registry2 = await keeperRegistryFactory.connect(owner).deploy(
-      chainID,
       linkToken.address,
       linkEthFeed.address,
       gasPriceFeed.address,
@@ -223,12 +220,6 @@ describe('KeeperRegistry', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await registry.typeAndVersion()
       assert.equal(typeAndVersion, 'KeeperRegistry 1.2.0')
-    })
-  })
-
-  describe('#constructor', () => {
-    it('sets the chainID', async () => {
-      expect(await registry.CHAIN_ID()).to.equal(chainID)
     })
   })
 
@@ -1744,9 +1735,8 @@ describe('KeeperRegistry', () => {
 
     it('updates the config', async () => {
       const old = await registry.getConfig()
-      const oldFlatFee = await registry.getFlatFee()
       assert.isTrue(paymentPremiumPPB.eq(old.paymentPremiumPPB))
-      assert.isTrue(flatFeeMicroLink.eq(oldFlatFee))
+      assert.isTrue(flatFeeMicroLink.eq(old.flatFeeMicroLink))
       assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn))
       assert.isTrue(stalenessSeconds.eq(old.stalenessSeconds))
       assert.isTrue(gasCeilingMultiplier.eq(old.gasCeilingMultiplier))
@@ -1767,9 +1757,8 @@ describe('KeeperRegistry', () => {
       )
 
       const updated = await registry.getConfig()
-      const newFlatFee = await registry.getFlatFee()
       assert.equal(updated.paymentPremiumPPB, payment.toNumber())
-      assert.equal(newFlatFee, flatFee.toNumber())
+      assert.equal(updated.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updated.blockCountPerTurn, checks.toNumber())
       assert.equal(updated.stalenessSeconds, staleness.toNumber())
       assert.equal(updated.gasCeilingMultiplier, ceiling.toNumber())

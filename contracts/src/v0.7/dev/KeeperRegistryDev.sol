@@ -72,7 +72,6 @@ contract KeeperRegistryDev is
   EnumerableSet.AddressSet private s_permittedIncomingRegistryAddresses;
   EnumerableSet.AddressSet private s_permittedOutgoingRegistryAddresses;
 
-  uint256 public immutable CHAIN_ID;
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   AggregatorV3Interface public immutable FAST_GAS_FEED;
@@ -174,7 +173,6 @@ contract KeeperRegistryDev is
   event TranscoderChanged(address indexed from, address indexed to);
 
   /**
-   * @param chainID chain id of this network
    * @param link address of the LINK Token
    * @param linkEthFeed address of the LINK/ETH price feed
    * @param fastGasFeed address of the Fast Gas price feed
@@ -183,7 +181,6 @@ contract KeeperRegistryDev is
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
    */
   constructor(
-    uint256 chainID,
     address link,
     address linkEthFeed,
     address fastGasFeed,
@@ -191,7 +188,6 @@ contract KeeperRegistryDev is
     uint256 fallbackGasPrice,
     uint256 fallbackLinkPrice
   ) ConfirmedOwner(msg.sender) {
-    CHAIN_ID = chainID;
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -214,7 +210,12 @@ contract KeeperRegistryDev is
     address admin,
     bytes calldata checkData
   ) external override onlyOwnerOrRegistrar returns (uint256 id) {
-    id = uint256(keccak256(abi.encodePacked(CHAIN_ID, address(this), s_nonce)));
+    // TODO use block.chainID in solidity 0.8
+    uint256 chainID;
+    assembly {
+      chainID := chainid()
+    }
+    id = uint256(keccak256(abi.encodePacked(chainID, address(this), s_nonce)));
     createUpkeep(id, target, gasLimit, admin, 0, checkData);
     s_nonce++;
     emit UpkeepRegistered(id, gasLimit, admin);
@@ -651,6 +652,7 @@ contract KeeperRegistryDev is
     override
     returns (
       uint32 paymentPremiumPPB,
+      uint32 flatFeeMicroLink,
       uint24 blockCountPerTurn,
       uint32 checkGasLimit,
       uint24 stalenessSeconds,
@@ -665,6 +667,7 @@ contract KeeperRegistryDev is
     State memory state = s_state;
     return (
       state.config.paymentPremiumPPB,
+      state.config.flatFeeMicroLink,
       state.config.blockCountPerTurn,
       state.config.checkGasLimit,
       state.config.stalenessSeconds,
