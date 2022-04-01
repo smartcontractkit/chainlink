@@ -140,16 +140,13 @@ func (s *sendOnlyNode) String() string {
 	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.Redacted())
 }
 
-func (s *sendOnlyNode) verify(parentCtx context.Context) (err error) {
-	s.log.Debugw("evmclient.Client#ChainID(...)")
+func (s *sendOnlyNode) verify(parentCtx context.Context) error {
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
-	zero := big.NewInt(0)
-	if chainID, err := s.geth.ChainID(ctx); err != nil {
-		return errors.Wrap(err, "failed to verify chain ID")
-	} else if chainID.Cmp(zero) == 0 {
-		s.log.Warn("failed to verify chain ID 0")
-		return nil
+	// Note: chainlink-broadcaster does not support eth_chainId RPC method.
+	chainID, err := s.geth.ChainID(ctx)
+	if err != nil {
+		s.log.Warnf("sendonly rpc ChainID responded with error, chainID verification is skipped: %v", err)
 	} else if chainID.Cmp(s.chainID) != 0 {
 		return errors.Errorf(
 			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
