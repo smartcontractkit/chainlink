@@ -54,7 +54,6 @@ func TestPopulateLoadedDB(t *testing.T) {
 
 func TestLogPollerIntegration(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	//_, db := heavyweight.FullTestDB(t, "log", true, false)
 	db := pgtest.NewSqlxDB(t)
 	chainID := big.NewInt(42)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
@@ -70,9 +69,8 @@ func TestLogPollerIntegration(t *testing.T) {
 	t.Cleanup(func() { ec.Close() })
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
-	ec.Commit() // Block 2.
-	b, _ := ec.BlockByNumber(context.Background(), nil)
-	t.Log("BLOCK", b.NumberU64())
+	ec.Commit()
+	ec.Commit() // Block 2. Ensure we have finality number of blocks
 
 	// Set up a log poller listening for log emitter logs.
 	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, lggr, pgtest.NewPGCfg(true)),
@@ -81,7 +79,7 @@ func TestLogPollerIntegration(t *testing.T) {
 	lp.MergeFilter([]common.Hash{logpoller.EmitterABI.Events["Log1"].ID}, emitterAddress1)
 	require.NoError(t, lp.Start(context.Background()))
 
-	// Emit some logs in blocks 2->6.
+	// Emit some logs in blocks 3->7.
 	for i := 0; i < 5; i++ {
 		emitter1.EmitLog1(owner, []*big.Int{big.NewInt(int64(i))})
 		emitter1.EmitLog2(owner, []*big.Int{big.NewInt(int64(i))})
@@ -89,19 +87,19 @@ func TestLogPollerIntegration(t *testing.T) {
 	}
 	// We should eventually receive all those Log1 logs.
 	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(1, 6, logpoller.EmitterABI.Events["Log1"].ID, emitterAddress1)
+		logs, err := lp.Logs(2, 7, logpoller.EmitterABI.Events["Log1"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 5)
 		return len(logs) == 5
 	})
 	// Now let's update the filter and replay to get Log2 logs.
 	lp.MergeFilter([]common.Hash{logpoller.EmitterABI.Events["Log2"].ID}, emitterAddress1)
-	// Replay only from block 3, so we should see logs in block 3,4,5,6 (4 logs)
-	lp.Replay(3)
+	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
+	lp.Replay(4)
 
 	// We should eventually see 4 logs2 logs.
 	testutils.AssertEventually(t, func() bool {
-		logs, err := lp.Logs(1, 6, logpoller.EmitterABI.Events["Log2"].ID, emitterAddress1)
+		logs, err := lp.Logs(2, 7, logpoller.EmitterABI.Events["Log2"].ID, emitterAddress1)
 		require.NoError(t, err)
 		t.Logf("Received %d/%d logs\n", len(logs), 4)
 		return len(logs) == 4
