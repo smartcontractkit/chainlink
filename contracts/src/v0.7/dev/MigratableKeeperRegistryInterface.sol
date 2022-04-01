@@ -6,5 +6,5 @@ pragma abicoder v2;
 interface MigratableKeeperRegistryInterface {
   function migrateUpkeeps(uint256[] calldata upkeepIDs, address destination) external;
 
-  function importUpkeeps(bytes calldata encodedUpkeeps) external;
+  function receiveUpkeeps(bytes calldata encodedUpkeeps) external;
 }
