@@ -40,7 +40,7 @@ func TestKeypath(t *testing.T) {
 		}
 
 		for _, keypath := range wrongKeyPath {
-			t.Run("keypath", func(t *testing.T) {
+			t.Run(keypath, func(t *testing.T) {
 				t.Parallel()
 
 				_, err := pipeline.NewKeypathFromString(keypath)
