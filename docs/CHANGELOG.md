@@ -76,7 +76,6 @@ EVM_NODES='
 ### Changed
 
 - Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
-- It is now NOT allowed to have multiple evm RPC nodes specified with the same URL. If you see a migration error related to `ERROR 0106_evm_node_uniqueness.sql: failed to run SQL migration` that means you have multiple nodes specified with the same URL, and you must fix this before proceeding with the upgrade.
 - EIP-1559 is now enabled by default on mainnet. To disable (go back to legacy mode) set `EVM_EIP1559_DYNAMIC_FEES=false`. The default settings should work well, but if you wish to tune your gas controls, see the [documentation](https://docs.chain.link/docs/configuration-variables/#evm-gas-controls).
 
 Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended to enable this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
