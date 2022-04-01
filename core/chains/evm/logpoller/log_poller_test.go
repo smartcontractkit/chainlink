@@ -62,7 +62,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	chainID := big.NewInt(42)
+	chainID := testutils.NewRandomEVMChainID()
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
 
@@ -269,11 +269,11 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 
 func TestUnit_LogPoller_Logs(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	chainID := big.NewInt(137)
+	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS logs_evm_chain_id_fkey DEFERRED`)))
-	o := NewORM(big.NewInt(137), db, lggr, pgtest.NewPGCfg(true))
+	o := NewORM(chainID, db, lggr, pgtest.NewPGCfg(true))
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")

@@ -55,7 +55,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 func TestIntegration_LogPoller(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	chainID := big.NewInt(42)
+	chainID := testutils.NewRandomEVMChainID()
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
 
