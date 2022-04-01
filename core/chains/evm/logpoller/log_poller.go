@@ -21,6 +21,7 @@ import (
 )
 
 type LogPoller struct {
+	utils.StartStopOnce
 	ec                client.Client
 	orm               *ORM
 	lggr              logger.Logger
@@ -104,17 +105,21 @@ func (lp *LogPoller) Replay(fromBlock int64) {
 }
 
 func (lp *LogPoller) Start(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	lp.ctx = ctx
-	lp.cancel = cancel
-	go lp.run()
-	return nil
+	return lp.StartOnce("LogPoller", func() error {
+		ctx, cancel := context.WithCancel(ctx)
+		lp.ctx = ctx
+		lp.cancel = cancel
+		go lp.run()
+		return nil
+	})
 }
 
 func (lp *LogPoller) Close() error {
-	lp.cancel()
-	<-lp.done
-	return nil
+	return lp.StopOnce("LogPoller", func() error {
+		lp.cancel()
+		<-lp.done
+		return nil
+	})
 }
 
 func (lp *LogPoller) Ready() error {
@@ -137,7 +142,7 @@ func (lp *LogPoller) run() {
 			lp.lggr.Warnw("Replay requested", "from", fromBlock)
 			start = fromBlock
 		case <-tick:
-			tick = time.After(lp.pollPeriod)
+			tick = time.After(utils.WithJitter(lp.pollPeriod))
 			if start == 0 {
 				lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
 				if err != nil {

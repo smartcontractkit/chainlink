@@ -54,14 +54,13 @@ func TestPopulateLoadedDB(t *testing.T) {
 
 func TestLogPollerIntegration(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	//_, db := heavyweight.FullTestDB(t, "log", true, false)
+	_, db := heavyweight.FullTestDB(t, "log", true, false)
 	chainID := big.NewInt(42)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
 
 	// Set up a test chain with a log emitting contract deployed.
-	owner := testutils.MustNewSimTransactor()
+	owner := testutils.MustNewSimTransactor(t)
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
