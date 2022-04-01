@@ -374,8 +374,8 @@ func (lp *LogPoller) Logs(start, end int64, eventSig common.Hash, address common
 	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig[:], qopts...)
 }
 
-func (lp *LogPoller) LatestBlock() (int64, error) {
-	b, err := lp.orm.SelectLatestBlock()
+func (lp *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
+	b, err := lp.orm.SelectLatestBlock(qopts...)
 	if err != nil {
 		return 0, err
 	}
