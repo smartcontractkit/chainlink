@@ -20,7 +20,7 @@ contract MockV2Aggregator is AggregatorInterface {
   mapping(uint256 => uint256) public override getTimestamp;
   mapping(uint256 => uint256) private getStartedAt;
 
-  constructor(int256 _initialAnswer) public {
+  constructor(int256 _initialAnswer) {
     updateAnswer(_initialAnswer);
   }
 

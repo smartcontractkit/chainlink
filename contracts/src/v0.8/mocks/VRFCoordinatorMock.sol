@@ -9,7 +9,7 @@ contract VRFCoordinatorMock {
 
   event RandomnessRequest(address indexed sender, bytes32 indexed keyHash, uint256 indexed seed);
 
-  constructor(address linkAddress) public {
+  constructor(address linkAddress) {
     LINK = LinkTokenInterface(linkAddress);
   }
 
