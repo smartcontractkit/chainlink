@@ -62,6 +62,8 @@ func TestORM(t *testing.T) {
 
 	// Update
 	txHash := "123"
+	err = o.UpdateMsgs([]int64{mid}, Started, &txHash)
+	require.NoError(t, err)
 	err = o.UpdateMsgs([]int64{mid}, Broadcasted, &txHash)
 	require.NoError(t, err)
 	broadcasted, err := o.GetMsgsState(Broadcasted, 5)
