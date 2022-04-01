@@ -152,14 +152,13 @@ func (lp *LogPoller) run() {
 					// Do not support polling chains with don't even have finality depth worth of blocks.
 					// Could conceivably support this but not worth the effort.
 					if int64(latest.NumberU64()) < lp.finalityDepth {
-						lp.lggr.Criticalw("insufficient number of blocks on chain, log poller exiting", "err", err, "latest", latest.NumberU64())
-						return
+						lp.lggr.Warnw("insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latest.NumberU64())
+						continue
 					}
 					start = int64(latest.NumberU64()) - lp.finalityDepth + 1
-					continue
+				} else {
+					start = lastProcessed.BlockNumber + 1
 				}
-				start = lastProcessed.BlockNumber + 1
-				continue
 			}
 			start = lp.PollAndSaveLogs(lp.ctx, start)
 		}

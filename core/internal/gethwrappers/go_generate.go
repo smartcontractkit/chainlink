@@ -52,7 +52,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../../contracts/solc/v0.8.6/DerivedPriceFeed.bin DerivedPriceFeed derived_price_feed_wrapper
 
 // Log tester
-//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8/LogEmitter.abi ../../../contracts/solc/v0.8/LogEmitter.bin LogEmitter log_emitter
+//go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/LogEmitter.abi ../../../contracts/solc/v0.8.6/LogEmitter.bin LogEmitter log_emitter
 
 // To run these commands, you must either install docker, or the correct version
 // of abigen. The latter can be installed with these commands, at least on linux:

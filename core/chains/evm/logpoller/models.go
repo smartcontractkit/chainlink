@@ -14,8 +14,7 @@ import (
 type LogPollerBlock struct {
 	EvmChainId *utils.Big
 	BlockHash  common.Hash
-	// TODO: Following existing data types for block numbers, though not sure why we don't use big.Ints elsewhere?
-	// Seems conceivable we could run out on some new EVM chain.
+	// Note geth uses int64 internally https://github.com/ethereum/go-ethereum/blob/f66f1a16b3c480d3a43ac7e8a09ab3e362e96ae4/eth/filters/api.go#L340
 	BlockNumber int64
 	CreatedAt   time.Time
 }
