@@ -3,13 +3,11 @@
  * This is a development version of UpkeepRegistrationRequests (soon to be renamed to KeeperRegistrar).
  * Once this is audited and finalised it will be copied to KeeperRegistrar
  */
-pragma solidity ^0.7.0;
-pragma abicoder v2;
+pragma solidity ^0.8.0;
 
 import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperRegistryInterface.sol";
+import "./interfaces/KeeperRegistryInterfaceDev.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import "../vendor/SafeMath96.sol";
 import "../ConfirmedOwner.sol";
 
 /**
@@ -33,8 +31,6 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     ENABLED_SENDER_ALLOWLIST,
     ENABLED_ALL
   }
-
-  using SafeMath96 for uint96;
 
   bytes4 private constant REGISTER_REQUEST_SELECTOR = this.register.selector;
 
@@ -92,6 +88,18 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint96 minLINKJuels
   );
 
+  error InvalidAdminAddress();
+  error RequestNotFound();
+  error HashMismatch();
+  error OnlyAdminOrOwner();
+  error InsufficientPayment();
+  error RegistrationRequestFailed();
+  error OnlyLink();
+  error AmountMismatch();
+  error SenderMismatch();
+  error FunctionNotPermitted();
+  error LinkTransferFailed(address to);
+
   /*
    * @param LINKAddress Address of Link token
    * @param autoApproveConfigType setting for auto-approve registrations
@@ -135,7 +143,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint8 source,
     address sender
   ) external onlyLINK {
-    require(adminAddress != address(0), "invalid admin address");
+    if (adminAddress == address(0)) {
+      revert InvalidAdminAddress();
+    }
     bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
 
     emit RegistrationRequested(
@@ -156,7 +166,7 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
 
       _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
     } else {
-      uint96 newBalance = s_pendingRequests[hash].balance.add(amount);
+      uint96 newBalance = s_pendingRequests[hash].balance + amount;
       s_pendingRequests[hash] = PendingRequest({admin: adminAddress, balance: newBalance});
     }
   }
@@ -173,9 +183,13 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     bytes32 hash
   ) external onlyOwner {
     PendingRequest memory request = s_pendingRequests[hash];
-    require(request.admin != address(0), "request not found");
+    if (request.admin == address(0)) {
+      revert RequestNotFound();
+    }
     bytes32 expectedHash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
-    require(hash == expectedHash, "hash and payload do not match");
+    if (hash != expectedHash) {
+      revert HashMismatch();
+    }
     delete s_pendingRequests[hash];
     _approve(name, upkeepContract, gasLimit, adminAddress, checkData, request.balance, hash);
   }
@@ -186,10 +200,17 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
    */
   function cancel(bytes32 hash) external {
     PendingRequest memory request = s_pendingRequests[hash];
-    require(msg.sender == request.admin || msg.sender == owner(), "only admin / owner can cancel");
-    require(request.admin != address(0), "request not found");
+    if (!(msg.sender == request.admin || msg.sender == owner())) {
+      revert OnlyAdminOrOwner();
+    }
+    if (request.admin == address(0)) {
+      revert RequestNotFound();
+    }
     delete s_pendingRequests[hash];
-    require(LINK.transfer(msg.sender, request.balance), "LINK token transfer failed");
+    bool success = LINK.transfer(msg.sender, request.balance);
+    if (!success) {
+      revert LinkTransferFailed(msg.sender);
+    }
     emit RegistrationRejected(hash);
   }
 
@@ -281,10 +302,14 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint256 amount,
     bytes calldata data
   ) external onlyLINK permittedFunctionsForLINK(data) isActualAmount(amount, data) isActualSender(sender, data) {
-    require(amount >= s_config.minLINKJuels, "Insufficient payment");
+    if (amount < s_config.minLINKJuels) {
+      revert InsufficientPayment();
+    }
     (bool success, ) = address(this).delegatecall(data);
     // calls register
-    require(success, "Unable to create request");
+    if (!success) {
+      revert RegistrationRequestFailed();
+    }
   }
 
   //PRIVATE
@@ -307,7 +332,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
     // fund upkeep
     bool success = LINK.transferAndCall(address(keeperRegistry), amount, abi.encode(upkeepId));
-    require(success, "failed to fund upkeep");
+    if (!success) {
+      revert LinkTransferFailed(address(keeperRegistry));
+    }
 
     emit RegistrationApproved(hash, name, upkeepId);
   }
@@ -336,7 +363,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
    * @dev Reverts if not sent from the LINK token
    */
   modifier onlyLINK() {
-    require(msg.sender == address(LINK), "Must use LINK token");
+    if (msg.sender != address(LINK)) {
+      revert OnlyLink();
+    }
     _;
   }
 
@@ -350,7 +379,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(_data, 32))
     }
-    require(funcSelector == REGISTER_REQUEST_SELECTOR, "Must use whitelisted functions");
+    if (funcSelector != REGISTER_REQUEST_SELECTOR) {
+      revert FunctionNotPermitted();
+    }
     _;
   }
 
@@ -364,7 +395,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     assembly {
       actual := mload(add(data, 228))
     }
-    require(expected == actual, "Amount mismatch");
+    if (expected != actual) {
+      revert AmountMismatch();
+    }
     _;
   }
 
@@ -378,7 +411,9 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     assembly {
       actual := mload(add(data, 292))
     }
-    require(expected == actual, "Sender address mismatch");
+    if (expected != actual) {
+      revert SenderMismatch();
+    }
     _;
   }
 }

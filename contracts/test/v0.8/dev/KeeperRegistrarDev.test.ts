@@ -7,23 +7,23 @@
 
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
-import { evmRevert } from '../test-helpers/matchers'
-import { getUsers, Personas } from '../test-helpers/setup'
+import { evmRevert } from '../../test-helpers/matchers'
+import { getUsers, Personas } from '../../test-helpers/setup'
 import { BigNumber, Signer } from 'ethers'
-import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
+import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
 
-import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
-import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
+import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
+import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 // These 4 dependencies are mocked from Dev
-import { KeeperRegistryDev as KeeperRegistry } from '../../typechain/KeeperRegistryDev'
-import { KeeperRegistrarDev as KeeperRegistrar } from '../../typechain/KeeperRegistrarDev'
-import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistryDev__factory'
-import { KeeperRegistrarDev__factory as KeeperRegistrarFactory } from '../../typechain/factories/KeeperRegistrarDev__factory'
+import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
+import { KeeperRegistrarDev as KeeperRegistrar } from '../../../typechain/KeeperRegistrarDev'
+import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
+import { KeeperRegistrarDev__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrarDev__factory'
 
-import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
-import { LinkToken } from '../../typechain/LinkToken'
-import { UpkeepMock } from '../../typechain/UpkeepMock'
-import { toWei } from '../test-helpers/helpers'
+import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
+import { LinkToken } from '../../../typechain/LinkToken'
+import { UpkeepMock } from '../../../typechain/UpkeepMock'
+import { toWei } from '../../test-helpers/helpers'
 
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
@@ -38,7 +38,7 @@ before(async () => {
 
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   mockV3AggregatorFactory = (await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
   // Lifts the Dev contract
@@ -48,9 +48,9 @@ before(async () => {
 
 const errorMsgs = {
   onlyOwner: 'revert Only callable by owner',
-  onlyAdmin: 'only admin / owner can cancel',
-  hashPayload: 'hash and payload do not match',
-  requestNotFound: 'request not found',
+  onlyAdmin: 'OnlyAdminOrOwner()',
+  hashPayload: 'HashMismatch()',
+  requestNotFound: 'RequestNotFound()',
 }
 
 describe('KeeperRegistrar', () => {
@@ -170,7 +170,7 @@ describe('KeeperRegistrar', () => {
             source,
             await requestSender.getAddress(),
           ),
-        'Must use LINK token',
+        'OnlyLink()',
       )
     })
 
@@ -203,7 +203,7 @@ describe('KeeperRegistrar', () => {
         linkToken
           .connect(requestSender)
           .transferAndCall(registrar.address, amount, abiEncodedBytes),
-        'Amount mismatch',
+        'AmountMismatch()',
       )
     })
 
@@ -226,7 +226,7 @@ describe('KeeperRegistrar', () => {
         linkToken
           .connect(requestSender)
           .transferAndCall(registrar.address, amount, abiEncodedBytes),
-        'Sender address mismatch',
+        'SenderMismatch()',
       )
     })
 
@@ -250,7 +250,7 @@ describe('KeeperRegistrar', () => {
         linkToken
           .connect(requestSender)
           .transferAndCall(registrar.address, amount, abiEncodedBytes),
-        'Unable to create request',
+        'RegistrationRequestFailed()',
       )
     })
 
@@ -775,7 +775,7 @@ describe('KeeperRegistrar', () => {
         .cancel(
           '0x000000000000000000000000322813fd9a801c5507c9de605d63cea4f2ce6c44',
         )
-      await evmRevert(tx, 'request not found')
+      await evmRevert(tx, errorMsgs.requestNotFound)
     })
 
     it('refunds the total request balance to the admin address', async () => {
