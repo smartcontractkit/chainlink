@@ -62,6 +62,7 @@ func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
 // TODO: Failures to dial should put it into a retry loop
+// https://app.shortcut.com/chainlinklabs/story/28182/eth-node-failover-consider-introducing-a-state-for-sendonly-nodes
 func (s *sendOnlyNode) Start(startCtx context.Context) error {
 	s.log.Debugw("evmclient.Client#Dial(...)")
 	if s.dialed {
@@ -140,16 +141,19 @@ func (s *sendOnlyNode) String() string {
 	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.Redacted())
 }
 
-func (s *sendOnlyNode) verify(parentCtx context.Context) (err error) {
-	s.log.Debugw("evmclient.Client#ChainID(...)")
+func (s *sendOnlyNode) verify(parentCtx context.Context) error {
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
-	zero := big.NewInt(0)
-	if chainID, err := s.geth.ChainID(ctx); err != nil {
-		return errors.Wrap(err, "failed to verify chain ID")
-	} else if chainID.Cmp(zero) == 0 {
-		s.log.Warn("failed to verify chain ID 0")
-		return nil
+	// Note: chainlink-broadcaster does not support eth_chainId RPC method.
+	chainID, err := s.geth.ChainID(ctx)
+	if err != nil {
+		if err.Error() == "Unsupported RPC call" {
+			s.log.Warn("sendonly node does not support ChainID rpc, verification is skipped")
+		} else {
+			return errors.Errorf("sendonly rpc ChainID error: %v", err)
+		}
+	} else if chainID.Cmp(big.NewInt(0)) == 0 {
+		s.log.Warn("sendonly rpc ChainID responded with zero value, verification is skipped")
 	} else if chainID.Cmp(s.chainID) != 0 {
 		return errors.Errorf(
 			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
