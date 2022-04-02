@@ -17,17 +17,18 @@ contract UpkeepTranscoder is UpkeepTranscoderInterface, ConfirmedOwner {
    * one registry to the format expected by another. It future-proofs migrations
    * by allowing keepers team to customize migration paths and set sensible defaults
    * when new fields are added
-   * @param fromRegistry registry the upkeep is migrating from
-   * @param toRegistry registry the upkeep is migrating to
+   * @param fromVersion struct version the upkeep is migrating from
+   * @param toVersion struct version the upkeep is migrating to
    * @param encodedUpkeeps encoded upkeep data
    * @dev this contract & function are simple now, but should evolve as new registries
    * and migration paths are added
    */
   function transcodeUpkeeps(
-    address fromRegistry,
-    address toRegistry,
+    UpkeepTranscoderVersion fromVersion,
+    UpkeepTranscoderVersion toVersion,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
+    require(fromVersion == UpkeepTranscoderVersion.V1 && toVersion == UpkeepTranscoderVersion.V1);
     return encodedUpkeeps;
   }
 }
