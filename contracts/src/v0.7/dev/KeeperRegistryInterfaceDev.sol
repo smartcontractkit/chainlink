@@ -7,24 +7,26 @@
 pragma solidity ^0.8.0;
 
 /**
- * @notice see State struct for field descriptions
- * @param paymentPremiumPPB payment premium rate oracles receive on top of
+ * @notice config of the registry
+ * @dev only used in params and return values
+ * @member paymentPremiumPPB payment premium rate oracles receive on top of
  * being reimbursed for gas, measured in parts per billion
- * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+ * @member flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
  * priced in MicroLink; can be used in conjunction with or independently of
  * paymentPremiumPPB
- * @param blockCountPerTurn number of blocks each oracle has during their turn to
+ * @member blockCountPerTurn number of blocks each oracle has during their turn to
  * perform upkeep before it will be the next keeper's turn to submit
- * @param checkGasLimit gas limit when checking for upkeep
- * @param stalenessSeconds number of seconds that is allowed for feed data to
+ * @member checkGasLimit gas limit when checking for upkeep
+ * @member stalenessSeconds number of seconds that is allowed for feed data to
  * be stale before switching to the fallback pricing
- * @param gasCeilingMultiplier multiplier to apply to the fast gas feed price
+ * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
  * when calculating the payment ceiling for keepers
- * @param minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
- * @param maxPerformGas max executeGas allowed for an upkeep on this registry
- * @param fallbackGasPrice gas price used if the gas price feed is stale
- * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
- * @dev config struct is only used for arguments and return vals
+ * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
+ * @member maxPerformGas max executeGas allowed for an upkeep on this registry
+ * @member fallbackGasPrice gas price used if the gas price feed is stale
+ * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
+ * @member transcoder address of the transcoder contract
+ * @member registrar address of the registrar contract
  */
 struct Config {
   uint32 paymentPremiumPPB;
@@ -33,10 +35,25 @@ struct Config {
   uint32 checkGasLimit;
   uint24 stalenessSeconds;
   uint16 gasCeilingMultiplier;
-  uint96 minUpkeepSpend; // 1 evm word
+  uint96 minUpkeepSpend;
   uint32 maxPerformGas;
   uint256 fallbackGasPrice;
   uint256 fallbackLinkPrice;
+  address transcoder;
+  address registrar;
+}
+
+/**
+ * @notice config of the registry
+ * @dev only used in params and return values
+ * @member nonce used for ID generation
+ * @ownerLinkBalance withdrawable balance of LINK by contract owner
+ * @numUpkeeps total number of upkeeps on the registry
+ */
+struct State {
+  uint32 nonce;
+  uint96 ownerLinkBalance;
+  uint256 numUpkeeps;
 }
 
 interface KeeperRegistryBaseInterface {
@@ -69,13 +86,7 @@ interface KeeperRegistryBaseInterface {
       uint96 amountSpent
     );
 
-  function getUpkeepCount() external view returns (uint256);
-
-  function getNonce() external view returns (uint256);
-
   function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
-
-  function getKeeperList() external view returns (address[] memory);
 
   function getKeeperInfo(address query)
     external
@@ -86,7 +97,14 @@ interface KeeperRegistryBaseInterface {
       uint96 balance
     );
 
-  function getConfig() external view returns (Config memory);
+  function getState()
+    external
+    view
+    returns (
+      State memory,
+      Config memory,
+      address[] memory
+    );
 }
 
 /**
