@@ -140,6 +140,7 @@ describe('KeeperRegistry', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
+    transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     registry = await keeperRegistryFactory
       .connect(owner)
       .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
@@ -153,6 +154,8 @@ describe('KeeperRegistry', () => {
         maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
       })
     registry2 = await keeperRegistryFactory
       .connect(owner)
@@ -167,8 +170,9 @@ describe('KeeperRegistry', () => {
         maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
       })
-    transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mock = await upkeepMockFactory.deploy()
     await linkToken
       .connect(owner)
@@ -189,7 +193,6 @@ describe('KeeperRegistry', () => {
         await admin.getAddress(),
         randomBytes,
       )
-    await registry.setTranscoder(transcoder.address)
     id = await getUpkeepID(tx)
   })
 
@@ -278,7 +281,7 @@ describe('KeeperRegistry', () => {
       ]
       const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
       await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
-      assert.deepEqual(oldKeepers, await registry.getKeeperList())
+      assert.deepEqual(oldKeepers, (await registry.getState()).keepers)
 
       // remove keepers
       const newKeepers = [
@@ -287,7 +290,7 @@ describe('KeeperRegistry', () => {
       ]
       const newPayees = [await payee2.getAddress(), await payee3.getAddress()]
       const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
-      assert.deepEqual(newKeepers, await registry.getKeeperList())
+      assert.deepEqual(newKeepers, (await registry.getState()).keepers)
 
       await expect(tx)
         .to.emit(registry, 'KeepersUpdated')
@@ -315,7 +318,7 @@ describe('KeeperRegistry', () => {
       ]
       const oldPayees = [await payee1.getAddress(), await payee2.getAddress()]
       await registry.connect(owner).setKeepers(oldKeepers, oldPayees)
-      assert.deepEqual(oldKeepers, await registry.getKeeperList())
+      assert.deepEqual(oldKeepers, (await registry.getState()).keepers)
 
       const newKeepers = [
         await keeper2.getAddress(),
@@ -323,7 +326,7 @@ describe('KeeperRegistry', () => {
       ]
       const newPayees = [IGNORE_ADDRESS, await payee3.getAddress()]
       const tx = await registry.connect(owner).setKeepers(newKeepers, newPayees)
-      assert.deepEqual(newKeepers, await registry.getKeeperList())
+      assert.deepEqual(newKeepers, (await registry.getState()).keepers)
 
       const ignored = await registry.getKeeperInfo(await keeper2.getAddress())
       assert.equal(await payee2.getAddress(), ignored.payee)
@@ -638,6 +641,8 @@ describe('KeeperRegistry', () => {
             maxPerformGas,
             fallbackGasPrice,
             fallbackLinkPrice,
+            transcoder: transcoder.address,
+            registrar: ethers.constants.AddressZero,
           })
           const response = await registry
             .connect(zeroAddress)
@@ -838,6 +843,8 @@ describe('KeeperRegistry', () => {
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
         })
 
         const before = (
@@ -874,6 +881,8 @@ describe('KeeperRegistry', () => {
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
         })
 
         const before = (
@@ -1185,13 +1194,15 @@ describe('KeeperRegistry', () => {
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
         })
 
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
         let upkeepBefore = (await registry.getUpkeep(id)).balance
-        let ownerBefore = await registry.getOwnerLinkBalance()
+        let ownerBefore = (await registry.getState()).state.ownerLinkBalance
         assert.equal(0, ownerBefore.toNumber())
 
         let amountSpent = toWei('100').sub(upkeepBefore)
@@ -1203,7 +1214,7 @@ describe('KeeperRegistry', () => {
 
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
         let upkeepAfter = (await registry.getUpkeep(id)).balance
-        let ownerAfter = await registry.getOwnerLinkBalance()
+        let ownerAfter = (await registry.getState()).state.ownerLinkBalance
 
         // Post upkeep balance should be 0
         assert.equal(0, upkeepAfter.toNumber())
@@ -1228,19 +1239,21 @@ describe('KeeperRegistry', () => {
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
         })
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
         let upkeepBefore = (await registry.getUpkeep(id)).balance
-        let ownerBefore = await registry.getOwnerLinkBalance()
+        let ownerBefore = (await registry.getState()).state.ownerLinkBalance
         assert.equal(0, ownerBefore.toNumber())
 
         await registry
           .connect(admin)
           .withdrawFunds(id, await payee1.getAddress())
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
-        let ownerAfter = await registry.getOwnerLinkBalance()
+        let ownerAfter = (await registry.getState()).state.ownerLinkBalance
         let upkeepAfter = (await registry.getUpkeep(id)).balance
 
         assert.equal(0, upkeepAfter.toNumber())
@@ -1263,19 +1276,21 @@ describe('KeeperRegistry', () => {
           maxPerformGas,
           fallbackGasPrice,
           fallbackLinkPrice,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
         })
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
         )
         let upkeepBefore = (await registry.getUpkeep(id)).balance
-        let ownerBefore = await registry.getOwnerLinkBalance()
+        let ownerBefore = (await registry.getState()).state.ownerLinkBalance
         assert.equal(0, ownerBefore.toNumber())
 
         await registry
           .connect(admin)
           .withdrawFunds(id, await payee1.getAddress())
         const payee1After = await linkToken.balanceOf(await payee1.getAddress())
-        let ownerAfter = await registry.getOwnerLinkBalance()
+        let ownerAfter = (await registry.getState()).state.ownerLinkBalance
         let upkeepAfter = (await registry.getUpkeep(id)).balance
 
         assert.equal(0, upkeepAfter.toNumber())
@@ -1311,6 +1326,8 @@ describe('KeeperRegistry', () => {
         maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
       })
       let upkeepBalance = (await registry.getUpkeep(id)).balance
       const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
@@ -1318,13 +1335,14 @@ describe('KeeperRegistry', () => {
       await registry.connect(owner).cancelUpkeep(id)
       await registry.connect(admin).withdrawFunds(id, await payee1.getAddress())
       // Transfered to owner balance on registry
-      let ownerRegistryBalance = await registry.getOwnerLinkBalance()
+      let ownerRegistryBalance = (await registry.getState()).state
+        .ownerLinkBalance
       assert.isTrue(ownerRegistryBalance.eq(upkeepBalance))
 
       // Now withdraw
       await registry.connect(owner).withdrawOwnerFunds()
 
-      ownerRegistryBalance = await registry.getOwnerLinkBalance()
+      ownerRegistryBalance = (await registry.getState()).state.ownerLinkBalance
       const ownerAfter = await linkToken.balanceOf(await owner.getAddress())
 
       // Owner registry balance should be changed to 0
@@ -1693,13 +1711,15 @@ describe('KeeperRegistry', () => {
           maxPerformGas,
           fallbackGasPrice: fbGasEth,
           fallbackLinkPrice: fbLinkEth,
+          transcoder: transcoder.address,
+          registrar: ethers.constants.AddressZero,
         }),
         'Only callable by owner',
       )
     })
 
     it('updates the config', async () => {
-      const old = await registry.getConfig()
+      const old = (await registry.getState()).config
       assert.isTrue(paymentPremiumPPB.eq(old.paymentPremiumPPB))
       assert.isTrue(flatFeeMicroLink.eq(old.flatFeeMicroLink))
       assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn))
@@ -1717,9 +1737,11 @@ describe('KeeperRegistry', () => {
         maxPerformGas,
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
       })
 
-      const updated = await registry.getConfig()
+      const updated = (await registry.getState()).config
       assert.equal(updated.paymentPremiumPPB, payment.toNumber())
       assert.equal(updated.flatFeeMicroLink, flatFee.toNumber())
       assert.equal(updated.blockCountPerTurn, checks.toNumber())
@@ -1742,6 +1764,8 @@ describe('KeeperRegistry', () => {
         maxPerformGas,
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
       })
       await expect(tx)
         .to.emit(registry, 'ConfigSet')
@@ -1962,6 +1986,8 @@ describe('KeeperRegistry', () => {
               maxPerformGas,
               fallbackGasPrice,
               fallbackLinkPrice,
+              transcoder: transcoder.address,
+              registrar: ethers.constants.AddressZero,
             })
             const price = await registry.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
@@ -2002,11 +2028,11 @@ describe('KeeperRegistry', () => {
       it('migrates an upkeep', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect(await registry.getUpkeepCount()).to.equal(1)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
         // migrate
         await registry.connect(admin).migrateUpkeeps([id], registry2.address)
-        expect(await registry.getUpkeepCount()).to.equal(0)
-        expect(await registry2.getUpkeepCount()).to.equal(1)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(0)
+        expect((await registry2.getState()).state.numUpkeeps).to.equal(1)
         expect((await registry.getUpkeep(id)).balance).to.equal(0)
         expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
         expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
@@ -2058,6 +2084,8 @@ describe('KeeperRegistry', () => {
         maxPerformGas,
         fallbackGasPrice,
         fallbackLinkPrice,
+        transcoder: transcoder.address,
+        registrar: ethers.constants.AddressZero,
       })
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
 

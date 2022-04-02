@@ -75,6 +75,7 @@ describe('KeeperRegistrar', () => {
   const minUpkeepSpend = BigNumber.from('1000000000000000000')
   const amount = BigNumber.from('5000000000000000000')
   const amount1 = BigNumber.from('6000000000000000000')
+  const transcoder = ethers.constants.AddressZero
 
   // Enum values are not auto exported in ABI so have to manually declare
   const autoApproveType_DISABLED = 0
@@ -103,6 +104,21 @@ describe('KeeperRegistrar', () => {
     stranger = personas.Nancy
     requestSender = personas.Norbert
 
+    const config = {
+      paymentPremiumPPB,
+      flatFeeMicroLink,
+      blockCountPerTurn,
+      checkGasLimit,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      minUpkeepSpend,
+      maxPerformGas,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+      transcoder,
+      registrar: ethers.constants.AddressZero,
+    }
+
     linkToken = await linkTokenFactory.connect(owner).deploy()
     gasPriceFeed = await mockV3AggregatorFactory
       .connect(owner)
@@ -112,18 +128,12 @@ describe('KeeperRegistrar', () => {
       .deploy(9, linkEth)
     registry = await keeperRegistryFactory
       .connect(owner)
-      .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
-        paymentPremiumPPB,
-        flatFeeMicroLink,
-        blockCountPerTurn,
-        checkGasLimit,
-        stalenessSeconds,
-        gasCeilingMultiplier,
-        minUpkeepSpend,
-        maxPerformGas,
-        fallbackGasPrice,
-        fallbackLinkPrice,
-      })
+      .deploy(
+        linkToken.address,
+        linkEthFeed.address,
+        gasPriceFeed.address,
+        config,
+      )
 
     mock = await upkeepMockFactory.deploy()
 
@@ -141,7 +151,8 @@ describe('KeeperRegistrar', () => {
       .connect(owner)
       .transfer(await requestSender.getAddress(), toWei('1000'))
 
-    await registry.setRegistrar(registrar.address)
+    config.registrar = registrar.address
+    await registry.setConfig(config)
   })
 
   describe('#typeAndVersion', () => {
@@ -297,7 +308,7 @@ describe('KeeperRegistrar', () => {
 
     it('Auto Approve OFF - does not registers an upkeep on KeeperRegistry, emits only RegistrationRequested event', async () => {
       //get upkeep count before attempting registration
-      const beforeCount = await registry.getUpkeepCount()
+      const beforeCount = (await registry.getState()).state.numUpkeeps
 
       //set auto approve OFF, threshold limits dont matter in this case
       await registrar
@@ -330,7 +341,7 @@ describe('KeeperRegistrar', () => {
       const receipt = await tx.wait()
 
       //get upkeep count after attempting registration
-      const afterCount = await registry.getUpkeepCount()
+      const afterCount = (await registry.getState()).state.numUpkeeps
       //confirm that a new upkeep has NOT been registered and upkeep count is still the same
       assert.deepEqual(beforeCount, afterCount)
 
@@ -345,7 +356,7 @@ describe('KeeperRegistrar', () => {
     })
 
     it('Auto Approve ON - Throttle max approvals - does not register an upkeep on KeeperRegistry beyond the max limit, emits only RegistrationRequested event after limit is hit', async () => {
-      assert.equal((await registry.getUpkeepCount()).toNumber(), 0)
+      assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 0)
 
       //set auto approve on, with max 1 allowed
       await registrar.connect(registrarOwner).setRegistrationConfig(
@@ -370,7 +381,7 @@ describe('KeeperRegistrar', () => {
       await linkToken
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      assert.equal((await registry.getUpkeepCount()).toNumber(), 1) // 0 -> 1
+      assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // 0 -> 1
 
       //try registering another one, new upkeep should not be registered
       abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
@@ -387,7 +398,7 @@ describe('KeeperRegistrar', () => {
       await linkToken
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      assert.equal((await registry.getUpkeepCount()).toNumber(), 1) // Still 1
+      assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 1) // Still 1
 
       // Now set new max limit to 2. One more upkeep should get auto approved
       await registrar.connect(registrarOwner).setRegistrationConfig(
@@ -410,7 +421,7 @@ describe('KeeperRegistrar', () => {
       await linkToken
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      assert.equal((await registry.getUpkeepCount()).toNumber(), 2) // 1 -> 2
+      assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 2) // 1 -> 2
 
       // One more upkeep should not get registered
       abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
@@ -427,7 +438,7 @@ describe('KeeperRegistrar', () => {
       await linkToken
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      assert.equal((await registry.getUpkeepCount()).toNumber(), 2) // Still 2
+      assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 2) // Still 2
     })
 
     it('Auto Approve Sender Allowlist - sender in allowlist - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
@@ -482,7 +493,7 @@ describe('KeeperRegistrar', () => {
     })
 
     it('Auto Approve Sender Allowlist - sender NOT in allowlist - does not registers an upkeep on KeeperRegistry, emits only RegistrationRequested event', async () => {
-      const beforeCount = await registry.getUpkeepCount()
+      const beforeCount = (await registry.getState()).state.numUpkeeps
       const senderAddress = await requestSender.getAddress()
 
       //set auto approve to ENABLED_SENDER_ALLOWLIST type with high threshold limits
@@ -521,7 +532,7 @@ describe('KeeperRegistrar', () => {
       const receipt = await tx.wait()
 
       //get upkeep count after attempting registration
-      const afterCount = await registry.getUpkeepCount()
+      const afterCount = (await registry.getState()).state.numUpkeeps
       //confirm that a new upkeep has NOT been registered and upkeep count is still the same
       assert.deepEqual(beforeCount, afterCount)
 
