@@ -704,26 +704,20 @@ contract KeeperRegistryDev is
     ) revert MigrationNotPermitted();
     if (address(s_transcoder) == ZERO_ADDRESS) revert TranscoderNotSet();
     if (ids.length == 0) revert ArrayHasNoEntries();
+    address admin = s_upkeep[ids[0]].admin;
+    bool isOwner = msg.sender == owner();
+    if (msg.sender != admin && !isOwner) revert OnlyCallableByOwnerOrAdmin();
     uint256 id;
     Upkeep memory upkeep;
-    address admin;
     uint256 totalBalanceRemaining;
-    address[] memory targets = new address[](ids.length);
-    uint32[] memory gasLimits = new uint32[](ids.length);
-    uint96[] memory balances = new uint96[](ids.length);
     bytes[] memory checkDatas = new bytes[](ids.length);
-    bool isOwner = msg.sender == owner();
+    Upkeep[] memory upkeeps = new Upkeep[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      if (idx == 0) {
-        admin = upkeep.admin;
-      }
-      if (msg.sender != admin && !isOwner) revert OnlyCallableByOwnerOrAdmin();
+      if (upkeep.admin != admin) revert OnlyCallableByOwnerOrAdmin();
       if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
-      targets[idx] = upkeep.target;
-      gasLimits[idx] = upkeep.executeGas;
-      balances[idx] = upkeep.balance;
+      upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
@@ -732,7 +726,7 @@ contract KeeperRegistryDev is
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(admin, ids, targets, gasLimits, balances, checkDatas);
+    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
       s_transcoder.transcodeUpkeeps(address(this), destination, encodedUpkeeps)
     );
@@ -744,17 +738,20 @@ contract KeeperRegistryDev is
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
     ) revert MigrationNotPermitted();
-    (
-      address admin,
-      uint256[] memory ids,
-      address[] memory targets,
-      uint32[] memory gasLimits,
-      uint96[] memory balances,
-      bytes[] memory checkDatas
-    ) = abi.decode(encodedUpkeeps, (address, uint256[], address[], uint32[], uint96[], bytes[]));
+    (uint256[] memory ids, Upkeep[] memory upkeeps, bytes[] memory checkDatas) = abi.decode(
+      encodedUpkeeps,
+      (uint256[], Upkeep[], bytes[])
+    );
     for (uint256 idx = 0; idx < ids.length; idx++) {
-      createUpkeep(ids[idx], targets[idx], gasLimits[idx], admin, balances[idx], checkDatas[idx]);
-      emit UpkeepImported(ids[idx], balances[idx], msg.sender);
+      createUpkeep(
+        ids[idx],
+        upkeeps[idx].target,
+        upkeeps[idx].executeGas,
+        upkeeps[idx].admin,
+        upkeeps[idx].balance,
+        checkDatas[idx]
+      );
+      emit UpkeepImported(ids[idx], upkeeps[idx].balance, msg.sender);
     }
   }
 
