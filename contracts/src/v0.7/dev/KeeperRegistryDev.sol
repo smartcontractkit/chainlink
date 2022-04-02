@@ -13,7 +13,7 @@ import "../../v0.8/interfaces/KeeperCompatibleInterface.sol";
 import "./KeeperRegistryInterfaceDev.sol";
 import "../../v0.8/interfaces/TypeAndVersionInterface.sol";
 import "./MigratableKeeperRegistryInterface.sol";
-import "./UpkeepTranscoderInterface.sol";
+import "../../v0.8/dev/interfaces/UpkeepTranscoderInterface.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -47,6 +47,7 @@ contract KeeperRegistryDev is
   uint256 private constant PPB_BASE = 1_000_000_000;
   uint64 private constant UINT64_MAX = 2**64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
+  UpkeepTranscoderVersion public constant upkeepTranscoderVersion = UpkeepTranscoderVersion.V1;
 
   address[] private s_keeperList;
   EnumerableSet.UintSet private s_upkeepIDs;
@@ -670,14 +671,18 @@ contract KeeperRegistryDev is
       delete s_upkeep[id];
       delete s_checkData[id];
       s_upkeepIDs.remove(id);
-      emit UpkeepMigrated(id, upkeep.balance, destination);
+      emit UpkeepMigrated(id, upkeep.balance, address(destination));
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
-      UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(address(this), destination, encodedUpkeeps)
+      UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(
+        UpkeepTranscoderVersion.V1,
+        MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
+        encodedUpkeeps
+      )
     );
-    LINK.transfer(destination, totalBalanceRemaining);
+    LINK.transfer(address(destination), totalBalanceRemaining);
   }
 
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
