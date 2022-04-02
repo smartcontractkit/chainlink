@@ -6,8 +6,7 @@
  */
 
 import { ethers } from 'hardhat'
-import chai, { assert, expect } from 'chai'
-import deepEqualInAnyOrder from 'deep-equal-in-any-order'
+import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { BigNumber, Signer, BigNumberish } from 'ethers'
@@ -26,8 +25,6 @@ import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
 import { UpkeepTranscoder } from '../../typechain'
 import { toWei } from '../test-helpers/helpers'
-
-chai.use(deepEqualInAnyOrder)
 
 async function getUpkeepID(tx: any) {
   const receipt = await tx.wait()
@@ -234,7 +231,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress(), await keeper1.getAddress()],
             [await payee1.getAddress(), await payee1.getAddress()],
           ),
-        'cannot add keeper twice',
+        'DuplicateEntry()',
       )
     })
 
@@ -246,7 +243,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress(), await keeper2.getAddress()],
             [await payee1.getAddress()],
           ),
-        'address lists not the same length',
+        'ParameterLengthMismatch()',
       )
       await evmRevert(
         registry
@@ -255,7 +252,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress()],
             [await payee1.getAddress(), await payee2.getAddress()],
           ),
-        'address lists not the same length',
+        'ParameterLengthMismatch()',
       )
     })
 
@@ -270,7 +267,7 @@ describe('KeeperRegistry', () => {
               '0x0000000000000000000000000000000000000000',
             ],
           ),
-        'cannot set payee to the zero address',
+        'InvalidPayee()',
       )
     })
 
@@ -347,7 +344,7 @@ describe('KeeperRegistry', () => {
             await payee2.getAddress(),
             await owner.getAddress(),
           ]),
-        'cannot change payee',
+        'CannotChangePayee()',
       )
     })
   })
@@ -363,7 +360,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'target is not a contract',
+        'NotAContract()',
       )
     })
 
@@ -377,7 +374,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'Only callable by owner or registrar',
+        'OnlyCallableByOwnerOrRegistrar()',
       )
     })
 
@@ -391,7 +388,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'min gas is 2300',
+        'GasLimitOutsideRange()',
       )
     })
 
@@ -405,7 +402,7 @@ describe('KeeperRegistry', () => {
             await admin.getAddress(),
             emptyBytes,
           ),
-        'gasLimit exceeds registry maxPerformGas',
+        'GasLimitOutsideRange()',
       )
     })
 
@@ -440,7 +437,7 @@ describe('KeeperRegistry', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).addFunds(id.add(1), amount),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
     })
 
@@ -461,7 +458,7 @@ describe('KeeperRegistry', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
     })
   })
@@ -472,7 +469,7 @@ describe('KeeperRegistry', () => {
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).setUpkeepGasLimit(id.add(1), newGasLimit),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
     })
 
@@ -480,27 +477,27 @@ describe('KeeperRegistry', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).setUpkeepGasLimit(id, newGasLimit),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
     })
 
     it('reverts if called by anyone but the admin', async () => {
       await evmRevert(
         registry.connect(owner).setUpkeepGasLimit(id, newGasLimit),
-        'only callable by admin',
+        'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if new gas limit is out of bounds', async () => {
       await evmRevert(
         registry.connect(admin).setUpkeepGasLimit(id, BigNumber.from('100')),
-        'min gas is 2300',
+        'GasLimitOutsideRange()',
       )
       await evmRevert(
         registry
           .connect(admin)
           .setUpkeepGasLimit(id, BigNumber.from('6000000')),
-        'gasLimit exceeds registry maxPerformGas',
+        'GasLimitOutsideRange()',
       )
     })
 
@@ -530,7 +527,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
     })
 
@@ -545,7 +542,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await keeper1.getAddress()),
-          'only for simulated backend',
+          'OnlySimulatedBackend()',
         )
       })
 
@@ -554,7 +551,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await owner.getAddress()),
-          'only for simulated backend',
+          'OnlySimulatedBackend()',
         )
       })
 
@@ -568,7 +565,7 @@ describe('KeeperRegistry', () => {
             registry
               .connect(zeroAddress)
               .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'upkeep not needed',
+            'UpkeepNotNeeded()',
           )
         })
       })
@@ -596,7 +593,7 @@ describe('KeeperRegistry', () => {
             registry
               .connect(zeroAddress)
               .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'call to check target failed',
+            'TargetCheckReverted',
           )
         })
       })
@@ -692,7 +689,7 @@ describe('KeeperRegistry', () => {
     it('reverts if the registration is not funded', async () => {
       await evmRevert(
         registry.connect(keeper2).performUpkeep(id, '0x'),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
     })
 
@@ -926,7 +923,7 @@ describe('KeeperRegistry', () => {
       it('reverts if called by a non-keeper', async () => {
         await evmRevert(
           registry.connect(nonkeeper).performUpkeep(id, '0x'),
-          'only active keepers',
+          'OnlyActiveKeepers()',
         )
       })
 
@@ -937,7 +934,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'invalid upkeep id',
+          'UpkeepNotActive()',
         )
       })
 
@@ -1005,12 +1002,12 @@ describe('KeeperRegistry', () => {
         await registry.connect(keeper1).performUpkeep(id, '0x')
         await evmRevert(
           registry.connect(keeper1).performUpkeep(id, '0x'),
-          'keepers must take turns',
+          'KeepersMustTakeTurns()',
         )
         await registry.connect(keeper2).performUpkeep(id, '0x')
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'keepers must take turns',
+          'KeepersMustTakeTurns()',
         )
         await registry.connect(keeper1).performUpkeep(id, '0x')
       })
@@ -1129,21 +1126,21 @@ describe('KeeperRegistry', () => {
         registry
           .connect(owner)
           .withdrawFunds(id.add(1), await payee1.getAddress()),
-        'only callable by admin',
+        'OnlyCallableByAdmin()',
       )
     })
 
     it('reverts if called on an uncanceled upkeep', async () => {
       await evmRevert(
         registry.connect(admin).withdrawFunds(id, await payee1.getAddress()),
-        'upkeep must be canceled',
+        'UpkeepNotCanceled()',
       )
     })
 
     it('reverts if called with the 0 address', async () => {
       await evmRevert(
         registry.connect(admin).withdrawFunds(id, zeroAddress),
-        'cannot send to zero address',
+        'InvalidRecipient()',
       )
     })
 
@@ -1342,14 +1339,14 @@ describe('KeeperRegistry', () => {
     it('reverts if the ID is not valid', async () => {
       await evmRevert(
         registry.connect(owner).cancelUpkeep(id.add(1)),
-        'too late to cancel upkeep',
+        'CannotCancel()',
       )
     })
 
     it('reverts if called by a non-owner/non-admin', async () => {
       await evmRevert(
         registry.connect(keeper1).cancelUpkeep(id),
-        'only owner or admin',
+        'OnlyCallableByOwnerOrAdmin()',
       )
     })
 
@@ -1377,7 +1374,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'invalid upkeep id',
+          'UpkeepNotActive()',
         )
       })
 
@@ -1385,7 +1382,7 @@ describe('KeeperRegistry', () => {
         await registry.connect(owner).cancelUpkeep(id)
         await evmRevert(
           registry.connect(owner).cancelUpkeep(id),
-          'too late to cancel upkeep',
+          'CannotCancel()',
         )
       })
 
@@ -1451,7 +1448,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(keeper2).performUpkeep(id, '0x'),
-          'invalid upkeep id',
+          'UpkeepNotActive()',
         )
       })
 
@@ -1460,7 +1457,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(admin).cancelUpkeep(id),
-          'too late to cancel upkeep',
+          'CannotCancel()',
         )
       })
 
@@ -1482,7 +1479,7 @@ describe('KeeperRegistry', () => {
 
         await evmRevert(
           registry.connect(owner).cancelUpkeep(id),
-          'too late to cancel upkeep',
+          'CannotCancel()',
         )
       })
     })
@@ -1503,7 +1500,7 @@ describe('KeeperRegistry', () => {
             await keeper1.getAddress(),
             await nonkeeper.getAddress(),
           ),
-        'only callable by payee',
+        'OnlyCallableByPayee()',
       )
     })
 
@@ -1512,7 +1509,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(payee2)
           .withdrawPayment(await keeper1.getAddress(), zeroAddress),
-        'cannot send to zero address',
+        'InvalidRecipient()',
       )
     })
 
@@ -1572,7 +1569,7 @@ describe('KeeperRegistry', () => {
             await keeper1.getAddress(),
             await payee2.getAddress(),
           ),
-        'only callable by payee',
+        'OnlyCallableByPayee()',
       )
     })
 
@@ -1584,7 +1581,7 @@ describe('KeeperRegistry', () => {
             await keeper1.getAddress(),
             await payee1.getAddress(),
           ),
-        'cannot transfer to self',
+        'ValueNotChanged()',
       )
     })
 
@@ -1648,7 +1645,7 @@ describe('KeeperRegistry', () => {
     it('reverts when called by anyone but the proposed payee', async () => {
       await evmRevert(
         registry.connect(payee1).acceptPayeeship(await keeper1.getAddress()),
-        'only callable by proposed payee',
+        'OnlyCallableByProposedPayee()',
       )
     })
 
@@ -1773,7 +1770,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(keeper1)
           .onTokenTransfer(await keeper1.getAddress(), amount, data),
-        'only callable through LINK',
+        'OnlyCallableByLINKToken()',
       )
     })
 
@@ -1800,7 +1797,7 @@ describe('KeeperRegistry', () => {
       await registry.connect(admin).cancelUpkeep(id)
       await evmRevert(
         registry.connect(keeper1).addFunds(id, amount),
-        'upkeep must be active',
+        'UpkeepNotActive()',
       )
     })
 
@@ -2109,7 +2106,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(keeper1)
           .performUpkeep(upkeepID1, performData, { gasLimit: extraGas }),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
       await registry
         .connect(keeper1)
@@ -2130,7 +2127,7 @@ describe('KeeperRegistry', () => {
         registry
           .connect(zeroAddress)
           .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-        'insufficient funds',
+        'InsufficientFunds()',
       )
       await registry.connect(keeper1).addFunds(id, oneWei)
       await registry
