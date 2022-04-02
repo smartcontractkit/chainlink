@@ -9,7 +9,7 @@
 
 # Services
 /core/services/cron @spooktheducks @samsondav
-/core/services/directrequest @spooktheducks @j16r @connorwstein @samsondav
+/core/services/directrequest @spooktheducks @connorwstein @samsondav
 /core/services/feeds @jkongie
 /core/services/fluxmonitorv2 @jkongie @PiotrTrzpil @spooktheducks @connorwstein
 /core/services/health @archseer @samsondav
@@ -45,6 +45,9 @@
 /core/chains @samsondav
 /core/logger @jmank88
 /core/internal @samsondav @jmank88 @archseer
+
+# CI/CD
+/.github/** @alexroan @chainchad @HenryNguyen5 @javuto @jkongie @jmank88 @samsondav
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/prodsec-public

@@ -101,6 +101,7 @@ type VRFSpec {
     publicKey: String!
     requestedConfsDelay: Int!
     requestTimeout: String!
+    chunkSize: Int!
 }
 
 type WebhookSpec {

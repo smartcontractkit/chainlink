@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"net/url"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
@@ -224,38 +224,22 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
-	str := string(bs)
-	if str == "" || str == "null" {
+	if len(bs) == 0 {
 		js.Valid = false
 		return nil
 	}
-
 	err := json.Unmarshal(bs, &js.Val)
-	js.Valid = err == nil
+	js.Valid = err == nil && js.Val != nil
 	return err
 }
 
 // MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	if !js.Valid {
-		return []byte("null"), nil
+		return json.Marshal(nil)
 	}
-	switch x := js.Val.(type) {
-	case []byte:
-		// Don't need to HEX encode if it is a valid JSON string
-		if json.Valid(x) {
-			return json.Marshal(string(x))
-		}
-
-		// Don't need to HEX encode if it is already HEX encoded value
-		if utils.IsHexBytes(x) {
-			return json.Marshal(string(x))
-		}
-
-		return json.Marshal(hex.EncodeToString(x))
-	default:
-		return json.Marshal(js.Val)
-	}
+	jsWithHex := replaceBytesWithHex(js.Val)
+	return json.Marshal(jsWithHex)
 }
 
 func (js *JSONSerializable) Scan(value interface{}) error {
@@ -457,4 +441,56 @@ func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
 	}
 	return chainSet.Get(id)
+}
+
+// replaceBytesWithHex replaces all []byte with hex-encoded strings
+func replaceBytesWithHex(val interface{}) interface{} {
+	switch value := val.(type) {
+	case nil:
+		return value
+	case []byte:
+		return utils.StringToHex(string(value))
+	case common.Address:
+		return value.Hex()
+	case common.Hash:
+		return value.Hex()
+	case [][]byte:
+		var list []string
+		for _, bytes := range value {
+			list = append(list, utils.StringToHex(string(bytes)))
+		}
+		return list
+	case []common.Address:
+		var list []string
+		for _, addr := range value {
+			list = append(list, addr.Hex())
+		}
+		return list
+	case []common.Hash:
+		var list []string
+		for _, hash := range value {
+			list = append(list, hash.Hex())
+		}
+		return list
+	case []interface{}:
+		if value == nil {
+			return value
+		}
+		var list []interface{}
+		for _, item := range value {
+			list = append(list, replaceBytesWithHex(item))
+		}
+		return list
+	case map[string]interface{}:
+		if value == nil {
+			return value
+		}
+		m := make(map[string]interface{})
+		for k, v := range value {
+			m[k] = replaceBytesWithHex(v)
+		}
+		return m
+	default:
+		return value
+	}
 }
