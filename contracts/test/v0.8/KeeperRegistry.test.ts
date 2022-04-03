@@ -56,9 +56,9 @@ before(async () => {
 
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
-  mockV3AggregatorFactory = (await ethers.getContractFactory(
+  mockV3AggregatorFactory = ((await ethers.getContractFactory(
     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
-  )) as unknown as MockV3AggregatorFactory
+  )) as unknown) as MockV3AggregatorFactory
   // Lifts the Dev contract
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
@@ -545,7 +545,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await keeper1.getAddress()),
-          'OnlySimulatedBackend()',
+          'CannotExecute()',
         )
       })
 
@@ -554,7 +554,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await owner.getAddress()),
-          'OnlySimulatedBackend()',
+          'CannotExecute()',
         )
       })
 
