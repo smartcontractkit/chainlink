@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./KeeperBase.sol";
+import "./UpkeepTranscoder.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
@@ -47,7 +48,6 @@ contract KeeperRegistryDev is
   uint256 private constant PPB_BASE = 1_000_000_000;
   uint64 private constant UINT64_MAX = 2**64 - 1;
   uint96 private constant LINK_TOTAL_SUPPLY = 1e27;
-  UpkeepTranscoderVersion public constant upkeepTranscoderVersion = UpkeepTranscoderVersion.V1;
 
   address[] private s_keeperList;
   EnumerableSet.UintSet private s_upkeepIDs;
@@ -677,13 +677,18 @@ contract KeeperRegistryDev is
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
       UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(
-        UpkeepTranscoderVersion.V1,
+        UpkeepFormatV1,
         MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
         encodedUpkeeps
       )
     );
     LINK.transfer(address(destination), totalBalanceRemaining);
   }
+
+  /**
+   * @notice Implements MigratableKeeperRegistryInterface.
+   */
+  uint8 public constant upkeepTranscoderVersion = UpkeepFormatV1;
 
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     if (
