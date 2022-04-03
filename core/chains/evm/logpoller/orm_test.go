@@ -51,7 +51,7 @@ func TestUnit_ORM(t *testing.T) {
 			Data:        []byte("hello"),
 		},
 	}))
-	logs, err := o.SelectLogsByBlockRange(10, 10)
+	logs, err := o.selectLogsByBlockRange(10, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))
 	assert.Equal(t, []byte("hello"), logs[0].Data)

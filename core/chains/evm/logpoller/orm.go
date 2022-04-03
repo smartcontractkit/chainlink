@@ -82,7 +82,7 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	return err
 }
 
-func (o *ORM) SelectLogsByBlockRange(start, end int64) ([]Log, error) {
+func (o *ORM) selectLogsByBlockRange(start, end int64) ([]Log, error) {
 	var logs []Log
 	err := o.q.Select(&logs, `
         SELECT * FROM logs 

@@ -59,7 +59,7 @@ func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBac
 	}
 }
 
-func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
+func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	chainID := testutils.NewRandomEVMChainID()
@@ -103,7 +103,7 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, lpb.BlockNumber, int64(b.NumberU64()))
 	assert.Equal(t, int64(1), int64(b.NumberU64()))
 	// No logs.
-	lgs, err := orm.SelectLogsByBlockRange(1, 1)
+	lgs, err := orm.selectLogsByBlockRange(1, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(lgs))
 
@@ -127,7 +127,7 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), latest.BlockNumber)
-	lgs, err = orm.SelectLogsByBlockRange(1, 3)
+	lgs, err = orm.selectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, emitterAddress1, lgs[0].Address)
@@ -161,7 +161,7 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), latest.BlockNumber)
-	lgs, err = orm.SelectLogsByBlockRange(1, 3)
+	lgs, err = orm.selectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
@@ -182,7 +182,7 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(4), latest.BlockNumber)
-	lgs, err = orm.SelectLogsByBlockRange(1, 3)
+	lgs, err = orm.selectLogsByBlockRange(1, 3)
 	// We expect ONLY L1_1 and L1_3 since L1_2 is reorg'd out.
 	assert.Equal(t, 2, len(lgs))
 	assert.Equal(t, int64(2), lgs[0].BlockNumber)
@@ -210,7 +210,7 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(7), newStart)
-	lgs, err = orm.SelectLogsByBlockRange(4, 6)
+	lgs, err = orm.selectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000004`), lgs[0].Data)
@@ -234,7 +234,7 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	}
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(10), newStart)
-	lgs, err = orm.SelectLogsByBlockRange(7, 9)
+	lgs, err = orm.selectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(lgs))
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000007`), lgs[0].Data)
@@ -260,14 +260,14 @@ func TestUnit_LogPoller_PollAndSaveLogs(t *testing.T) {
 	}
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(16), newStart)
-	lgs, err = orm.SelectLogsByBlockRange(10, 15)
+	lgs, err = orm.selectLogsByBlockRange(10, 15)
 	require.NoError(t, err)
 	assert.Equal(t, 6, len(lgs))
 	assertHaveCanonical(t, 14, 15, ec, orm)
 	assertDontHave(t, 10, 13, orm) // Do not expect to save backfilled blocks.
 }
 
-func TestUnit_LogPoller_Logs(t *testing.T) {
+func TestLogPoller_Logs(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
@@ -290,7 +290,7 @@ func TestUnit_LogPoller_Logs(t *testing.T) {
 	}))
 
 	// Select for all addresses
-	lgs, err := o.SelectLogsByBlockRange(1, 3)
+	lgs, err := o.selectLogsByBlockRange(1, 3)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(lgs))
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000003", lgs[0].BlockHash.String())
@@ -320,7 +320,7 @@ func TestUnit_LogPoller_Logs(t *testing.T) {
 	assert.Equal(t, event1.Bytes(), lgs[0].Topics[0])
 }
 
-func TestUnit_LogPoller_MergeFilter(t *testing.T) {
+func TestLogPoller_MergeFilter(t *testing.T) {
 	lp := NewLogPoller(nil, nil, nil, 15*time.Second, 1, 1)
 	a1 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbb")
 	a2 := common.HexToAddress("0x2ab9a2dc53736b361b72d900cdf9f78f9406fbbc")
