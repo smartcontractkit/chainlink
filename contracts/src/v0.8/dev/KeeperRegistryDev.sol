@@ -671,7 +671,7 @@ contract KeeperRegistryDev is
       delete s_upkeep[id];
       delete s_checkData[id];
       s_upkeepIDs.remove(id);
-      emit UpkeepMigrated(id, upkeep.balance, address(destination));
+      emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
@@ -682,7 +682,7 @@ contract KeeperRegistryDev is
         encodedUpkeeps
       )
     );
-    LINK.transfer(address(destination), totalBalanceRemaining);
+    LINK.transfer(destination, totalBalanceRemaining);
   }
 
   /**
