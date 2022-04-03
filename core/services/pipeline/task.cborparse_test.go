@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -97,10 +98,10 @@ func TestCBORParseTask(t *testing.T) {
 			nil,
 			map[string]interface{}{
 				"bignums": []interface{}{
-					float64(18446744073709551616),
-					float64(28948022309329048855892746252171976963317496166410141009864396001978282409984),
-					float64(-18446744073709551617),
-					float64(-28948022309329048855892746252171976963317496166410141009864396001978282409984),
+					testutils.MustParseBigInt(t, "18446744073709551616"),
+					testutils.MustParseBigInt(t, "28948022309329048855892746252171976963317496166410141009864396001978282409984"),
+					testutils.MustParseBigInt(t, "-18446744073709551617"),
+					testutils.MustParseBigInt(t, "-28948022309329048855892746252171976963317496166410141009864396001978282409984"),
 				},
 			},
 			nil,
