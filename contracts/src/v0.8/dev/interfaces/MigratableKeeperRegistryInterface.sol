@@ -9,5 +9,5 @@ interface MigratableKeeperRegistryInterface {
 
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external;
 
- function upkeepTranscoderVersion() external returns (uint8 version);
+  function upkeepTranscoderVersion() external returns (uint8 version);
 }
