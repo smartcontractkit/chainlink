@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 contract KeeperBase {
-
   error CannotExecute();
 
   /**
@@ -10,7 +9,7 @@ contract KeeperBase {
    * the sender is the zero address.
    */
   function preventExecution() internal view {
-    if(tx.origin != address(0)) {
+    if (tx.origin != address(0)) {
       revert CannotExecute();
     }
   }
