@@ -3,14 +3,22 @@
 pragma solidity ^0.8.0;
 
 import "./interfaces/UpkeepTranscoderInterface.sol";
-import "../ConfirmedOwner.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
+
+uint8 constant UpkeepFormatV1 = 1;
 
 /**
  * @notice Transcoder for converting upkeep data from one keeper
  * registry version to another
  */
-contract UpkeepTranscoder is UpkeepTranscoderInterface, ConfirmedOwner {
-  constructor() ConfirmedOwner(msg.sender) {}
+contract UpkeepTranscoder is UpkeepTranscoderInterface, TypeAndVersionInterface {
+  error InvalidTranscoding();
+
+  /**
+   * @notice versions:
+   * - UpkeepTranscoder 1.0.0: placeholder to allow new formats in the future
+   */
+  string public constant override typeAndVersion = "UpkeepTranscoder 1.0.0";
 
   /**
    * @notice transcodeUpkeeps transforms upkeep data from the format expected by
@@ -24,11 +32,14 @@ contract UpkeepTranscoder is UpkeepTranscoderInterface, ConfirmedOwner {
    * and migration paths are added
    */
   function transcodeUpkeeps(
-    UpkeepTranscoderVersion fromVersion,
-    UpkeepTranscoderVersion toVersion,
+    uint8 fromVersion,
+    uint8 toVersion,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
-    require(fromVersion == UpkeepTranscoderVersion.V1 && toVersion == UpkeepTranscoderVersion.V1);
+    if(fromVersion != UpkeepFormatV1 || toVersion != UpkeepFormatV1) {
+      revert InvalidTranscoding();
+    }
+
     return encodedUpkeeps;
   }
 }
