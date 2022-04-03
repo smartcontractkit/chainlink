@@ -7,18 +7,18 @@
 pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "../../v0.8/interfaces/AggregatorV3Interface.sol";
-import "../../v0.8/interfaces/LinkTokenInterface.sol";
-import "../../v0.8/interfaces/KeeperCompatibleInterface.sol";
-import "./KeeperRegistryInterfaceDev.sol";
-import "../../v0.8/interfaces/TypeAndVersionInterface.sol";
-import "./MigratableKeeperRegistryInterface.sol";
-import "../../v0.8/dev/interfaces/UpkeepTranscoderInterface.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../../v0.8/KeeperBase.sol";
-import "../../v0.8/ConfirmedOwner.sol";
+import "./KeeperBase.sol";
+import "../ConfirmedOwner.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/LinkTokenInterface.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
+import "./interfaces/KeeperRegistryInterface.sol";
+import "./interfaces/MigratableKeeperRegistryInterface.sol";
+import "./interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
