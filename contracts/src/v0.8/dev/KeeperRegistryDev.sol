@@ -645,6 +645,9 @@ contract KeeperRegistryDev is
     s_peerRegistryMigrationPermission[peer] = permission;
   }
 
+  /**
+   * @inheritdoc MigratableKeeperRegistryInterface
+   */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external override {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
@@ -655,6 +658,7 @@ contract KeeperRegistryDev is
     address admin = s_upkeep[ids[0]].admin;
     bool isOwner = msg.sender == owner();
     if (msg.sender != admin && !isOwner) revert OnlyCallableByOwnerOrAdmin();
+
     uint256 id;
     Upkeep memory upkeep;
     uint256 totalBalanceRemaining;
@@ -686,10 +690,13 @@ contract KeeperRegistryDev is
   }
 
   /**
-   * @notice Implements MigratableKeeperRegistryInterface.
+   * @inheritdoc MigratableKeeperRegistryInterface
    */
   uint8 public constant upkeepTranscoderVersion = UpkeepFormatV1;
 
+  /**
+   * @inheritdoc MigratableKeeperRegistryInterface
+   */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
