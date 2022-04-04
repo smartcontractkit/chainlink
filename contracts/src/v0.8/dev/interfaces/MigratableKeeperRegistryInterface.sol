@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-import "./UpkeepTranscoderInterface.sol";
-
 interface MigratableKeeperRegistryInterface {
   function migrateUpkeeps(uint256[] calldata upkeepIDs, address destination) external;
 
