@@ -18,10 +18,11 @@ var (
 	Terra  Network = "terra"
 
 	// The chainlink integration for dYdX just posts price feeds to a custom API endpoint
-	// which the dYdX team controls. There's no chain for it yet.
+	// which the dYdX team controls. There's no Chain for it yet.
 	// The DydX network here represents posting to that endpoint via a custom external
-	// adapter. The core OCR components for dydx are mostly no-op.
-	// This is a short-term workaround till dYdX migrates their price feeds on-chain.
+	// adapter. The core OCR2 components for dydx are written to ensure that
+	// the protocol works fine, and able to report accurate telemetry data.
+	// This is an interim solution till dYdX migrates their price feeds on-chain.
 	Dydx Network = "dydx"
 )
 
