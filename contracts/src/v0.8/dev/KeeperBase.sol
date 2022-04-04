@@ -8,7 +8,7 @@ contract KeeperBase {
    * @notice method that allows it to be simulated via eth_call by checking that
    * the sender is the zero address.
    */
-  function preventExecution() internal view {
+  function _preventExecution() internal view {
     if (tx.origin != address(0)) {
       revert CannotExecute();
     }
@@ -19,7 +19,7 @@ contract KeeperBase {
    * that the sender is the zero address.
    */
   modifier cannotExecute() {
-    preventExecution();
+    _preventExecution();
     _;
   }
 }
