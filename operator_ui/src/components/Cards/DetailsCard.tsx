@@ -15,7 +15,7 @@ const styles = (theme: Theme) =>
     paper: {
       display: 'flex',
       margin: `${theme.spacing.unit * 2.5}px 0`,
-      padding: theme.spacing.unit * 3,
+      padding: `${theme.spacing.unit * 3}px  ${theme.spacing.unit * 3.5}px`,
     },
     content: {
       flex: 1,

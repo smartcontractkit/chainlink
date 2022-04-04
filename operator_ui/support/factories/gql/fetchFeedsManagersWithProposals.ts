@@ -20,10 +20,8 @@ export function buildFeedsManagerFields(
     name: 'Chainlink Feeds Manager',
     uri: 'localhost:8080',
     publicKey: '1111',
-    jobTypes: ['FLUX_MONITOR'],
     isConnectionActive: false,
-    isBootstrapPeer: false,
-    bootstrapPeerMultiaddr: null,
+    chainConfigs: [],
     ...overrides,
   }
 }

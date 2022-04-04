@@ -4,6 +4,7 @@ import { gql } from '@apollo/client'
 
 import Grid from '@material-ui/core/Grid'
 
+import { SupportedChainsCard } from './SupportedChainsCard'
 import { FeedsManagerCard, FEEDS_MANAGER_FIELDS } from './FeedsManagerCard'
 import {
   JobProposalsCard,
@@ -36,7 +37,9 @@ export const FeedsManagerView: React.FC<Props> = ({ manager }) => {
       <Grid item xs={12}>
         <FeedsManagerCard manager={manager} />
       </Grid>
-
+      <Grid item xs={12}>
+        <SupportedChainsCard cfgs={manager.chainConfigs} mgrID={manager.id} />
+      </Grid>
       <Grid item xs={12}>
         <Heading2>Job Proposals</Heading2>
       </Grid>

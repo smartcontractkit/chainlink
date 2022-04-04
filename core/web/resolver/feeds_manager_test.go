@@ -4,38 +4,12 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/lib/pq"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
-
-func Test_ToJobType(t *testing.T) {
-	t.Parallel()
-
-	jt, err := ToJobType("fluxmonitor")
-	require.NoError(t, err)
-	assert.Equal(t, jt, JobTypeFluxMonitor)
-
-	jt, err = ToJobType("ocr")
-	require.NoError(t, err)
-	assert.Equal(t, jt, JobTypeOCR)
-
-	_, err = ToJobType("xxx")
-	require.Error(t, err)
-	assert.EqualError(t, err, "invalid job type")
-}
-
-func Test_FromJobType(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, "fluxmonitor", FromJobTypeInput(JobTypeFluxMonitor))
-	assert.Equal(t, "ocr", FromJobTypeInput(JobTypeOCR))
-}
 
 func Test_FeedsManagers(t *testing.T) {
 	var (
@@ -47,9 +21,6 @@ func Test_FeedsManagers(t *testing.T) {
 						name
 						uri
 						publicKey
-						jobTypes
-						isBootstrapPeer
-						bootstrapPeerMultiaddr
 						isConnectionActive
 						createdAt
 						jobProposals {
@@ -80,15 +51,12 @@ func Test_FeedsManagers(t *testing.T) {
 				}, nil)
 				f.Mocks.feedsSvc.On("ListManagers").Return([]feeds.FeedsManager{
 					{
-						ID:                        1,
-						Name:                      "manager1",
-						URI:                       "localhost:2000",
-						PublicKey:                 *pubKey,
-						JobTypes:                  []string{"fluxmonitor"},
-						IsOCRBootstrapPeer:        true,
-						OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
-						IsConnectionActive:        true,
-						CreatedAt:                 f.Timestamp(),
+						ID:                 1,
+						Name:               "manager1",
+						URI:                "localhost:2000",
+						PublicKey:          *pubKey,
+						IsConnectionActive: true,
+						CreatedAt:          f.Timestamp(),
 					},
 				}, nil)
 			},
@@ -154,15 +122,12 @@ func Test_FeedsManager(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("GetManager", mgrID).Return(&feeds.FeedsManager{
-					ID:                        mgrID,
-					Name:                      "manager1",
-					URI:                       "localhost:2000",
-					PublicKey:                 *pubKey,
-					JobTypes:                  []string{"fluxmonitor"},
-					IsOCRBootstrapPeer:        true,
-					OCRBootstrapPeerMultiaddr: null.StringFrom("/dns4/ocr-bootstrap.chain.link/tcp/0000/p2p/7777777"),
-					IsConnectionActive:        true,
-					CreatedAt:                 f.Timestamp(),
+					ID:                 mgrID,
+					Name:               "manager1",
+					URI:                "localhost:2000",
+					PublicKey:          *pubKey,
+					IsConnectionActive: true,
+					CreatedAt:          f.Timestamp(),
 				}, nil)
 			},
 			query: query,
@@ -267,23 +232,17 @@ func Test_CreateFeedsManager(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("RegisterManager", &feeds.FeedsManager{
-					Name:                      name,
-					URI:                       uri,
-					PublicKey:                 *pubKey,
-					JobTypes:                  pq.StringArray([]string{"fluxmonitor", "ocr2"}),
-					IsOCRBootstrapPeer:        false,
-					OCRBootstrapPeerMultiaddr: null.StringFromPtr(nil),
+					Name:      name,
+					URI:       uri,
+					PublicKey: *pubKey,
 				}).Return(mgrID, nil)
 				f.Mocks.feedsSvc.On("GetManager", mgrID).Return(&feeds.FeedsManager{
-					ID:                        mgrID,
-					Name:                      name,
-					URI:                       uri,
-					PublicKey:                 *pubKey,
-					JobTypes:                  []string{"fluxmonitor", "ocr2"},
-					IsOCRBootstrapPeer:        false,
-					OCRBootstrapPeerMultiaddr: null.StringFromPtr(nil),
-					IsConnectionActive:        false,
-					CreatedAt:                 f.Timestamp(),
+					ID:                 mgrID,
+					Name:               name,
+					URI:                uri,
+					PublicKey:          *pubKey,
+					IsConnectionActive: false,
+					CreatedAt:          f.Timestamp(),
 				}, nil)
 			},
 			query:     mutation,
@@ -320,25 +279,6 @@ func Test_CreateFeedsManager(t *testing.T) {
 			{
 				"createFeedsManager": {
 					"message": "only a single feeds manager is supported",
-					"code": "UNPROCESSABLE"
-				}
-			}`,
-		},
-		{
-			name:          "bootstrap or job types error",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.
-					On("RegisterManager", mock.IsType(&feeds.FeedsManager{})).
-					Return(int64(0), feeds.ErrBootstrapXorJobs)
-			},
-			query:     mutation,
-			variables: variables,
-			result: `
-			{
-				"createFeedsManager": {
-					"message": "feeds manager cannot be bootstrap while having assigned job types",
 					"code": "UNPROCESSABLE"
 				}
 			}`,
@@ -452,24 +392,18 @@ func Test_UpdateFeedsManager(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, feeds.FeedsManager{
-					ID:                        mgrID,
-					Name:                      name,
-					URI:                       uri,
-					PublicKey:                 *pubKey,
-					JobTypes:                  pq.StringArray([]string{"fluxmonitor"}),
-					IsOCRBootstrapPeer:        false,
-					OCRBootstrapPeerMultiaddr: null.StringFromPtr(nil),
+					ID:        mgrID,
+					Name:      name,
+					URI:       uri,
+					PublicKey: *pubKey,
 				}).Return(nil)
 				f.Mocks.feedsSvc.On("GetManager", mgrID).Return(&feeds.FeedsManager{
-					ID:                        mgrID,
-					Name:                      name,
-					URI:                       uri,
-					PublicKey:                 *pubKey,
-					JobTypes:                  []string{"fluxmonitor"},
-					IsOCRBootstrapPeer:        false,
-					OCRBootstrapPeerMultiaddr: null.StringFromPtr(nil),
-					IsConnectionActive:        false,
-					CreatedAt:                 f.Timestamp(),
+					ID:                 mgrID,
+					Name:               name,
+					URI:                uri,
+					PublicKey:          *pubKey,
+					IsConnectionActive: false,
+					CreatedAt:          f.Timestamp(),
 				}, nil)
 			},
 			query:     mutation,
@@ -506,23 +440,6 @@ func Test_UpdateFeedsManager(t *testing.T) {
 				"updateFeedsManager": {
 					"message": "feeds manager not found",
 					"code": "NOT_FOUND"
-				}
-			}`,
-		},
-		{
-			name:          "bootstrap or job types error",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("UpdateManager", mock.Anything, mock.IsType(feeds.FeedsManager{})).Return(feeds.ErrBootstrapXorJobs)
-			},
-			query:     mutation,
-			variables: variables,
-			result: `
-			{
-				"updateFeedsManager": {
-					"message": "feeds manager cannot be bootstrap while having assigned job types",
-					"code": "UNPROCESSABLE"
 				}
 			}`,
 		},
