@@ -44,3 +44,12 @@ func TestMax(t *testing.T) {
 		require.Equal(t, 0, testCase.expected.Cmp(m))
 	}
 }
+
+func TestAccumulate(t *testing.T) {
+	s := []interface{}{1, 2, 3, 4, 5}
+	expected := big.NewInt(15)
+	require.Equal(t, expected, Accumulate(s))
+	s = []interface{}{}
+	expected = big.NewInt(0)
+	require.Equal(t, expected, Accumulate(s))
+}

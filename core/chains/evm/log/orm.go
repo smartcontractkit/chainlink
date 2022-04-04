@@ -2,16 +2,18 @@ package log
 
 import (
 	"database/sql"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore --structname ORM --filename orm.go
@@ -31,6 +33,8 @@ type ORM interface {
 	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (bool, error)
 	// MarkBroadcastConsumed marks the log broadcast as consumed by jobID.
 	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error
+	// MarkBroadcastsConsumed marks the log broadcasts as consumed by jobID.
+	MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error
 	// MarkBroadcastsUnconsumed marks all log broadcasts from all jobs on or after fromBlock as
 	// unconsumed.
 	MarkBroadcastsUnconsumed(fromBlock int64, qopts ...pg.QOpt) error
@@ -111,6 +115,43 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, l
 		SET consumed = true, updated_at = NOW()
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
 	return errors.Wrap(err, "failed to mark log broadcast as consumed")
+}
+
+// MarkBroadcastsConsumed marks many broadcasts as consumed.
+// The lengths of all the provided slices must be equal, otherwise an error is returned.
+func (o *orm) MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error {
+	if !utils.AllEqual(len(blockHashes), len(blockNumbers), len(logIndexes), len(jobIDs)) {
+		return fmt.Errorf("all arg slice lengths must be equal, got: %d %d %d %d",
+			len(blockHashes), len(blockNumbers), len(logIndexes), len(jobIDs),
+		)
+	}
+
+	type input struct {
+		BlockHash   common.Hash `db:"blockHash"`
+		BlockNumber uint64      `db:"blockNumber"`
+		LogIndex    uint        `db:"logIndex"`
+		JobID       int32       `db:"jobID"`
+		ChainID     utils.Big   `db:"chainID"`
+	}
+	inputs := make([]input, len(blockHashes))
+	query := `
+INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
+VALUES (:blockHash, :blockNumber, :logIndex, :jobID, NOW(), NOW(), true, :chainID)
+ON CONFLICT (job_id, block_hash, log_index, evm_chain_id) DO UPDATE
+SET consumed = true, updated_at = NOW();
+	`
+	for i := range blockHashes {
+		inputs[i] = input{
+			BlockHash:   blockHashes[i],
+			BlockNumber: blockNumbers[i],
+			LogIndex:    logIndexes[i],
+			JobID:       jobIDs[i],
+			ChainID:     o.evmChainID,
+		}
+	}
+	q := o.q.WithOpts(qopts...)
+	_, err := q.NamedExec(query, inputs)
+	return errors.Wrap(err, "mark broadcasts consumed")
 }
 
 // MarkBroadcastsUnconsumed implements the ORM interface.

@@ -424,7 +424,19 @@ type KeeperSpec struct {
 }
 
 type VRFSpec struct {
-	ID                       int32
+	ID int32
+
+	// BatchCoordinatorAddress is the address of the batch vrf coordinator to use.
+	// This is required if batchFulfillmentEnabled is set to true in the job spec.
+	BatchCoordinatorAddress *ethkey.EIP55Address `toml:"batchCoordinatorAddress"`
+	// BatchFulfillmentEnabled indicates to the vrf job to use the batch vrf coordinator
+	// for fulfilling requests. If set to true, batchCoordinatorAddress must be set in
+	// the job spec.
+	BatchFulfillmentEnabled bool `toml:"batchFulfillmentEnabled"`
+	// BatchFulfillmentGasMultiplier is used to determine the final gas estimate for the batch
+	// fulfillment.
+	BatchFulfillmentGasMultiplier float64 `toml:"batchFulfillmentGasMultiplier"`
+
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`
