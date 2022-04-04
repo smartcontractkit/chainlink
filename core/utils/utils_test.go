@@ -470,3 +470,9 @@ func Test_StartStopOnce_MultipleStartNoBlock(t *testing.T) {
 	require.Equal(t, 3, <-ch) // 3 arrives before 2 because it returns immediately
 	require.Equal(t, 2, <-ch)
 }
+
+func TestAllEqual(t *testing.T) {
+	require.False(t, utils.AllEqual(1, 2, 3, 4, 5))
+	require.True(t, utils.AllEqual(1, 1, 1, 1, 1))
+	require.False(t, utils.AllEqual(1, 1, 1, 2, 1, 1, 1))
+}
