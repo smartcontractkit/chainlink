@@ -1,20 +1,17 @@
-import React from 'react'
-
 import { gql } from '@apollo/client'
-import { Route, Switch, useRouteMatch } from 'react-router-dom'
-
 import Grid from '@material-ui/core/Grid'
-
+import React from 'react'
+import { Route, Switch, useRouteMatch } from 'react-router-dom'
+import Button from 'src/components/Button'
 import Content from 'src/components/Content'
 import { Heading1 } from 'src/components/Heading/Heading1'
 import { JobCard } from './JobCard'
 import { JobTabs } from './JobTabs'
+import { RunJobDialog } from './RunJobDialog'
 import { TabDefinition } from './TabDefinition'
 import { TabErrors } from './TabErrors'
 import { TabOverview } from './TabOverview'
 import { TabRuns } from './TabRuns'
-import Button from 'src/components/Button'
-import { RunJobDialog } from './RunJobDialog'
 
 const JOB_PAYLOAD__SPEC = gql`
   fragment JobPayload_Spec on JobSpec {
@@ -89,6 +86,9 @@ const JOB_PAYLOAD__SPEC = gql`
       pollPeriod
       publicKey
       requestedConfsDelay
+      batchCoordinatorAddress
+      batchFulfillmentEnabled
+      batchFulfillmentGasMultiplier
       chunkSize
     }
     ... on BlockhashStoreSpec {

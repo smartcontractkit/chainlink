@@ -276,19 +276,24 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress       ethkey.EIP55Address   `json:"coordinatorAddress"`
-	PublicKey                secp256k1.PublicKey   `json:"publicKey"`
-	FromAddresses            []ethkey.EIP55Address `json:"fromAddresses"`
-	PollPeriod               models.Duration       `json:"pollPeriod"`
-	MinIncomingConfirmations uint32                `json:"confirmations"`
-	CreatedAt                time.Time             `json:"createdAt"`
-	UpdatedAt                time.Time             `json:"updatedAt"`
-	EVMChainID               *utils.Big            `json:"evmChainID"`
-	ChunkSize                uint32                `json:"chunkSize"`
+	BatchCoordinatorAddress       *ethkey.EIP55Address  `json:"batchCoordinatorAddress"`
+	BatchFulfillmentEnabled       bool                  `json:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64               `json:"batchFulfillmentGasMultiplier"`
+	CoordinatorAddress            ethkey.EIP55Address   `json:"coordinatorAddress"`
+	PublicKey                     secp256k1.PublicKey   `json:"publicKey"`
+	FromAddresses                 []ethkey.EIP55Address `json:"fromAddresses"`
+	PollPeriod                    models.Duration       `json:"pollPeriod"`
+	MinIncomingConfirmations      uint32                `json:"confirmations"`
+	CreatedAt                     time.Time             `json:"createdAt"`
+	UpdatedAt                     time.Time             `json:"updatedAt"`
+	EVMChainID                    *utils.Big            `json:"evmChainID"`
+	ChunkSize                     uint32                `json:"chunkSize"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 	return &VRFSpec{
+		BatchCoordinatorAddress:  spec.BatchCoordinatorAddress,
+		BatchFulfillmentEnabled:  spec.BatchFulfillmentEnabled,
 		CoordinatorAddress:       spec.CoordinatorAddress,
 		PublicKey:                spec.PublicKey,
 		FromAddresses:            spec.FromAddresses,

@@ -15,6 +15,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -28,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -266,8 +267,18 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.CronSpecID = &specID
 		case VRF:
 			var specID int32
-			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_addresses, poll_period, requested_confs_delay, request_timeout, chunk_size, created_at, updated_at)
-			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, :request_timeout, :chunk_size, NOW(), NOW())
+			sql := `INSERT INTO vrf_specs (
+				coordinator_address, public_key, min_incoming_confirmations, 
+				evm_chain_id, from_addresses, poll_period, requested_confs_delay, 
+				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled, 
+				batch_fulfillment_gas_multiplier,
+				created_at, updated_at)
+			VALUES (
+				:coordinator_address, :public_key, :min_incoming_confirmations, 
+				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, 
+				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
+				:batch_fulfillment_gas_multiplier,
+				NOW(), NOW())
 			RETURNING id;`
 
 			err := pg.PrepareQueryRowx(tx, sql, &specID, toVRFSpecRow(jb.VRFSpec))

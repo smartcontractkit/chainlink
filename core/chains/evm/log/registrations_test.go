@@ -83,9 +83,9 @@ func TestUnit_Registrations_addSubscriber_removeSubscriber(t *testing.T) {
 
 	l := newTestListener(t, 1)
 	topic1 := utils.NewHash()
-	topicValueFilters1 := [][]Topic{[]Topic{newTopic(), newTopic()}, []Topic{newTopic()}, []Topic{}}
+	topicValueFilters1 := [][]Topic{{newTopic(), newTopic()}, {newTopic()}, {}}
 	topic2 := utils.NewHash()
-	topicValueFilters2 := [][]Topic{[]Topic{newTopic()}}
+	topicValueFilters2 := [][]Topic{{newTopic()}}
 	topic3 := utils.NewHash()
 	topicValueFilters3 := [][]Topic{}
 	logsWithTopics := make(map[common.Hash][][]Topic)
@@ -103,7 +103,7 @@ func TestUnit_Registrations_addSubscriber_removeSubscriber(t *testing.T) {
 	// same contract, different topics
 	l3 := newTestListener(t, 3)
 	topic4 := utils.NewHash()
-	topicValueFilters4 := [][]Topic{[]Topic{newTopic()}}
+	topicValueFilters4 := [][]Topic{{newTopic()}}
 	logsWithTopics3 := make(map[common.Hash][][]Topic)
 	logsWithTopics3[topic4] = topicValueFilters4
 	opts3 := opts
