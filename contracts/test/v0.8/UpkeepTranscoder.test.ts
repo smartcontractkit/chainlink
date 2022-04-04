@@ -12,6 +12,8 @@ before(async () => {
 })
 
 describe('UpkeepTranscoder', () => {
+  const formatV1 = 0
+
   beforeEach(async () => {
     transcoder = await upkeepTranscoderFactory.deploy()
   })
@@ -26,23 +28,27 @@ describe('UpkeepTranscoder', () => {
   describe('#transcodeUpkeeps', () => {
     const encodedData = '0xc0ffee'
 
-    it('reverts if the from type is not 1', async () => {
+    it('reverts if the from type is not V1', async () => {
       await evmRevert(
         transcoder.transcodeUpkeeps(2, 1, encodedData),
-        'InvalidTranscoding()',
+        'function was called with incorrect parameters',
       )
     })
 
-    it('reverts if the from type is not 1', async () => {
+    it('reverts if the from type is not V1', async () => {
       await evmRevert(
         transcoder.transcodeUpkeeps(1, 2, encodedData),
-        'InvalidTranscoding()',
+        'function was called with incorrect parameters',
       )
     })
 
-    context('when from and to versions equal 1', () => {
+    context('when from and to versions equal V1', () => {
       it('returns the data that was passed in', async () => {
-        const response = await transcoder.transcodeUpkeeps(1, 1, encodedData)
+        const response = await transcoder.transcodeUpkeeps(
+          formatV1,
+          formatV1,
+          encodedData,
+        )
         assert.equal(encodedData, response)
       })
     })
