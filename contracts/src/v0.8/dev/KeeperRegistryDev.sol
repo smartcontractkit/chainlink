@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./KeeperBase.sol";
-import "./UpkeepTranscoder.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
@@ -667,7 +666,7 @@ contract KeeperRegistryDev is
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
-      if (upkeep.admin != admin) revert OnlyCallableByOwnerOrAdmin();
+      if (upkeep.admin != admin) revert OnlyCallableByAdmin();
       if (upkeep.maxValidBlocknumber != UINT64_MAX) revert UpkeepNotActive();
       upkeeps[idx] = upkeep;
       checkDatas[idx] = s_checkData[id];
