@@ -289,7 +289,7 @@ func TestDependentAwaiter(t *testing.T) {
 func TestBoundedQueue(t *testing.T) {
 	t.Parallel()
 
-	q := utils.NewBoundedQueue(3)
+	q := utils.NewBoundedQueue[int](3)
 	require.True(t, q.Empty())
 	require.False(t, q.Full())
 
@@ -297,11 +297,10 @@ func TestBoundedQueue(t *testing.T) {
 	require.False(t, q.Empty())
 	require.False(t, q.Full())
 
-	x := q.Take().(int)
+	x := q.Take()
 	require.Equal(t, 1, x)
 
-	iface := q.Take()
-	require.Nil(t, iface)
+	require.Zero(t, q.Take())
 	require.True(t, q.Empty())
 	require.False(t, q.Full())
 
@@ -311,17 +310,17 @@ func TestBoundedQueue(t *testing.T) {
 	q.Add(4)
 	require.True(t, q.Full())
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 2, x)
 	require.False(t, q.Empty())
 	require.False(t, q.Full())
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 3, x)
 	require.False(t, q.Empty())
 	require.False(t, q.Full())
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 4, x)
 	require.True(t, q.Empty())
 	require.False(t, q.Full())
@@ -330,7 +329,7 @@ func TestBoundedQueue(t *testing.T) {
 func TestBoundedPriorityQueue(t *testing.T) {
 	t.Parallel()
 
-	q := utils.NewBoundedPriorityQueue(map[uint]uint{
+	q := utils.NewBoundedPriorityQueue[int](map[uint]int{
 		1: 3,
 		2: 1,
 	})
@@ -339,12 +338,11 @@ func TestBoundedPriorityQueue(t *testing.T) {
 	q.Add(1, 1)
 	require.False(t, q.Empty())
 
-	x := q.Take().(int)
+	x := q.Take()
 	require.Equal(t, 1, x)
 	require.True(t, q.Empty())
 
-	iface := q.Take()
-	require.Nil(t, iface)
+	require.Zero(t, q.Take())
 	require.True(t, q.Empty())
 
 	q.Add(2, 1)
@@ -352,34 +350,32 @@ func TestBoundedPriorityQueue(t *testing.T) {
 	q.Add(1, 3)
 	q.Add(1, 4)
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 2, x)
 	require.False(t, q.Empty())
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 3, x)
 	require.False(t, q.Empty())
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 4, x)
 	require.False(t, q.Empty())
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 1, x)
 	require.True(t, q.Empty())
 
-	iface = q.Take()
-	require.Nil(t, iface)
+	require.Zero(t, q.Take())
 
 	q.Add(2, 1)
 	q.Add(2, 2)
 
-	x = q.Take().(int)
+	x = q.Take()
 	require.Equal(t, 2, x)
 	require.True(t, q.Empty())
 
-	iface = q.Take()
-	require.Nil(t, iface)
+	require.Zero(t, q.Take())
 }
 
 func TestEVMBytesToUint64(t *testing.T) {

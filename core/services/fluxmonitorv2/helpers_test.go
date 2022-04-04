@@ -23,7 +23,7 @@ func (fm *FluxMonitor) ExportedProcessLogs() {
 	fm.processLogs()
 }
 
-func (fm *FluxMonitor) ExportedBacklog() *utils.BoundedPriorityQueue {
+func (fm *FluxMonitor) ExportedBacklog() *utils.BoundedPriorityQueue[log.Broadcast] {
 	return fm.backlog
 }
 

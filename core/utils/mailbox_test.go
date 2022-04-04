@@ -14,7 +14,7 @@ func TestMailbox(t *testing.T) {
 	)
 
 	const capacity = 10
-	m := utils.NewMailbox(capacity)
+	m := utils.NewMailbox[int](capacity)
 
 	// Queue deliveries
 	for i, d := range toDeliver {
@@ -37,7 +37,7 @@ func TestMailbox(t *testing.T) {
 				if !exists {
 					break
 				}
-				recvd = append(recvd, x.(int))
+				recvd = append(recvd, x)
 			}
 		}
 	}()
@@ -49,7 +49,7 @@ func TestMailbox(t *testing.T) {
 }
 
 func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
-	m := utils.NewMailbox(2)
+	m := utils.NewMailbox[int](2)
 
 	var (
 		recvd         []int
@@ -64,7 +64,7 @@ func TestMailbox_NoEmptyReceivesWhenCapacityIsTwo(t *testing.T) {
 			if !exists {
 				emptyReceives = append(emptyReceives, recvd[len(recvd)-1])
 			} else {
-				recvd = append(recvd, x.(int))
+				recvd = append(recvd, x)
 			}
 		}
 	}()
