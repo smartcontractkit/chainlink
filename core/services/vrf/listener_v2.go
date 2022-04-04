@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -35,9 +36,10 @@ import (
 )
 
 var (
-	_                log.Listener   = &listenerV2{}
-	_                job.ServiceCtx = &listenerV2{}
-	coordinatorV2ABI                = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+	_                     log.Listener   = &listenerV2{}
+	_                     job.ServiceCtx = &listenerV2{}
+	coordinatorV2ABI                     = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+	batchCoordinatorV2ABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 )
 
 const (
@@ -47,6 +49,10 @@ const (
 		2*2100 + 20000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
 		4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
 		6685 // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+
+	// BatchFulfillmentIterationGasCost is the cost of a single iteration of the batch coordinator's
+	// loop. This is used to determine the gas allowance for a batch fulfillment call.
+	BatchFulfillmentIterationGasCost = 52_000
 )
 
 func newListenerV2(
@@ -57,6 +63,7 @@ func newListenerV2(
 	logBroadcaster log.Broadcaster,
 	q pg.Q,
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
 	txm txmgr.TxManager,
 	pipelineRunner pipeline.Runner,
@@ -76,6 +83,7 @@ func newListenerV2(
 		logBroadcaster:     logBroadcaster,
 		txm:                txm,
 		coordinator:        coordinator,
+		batchCoordinator:   batchCoordinator,
 		pipelineRunner:     pipelineRunner,
 		job:                job,
 		q:                  q,
@@ -101,13 +109,15 @@ type pendingRequest struct {
 }
 
 type vrfPipelineResult struct {
-	err         error
-	maxLink     *big.Int
-	juelsNeeded *big.Int
-	run         pipeline.Run
-	payload     string
-	gasLimit    uint64
-	req         pendingRequest
+	err           error
+	maxLink       *big.Int
+	juelsNeeded   *big.Int
+	run           pipeline.Run
+	payload       string
+	gasLimit      uint64
+	req           pendingRequest
+	proof         vrf_coordinator_v2.VRFProof
+	reqCommitment vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
 }
 
 type listenerV2 struct {
@@ -118,7 +128,10 @@ type listenerV2 struct {
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
 	txm            txmgr.TxManager
-	coordinator    vrf_coordinator_v2.VRFCoordinatorV2Interface
+
+	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
+	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface
+
 	pipelineRunner pipeline.Runner
 	job            job.Job
 	q              pg.Q
@@ -364,12 +377,150 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 	}
 }
 
+func (lsn *listenerV2) processRequestsPerSubBatch(
+	ctx context.Context,
+	subID uint64,
+	startBalance *big.Int,
+	reqs []pendingRequest,
+) map[string]struct{} {
+	start := time.Now()
+	var processed = make(map[string]struct{})
+	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
+		lsn.l, lsn.q, startBalance, lsn.chainID.Uint64(), subID)
+	if err != nil {
+		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
+		return processed
+	}
+
+	// Base the max gas for a batch on the max gas limit for a single callback.
+	// Since the max gas limit for a single callback is usually quite large already,
+	// we probably don't want to exceed it too much so that we can reliably get
+	// batch fulfillments included, while also making sure that the biggest gas guzzler
+	// callbacks are included.
+	config, err := lsn.coordinator.GetConfig(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		lsn.l.Errorw("Couldn't get config from coordinator", "err", err)
+		return processed
+	}
+
+	// Add very conservative upper bound estimate on verification costs.
+	batchMaxGas := uint64(config.MaxGasLimit + 400_000)
+
+	l := lsn.l.With(
+		"subID", reqs[0].req.SubId,
+		"reqs", len(reqs),
+		"startBalance", startBalance.String(),
+		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
+		"batchMaxGas", batchMaxGas,
+	)
+
+	defer func() {
+		l.Infow("Finished processing for sub",
+			"endBalance", startBalanceNoReserveLink.String(),
+			"total reqs", len(reqs),
+			"total processed", len(processed),
+			"total unique", uniqueReqs(reqs),
+			"time", time.Since(start).String())
+	}()
+
+	l.Infow("Processing requests for subscription with batching")
+
+	// Check for already consumed or expired reqs
+	unconsumed, processedReqs := lsn.getUnconsumed(l, reqs)
+	for _, reqID := range processedReqs {
+		processed[reqID] = struct{}{}
+	}
+
+	// Process requests in chunks in order to kick off as many jobs
+	// as configured in parallel. Then we can combine into fulfillment
+	// batches afterwards.
+	for chunkStart := 0; chunkStart < len(unconsumed); chunkStart += int(lsn.job.VRFSpec.ChunkSize) {
+		chunkEnd := chunkStart + int(lsn.job.VRFSpec.ChunkSize)
+		if chunkEnd > len(unconsumed) {
+			chunkEnd = len(unconsumed)
+		}
+		chunk := unconsumed[chunkStart:chunkEnd]
+
+		var unfulfilled []pendingRequest
+		alreadyFulfilled, err := lsn.checkReqsFulfilled(ctx, l, chunk)
+		if errors.Is(err, context.Canceled) {
+			l.Errorw("Context canceled, stopping request processing", "err", err)
+			return processed
+		} else if err != nil {
+			l.Errorw("Error checking for already fulfilled requests, proceeding anyway", "err", err)
+		}
+		for i, a := range alreadyFulfilled {
+			if a {
+				lsn.markLogAsConsumed(chunk[i].lb)
+				processed[chunk[i].req.RequestId.String()] = struct{}{}
+			} else {
+				unfulfilled = append(unfulfilled, chunk[i])
+			}
+		}
+
+		fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
+		if err != nil {
+			l.Errorw("Couldn't get next from address", "err", err)
+			continue
+		}
+		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
+		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
+		batches := newBatchFulfillments(batchMaxGas)
+		for _, p := range pipelines {
+			ll := l.With("reqID", p.req.req.RequestId.String(),
+				"txHash", p.req.req.Raw.TxHash,
+				"maxGasPrice", maxGasPriceWei.String(),
+				"fromAddress", fromAddress,
+				"juelsNeeded", p.juelsNeeded.String(),
+				"maxLink", p.maxLink.String(),
+				"gasLimit", p.gasLimit)
+
+			if p.err != nil {
+				ll.Errorw("Pipeline error", "err", p.err)
+				continue
+			}
+
+			if startBalanceNoReserveLink.Cmp(p.maxLink) < 0 {
+				// Insufficient funds, have to wait for a user top up.
+				// Break out of the loop now and process what we are able to process
+				// in the constructed batches.
+				ll.Infow("Insufficient link balance to fulfill a request, breaking")
+				break
+			}
+
+			batches.addRun(p)
+
+			startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, p.maxLink)
+		}
+
+		var processedRequestIDs []string
+		for _, batch := range batches.fulfillments {
+			l.Debugw("Processing batch", "batchSize", len(batch.proofs))
+			p := lsn.processBatch(l, subID, fromAddress, startBalanceNoReserveLink, batchMaxGas, batch)
+			processedRequestIDs = append(processedRequestIDs, p...)
+		}
+
+		for _, reqID := range processedRequestIDs {
+			processed[reqID] = struct{}{}
+		}
+	}
+
+	return processed
+}
+
 func (lsn *listenerV2) processRequestsPerSub(
 	ctx context.Context,
 	subID uint64,
 	startBalance *big.Int,
 	reqs []pendingRequest,
 ) map[string]struct{} {
+	if lsn.job.VRFSpec.BatchFulfillmentEnabled && lsn.batchCoordinator != nil {
+		return lsn.processRequestsPerSubBatch(ctx, subID, startBalance, reqs)
+	}
+
 	start := time.Now()
 	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
@@ -398,33 +549,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 	l.Infow("Processing requests for subscription")
 
 	// Check for already consumed or expired reqs
-	var unconsumed []pendingRequest
-	for _, req := range reqs {
-		// Check if we can ignore the request due to its age.
-		if time.Now().UTC().Sub(req.utcTimestamp) >= lsn.job.VRFSpec.RequestTimeout {
-			l.Infow("Request too old, dropping it",
-				"reqID", req.req.RequestId.String(),
-				"txHash", req.req.Raw.TxHash)
-			lsn.markLogAsConsumed(req.lb)
-			processed[req.req.RequestId.String()] = struct{}{}
-			incDroppedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, reasonAge)
-			continue
-		}
-
-		// This check to see if the log was consumed needs to be in the same
-		// goroutine as the mark consumed to avoid processing duplicates.
-		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(req.lb)
-		if err != nil {
-			// Do not process for now, retry on next iteration.
-			l.Errorw("Could not determine if log was already consumed",
-				"reqID", req.req.RequestId.String(),
-				"txHash", req.req.Raw.TxHash,
-				"error", err)
-		} else if consumed {
-			processed[req.req.RequestId.String()] = struct{}{}
-		} else {
-			unconsumed = append(unconsumed, req)
-		}
+	unconsumed, processedReqs := lsn.getUnconsumed(l, reqs)
+	for _, reqID := range processedReqs {
+		processed[reqID] = struct{}{}
 	}
 
 	// Process requests in chunks
@@ -526,6 +653,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 	return processed
 }
 
+// checkReqsFulfilled returns a bool slice the same size of the given reqs slice
+// where each slice element indicates whether that request was already fulfilled
+// or not.
 func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, reqs []pendingRequest) ([]bool, error) {
 	var (
 		start     = time.Now()
@@ -616,7 +746,7 @@ func (lsn *listenerV2) runPipelines(
 		wg.Add(1)
 		go func(i int, req pendingRequest) {
 			defer wg.Done()
-			results[i] = lsn.getMaxLinkForFulfillment(ctx, maxGasPriceWei, req, l)
+			results[i] = lsn.simulateFulfillment(ctx, maxGasPriceWei, req, l)
 		}(i, req)
 	}
 	wg.Wait()
@@ -653,7 +783,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 
 // Here we use the pipeline to parse the log, generate a vrf response
 // then simulate the transaction at the max gas price to determine its maximum link cost.
-func (lsn *listenerV2) getMaxLinkForFulfillment(
+func (lsn *listenerV2) simulateFulfillment(
 	ctx context.Context,
 	maxGasPriceWei *big.Int,
 	req pendingRequest,
@@ -705,6 +835,7 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(
 		res.err = errors.Errorf("unexpected number of outputs, expected 1, was %d", len(trrs.FinalResult(lg).Values))
 		return res
 	}
+
 	// Run succeeded, we expect a byte array representing the billing amount
 	b, ok := trrs.FinalResult(lg).Values[0].([]uint8)
 	if !ok {
@@ -716,7 +847,10 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
 			m := trr.Result.Value.(map[string]interface{})
 			res.payload = m["output"].(string)
+			res.proof = m["proof"].(vrf_coordinator_v2.VRFProof)
+			res.reqCommitment = m["requestCommitment"].(vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)
 		}
+
 		if trr.Task.Type() == pipeline.TaskTypeEstimateGasLimit {
 			res.gasLimit = trr.Result.Value.(uint64)
 		}
@@ -874,7 +1008,7 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	}
 }
 
-// Job complies with log.Listener
+// JobID complies with log.Listener
 func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
 }
