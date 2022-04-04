@@ -5,8 +5,6 @@ pragma solidity ^0.8.0;
 import "./interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
-uint8 constant UpkeepFormatV1 = 1;
-
 /**
  * @notice Transcoder for converting upkeep data from one keeper
  * registry version to another
@@ -32,11 +30,11 @@ contract UpkeepTranscoder is UpkeepTranscoderInterface, TypeAndVersionInterface 
    * and migration paths are added
    */
   function transcodeUpkeeps(
-    uint8 fromVersion,
-    uint8 toVersion,
+    UpkeepFormat fromVersion,
+    UpkeepFormat toVersion,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
-    if (fromVersion != UpkeepFormatV1 || toVersion != UpkeepFormatV1) {
+    if (fromVersion != UpkeepFormat.V1 || toVersion != UpkeepFormat.V1) {
       revert InvalidTranscoding();
     }
 
