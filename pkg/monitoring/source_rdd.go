@@ -60,7 +60,7 @@ func (r *rddSource) filterFeeds(feeds []FeedConfig) []FeedConfig {
 			continue
 		}
 		if _, isIgnored := r.feedsIgnoreIDs[feed.GetID()]; isIgnored {
-			r.log.Infow("skipping feed because of it is marked as ignored in the FEEDS_IGNORE_IDS env var", "feed_id", feed.GetID())
+			r.log.Debugw("skipping feed because of it is marked as ignored in the FEEDS_IGNORE_IDS env var", "feed_id", feed.GetID())
 			continue
 		}
 		out = append(out, feed)
