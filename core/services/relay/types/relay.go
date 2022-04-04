@@ -16,6 +16,13 @@ var (
 	EVM    Network = "evm"
 	Solana Network = "solana"
 	Terra  Network = "terra"
+
+	// The chainlink integration for dYdX just posts price feeds to a custom API endpoint
+	// which the dYdX team controls. There's no chain for it yet.
+	// The DydX network here represents posting to that endpoint via a custom external
+	// adapter. The core OCR components for dydx are mostly no-op.
+	// This is a short-term workaround till dYdX migrates their price feeds on-chain.
+	Dydx Network = "dydx"
 )
 
 // RelayerCtx represents a relayer

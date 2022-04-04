@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/services/relay/dydx"
 	evmrelay "github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -342,6 +343,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
 			terraRelayerCtx := terraRelayer
 			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
+		}
+		if cfg.DydxEnabled() {
+			dydxRelayer := dydx.NewRelayer(globalLogger.Named("Dydx.Relayer"))
+			dydxRelayerCtx := dydxRelayer
+			relay.AddRelayer(relaytypes.Dydx, dydxRelayerCtx)
 		}
 		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
