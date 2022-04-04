@@ -48,6 +48,7 @@ type ConfigSchema struct {
 	InsecureFastScrypt           bool            `env:"INSECURE_FAST_SCRYPT" default:"false"` //nodoc
 	ReaperExpiration             models.Duration `env:"REAPER_EXPIRATION" default:"240h"`     //nodoc
 	RootDir                      string          `env:"ROOT" default:"~/.chainlink"`
+	TelemetryIngressUniConn      bool            `env:"TELEMETRY_INGRESS_UNICONN" default:"true"`
 	TelemetryIngressLogging      bool            `env:"TELEMETRY_INGRESS_LOGGING" default:"false"`
 	TelemetryIngressServerPubKey string          `env:"TELEMETRY_INGRESS_SERVER_PUB_KEY"`
 	TelemetryIngressURL          *url.URL        `env:"TELEMETRY_INGRESS_URL"`
@@ -125,6 +126,7 @@ type ConfigSchema struct {
 	// EVM/Ethereum
 	// Legacy Eth ENV vars
 	EthereumHTTPURL       string `env:"ETH_HTTP_URL"`
+	EthereumNodes         string `env:"EVM_NODES"`
 	EthereumSecondaryURL  string `env:"ETH_SECONDARY_URL"` //nodoc
 	EthereumSecondaryURLs string `env:"ETH_SECONDARY_URLS"`
 	EthereumURL           string `env:"ETH_URL"`

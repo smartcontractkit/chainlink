@@ -25,11 +25,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -54,7 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // vrfConsumerContract is the common interface implemented by
@@ -74,6 +76,8 @@ type coordinatorV2Universe struct {
 
 	rootContract                     *vrf_coordinator_v2.VRFCoordinatorV2
 	rootContractAddress              common.Address
+	batchCoordinatorContract         *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
+	batchCoordinatorContractAddress  common.Address
 	linkContract                     *link_token_interface.LinkToken
 	linkContractAddress              common.Address
 	bhsContract                      *blockhash_store.BlockhashStore
@@ -103,9 +107,7 @@ var (
 )
 
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
-	if testing.Short() {
-		t.Skip("skipping due to VRFCoordinatorV2Universe")
-	}
+	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, key.ToEcdsaPrivKey())
 	var (
 		sergey       = newIdentity(t)
@@ -163,7 +165,15 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	coordinatorAddress, _, coordinatorContract, err :=
 		vrf_coordinator_v2.DeployVRFCoordinatorV2(
 			neil, backend, linkAddress, bhsAddress, linkEthFeed /* linkEth*/)
-	require.NoError(t, err, "failed to deploy VRFCoordinator contract to simulated ethereum blockchain")
+	require.NoError(t, err, "failed to deploy VRFCoordinatorV2 contract to simulated ethereum blockchain")
+	backend.Commit()
+
+	// Deploy batch VRF V2 coordinator
+	batchCoordinatorAddress, _, batchCoordinatorContract, err :=
+		batch_vrf_coordinator_v2.DeployBatchVRFCoordinatorV2(
+			neil, backend, coordinatorAddress,
+		)
+	require.NoError(t, err, "failed to deploy BatchVRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
 	// Create the VRF consumers.
@@ -205,7 +215,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
 		uint16(1),                              // minRequestConfirmations
-		uint32(1e6),                            // gas limit
+		uint32(2.5e6),                          // gas limit
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
@@ -228,6 +238,9 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 		vrfConsumers:              vrfConsumers,
 		consumerContracts:         consumerContracts,
 		consumerContractAddresses: consumerContractAddresses,
+
+		batchCoordinatorContract:        batchCoordinatorContract,
+		batchCoordinatorContractAddress: batchCoordinatorAddress,
 
 		revertingConsumerContract:        revertingConsumerContract,
 		revertingConsumerContractAddress: revertingConsumerContractAddress,
@@ -294,9 +307,20 @@ func subscribeVRF(
 	return sub, subID
 }
 
-func createVRFJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, uni coordinatorV2Universe) (jobs []job.Job) {
+func createVRFJobs(
+	t *testing.T,
+	fromKeys [][]ethkey.KeyV2,
+	app *cltest.TestApplication,
+	uni coordinatorV2Universe,
+	batchEnabled bool,
+) (jobs []job.Job) {
 	// Create separate jobs for each gas lane and register their keys
-	for i, key := range keys {
+	for i, keys := range fromKeys {
+		var keyStrs []string
+		for _, k := range keys {
+			keyStrs = append(keyStrs, k.Address.String())
+		}
+
 		vrfkey, err := app.GetKeyStore().VRF().Create()
 		require.NoError(t, err)
 
@@ -306,9 +330,11 @@ func createVRFJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplicatio
 			JobID:                    jid.String(),
 			Name:                     fmt.Sprintf("vrf-primary-%d", i),
 			CoordinatorAddress:       uni.rootContractAddress.String(),
+			BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
+			BatchFulfillmentEnabled:  batchEnabled,
 			MinIncomingConfirmations: incomingConfs,
 			PublicKey:                vrfkey.PublicKey.String(),
-			FromAddress:              key.Address.String(),
+			FromAddresses:            keyStrs,
 			V2:                       true,
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)
@@ -328,7 +354,7 @@ func createVRFJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplicatio
 				count++
 			}
 		}
-		return count == len(keys)
+		return count == len(fromKeys)
 	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
 	// To avoid confirming
@@ -351,9 +377,9 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	keyHash common.Hash,
 	subID uint64,
 	numWords uint32,
+	cbGasLimit uint32,
 	uni coordinatorV2Universe,
 ) (*big.Int, uint64) {
-	cbGasLimit := uint32(500_000)
 	minRequestConfirmations := uint16(2)
 	_, err := vrfConsumerHandle.TestRequestRandomness(
 		consumerOwner,
@@ -478,6 +504,171 @@ func mine(t *testing.T, requestID *big.Int, subID uint64, uni coordinatorV2Unive
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
+func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinatorV2Universe, db *sqlx.DB) bool {
+	requestIDMap := map[string]bool{}
+	for _, requestID := range requestIDs {
+		requestIDMap[common.BytesToHash(requestID.Bytes()).String()] = false
+	}
+	return gomega.NewWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		var txs []txmgr.EthTx
+		err := db.Select(&txs, `
+		SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+			AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $1
+		`, subID)
+		require.NoError(t, err)
+		for _, tx := range txs {
+			meta, err := tx.GetMeta()
+			require.NoError(t, err)
+			t.Log("meta:", meta)
+			for _, requestID := range meta.RequestIDs {
+				if _, ok := requestIDMap[requestID.String()]; ok {
+					requestIDMap[requestID.String()] = true
+				}
+			}
+		}
+		foundAll := true
+		for _, found := range requestIDMap {
+			foundAll = foundAll && found
+		}
+		t.Log("requestIDMap:", requestIDMap)
+		return foundAll
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+}
+
+func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_happypath", true, true)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(5e6, true)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+
+	// Create a subscription and fund with 5 LINK.
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
+
+	// Create gas lane.
+	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	configureSimChain(t, app, map[string]types.ChainCfg{
+		key1.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
+		},
+	}, big.NewInt(10e9))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job using key1 and key2 on the same gas lane.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Make some randomness requests.
+	numWords := uint32(2)
+	reqIDs := []*big.Int{}
+	for i := 0; i < 5; i++ {
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
+		reqIDs = append(reqIDs, requestID)
+	}
+
+	// Wait for fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 5
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	mineBatch(t, reqIDs, subID, uni, db)
+
+	for i, requestID := range reqIDs {
+		// Assert correct state of RandomWordsFulfilled event.
+		// The last request will be the successful one because of the way the example
+		// contract is written.
+		if i == (len(reqIDs) - 1) {
+			assertRandomWordsFulfilled(t, requestID, true, uni)
+		} else {
+			assertRandomWordsFulfilled(t, requestID, false, uni)
+		}
+	}
+
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
+}
+
+func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_bigcallback", true, true)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(5e6, true)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+	consumer := uni.vrfConsumers[0]
+	consumerContract := uni.consumerContracts[0]
+	consumerContractAddress := uni.consumerContractAddresses[0]
+
+	// Create a subscription and fund with 5 LINK.
+	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
+
+	// Create gas lane.
+	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	configureSimChain(t, app, map[string]types.ChainCfg{
+		key1.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
+		},
+	}, big.NewInt(10e9))
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job using key1 and key2 on the same gas lane.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1}}, app, uni, true)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Make some randomness requests with low max gas callback limits.
+	// These should all be included in the same batch.
+	numWords := uint32(2)
+	reqIDs := []*big.Int{}
+	for i := 0; i < 5; i++ {
+		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 100_000, uni)
+		reqIDs = append(reqIDs, requestID)
+	}
+
+	// Make one randomness request with the max callback gas limit.
+	// It should live in a batch on it's own.
+	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 2_500_000, uni)
+	reqIDs = append(reqIDs, requestID)
+
+	// Wait for fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 6
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	mineBatch(t, reqIDs, subID, uni, db)
+
+	for i, requestID := range reqIDs {
+		// Assert correct state of RandomWordsFulfilled event.
+		// The last request will be the successful one because of the way the example
+		// contract is written.
+		if i == (len(reqIDs) - 1) {
+			assertRandomWordsFulfilled(t, requestID, true, uni)
+		} else {
+			assertRandomWordsFulfilled(t, requestID, false, uni)
+		}
+	}
+
+	// Assert correct number of random words sent by coordinator.
+	assertNumRandomWords(t, consumerContract, numWords)
+}
+
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -493,23 +684,29 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, big.NewInt(5e18), uni)
 
 	// Create gas lane.
-	key, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key.Address.Address(), 10)
+	key2, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
+	sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
 	configureSimChain(t, app, map[string]types.ChainCfg{
-		key.Address.String(): {
+		key1.Address.String(): {
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
+		},
+		key2.Address.String(): {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10e9)), // 10 gwei
 		},
 	}, big.NewInt(10e9))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	// Create VRF job.
-	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
+	// Create VRF job using key1 and key2 on the same gas lane.
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key1, key2}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
-	// Make the randomness request.
+	// Make the first randomness request.
 	numWords := uint32(20)
-	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uni)
+	requestID1, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -521,13 +718,34 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni, db)
+	mine(t, requestID1, subID, uni, db)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, true, uni)
+	assertRandomWordsFulfilled(t, requestID1, true, uni)
+
+	// Make the second randomness request and assert fulfillment is successful
+	requestID2, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 2
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	mine(t, requestID2, subID, uni, db)
+	assertRandomWordsFulfilled(t, requestID2, true, uni)
 
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
+
+	// Assert that both send addresses were used to fulfill the requests
+	n, err := uni.backend.PendingNonceAt(context.Background(), key1.Address.Address())
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
+
+	n, err = uni.backend.PendingNonceAt(context.Background(), key2.Address.Address())
+	require.NoError(t, err)
+	require.EqualValues(t, 1, n)
 
 	t.Log("Done!")
 }
@@ -568,7 +786,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	}, big.NewInt(10e9))
 
 	// Create VRF job.
-	vrfJobs := createVRFJobs(t, []ethkey.KeyV2{vrfKey}, app, uni)
+	vrfJobs := createVRFJobs(t, [][]ethkey.KeyV2{{vrfKey}}, app, uni, false)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 	_ = createAndStartBHSJob(
@@ -577,7 +795,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 
 	// Make the randomness request. It will not yet succeed since it is underfunded.
 	numWords := uint32(20)
-	requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uni)
+	requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
 
 	// Wait 101 blocks.
 	for i := 0; i < 100; i++ {
@@ -657,11 +875,11 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	numWords := uint32(20)
-	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uni)
+	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
 
 	// Fulfillment will not be enqueued because subscriber doesn't have enough LINK.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
@@ -729,12 +947,12 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF jobs.
-	jbs := createVRFJobs(t, []ethkey.KeyV2{cheapKey, expensiveKey}, app, uni)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{cheapKey}, {expensiveKey}}, app, uni, false)
 	cheapHash := jbs[0].VRFSpec.PublicKey.MustHash()
 	expensiveHash := jbs[1].VRFSpec.PublicKey.MustHash()
 
 	numWords := uint32(20)
-	cheapRequestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, cheapHash, subID, numWords, uni)
+	cheapRequestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, cheapHash, subID, numWords, 500_000, uni)
 
 	// Wait for fulfillment to be queued for cheap key hash.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -754,7 +972,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
 
-	expensiveRequestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, expensiveHash, subID, numWords, uni)
+	expensiveRequestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, expensiveHash, subID, numWords, 500_000, uni)
 
 	// We should not have any new fulfillments until a top up.
 	gomega.NewWithT(t).Consistently(func() bool {
@@ -814,12 +1032,12 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// Create VRF job.
-	jbs := createVRFJobs(t, []ethkey.KeyV2{key}, app, uni)
+	jbs := createVRFJobs(t, [][]ethkey.KeyV2{{key}}, app, uni, false)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
 
 	// Make the randomness request.
 	numWords := uint32(20)
-	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uni)
+	requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, uni)
 
 	// Wait for fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -984,7 +1202,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
-	keys, err := app.KeyStore.Eth().SendingKeys()
+	keys, err := app.KeyStore.Eth().SendingKeys(nil)
 
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
 	// max gas limit of 2M and a key specific max 10 gwei price.
@@ -1006,9 +1224,10 @@ func TestIntegrationVRFV2(t *testing.T) {
 		JobID:                    jid.String(),
 		Name:                     "vrf-primary",
 		CoordinatorAddress:       uni.rootContractAddress.String(),
+		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
 		PublicKey:                vrfkey.PublicKey.String(),
-		FromAddress:              keys[0].Address.String(),
+		FromAddresses:            []string{keys[0].Address.String()},
 		V2:                       true,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
@@ -1187,6 +1406,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		JobID:                    jid.String(),
 		Name:                     "vrf-primary",
 		CoordinatorAddress:       uni.rootContractAddress.String(),
+		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
 		PublicKey:                vrfkey.PublicKey.String(),
 		V2:                       true,

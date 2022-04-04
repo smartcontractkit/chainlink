@@ -110,6 +110,8 @@ type GeneralConfigOverrides struct {
 	EVMEnabled                null.Bool
 	EVMRPCEnabled             null.Bool
 	TerraEnabled              null.Bool
+	P2PEnabled                null.Bool
+	SolanaEnabled             null.Bool
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -286,6 +288,14 @@ func (c *TestGeneralConfig) TerraEnabled() bool {
 		return c.Overrides.TerraEnabled.Bool
 	}
 	return c.GeneralConfig.TerraEnabled()
+}
+
+// SolanaEnabled allows Solana to be used
+func (c *TestGeneralConfig) SolanaEnabled() bool {
+	if c.Overrides.SolanaEnabled.Valid {
+		return c.Overrides.SolanaEnabled.Bool
+	}
+	return c.GeneralConfig.SolanaEnabled()
 }
 
 func (c *TestGeneralConfig) EthereumURL() string {
@@ -499,6 +509,14 @@ func (c *TestGeneralConfig) EVMEnabled() bool {
 		return c.Overrides.EVMEnabled.Bool
 	}
 	return c.GeneralConfig.EVMEnabled()
+}
+
+// P2PEnabled overrides
+func (c *TestGeneralConfig) P2PEnabled() bool {
+	if c.Overrides.P2PEnabled.Valid {
+		return c.Overrides.P2PEnabled.Bool
+	}
+	return c.GeneralConfig.P2PEnabled()
 }
 
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {

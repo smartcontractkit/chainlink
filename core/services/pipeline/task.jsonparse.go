@@ -44,7 +44,7 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	var (
 		path JSONPathParam
-		data StringParam
+		data BytesParam
 		lax  BoolParam
 	)
 	err = multierr.Combine(
@@ -57,7 +57,7 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	}
 
 	var decoded interface{}
-	err = json.Unmarshal([]byte(data), &decoded)
+	err = json.Unmarshal(data, &decoded)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

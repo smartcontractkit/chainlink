@@ -63,7 +63,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			chain.Config().EvmFinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
 	}
 
-	keys, err := d.ks.SendingKeys()
+	keys, err := d.ks.SendingKeys(chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}

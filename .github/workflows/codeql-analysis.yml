@@ -4,8 +4,8 @@ on:
   push:
     branches:
       - develop
-      - auto
-      - try
+      - staging
+      - trying
       - rollup
   pull_request:
     # The branches below must be a subset of the branches above
@@ -33,7 +33,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.17
+          go-version: ^1.18
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL

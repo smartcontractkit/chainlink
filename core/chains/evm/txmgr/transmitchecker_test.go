@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -25,7 +26,7 @@ import (
 )
 
 func TestFactory(t *testing.T) {
-	client, _, _ := cltest.NewEthMocksWithDefaultChain(t)
+	client, _ := cltest.NewEthMocksWithDefaultChain(t)
 	factory := &txmgr.CheckerFactory{Client: client}
 
 	t.Run("no checker", func(t *testing.T) {
@@ -47,9 +48,18 @@ func TestFactory(t *testing.T) {
 		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddress(),
+			VRFRequestBlockNumber: big.NewInt(1),
 		})
 		require.NoError(t, err)
 		require.IsType(t, &txmgr.VRFV2Checker{}, c)
+
+		// request block number not provided should error out.
+		c, err = factory.BuildChecker(txmgr.TransmitCheckerSpec{
+			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
+			VRFCoordinatorAddress: testutils.NewAddress(),
+		})
+		require.Error(t, err)
+		require.Nil(t, c)
 	})
 
 	t.Run("simulate checker", func(t *testing.T) {
@@ -141,12 +151,14 @@ func TestTransmitCheckers(t *testing.T) {
 	})
 
 	t.Run("VRF V1", func(t *testing.T) {
+		testDefaultSubID := uint64(2)
+		testDefaultMaxLink := "1000000000000000000"
 
 		newTx := func(t *testing.T, vrfReqID [32]byte) (txmgr.EthTx, txmgr.EthTxAttempt) {
 			meta := txmgr.EthTxMeta{
 				RequestID: common.BytesToHash(vrfReqID[:]),
-				MaxLink:   "1000000000000000000", // 1 LINK
-				SubID:     2,
+				MaxLink:   &testDefaultMaxLink, // 1 LINK
+				SubID:     &testDefaultSubID,
 			}
 
 			b, err := json.Marshal(meta)
@@ -209,12 +221,14 @@ func TestTransmitCheckers(t *testing.T) {
 	})
 
 	t.Run("VRF V2", func(t *testing.T) {
+		testDefaultSubID := uint64(2)
+		testDefaultMaxLink := "1000000000000000000"
 
 		newTx := func(t *testing.T, vrfReqID *big.Int) (txmgr.EthTx, txmgr.EthTxAttempt) {
 			meta := txmgr.EthTxMeta{
 				RequestID: common.BytesToHash(vrfReqID.Bytes()),
-				MaxLink:   "1000000000000000000", // 1 LINK
-				SubID:     2,
+				MaxLink:   &testDefaultMaxLink, // 1 LINK
+				SubID:     &testDefaultSubID,
 			}
 
 			b, err := json.Marshal(meta)
@@ -239,18 +253,26 @@ func TestTransmitCheckers(t *testing.T) {
 			}
 		}
 
-		checker := txmgr.VRFV2Checker{GetCommitment: func(_ *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
-			if requestID.String() == "1" {
-				// Request 1 is already fulfilled
-				return [32]byte{}, nil
-			} else if requestID.String() == "2" {
-				// Request 2 errors
-				return [32]byte{}, errors.New("error getting commitment")
-			} else {
-				// All other requests are unfulfilled
-				return [32]byte{1}, nil
-			}
-		}}
+		checker := txmgr.VRFV2Checker{
+			GetCommitment: func(_ *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
+				if requestID.String() == "1" {
+					// Request 1 is already fulfilled
+					return [32]byte{}, nil
+				} else if requestID.String() == "2" {
+					// Request 2 errors
+					return [32]byte{}, errors.New("error getting commitment")
+				} else {
+					// All other requests are unfulfilled
+					return [32]byte{1}, nil
+				}
+			},
+			HeaderByNumber: func(ctx context.Context, n *big.Int) (*types.Header, error) {
+				return &types.Header{
+					Number: big.NewInt(1),
+				}, nil
+			},
+			RequestBlockNumber: big.NewInt(1),
+		}
 
 		t.Run("already fulfilled", func(t *testing.T) {
 			tx, attempt := newTx(t, big.NewInt(1))
@@ -265,6 +287,25 @@ func TestTransmitCheckers(t *testing.T) {
 
 		t.Run("error checking fulfillment, should transmit", func(t *testing.T) {
 			tx, attempt := newTx(t, big.NewInt(2))
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("can't get header", func(t *testing.T) {
+			checker.HeaderByNumber = func(ctx context.Context, n *big.Int) (*types.Header, error) {
+				return nil, errors.New("can't get head")
+			}
+			tx, attempt := newTx(t, big.NewInt(3))
+			require.NoError(t, checker.Check(ctx, log, tx, attempt))
+		})
+
+		t.Run("nil request block number", func(t *testing.T) {
+			checker.HeaderByNumber = func(ctx context.Context, n *big.Int) (*types.Header, error) {
+				return &types.Header{
+					Number: big.NewInt(1),
+				}, nil
+			}
+			checker.RequestBlockNumber = nil
+			tx, attempt := newTx(t, big.NewInt(4))
 			require.NoError(t, checker.Check(ctx, log, tx, attempt))
 		})
 	})

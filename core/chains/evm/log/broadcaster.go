@@ -59,7 +59,11 @@ type (
 
 		WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error)
 		MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error
-		// NOTE: WasAlreadyConsumed and MarkConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
+
+		// MarkManyConsumed marks all the provided log broadcasts as consumed.
+		MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) error
+
+		// NOTE: WasAlreadyConsumed, MarkConsumed and MarkManyConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
 	}
 
 	BroadcasterInTest interface {
@@ -188,7 +192,7 @@ func (b *broadcaster) Start(context.Context) error {
 
 // ReplayFromBlock implements the Broadcaster interface.
 func (b *broadcaster) ReplayFromBlock(number int64, forceBroadcast bool) {
-	b.logger.Infof("Replay requested from block number: %v", number)
+	b.logger.Infow("Replay requested", "block number", number, "force", forceBroadcast)
 	select {
 	case b.replayChannel <- replayRequest{
 		fromBlock:      number,
@@ -271,7 +275,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
-		b.logger.Debugw("TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
+		b.logger.Debugw("Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
 	}
 }
 
@@ -667,6 +671,23 @@ func (b *broadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
 	return b.orm.MarkBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID(), qopts...)
 }
 
+// MarkManyConsumed marks the logs as having been successfully consumed by the subscriber
+func (b *broadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) (err error) {
+	var (
+		blockHashes  = make([]common.Hash, len(lbs))
+		blockNumbers = make([]uint64, len(lbs))
+		logIndexes   = make([]uint, len(lbs))
+		jobIDs       = make([]int32, len(lbs))
+	)
+	for i := range lbs {
+		blockHashes[i] = lbs[i].RawLog().BlockHash
+		blockNumbers[i] = lbs[i].RawLog().BlockNumber
+		logIndexes[i] = lbs[i].RawLog().Index
+		jobIDs[i] = lbs[i].JobID()
+	}
+	return b.orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs, qopts...)
+}
+
 // test only
 func (b *broadcaster) TrackedAddressesCount() uint32 {
 	return b.trackedAddressesCount.Load()
@@ -720,6 +741,9 @@ func (n *NullBroadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bo
 	return false, errors.New(n.ErrMsg)
 }
 func (n *NullBroadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
+	return errors.New(n.ErrMsg)
+}
+func (n *NullBroadcaster) MarkManyConsumed(lbs []Broadcast, qopts ...pg.QOpt) error {
 	return errors.New(n.ErrMsg)
 }
 

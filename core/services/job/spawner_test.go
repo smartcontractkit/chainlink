@@ -60,13 +60,13 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
-	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
 			head := args.Get(1).(**evmtypes.Head)
 			*head = cltest.Head(10)
 		}).
-		Return(nil)
+		Return(nil).Maybe()
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 
 	t.Run("should respect its dependents", func(t *testing.T) {

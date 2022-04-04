@@ -23,7 +23,7 @@ import (
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	graphql "github.com/graph-gophers/graphql-go"
+	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
 	"github.com/ulule/limiter"
@@ -257,6 +257,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/transfers/evm", ets.Create)
 		tts := TerraTransfersController{app}
 		authv2.POST("/transfers/terra", tts.Create)
+		sts := SolanaTransfersController{app}
+		authv2.POST("/transfers/solana", sts.Create)
 
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
@@ -366,6 +368,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/chains/evm/:ID", echc.Update)
 		authv2.DELETE("/chains/evm/:ID", echc.Delete)
 
+		schc := SolanaChainsController{app}
+		authv2.GET("/chains/solana", paginatedRequest(schc.Index))
+		authv2.POST("/chains/solana", schc.Create)
+		authv2.GET("/chains/solana/:ID", schc.Show)
+		authv2.PATCH("/chains/solana/:ID", schc.Update)
+		authv2.DELETE("/chains/solana/:ID", schc.Delete)
+
 		tchc := TerraChainsController{app}
 		authv2.GET("/chains/terra", paginatedRequest(tchc.Index))
 		authv2.POST("/chains/terra", tchc.Create)
@@ -388,6 +397,12 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
 		authv2.POST("/nodes/evm/forwarders", efc.Create)
 		authv2.DELETE("/nodes/evm/forwarders/:fwdID", efc.Delete)
+
+		snc := SolanaNodesController{app}
+		authv2.GET("/nodes/solana", paginatedRequest(snc.Index))
+		authv2.GET("/chains/solana/:ID/nodes", paginatedRequest(snc.Index))
+		authv2.POST("/nodes/solana", snc.Create)
+		authv2.DELETE("/nodes/solana/:ID", snc.Delete)
 
 		tnc := TerraNodesController{app}
 		authv2.GET("/nodes/terra", paginatedRequest(tnc.Index))

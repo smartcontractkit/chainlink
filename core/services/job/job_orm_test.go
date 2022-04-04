@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
@@ -334,7 +336,13 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestedConfsDelay: 10}).Toml())
+	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
+	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25}).
+		Toml())
 	require.NoError(t, err)
 
 	require.NoError(t, jobORM.CreateJob(&jb))
@@ -343,9 +351,25 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var requestedConfsDelay int64
 	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
 	require.Equal(t, int64(10), requestedConfsDelay)
+	var batchFulfillmentEnabled bool
+	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
+	require.False(t, batchFulfillmentEnabled)
+	var batchFulfillmentGasMultiplier float64
+	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
+	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)
+	var chunkSize int
+	require.NoError(t, db.Get(&chunkSize, `SELECT chunk_size FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 25, chunkSize)
+	var fa pq.ByteaArray
+	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
+	var actual []string
+	for _, b := range fa {
+		actual = append(actual, common.BytesToAddress(b).String())
+	}
+	require.ElementsMatch(t, fromAddresses, actual)
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)

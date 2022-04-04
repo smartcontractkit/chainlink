@@ -35,7 +35,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	if ekc.App.GetConfig().Dev() {
 		keys, err = ethKeyStore.GetAll()
 	} else {
-		keys, err = ethKeyStore.SendingKeys()
+		keys, err = ethKeyStore.SendingKeys(nil)
 	}
 	if err != nil {
 		err = errors.Errorf("error getting unlocked keys: %v", err)
