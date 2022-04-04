@@ -104,8 +104,8 @@ type (
 
 		// Use the same channel for subs/unsubs so ordering is preserved
 		// (unsubscribe must happen after subscribe)
-		changeSubscriberStatus *utils.Mailbox
-		newHeads               *utils.Mailbox
+		changeSubscriberStatus *utils.Mailbox[changeSubscriberStatus]
+		newHeads               *utils.Mailbox[*evmtypes.Head]
 
 		utils.StartStopOnce
 		utils.DependentAwaiter
@@ -173,8 +173,8 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		ethSubscriber:          newEthSubscriber(ethClient, config, lggr, chStop),
 		registrations:          newRegistrations(lggr, *ethClient.ChainID()),
 		logPool:                newLogPool(),
-		changeSubscriberStatus: utils.NewMailbox(100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
-		newHeads:               utils.NewMailbox(1),
+		changeSubscriberStatus: utils.NewMailbox[changeSubscriberStatus](100000), // Seems unlikely we'd subscribe more than 100,000 times before LB start
+		newHeads:               utils.NewMailbox[*evmtypes.Head](1),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
 		highestSavedHead:       highestSavedHead,
@@ -520,11 +520,10 @@ func (b *broadcaster) onNewHeads() {
 	var latestHead *evmtypes.Head
 	for {
 		// We only care about the most recent head
-		item := b.newHeads.RetrieveLatestAndClear()
-		if item == nil {
+		head := b.newHeads.RetrieveLatestAndClear()
+		if head == nil {
 			break
 		}
-		head := evmtypes.AsHead(item)
 		latestHead = head
 	}
 
@@ -588,13 +587,9 @@ func (b *broadcaster) onNewHeads() {
 
 func (b *broadcaster) onChangeSubscriberStatus() (needsResubscribe bool) {
 	for {
-		x, exists := b.changeSubscriberStatus.Retrieve()
+		change, exists := b.changeSubscriberStatus.Retrieve()
 		if !exists {
 			break
-		}
-		change, ok := x.(changeSubscriberStatus)
-		if !ok {
-			b.logger.Panicf("expected `changeSubscriberStatus`, got %T", x)
 		}
 		sub := change.sub
 

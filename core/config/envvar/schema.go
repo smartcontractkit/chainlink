@@ -319,16 +319,3 @@ func DefaultValue(name string) (string, bool) {
 	log.Panicf("Invariant violated, no field of name %s found for DefaultValue", name)
 	return "", false
 }
-
-// ZeroValue returns the zero value for a named field, or panics if it does not exist.
-func ZeroValue(name string) interface{} {
-	schemaT := reflect.TypeOf(ConfigSchema{})
-	if item, ok := schemaT.FieldByName(name); ok {
-		if item.Type.Kind() == reflect.Ptr {
-			return nil
-		}
-		return reflect.New(item.Type).Interface()
-	}
-	log.Panicf("Invariant violated, no field of name %s found for ZeroValue", name)
-	return nil
-}
