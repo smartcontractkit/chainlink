@@ -55,6 +55,7 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFV2RevertingExample.sol
 
 $SCRIPTPATH/native_solc8_6_compile dev/BatchBlockhashStore.sol
+$SCRIPTPATH/native_solc8_13_compile dev/BatchVRFCoordinatorV2.sol
 
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_6_compile tests/VRFExternalSubOwnerExample.sol

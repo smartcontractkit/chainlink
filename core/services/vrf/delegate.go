@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -91,6 +92,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// If the batch coordinator address is not provided, we will fall back to non-batched
+	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
+	if jb.VRFSpec.BatchCoordinatorAddress != nil {
+		batchCoordinatorV2, err = batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(
+			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client())
+		if err != nil {
+			return nil, errors.Wrap(err, "create batch coordinator wrapper")
+		}
+	}
+
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -118,6 +130,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				chain.LogBroadcaster(),
 				d.q,
 				coordinatorV2,
+				batchCoordinatorV2,
 				aggregator,
 				chain.TxManager(),
 				d.pr,

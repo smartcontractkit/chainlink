@@ -1005,3 +1005,13 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
 }
+
+// AllEqual returns true iff all the provided elements are equal to each other.
+func AllEqual[T comparable](elems ...T) bool {
+	for i := 1; i < len(elems); i++ {
+		if elems[i] != elems[0] {
+			return false
+		}
+	}
+	return true
+}

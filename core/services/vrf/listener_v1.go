@@ -407,26 +407,30 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 			"reqID", hex.EncodeToString(req.req.RequestID[:]),
 			"reqTxHash", req.req.Raw.TxHash)
 		return false
-	} else {
-		if run.HasErrors() || run.HasFatalErrors() {
-			lsn.l.Error("VRFV1 pipeline run failed with errors",
-				"reqID", hex.EncodeToString(req.req.RequestID[:]),
-				"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-				"reqTxHash", req.req.Raw.TxHash,
-				"runErrors", run.AllErrors.ToError(),
-				"runFatalErrors", run.FatalErrors.ToError(),
-			)
-			return false
-		} else {
-			lsn.l.Debugw("Executed VRFV1 fulfillment run",
-				"reqID", hex.EncodeToString(req.req.RequestID[:]),
-				"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-				"reqTxHash", req.req.Raw.TxHash,
-			)
-			incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
-			return true
-		}
 	}
+
+	// At this point the pipeline runner has completed the run of the pipeline,
+	// but it may have errored out.
+	if run.HasErrors() || run.HasFatalErrors() {
+		lsn.l.Error("VRFV1 pipeline run failed with errors",
+			"reqID", hex.EncodeToString(req.req.RequestID[:]),
+			"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+			"reqTxHash", req.req.Raw.TxHash,
+			"runErrors", run.AllErrors.ToError(),
+			"runFatalErrors", run.FatalErrors.ToError(),
+		)
+		return false
+	}
+
+	// At this point, the pipeline run executed successfully, and we mark
+	// the request as processed.
+	lsn.l.Debugw("Executed VRFV1 fulfillment run",
+		"reqID", hex.EncodeToString(req.req.RequestID[:]),
+		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+		"reqTxHash", req.req.Raw.TxHash,
+	)
+	incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
+	return true
 }
 
 // Close complies with job.Service
