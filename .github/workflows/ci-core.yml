@@ -36,13 +36,18 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ^1.18
-      - name: Cache Go vendor packages
+      - name: Go Cache
         uses: actions/cache@v2
         with:
-          path: /go/pkg/mod
-          key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
+          # * Module download cache
+          # * Build cache (Linux)
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-mod-${{ matrix.cmd }}-${{ hashFiles('go.sum') }}
           restore-keys: |
-            go-mod-${{ env.CACHE_VERSION }}
+            go-mod-${{ matrix.cmd }}-
+            go-mod-
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
