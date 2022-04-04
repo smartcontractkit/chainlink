@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./KeeperBase.sol";
+import "../KeeperBase.sol";
 import "../ConfirmedOwner.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
