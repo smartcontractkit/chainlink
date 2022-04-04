@@ -176,7 +176,7 @@ func (m Monitor) Run() {
 
 	// Handle signals from the OS
 	wg.Add(1)
-	func() {
+	go func() {
 		defer wg.Done()
 		osSignalsCh := make(chan os.Signal, 1)
 		signal.Notify(osSignalsCh, syscall.SIGINT, syscall.SIGTERM)
