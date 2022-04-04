@@ -545,7 +545,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await keeper1.getAddress()),
-          'CannotExecute()',
+          'OnlySimulatedBackend()',
         )
       })
 
@@ -554,7 +554,7 @@ describe('KeeperRegistry', () => {
         await mock.setCanCheck(true)
         await evmRevert(
           registry.checkUpkeep(id, await owner.getAddress()),
-          'CannotExecute()',
+          'OnlySimulatedBackend()',
         )
       })
 
