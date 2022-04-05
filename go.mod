@@ -335,3 +335,9 @@ replace filippo.io/edwards25519 => filippo.io/edwards25519 v1.0.0-beta.3
 // fixes deprecation warnings and keychain undefined bugs on macOS
 // See https://github.com/99designs/keyring/issues/94
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+
+replace github.com/CosmWasm/wasmvm => github.com/mandrean/wasmvm v0.16.3-arm64
+
+replace github.com/terra-money/core => github.com/mandrean/terra-core v0.5.14-arm64
+
+replace github.com/smartcontractkit/terra.go => github.com/anirudhwarrier/terra.go v1.0.3-0.20220304033105-0463a8da57f0
