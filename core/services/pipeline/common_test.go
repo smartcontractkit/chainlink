@@ -7,9 +7,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 )
 
 func TestTimeoutAttribute(t *testing.T) {
@@ -116,6 +117,22 @@ func Test_UnmarshalTaskFromMap(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string")
 	})
+}
+
+func TestMarshalJSONSerializable_ByteArray(t *testing.T) {
+	s := pipeline.JSONSerializable{
+		Valid: true,
+		Val: map[string]interface{}{
+			"foo":   "bar",
+			"slice": []byte{0x10, 0x20, 0x30},
+			"ba4":   [4]byte{1, 2, 3, 4},
+			"ba8":   [8]uint8{1, 2, 3, 4, 5, 6, 7, 8},
+		},
+	}
+
+	bs, err := json.Marshal(s)
+	require.NoError(t, err)
+	require.Equal(t, `{"ba4":"0x01020304","ba8":"0x0102030405060708","foo":"bar","slice":"0x102030"}`, string(bs))
 }
 
 func TestUnmarshalJSONSerializable_Valid(t *testing.T) {
