@@ -57,7 +57,7 @@ jobs:
           ref: ${{ github.event.inputs.cl_ref }}
       - uses: actions/setup-go@v2
         with:
-          go-version: ^1.17
+          go-version: ~1.17
       - name: Replace Solana deps manual flow
         if: ${{ github.event.inputs.dep_solana_sha }}
         run: |
