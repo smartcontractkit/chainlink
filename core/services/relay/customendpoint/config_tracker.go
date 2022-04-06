@@ -1,4 +1,4 @@
-package dydx
+package customendpoint
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -23,21 +26,29 @@ type Answer struct {
 }
 
 type ContractTracker struct {
-	EndpointType string
-	digester     OffchainConfigDigester
+	digester          OffchainConfigDigester
+	bridgeRequestData string
+	bridgeInputAtKey  string
 
-	lggr    Logger
-	answer  Answer
-	ansLock *sync.RWMutex
+	lggr        logger.Logger
+	pipelineORM pipeline.ORM
+	config      config.GeneralConfig
+
+	transmittersWg sync.WaitGroup
+	answer         Answer
+	ansLock        *sync.RWMutex
 
 	utils.StartStopOnce
 }
 
-func NewTracker(spec OCR2Spec, configDigester OffchainConfigDigester, lggr Logger) ContractTracker {
+func NewTracker(spec OCR2Spec, configDigester OffchainConfigDigester, lggr logger.Logger, pipelineORM pipeline.ORM, config config.GeneralConfig) ContractTracker {
 	return ContractTracker{
-		EndpointType: spec.EndpointType,
-		digester:     configDigester,
-		lggr:         lggr,
+		digester:          configDigester,
+		bridgeRequestData: spec.BridgeRequestData,
+		bridgeInputAtKey:  spec.BridgeInputAtKey,
+		lggr:              lggr,
+		pipelineORM:       pipelineORM,
+		config:            config,
 		answer: Answer{
 			Data:      nil,
 			Timestamp: time.Now(),
@@ -98,5 +109,14 @@ func (c *ContractTracker) Start() error {
 }
 
 func (c *ContractTracker) Close() error {
+	c.transmittersWg.Wait()
+	return nil
+}
+
+func (c *ContractTracker) Ready() error {
+	return nil
+}
+
+func (c *ContractTracker) Healthy() error {
 	return nil
 }

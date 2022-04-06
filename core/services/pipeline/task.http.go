@@ -3,12 +3,14 @@ package pipeline
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 
 	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -55,13 +57,13 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 
 	var (
 		method                         StringParam
-		url                            URLParam
+		urlVal                         URLParam
 		requestData                    MapParam
 		allowUnrestrictedNetworkAccess BoolParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
-		errors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
+		errors.Wrap(ResolveParam(&urlVal, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "urlVal"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
 	)
@@ -75,7 +77,7 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 	}
 	lggr.Debugw("HTTP task: sending request",
 		"requestData", string(requestDataJSON),
-		"url", url.String(),
+		"urlVal", urlVal.String(),
 		"method", method,
 		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
 	)
@@ -83,7 +85,7 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
-	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, requestData, allowUnrestrictedNetworkAccess, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, _, elapsed, err := MakeHTTPRequest(requestCtx, lggr, string(method), url.URL(urlVal), requestData, bool(allowUnrestrictedNetworkAccess), t.config.DefaultHTTPLimit())
 	if err != nil {
 		if errors.Is(errors.Cause(err), ErrDisallowedIP) {
 			err = errors.Wrap(err, "connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess=true in the pipeline task spec")
@@ -93,7 +95,7 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 
 	lggr.Debugw("HTTP task got response",
 		"response", string(responseBytes),
-		"url", url.String(),
+		"urlVal", urlVal.String(),
 		"dotID", t.DotID(),
 	)
 

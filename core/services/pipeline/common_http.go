@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,13 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-func makeHTTPRequest(
+func MakeHTTPRequest(
 	ctx context.Context,
 	lggr logger.Logger,
-	method StringParam,
-	url URLParam,
-	requestData MapParam,
-	allowUnrestrictedNetworkAccess BoolParam,
+	method string,
+	url url.URL,
+	requestData map[string]interface{},
+	allowUnrestrictedNetworkAccess bool,
 	httpLimit int64,
 ) ([]byte, int, http.Header, time.Duration, error) {
 

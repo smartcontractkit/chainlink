@@ -58,7 +58,7 @@ type FeatureFlags interface {
 	P2PEnabled() bool
 	SolanaEnabled() bool
 	TerraEnabled() bool
-	DydxEnabled() bool
+	CustomEndpointEnabled() bool
 }
 
 type GeneralOnlyConfig interface {
@@ -739,8 +739,8 @@ func (c *generalConfig) TerraEnabled() bool {
 }
 
 // DydxEnabled allows DyDx to be used
-func (c *generalConfig) DydxEnabled() bool {
-	return c.viper.GetBool(envvar.Name("DydxEnabled"))
+func (c *generalConfig) CustomEndpointEnabled() bool {
+	return c.viper.GetBool(envvar.Name("CustomEndpointEnabled"))
 }
 
 // P2PEnabled controls whether Chainlink will run as a P2P peer for OCR protocol

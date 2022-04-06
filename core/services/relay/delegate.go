@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/relay/dydx"
+	"github.com/smartcontractkit/chainlink/core/services/relay/customendpoint"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/core/services/relay/types"
 )
@@ -203,13 +203,13 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			ContractID:    spec.ContractID,
 			TransmitterID: spec.TransmitterID.String,
 		})
-	case types.Dydx:
-		r, exists := d.relayers[types.Dydx]
+	case types.CustomEndpoint:
+		r, exists := d.relayers[types.CustomEndpoint]
 		if !exists {
-			return nil, errors.New("no Dydx relay found; is Dydx enabled?")
+			return nil, errors.New("no CustomEndpoint relay found; is CustomEndpoint enabled?")
 		}
 
-		var config dydx.RelayConfig
+		var config customendpoint.RelayConfig
 		err := json.Unmarshal(spec.RelayConfig.Bytes(), &config)
 		if err != nil {
 			return nil, errors.Wrap(err, "error on 'spec.RelayConfig' unmarshal")
@@ -221,7 +221,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 			}
 		}
 
-		return r.NewOCR2Provider(externalJobID, dydx.OCR2Spec{
+		return r.NewOCR2Provider(externalJobID, customendpoint.OCR2Spec{
 			RelayConfig: config,
 			ID:          spec.ID,
 			IsBootstrap: spec.IsBootstrapPeer,

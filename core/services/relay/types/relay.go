@@ -17,13 +17,11 @@ var (
 	Solana Network = "solana"
 	Terra  Network = "terra"
 
-	// The chainlink integration for dYdX just posts price feeds to a custom API endpoint
-	// which the dYdX team controls. There's no Chain for it yet.
-	// The DydX network here represents posting to that endpoint via a custom external
-	// adapter. The core OCR2 components for dydx are written to ensure that
+	// Custom Endpoint just posts price feeds to a custom API endpoint
+	// which the endpoint controls. There's no Chain for such cases.
+	// The core OCR2 components for customendpoint are written to ensure that
 	// the protocol works fine, and able to report accurate telemetry data.
-	// This is an interim solution till dYdX migrates their price feeds on-chain.
-	Dydx Network = "dydx"
+	CustomEndpoint Network = "customendpoint"
 )
 
 // RelayerCtx represents a relayer

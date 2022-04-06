@@ -1,4 +1,4 @@
-package dydx
+package customendpoint
 
 import (
 	"crypto/sha256"
@@ -8,13 +8,18 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-const ConfigDigestPrefixDydx types.ConfigDigestPrefix = 4
+const ConfigDigestPrefixCustomEndpoint types.ConfigDigestPrefix = 4
 
 var _ types.OffchainConfigDigester = (*OffchainConfigDigester)(nil)
 
 type OffchainConfigDigester struct {
-	// endpoint type can be staging or prod
-	endpointType string
+	// This uniquely identifies a custom endpoint class. For example, dydx.
+	EndpointName string
+	// Endpoint class specific target. Example, staging/prod
+	EndpointTarget string
+	// Uniquely identifies the type of data being uploaded to the endpoint
+	// For example, ETHUSD represents ETH price in USD.
+	PayloadType string
 }
 
 func (d OffchainConfigDigester) ConfigDigest(cfg types.ContractConfig) (types.ConfigDigest, error) {
@@ -44,5 +49,5 @@ func (d OffchainConfigDigester) configDigest() (types.ConfigDigest, error) {
 
 // This should return the same constant value on every invocation
 func (OffchainConfigDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
-	return ConfigDigestPrefixDydx
+	return ConfigDigestPrefixCustomEndpoint
 }

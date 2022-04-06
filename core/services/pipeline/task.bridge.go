@@ -58,7 +58,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		return Result{Error: err}, runInfo
 	}
 
-	url, err := t.getBridgeURLFromName(name)
+	urlVal, err := t.getBridgeURLFromName(name)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
@@ -94,7 +94,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	// URL is "safe" because it comes from the node's own database
 	// Some node operators may run external adapters on their own hardware
-	allowUnrestrictedNetworkAccess := BoolParam(true)
+	allowUnrestrictedNetworkAccess := true
 
 	requestDataJSON, err := json.Marshal(requestData)
 	if err != nil {
@@ -102,13 +102,13 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 	lggr.Debugw("Bridge task: sending request",
 		"requestData", string(requestDataJSON),
-		"url", url.String(),
+		"urlVal", urlVal.String(),
 	)
 
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
 	defer cancel()
 
-	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(requestCtx, lggr, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config.DefaultHTTPLimit())
+	responseBytes, statusCode, headers, elapsed, err := MakeHTTPRequest(requestCtx, lggr, "POST", url.URL(urlVal), requestData, allowUnrestrictedNetworkAccess, t.config.DefaultHTTPLimit())
 	if err != nil {
 		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 	}
@@ -138,7 +138,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 	lggr.Debugw("Bridge task: fetched answer",
 		"answer", result.Value,
-		"url", url.String(),
+		"urlVal", urlVal.String(),
 		"dotID", t.DotID(),
 	)
 	return result, runInfo
