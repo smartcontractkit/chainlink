@@ -718,17 +718,20 @@ func main() {
 		subID := request.Uint64("sub-id", 0, "subscription ID")
 		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
 		keyHash := request.String("key-hash", "", "key hash")
-		requests := request.Uint("requests", 10, "number of randomness requests to make")
+		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
+		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
 		keyHashBytes := common.HexToHash(*keyHash)
 		consumer, err := vrf_load_test_external_sub_owner.NewVRFLoadTestExternalSubOwner(
 			common.HexToAddress(*consumerAddress),
 			ec)
 		helpers.PanicErr(err)
-		tx, err := consumer.RequestRandomWords(owner, *subID, uint16(*requestConfirmations),
-			keyHashBytes, uint16(*requests))
-		helpers.PanicErr(err)
-		fmt.Println("TX", helpers.ExplorerLink(chainID, tx.Hash()))
+		for i := 0; i < int(*runs); i++ {
+			tx, err := consumer.RequestRandomWords(owner, *subID, uint16(*requestConfirmations),
+				keyHashBytes, uint16(*requests))
+			helpers.PanicErr(err)
+			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(chainID, tx.Hash()))
+		}
 	case "eoa-transfer-sub":
 		trans := flag.NewFlagSet("eoa-transfer-sub", flag.ExitOnError)
 		coordinatorAddress := trans.String("coordinator-address", "", "coordinator address")
