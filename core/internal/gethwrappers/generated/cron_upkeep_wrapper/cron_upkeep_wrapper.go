@@ -30,7 +30,7 @@ var (
 )
 
 var CronUpkeepMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegate\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"CallFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"CronJobIDNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidHandler\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TickDoesntMatchSpec\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TickInFuture\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TickTooOld\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnknownFieldType\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"handler\",\"type\":\"bytes\"}],\"name\":\"CronJobCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"CronJobDeleted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"CronJobExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"handler\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"encodedCronSpec\",\"type\":\"bytes\"}],\"name\":\"createCronJobFromEncodedSpec\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"cronString\",\"type\":\"string\"}],\"name\":\"cronStringToEncodedSpec\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"deleteCronJob\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getActiveCronJobIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getCronJob\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"handler\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"cronString\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"nextTick\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"performUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"delegate\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"maxJobs\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"firstJob\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"reason\",\"type\":\"string\"}],\"name\":\"CallFailed\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"CronJobIDNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ExceedsMaxJobs\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidHandler\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlySimulatedBackend\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TickDoesntMatchSpec\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TickInFuture\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TickTooOld\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnknownFieldType\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"handler\",\"type\":\"bytes\"}],\"name\":\"CronJobCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"CronJobDeleted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"}],\"name\":\"CronJobExecuted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"handler\",\"type\":\"bytes\"}],\"name\":\"CronJobUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Paused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"Unpaused\",\"type\":\"event\"},{\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"checkUpkeep\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"handler\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"encodedCronSpec\",\"type\":\"bytes\"}],\"name\":\"createCronJobFromEncodedSpec\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"deleteCronJob\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getActiveCronJobIDs\",\"outputs\":[{\"internalType\":\"uint256[]\",\"name\":\"\",\"type\":\"uint256[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"}],\"name\":\"getCronJob\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"handler\",\"type\":\"bytes\"},{\"internalType\":\"string\",\"name\":\"cronString\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"nextTick\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"performUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_maxJobs\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"unpause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"id\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"newTarget\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"newHandler\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"newEncodedCronSpec\",\"type\":\"bytes\"}],\"name\":\"updateCronJob\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}]",
 }
 
 var CronUpkeepABI = CronUpkeepMetaData.ABI
@@ -151,28 +151,6 @@ func (_CronUpkeep *CronUpkeepTransactorRaw) Transact(opts *bind.TransactOpts, me
 	return _CronUpkeep.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_CronUpkeep *CronUpkeepCaller) CronStringToEncodedSpec(opts *bind.CallOpts, cronString string) ([]byte, error) {
-	var out []interface{}
-	err := _CronUpkeep.contract.Call(opts, &out, "cronStringToEncodedSpec", cronString)
-
-	if err != nil {
-		return *new([]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
-
-	return out0, err
-
-}
-
-func (_CronUpkeep *CronUpkeepSession) CronStringToEncodedSpec(cronString string) ([]byte, error) {
-	return _CronUpkeep.Contract.CronStringToEncodedSpec(&_CronUpkeep.CallOpts, cronString)
-}
-
-func (_CronUpkeep *CronUpkeepCallerSession) CronStringToEncodedSpec(cronString string) ([]byte, error) {
-	return _CronUpkeep.Contract.CronStringToEncodedSpec(&_CronUpkeep.CallOpts, cronString)
-}
-
 func (_CronUpkeep *CronUpkeepCaller) GetActiveCronJobIDs(opts *bind.CallOpts) ([]*big.Int, error) {
 	var out []interface{}
 	err := _CronUpkeep.contract.Call(opts, &out, "getActiveCronJobIDs")
@@ -271,6 +249,28 @@ func (_CronUpkeep *CronUpkeepCallerSession) Paused() (bool, error) {
 	return _CronUpkeep.Contract.Paused(&_CronUpkeep.CallOpts)
 }
 
+func (_CronUpkeep *CronUpkeepCaller) SMaxJobs(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _CronUpkeep.contract.Call(opts, &out, "s_maxJobs")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+func (_CronUpkeep *CronUpkeepSession) SMaxJobs() (*big.Int, error) {
+	return _CronUpkeep.Contract.SMaxJobs(&_CronUpkeep.CallOpts)
+}
+
+func (_CronUpkeep *CronUpkeepCallerSession) SMaxJobs() (*big.Int, error) {
+	return _CronUpkeep.Contract.SMaxJobs(&_CronUpkeep.CallOpts)
+}
+
 func (_CronUpkeep *CronUpkeepTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return _CronUpkeep.contract.Transact(opts, "acceptOwnership")
 }
@@ -365,6 +365,18 @@ func (_CronUpkeep *CronUpkeepSession) Unpause() (*types.Transaction, error) {
 
 func (_CronUpkeep *CronUpkeepTransactorSession) Unpause() (*types.Transaction, error) {
 	return _CronUpkeep.Contract.Unpause(&_CronUpkeep.TransactOpts)
+}
+
+func (_CronUpkeep *CronUpkeepTransactor) UpdateCronJob(opts *bind.TransactOpts, id *big.Int, newTarget common.Address, newHandler []byte, newEncodedCronSpec []byte) (*types.Transaction, error) {
+	return _CronUpkeep.contract.Transact(opts, "updateCronJob", id, newTarget, newHandler, newEncodedCronSpec)
+}
+
+func (_CronUpkeep *CronUpkeepSession) UpdateCronJob(id *big.Int, newTarget common.Address, newHandler []byte, newEncodedCronSpec []byte) (*types.Transaction, error) {
+	return _CronUpkeep.Contract.UpdateCronJob(&_CronUpkeep.TransactOpts, id, newTarget, newHandler, newEncodedCronSpec)
+}
+
+func (_CronUpkeep *CronUpkeepTransactorSession) UpdateCronJob(id *big.Int, newTarget common.Address, newHandler []byte, newEncodedCronSpec []byte) (*types.Transaction, error) {
+	return _CronUpkeep.Contract.UpdateCronJob(&_CronUpkeep.TransactOpts, id, newTarget, newHandler, newEncodedCronSpec)
 }
 
 func (_CronUpkeep *CronUpkeepTransactor) Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error) {
@@ -769,6 +781,135 @@ func (_CronUpkeep *CronUpkeepFilterer) WatchCronJobExecuted(opts *bind.WatchOpts
 func (_CronUpkeep *CronUpkeepFilterer) ParseCronJobExecuted(log types.Log) (*CronUpkeepCronJobExecuted, error) {
 	event := new(CronUpkeepCronJobExecuted)
 	if err := _CronUpkeep.contract.UnpackLog(event, "CronJobExecuted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type CronUpkeepCronJobUpdatedIterator struct {
+	Event *CronUpkeepCronJobUpdated
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *CronUpkeepCronJobUpdatedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(CronUpkeepCronJobUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(CronUpkeepCronJobUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *CronUpkeepCronJobUpdatedIterator) Error() error {
+	return it.fail
+}
+
+func (it *CronUpkeepCronJobUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type CronUpkeepCronJobUpdated struct {
+	Id      *big.Int
+	Target  common.Address
+	Handler []byte
+	Raw     types.Log
+}
+
+func (_CronUpkeep *CronUpkeepFilterer) FilterCronJobUpdated(opts *bind.FilterOpts, id []*big.Int) (*CronUpkeepCronJobUpdatedIterator, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _CronUpkeep.contract.FilterLogs(opts, "CronJobUpdated", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return &CronUpkeepCronJobUpdatedIterator{contract: _CronUpkeep.contract, event: "CronJobUpdated", logs: logs, sub: sub}, nil
+}
+
+func (_CronUpkeep *CronUpkeepFilterer) WatchCronJobUpdated(opts *bind.WatchOpts, sink chan<- *CronUpkeepCronJobUpdated, id []*big.Int) (event.Subscription, error) {
+
+	var idRule []interface{}
+	for _, idItem := range id {
+		idRule = append(idRule, idItem)
+	}
+
+	logs, sub, err := _CronUpkeep.contract.WatchLogs(opts, "CronJobUpdated", idRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(CronUpkeepCronJobUpdated)
+				if err := _CronUpkeep.contract.UnpackLog(event, "CronJobUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_CronUpkeep *CronUpkeepFilterer) ParseCronJobUpdated(log types.Log) (*CronUpkeepCronJobUpdated, error) {
+	event := new(CronUpkeepCronJobUpdated)
+	if err := _CronUpkeep.contract.UnpackLog(event, "CronJobUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1296,6 +1437,8 @@ func (_CronUpkeep *CronUpkeep) ParseLog(log types.Log) (generated.AbigenLog, err
 		return _CronUpkeep.ParseCronJobDeleted(log)
 	case _CronUpkeep.abi.Events["CronJobExecuted"].ID:
 		return _CronUpkeep.ParseCronJobExecuted(log)
+	case _CronUpkeep.abi.Events["CronJobUpdated"].ID:
+		return _CronUpkeep.ParseCronJobUpdated(log)
 	case _CronUpkeep.abi.Events["OwnershipTransferRequested"].ID:
 		return _CronUpkeep.ParseOwnershipTransferRequested(log)
 	case _CronUpkeep.abi.Events["OwnershipTransferred"].ID:
@@ -1322,6 +1465,10 @@ func (CronUpkeepCronJobExecuted) Topic() common.Hash {
 	return common.HexToHash("0x30f05dfc7571f43926790e295bb282b76b7174d9121c31c2b26def175b63a759")
 }
 
+func (CronUpkeepCronJobUpdated) Topic() common.Hash {
+	return common.HexToHash("0xeeaf6ad42034ba5357ffd961b8c80bf6cbf53c224020541e46573a3f19ef09a5")
+}
+
 func (CronUpkeepOwnershipTransferRequested) Topic() common.Hash {
 	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
 }
@@ -1343,8 +1490,6 @@ func (_CronUpkeep *CronUpkeep) Address() common.Address {
 }
 
 type CronUpkeepInterface interface {
-	CronStringToEncodedSpec(opts *bind.CallOpts, cronString string) ([]byte, error)
-
 	GetActiveCronJobIDs(opts *bind.CallOpts) ([]*big.Int, error)
 
 	GetCronJob(opts *bind.CallOpts, id *big.Int) (GetCronJob,
@@ -1354,6 +1499,8 @@ type CronUpkeepInterface interface {
 	Owner(opts *bind.CallOpts) (common.Address, error)
 
 	Paused(opts *bind.CallOpts) (bool, error)
+
+	SMaxJobs(opts *bind.CallOpts) (*big.Int, error)
 
 	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
 
@@ -1370,6 +1517,8 @@ type CronUpkeepInterface interface {
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
 	Unpause(opts *bind.TransactOpts) (*types.Transaction, error)
+
+	UpdateCronJob(opts *bind.TransactOpts, id *big.Int, newTarget common.Address, newHandler []byte, newEncodedCronSpec []byte) (*types.Transaction, error)
 
 	Fallback(opts *bind.TransactOpts, calldata []byte) (*types.Transaction, error)
 
@@ -1392,6 +1541,12 @@ type CronUpkeepInterface interface {
 	WatchCronJobExecuted(opts *bind.WatchOpts, sink chan<- *CronUpkeepCronJobExecuted, id []*big.Int) (event.Subscription, error)
 
 	ParseCronJobExecuted(log types.Log) (*CronUpkeepCronJobExecuted, error)
+
+	FilterCronJobUpdated(opts *bind.FilterOpts, id []*big.Int) (*CronUpkeepCronJobUpdatedIterator, error)
+
+	WatchCronJobUpdated(opts *bind.WatchOpts, sink chan<- *CronUpkeepCronJobUpdated, id []*big.Int) (event.Subscription, error)
+
+	ParseCronJobUpdated(log types.Log) (*CronUpkeepCronJobUpdated, error)
 
 	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*CronUpkeepOwnershipTransferRequestedIterator, error)
 
