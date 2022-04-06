@@ -1,12 +1,13 @@
 package solana
 
 import (
-	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/mocks"
@@ -17,11 +18,19 @@ import (
 )
 
 func TestSolanaChain_GetClient(t *testing.T) {
+	checkOnce := map[string]struct{}{}
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// devnet gensis hash
-		out := `{"jsonrpc":"2.0","result":"EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG","id":1}`
-		if strings.Contains(r.URL.Path, "/mismatch") {
-			out = `{"jsonrpc":"2.0","result":"5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d","id":1}`
+		out := `{"jsonrpc":"2.0","result":"5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d","id":1}` // mainnet genesis hash
+
+		if !strings.Contains(r.URL.Path, "/mismatch") {
+			// devnet gensis hash
+			out = `{"jsonrpc":"2.0","result":"EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG","id":1}`
+
+			// clients with correct chainID should request chainID only once
+			if _, exists := checkOnce[r.URL.Path]; exists {
+				assert.NoError(t, errors.Errorf("rpc has been called once already for successful client '%s'", r.URL.Path))
+			}
+			checkOnce[r.URL.Path] = struct{}{}
 		}
 
 		_, err := w.Write([]byte(out))
@@ -32,11 +41,11 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	solORM := new(mocks.ORM)
 	lggr := logger.TestLogger(t)
 	testChain := chain{
-		id:            "devnet",
-		orm:           solORM,
-		cfg:           config.NewConfig(db.ChainCfg{}, lggr),
-		lggr:          logger.TestLogger(t),
-		clientChainID: map[string]string{},
+		id:          "devnet",
+		orm:         solORM,
+		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		lggr:        logger.TestLogger(t),
+		clientCache: map[string]cachedClient{},
 	}
 
 	// random nodes (happy path, all valid)
@@ -57,23 +66,23 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
 		db.Node{
 			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/A",
+			SolanaURL:     mockServer.URL + "/1",
 		},
 		db.Node{
 			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/A",
+			SolanaURL:     mockServer.URL + "/mismatch/1",
 		},
 		db.Node{
 			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/B",
+			SolanaURL:     mockServer.URL + "/mismatch/2",
 		},
 		db.Node{
 			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/C",
+			SolanaURL:     mockServer.URL + "/mismatch/3",
 		},
 		db.Node{
 			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/D",
+			SolanaURL:     mockServer.URL + "/mismatch/4",
 		},
 	}, 2, nil).Once()
 	_, err = testChain.getClient()
@@ -102,14 +111,21 @@ func TestSolanaChain_GetClient(t *testing.T) {
 func TestSolanaChain_VerifiedClient(t *testing.T) {
 	called := false
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// should only be called once, chainID will be cached in chain
-		if called {
-			assert.NoError(t, errors.New("rpc has been called once already"))
-		}
+		out := `{ "jsonrpc": "2.0", "result": 1234, "id": 1 }` // getSlot response
 
-		// devnet gensis hash
-		out := `{"jsonrpc":"2.0","result":"EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG","id":1}`
-		_, err := w.Write([]byte(out))
+		body, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		// handle getGenesisHash request
+		if strings.Contains(string(body), "getGenesisHash") {
+			// should only be called once, chainID will be cached in chain
+			if called {
+				assert.NoError(t, errors.New("rpc has been called once already"))
+			}
+			// devnet gensis hash
+			out = `{"jsonrpc":"2.0","result":"EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG","id":1}`
+		}
+		_, err = w.Write([]byte(out))
 		require.NoError(t, err)
 		called = true
 	}))
@@ -117,9 +133,9 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	testChain := chain{
-		cfg:           config.NewConfig(db.ChainCfg{}, lggr),
-		lggr:          logger.TestLogger(t),
-		clientChainID: map[string]string{},
+		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		lggr:        logger.TestLogger(t),
+		clientCache: map[string]cachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
@@ -127,9 +143,15 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	testChain.id = "devnet"
 	_, err := testChain.verifiedClient(node)
 	assert.NoError(t, err)
-	assert.Equal(t, testChain.id, testChain.clientChainID[node.SolanaURL])
 
-	// expect error from id mismatch
+	// retrieve cached client and retrieve slot height
+	c, err := testChain.verifiedClient(node)
+	assert.NoError(t, err)
+	slot, err := c.SlotHeight()
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(1234), slot)
+
+	// expect error from id mismatch (even if using a cached client)
 	testChain.id = "incorrect"
 	_, err = testChain.verifiedClient(node)
 	assert.Error(t, err)
