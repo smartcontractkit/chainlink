@@ -47,14 +47,17 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 	ps = new(ocrtypes.PersistentState)
 
 	var tmp []int64
-	err = d.q.QueryRowxContext(ctx, stmt, d.oracleSpecID, cd).Scan(&ps.Epoch, &ps.HighestReceivedEpoch, pq.Array(&tmp))
+	var highestSentEpochTmp int64
 
+	err = d.q.QueryRowxContext(ctx, stmt, d.oracleSpecID, cd).Scan(&ps.Epoch, &highestSentEpochTmp, pq.Array(&tmp))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "ReadState failed")
 	}
+
+	ps.HighestSentEpoch = uint32(highestSentEpochTmp)
 
 	for _, v := range tmp {
 		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v))
