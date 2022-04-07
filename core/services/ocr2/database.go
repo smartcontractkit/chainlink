@@ -134,7 +134,6 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 		&c.OffchainConfigVersion,
 		&c.OffchainConfig,
 	)
-
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
