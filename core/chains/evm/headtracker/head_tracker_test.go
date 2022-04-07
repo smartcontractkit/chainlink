@@ -493,7 +493,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		headers <- h
 	}
 
-	lastLongestChainAwaiter.AwaitOrFail(t)
+	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
+	lastLongestChainAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 
@@ -531,7 +532,9 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *evmtypes.Head) }).
+		Run(func(args mock.Arguments) {
+			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
+		}).
 		Return(sub, nil)
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -650,7 +653,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		headers <- h
 	}
 
-	lastLongestChainAwaiter.AwaitOrFail(t)
+	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
+	lastLongestChainAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 
