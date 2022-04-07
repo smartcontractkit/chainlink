@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/mocks"
@@ -17,14 +19,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const TestSolanaGenesisHashTemplate = `{"jsonrpc":"2.0","result":"%s","id":1}`
+
 func TestSolanaChain_GetClient(t *testing.T) {
 	checkOnce := map[string]struct{}{}
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		out := `{"jsonrpc":"2.0","result":"5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d","id":1}` // mainnet genesis hash
+		out := fmt.Sprintf(TestSolanaGenesisHashTemplate, client.MainnetGenesisHash) // mainnet genesis hash
 
 		if !strings.Contains(r.URL.Path, "/mismatch") {
 			// devnet gensis hash
-			out = `{"jsonrpc":"2.0","result":"EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG","id":1}`
+			out = fmt.Sprintf(TestSolanaGenesisHashTemplate, client.DevnetGenesisHash)
 
 			// clients with correct chainID should request chainID only once
 			if _, exists := checkOnce[r.URL.Path]; exists {
@@ -123,7 +127,7 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 				assert.NoError(t, errors.New("rpc has been called once already"))
 			}
 			// devnet gensis hash
-			out = `{"jsonrpc":"2.0","result":"EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG","id":1}`
+			out = fmt.Sprintf(TestSolanaGenesisHashTemplate, client.DevnetGenesisHash)
 		}
 		_, err = w.Write([]byte(out))
 		require.NoError(t, err)

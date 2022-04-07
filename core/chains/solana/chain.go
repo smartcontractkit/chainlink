@@ -49,8 +49,8 @@ type chain struct {
 }
 
 type cachedClient struct {
-	rw solanaclient.ReaderWriter
 	id string
+	rw solanaclient.ReaderWriter
 }
 
 // NewChain returns a new chain backed by node.
