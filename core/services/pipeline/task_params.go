@@ -717,7 +717,15 @@ func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
 
 type JSONPathParam []string
 
+// UnmarshalPipelineParam unmarshals a slice of strings from val.
+// If val is a string or []byte, it is split on a separator.
+// The default separator is ',' but can be overridden by initializing p with a single element before calling.
 func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
+	sep := ","
+	if len(*p) > 0 {
+		// custom separator
+		sep = (*p)[0]
+	}
 	var ssp JSONPathParam
 	switch v := val.(type) {
 	case nil:
@@ -736,12 +744,12 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 		if len(v) == 0 {
 			return nil
 		}
-		ssp = strings.Split(v, ",")
+		ssp = strings.Split(v, sep)
 	case []byte:
 		if len(v) == 0 {
 			return nil
 		}
-		ssp = strings.Split(string(v), ",")
+		ssp = strings.Split(string(v), sep)
 	default:
 		return ErrBadInput
 	}
