@@ -278,7 +278,7 @@ WHERE ocr_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round =
 }
 
 func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
-	_, err = d.q.ExecContext(ctx, `
+	_, err = d.q.WithOpts(pg.WithLongQueryTimeout()).ExecContext(ctx, `
 DELETE FROM ocr_pending_transmissions
 WHERE ocr_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
