@@ -2008,6 +2008,14 @@ describe('KeeperRegistry', () => {
       await registry.setPeerRegistryMigrationPermission(peer, 2)
       permission = await registry.getPeerRegistryMigrationPermission(peer)
       expect(permission).to.equal(2)
+      await registry.setPeerRegistryMigrationPermission(peer, 0)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(0)
+    })
+    it('reverts if passed an unsupported permission', async () => {
+      await expect(
+        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 10),
+      ).to.be.reverted
     })
     it('reverts if not called by the owner', async () => {
       await expect(
@@ -2024,7 +2032,6 @@ describe('KeeperRegistry', () => {
         await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
         await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
       })
-
       it('migrates an upkeep', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
@@ -2037,6 +2044,20 @@ describe('KeeperRegistry', () => {
         expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
         expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
+      })
+      it('emits an event on both contracts', async () => {
+        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        const tx = registry
+          .connect(admin)
+          .migrateUpkeeps([id], registry2.address)
+        await expect(tx)
+          .to.emit(registry, 'UpkeepMigrated')
+          .withArgs(id, toWei('100'), registry2.address)
+        await expect(tx)
+          .to.emit(registry2, 'UpkeepReceived')
+          .withArgs(id, toWei('100'), registry.address)
       })
     })
 
