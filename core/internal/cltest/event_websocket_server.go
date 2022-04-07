@@ -19,6 +19,7 @@ type EventWebSocketServer struct {
 	t              *testing.T
 	connections    []*websocket.Conn
 	Connected      chan struct{}
+	Disconnected   chan struct{}
 	ReceivedText   chan string
 	ReceivedBinary chan []byte
 	URL            *url.URL
@@ -30,6 +31,7 @@ func NewEventWebSocketServer(t *testing.T) (*EventWebSocketServer, func()) {
 		mutex:          &sync.RWMutex{},
 		t:              t,
 		Connected:      make(chan struct{}, 1), // have buffer of one for easier assertions after the event
+		Disconnected:   make(chan struct{}, 1), // have buffer of one for easier assertions after the event
 		ReceivedText:   make(chan string, 100),
 		ReceivedBinary: make(chan []byte, 100),
 	}
@@ -44,6 +46,12 @@ func NewEventWebSocketServer(t *testing.T) (*EventWebSocketServer, func()) {
 	return server, func() {
 		server.Close()
 	}
+}
+
+func (wss EventWebSocketServer) ConnectionsCount() int {
+	wss.mutex.RLock()
+	defer wss.mutex.RUnlock()
+	return len(wss.connections)
 }
 
 // Broadcast sends a message to every web socket client connected to the EventWebSocketServer
@@ -139,4 +147,8 @@ func (wss *EventWebSocketServer) removeConnection(conn *websocket.Conn) {
 	}
 	wss.connections = newc
 	wss.mutex.Unlock()
+	select { // broadcast disconnected event
+	case wss.Disconnected <- struct{}{}:
+	default:
+	}
 }
