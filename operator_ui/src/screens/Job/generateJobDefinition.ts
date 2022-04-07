@@ -204,6 +204,10 @@ export const generateJobDefinition = (
           'pollPeriod',
           'publicKey',
           'requestedConfsDelay',
+          'batchCoordinatorAddress',
+          'batchFulfillmentEnabled',
+          'batchFulfillmentGasMultiplier',
+          'chunkSize',
         ),
         ...extractObservationSourceField(job),
       }

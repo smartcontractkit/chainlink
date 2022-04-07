@@ -26,7 +26,7 @@ type OCR2Config interface {
 }
 
 func (c *generalConfig) OCR2ContractConfirmations() uint16 {
-	return c.getWithFallback("OCR2ContractConfirmations", parse.Uint16).(uint16)
+	return getEnvWithFallback(c, envvar.NewUint16("OCR2ContractConfirmations"))
 }
 
 func (c *generalConfig) OCR2ContractPollInterval() time.Duration {

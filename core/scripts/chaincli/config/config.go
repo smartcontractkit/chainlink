@@ -19,7 +19,6 @@ type Config struct {
 	ApproveAmount   string   `mapstructure:"APPROVE_AMOUNT"`
 	GasLimit        uint64   `mapstructure:"GAS_LIMIT"`
 	FundNodeAmount  int      `mapstructure:"FUND_CHAINLINK_NODE"`
-	MustTakeTurns   bool     `mapstructure:"MUST_TAKE_TURNS"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
