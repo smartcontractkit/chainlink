@@ -18,7 +18,7 @@ type Config struct {
 	KeeperPasswords []string `mapstructure:"KEEPER_PASSWORDS"`
 	ApproveAmount   string   `mapstructure:"APPROVE_AMOUNT"`
 	GasLimit        uint64   `mapstructure:"GAS_LIMIT"`
-	FundNodeAmount  int      `mapstructure:"FUND_CHAINLINK_NODE"`
+	FundNodeAmount  string   `mapstructure:"FUND_CHAINLINK_NODE"`
 
 	// Keeper config
 	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
