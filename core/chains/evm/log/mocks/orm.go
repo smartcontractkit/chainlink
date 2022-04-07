@@ -109,6 +109,27 @@ func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, 
 	return r0
 }
 
+// MarkBroadcastsConsumed provides a mock function with given fields: blockHashes, blockNumbers, logIndexes, jobIDs, qopts
+func (_m *ORM) MarkBroadcastsConsumed(blockHashes []common.Hash, blockNumbers []uint64, logIndexes []uint, jobIDs []int32, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, blockHashes, blockNumbers, logIndexes, jobIDs)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]common.Hash, []uint64, []uint, []int32, ...pg.QOpt) error); ok {
+		r0 = rf(blockHashes, blockNumbers, logIndexes, jobIDs, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // MarkBroadcastsUnconsumed provides a mock function with given fields: fromBlock, qopts
 func (_m *ORM) MarkBroadcastsUnconsumed(fromBlock int64, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))

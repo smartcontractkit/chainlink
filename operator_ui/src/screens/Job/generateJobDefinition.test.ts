@@ -425,6 +425,9 @@ juelsPerFeeCoinSource = "1000000000"
         publicKey:
           '0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301',
         requestedConfsDelay: 0,
+        batchCoordinatorAddress: '0x0000000000000000000000000000000000000000',
+        batchFulfillmentEnabled: true,
+        batchFulfillmentGasMultiplier: 1.0,
         chunkSize: 25,
       },
       observationSource:
@@ -443,6 +446,9 @@ minIncomingConfirmations = 6
 pollPeriod = "10s"
 publicKey = "0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301"
 requestedConfsDelay = 0
+batchCoordinatorAddress = "0x0000000000000000000000000000000000000000"
+batchFulfillmentEnabled = true
+batchFulfillmentGasMultiplier = 1
 chunkSize = 25
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
