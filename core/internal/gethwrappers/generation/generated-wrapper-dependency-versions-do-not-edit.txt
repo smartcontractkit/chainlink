@@ -2,7 +2,7 @@ GETH_VERSION: 1.10.16
 aggregator_v2v3_interface: ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.bin 95e8814b408bb05bf21742ef580d98698b7db6a9bac6a35c3de12b23aec4ee28
 aggregator_v3_interface: ../../../contracts/solc/v0.8.6/AggregatorV3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
 batch_blockhash_store: ../../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../../contracts/solc/v0.8.6/BatchBlockhashStore.bin 9220f1ed6c576863a2f5b34263846660e742f3513c19eb9e2562a374cb70c252
-batch_vrf_coordinator_v2: ../../../contracts/solc/v0.8.13/BatchVRFCoordinatorV2.abi ../../../contracts/solc/v0.8/BatchVRFCoordinatorV2.bin d0a54963260d8c1f1bbd984b758285e6027cfb5a7e42701bcb562ab123219332
+batch_vrf_coordinator_v2: ../../../contracts/solc/v0.8.13/BatchVRFCoordinatorV2.abi ../../../contracts/solc/v0.8.13/BatchVRFCoordinatorV2.bin be521b16957e7d84411e62daacb54da7ea136cd4b417330bb6773eff340ea645
 blockhash_store: ../../../contracts/solc/v0.6/BlockhashStore.abi ../../../contracts/solc/v0.6/BlockhashStore.bin 6b3da771f033b3a5e53bf112396d0698debf65a8dcd81370f07d72948c8b14d9
 consumer_wrapper: ../../../contracts/solc/v0.7/Consumer.abi ../../../contracts/solc/v0.7/Consumer.bin 894d1cbd920dccbd36d92918c1037c6ded34f66f417ccb18ec3f33c64ef83ec5
 cron_upkeep_factory_wrapper: ../../../contracts/solc/v0.8.6/CronUpkeepFactory.abi - dacb0f8cdf54ae9d2781c5e720fc314b32ed5e58eddccff512c75d6067292cd7
