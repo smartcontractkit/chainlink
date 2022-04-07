@@ -351,6 +351,12 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var requestedConfsDelay int64
 	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
 	require.Equal(t, int64(10), requestedConfsDelay)
+	var batchFulfillmentEnabled bool
+	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
+	require.False(t, batchFulfillmentEnabled)
+	var batchFulfillmentGasMultiplier float64
+	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
+	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)

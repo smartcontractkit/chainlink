@@ -2,10 +2,11 @@ GETH_VERSION: 1.10.16
 aggregator_v2v3_interface: ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV2V3Interface.bin 95e8814b408bb05bf21742ef580d98698b7db6a9bac6a35c3de12b23aec4ee28
 aggregator_v3_interface: ../../../contracts/solc/v0.8.6/AggregatorV3Interface.abi ../../../contracts/solc/v0.8.6/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
 batch_blockhash_store: ../../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../../contracts/solc/v0.8.6/BatchBlockhashStore.bin 9220f1ed6c576863a2f5b34263846660e742f3513c19eb9e2562a374cb70c252
+batch_vrf_coordinator_v2: ../../../contracts/solc/v0.8.13/BatchVRFCoordinatorV2.abi ../../../contracts/solc/v0.8/BatchVRFCoordinatorV2.bin d0a54963260d8c1f1bbd984b758285e6027cfb5a7e42701bcb562ab123219332
 blockhash_store: ../../../contracts/solc/v0.6/BlockhashStore.abi ../../../contracts/solc/v0.6/BlockhashStore.bin 6b3da771f033b3a5e53bf112396d0698debf65a8dcd81370f07d72948c8b14d9
 consumer_wrapper: ../../../contracts/solc/v0.7/Consumer.abi ../../../contracts/solc/v0.7/Consumer.bin 894d1cbd920dccbd36d92918c1037c6ded34f66f417ccb18ec3f33c64ef83ec5
-cron_upkeep_factory_wrapper: ../../../contracts/solc/v0.8.6/CronUpkeepFactory.abi - 5485db3ccdcc0670552dbec17afc196e0894e86b8abd188d04dd8df42f578c26
-cron_upkeep_wrapper: ../../../contracts/solc/v0.8.6/CronUpkeep.abi - 6b872708bccaa0a288a44a7cc82f7a883b0afec73dd74cb56ab60d2b56b8b312
+cron_upkeep_factory_wrapper: ../../../contracts/solc/v0.8.6/CronUpkeepFactory.abi - dacb0f8cdf54ae9d2781c5e720fc314b32ed5e58eddccff512c75d6067292cd7
+cron_upkeep_wrapper: ../../../contracts/solc/v0.8.6/CronUpkeep.abi - b1257293e0016a6d32f6febec5ff4cd8d7276d228c12228e6b6e143111f0c5ed
 derived_price_feed_wrapper: ../../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../../contracts/solc/v0.8.6/DerivedPriceFeed.bin c8542e6c850c2d0fffb79a7f7213dc927ec64e6ddd54e1224cb2fb4a13aabdd0
 flags_wrapper: ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
