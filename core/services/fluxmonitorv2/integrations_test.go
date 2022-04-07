@@ -212,10 +212,11 @@ func (fau fluxAggregatorUniverse) WatchSubmissionReceived(t *testing.T, addresse
 
 func startApplication(
 	t *testing.T,
+	testName string,
 	fa fluxAggregatorUniverse,
 	setConfig func(cfg *configtest.TestGeneralConfig),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
+	config, _ := heavyweight.FullTestDB(t, dbName(testName), true, true)
 	setConfig(config)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -356,7 +357,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 
 	select {
 	case <-srCh:
-	case <-time.After(5 * time.Second):
+	case <-time.After(testutils.DefaultWaitTimeout):
 		t.Fatal("failed to complete submission to flux aggregator")
 	}
 	checkSubmission(t, p, cb.Int64(), 0)
@@ -445,6 +446,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+
 			g := gomega.NewWithT(t)
 			fa := setupFluxAggregatorUniverse(t)
 
@@ -456,7 +458,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			checkOraclesAdded(t, fa, oracleList)
 
 			// Set up chainlink app
-			app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
+			testName := t.Name() + "_" + strings.ReplaceAll(test.name, " ", "_")
+			app := startApplication(t, testName, fa, func(cfg *configtest.TestGeneralConfig) {
 				cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 				cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
 				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
@@ -625,7 +628,7 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
+	app := startApplication(t, t.Name(), fa, func(cfg *configtest.TestGeneralConfig) {
 		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
 		cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(fa.flagsContractAddress.Hex())
@@ -731,7 +734,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Start chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
+	app := startApplication(t, t.Name(), fa, func(cfg *configtest.TestGeneralConfig) {
 		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
 		cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(fa.flagsContractAddress.Hex())
@@ -838,7 +841,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	fa.backend.Commit()
 
 	// Set up chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
+	app := startApplication(t, t.Name(), fa, func(cfg *configtest.TestGeneralConfig) {
 		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
 		cfg.Overrides.GlobalMinRequiredOutgoingConfirmations = null.IntFrom(2)
@@ -913,7 +916,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
-	app := startApplication(t, fa, func(cfg *configtest.TestGeneralConfig) {
+	app := startApplication(t, t.Name(), fa, func(cfg *configtest.TestGeneralConfig) {
 		cfg.Overrides.SetDefaultHTTPTimeout(100 * time.Millisecond)
 		cfg.Overrides.SetTriggerFallbackDBPollInterval(1 * time.Second)
 	})
