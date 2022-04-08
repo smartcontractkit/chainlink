@@ -33,7 +33,13 @@ func (d OffchainConfigDigester) configDigest() (types.ConfigDigest, error) {
 	digest := types.ConfigDigest{}
 	buf := sha256.New()
 
-	if err := binary.Write(buf, binary.BigEndian, uint8(len(d.endpointType))); err != nil {
+	if _, err := buf.Write([]byte(d.EndpointName)); err != nil {
+		return digest, err
+	}
+	if _, err := buf.Write([]byte(d.EndpointTarget)); err != nil {
+		return digest, err
+	}
+	if _, err := buf.Write([]byte(d.PayloadType)); err != nil {
 		return digest, err
 	}
 

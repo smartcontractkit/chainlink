@@ -90,14 +90,11 @@ func (c *ContractTracker) doTransmit(
 	defer c.ansLock.RUnlock()
 
 	// Skip saving the answer if a more recent saved answer already exists
-	if round > c.answer.round || (round == c.answer.round && epoch > c.answer.epoch) {
-		// Since the OCR2 median plugin only reports big integers, multiply it by 10^5.
-		// This result will only be reported in telemetry. The endpoint still gets the actual decimal value.
-		resultW5DecimalPlaces := result.Round(5).Mul(decimal.NewFromInt(10 ^ 5))
+	if epoch > c.answer.epoch || (epoch == c.answer.epoch && round > c.answer.round) {
 		c.ansLock.RLock()
 		defer c.ansLock.RUnlock()
 		c.answer = Answer{
-			Data:      resultW5DecimalPlaces.BigInt(),
+			Data:      result.BigInt(),
 			Timestamp: time.Now(),
 			epoch:     epoch,
 			round:     round,
