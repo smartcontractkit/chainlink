@@ -717,9 +717,17 @@ func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
 
 type JSONPathParam []string
 
+// NewJSONPathParam returns a new JSONPathParam using the given separator, or the default if empty.
+func NewJSONPathParam(sep string) JSONPathParam {
+	if len(sep) == 0 {
+		return nil
+	}
+	return []string{sep}
+}
+
 // UnmarshalPipelineParam unmarshals a slice of strings from val.
 // If val is a string or []byte, it is split on a separator.
-// The default separator is ',' but can be overridden by initializing p with a single element before calling.
+// The default separator is ',' but can be overridden by initializing via NewJSONPathParam.
 func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 	sep := ","
 	if len(*p) > 0 {

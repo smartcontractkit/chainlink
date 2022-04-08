@@ -45,16 +45,11 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 
 	var sep StringParam
 	err = errors.Wrap(ResolveParam(&sep, From(t.Separator)), "separator")
-
 	var (
-		path JSONPathParam
+		path = NewJSONPathParam(string(sep))
 		data BytesParam
 		lax  BoolParam
 	)
-	if sep != "" {
-		// set custom path separator
-		path = append(path, string(sep))
-	}
 	err = multierr.Combine(err,
 		errors.Wrap(ResolveParam(&path, From(VarExpr(t.Path, vars), t.Path)), "path"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
