@@ -155,17 +155,14 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 		return nil, errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, client.id, url)
 	}
 
-	// recheck if client already exists (prevent parallel writing)
-	c.clientLock.RLock()
-	_, exists = c.clientCache[url]
-	c.clientLock.RUnlock()
-
 	// save client if doesn't exist and checks have passed
 	// if checks failed, client is not saved and can retry when a new client is requested
-	// check if cached client exists
 	if !exists {
 		c.clientLock.Lock()
-		c.clientCache[url] = client
+		// recheck when writing to prevent parallel writes (discard duplicate if exists)
+		if _, exists = c.clientCache[url]; !exists {
+			c.clientCache[url] = client
+		}
 		c.clientLock.Unlock()
 	}
 
