@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/url"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -44,8 +46,10 @@ func (c *ContractTracker) Transmit(
 	sigs []types.AttributedOnchainSignature,
 ) error {
 
-	var result decimal.Decimal = decimal.NewFromInt(0)
-
+	result, err := c.getMedianFromReport(report)
+	if err != nil {
+		return err
+	}
 	c.transmittersWg.Add(1)
 
 	// Don't block the current thread for transmitting results to the endpoint
@@ -153,4 +157,16 @@ func (c *ContractTracker) getBridgeURLFromName(name string) (url.URL, error) {
 		return url.URL{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
 	return url.URL(bt.URL), nil
+}
+
+func (c *ContractTracker) getMedianFromReport(report types.Report) (decimal.Decimal, error) {
+	reportCodec := evmreportcodec.ReportCodec{}
+	median, err := reportCodec.MedianFromReport(report)
+	if err != nil {
+		return decimal.NewFromInt(0), err
+	}
+	divideBy := big.NewInt(int64(c.multiplierUsed))
+	mod := &big.Int{}
+	median, mod = median.DivMod(median, divideBy, mod)
+	return decimal.NewFromBigInt(median, int32(mod.Int64())), err
 }

@@ -117,11 +117,11 @@ type ConfigSchema struct {
 	FeatureUICSAKeys    bool `env:"FEATURE_UI_CSA_KEYS" default:"false"`   //nodoc
 
 	// General chains/RPC
-	EVMEnabled    bool `env:"EVM_ENABLED" default:"true"`
-	EVMRPCEnabled bool `env:"EVM_RPC_ENABLED" default:"true"`
-	SolanaEnabled bool `env:"SOLANA_ENABLED" default:"false"`
-	TerraEnabled  bool `env:"TERRA_ENABLED" default:"false"`
-	DYDXEnabled   bool `env:"DYDX_ENABLED" default:"false"`
+	EVMEnabled            bool `env:"EVM_ENABLED" default:"true"`
+	EVMRPCEnabled         bool `env:"EVM_RPC_ENABLED" default:"true"`
+	SolanaEnabled         bool `env:"SOLANA_ENABLED" default:"false"`
+	TerraEnabled          bool `env:"TERRA_ENABLED" default:"false"`
+	CustomEndpointEnabled bool `env:"CUSTOM_ENDPOINT_ENABLED" default:"false"`
 
 	// EVM/Ethereum
 	// Legacy Eth ENV vars

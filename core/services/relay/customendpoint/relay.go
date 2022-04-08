@@ -30,6 +30,9 @@ type RelayConfig struct {
 	// Fields specific to Bridge type targets
 	BridgeRequestData string `json:"bridgeRequestData"`
 	BridgeInputAtKey  string `json:"bridgeInputAtKey"`
+
+	// The multiplier used in the job spec for storing price feed
+	MultiplierUsed int32 `json:"multiplierUsed"`
 }
 
 type OCR2Spec struct {
@@ -90,6 +93,9 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 	spec, ok := s.(OCR2Spec)
 	if !ok {
 		return &provider, errors.New("unsuccessful cast to 'customendpoint.OCR2Spec'")
+	}
+	if spec.MultiplierUsed < 1 {
+		return &provider, errors.New("invalid multiplierUsed in 'customendpoint.OCR2Spec'")
 	}
 
 	digester := OffchainConfigDigester{

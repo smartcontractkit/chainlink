@@ -29,6 +29,7 @@ type ContractTracker struct {
 	digester          OffchainConfigDigester
 	bridgeRequestData string
 	bridgeInputAtKey  string
+	multiplierUsed    int32
 
 	lggr        logger.Logger
 	pipelineORM pipeline.ORM
@@ -46,6 +47,7 @@ func NewTracker(spec OCR2Spec, configDigester OffchainConfigDigester, lggr logge
 		digester:          configDigester,
 		bridgeRequestData: spec.BridgeRequestData,
 		bridgeInputAtKey:  spec.BridgeInputAtKey,
+		multiplierUsed:    spec.MultiplierUsed,
 		lggr:              lggr,
 		pipelineORM:       pipelineORM,
 		config:            config,
@@ -88,7 +90,7 @@ func (c *ContractTracker) LatestBlockHeight(ctx context.Context) (blockHeight ui
 }
 
 // Return a fixed config.
-// TODO: Check if the Signers and Transmitters are ok to be fixed static values
+// TODO: Figure out where to get config from. Job Spec, or API endpoint, or some onchain.
 func (c *ContractTracker) getContractConfig() (types.ContractConfig, error) {
 	digest, err := c.digester.configDigest()
 
