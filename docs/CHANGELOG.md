@@ -18,55 +18,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
 - Added support for the `force` flag on `chainlink blocks replay`. If set to true, already consumed logs that would otherwise be skipped will be rebroadcasted.
 - Added version compatibility check when using CLI to login to a remote node. flag `bypass-version-check` skips this check.
-- Interrim solution to set multiple nodes/chains from ENV. This is a temporary stand-in until configuration is overhauled and will be removed in future. Set as such: `EVM_NODES='{...}'` where the var is a JSON array containing the node specifications. This is not compatible with using any other way to specify node via env (e.g. `ETH_URL` etc). WARNING: Setting this environment variable will COMPLETELY ERASE your `evm_nodes` table on every boot and repopulate from the given data, nullifying any runtime modifications.
+- Interrim solution to set multiple nodes/chains from ENV. This gives the ability to specify multiple RPCs that the Chainlink node will constantly monitor for health and sync status, detecting dead nodes and out of sync nodes, with automatic failover. This is a temporary stand-in until configuration is overhauled and will be removed in future in favor of a config file. Set as such: `EVM_NODES='{...}'` where the var is a JSON array containing the node specifications. This is not compatible with using any other way to specify node via env (e.g. `ETH_URL`, `ETH_SECONDARY_URL`, `ETH_CHAIN_ID` etc). **WARNING**: Setting this environment variable will COMPLETELY ERASE your `evm_nodes` table on every boot and repopulate from the given data, nullifying any runtime modifications. Make sure to carefully read the [EVM performance configuration guide](https://chainlink.notion.site/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c) for best practices here.
 
 For example:
 
 ```bash
-EVM_NODES='
+export EVM_NODES='
 [
 	{
-		"name": "primary_0_1",
-		"evmChainId": "0",
-		"wsUrl": "ws://test1.invalid",
+		"name": "primary_1",
+		"evmChainId": "137",
+		"wsUrl": "wss://endpoint-1.example.com/ws",
+    "httpUrl": "http://endpoint-1.example.com/",
 		"sendOnly": false
 	},
 	{
-		"name": "primary_0_2",
-		"evmChainId": "0",
-		"wsUrl": "ws://test2.invalid",
-		"httpUrl": "https://test3.invalid",
+		"name": "primary_2",
+		"evmChainId": "137",
+		"wsUrl": "ws://endpoint-2.example.com/ws",
+    "httpUrl": "http://endpoint-2.example.com/",
 		"sendOnly": false
 	},
 	{
-		"name": "primary_1337_1",
-		"evmChainId": "1337",
-		"wsUrl": "ws://test4.invalid",
-		"httpUrl": "http://test5.invalid",
+		"name": "primary_3",
+		"evmChainId": "137",
+		"wsUrl": "wss://endpoint-3.example.com/ws",
+    "httpUrl": "http://endpoint-3.example.com/",
 		"sendOnly": false
 	},
 	{
-		"name": "sendonly_1337_1",
-		"evmChainId": "1337",
-		"httpUrl": "http://test6.invalid",
+		"name": "sendonly_1",
+		"evmChainId": "137",
+		"httpUrl": "http://endpoint-4.example.com/",
 		"sendOnly": true
 	},
-	{
-		"name": "sendonly_0_1",
-		"evmChainId": "0",
-		"httpUrl": "http://test7.invalid",
-		"sendOnly": true
-	},
-	{
-		"name": "primary_42_1",
-		"evmChainId": "42",
-		"wsUrl": "ws://test8.invalid",
-		"sendOnly": false
-	},
-	{
-		"name": "sendonly_43_1",
-		"evmChainId": "43",
-		"httpUrl": "http://test9.invalid",
+  {
+		"name": "sendonly_2",
+		"evmChainId": "137",
+		"httpUrl": "http://endpoint-5.example.com/",
 		"sendOnly": true
 	}
 ]
