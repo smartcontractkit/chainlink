@@ -326,6 +326,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
+			cfg,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
