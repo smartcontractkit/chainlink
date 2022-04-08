@@ -32,6 +32,7 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	// reconnect after server disconnect
 	wsserver.WriteCloseMessage()
 	cltest.CallbackOrTimeout(t, "ws client reconnects", func() {
+		<-wsserver.Disconnected
 		<-wsserver.Connected
 	}, testutils.WaitTimeout(t))
 	require.NoError(t, explorerClient.Close())
@@ -179,12 +180,20 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 		return explorerClient.Status()
 	}).Should(gomega.Equal(synchronization.ConnectionStatusConnected))
 
+	// this triggers ConnectionStatusError and then the client gets reconnected
 	wsserver.WriteCloseMessage()
-	wsserver.Close()
 
+	cltest.CallbackOrTimeout(t, "ws client disconnects and reconnects", func() {
+		<-wsserver.Disconnected
+		<-wsserver.Connected
+	}, testutils.WaitTimeout(t))
+
+	// expecting the client to reconnect
 	gomega.NewWithT(t).Eventually(func() synchronization.ConnectionStatus {
 		return explorerClient.Status()
-	}).Should(gomega.Equal(synchronization.ConnectionStatusError))
+	}).Should(gomega.Equal(synchronization.ConnectionStatusConnected))
+
+	require.Equal(t, 1, wsserver.ConnectionsCount())
 }
 
 func TestWebSocketClient_Status_ConnectError(t *testing.T) {
