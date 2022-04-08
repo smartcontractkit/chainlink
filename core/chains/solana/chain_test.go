@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -159,4 +160,47 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	testChain.id = "incorrect"
 	_, err = testChain.verifiedClient(node)
 	assert.Error(t, err)
+}
+
+func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		out := fmt.Sprintf(TestSolanaGenesisHashTemplate, client.DevnetGenesisHash)
+		_, err := w.Write([]byte(out))
+		require.NoError(t, err)
+	}))
+	defer mockServer.Close()
+
+	lggr := logger.TestLogger(t)
+	testChain := chain{
+		id:          "devnet",
+		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		lggr:        logger.TestLogger(t),
+		clientCache: map[string]cachedClient{},
+	}
+	node := db.Node{SolanaURL: mockServer.URL}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	var client0 client.ReaderWriter
+	var client1 client.ReaderWriter
+	var err0 error
+	var err1 error
+
+	// call verifiedClient in parallel
+	go func() {
+		client0, err0 = testChain.verifiedClient(node)
+		assert.NoError(t, err0)
+		wg.Done()
+	}()
+	go func() {
+		client1, err1 = testChain.verifiedClient(node)
+		assert.NoError(t, err1)
+		wg.Done()
+	}()
+
+	wg.Wait()
+	// check if pointers are all the same
+	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client0)
+	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client1)
 }

@@ -159,7 +159,12 @@ func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) 
 	// if checks failed, client is not saved and can retry when a new client is requested
 	if !exists {
 		c.clientLock.Lock()
-		c.clientCache[url] = client
+		// recheck when writing to prevent parallel writes (discard duplicate if exists)
+		if cached, exists := c.clientCache[url]; !exists {
+			c.clientCache[url] = client
+		} else {
+			client = cached
+		}
 		c.clientLock.Unlock()
 	}
 
