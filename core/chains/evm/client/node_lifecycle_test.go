@@ -438,8 +438,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		n.setState(NodeStateUnreachable)
 
 		ch := make(chan struct{})
+		n.wg.Add(1)
 		go func() {
-			n.wg.Add(1)
 			n.unreachableLoop()
 			close(ch)
 		}()

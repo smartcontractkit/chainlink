@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	solanaRelay "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
@@ -51,7 +52,7 @@ func TestBalanceMonitor(t *testing.T) {
 			return
 		default:
 		}
-		v := float64(lamports) / 1_000_000_000 // convert from lamports to SOL
+		v := solanaRelay.LamportsToSol(lamports) // convert from lamports to SOL
 		got = append(got, update{acc.String(), fmt.Sprintf("%.9f", v)})
 		if len(got) == len(exp) {
 			close(done)
