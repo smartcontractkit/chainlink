@@ -1,12 +1,12 @@
 package keeper
 
 import (
-	"database/sql"
 	"fmt"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
@@ -155,11 +155,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return
 	}
-	keeperListmutex.RLock()
-	i, ok := keeperList[rs.job.ID][log.From]
-	keeperListmutex.RUnlock()
-	fromIndex := sql.NullInt64{Int64: int64(i), Valid: ok}
-	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), fromIndex)
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.From))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return

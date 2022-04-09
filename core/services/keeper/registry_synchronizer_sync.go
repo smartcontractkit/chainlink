@@ -5,16 +5,11 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-// keeperList is a local lookup map that is refreshed every Registry sync.
-var keeperList = map[int32]map[common.Address]int32{}
-var keeperListmutex = &sync.RWMutex{}
 
 func (rs *RegistrySynchronizer) fullSync() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
@@ -147,14 +142,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		return Registry{}, errors.Wrap(err, "failed to get keeper list")
 	}
 	keeperIndex := int32(-1)
-	// clear keeperList
-	keeperListmutex.Lock()
-	keeperList[rs.job.ID] = map[common.Address]int32{}
-	keeperListmutex.Unlock()
+	keeperMap := map[ethkey.EIP55Address]int32{}
 	for idx, address := range keeperAddresses {
-		keeperListmutex.Lock()
-		keeperList[rs.job.ID][address] = int32(idx)
-		keeperListmutex.Unlock()
+		keeperMap[ethkey.EIP55AddressFromAddress(address)] = int32(idx)
 		if address == fromAddress.Address() {
 			keeperIndex = int32(idx)
 		}
@@ -171,6 +161,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		JobID:             rs.job.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        int32(len(keeperAddresses)),
+		KeeperIndexMap:    keeperMap,
 	}, nil
 }
 
