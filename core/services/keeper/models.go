@@ -37,11 +37,11 @@ type UpkeepRegistration struct {
 func (k *KeeperIndexMap) Scan(val interface{}) error {
 	switch v := val.(type) {
 	case []byte:
-		json.Unmarshal(v, &k)
-		return nil
+		err := json.Unmarshal(v, &k)
+		return err
 	case string:
-		json.Unmarshal([]byte(v), &k)
-		return nil
+		err := json.Unmarshal([]byte(v), &k)
+		return err
 	default:
 		return errors.New(fmt.Sprintf("Unsupported type: %T", v))
 	}
