@@ -568,6 +568,9 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 		JobID:             job.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        numKeepers,
+		KeeperIndexMap: map[ethkey.EIP55Address]int32{
+			from: keeperIndex,
+		},
 	}
 	err := korm.UpsertRegistry(&registry)
 	require.NoError(t, err)

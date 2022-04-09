@@ -1,10 +1,16 @@
 package keeper
 
 import (
-	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+	"fmt"
 
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
+
+type KeeperIndexMap map[ethkey.EIP55Address]int32
 
 type Registry struct {
 	ID                int64
@@ -15,6 +21,7 @@ type Registry struct {
 	JobID             int32
 	KeeperIndex       int32
 	NumKeepers        int32
+	KeeperIndexMap    KeeperIndexMap
 }
 type UpkeepRegistration struct {
 	ID                 int32
@@ -24,5 +31,22 @@ type UpkeepRegistration struct {
 	RegistryID         int64
 	Registry           Registry
 	UpkeepID           int64
-	LastKeeperIndex    sql.NullInt64
+	LastKeeperIndex    null.Int64
+}
+
+func (k *KeeperIndexMap) Scan(val interface{}) error {
+	switch v := val.(type) {
+	case []byte:
+		json.Unmarshal(v, &k)
+		return nil
+	case string:
+		json.Unmarshal([]byte(v), &k)
+		return nil
+	default:
+		return errors.New(fmt.Sprintf("Unsupported type: %T", v))
+	}
+}
+
+func (k *KeeperIndexMap) Value() (driver.Value, error) {
+	return json.Marshal(&k)
 }

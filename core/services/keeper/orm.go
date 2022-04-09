@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"database/sql"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -65,13 +64,14 @@ func (korm ORM) RegistryForJob(jobID int32) (Registry, error) {
 // UpsertRegistry upserts registry by the given input
 func (korm ORM) UpsertRegistry(registry *Registry) error {
 	stmt := `
-INSERT INTO keeper_registries (job_id, keeper_index, contract_address, from_address, check_gas, block_count_per_turn, num_keepers) VALUES (
-:job_id, :keeper_index, :contract_address, :from_address, :check_gas, :block_count_per_turn, :num_keepers
+INSERT INTO keeper_registries (job_id, keeper_index, contract_address, from_address, check_gas, block_count_per_turn, num_keepers, keeper_index_map) VALUES (
+:job_id, :keeper_index, :contract_address, :from_address, :check_gas, :block_count_per_turn, :num_keepers, :keeper_index_map
 ) ON CONFLICT (job_id) DO UPDATE SET
 	keeper_index = :keeper_index,
 	check_gas = :check_gas,
 	block_count_per_turn = :block_count_per_turn,
-	num_keepers = :num_keepers
+	num_keepers = :num_keepers,
+	keeper_index_map = :keeper_index_map
 RETURNING *
 `
 	err := korm.q.GetNamed(stmt, registry, registry)
@@ -120,8 +120,7 @@ func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, 
 		return nil, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get a registry by address")
 	}
 	blockNumber := head.Number
-	binaryHash := binaryOfFirstHashInTurn(blockNumber, registry, head)
-
+	binaryHash := binaryOfFirstHashInPreviousTurn(blockNumber, registry, head)
 	stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
@@ -162,9 +161,10 @@ WHERE
 	return upkeeps, err
 }
 
-// binaryOfFirstHashInTurn first calculates the first potential head for a turn. It then gets the hash for that head and converts it to binary
-func binaryOfFirstHashInTurn(blockNumber int64, registry Registry, head *types.Head) string {
-	firstHeadInTurn := blockNumber - (blockNumber % int64(registry.BlockCountPerTurn))
+// binaryOfFirstHashInPreviousTurn gets the previous turns starting block hash and converts it to binary
+// we get the previous turns starting block to avoid any contention that could happen over current turns blocks
+func binaryOfFirstHashInPreviousTurn(blockNumber int64, registry Registry, head *types.Head) string {
+	firstHeadInTurn := blockNumber - (blockNumber % int64(registry.BlockCountPerTurn)) - int64(registry.BlockCountPerTurn)
 	hashAtHeight := head.HashAtHeight(firstHeadInTurn)
 	bigInt := new(big.Int)
 	bigInt.SetString(hashAtHeight.Hex(), 0)
@@ -207,13 +207,13 @@ WHERE registry_id = $1
 }
 
 //SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
-func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID, height int64, fromIndex sql.NullInt64, qopts ...pg.QOpt) error {
+func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID, height int64, fromAddress ethkey.EIP55Address, qopts ...pg.QOpt) error {
 	_, err := korm.q.WithOpts(qopts...).Exec(`
-UPDATE upkeep_registrations
-SET last_run_block_height = $1,
-    last_keeper_index = $4
-WHERE upkeep_id = $2 AND
-registry_id = (SELECT id FROM keeper_registries WHERE job_id = $3) AND
-last_run_block_height < $1`, height, upkeepID, jobID, fromIndex)
+	UPDATE upkeep_registrations
+	SET last_run_block_height = $1,
+		last_keeper_index = CAST((SELECT keeper_index_map -> $4 FROM keeper_registries WHERE job_id = $3) as int)
+	WHERE upkeep_id = $2 AND
+	registry_id = (SELECT id FROM keeper_registries WHERE job_id = $3) AND
+	last_run_block_height < $1`, height, upkeepID, jobID, fromAddress.Hex())
 	return errors.Wrap(err, "SetLastRunInfoForUpkeepOnJob failed")
 }

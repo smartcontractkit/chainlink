@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"database/sql"
 	"math/big"
 	"sort"
 	"testing"
@@ -223,7 +222,7 @@ func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 3, 10)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1000; i++ {
 		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 	}
 
@@ -293,6 +292,31 @@ func TestKeeperDB_EligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testing.
 	list0, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, &h1, 100) // none eligible
 	require.NoError(t, err)
 	require.Equal(t, 0, len(list0), "should be 0 as all last perform was done by current node")
+}
+
+func TestKeeperDB_EligibleUpkeeps_CoverBuddy(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+
+	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 1, 2, 20)
+
+	for i := 0; i < 100; i++ {
+		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+	}
+
+	cltest.AssertCount(t, db, "keeper_registries", 1)
+	cltest.AssertCount(t, db, "upkeep_registrations", 100)
+
+	h1 := evmtypes.NewHead(big.NewInt(21), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
+	putTurnBlockAsParent(&h1, registry)
+
+	upkeep := keeper.UpkeepRegistration{}
+	listBefore, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, &h1, 100) // normal
+	require.NoError(t, err)
+	require.NoError(t, db.Get(&upkeep, `UPDATE upkeep_registrations SET last_keeper_index = 0 RETURNING *`))
+	listAfter, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, &h1, 100) // covering buddy
+	require.Greater(t, len(listAfter), len(listBefore), "after our buddy runs all the performs we should have more eligible then a normal turn")
 }
 
 func TestKeeperDB_EligibleUpkeeps_FirstTurn(t *testing.T) {
@@ -378,24 +402,20 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	registry, j := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 
-	lastKeeperIndex := sql.NullInt64{
-		Int64: int64(upkeep.Registry.KeeperIndex),
-		Valid: true,
-	}
 	// update
-	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, lastKeeperIndex))
+	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 100, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to lower block not allowed
-	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, lastKeeperIndex))
+	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 0, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to higher block allowed
-	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, lastKeeperIndex))
+	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 101, 0)
 }
 
 // helper function place turn head hash in the history
 func putTurnBlockAsParent(head *evmtypes.Head, registry keeper.Registry) {
-	firstHeadInTurn := head.Number - (head.Number % int64(registry.BlockCountPerTurn))
+	firstHeadInTurn := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - int64(registry.BlockCountPerTurn)
 	headParent := evmtypes.NewHead(big.NewInt(firstHeadInTurn), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
 	head.Parent = &headParent
 }

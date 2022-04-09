@@ -84,7 +84,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 	return rs.StartOnce("RegistrySynchronizer", func() error {
 		rs.wgDone.Add(2)
 		go rs.run()
-		keeperList = map[int32]map[common.Address]int32{}
+
 		logListenerOpts := log.ListenerOpts{
 			Contract: rs.contract.Address(),
 			ParseLog: rs.contract.ParseLog,
