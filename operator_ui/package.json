@@ -40,7 +40,7 @@
     "json-pretty-html": "^1.1.2",
     "local-storage-fallback": "^4.1.2",
     "lodash": "^4.17.19",
-    "moment": "^2.29.1",
+    "moment": "^2.29.2",
     "path-to-regexp": "^3.0.0",
     "prop-types": "^15.6.2",
     "react": "^16.13.1",
