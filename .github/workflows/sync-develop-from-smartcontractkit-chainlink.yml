@@ -10,7 +10,7 @@ jobs:
     name: Sync
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           ref: develop
         if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
