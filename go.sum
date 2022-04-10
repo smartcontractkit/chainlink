@@ -2437,8 +2437,8 @@ github.com/teris-io/shortid v0.0.0-20171029131806-771a37caa5cf/go.mod h1:M8agBzg
 github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125 h1:3SNcvBmEPE1YlB1JpVZouslJpI3GBNoiqW7+wb0Rz7w=
 github.com/teris-io/shortid v0.0.0-20201117134242-e59966efd125/go.mod h1:M8agBzgqHIhgj7wEn9/0hJUZcrvt9VY+Ln+S1I5Mha0=
 github.com/terra-money/core v0.5.2/go.mod h1:GnMYeY3POY4A8UV/kL3mfmLCe5hptgAJTqmf3FZjy+U=
-github.com/terra-money/core v0.5.14 h1:rXm7APnaqICec56nG/K8BiqoCY+qBtD8zT83d/FysIc=
-github.com/terra-money/core v0.5.14/go.mod h1:wO54CXtp2c32FqhLDEJtuK8gihPMyu+T0vpSVB+Ud98=
+github.com/terra-money/core v0.5.17 h1:LyQKVLEawSqn+AV+BcslP9H6qFUvFJxDBHzjvm3yl+Q=
+github.com/terra-money/core v0.5.17/go.mod h1:MEpq9DsEr2lBs8P7GiIJLfBqCZZKHfdl5qEs0nOcQkg=
 github.com/test-go/testify v1.1.4 h1:Tf9lntrKUMHiXQ07qBScBTSA0dhYQlu83hswqelv1iE=
 github.com/test-go/testify v1.1.4/go.mod h1:rH7cfJo/47vWGdi4GPj16x3/t1xGOj2YxzmNQzk2ghU=
 github.com/tetafro/godot v1.4.11/go.mod h1:LR3CJpxDVGlYOWn3ZZg1PgNZdTUvzsZWu8xaEohUpn8=
