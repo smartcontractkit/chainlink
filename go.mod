@@ -83,7 +83,7 @@ require (
 	golang.org/x/text v0.3.7
 	golang.org/x/tools v0.1.10
 	gonum.org/v1/gonum v0.11.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
