@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: "16"
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Cache dependencies
         uses: actions/cache@v3
         env:
@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: "16"
       - name: Checkout the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Cache dependencies
         uses: actions/cache@v3
         env:
