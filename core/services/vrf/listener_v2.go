@@ -673,7 +673,10 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 		}
 
 		reqBlockNumber := new(big.Int).SetUint64(req.req.Raw.BlockNumber)
-		currBlock := new(big.Int).SetUint64(lsn.getLatestHead())
+
+		// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not
+		// found" errors.
+		currBlock := new(big.Int).SetUint64(lsn.getLatestHead() - 5)
 		m := bigmath.Max(reqBlockNumber, currBlock)
 
 		var result string
