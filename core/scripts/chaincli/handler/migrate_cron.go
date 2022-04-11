@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math"
 	"math/big"
 	"os"
 	"strconv"
@@ -66,9 +67,13 @@ func (k *Keeper) MigrateCron(ctx context.Context, inputFilePath string, proxyAbi
 		proxyAddr := common.HexToAddress(k.cfg.ProxyAddr)
 		cronUpkeepAddr := k.deployNewCronUpkeep(ctx, proxyAddr, cronByteHandler, cronSchedule)
 		k.setProxyPermission(ctx, cronUpkeepAddr, targetContractAddr)
-		registrationHash := k.registerUpkeep(ctx, upkeepName, encryptedEmail, cronUpkeepAddr, uint32(gasLimit), fundingAmountLink)
+		registrationHash, blockNum := k.registerUpkeep(ctx, upkeepName, encryptedEmail, cronUpkeepAddr, uint32(gasLimit), fundingAmountLink)
 
-		row := []string{targetContractAddr.String(), targetFunction, cronSchedule, cronUpkeepAddr.String(), registrationHash}
+		row := []string{
+			targetContractAddr.String(), targetFunction, cronSchedule,
+			upkeepName, cronUpkeepAddr.String(), strconv.FormatUint(gasLimit, 10),
+			k.fromAddr.String(), registrationHash, blockNum.String(),
+		}
 		if err := w.Write(row); err != nil {
 			log.Fatalln("Error writing record to output file", err)
 		}
@@ -150,7 +155,7 @@ func (k *Keeper) setProxyPermission(ctx context.Context, from, to common.Address
 	log.Println("Proxy permission from", from, "to", to, "set:", helpers.ExplorerLink(k.cfg.ChainID, proxyTx.Hash()))
 }
 
-func (k *Keeper) registerUpkeep(ctx context.Context, name string, encryptedEmail []byte, target common.Address, gasLimit uint32, amount *big.Int) string {
+func (k *Keeper) registerUpkeep(ctx context.Context, name string, encryptedEmail []byte, target common.Address, gasLimit uint32, amount *big.Int) (string, *big.Int) {
 	log.Println("Registering upkeep")
 
 	registrarAddr := common.HexToAddress(k.cfg.RegistrarAddr)
@@ -195,7 +200,7 @@ func (k *Keeper) registerUpkeep(ctx context.Context, name string, encryptedEmail
 	hash := hex.EncodeToString(registrationRequestedLog.Hash[:])
 	log.Println("Registration request hash:", hash)
 
-	return hash
+	return hash, txReceipt.BlockNumber
 }
 
 func readCsvFile(filePath string) [][]string {
@@ -224,4 +229,88 @@ func getTargetHandler(targetFunction string) []byte {
 		log.Fatalln("Error generating target handler", err)
 	}
 	return targetHandler
+}
+
+func (k *Keeper) FetchUpkeepIds(ctx context.Context, inputFilePath string) {
+	outputFile := "migrate_cron_output_" + time.Now().String() + ".csv"
+	o, err := os.Create(outputFile)
+	if err != nil {
+		log.Fatalln("Error writing to "+outputFile, err)
+	}
+	w := csv.NewWriter(o)
+	defer o.Close()
+
+	var inputHashes [][32]byte
+	var startingBlock uint64
+
+	startingBlock = math.MaxUint64
+	inputLines := readCsvFile(inputFilePath)
+	for _, inputLine := range inputLines {
+		hexHash, err := hex.DecodeString(inputLine[7])
+		if err != nil {
+			log.Fatalln("Error parsing hash:", inputLine[7], err)
+		}
+		if len(hexHash) != 32 {
+			log.Fatalln("Error, hash should be 32 bytes:", inputLine[7], err)
+		}
+		var hash [32]byte
+		copy(hash[:], hexHash)
+		inputHashes = append(inputHashes, hash)
+
+		blockNum, err := strconv.ParseUint(inputLine[8], 10, 64)
+		if err != nil {
+			log.Fatalln("Error parsing block number:", inputLine[8], err)
+		}
+		if blockNum < startingBlock {
+			startingBlock = blockNum
+		}
+	}
+
+	if startingBlock == math.MaxUint64 {
+		log.Fatalln("Error: No starting block numbers given in input")
+	}
+
+	registrarAddr := common.HexToAddress(k.cfg.RegistrarAddr)
+	registrarInstance, err := registrar.NewUpkeepRegistrationRequests(
+		registrarAddr,
+		k.client,
+	)
+	if err != nil {
+		log.Fatalln("Error while instantiating "+registrarAddr.String()+" to registrar", err)
+	}
+
+	filterOpts := bind.FilterOpts{
+		Start:   startingBlock,
+		End:     nil, // Go till latest
+		Context: ctx,
+	}
+
+	registrarIterator, err := registrarInstance.FilterRegistrationApproved(&filterOpts, inputHashes, nil)
+	if err != nil {
+		log.Fatalln("Failed to get registrar iterator", err)
+	}
+
+	m := make(map[string]string)
+	for registrarIterator.Next() {
+		// Iterate over the events and store the upkeedID per hash
+		hash := hex.EncodeToString(registrarIterator.Event.Hash[:])
+		upkeepId := registrarIterator.Event.UpkeepId.String()
+		m[hash] = upkeepId
+	}
+
+	for _, inputLine := range inputLines {
+		hash := inputLine[7]
+		row := []string{inputLine[0], inputLine[1], inputLine[2], inputLine[3], inputLine[4], inputLine[5], inputLine[6], inputLine[7], inputLine[8]}
+		upkeepId, ok := m[hash]
+		if ok {
+			log.Println("Found upkeep ID for hash", hash, upkeepId)
+			row = append(row, upkeepId)
+		} else {
+			log.Println("Failed to find upkeep ID for hash", hash)
+		}
+		if err := w.Write(row); err != nil {
+			log.Fatalln("Error writing record to output file", err)
+		}
+		w.Flush()
+	}
 }
