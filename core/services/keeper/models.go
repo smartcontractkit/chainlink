@@ -3,7 +3,6 @@ package keeper
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -43,7 +42,7 @@ func (k *KeeperIndexMap) Scan(val interface{}) error {
 		err := json.Unmarshal([]byte(v), &k)
 		return err
 	default:
-		return errors.New(fmt.Sprintf("Unsupported type: %T", v))
+		return fmt.Errorf("unsupported type: %T", v)
 	}
 }
 
