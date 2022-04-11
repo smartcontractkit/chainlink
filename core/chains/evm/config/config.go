@@ -569,11 +569,11 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBatchSize() (size uint32) {
 		c.logEnvOverrideOnce("BlockHistoryEstimatorBatchSize", val)
 		size = val
 	} else {
-		valLegacy, set := c.lookupEnv("GAS_UPDATER_BATCH_SIZE", parse.Uint32)
+		valLegacy, set := lookupEnv(c, "GAS_UPDATER_BATCH_SIZE", parse.Uint32)
 		if set {
 			c.logEnvOverrideOnce("GAS_UPDATER_BATCH_SIZE", valLegacy)
 			c.logger.Error("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead (or simply remove to use the default)")
-			size = valLegacy.(uint32)
+			size = valLegacy
 		} else {
 			size = c.defaultSet.blockHistoryEstimatorBatchSize
 		}
@@ -598,12 +598,12 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockDelay", val)
 		return val
 	}
-	valLegacy, set := c.lookupEnv("GAS_UPDATER_BLOCK_DELAY", parse.Uint16)
+	valLegacy, set := lookupEnv(c, "GAS_UPDATER_BLOCK_DELAY", parse.Uint16)
 
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_DELAY", valLegacy)
 		c.logger.Error("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
-		return valLegacy.(uint16)
+		return valLegacy
 	}
 	c.persistMu.RLock()
 	p := c.persistedCfg.BlockHistoryEstimatorBlockDelay
@@ -623,11 +623,11 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 		c.logEnvOverrideOnce("BlockHistoryEstimatorBlockHistorySize", val)
 		return val
 	}
-	valLegacy, set := c.lookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE", parse.Uint16)
+	valLegacy, set := lookupEnv(c, "GAS_UPDATER_BLOCK_HISTORY_SIZE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_HISTORY_SIZE", valLegacy)
 		c.logger.Error("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead (or simply remove to use the default)")
-		return valLegacy.(uint16)
+		return valLegacy
 	}
 	c.persistMu.RLock()
 	p := c.persistedCfg.BlockHistoryEstimatorBlockHistorySize
@@ -668,11 +668,11 @@ func (c *chainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16 
 		c.logEnvOverrideOnce("BlockHistoryEstimatorTransactionPercentile", val)
 		return val
 	}
-	valLegacy, set := c.lookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE", parse.Uint16)
+	valLegacy, set := lookupEnv(c, "GAS_UPDATER_TRANSACTION_PERCENTILE", parse.Uint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_TRANSACTION_PERCENTILE", valLegacy)
 		c.logger.Error("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE instead (or simply remove to use the default)")
-		return valLegacy.(uint16)
+		return valLegacy
 	}
 	return c.defaultSet.blockHistoryEstimatorTransactionPercentile
 }
@@ -684,7 +684,7 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 		c.logEnvOverrideOnce("GasEstimatorMode", val)
 		return val
 	}
-	enabled, set := c.lookupEnv("GAS_UPDATER_ENABLED", parse.Bool)
+	enabled, set := lookupEnv(c, "GAS_UPDATER_ENABLED", parse.Bool)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_ENABLED", enabled)
 		if enabled.(bool) {
@@ -1129,10 +1129,10 @@ func (c *chainScopedConfig) NodePollInterval() time.Duration {
 	return c.defaultSet.nodePollInterval
 }
 
-func (c *chainScopedConfig) lookupEnv(k string, parse func(string) (interface{}, error)) (interface{}, bool) {
+func lookupEnv[T any](c *chainScopedConfig, k string, parse func(string) (T, error)) (t T, ok bool) {
 	s, ok := os.LookupEnv(k)
 	if !ok {
-		return nil, false
+		return
 	}
 	val, err := parse(s)
 	if err == nil {
@@ -1140,5 +1140,5 @@ func (c *chainScopedConfig) lookupEnv(k string, parse func(string) (interface{},
 	}
 	c.logger.Errorw(fmt.Sprintf("Invalid value provided for %s, falling back to default.", s),
 		"value", s, "key", k, "error", err)
-	return nil, false
+	return
 }

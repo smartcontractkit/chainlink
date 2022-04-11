@@ -8,10 +8,10 @@ import (
 // a mutual exclusive lock,
 // a queue of interfaces,
 // and a queue capacity.
-type Mailbox struct {
+type Mailbox[T any] struct {
 	chNotify chan struct{}
 	mu       sync.Mutex
-	queue    []interface{}
+	queue    []T
 
 	// capacity - number of items the mailbox can buffer
 	// NOTE: if the capacity is 1, it's possible that an empty Retrieve may occur after a notification.
@@ -20,34 +20,34 @@ type Mailbox struct {
 
 // NewHighCapacityMailbox create a new mailbox with a capacity
 // that is better able to handle e.g. large log replays
-func NewHighCapacityMailbox() *Mailbox {
-	return NewMailbox(100000)
+func NewHighCapacityMailbox[T any]() *Mailbox[T] {
+	return NewMailbox[T](100000)
 }
 
 // NewMailbox creates a new mailbox instance
-func NewMailbox(capacity uint64) *Mailbox {
+func NewMailbox[T any](capacity uint64) *Mailbox[T] {
 	queueCap := capacity
 	if queueCap == 0 {
 		queueCap = 100
 	}
-	return &Mailbox{
+	return &Mailbox[T]{
 		chNotify: make(chan struct{}, 1),
-		queue:    make([]interface{}, 0, queueCap),
+		queue:    make([]T, 0, queueCap),
 		capacity: capacity,
 	}
 }
 
 // Notify returns the contents of the notify channel
-func (m *Mailbox) Notify() chan struct{} {
+func (m *Mailbox[T]) Notify() chan struct{} {
 	return m.chNotify
 }
 
-// Deliver appends an interface to the queue
-func (m *Mailbox) Deliver(x interface{}) (wasOverCapacity bool) {
+// Deliver appends to the queue
+func (m *Mailbox[T]) Deliver(x T) (wasOverCapacity bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.queue = append([]interface{}{x}, m.queue...)
+	m.queue = append([]T{x}, m.queue...)
 	if uint64(len(m.queue)) > m.capacity && m.capacity > 0 {
 		m.queue = m.queue[:len(m.queue)-1]
 		wasOverCapacity = true
@@ -60,26 +60,27 @@ func (m *Mailbox) Deliver(x interface{}) (wasOverCapacity bool) {
 	return
 }
 
-// Retrieve fetches an interface from the queue
-func (m *Mailbox) Retrieve() (interface{}, bool) {
+// Retrieve fetches from the queue
+func (m *Mailbox[T]) Retrieve() (t T, ok bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.queue) == 0 {
-		return nil, false
+		return
 	}
-	x := m.queue[len(m.queue)-1]
+	t = m.queue[len(m.queue)-1]
 	m.queue = m.queue[:len(m.queue)-1]
-	return x, true
+	ok = true
+	return
 }
 
 // RetrieveLatestAndClear returns the latest value (or nil), and clears the queue.
-func (m *Mailbox) RetrieveLatestAndClear() interface{} {
+func (m *Mailbox[T]) RetrieveLatestAndClear() (t T) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(m.queue) == 0 {
-		return nil
+		return
 	}
-	x := m.queue[0]
+	t = m.queue[0]
 	m.queue = nil
-	return x
+	return
 }

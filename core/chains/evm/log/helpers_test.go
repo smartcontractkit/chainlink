@@ -165,7 +165,7 @@ func (helper *broadcasterHelper) requireBroadcastCount(expectedCount int) {
 		return count.Count, err
 	}
 
-	g.Eventually(comparisonFunc, cltest.WaitTimeout(helper.t), time.Second).Should(gomega.Equal(expectedCount))
+	g.Eventually(comparisonFunc, testutils.WaitTimeout(helper.t), time.Second).Should(gomega.Equal(expectedCount))
 	g.Consistently(comparisonFunc, 1*time.Second, 200*time.Millisecond).Should(gomega.Equal(expectedCount))
 }
 

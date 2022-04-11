@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -297,7 +298,7 @@ func newGeneralConfigWithViper(v *viper.Viper, lggr logger.Logger) (config *gene
 		lggr.Warnf("Unable to load config file: %v\n", err)
 	}
 
-	ll, invalid := envvar.LogLevel.ParseLogLevel()
+	ll, invalid := envvar.LogLevel.Parse()
 	if invalid != "" {
 		lggr.Error(invalid)
 	}
@@ -443,7 +444,7 @@ func (c *generalConfig) AuthenticatedRateLimit() int64 {
 
 // AuthenticatedRateLimitPeriod defines the period to which authenticated requests get limited
 func (c *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.AuthenticatedRateLimitPeriod))
 }
 
 func (c *generalConfig) AutoPprofEnabled() bool {
@@ -459,19 +460,19 @@ func (c *generalConfig) AutoPprofProfileRoot() string {
 }
 
 func (c *generalConfig) AutoPprofPollInterval() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AutoPprofPollInterval", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.AutoPprofPollInterval))
 }
 
 func (c *generalConfig) AutoPprofGatherDuration() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherDuration", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.AutoPprofGatherDuration))
 }
 
 func (c *generalConfig) AutoPprofGatherTraceDuration() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherTraceDuration", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.AutoPprofGatherTraceDuration))
 }
 
 func (c *generalConfig) AutoPprofMaxProfileSize() utils.FileSize {
-	return c.getWithFallback("AutoPprofMaxProfileSize", parse.FileSize).(utils.FileSize)
+	return getEnvWithFallback(c, envvar.New("AutoPprofMaxProfileSize", parse.FileSize))
 }
 
 func (c *generalConfig) AutoPprofCPUProfileRate() int {
@@ -491,7 +492,7 @@ func (c *generalConfig) AutoPprofMutexProfileFraction() int {
 }
 
 func (c *generalConfig) AutoPprofMemThreshold() utils.FileSize {
-	return c.getWithFallback("AutoPprofMemThreshold", parse.FileSize).(utils.FileSize)
+	return getEnvWithFallback(c, envvar.New("AutoPprofMemThreshold", parse.FileSize))
 }
 
 func (c *generalConfig) AutoPprofGoroutineThreshold() int {
@@ -501,17 +502,17 @@ func (c *generalConfig) AutoPprofGoroutineThreshold() int {
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c *generalConfig) BlockBackfillDepth() uint64 {
-	return c.getWithFallback("BlockBackfillDepth", parse.Uint64).(uint64)
+	return getEnvWithFallback(c, envvar.BlockBackfillDepth)
 }
 
 // BlockBackfillSkip enables skipping of very long log backfills
 func (c *generalConfig) BlockBackfillSkip() bool {
-	return c.getWithFallback("BlockBackfillSkip", parse.Bool).(bool)
+	return getEnvWithFallback(c, envvar.NewBool("BlockBackfillSkip"))
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
 func (c *generalConfig) BridgeResponseURL() *url.URL {
-	return c.getWithFallback("BridgeResponseURL", parse.URL).(*url.URL)
+	return getEnvWithFallback(c, envvar.New("BridgeResponseURL", url.Parse))
 }
 
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
@@ -521,26 +522,26 @@ func (c *generalConfig) ClientNodeURL() string {
 
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUICSAKeys() bool {
-	return c.getWithFallback("FeatureUICSAKeys", parse.Bool).(bool)
+	return getEnvWithFallback(c, envvar.NewBool("FeatureUICSAKeys"))
 }
 
 func (c *generalConfig) DatabaseListenerMinReconnectInterval() time.Duration {
-	return c.getWithFallback("DatabaseListenerMinReconnectInterval", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.NewDuration("DatabaseListenerMinReconnectInterval"))
 }
 
 func (c *generalConfig) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return c.getWithFallback("DatabaseListenerMaxReconnectDuration", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.NewDuration("DatabaseListenerMaxReconnectDuration"))
 }
 
 // DatabaseBackupMode sets the database backup mode
 func (c *generalConfig) DatabaseBackupMode() DatabaseBackupMode {
-	return c.getWithFallback("DatabaseBackupMode", parseDatabaseBackupMode).(DatabaseBackupMode)
+	return getEnvWithFallback(c, envvar.New("DatabaseBackupMode", parseDatabaseBackupMode))
 }
 
 // DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
 // DatabaseBackupMode must be then set to a value other than "none"
 func (c *generalConfig) DatabaseBackupFrequency() time.Duration {
-	return c.getWithFallback("DatabaseBackupFrequency", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.NewDuration("DatabaseBackupFrequency"))
 }
 
 // DatabaseBackupURL configures the URL for the database to backup, if it's to be different from the main on
@@ -560,7 +561,7 @@ func (c *generalConfig) DatabaseBackupURL() *url.URL {
 // DatabaseBackupOnVersionUpgrade controls whether an automatic backup will be
 // taken before migrations are run, if the node version has been bumped
 func (c *generalConfig) DatabaseBackupOnVersionUpgrade() bool {
-	return c.getWithFallback("DatabaseBackupOnVersionUpgrade", parse.Bool).(bool)
+	return getEnvWithFallback(c, envvar.NewBool("DatabaseBackupOnVersionUpgrade"))
 }
 
 // DatabaseBackupDir configures the directory for saving the backup file, if it's to be different from default one located in the RootDir
@@ -597,7 +598,7 @@ func (c *generalConfig) DefaultHTTPLimit() int64 {
 
 // DefaultHTTPTimeout defines the default timeout for http requests
 func (c *generalConfig) DefaultHTTPTimeout() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("DefaultHTTPTimeout", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("DefaultHTTPTimeout")))
 }
 
 // DefaultHTTPAllowUnrestrictedNetworkAccess controls whether http requests are unrestricted by default
@@ -614,7 +615,7 @@ func (c *generalConfig) Dev() bool {
 // ShutdownGracePeriod is the maximum duration of graceful application shutdown.
 // If exceeded, it will try closing DB lock and connection and exit immediately to avoid SIGKILL.
 func (c *generalConfig) ShutdownGracePeriod() time.Duration {
-	return c.getWithFallback("ShutdownGracePeriod", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.NewDuration("ShutdownGracePeriod"))
 }
 
 // FeatureExternalInitiators enables the External Initiator feature.
@@ -633,12 +634,12 @@ func (c *generalConfig) FeatureLogPoller() bool {
 
 // FeatureOffchainReporting enables the OCR job type.
 func (c *generalConfig) FeatureOffchainReporting() bool {
-	return c.getWithFallback("FeatureOffchainReporting", parse.Bool).(bool)
+	return getEnvWithFallback(c, envvar.NewBool("FeatureOffchainReporting"))
 }
 
 // FeatureOffchainReporting2 enables the OCR2 job type.
 func (c *generalConfig) FeatureOffchainReporting2() bool {
-	return c.getWithFallback("FeatureOffchainReporting2", parse.Bool).(bool)
+	return getEnvWithFallback(c, envvar.NewBool("FeatureOffchainReporting2"))
 }
 
 // FMDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Flux Monitor
@@ -765,36 +766,36 @@ func (c *generalConfig) InsecureSkipVerify() bool {
 }
 
 func (c *generalConfig) TriggerFallbackDBPollInterval() time.Duration {
-	return c.getWithFallback("TriggerFallbackDBPollInterval", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.NewDuration("TriggerFallbackDBPollInterval"))
 }
 
 // JobPipelineMaxRunDuration is the maximum time that a job run may take
 func (c *generalConfig) JobPipelineMaxRunDuration() time.Duration {
-	return c.getWithFallback("JobPipelineMaxRunDuration", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.JobPipelineMaxRunDuration)
 }
 
 func (c *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
-	return c.getWithFallback("JobPipelineResultWriteQueueDepth", parse.Uint64).(uint64)
+	return getEnvWithFallback(c, envvar.JobPipelineResultWriteQueueDepth)
 }
 
 func (c *generalConfig) JobPipelineReaperInterval() time.Duration {
-	return c.getWithFallback("JobPipelineReaperInterval", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.JobPipelineReaperInterval)
 }
 
 func (c *generalConfig) JobPipelineReaperThreshold() time.Duration {
-	return c.getWithFallback("JobPipelineReaperThreshold", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.JobPipelineReaperThreshold)
 }
 
 // KeeperRegistryCheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls
 // to account for the gas consumed by the keeper registry
 func (c *generalConfig) KeeperRegistryCheckGasOverhead() uint64 {
-	return c.getWithFallback("KeeperRegistryCheckGasOverhead", parse.Uint64).(uint64)
+	return getEnvWithFallback(c, envvar.KeeperRegistryCheckGasOverhead)
 }
 
 // KeeperRegistryPerformGasOverhead is the amount of extra gas to provide performUpkeep() calls
 // to account for the gas consumed by the keeper registry
 func (c *generalConfig) KeeperRegistryPerformGasOverhead() uint64 {
-	return c.getWithFallback("KeeperRegistryPerformGasOverhead", parse.Uint64).(uint64)
+	return getEnvWithFallback(c, envvar.KeeperRegistryPerformGasOverhead)
 }
 
 // KeeperDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Keeper
@@ -824,7 +825,7 @@ func (c *generalConfig) KeeperBaseFeeBufferPercent() uint32 {
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
 // sync of the keeper registry contract it is tracking
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
-	return c.getWithFallback("KeeperRegistrySyncInterval", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.KeeperRegistrySyncInterval)
 }
 
 // KeeperMaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing
@@ -835,31 +836,23 @@ func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
 
 // KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
 func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
-	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", parse.Uint32).(uint32)
+	return getEnvWithFallback(c, envvar.KeeperRegistrySyncUpkeepQueueSize)
 }
 
 // KeeperCheckUpkeepGasPriceFeatureEnabled enables keepers to include a gas price when running checkUpkeep
 func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
-	return c.getWithFallback("KeeperCheckUpkeepGasPriceFeatureEnabled", parse.Bool).(bool)
+	return getEnvWithFallback(c, envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled"))
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format
 // If set to false, logs in console format
 func (c *generalConfig) JSONConsole() bool {
-	return c.getEnvWithFallback(envvar.JSONConsole).(bool)
+	return getEnvWithFallback(c, envvar.JSONConsole)
 }
 
 // ExplorerURL returns the websocket URL for this node to push stats to, or nil.
 func (c *generalConfig) ExplorerURL() *url.URL {
-	rval := c.getWithFallback("ExplorerURL", parse.URL)
-	switch t := rval.(type) {
-	case nil:
-		return nil
-	case *url.URL:
-		return t
-	default:
-		panic(fmt.Sprintf("invariant: ExplorerURL returned as type %T", rval))
-	}
+	return getEnvWithFallback(c, envvar.New("ExplorerURL", url.Parse))
 }
 
 // ExplorerAccessKey returns the access key for authenticating with explorer
@@ -874,15 +867,7 @@ func (c *generalConfig) ExplorerSecret() string {
 
 // TelemetryIngressURL returns the WSRPC URL for this node to push telemetry to, or nil.
 func (c *generalConfig) TelemetryIngressURL() *url.URL {
-	rval := c.getWithFallback("TelemetryIngressURL", parse.URL)
-	switch t := rval.(type) {
-	case nil:
-		return nil
-	case *url.URL:
-		return t
-	default:
-		panic(fmt.Sprintf("invariant: TelemetryIngressURL returned as type %T", rval))
-	}
+	return getEnvWithFallback(c, envvar.New("TelemetryIngressURL", url.Parse))
 }
 
 // TelemetryIngressServerPubKey returns the public key to authenticate the telemetry ingress server
@@ -917,7 +902,7 @@ func (c *generalConfig) TelemetryIngressUseBatchSend() bool {
 
 // TelemetryIngressLogging toggles very verbose logging of raw telemetry messages for the TelemetryIngressClient
 func (c *generalConfig) TelemetryIngressLogging() bool {
-	return c.getWithFallback("TelemetryIngressLogging", parse.Bool).(bool)
+	return getEnvWithFallback(c, envvar.NewBool("TelemetryIngressLogging"))
 }
 
 // TelemetryIngressUniconn toggles which ws connection style is used.
@@ -926,11 +911,11 @@ func (c *generalConfig) TelemetryIngressUniConn() bool {
 }
 
 func (c *generalConfig) ORMMaxOpenConns() int {
-	return int(c.getWithFallback("ORMMaxOpenConns", parse.Uint16).(uint16))
+	return int(getEnvWithFallback(c, envvar.NewUint16("ORMMaxOpenConns")))
 }
 
 func (c *generalConfig) ORMMaxIdleConns() int {
-	return int(c.getWithFallback("ORMMaxIdleConns", parse.Uint16).(uint16))
+	return int(getEnvWithFallback(c, envvar.NewUint16("ORMMaxIdleConns")))
 }
 
 // LogLevel represents the maximum level of log messages to output.
@@ -955,18 +940,18 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 
 // LogFileMaxSize configures disk preservation of logs max size (in megabytes) before file rotation.
 func (c *generalConfig) LogFileMaxSize() utils.FileSize {
-	return c.getWithFallback("LogFileMaxSize", parse.FileSize).(utils.FileSize)
+	return getEnvWithFallback(c, envvar.LogFileMaxSize)
 }
 
 // LogFileMaxAge configures disk preservation of logs max age (in days) before file rotation.
 func (c *generalConfig) LogFileMaxAge() int64 {
-	return c.getWithFallback("LogFileMaxAge", parse.Int64).(int64)
+	return getEnvWithFallback(c, envvar.LogFileMaxAge)
 }
 
 // LogFileMaxBackups configures disk preservation of the max amount of old log files to retain.
 // If this is set to 0, the node will retain all old log files instead.
 func (c *generalConfig) LogFileMaxBackups() int64 {
-	return c.getWithFallback("LogFileMaxBackups", parse.Int64).(int64)
+	return getEnvWithFallback(c, envvar.LogFileMaxBackups)
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger
@@ -985,12 +970,12 @@ func (c *generalConfig) SetLogSQL(logSQL bool) {
 
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
-	return c.getEnvWithFallback(envvar.LogUnixTS).(bool)
+	return getEnvWithFallback(c, envvar.LogUnixTS)
 }
 
 // Port represents the port Chainlink should listen on for client requests.
 func (c *generalConfig) Port() uint16 {
-	return c.getWithFallback("Port", parse.Uint16).(uint16)
+	return getEnvWithFallback(c, envvar.NewUint16("Port"))
 }
 
 // DefaultChainID represents the chain ID which jobs will use if one is not explicitly specified
@@ -1005,7 +990,7 @@ func (c *generalConfig) DefaultChainID() *big.Int {
 				"error", err)
 			return nil
 		}
-		return v.(*big.Int)
+		return v
 
 	}
 	return nil
@@ -1015,18 +1000,18 @@ func (c *generalConfig) DefaultChainID() *big.Int {
 // socket open for writing a response to an HTTP request. This sometimes needs
 // to be increased for pprof.
 func (c *generalConfig) HTTPServerWriteTimeout() time.Duration {
-	return c.getWithFallback("HTTPServerWriteTimeout", parse.Duration).(time.Duration)
+	return getEnvWithFallback(c, envvar.HTTPServerWriteTimeout)
 }
 
 // ReaperExpiration represents how long a session is held in the DB before being cleared
 func (c *generalConfig) ReaperExpiration() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("ReaperExpiration", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("ReaperExpiration")))
 }
 
 // RootDir represents the location on the file system where Chainlink should
 // keep its files.
 func (c *generalConfig) RootDir() string {
-	return c.getEnvWithFallback(envvar.RootDir).(string)
+	return getEnvWithFallback(c, envvar.RootDir)
 }
 
 // RPID Fetches the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
@@ -1047,7 +1032,7 @@ func (c *generalConfig) SecureCookies() bool {
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c *generalConfig) SessionTimeout() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("SessionTimeout")))
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
@@ -1070,7 +1055,7 @@ func (c *generalConfig) TLSKeyPath() string {
 
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
 func (c *generalConfig) TLSPort() uint16 {
-	return c.getWithFallback("TLSPort", parse.Uint16).(uint16)
+	return getEnvWithFallback(c, envvar.NewUint16("TLSPort"))
 }
 
 // TLSRedirect forces TLS redirect for unencrypted connections
@@ -1085,7 +1070,7 @@ func (c *generalConfig) UnAuthenticatedRateLimit() int64 {
 
 // UnAuthenticatedRateLimitPeriod defines the period to which unauthenticated requests get limited
 func (c *generalConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
-	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parse.Duration).(time.Duration))
+	return models.MustMakeDuration(getEnvWithFallback(c, envvar.NewDuration("UnAuthenticatedRateLimitPeriod")))
 }
 
 func (c *generalConfig) TLSDir() string {
@@ -1126,10 +1111,10 @@ func (c *generalConfig) SessionOptions() sessions.Options {
 
 // Deprecated - prefer getEnvWithFallback with an EnvVar
 func (c *generalConfig) getWithFallback(name string, parser func(string) (interface{}, error)) interface{} {
-	return c.getEnvWithFallback(envvar.New(name, parser))
+	return getEnvWithFallback(c, envvar.New(name, parser))
 }
 
-func (c *generalConfig) getEnvWithFallback(e *envvar.EnvVar) interface{} {
+func getEnvWithFallback[T any](c *generalConfig, e *envvar.EnvVar[T]) T {
 	v, invalid, err := e.ParseFrom(c.viper.GetString)
 	if err != nil {
 		c.lggr.Panic(err)
@@ -1148,7 +1133,7 @@ var (
 	DatabaseBackupModeFull DatabaseBackupMode = "full"
 )
 
-func parseDatabaseBackupMode(s string) (interface{}, error) {
+func parseDatabaseBackupMode(s string) (DatabaseBackupMode, error) {
 	switch DatabaseBackupMode(s) {
 	case DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull:
 		return DatabaseBackupMode(s), nil
@@ -1157,10 +1142,10 @@ func parseDatabaseBackupMode(s string) (interface{}, error) {
 	}
 }
 
-func (c *generalConfig) lookupEnv(k string, parse func(string) (interface{}, error)) (interface{}, bool) {
+func lookupEnv[T any](c *generalConfig, k string, parse func(string) (T, error)) (t T, ok bool) {
 	s, ok := os.LookupEnv(k)
 	if !ok {
-		return nil, false
+		return
 	}
 	val, err := parse(s)
 	if err == nil {
@@ -1168,178 +1153,82 @@ func (c *generalConfig) lookupEnv(k string, parse func(string) (interface{}, err
 	}
 	c.lggr.Errorw(fmt.Sprintf("Invalid value provided for %s, falling back to default.", s),
 		"value", s, "key", k, "error", err)
-	return nil, false
+	return
 }
 
 // EVM methods
 
 func (c *generalConfig) GlobalBalanceMonitorEnabled() (bool, bool) {
-	val, ok := c.lookupEnv(envvar.Name("BalanceMonitorEnabled"), parse.Bool)
-	if val == nil {
-		return false, false
-	}
-	return val.(bool), ok
+	return lookupEnv(c, envvar.Name("BalanceMonitorEnabled"), strconv.ParseBool)
 }
 func (c *generalConfig) GlobalBlockEmissionIdleWarningThreshold() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("BlockEmissionIdleWarningThreshold"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("BlockEmissionIdleWarningThreshold"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalBlockHistoryEstimatorBatchSize() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorBatchSize"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorBatchSize"), parse.Uint32)
 }
 func (c *generalConfig) GlobalBlockHistoryEstimatorBlockDelay() (uint16, bool) {
-	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorBlockDelay"), parse.Uint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorBlockDelay"), parse.Uint16)
 }
 func (c *generalConfig) GlobalBlockHistoryEstimatorBlockHistorySize() (uint16, bool) {
-	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorBlockHistorySize"), parse.Uint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorBlockHistorySize"), parse.Uint16)
 }
 func (c *generalConfig) GlobalBlockHistoryEstimatorTransactionPercentile() (uint16, bool) {
-	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorTransactionPercentile"), parse.Uint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorTransactionPercentile"), parse.Uint16)
 }
 func (c *generalConfig) GlobalEthTxReaperInterval() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EthTxReaperInterval"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("EthTxReaperInterval"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EthTxReaperThreshold"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("EthTxReaperThreshold"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalEthTxResendAfterThreshold() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EthTxResendAfterThreshold"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("EthTxResendAfterThreshold"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalEvmFinalityDepth() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmFinalityDepth"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("EvmFinalityDepth"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmGasBumpPercent() (uint16, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpPercent"), parse.Uint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+	return lookupEnv(c, envvar.Name("EvmGasBumpPercent"), parse.Uint16)
 }
 func (c *generalConfig) GlobalEvmGasBumpThreshold() (uint64, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpThreshold"), parse.Uint64)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint64), ok
+	return lookupEnv(c, envvar.Name("EvmGasBumpThreshold"), parse.Uint64)
 }
 func (c *generalConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpTxDepth"), parse.Uint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+	return lookupEnv(c, envvar.Name("EvmGasBumpTxDepth"), parse.Uint16)
 }
 func (c *generalConfig) GlobalEvmGasBumpWei() (*big.Int, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasBumpWei"), parse.BigInt)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*big.Int), ok
+	return lookupEnv(c, envvar.Name("EvmGasBumpWei"), parse.BigInt)
 }
 func (c *generalConfig) GlobalEvmGasFeeCapDefault() (*big.Int, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasFeeCapDefault"), parse.BigInt)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*big.Int), ok
+	return lookupEnv(c, envvar.Name("EvmGasFeeCapDefault"), parse.BigInt)
 }
 func (c *generalConfig) GlobalBlockHistoryEstimatorEIP1559FeeCapBufferBlocks() (uint16, bool) {
-	val, ok := c.lookupEnv(envvar.Name("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks"), parse.Uint16)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint16), ok
+	return lookupEnv(c, envvar.Name("BlockHistoryEstimatorEIP1559FeeCapBufferBlocks"), parse.Uint16)
 }
 func (c *generalConfig) GlobalEvmGasLimitDefault() (uint64, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitDefault"), parse.Uint64)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint64), ok
+	return lookupEnv(c, envvar.Name("EvmGasLimitDefault"), parse.Uint64)
 }
 func (c *generalConfig) GlobalEvmGasLimitMultiplier() (float32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitMultiplier"), parse.F32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(float32), ok
+	return lookupEnv(c, envvar.Name("EvmGasLimitMultiplier"), parse.F32)
 }
 func (c *generalConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasLimitTransfer"), parse.Uint64)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint64), ok
+	return lookupEnv(c, envvar.Name("EvmGasLimitTransfer"), parse.Uint64)
 }
 func (c *generalConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasPriceDefault"), parse.BigInt)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*big.Int), ok
+	return lookupEnv(c, envvar.Name("EvmGasPriceDefault"), parse.BigInt)
 }
 func (c *generalConfig) GlobalEvmHeadTrackerHistoryDepth() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmHeadTrackerHistoryDepth"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("EvmHeadTrackerHistoryDepth"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmHeadTrackerMaxBufferSize"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("EvmHeadTrackerMaxBufferSize"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmHeadTrackerSamplingInterval"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("EvmHeadTrackerSamplingInterval"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmLogBackfillBatchSize"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("EvmLogBackfillBatchSize"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	val, ok := c.lookupEnv(envvar.Name("EvmLogPollInterval"), parse.Duration)
@@ -1349,149 +1238,73 @@ func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
 	return val.(time.Duration), ok
 }
 func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*big.Int), ok
+	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)
 }
 func (c *generalConfig) GlobalEvmMaxInFlightTransactions() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmMaxInFlightTransactions"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("EvmMaxInFlightTransactions"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmMaxQueuedTransactions() (uint64, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmMaxQueuedTransactions"), parse.Uint64)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint64), ok
+	return lookupEnv(c, envvar.Name("EvmMaxQueuedTransactions"), parse.Uint64)
 }
 func (c *generalConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmMinGasPriceWei"), parse.BigInt)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*big.Int), ok
+	return lookupEnv(c, envvar.Name("EvmMinGasPriceWei"), parse.BigInt)
 }
 func (c *generalConfig) GlobalEvmNonceAutoSync() (bool, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmNonceAutoSync"), parse.Bool)
-	if val == nil {
-		return false, false
-	}
-	return val.(bool), ok
+	return lookupEnv(c, envvar.Name("EvmNonceAutoSync"), strconv.ParseBool)
 }
 func (c *generalConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmRPCDefaultBatchSize"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("EvmRPCDefaultBatchSize"), parse.Uint32)
 }
 func (c *generalConfig) GlobalFlagsContractAddress() (string, bool) {
-	val, ok := c.lookupEnv(envvar.Name("FlagsContractAddress"), parse.String)
-	if val == nil {
-		return "", false
-	}
-	return val.(string), ok
+	return lookupEnv(c, envvar.Name("FlagsContractAddress"), parse.String)
 }
 func (c *generalConfig) GlobalGasEstimatorMode() (string, bool) {
-	val, ok := c.lookupEnv(envvar.Name("GasEstimatorMode"), parse.String)
-	if val == nil {
-		return "", false
-	}
-	return val.(string), ok
+	return lookupEnv(c, envvar.Name("GasEstimatorMode"), parse.String)
 }
 
 // GlobalChainType overrides all chains and forces them to act as a particular
 // chain type. List of chain types is given in `chaintype.go`.
 func (c *generalConfig) GlobalChainType() (string, bool) {
-	val, ok := c.lookupEnv(envvar.Name("ChainType"), parse.String)
-	if val == nil {
-		return "", false
-	}
-	return val.(string), ok
+	return lookupEnv(c, envvar.Name("ChainType"), parse.String)
 }
 func (c *generalConfig) GlobalLinkContractAddress() (string, bool) {
-	val, ok := c.lookupEnv(envvar.Name("LinkContractAddress"), parse.String)
-	if val == nil {
-		return "", false
-	}
-	return val.(string), ok
+	return lookupEnv(c, envvar.Name("LinkContractAddress"), parse.String)
 }
 func (c *generalConfig) GlobalMinIncomingConfirmations() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("MinIncomingConfirmations"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("MinIncomingConfirmations"), parse.Uint32)
 }
 func (c *generalConfig) GlobalMinRequiredOutgoingConfirmations() (uint64, bool) {
-	val, ok := c.lookupEnv(envvar.Name("MinRequiredOutgoingConfirmations"), parse.Uint64)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint64), ok
+	return lookupEnv(c, envvar.Name("MinRequiredOutgoingConfirmations"), parse.Uint64)
 }
 func (c *generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
-	val, ok := c.lookupEnv(envvar.Name("MinimumContractPayment"), parse.Link)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*assets.Link), ok
+	return lookupEnv(c, envvar.Name("MinimumContractPayment"), parse.Link)
 }
 func (c *generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmEIP1559DynamicFees"), parse.Bool)
-	if val == nil {
-		return false, false
-	}
-	return val.(bool), ok
+	return lookupEnv(c, envvar.Name("EvmEIP1559DynamicFees"), strconv.ParseBool)
 }
 func (c *generalConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasTipCapDefault"), parse.BigInt)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*big.Int), ok
+	return lookupEnv(c, envvar.Name("EvmGasTipCapDefault"), parse.BigInt)
 }
 func (c *generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmGasTipCapMinimum"), parse.BigInt)
-	if val == nil {
-		return nil, false
-	}
-	return val.(*big.Int), ok
+	return lookupEnv(c, envvar.Name("EvmGasTipCapMinimum"), parse.BigInt)
 }
 
 func (c *generalConfig) GlobalNodeNoNewHeadsThreshold() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("NodeNoNewHeadsThreshold"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("NodeNoNewHeadsThreshold"), time.ParseDuration)
 }
 
 func (c *generalConfig) GlobalNodePollFailureThreshold() (uint32, bool) {
-	val, ok := c.lookupEnv(envvar.Name("NodePollFailureThreshold"), parse.Uint32)
-	if val == nil {
-		return 0, false
-	}
-	return val.(uint32), ok
+	return lookupEnv(c, envvar.Name("NodePollFailureThreshold"), parse.Uint32)
 }
 
 func (c *generalConfig) GlobalNodePollInterval() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("NodePollInterval"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("NodePollInterval"), time.ParseDuration)
 }
 
 // DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
 // It controls which mode to use to enforce that only one Chainlink application can use the database
 func (c *generalConfig) DatabaseLockingMode() string {
-	return c.getWithFallback("DatabaseLockingMode", parse.String).(string)
+	return getEnvWithFallback(c, envvar.NewString("DatabaseLockingMode"))
 }
 
 // LeaseLockRefreshInterval controls how often the node should attempt to
@@ -1509,7 +1322,7 @@ func (c *generalConfig) LeaseLockDuration() time.Duration {
 // AdvisoryLockID is the application advisory lock ID. Should match all other
 // chainlink applications that might access this database
 func (c *generalConfig) AdvisoryLockID() int64 {
-	return c.getWithFallback("AdvisoryLockID", parse.Int64).(int64)
+	return getEnvWithFallback(c, envvar.AdvisoryLockID)
 }
 
 // AdvisoryLockCheckInterval controls how often Chainlink will check to make

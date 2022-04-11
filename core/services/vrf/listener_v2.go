@@ -69,7 +69,7 @@ func newListenerV2(
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
-	reqLogs *utils.Mailbox,
+	reqLogs *utils.Mailbox[log.Broadcast],
 	reqAdded func(),
 	respCount map[string]uint64,
 	headBroadcaster httypes.HeadBroadcasterRegistry,
@@ -136,7 +136,7 @@ type listenerV2 struct {
 	job            job.Job
 	q              pg.Q
 	gethks         keystore.Eth
-	reqLogs        *utils.Mailbox
+	reqLogs        *utils.Mailbox[log.Broadcast]
 	chStop         chan struct{}
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
@@ -608,6 +608,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 
 			ll.Infow("Enqueuing fulfillment")
+			var ethTX txmgr.EthTx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -617,7 +618,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				}
 
 				maxLinkString := p.maxLink.String()
-				_, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
+				ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
@@ -641,6 +642,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				ll.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 				continue
 			}
+			ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
 
 			// If we successfully enqueued for the txm, subtract that balance
 			// And loop to attempt to enqueue another fulfillment
@@ -888,13 +890,9 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32, wg
 		case <-lsn.reqLogs.Notify():
 			// Process all the logs in the queue if one is added
 			for {
-				i, exists := lsn.reqLogs.Retrieve()
+				lb, exists := lsn.reqLogs.Retrieve()
 				if !exists {
 					break
-				}
-				lb, ok := i.(log.Broadcast)
-				if !ok {
-					panic(fmt.Sprintf("VRFListenerV2: invariant violated, expected log.Broadcast got %T", i))
 				}
 				lsn.handleLog(lb, minConfs)
 			}
