@@ -1231,11 +1231,7 @@ func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmLogBackfillBatchSize"), parse.Uint32)
 }
 func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
-	val, ok := c.lookupEnv(envvar.Name("EvmLogPollInterval"), parse.Duration)
-	if val == nil {
-		return 0, false
-	}
-	return val.(time.Duration), ok
+	return lookupEnv(c, envvar.Name("EvmLogPollInterval"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)
