@@ -28,7 +28,6 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -380,9 +379,12 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 }
 
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T) {
-	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
-	// close and go-txdb rollback.
-	config, db := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	logger := logger.TestLogger(t)
+
+	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
@@ -395,7 +397,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
-	orm := headtracker.NewORM(db, logger.TestLogger(t), config, *config.DefaultChainID())
+	orm := headtracker.NewORM(db, logger, config, *config.DefaultChainID())
 	ht := createHeadTrackerWithChecker(t, ethClient, evmtest.NewChainScopedConfig(t, config), orm, checker)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
@@ -491,7 +493,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		headers <- h
 	}
 
-	lastLongestChainAwaiter.AwaitOrFail(t)
+	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
+	lastLongestChainAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 
@@ -507,10 +510,12 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 }
 
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T) {
-	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
-	// close and go-txdb rollback.
-	config, db := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
+	t.Parallel()
 
+	db := pgtest.NewSqlxDB(t)
+	logger := logger.TestLogger(t)
+
+	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
@@ -521,13 +526,15 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
-	orm := headtracker.NewORM(db, logger.TestLogger(t), config, cltest.FixtureChainID)
+	orm := headtracker.NewORM(db, logger, config, cltest.FixtureChainID)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg, orm, checker)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *evmtypes.Head) }).
+		Run(func(args mock.Arguments) {
+			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
+		}).
 		Return(sub, nil)
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -646,7 +653,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		headers <- h
 	}
 
-	lastLongestChainAwaiter.AwaitOrFail(t)
+	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
+	lastLongestChainAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 

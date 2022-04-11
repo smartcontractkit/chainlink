@@ -582,6 +582,9 @@ func TestResolver_VRFSpec(t *testing.T) {
 	coordinatorAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
 	require.NoError(t, err)
 
+	batchCoordinatorAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	require.NoError(t, err)
+
 	fromAddress1, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
@@ -600,16 +603,19 @@ func TestResolver_VRFSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.VRF,
 					VRFSpec: &job.VRFSpec{
-						MinIncomingConfirmations: 1,
-						CoordinatorAddress:       coordinatorAddress,
-						CreatedAt:                f.Timestamp(),
-						EVMChainID:               utils.NewBigI(42),
-						FromAddresses:            []ethkey.EIP55Address{fromAddress1, fromAddress2},
-						PollPeriod:               1 * time.Minute,
-						PublicKey:                pubKey,
-						RequestedConfsDelay:      10,
-						RequestTimeout:           24 * time.Hour,
-						ChunkSize:                25,
+						BatchCoordinatorAddress:       &batchCoordinatorAddress,
+						BatchFulfillmentEnabled:       true,
+						MinIncomingConfirmations:      1,
+						CoordinatorAddress:            coordinatorAddress,
+						CreatedAt:                     f.Timestamp(),
+						EVMChainID:                    utils.NewBigI(42),
+						FromAddresses:                 []ethkey.EIP55Address{fromAddress1, fromAddress2},
+						PollPeriod:                    1 * time.Minute,
+						PublicKey:                     pubKey,
+						RequestedConfsDelay:           10,
+						RequestTimeout:                24 * time.Hour,
+						ChunkSize:                     25,
+						BatchFulfillmentGasMultiplier: 1,
 					},
 				}, nil)
 			},
@@ -629,6 +635,9 @@ func TestResolver_VRFSpec(t *testing.T) {
 									publicKey
 									requestedConfsDelay
 									requestTimeout
+									batchCoordinatorAddress
+									batchFulfillmentEnabled
+									batchFulfillmentGasMultiplier
 									chunkSize
 								}
 							}
@@ -650,6 +659,9 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01",
 							"requestedConfsDelay": 10,
 							"requestTimeout": "24h0m0s",
+							"batchCoordinatorAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
+							"batchFulfillmentEnabled": true,
+							"batchFulfillmentGasMultiplier": 1,
 							"chunkSize": 25
 						}
 					}

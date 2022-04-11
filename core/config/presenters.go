@@ -137,6 +137,10 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 	if cfg.TelemetryIngressURL() != nil {
 		telemetryIngressURL = cfg.TelemetryIngressURL().String()
 	}
+	bridgeResponseURL := ""
+	if cfg.BridgeResponseURL() != nil {
+		bridgeResponseURL = cfg.BridgeResponseURL().String()
+	}
 	ocrTransmitTimeout, _ := cfg.GlobalOCRContractTransmitterTransmitTimeout()
 	ocrDatabaseTimeout, _ := cfg.GlobalOCRDatabaseTimeout()
 	return ConfigPrinter{
@@ -145,7 +149,7 @@ func NewConfigPrinter(cfg GeneralConfig) ConfigPrinter {
 			AdvisoryLockID:                          cfg.AdvisoryLockID(),
 			AllowOrigins:                            cfg.AllowOrigins(),
 			BlockBackfillDepth:                      cfg.BlockBackfillDepth(),
-			BridgeResponseURL:                       cfg.BridgeResponseURL().String(),
+			BridgeResponseURL:                       bridgeResponseURL,
 			ClientNodeURL:                           cfg.ClientNodeURL(),
 			DatabaseBackupFrequency:                 cfg.DatabaseBackupFrequency(),
 			DatabaseBackupMode:                      string(cfg.DatabaseBackupMode()),

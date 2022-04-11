@@ -52,7 +52,7 @@ type UpkeepExecuter struct {
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	gasEstimator    gas.Estimator
 	job             job.Job
-	mailbox         *utils.Mailbox
+	mailbox         *utils.Mailbox[*evmtypes.Head]
 	orm             ORM
 	pr              pipeline.Runner
 	logger          logger.Logger
@@ -78,7 +78,7 @@ func NewUpkeepExecuter(
 		headBroadcaster: headBroadcaster,
 		gasEstimator:    gasEstimator,
 		job:             job,
-		mailbox:         utils.NewMailbox(1),
+		mailbox:         utils.NewMailbox[*evmtypes.Head](1),
 		config:          config,
 		orm:             orm,
 		pr:              pr,
@@ -133,13 +133,11 @@ func (ex *UpkeepExecuter) run() {
 func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	item, exists := ex.mailbox.Retrieve()
+	head, exists := ex.mailbox.Retrieve()
 	if !exists {
 		ex.logger.Info("no head to retrieve. It might have been skipped")
 		return
 	}
-
-	head := evmtypes.AsHead(item)
 
 	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 

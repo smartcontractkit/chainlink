@@ -491,6 +491,25 @@ func replaceBytesWithHex(val interface{}) interface{} {
 		}
 		return m
 	default:
+		// This handles solidity types: bytes1..bytes32,
+		// which map to [1]uint8..[32]uint8 when decoded.
+		// We persist them as hex strings, and we know ETH ABI encoders
+		// can parse hex strings, same as BytesParam does.
+		if s := uint8ArrayToSlice(value); s != nil {
+			return replaceBytesWithHex(s)
+		}
 		return value
 	}
+}
+
+// uint8ArrayToSlice converts [N]uint8 array to slice.
+func uint8ArrayToSlice(arr interface{}) interface{} {
+	t := reflect.TypeOf(arr)
+	if t.Kind() != reflect.Array || t.Elem().Kind() != reflect.Uint8 {
+		return nil
+	}
+	v := reflect.ValueOf(arr)
+	s := reflect.MakeSlice(reflect.SliceOf(t.Elem()), v.Len(), v.Len())
+	reflect.Copy(s, v)
+	return s.Interface()
 }

@@ -21,12 +21,12 @@ import (
 
 func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 	cfg := newZapConfigTest()
-	ll, invalid := envvar.LogLevel.ParseLogLevel()
+	ll, invalid := envvar.LogLevel.Parse()
 	assert.Empty(t, invalid)
 
 	cfg.Level.SetLevel(ll)
 
-	maxSize, invalid := envvar.LogFileMaxSize.ParseFileSize()
+	maxSize, invalid := envvar.LogFileMaxSize.Parse()
 	assert.Empty(t, invalid)
 
 	logsDir := t.TempDir()

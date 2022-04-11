@@ -115,7 +115,10 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			}
 
 		case err, open := <-hl.headSubscription.Err():
-			if open && err != nil {
+			if !open {
+				return errors.New("head listener: subscription Err channel prematurely closed")
+			}
+			if err != nil {
 				return err
 			}
 

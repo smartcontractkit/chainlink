@@ -93,8 +93,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		pipelineRunner:           d.pipelineRunner,
 		pipelineORM:              d.pipelineORM,
 		job:                      jb,
-		mbOracleRequests:         utils.NewHighCapacityMailbox(),
-		mbOracleCancelRequests:   utils.NewHighCapacityMailbox(),
+		mbOracleRequests:         utils.NewHighCapacityMailbox[log.Broadcast](),
+		mbOracleCancelRequests:   utils.NewHighCapacityMailbox[log.Broadcast](),
 		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
@@ -121,8 +121,8 @@ type listener struct {
 	job                      job.Job
 	runs                     sync.Map
 	shutdownWaitGroup        sync.WaitGroup
-	mbOracleRequests         *utils.Mailbox
-	mbOracleCancelRequests   *utils.Mailbox
+	mbOracleRequests         *utils.Mailbox[log.Broadcast]
+	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
 	minIncomingConfirmations uint32
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
@@ -220,15 +220,11 @@ func (l *listener) processCancelOracleRequests() {
 	}
 }
 
-func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
+func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 	for {
-		i, exists := mailbox.Retrieve()
+		lb, exists := mailbox.Retrieve()
 		if !exists {
 			return
-		}
-		lb, ok := i.(log.Broadcast)
-		if !ok {
-			panic(errors.Errorf("DirectRequest: invariant violation, expected log.Broadcast but got %T", lb))
 		}
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
