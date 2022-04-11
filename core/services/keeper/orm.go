@@ -120,7 +120,7 @@ func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, 
 		return nil, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get a registry by address")
 	}
 	blockNumber := head.Number
-	binaryHash := binaryOfFirstHashInPreviousTurn(blockNumber, registry, head, korm.config.EvmFinalityDepth())
+	binaryHash := binaryForTurn(blockNumber, registry, head, korm.config.EvmFinalityDepth())
 	stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
@@ -161,11 +161,11 @@ WHERE
 	return upkeeps, err
 }
 
-// binaryOfFirstHashInPreviousTurn gets the previous turns starting block hash and converts it to binary
+// binaryForTurn gets the previous turns starting block hash and converts it to binary
 // the finality depth is subtracted to avoid any contention that could happen
-func binaryOfFirstHashInPreviousTurn(blockNumber int64, registry Registry, head *types.Head, finality uint32) string {
-	firstHeadInTurn := blockNumber - (blockNumber % int64(registry.BlockCountPerTurn)) - int64(finality)
-	hashAtHeight := head.HashAtHeight(firstHeadInTurn)
+func binaryForTurn(blockNumber int64, registry Registry, head *types.Head, finality uint32) string {
+	lookbackBlock := blockNumber - (blockNumber % int64(registry.BlockCountPerTurn)) - int64(finality)
+	hashAtHeight := head.HashAtHeight(lookbackBlock)
 	bigInt := new(big.Int)
 	bigInt.SetString(hashAtHeight.Hex(), 0)
 	binaryString := fmt.Sprintf("%b", bigInt)
