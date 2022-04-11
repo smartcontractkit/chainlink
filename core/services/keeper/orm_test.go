@@ -316,6 +316,7 @@ func TestKeeperDB_EligibleUpkeeps_CoverBuddy(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.Get(&upkeep, `UPDATE upkeep_registrations SET last_keeper_index = 0 RETURNING *`))
 	listAfter, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, &h1, 100) // covering buddy
+	require.NoError(t, err)
 	require.Greater(t, len(listAfter), len(listBefore), "after our buddy runs all the performs we should have more eligible then a normal turn")
 }
 
