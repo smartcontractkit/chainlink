@@ -24,7 +24,7 @@ import (
 )
 
 func TestPopulateLoadedDB(t *testing.T) {
-	t.Skip()
+	t.Skip("only for local load testing and query analysis")
 	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDB(t, "logs_scale", true, false)
 	chainID := big.NewInt(137)
