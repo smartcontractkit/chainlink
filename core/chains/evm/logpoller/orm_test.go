@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func TestUnit_ORM(t *testing.T) {
+func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS log_poller_blocks_evm_chain_id_fkey DEFERRED`)))

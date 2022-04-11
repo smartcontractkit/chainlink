@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -75,6 +76,11 @@ func (o *ORM) DeleteLogs(start, end int64, qopts ...pg.QOpt) error {
 
 // InsertLogs is idempotent to support replays.
 func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
+	for _, log := range logs {
+		if o.chainID.Cmp(log.EvmChainId.ToInt()) != 0 {
+			return errors.Errorf("invalid chainID in log got %v want %v", log.EvmChainId.ToInt(), o.chainID)
+		}
+	}
 	q := o.q.WithOpts(qopts...)
 	_, err := q.NamedExec(`INSERT INTO logs 
 (evm_chain_id, log_index, block_hash, block_number, address, event_sig, topics, tx_hash, data, created_at) VALUES 
