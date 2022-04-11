@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -53,9 +54,9 @@ func assertDontHave(t *testing.T, start, end int, orm *ORM) {
 func assertHaveCanonical(t *testing.T, start, end int, ec *backends.SimulatedBackend, orm *ORM) {
 	for i := start; i < end; i++ {
 		blk, err := orm.SelectBlockByNumber(int64(i))
-		require.NoError(t, err)
+		require.NoError(t, err, "block %v", i)
 		chainBlk, err := ec.BlockByNumber(context.Background(), big.NewInt(int64(i)))
-		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes())
+		assert.Equal(t, chainBlk.Hash().Bytes(), blk.BlockHash.Bytes(), "block %v", i)
 	}
 }
 
@@ -106,6 +107,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	lgs, err := orm.selectLogsByBlockRange(1, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(lgs))
+	assertHaveCanonical(t, 1, 1, ec, orm)
 
 	// Polling again should be a noop, since we are at the latest.
 	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
@@ -113,6 +115,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	latest, err := orm.SelectLatestBlock()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), latest.BlockNumber)
+	assertHaveCanonical(t, 1, 1, ec, orm)
 
 	// Test scenario: one log 2 block chain.
 	// Chain gen <- 1 <- 2 (L1)
@@ -189,7 +192,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 	assert.Equal(t, int64(3), lgs[1].BlockNumber)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000003`), lgs[1].Data)
-	assertHaveCanonical(t, 1, 4, ec, orm)
+	assertHaveCanonical(t, 1, 1, ec, orm)
+	assertHaveCanonical(t, 3, 4, ec, orm)
+	assertDontHave(t, 2, 2, orm) // 2 gets backfilled
 
 	// Test scenario: multiple logs per block for many blocks (also after reorg).
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6)
@@ -219,7 +224,9 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assert.Equal(t, emitterAddress2, lgs[1].Address)
 	assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000006`), lgs[2].Data)
 	assert.Equal(t, emitterAddress1, lgs[2].Address)
-	assertHaveCanonical(t, 1, 6, ec, orm)
+	assertHaveCanonical(t, 1, 1, ec, orm)
+	assertDontHave(t, 2, 2, orm) // 2 gets backfilled
+	assertHaveCanonical(t, 3, 6, ec, orm)
 
 	// Test scenario: node down for exactly finality + 1 block
 	// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9)
