@@ -1,16 +1,16 @@
 pragma solidity 0.8.6;
 
-import {Cron as CronInternal, Spec} from "../internal/Cron.sol";
+import {CronInternal, Spec} from "../internal/IntCron.sol";
 
 /**
- * @title The Cron library
+ * @title The CronExternal library
  * @notice A utility contract for encoding/decoding cron strings (ex: 0 0 * * *) into an
  * abstraction called a Spec. The library also includes a spec function, nextTick(), which
  * determines the next time a cron job should fire based on the current block timestamp.
  * @dev this is the external version of the library, which relies on the internal library
  * by the same name.
  */
-library Cron {
+library CronExternal {
   using CronInternal for Spec;
   using CronInternal for string;
 

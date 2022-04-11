@@ -5,7 +5,7 @@ pragma solidity 0.8.6;
 import "../upkeeps/CronUpkeep.sol";
 import "../upkeeps/CronUpkeepDelegate.sol";
 import "../ConfirmedOwner.sol";
-import {Spec, Cron as CronExternal} from "../libraries/external/Cron.sol";
+import {Spec, CronExternal} from "../libraries/external/ExtCron.sol";
 
 /**
  * @title The CronUpkeepFactory contract
