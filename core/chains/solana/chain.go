@@ -44,8 +44,13 @@ type chain struct {
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
-	clientChainID map[string]string // map URL -> chainId [mainnet/testnet/devnet/localnet]
-	chainIDLock   sync.RWMutex
+	clientCache map[string]cachedClient // map URL -> {client, chainId} [mainnet/testnet/devnet/localnet]
+	clientLock  sync.RWMutex
+}
+
+type cachedClient struct {
+	id string
+	rw solanaclient.ReaderWriter
 }
 
 // NewChain returns a new chain backed by node.
@@ -53,11 +58,11 @@ func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventB
 	cfg := config.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("chainID", dbchain.ID, "chainSet", "solana")
 	var ch = chain{
-		id:            dbchain.ID,
-		cfg:           cfg,
-		orm:           orm,
-		lggr:          lggr.Named("Chain"),
-		clientChainID: map[string]string{},
+		id:          dbchain.ID,
+		cfg:         cfg,
+		orm:         orm,
+		lggr:        lggr.Named("Chain"),
+		clientCache: map[string]cachedClient{},
 	}
 	tc := func() (solanaclient.ReaderWriter, error) {
 		return ch.getClient()
@@ -123,33 +128,47 @@ func (c *chain) getClient() (solanaclient.ReaderWriter, error) {
 
 // verifiedClient returns a client for node or an error if the chain id does not match.
 func (c *chain) verifiedClient(node db.Node) (solanaclient.ReaderWriter, error) {
-	// create client
-	client, err := solanaclient.NewClient(node.SolanaURL, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create client")
-	}
-
-	// if endpoint has not been checked, fetch chainID
 	url := node.SolanaURL
-	c.chainIDLock.RLock()
-	id, exists := c.clientChainID[url]
-	c.chainIDLock.RUnlock()
+	var err error
+
+	// check if cached client exists
+	c.clientLock.RLock()
+	client, exists := c.clientCache[url]
+	c.clientLock.RUnlock()
+
 	if !exists {
-		id, err = client.ChainID()
+		// create client
+		client.rw, err = solanaclient.NewClient(url, c.cfg, DefaultRequestTimeout, c.lggr.Named("Client-"+node.Name))
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create client")
+		}
+
+		client.id, err = client.rw.ChainID()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch ChainID in checkClient")
 		}
-		c.chainIDLock.Lock()
-		c.clientChainID[url] = id
-		c.chainIDLock.Unlock()
 	}
 
 	// check chainID matches expected chainID
 	expectedID := strings.ToLower(c.id)
-	if id != expectedID {
-		return nil, errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, id, url)
+	if client.id != expectedID {
+		return nil, errors.Errorf("client returned mismatched chain id (expected: %s, got: %s): %s", expectedID, client.id, url)
 	}
-	return client, nil
+
+	// save client if doesn't exist and checks have passed
+	// if checks failed, client is not saved and can retry when a new client is requested
+	if !exists {
+		c.clientLock.Lock()
+		// recheck when writing to prevent parallel writes (discard duplicate if exists)
+		if cached, exists := c.clientCache[url]; !exists {
+			c.clientCache[url] = client
+		} else {
+			client = cached
+		}
+		c.clientLock.Unlock()
+	}
+
+	return client.rw, nil
 }
 
 func (c *chain) Start(ctx context.Context) error {

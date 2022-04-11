@@ -71,7 +71,13 @@ func (k *Keeper) deployKeepers(ctx context.Context, keepers []common.Address, ow
 	for i, keeperAddr := range k.cfg.Keepers {
 		url := k.cfg.KeeperURLs[i]
 		email := k.cfg.KeeperEmails[i]
+		if len(email) == 0 {
+			email = defaultChainlinkNodeLogin
+		}
 		pwd := k.cfg.KeeperPasswords[i]
+		if len(pwd) == 0 {
+			pwd = defaultChainlinkNodePassword
+		}
 		err := k.createKeeperJobOnExistingNode(url, email, pwd, registryAddr.Hex(), keeperAddr)
 		if err != nil {
 			log.Printf("Keeper Job not created for keeper %d: %s %s\n", i, url, keeperAddr)
