@@ -190,7 +190,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					return errors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
 				}
 
-				matchErr := errors.Errorf("a job with contract address %s already exists for chain ID %d", jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID)
+				matchErr := errors.Errorf("a job with contract address %s already exists for chain ID %d", jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID.ToInt())
 				if existingSpec.EVMChainID == nil {
 					chain, err := o.chainSet.Default()
 					if err != nil {
