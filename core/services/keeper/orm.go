@@ -1,8 +1,6 @@
 package keeper
 
 import (
-	"fmt"
-	"math/big"
 	"math/rand"
 	"time"
 
@@ -11,7 +9,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
@@ -114,13 +111,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 // - checks the registry address is correct and the registry has some keepers associated
 // -- is it my turn AND my keeper was not the last perform for this upkeep OR my keeper was the last before BUT it is past the grace period
 // -- OR is it my buddy's turn AND they were the last keeper to do the perform for this upkeep
-func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, head *types.Head, gracePeriod int64) (upkeeps []UpkeepRegistration, err error) {
-	registry, err := korm.RegistryByContractAddress(registryAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get a registry by address")
-	}
-	blockNumber := head.Number
-	binaryHash := binaryForTurn(blockNumber, registry, head, korm.config.EvmFinalityDepth())
+func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
 	stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
@@ -159,17 +150,6 @@ WHERE
 	})
 
 	return upkeeps, err
-}
-
-// binaryForTurn gets the previous turns starting block hash and converts it to binary
-// the finality depth is subtracted to avoid any contention that could happen
-func binaryForTurn(blockNumber int64, registry Registry, head *types.Head, finality uint32) string {
-	lookbackBlock := blockNumber - (blockNumber % int64(registry.BlockCountPerTurn)) - int64(finality)
-	hashAtHeight := head.HashAtHeight(lookbackBlock)
-	bigInt := new(big.Int)
-	bigInt.SetString(hashAtHeight.Hex(), 0)
-	binaryString := fmt.Sprintf("%b", bigInt)
-	return binaryString
 }
 
 func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {

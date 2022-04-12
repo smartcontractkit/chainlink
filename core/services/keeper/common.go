@@ -11,7 +11,6 @@ var RegistryABI = evmtypes.MustGetABI(keeper_registry_wrapper.KeeperRegistryABI)
 
 type Config interface {
 	EvmEIP1559DynamicFees() bool
-	EvmFinalityDepth() uint32
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
@@ -22,5 +21,6 @@ type Config interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
+	KeeperTurnLookBack() int64
 	LogSQL() bool
 }
