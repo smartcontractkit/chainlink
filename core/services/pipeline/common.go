@@ -71,7 +71,7 @@ var (
 	ErrBadInput              = errors.New("bad input for task")
 	ErrInputTaskErrored      = errors.New("input task errored")
 	ErrParameterEmpty        = errors.New("parameter is empty")
-	ErrIndexOutOfRange       = errors.New("index of out range")
+	ErrIndexOutOfRange       = errors.New("index out of range")
 	ErrTooManyErrors         = errors.New("too many errors")
 	ErrTimeout               = errors.New("timeout")
 	ErrTaskRunFailed         = errors.New("task run failed")
