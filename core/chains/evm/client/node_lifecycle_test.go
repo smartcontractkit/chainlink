@@ -219,7 +219,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 	t.Run("when no new heads received for threshold, transitions to out of sync", func(t *testing.T) {
 		cfg := TestNodeConfig{NoNewHeadsThreshold: 1 * time.Second}
-		chSubbed := make(chan struct{})
+		chSubbed := make(chan struct{}, 2)
 		s := testutils.NewWSServer(t, testutils.FixtureChainID,
 			func(method string, params gjson.Result) (respResult string, notifyResult string) {
 				switch method {
@@ -247,11 +247,14 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		n.wg.Add(1)
 		go n.aliveLoop()
 
-		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription")
+		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription for InSync")
 
 		testutils.AssertEventually(t, func() bool {
 			return n.State() == NodeStateOutOfSync
 		})
+
+		// Otherwise, there may be data race on dial() vs Close() (accessing ws.rpc)
+		testutils.WaitWithTimeout(t, chSubbed, "timed out waiting for initial subscription for OutOfSync")
 	})
 
 	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
