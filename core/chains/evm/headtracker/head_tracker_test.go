@@ -651,6 +651,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		latestHeadByNumber[h.Number] = h
 		latestHeadByNumberMu.Unlock()
 		headers <- h
+		time.Sleep(testutils.TestInterval)
 	}
 
 	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
