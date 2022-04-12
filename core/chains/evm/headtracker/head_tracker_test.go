@@ -387,7 +387,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
+	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 
 	// Head sampling enabled
 	d := 2500 * time.Millisecond
@@ -518,7 +518,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
+	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	d := 0 * time.Second
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
