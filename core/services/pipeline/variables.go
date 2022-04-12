@@ -64,7 +64,7 @@ func (vars Vars) Get(keypathStr string) (interface{}, error) {
 			if err != nil {
 				return nil, errors.Wrapf(ErrKeypathNotFound, "could not parse key as integer: %v", err)
 			} else if idx < 0 || idx > int64(len(v)-1) {
-				return nil, errors.Wrapf(ErrKeypathNotFound, "index %v out of range (length %v / keypath %v)", idx, len(v), keypathStr)
+				return nil, errors.Wrapf(ErrIndexOutOfRange, "index %v out of range (length %v / keypath %v)", idx, len(v), keypathStr)
 			}
 			val = v[idx]
 		default:
