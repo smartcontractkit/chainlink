@@ -295,7 +295,7 @@ func TestJSONParseTask(t *testing.T) {
 			}),
 			[]pipeline.Result{},
 			"0.99991",
-			pipeline.ErrParameterEmpty,
+			pipeline.ErrIndexOutOfRange,
 			"data",
 		},
 		{
