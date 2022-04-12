@@ -19,7 +19,8 @@ var MigrateCronCmd = &cobra.Command{
 	Use:   "migrate-cron",
 	Short: "Migrate feed util jobs to use Cron upkeep",
 	Long: `This command reads in a list of feed contracts from input file, creates a new cron keeper contract and registers the upkeep` +
-		`Creates an output file migrate_cron_output.csv with format: targetAddress,targetFunction,cronSchedule,cronUpkeepAddress,RegistrationHash`,
+		`Creates an output file migrate_cron_output.csv with format: targetAddress,targetFunction,cronSchedule,` +
+		`upkeep_name,cronUpkeepAddress,gasLimit,admin,RegistrationHash,blockNum`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
@@ -28,15 +29,25 @@ var MigrateCronCmd = &cobra.Command{
 			log.Fatal("Input file should be provided")
 		}
 
-		proxyAbi, err := abi.JSON(strings.NewReader(proxy.PermissionedForwardProxyABI))
+		fetchIds, err := cmd.Flags().GetBool("fetch-ids")
 		if err != nil {
-			log.Fatalln("Error generating proxy ABI", err)
+			log.Fatal("failed to get fetch-ids flag: ", err)
 		}
 
-		hdlr.MigrateCron(cmd.Context(), inputFile, proxyAbi)
+		if fetchIds {
+			hdlr.FetchUpkeepIds(cmd.Context(), inputFile)
+		} else {
+			proxyAbi, err := abi.JSON(strings.NewReader(proxy.PermissionedForwardProxyABI))
+			if err != nil {
+				log.Fatalln("Error generating proxy ABI", err)
+			}
+
+			hdlr.MigrateCron(cmd.Context(), inputFile, proxyAbi)
+		}
 	},
 }
 
 func init() {
 	MigrateCronCmd.Flags().StringVar(&inputFile, "input-file", "", "path to csv file in format: targetAddress,targetFunction,cronSchedule,fundingAmountLink,name,encryptedEmail,gasLimit")
+	MigrateCronCmd.Flags().BoolP("fetch-ids", "f", false, "Specify to fetch upkeep IDs for registration requests given in input")
 }
