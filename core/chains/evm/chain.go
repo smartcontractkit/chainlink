@@ -56,7 +56,7 @@ type chain struct {
 	keyStore        keystore.Eth
 }
 
-func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
+func newChain(dbchain types.Chain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !dbchain.Enabled {
@@ -78,7 +78,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(cfg, l, dbchain)
+		client, err2 = newEthClientFromChain(cfg, l, dbchain, nodes)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", dbchain.ID.String())
 		}
@@ -281,8 +281,7 @@ func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 
-func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
-	nodes := chain.Nodes
+func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.Chain, nodes []types.Node) (evmclient.Client, error) {
 	chainID := big.Int(chain.ID)
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode

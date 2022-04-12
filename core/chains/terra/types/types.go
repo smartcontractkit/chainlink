@@ -24,7 +24,7 @@ type ORM interface {
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
 }
 
-type Chain = chains.Chain[db.ChainCfg]
+type Chain = chains.Chain[string, db.ChainCfg]
 
 // NewNode defines a new node to create.
 type NewNode struct {

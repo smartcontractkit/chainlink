@@ -114,7 +114,7 @@ type chainScopedConfig struct {
 }
 
 func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) ChainScopedConfig {
-	csorm := &chainScopedConfigORM{chainID, orm}
+	csorm := &chainScopedConfigORM{*utils.NewBig(chainID), orm}
 	defaultSet, exists := chainSpecificConfigDefaultSets[chainID.Int64()]
 	if !exists {
 		lggr.Warnf("Unrecognised chain %d, falling back to generic default configuration", chainID)

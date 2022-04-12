@@ -12,8 +12,8 @@ import (
 )
 
 type orm struct {
-	*chains.ChainsORM[terradb.ChainCfg, types.Chain]
-	*chains.NodesORM[types.NewNode, terradb.Node]
+	*chains.ChainsORM[string, terradb.ChainCfg, types.Chain]
+	*chains.NodesORM[string, types.NewNode, terradb.Node]
 }
 
 var _ types.ORM = (*orm)(nil)
@@ -25,7 +25,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 	VALUES (:name, :terra_chain_id, :tendermint_url, now(), now())
 	RETURNING *;`
 	return &orm{
-		chains.NewChainsORM[terradb.ChainCfg, types.Chain](q, "terra_chains"),
-		chains.NewNodesORM[types.NewNode, terradb.Node](q, "terra_nodes", "terra_chain_id", createNodeSQL),
+		chains.NewChainsORM[string, terradb.ChainCfg, types.Chain](q, "terra_chains"),
+		chains.NewNodesORM[string, types.NewNode, terradb.Node](q, "terra_nodes", "terra_chain_id", createNodeSQL),
 	}
 }

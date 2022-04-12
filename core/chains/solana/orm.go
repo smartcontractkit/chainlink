@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-type Chain = chains.Chain[soldb.ChainCfg]
+type Chain = chains.Chain[string, soldb.ChainCfg]
 
 // ORM manages solana chains and nodes.
 type ORM interface {
@@ -30,8 +30,8 @@ type ORM interface {
 }
 
 type orm struct {
-	*chains.ChainsORM[soldb.ChainCfg, Chain]
-	*chains.NodesORM[soldb.NewNode, soldb.Node]
+	*chains.ChainsORM[string, soldb.ChainCfg, Chain]
+	*chains.NodesORM[string, soldb.NewNode, soldb.Node]
 }
 
 var _ ORM = (*orm)(nil)
@@ -43,7 +43,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	VALUES (:name, :solana_chain_id, :solana_url, now(), now())
 	RETURNING *;`
 	return &orm{
-		chains.NewChainsORM[soldb.ChainCfg, Chain](q, "solana_chains"),
-		chains.NewNodesORM[soldb.NewNode, soldb.Node](q, "solana_nodes", "solana_chain_id", createNodeSQL),
+		chains.NewChainsORM[string, soldb.ChainCfg, Chain](q, "solana_chains"),
+		chains.NewNodesORM[string, soldb.NewNode, soldb.Node](q, "solana_nodes", "solana_chain_id", createNodeSQL),
 	}
 }

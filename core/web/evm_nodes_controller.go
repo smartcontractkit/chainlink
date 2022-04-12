@@ -70,13 +70,13 @@ func (nc *EVMNodesController) Create(c *gin.Context) {
 
 // Delete removes an EVM node.
 func (nc *EVMNodesController) Delete(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("ID"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("ID"), 10, 32)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	err = nc.App.EVMORM().DeleteNode(id)
+	err = nc.App.EVMORM().DeleteNode(int32(id))
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
