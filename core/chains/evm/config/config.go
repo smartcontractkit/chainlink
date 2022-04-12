@@ -16,7 +16,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -66,7 +65,7 @@ type ChainScopedOnlyConfig interface {
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
-	ChainType() chains.ChainType
+	ChainType() config.ChainType
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
@@ -214,22 +213,22 @@ func (c *chainScopedConfig) validate() (err error) {
 		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
 	} else {
 		switch chainType {
-		case chains.Arbitrum:
+		case config.Arbitrum:
 			if gasEst := c.GasEstimatorMode(); gasEst != "FixedPrice" {
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q", gasEst, chains.Arbitrum, "FixedPrice"))
+					"must be %q", gasEst, config.Arbitrum, "FixedPrice"))
 			}
-		case chains.ExChain:
+		case config.ExChain:
 
-		case chains.Optimism:
+		case config.Optimism:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
 			case "Optimism", "Optimism2":
 			default:
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q or %q", gasEst, chains.Optimism, "Optimism", "Optimism2"))
+					"must be %q or %q", gasEst, config.Optimism, "Optimism", "Optimism2"))
 			}
-		case chains.XDai:
+		case config.XDai:
 
 		}
 	}
@@ -720,18 +719,18 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 	return c.EvmMaxGasPriceWei()
 }
 
-func (c *chainScopedConfig) ChainType() chains.ChainType {
+func (c *chainScopedConfig) ChainType() config.ChainType {
 	val, ok := c.GeneralConfig.GlobalChainType()
 	if ok {
 		c.logEnvOverrideOnce("ChainType", val)
-		return chains.ChainType(val)
+		return config.ChainType(val)
 	}
 	c.persistMu.RLock()
 	p := c.persistedCfg.ChainType
 	c.persistMu.RUnlock()
 	if p.Valid {
 		c.logPersistedOverrideOnce("ChainType", p.String)
-		return chains.ChainType(p.String)
+		return config.ChainType(p.String)
 	}
 	return c.defaultSet.chainType
 }

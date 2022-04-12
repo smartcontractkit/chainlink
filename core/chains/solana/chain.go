@@ -40,7 +40,7 @@ type chain struct {
 	cfg            config.Config
 	txm            *soltxm.Txm
 	balanceMonitor services.ServiceCtx
-	orm            db.ORM
+	orm            ORM
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
@@ -54,7 +54,7 @@ type cachedClient struct {
 }
 
 // NewChain returns a new chain backed by node.
-func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain db.Chain, orm db.ORM, lggr logger.Logger) (*chain, error) {
+func NewChain(db *sqlx.DB, ks keystore.Solana, logCfg pg.LogConfig, eb pg.EventBroadcaster, dbchain Chain, orm ORM, lggr logger.Logger) (*chain, error) {
 	cfg := config.NewConfig(dbchain.Cfg, lggr)
 	lggr = lggr.With("chainID", dbchain.ID, "chainSet", "solana")
 	var ch = chain{

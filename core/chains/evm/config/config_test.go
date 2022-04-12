@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -197,7 +197,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(chains.Arbitrum)),
+				ChainType:        null.StringFrom(string(config.Arbitrum)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
 			assert.Error(t, cfg.Validate())
@@ -225,7 +225,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(chains.Optimism)),
+				ChainType:        null.StringFrom(string(config.Optimism)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
 			assert.Error(t, cfg.Validate())

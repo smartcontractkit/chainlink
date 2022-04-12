@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -357,7 +356,7 @@ EVM_ENABLED=false
 			return errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
 	}
-	if ct, set := c.GlobalChainType(); set && !chains.ChainType(ct).IsValid() {
+	if ct, set := c.GlobalChainType(); set && !ChainType(ct).IsValid() {
 		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}
 
