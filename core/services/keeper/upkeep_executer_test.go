@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -57,10 +58,15 @@ func setup(t *testing.T) (
 ) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	cfg.Overrides.KeeperTurnLookBack = null.IntFrom(0)
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	block := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(1),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 	txm := new(txmmocks.TxManager)
 	txm.Test(t)
 	estimator := new(gasmocks.Estimator)
@@ -305,6 +311,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		require.Len(t, runs, 2)
 		assert.False(t, runs[1].HasErrors())
 		etxs[1].AwaitOrFail(t)
+
+		time.Sleep(30 * time.Second)
 		waitLastRunHeight(t, db, upkeep, 40)
 
 		ethMock.AssertExpectations(t)

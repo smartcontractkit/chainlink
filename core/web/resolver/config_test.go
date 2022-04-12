@@ -80,6 +80,7 @@ func TestResolver_Config(t *testing.T) {
 					KeeperMaximumGracePeriod:                  null.IntFrom(1),
 					KeeperRegistrySyncInterval:                nil,
 					KeeperRegistrySyncUpkeepQueueSize:         null.IntFrom(1),
+					KeeperTurnLookBack:                        null.IntFrom(0),
 					LogLevel:                                  &logLevel,
 					DefaultLogLevel:                           nil,
 					LogFileDir:                                null.StringFrom("foo"),
