@@ -171,7 +171,7 @@ contract KeeperRegistryDev is
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
-  event UpkeepImported(uint256 indexed id, uint256 startingBalance, address importedFrom);
+  event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event ConfigSet(Config config);
   event KeepersUpdated(address[] keepers, address[] payees);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
@@ -714,7 +714,7 @@ contract KeeperRegistryDev is
         upkeeps[idx].balance,
         checkDatas[idx]
       );
-      emit UpkeepImported(ids[idx], upkeeps[idx].balance, msg.sender);
+      emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
   }
 
