@@ -24,6 +24,18 @@ ds_multiply [type=multiply times=100];
 ds -> ds_parse -> ds_multiply;
 """
 `
+	CronSpecDotSep = `
+type                = "cron"
+schemaVersion       = 1
+schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
+externalJobID       =  "123e4567-e89b-12d3-a456-426655440013"
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data.price" separator="."];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+`
 	DirectRequestSpecNoExternalJobID = `
 type                = "directrequest"
 schemaVersion       = 1
