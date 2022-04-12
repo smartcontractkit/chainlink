@@ -340,7 +340,8 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 		testspecs.VRFSpecParams{
 			RequestedConfsDelay: 10,
-			FromAddresses:       fromAddresses}).
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25}).
 		Toml())
 	require.NoError(t, err)
 
@@ -350,9 +351,18 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var requestedConfsDelay int64
 	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
 	require.Equal(t, int64(10), requestedConfsDelay)
+	var batchFulfillmentEnabled bool
+	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
+	require.False(t, batchFulfillmentEnabled)
+	var batchFulfillmentGasMultiplier float64
+	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
+	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)
+	var chunkSize int
+	require.NoError(t, db.Get(&chunkSize, `SELECT chunk_size FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 25, chunkSize)
 	var fa pq.ByteaArray
 	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
 	var actual []string

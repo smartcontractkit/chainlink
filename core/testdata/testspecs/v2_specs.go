@@ -2,6 +2,7 @@ package testspecs
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -97,26 +98,21 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "local testing job"
 contractID = "VT3AvPr2nyE9Kr7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
-isBootstrapPeer = false
 p2pBootstrapPeers = []
 relay = "solana"
+pluginType = "median"
 transmitterID = "8AuzafoGEz92Z3WGFfKuEh2Ca794U3McLJBy7tfmDynK"
 observationSource = """
 """
+[pluginConfig]
 juelsPerFeeCoinSource = """
 """
 
 [relayConfig]
-nodeEndpointHTTP = "http://127.0.0.1:8899"
 ocr2ProgramID = "CF13pnKGJ1WJZeEgVAtFdUi4MMndXm9hneiHs8azUaZt"
 storeProgramID = "A7Jh2nb1hZHwqEofm4N8SXbKTj82rx7KUfjParQXUyMQ"
 transmissionsID = "J6RRmA39u8ZBwrMvRPrJA3LMdg73trb6Qhfo8vjSeadg"
-usePreflight       = true
-commitment         = "processed"
-txTimeout          = "1m"
-pollingInterval    = "2s"
-pollingCtxTimeout  = "4s"
-staleTimeout       = "30s"`
+chainID = "Chainlink-99"`
 	OCR2TerraSpecMinimal = `type = "offchainreporting2"
 schemaVersion = 1
 name = "local testing job"
@@ -239,16 +235,20 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 }
 
 type VRFSpecParams struct {
-	JobID                    string
-	Name                     string
-	CoordinatorAddress       string
-	MinIncomingConfirmations int
-	FromAddresses            []string
-	PublicKey                string
-	ObservationSource        string
-	RequestedConfsDelay      int
-	RequestTimeout           time.Duration
-	V2                       bool
+	JobID                         string
+	Name                          string
+	CoordinatorAddress            string
+	BatchCoordinatorAddress       string
+	BatchFulfillmentEnabled       bool
+	BatchFulfillmentGasMultiplier float64
+	MinIncomingConfirmations      int
+	FromAddresses                 []string
+	PublicKey                     string
+	ObservationSource             string
+	RequestedConfsDelay           int
+	RequestTimeout                time.Duration
+	V2                            bool
+	ChunkSize                     int
 }
 
 type VRFSpec struct {
@@ -273,6 +273,14 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.CoordinatorAddress != "" {
 		coordinatorAddress = params.CoordinatorAddress
 	}
+	batchCoordinatorAddress := "0x5C7B1d96CA3132576A84423f624C2c492f668Fea"
+	if params.BatchCoordinatorAddress != "" {
+		batchCoordinatorAddress = params.BatchCoordinatorAddress
+	}
+	batchFulfillmentGasMultiplier := 1.0
+	if params.BatchFulfillmentGasMultiplier >= 1.0 {
+		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier
+	}
 	confirmations := 6
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
@@ -284,6 +292,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
 		publicKey = params.PublicKey
+	}
+	chunkSize := 20
+	if params.ChunkSize != 0 {
+		chunkSize = params.ChunkSize
 	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
@@ -340,16 +352,23 @@ type = "vrf"
 schemaVersion = 1
 name = "%s"
 coordinatorAddress = "%s"
+batchCoordinatorAddress = "%s"
+batchFulfillmentEnabled = %v
+batchFulfillmentGasMultiplier = %s
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
 publicKey = "%s"
+chunkSize = %d
 observationSource = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay,
-		requestTimeout.String(), publicKey, observationSource)
+	toml := fmt.Sprintf(template,
+		jobID, name, coordinatorAddress, batchCoordinatorAddress,
+		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
+		confirmations, params.RequestedConfsDelay,
+		requestTimeout.String(), publicKey, chunkSize, observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
 		for _, address := range params.FromAddresses {
@@ -362,11 +381,14 @@ observationSource = """
 		JobID:                    jobID,
 		Name:                     name,
 		CoordinatorAddress:       coordinatorAddress,
+		BatchCoordinatorAddress:  batchCoordinatorAddress,
+		BatchFulfillmentEnabled:  params.BatchFulfillmentEnabled,
 		MinIncomingConfirmations: confirmations,
 		PublicKey:                publicKey,
 		ObservationSource:        observationSource,
 		RequestedConfsDelay:      params.RequestedConfsDelay,
 		RequestTimeout:           requestTimeout,
+		ChunkSize:                chunkSize,
 	}, toml: toml}
 }
 

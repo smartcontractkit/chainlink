@@ -106,7 +106,7 @@ func Test_EthKeyStore(t *testing.T) {
 		defer reset()
 		err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		assert.NoError(t, err)
-		sendingKeys1, err := ethKeyStore.SendingKeys()
+		sendingKeys1, err := ethKeyStore.SendingKeys(nil)
 		assert.NoError(t, err)
 
 		require.Equal(t, 1, len(sendingKeys1))
@@ -114,11 +114,33 @@ func Test_EthKeyStore(t *testing.T) {
 
 		err = ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		assert.NoError(t, err)
-		sendingKeys2, err := ethKeyStore.SendingKeys()
+		sendingKeys2, err := ethKeyStore.SendingKeys(nil)
 		assert.NoError(t, err)
 
 		require.Equal(t, 1, len(sendingKeys2))
 		require.Equal(t, sendingKeys1, sendingKeys2)
+	})
+
+	t.Run("SendingKeys with specified chain ID", func(t *testing.T) {
+		defer reset()
+		key, err := ethKeyStore.Create(testutils.FixtureChainID)
+		require.NoError(t, err)
+		key2, err := ethKeyStore.Create(big.NewInt(1337))
+		require.NoError(t, err)
+
+		keys, err := ethKeyStore.SendingKeys(testutils.FixtureChainID)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		require.Equal(t, key, keys[0])
+
+		keys, err = ethKeyStore.SendingKeys(big.NewInt(1337))
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		require.Equal(t, key2, keys[0])
+
+		keys, err = ethKeyStore.SendingKeys(nil)
+		require.NoError(t, err)
+		require.Len(t, keys, 2)
 	})
 }
 
@@ -132,22 +154,25 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	ethKeyStore := keyStore.Eth()
 
 	t.Run("should error when no addresses", func(t *testing.T) {
-		_, err := ethKeyStore.GetRoundRobinAddress()
+		_, err := ethKeyStore.GetRoundRobinAddress(nil)
 		require.Error(t, err)
 	})
 
-	// create 4 keys - 1 funding and 3 sending
+	// create 4 keys - 1 funding and 2 sending
 	err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
-	sendingKeys, err := ethKeyStore.SendingKeys()
+	sendingKeys, err := ethKeyStore.SendingKeys(nil)
 	assert.NoError(t, err)
 
 	k1 := sendingKeys[0]
 
 	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-	cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	sendingKeys, err = ethKeyStore.SendingKeys()
+	// create 1 funding and 1 sending key for a different chain
+	err = ethKeyStore.EnsureKeys(testutils.SimulatedChainID)
+	require.NoError(t, err)
+
+	sendingKeys, err = ethKeyStore.SendingKeys(nil)
 	assert.NoError(t, err)
 	require.Equal(t, 3, len(sendingKeys))
 
@@ -156,17 +181,17 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	require.Equal(t, 1, len(fundingKeys))
 
 	t.Run("with no address filter, rotates between all sending addresses", func(t *testing.T) {
-		address1, err := ethKeyStore.GetRoundRobinAddress()
+		address1, err := ethKeyStore.GetRoundRobinAddress(nil)
 		require.NoError(t, err)
-		address2, err := ethKeyStore.GetRoundRobinAddress()
+		address2, err := ethKeyStore.GetRoundRobinAddress(nil)
 		require.NoError(t, err)
-		address3, err := ethKeyStore.GetRoundRobinAddress()
+		address3, err := ethKeyStore.GetRoundRobinAddress(nil)
 		require.NoError(t, err)
-		address4, err := ethKeyStore.GetRoundRobinAddress()
+		address4, err := ethKeyStore.GetRoundRobinAddress(nil)
 		require.NoError(t, err)
-		address5, err := ethKeyStore.GetRoundRobinAddress()
+		address5, err := ethKeyStore.GetRoundRobinAddress(nil)
 		require.NoError(t, err)
-		address6, err := ethKeyStore.GetRoundRobinAddress()
+		address6, err := ethKeyStore.GetRoundRobinAddress(nil)
 		require.NoError(t, err)
 
 		require.NotEqual(t, address1, address2)
@@ -181,13 +206,13 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 		// fundingKeys[0] is a funding address so even though it's whitelisted, it will be ignored
 		addresses := []common.Address{fundingKeys[0].Address.Address(), k1.Address.Address(), k2.Address.Address(), testutils.NewAddress()}
 
-		address1, err := ethKeyStore.GetRoundRobinAddress(addresses...)
+		address1, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
 		require.NoError(t, err)
-		address2, err := ethKeyStore.GetRoundRobinAddress(addresses...)
+		address2, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
 		require.NoError(t, err)
-		address3, err := ethKeyStore.GetRoundRobinAddress(addresses...)
+		address3, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
 		require.NoError(t, err)
-		address4, err := ethKeyStore.GetRoundRobinAddress(addresses...)
+		address4, err := ethKeyStore.GetRoundRobinAddress(nil, addresses...)
 		require.NoError(t, err)
 
 		require.True(t, address1 == k1.Address.Address() || address1 == k2.Address.Address())
@@ -198,9 +223,27 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	t.Run("with address filter when no address matches", func(t *testing.T) {
-		_, err := ethKeyStore.GetRoundRobinAddress([]common.Address{testutils.NewAddress()}...)
+		addr := testutils.NewAddress()
+		_, err := ethKeyStore.GetRoundRobinAddress(nil, []common.Address{addr}...)
 		require.Error(t, err)
-		require.Equal(t, "no keys available", err.Error())
+		require.Equal(t, fmt.Sprintf("no sending keys available that match whitelist: [%s]", addr.Hex()), err.Error())
+	})
+
+	t.Run("with non-nil chain ID, filters by chain ID", func(t *testing.T) {
+		sendingKeys, err := ethKeyStore.SendingKeys(testutils.SimulatedChainID)
+		assert.NoError(t, err)
+		require.Len(t, sendingKeys, 1)
+		k := sendingKeys[0]
+		address1, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID)
+		require.NoError(t, err)
+		address2, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID)
+		require.NoError(t, err)
+		address3, err := ethKeyStore.GetRoundRobinAddress(testutils.SimulatedChainID)
+		require.NoError(t, err)
+
+		require.Equal(t, k.Address.Address(), address1)
+		require.Equal(t, k.Address.Address(), address2)
+		require.Equal(t, k.Address.Address(), address3)
 	})
 }
 

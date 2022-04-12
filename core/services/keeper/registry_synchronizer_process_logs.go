@@ -20,13 +20,8 @@ func (rs *RegistrySynchronizer) processLogs() {
 
 func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	defer done()
-	i, exists := rs.mailRoom.mbSyncRegistry.Retrieve()
+	broadcast, exists := rs.mailRoom.mbSyncRegistry.Retrieve()
 	if !exists {
-		return
-	}
-	broadcast, ok := i.(log.Broadcast)
-	if !ok {
-		rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
 		return
 	}
 	txHash := broadcast.RawLog().TxHash.Hex()
@@ -52,14 +47,9 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 	defer done()
 	for {
-		i, exists := rs.mailRoom.mbUpkeepCanceled.Retrieve()
+		broadcast, exists := rs.mailRoom.mbUpkeepCanceled.Retrieve()
 		if !exists {
 			return
-		}
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
-			continue
 		}
 		rs.handleUpkeepCancelled(broadcast)
 	}
@@ -101,14 +91,9 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 		return
 	}
 	for {
-		i, exists := rs.mailRoom.mbUpkeepRegistered.Retrieve()
+		broadcast, exists := rs.mailRoom.mbUpkeepRegistered.Retrieve()
 		if !exists {
 			return
-		}
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
-			continue
 		}
 		rs.HandleUpkeepRegistered(broadcast, registry)
 	}
@@ -143,14 +128,9 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 	defer done()
 	for {
-		i, exists := rs.mailRoom.mbUpkeepPerformed.Retrieve()
+		broadcast, exists := rs.mailRoom.mbUpkeepPerformed.Retrieve()
 		if !exists {
 			return
-		}
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
-			continue
 		}
 		rs.handleUpkeepPerformed(broadcast)
 	}
