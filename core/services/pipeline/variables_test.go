@@ -101,10 +101,10 @@ func TestVars_Get(t *testing.T) {
 		})
 
 		_, err := vars.Get("foo.4")
-		require.ErrorIs(t, err, pipeline.ErrKeypathNotFound)
+		require.ErrorIs(t, err, pipeline.ErrIndexOutOfRange)
 
 		_, err = vars.Get("foo.-1")
-		require.ErrorIs(t, err, pipeline.ErrKeypathNotFound)
+		require.ErrorIs(t, err, pipeline.ErrIndexOutOfRange)
 	})
 }
 
