@@ -430,6 +430,8 @@ juelsPerFeeCoinSource = "1000000000"
         batchFulfillmentEnabled: true,
         batchFulfillmentGasMultiplier: 1.0,
         chunkSize: 25,
+        backoffInitialDelay: '1m',
+        backoffMaxDelay: '1h',
       },
       observationSource:
         '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
@@ -452,6 +454,8 @@ batchCoordinatorAddress = "0x0000000000000000000000000000000000000000"
 batchFulfillmentEnabled = true
 batchFulfillmentGasMultiplier = 1
 chunkSize = 25
+backoffInitialDelay = "1m"
+backoffMaxDelay = "1h"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
