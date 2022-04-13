@@ -27,7 +27,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	keeper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/sessions"

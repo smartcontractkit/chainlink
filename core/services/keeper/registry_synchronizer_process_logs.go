@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
@@ -67,7 +67,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	if was {
 		return
 	}
-	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepCanceled)
+	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper1_1.KeeperRegistryUpkeepCanceled)
 	if !ok {
 		rs.logger.AssumptionViolationf("expected UpkeepCanceled log but got %T", broadcastedLog)
 		return
@@ -111,7 +111,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 	if was {
 		return
 	}
-	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepRegistered)
+	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper1_1.KeeperRegistryUpkeepRegistered)
 	if !ok {
 		rs.logger.AssumptionViolationf("expected UpkeepRegistered log but got %T", broadcastedLog)
 		return
@@ -150,7 +150,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		return
 	}
 
-	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepPerformed)
+	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper1_1.KeeperRegistryUpkeepPerformed)
 	if !ok {
 		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return

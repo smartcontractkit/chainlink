@@ -4,11 +4,11 @@ import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
 import { BigNumber, Signer, BigNumberish } from 'ethers'
 import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
-import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { KeeperRegistry11__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry11__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
-import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { KeeperRegistry11 as KeeperRegistry } from '../../typechain/KeeperRegistry11'
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
@@ -42,7 +42,8 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
+  // @ts-ignore bug in autogen file
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry1_1')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
 })

@@ -1,21 +1,16 @@
 // SPDX-License-Identifier: MIT
-/*
- * This is a development version of KeeperRegistry. Once it's audited and finalised
- * it will be copied to KeeperRegistry
- */
-
 pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../KeeperBase.sol";
-import "../ConfirmedOwner.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/KeeperCompatibleInterface.sol";
+import "./KeeperBase.sol";
+import "./ConfirmedOwner.sol";
+import "./interfaces/TypeAndVersionInterface.sol";
+import "./interfaces/AggregatorV3Interface.sol";
+import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/KeeperCompatibleInterface.sol";
 import "./interfaces/KeeperRegistryInterface.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
@@ -24,7 +19,7 @@ import "./interfaces/UpkeepTranscoderInterface.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistryDev is
+contract KeeperRegistry is
   TypeAndVersionInterface,
   ConfirmedOwner,
   KeeperBase,
