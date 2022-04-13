@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.18.1
 	github.com/rs/zerolog v1.26.1
 	github.com/satori/go.uuid v1.2.0
-	github.com/smartcontractkit/helmenv v1.0.60
+	github.com/smartcontractkit/helmenv v1.0.38
 	github.com/smartcontractkit/integrations-framework v1.0.52
 )
 
