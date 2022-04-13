@@ -26,7 +26,7 @@ import (
 func TestPopulateLoadedDB(t *testing.T) {
 	t.Skip("only for local load testing and query analysis")
 	lggr := logger.TestLogger(t)
-	_, db := heavyweight.FullTestDB(t, "logs_scale", true, false)
+	_, db := heavyweight.FullTestDB(t, "logs_scale")
 	chainID := big.NewInt(137)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
 	require.NoError(t, err)
