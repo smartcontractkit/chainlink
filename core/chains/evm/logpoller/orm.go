@@ -56,7 +56,7 @@ func (o *ORM) SelectBlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, e
 func (o *ORM) SelectLatestBlock(qopts ...pg.QOpt) (*LogPollerBlock, error) {
 	q := o.q.WithOpts(qopts...)
 	var b LogPollerBlock
-	if err := q.Get(&b, `SELECT * FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number LIMIT 1`, utils.NewBig(o.chainID)); err != nil {
+	if err := q.Get(&b, `SELECT * FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1`, utils.NewBig(o.chainID)); err != nil {
 		return nil, err
 	}
 	return &b, nil

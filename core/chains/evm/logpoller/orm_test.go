@@ -31,8 +31,9 @@ func TestORM(t *testing.T) {
 	assert.Equal(t, b.BlockHash.Bytes(), common.HexToHash("0x1234").Bytes())
 	assert.Equal(t, b.EvmChainId.String(), "137")
 
-	// Insert another block from a different chain
+	// Insert blocks from a different chain
 	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1234"), 11))
+	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1234"), 12))
 	b2, err := o2.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.NoError(t, err)
 	assert.Equal(t, b2.BlockNumber, int64(11))
@@ -45,7 +46,7 @@ func TestORM(t *testing.T) {
 
 	latest, err = o2.SelectLatestBlock()
 	require.NoError(t, err)
-	assert.Equal(t, int64(11), latest.BlockNumber)
+	assert.Equal(t, int64(12), latest.BlockNumber)
 
 	// Delete a block
 	require.NoError(t, o1.DeleteRangeBlocks(10, 10))
