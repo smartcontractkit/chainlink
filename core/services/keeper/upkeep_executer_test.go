@@ -311,8 +311,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		require.Len(t, runs, 2)
 		assert.False(t, runs[1].HasErrors())
 		etxs[1].AwaitOrFail(t)
-
-		time.Sleep(30 * time.Second)
 		waitLastRunHeight(t, db, upkeep, 40)
 
 		ethMock.AssertExpectations(t)

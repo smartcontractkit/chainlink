@@ -147,9 +147,9 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		ex.logger.With("error", err).Error("unable to load registry")
 		return
 	}
-	turnBinary, err := ex.turnBinary(registry, head, ex.config.KeeperTurnLookBack())
+	turnBinary, err := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
 	if err != nil {
-		ex.logger.With("error", err).Error("unable to get turn block number")
+		ex.logger.With("error", err).Error("unable to get turn block number hash")
 		return
 	}
 
@@ -280,7 +280,7 @@ func addBuffer(val *big.Int, prct uint32) *big.Int {
 	)
 }
 
-func (ex *UpkeepExecuter) turnBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
+func (ex *UpkeepExecuter) turnBlockHashBinary(registry Registry, head *evmtypes.Head, lookback int64) (string, error) {
 	turnBlock := head.Number - (head.Number % int64(registry.BlockCountPerTurn)) - lookback
 	block, err := ex.ethClient.BlockByNumber(context.Background(), big.NewInt(turnBlock))
 	if err != nil {
