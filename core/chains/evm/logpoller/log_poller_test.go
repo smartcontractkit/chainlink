@@ -94,7 +94,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Test scenario: single block in chain, no logs.
 	// Chain genesis <- 1
 	// DB: empty
-	newStart := lp.PollAndSaveLogs(context.Background(), 1)
+	newStart := lp.pollAndSaveLogs(context.Background(), 1)
 	assert.Equal(t, int64(2), newStart)
 
 	// We expect to have saved block 1.
@@ -110,7 +110,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	assertHaveCanonical(t, 1, 1, ec, orm)
 
 	// Polling again should be a noop, since we are at the latest.
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(2), newStart)
 	latest, err := orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	ec.Commit()
 
 	// Polling should get us the L1 log.
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(3), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -159,7 +159,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 3 (we need a new block for us to do any polling and detect the reorg).
 	ec.Commit()
 
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(4), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -180,7 +180,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	ec.Commit()
 	// Create 4
 	ec.Commit()
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(5), newStart)
 	latest, err = orm.SelectLatestBlock()
 	require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	// Create 5
 	ec.Commit()
 
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(7), newStart)
 	lgs, err = orm.selectLogsByBlockRange(4, 6)
 	require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		ec.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(10), newStart)
 	lgs, err = orm.selectLogsByBlockRange(7, 9)
 	require.NoError(t, err)
@@ -265,7 +265,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 		require.NoError(t, err)
 		ec.Commit()
 	}
-	newStart = lp.PollAndSaveLogs(context.Background(), newStart)
+	newStart = lp.pollAndSaveLogs(context.Background(), newStart)
 	assert.Equal(t, int64(16), newStart)
 	lgs, err = orm.selectLogsByBlockRange(10, 15)
 	require.NoError(t, err)

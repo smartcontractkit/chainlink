@@ -143,7 +143,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+	logPoller := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
 
 	// AddDependent for this chain
 	// log broadcaster will not start until dependent ready is called by a
@@ -161,7 +161,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		headBroadcaster: headBroadcaster,
 		headTracker:     headTracker,
 		logBroadcaster:  logBroadcaster,
-		logPoller:       lp,
+		logPoller:       logPoller,
 		balanceMonitor:  balanceMonitor,
 		keyStore:        opts.KeyStore,
 	}, nil

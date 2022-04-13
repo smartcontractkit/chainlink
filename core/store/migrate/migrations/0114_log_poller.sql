@@ -21,10 +21,9 @@ CREATE TABLE log_poller_blocks (
     block_hash bytea NOT NULL,
     block_number bigint NOT NULL,
     created_at timestamptz NOT NULL,
-    PRIMARY KEY (block_hash, evm_chain_id),
     -- Only permit one block_number at a time
     -- i.e. the poller is only ever aware of the canonical branch
-    UNIQUE (evm_chain_id, block_number)
+    PRIMARY KEY (block_number, evm_chain_id)
 );
 
 -- +goose Down
