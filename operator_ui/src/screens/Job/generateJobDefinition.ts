@@ -204,6 +204,7 @@ export const generateJobDefinition = (
           'pollPeriod',
           'publicKey',
           'requestedConfsDelay',
+          'requestTimeout',
           'batchCoordinatorAddress',
           'batchFulfillmentEnabled',
           'batchFulfillmentGasMultiplier',

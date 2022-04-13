@@ -90,6 +90,7 @@ const JOB_PAYLOAD__SPEC = gql`
       batchFulfillmentEnabled
       batchFulfillmentGasMultiplier
       chunkSize
+      requestTimeout
     }
     ... on BlockhashStoreSpec {
       coordinatorV1Address
