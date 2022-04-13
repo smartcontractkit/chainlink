@@ -88,6 +88,7 @@ func TestConfigSchema(t *testing.T) {
 		"EvmMaxQueuedTransactions":                       "ETH_MAX_QUEUED_TRANSACTIONS",
 		"EvmMinGasPriceWei":                              "ETH_MIN_GAS_PRICE_WEI",
 		"EvmNonceAutoSync":                               "ETH_NONCE_AUTO_SYNC",
+		"EvmUseForwarders":                               "ETH_USE_FORWARDERS",
 		"EvmRPCDefaultBatchSize":                         "ETH_RPC_DEFAULT_BATCH_SIZE",
 		"ExplorerAccessKey":                              "EXPLORER_ACCESS_KEY",
 		"ExplorerSecret":                                 "EXPLORER_SECRET",
