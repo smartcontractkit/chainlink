@@ -288,6 +288,7 @@ type VRFSpec struct {
 	UpdatedAt                     time.Time             `json:"updatedAt"`
 	EVMChainID                    *utils.Big            `json:"evmChainID"`
 	ChunkSize                     uint32                `json:"chunkSize"`
+	RequestTimeout                models.Duration       `json:"requestTimeout"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
@@ -303,6 +304,7 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		UpdatedAt:                spec.UpdatedAt,
 		EVMChainID:               spec.EVMChainID,
 		ChunkSize:                spec.ChunkSize,
+		RequestTimeout:           models.MustMakeDuration(spec.RequestTimeout),
 	}
 }
 
