@@ -335,6 +335,8 @@ func createVRFJobs(
 			MinIncomingConfirmations: incomingConfs,
 			PublicKey:                vrfkey.PublicKey.String(),
 			FromAddresses:            keyStrs,
+			BackoffInitialDelay:      10 * time.Millisecond,
+			BackoffMaxDelay:          time.Second,
 			V2:                       true,
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)

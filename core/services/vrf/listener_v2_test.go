@@ -3,6 +3,7 @@ package vrf
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -169,4 +171,95 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 		},
 	}, uint32(nodeMinConfs))
 	require.Equal(t, uint64(200), confirmedAt) // log block number + # of confirmations
+}
+
+func TestListener_Backoff(t *testing.T) {
+	var tests = []struct {
+		name     string
+		initial  time.Duration
+		max      time.Duration
+		last     time.Duration
+		retries  int
+		expected bool
+	}{
+		{
+			name:     "Backoff disabled, ready",
+			expected: true,
+		},
+		{
+			name:     "First try, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     0,
+			retries:  0,
+			expected: true,
+		},
+		{
+			name:     "Second try, not ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     59 * time.Second,
+			retries:  1,
+			expected: false,
+		},
+		{
+			name:     "Second try, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     61 * time.Second, // Last try was over a minute ago
+			retries:  1,
+			expected: true,
+		},
+		{
+			name:     "Third try, not ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     77 * time.Second, // Slightly less than backoffFactor * initial
+			retries:  2,
+			expected: false,
+		},
+		{
+			name:     "Third try, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     79 * time.Second, // Slightly more than backoffFactor * initial
+			retries:  2,
+			expected: true,
+		},
+		{
+			name:     "Max, not ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     59 * time.Minute, // Slightly less than max
+			retries:  900,
+			expected: false,
+		},
+		{
+			name:     "Max, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     61 * time.Minute, // Slightly more than max
+			retries:  900,
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			lsn := &listenerV2{job: job.Job{
+				VRFSpec: &job.VRFSpec{
+					BackoffInitialDelay: test.initial,
+					BackoffMaxDelay:     test.max,
+				},
+			}}
+
+			req := pendingRequest{
+				confirmedAtBlock: 5,
+				attempts:         test.retries,
+				lastTry:          time.Now().Add(-test.last),
+			}
+
+			require.Equal(t, test.expected, lsn.ready(req, 10))
+		})
+	}
 }
