@@ -1,29 +1,21 @@
-/*
- * This test is for KeeperRegistrarDev contract which is the development version of
- * UpkeepRegistrationRequests (to be renamed to KeeperRegistrar). Until it's audited
- * and finalised this test will be used for development. There are 2 places marked in
- * the test which will need to be changed when these tests are ported back to the prod version
- */
-
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
-import { evmRevert } from '../../test-helpers/matchers'
-import { getUsers, Personas } from '../../test-helpers/setup'
+import { evmRevert } from '../test-helpers/matchers'
+import { getUsers, Personas } from '../test-helpers/setup'
 import { BigNumber, Signer } from 'ethers'
-import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
+import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
 
-import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
-import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
-// These 4 dependencies are mocked from Dev
-import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
-import { KeeperRegistrarDev as KeeperRegistrar } from '../../../typechain/KeeperRegistrarDev'
-import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
-import { KeeperRegistrarDev__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrarDev__factory'
+import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
+import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
+import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { KeeperRegistrar } from '../../typechain/KeeperRegistrar'
+import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { KeeperRegistrar__factory as KeeperRegistrarFactory } from '../../typechain/factories/KeeperRegistrar__factory'
 
-import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
-import { LinkToken } from '../../../typechain/LinkToken'
-import { UpkeepMock } from '../../../typechain/UpkeepMock'
-import { toWei } from '../../test-helpers/helpers'
+import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
+import { LinkToken } from '../../typechain/LinkToken'
+import { UpkeepMock } from '../../typechain/UpkeepMock'
+import { toWei } from '../test-helpers/helpers'
 
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
@@ -40,9 +32,8 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
-  // Lifts the Dev contract
-  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrarDev')
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
+  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrar')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
 

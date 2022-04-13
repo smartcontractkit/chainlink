@@ -18,7 +18,7 @@ import (
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -30,7 +30,7 @@ import (
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
 const syncUpkeepQueueSize = 10
 
-var registryConfig = keeper_registry_wrapper.GetConfig{
+var registryConfig = keeper_registry_wrapper1_1.GetConfig{
 	PaymentPremiumPPB: 100,
 	BlockCountPerTurn: big.NewInt(20),
 	CheckGasLimit:     2_000_000,
@@ -39,7 +39,7 @@ var registryConfig = keeper_registry_wrapper.GetConfig{
 	FallbackLinkPrice: big.NewInt(1000000),
 }
 
-var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
+var upkeepConfig = keeper_registry_wrapper1_1.GetUpkeep{
 	Target:              testutils.NewAddress(),
 	ExecuteGas:          2_000_000,
 	CheckData:           common.Hex2Bytes("1234"),
@@ -69,7 +69,7 @@ func setupRegistrySync(t *testing.T) (
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
-	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
+	contract, err := keeper_registry_wrapper1_1.NewKeeperRegistry(
 		contractAddress,
 		ethClient,
 	)
@@ -210,7 +210,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
-	log := keeper_registry_wrapper.KeeperRegistryConfigSet{}
+	log := keeper_registry_wrapper1_1.KeeperRegistryConfigSet{}
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
@@ -254,7 +254,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
-	log := keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}
+	log := keeper_registry_wrapper1_1.KeeperRegistryKeepersUpdated{}
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
@@ -294,7 +294,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
-	log := keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{Id: big.NewInt(1)}
+	log := keeper_registry_wrapper1_1.KeeperRegistryUpkeepCanceled{Id: big.NewInt(1)}
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
@@ -331,7 +331,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
-	log := keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{Id: big.NewInt(3)}
+	log := keeper_registry_wrapper1_1.KeeperRegistryUpkeepRegistered{Id: big.NewInt(3)}
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
@@ -372,7 +372,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	head := cltest.MustInsertHead(t, db, cfg, 1)
 	rawLog := types.Log{BlockHash: head.Hash, BlockNumber: 200}
-	log := keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{Id: big.NewInt(0), From: fromAddress}
+	log := keeper_registry_wrapper1_1.KeeperRegistryUpkeepPerformed{Id: big.NewInt(0), From: fromAddress}
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)

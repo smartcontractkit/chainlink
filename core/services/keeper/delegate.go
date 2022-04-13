@@ -6,7 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -64,7 +64,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	}
 
 	contractAddress := spec.KeeperSpec.ContractAddress
-	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
+	contract, err := keeper_registry_wrapper1_1.NewKeeperRegistry(
 		contractAddress.Address(),
 		chain.Client(),
 	)

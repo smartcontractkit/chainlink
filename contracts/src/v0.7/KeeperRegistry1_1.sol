@@ -19,7 +19,7 @@ import "./ConfirmedOwner.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry is
+contract KeeperRegistry1_1 is
   TypeAndVersionInterface,
   ConfirmedOwner,
   KeeperBase,
@@ -65,11 +65,10 @@ contract KeeperRegistry is
 
   /**
    * @notice versions:
-   * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 1.2.0";
+  string public constant override typeAndVersion = "KeeperRegistry 1.1.0";
 
   struct Upkeep {
     address target;

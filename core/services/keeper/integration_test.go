@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -84,7 +84,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
 			require.NoError(t, err)
-			regAddr, _, registryContract, err := keeper_registry_wrapper.DeployKeeperRegistry(steve, backend, linkAddr, linkFeedAddr, gasFeedAddr, 250_000_000, 0, big.NewInt(1), 20_000_000, big.NewInt(3600), 1, big.NewInt(60000000000), big.NewInt(20000000000000000))
+			regAddr, _, registryContract, err := keeper_registry_wrapper1_1.DeployKeeperRegistry(steve, backend, linkAddr, linkFeedAddr, gasFeedAddr, 250_000_000, 0, big.NewInt(1), 20_000_000, big.NewInt(3600), 1, big.NewInt(60000000000), big.NewInt(20000000000000000))
 			require.NoError(t, err)
 			upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 			require.NoError(t, err)
