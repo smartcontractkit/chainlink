@@ -272,6 +272,10 @@ func TestResolver_Config(t *testing.T) {
         "value": "false"
       },
       {
+        "key": "KEEPER_TURN_LOOK_BACK",
+        "value": "0"
+      },
+      {
         "key": "LEASE_LOCK_DURATION",
         "value": "10s"
       },
