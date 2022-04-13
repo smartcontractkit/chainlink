@@ -59,22 +59,34 @@ func (txm *Txm) run() {
 	defer close(txm.done)
 	ctx, cancel := utils.ContextFromChan(txm.stop)
 	defer cancel()
+
+	var client solanaClient.ReaderWriter
 	for {
 		select {
 		case tx := <-txm.queue:
-			// TODO: this section could be better optimized for sending TXs quickly
-			// fetch client
-			client, err := txm.tc()
-			if err != nil {
-				txm.lggr.Errorw("failed to get client", "err", err)
-				continue
+			// fetch client (only if it doesn't exist, reduce need for db read each time)
+			if client == nil {
+				newClient, err := txm.tc()
+				if err != nil {
+					txm.lggr.Errorw("failed to get client", "err", err)
+					continue
+				}
+				client = newClient
 			}
 			// process tx
 			sig, err := client.SendTx(ctx, tx)
 			if err != nil {
 				txm.lggr.Criticalw("failed to send transaction", "err", err)
+				client = nil // clear client if tx fails immediately (potentially bad RPC)
 				continue
 			}
+
+			// start exponential retry
+
+			// send signature to confirmer
+
+			// send tx + signature for simulation
+
 			txm.lggr.Debugw("successfully sent transaction", "signature", sig.String())
 		case <-txm.stop:
 			return
