@@ -616,6 +616,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 						RequestTimeout:                24 * time.Hour,
 						ChunkSize:                     25,
 						BatchFulfillmentGasMultiplier: 1,
+						BackoffInitialDelay:           time.Minute,
+						BackoffMaxDelay:               time.Hour,
 					},
 				}, nil)
 			},
@@ -639,6 +641,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 									batchFulfillmentEnabled
 									batchFulfillmentGasMultiplier
 									chunkSize
+									backoffInitialDelay
+									backoffMaxDelay
 								}
 							}
 						}
@@ -662,7 +666,9 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"batchCoordinatorAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
 							"batchFulfillmentEnabled": true,
 							"batchFulfillmentGasMultiplier": 1,
-							"chunkSize": 25
+							"chunkSize": 25,
+							"backoffInitialDelay": "1m0s",
+							"backoffMaxDelay": "1h0m0s" 
 						}
 					}
 				}
