@@ -73,6 +73,7 @@ type ChainCfg struct {
 	EvmLogBackfillBatchSize                        null.Int
 	EvmMaxGasPriceWei                              *utils.Big
 	EvmNonceAutoSync                               null.Bool
+	EvmUseForwarders                               null.Bool
 	EvmRPCDefaultBatchSize                         null.Int
 	FlagsContractAddress                           null.String
 	GasEstimatorMode                               null.String
