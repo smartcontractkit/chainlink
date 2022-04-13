@@ -21,11 +21,8 @@ var _ types.ORM = (*orm)(nil)
 // NewORM returns an ORM backed by db.
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) types.ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
-	const createNodeSQL = `INSERT INTO terra_nodes (name, terra_chain_id, tendermint_url, created_at, updated_at)
-	VALUES (:name, :terra_chain_id, :tendermint_url, now(), now())
-	RETURNING *;`
 	return &orm{
-		chains.NewChainsORM[string, terradb.ChainCfg, types.Chain](q, "terra_chains"),
-		chains.NewNodesORM[string, types.NewNode, terradb.Node](q, "terra_nodes", "terra_chain_id", createNodeSQL),
+		chains.NewChainsORM[string, terradb.ChainCfg, types.Chain](q, "terra"),
+		chains.NewNodesORM[string, types.NewNode, terradb.Node](q, "terra", "tendermint_url"),
 	}
 }

@@ -39,11 +39,8 @@ var _ ORM = (*orm)(nil)
 // NewORM returns an ORM backed by db.
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
-	const createNodeSQL = `INSERT INTO solana_nodes (name, solana_chain_id, solana_url, created_at, updated_at)
-	VALUES (:name, :solana_chain_id, :solana_url, now(), now())
-	RETURNING *;`
 	return &orm{
-		chains.NewChainsORM[string, soldb.ChainCfg, Chain](q, "solana_chains"),
-		chains.NewNodesORM[string, soldb.NewNode, soldb.Node](q, "solana_nodes", "solana_chain_id", createNodeSQL),
+		chains.NewChainsORM[string, soldb.ChainCfg, Chain](q, "solana"),
+		chains.NewNodesORM[string, soldb.NewNode, soldb.Node](q, "solana", "solana_url"),
 	}
 }
