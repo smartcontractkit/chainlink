@@ -65,6 +65,7 @@ type (
 		nodePollInterval                               time.Duration
 
 		nonceAutoSync       bool
+		useForwarders       bool
 		rpcDefaultBatchSize uint32
 		// set true if fully configured
 		complete bool
@@ -139,6 +140,7 @@ func setChainSpecificConfigDefaultSets() {
 		nodePollFailureThreshold:              5,
 		nodePollInterval:                      10 * time.Second,
 		nonceAutoSync:                         true,
+		useForwarders:                         false,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
 		ocrDatabaseTimeout:                    10 * time.Second,
