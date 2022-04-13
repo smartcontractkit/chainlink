@@ -494,7 +494,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)

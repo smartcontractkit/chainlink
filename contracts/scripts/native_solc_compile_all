@@ -25,6 +25,7 @@ $SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
+$SCRIPTPATH/native_solc7_compile AuthorizedForwarder.sol
 $SCRIPTPATH/native_solc7_compile tests/Consumer.sol
 $SCRIPTPATH/native_solc7_compile tests/VRFCoordinatorMock.sol
 
