@@ -105,6 +105,8 @@ type VRFSpec {
     batchFulfillmentEnabled: Boolean!
     batchFulfillmentGasMultiplier: Float!
     chunkSize: Int!
+    backoffInitialDelay: String!
+    backoffMaxDelay: String!
 }
 
 type WebhookSpec {

@@ -209,6 +209,8 @@ export const generateJobDefinition = (
           'batchFulfillmentEnabled',
           'batchFulfillmentGasMultiplier',
           'chunkSize',
+          'backoffInitialDelay',
+          'backoffMaxDelay',
         ),
         ...extractObservationSourceField(job),
       }
