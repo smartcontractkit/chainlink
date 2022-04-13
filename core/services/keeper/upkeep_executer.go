@@ -182,8 +182,8 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	defer done()
 
 	start := time.Now()
-	svcLogger := ex.logger.With("blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
-	svcLogger.Debug("checking upkeep")
+	svcLogger := ex.logger.With("jobID", ex.job.ID, "blockNum", head.Number, "upkeepID", upkeep.UpkeepID)
+	svcLogger.Debug("checking upkeep", "lastRunBlockHeight", upkeep.LastRunBlockHeight, "lastKeeperIndex", upkeep.LastKeeperIndex)
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
@@ -240,6 +240,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 		if err != nil {
 			svcLogger.With("error", err).Error("failed to set last run height for upkeep")
 		}
+		svcLogger.Debugw("execute pipeline status completed", "fromAddr", upkeep.Registry.FromAddress)
 
 		elapsed := time.Since(start)
 		promCheckUpkeepExecutionTime.
