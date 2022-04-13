@@ -21,7 +21,7 @@ func newAdvisoryLock(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfi
 }
 
 func Test_AdvisoryLock(t *testing.T) {
-	cfg, db := heavyweight.EmptyFullTestDB(t, "advisorylock")
+	cfg, db := heavyweight.FullTestDBEmpty(t, "advisorylock")
 	check := 1 * time.Second
 	cfg.Overrides.AdvisoryLockCheckInterval = &check
 

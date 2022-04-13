@@ -46,8 +46,8 @@ import (
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0700)
 
-// PristineDBName is a clean copy of test DB
-// Used by heavyweight.FullTestDB()
+// PristineDBName is a clean copy of test DB with migrations.
+// Used by heavyweight.FullTestDB* functions.
 const PristineDBName = "chainlink_test_pristine"
 
 // RunNode starts the Chainlink core.

@@ -34,7 +34,7 @@ import (
 )
 
 func TestTxm_Integration(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBWithoutFixtures(t, "terra_txm")
+	cfg, db := heavyweight.FullTestDBNoFixtures(t, "terra_txm")
 	lggr := logger.TestLogger(t)
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	logCfg := pgtest.NewPGCfg(true)

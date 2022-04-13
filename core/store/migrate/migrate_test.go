@@ -60,7 +60,7 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 }
 
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
-	_, db := heavyweight.EmptyFullTestDB(t, migrationDir)
+	_, db := heavyweight.FullTestDBEmpty(t, migrationDir)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	err := goose.UpTo(db.DB, migrationDir, 99)
@@ -330,7 +330,7 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 }
 
 func TestMigrate_101_GenericOCR2(t *testing.T) {
-	_, db := heavyweight.EmptyFullTestDB(t, migrationDir)
+	_, db := heavyweight.FullTestDBEmpty(t, migrationDir)
 	err := goose.UpTo(db.DB, migrationDir, 100)
 	require.NoError(t, err)
 

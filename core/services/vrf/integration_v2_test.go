@@ -1616,7 +1616,7 @@ func TestFulfillmentCost(t *testing.T) {
 }
 
 func TestStartingCountsV1(t *testing.T) {
-	cfg, db := heavyweight.FullTestDBWithoutFixtures(t, "vrf_test_starting_counts")
+	cfg, db := heavyweight.FullTestDBNoFixtures(t, "vrf_test_starting_counts")
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES (1337, NOW(), NOW())`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO evm_heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)

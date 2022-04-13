@@ -34,13 +34,13 @@ func FullTestDB(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx
 	return prepareFullTestDB(t, name, false, true)
 }
 
-// FullTestDBWithoutFixtures is the same as FullTestDB, but it does not load fixtures.
-func FullTestDBWithoutFixtures(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
+// FullTestDBNoFixtures is the same as FullTestDB, but it does not load fixtures.
+func FullTestDBNoFixtures(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
 	return prepareFullTestDB(t, name, false, false)
 }
 
-// EmptyFullTestDB creates an empty DB (without migrations).
-func EmptyFullTestDB(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
+// FullTestDBEmpty creates an empty DB (without migrations).
+func FullTestDBEmpty(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
 	return prepareFullTestDB(t, name, true, false)
 }
 
