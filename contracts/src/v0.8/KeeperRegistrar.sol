@@ -95,6 +95,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner {
   error SenderMismatch();
   error FunctionNotPermitted();
   error LinkTransferFailed(address to);
+  error InvalidDataLength();
 
   /*
    * @param LINKAddress Address of Link token
@@ -298,6 +299,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner {
     uint256 amount,
     bytes calldata data
   ) external onlyLINK permittedFunctionsForLINK(data) isActualAmount(amount, data) isActualSender(sender, data) {
+    if (data.length < 292) revert InvalidDataLength();
     if (amount < s_config.minLINKJuels) {
       revert InsufficientPayment();
     }
@@ -373,7 +375,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner {
     bytes4 funcSelector;
     assembly {
       // solhint-disable-next-line avoid-low-level-calls
-      funcSelector := mload(add(_data, 32))
+      funcSelector := mload(add(_data, 32)) // First 32 bytes contain length of data
     }
     if (funcSelector != REGISTER_REQUEST_SELECTOR) {
       revert FunctionNotPermitted();
