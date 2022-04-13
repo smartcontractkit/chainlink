@@ -342,7 +342,9 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 		testspecs.VRFSpecParams{
 			RequestedConfsDelay: 10,
 			FromAddresses:       fromAddresses,
-			ChunkSize:           25}).
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour}).
 		Toml())
 	require.NoError(t, err)
 
@@ -361,6 +363,12 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)
+	var backoffInitialDelay time.Duration
+	require.NoError(t, db.Get(&backoffInitialDelay, `SELECT backoff_initial_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, time.Minute, backoffInitialDelay)
+	var backoffMaxDelay time.Duration
+	require.NoError(t, db.Get(&backoffMaxDelay, `SELECT backoff_max_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, time.Hour, backoffMaxDelay)
 	var chunkSize int
 	require.NoError(t, db.Get(&chunkSize, `SELECT chunk_size FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 25, chunkSize)
