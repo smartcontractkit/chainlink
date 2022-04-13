@@ -36,12 +36,12 @@ require (
 	github.com/cavaliercoder/grab v2.0.0+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
-	github.com/containerd/containerd v1.5.10 // indirect
+	github.com/containerd/containerd v1.5.9 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/docker/cli v20.10.11+incompatible // indirect
-	github.com/docker/distribution v2.8.1+incompatible // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.12+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
@@ -130,7 +130,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.10.1 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tklauser/numcpus v0.3.0 // indirect
@@ -160,17 +160,17 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	helm.sh/helm/v3 v3.8.1 // indirect
-	k8s.io/api v0.23.5 // indirect
-	k8s.io/apiextensions-apiserver v0.23.4 // indirect
-	k8s.io/apimachinery v0.23.5 // indirect
-	k8s.io/apiserver v0.23.4 // indirect
-	k8s.io/cli-runtime v0.23.5 // indirect
-	k8s.io/client-go v0.23.5 // indirect
-	k8s.io/component-base v0.23.5 // indirect
+	helm.sh/helm/v3 v3.8.0 // indirect
+	k8s.io/api v0.23.4 // indirect
+	k8s.io/apiextensions-apiserver v0.23.1 // indirect
+	k8s.io/apimachinery v0.23.4 // indirect
+	k8s.io/apiserver v0.23.1 // indirect
+	k8s.io/cli-runtime v0.23.4 // indirect
+	k8s.io/client-go v0.23.4 // indirect
+	k8s.io/component-base v0.23.4 // indirect
 	k8s.io/klog/v2 v2.30.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
-	k8s.io/kubectl v0.23.5 // indirect
+	k8s.io/kubectl v0.23.4 // indirect
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed // indirect
 	oras.land/oras-go v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
