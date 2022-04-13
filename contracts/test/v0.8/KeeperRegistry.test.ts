@@ -1,10 +1,3 @@
-/*
- * This test is for KeeperRegistryDev contract which is the
- * development version of KeeperRegistry. Until it's audited and finalised
- * this test will be used for development. There are 2 places marked in the test
- * which will need to be changed when these tests are ported back to the prod version
- */
-
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
@@ -16,9 +9,8 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factor
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../typechain/factories/UpkeepTranscoder__factory'
-// These 2 dependencies are mocked from Dev
-import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistryDev__factory'
-import { KeeperRegistryDev as KeeperRegistry } from '../../typechain/KeeperRegistryDev'
+import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { KeeperRegistry } from '../../typechain/KeeperRegistry'
 
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
@@ -57,10 +49,9 @@ before(async () => {
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
   mockV3AggregatorFactory = (await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  // Lifts the Dev contract
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
