@@ -867,7 +867,7 @@ func (c *chainScopedConfig) EvmNonceAutoSync() bool {
 	return c.defaultSet.nonceAutoSync
 }
 
-// EvmUseForwarders enables/disables running the NonceSyncer on application start
+// EvmUseForwarders enables/disables sending transactions through forwarder contracts
 func (c *chainScopedConfig) EvmUseForwarders() bool {
 	val, ok := c.GeneralConfig.GlobalEvmUseForwarders()
 	if ok {
