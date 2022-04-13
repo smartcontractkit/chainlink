@@ -46,6 +46,10 @@ import (
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0700)
 
+// PristineDBName is a clean copy of test DB
+// Used by heavyweight.FullTestDB()
+const PristineDBName = "chainlink_test_pristine"
+
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err := cli.runNode(c); err != nil {
@@ -502,6 +506,19 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
+
+	// Creating pristine DB copy to speed up FullTestDB
+	dbUrl := cfg.DatabaseURL()
+	db, err := sql.Open(string(dialects.Postgres), dbUrl.String())
+	defer db.Close()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	templateDB := strings.Trim(dbUrl.Path, "/")
+	if err = dropAndCreatePristineDB(db, templateDB); err != nil {
+		return cli.errorOut(err)
+	}
+
 	userOnly := c.Bool("user-only")
 	var fixturePath = "../store/fixtures/fixtures.sql"
 	if userOnly {
@@ -510,6 +527,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if err := insertFixtures(cfg, fixturePath); err != nil {
 		return cli.errorOut(err)
 	}
+
 	return nil
 }
 
@@ -649,6 +667,18 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
 	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, dbname))
+	if err != nil {
+		return fmt.Errorf("unable to create postgres database: %v", err)
+	}
+	return nil
+}
+
+func dropAndCreatePristineDB(db *sql.DB, template string) (err error) {
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, PristineDBName))
+	if err != nil {
+		return fmt.Errorf("unable to drop postgres database: %v", err)
+	}
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, PristineDBName, template))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}
