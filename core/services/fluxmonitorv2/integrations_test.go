@@ -215,7 +215,7 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	setConfig func(cfg *configtest.TestGeneralConfig),
 ) *cltest.TestApplication {
-	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
+	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()))
 	setConfig(config)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start(testutils.Context(t)))

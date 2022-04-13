@@ -43,7 +43,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), true, true)
+			config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559))
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			key1 := cltest.MustGenerateRandomKey(t)
 			key2 := cltest.MustGenerateRandomKey(t)
@@ -121,7 +121,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 }
 
 func TestIntegration_VRF_WithBHS(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrf_with_bhs", true, true)
+	config, _ := heavyweight.FullTestDB(t, "vrf_with_bhs")
 	config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
