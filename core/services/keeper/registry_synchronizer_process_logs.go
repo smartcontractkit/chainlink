@@ -139,7 +139,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 
 func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	txHash := broadcast.RawLog().TxHash.Hex()
-	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", txHash)
+	rs.logger.Debugw("processing UpkeepPerformed log", "jobID", rs.job.ID, "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
 	if err != nil {
 		rs.logger.With("error", err).Warn("unable to check if log was consumed")
@@ -160,6 +160,11 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return
 	}
+	rs.logger.Debugw("updated db for UpkeepPerformed log",
+		"jobID", rs.job.ID,
+		"upkeepID", log.Id.Int64(),
+		"blockNumber", int64(broadcast.RawLog().BlockNumber),
+		"fromAddr", ethkey.EIP55AddressFromAddress(log.From))
 
 	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		rs.logger.With("error", err).With("log", broadcast.String()).Error("unable to mark KeeperRegistryUpkeepPerformed log as consumed")
