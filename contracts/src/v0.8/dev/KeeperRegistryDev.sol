@@ -177,9 +177,7 @@ contract KeeperRegistryDev is
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
-  event RegistrarChanged(address indexed from, address indexed to);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
-  event TranscoderChanged(address indexed from, address indexed to);
 
   /**
    * @param link address of the LINK Token
