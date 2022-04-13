@@ -105,7 +105,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			backend.Commit()
 
 			// setup app
-			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559), true, true)
+			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559))
 			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			d := 24 * time.Hour

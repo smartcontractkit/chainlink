@@ -24,6 +24,18 @@ ds_multiply [type=multiply times=100];
 ds -> ds_parse -> ds_multiply;
 """
 `
+	CronSpecDotSep = `
+type                = "cron"
+schemaVersion       = 1
+schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
+externalJobID       =  "123e4567-e89b-12d3-a456-426655440013"
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data.price" separator="."];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+`
 	DirectRequestSpecNoExternalJobID = `
 type                = "directrequest"
 schemaVersion       = 1
@@ -396,8 +408,10 @@ type OCRSpecParams struct {
 	JobID              string
 	Name               string
 	TransmitterAddress string
+	ContractAddress    string
 	DS1BridgeName      string
 	DS2BridgeName      string
+	EVMChainID         string
 }
 
 type OCRSpec struct {
@@ -418,6 +432,10 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.TransmitterAddress != "" {
 		transmitterAddress = params.TransmitterAddress
 	}
+	contractAddress := "0x613a38AC1659769640aaE063C651F48E0250454C"
+	if params.ContractAddress != "" {
+		contractAddress = params.ContractAddress
+	}
 	name := "web oracle spec"
 	if params.Name != "" {
 		name = params.Name
@@ -430,11 +448,17 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.DS2BridgeName != "" {
 		ds2BridgeName = params.DS2BridgeName
 	}
+	// set to empty so it defaults to the default evm chain id
+	evmChainID := "0"
+	if params.EVMChainID != "" {
+		evmChainID = params.EVMChainID
+	}
 	template := `
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "%s"
-contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+contractAddress    = "%s"
+evmChainID         = %s
 p2pPeerID          = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 externalJobID      =  "%s"
 p2pBootstrapPeers  = [
@@ -473,7 +497,7 @@ observationSource = """
 		TransmitterAddress: transmitterAddress,
 		DS1BridgeName:      ds1BridgeName,
 		DS2BridgeName:      ds2BridgeName,
-	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress, ds1BridgeName, ds2BridgeName)}
+	}, toml: fmt.Sprintf(template, name, contractAddress, evmChainID, jobID, transmitterAddress, ds1BridgeName, ds2BridgeName)}
 }
 
 type WebhookSpecParams struct {
