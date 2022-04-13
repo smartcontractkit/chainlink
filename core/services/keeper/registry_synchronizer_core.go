@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,7 +30,7 @@ type MailRoom struct {
 
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
-	Contract                 *keeper_registry_wrapper.KeeperRegistry
+	Contract                 *keeper_registry_wrapper1_1.KeeperRegistry
 	ORM                      ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
@@ -42,7 +42,7 @@ type RegistrySynchronizerOptions struct {
 
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
-	contract                 *keeper_registry_wrapper.KeeperRegistry
+	contract                 *keeper_registry_wrapper1_1.KeeperRegistry
 	interval                 time.Duration
 	job                      job.Job
 	jrm                      job.ORM
@@ -89,11 +89,11 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 			Contract: rs.contract.Address(),
 			ParseLog: rs.contract.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
-				keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}.Topic():   nil,
-				keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic(): {
+				keeper_registry_wrapper1_1.KeeperRegistryKeepersUpdated{}.Topic():   nil,
+				keeper_registry_wrapper1_1.KeeperRegistryConfigSet{}.Topic():        nil,
+				keeper_registry_wrapper1_1.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
+				keeper_registry_wrapper1_1.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
+				keeper_registry_wrapper1_1.KeeperRegistryUpkeepPerformed{}.Topic(): {
 					{},
 					{},
 					{
