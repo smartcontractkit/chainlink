@@ -33,7 +33,7 @@ func TestORM(t *testing.T) {
 
 	// Insert blocks from a different chain
 	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1234"), 11))
-	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1234"), 12))
+	require.NoError(t, o2.InsertBlock(common.HexToHash("0x1235"), 12))
 	b2, err := o2.SelectBlockByHash(common.HexToHash("0x1234"))
 	require.NoError(t, err)
 	assert.Equal(t, b2.BlockNumber, int64(11))
