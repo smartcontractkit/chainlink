@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // ORM implements ORM layer using PostgreSQL
@@ -175,8 +176,18 @@ func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
 	return nil
 }
 
+func (korm ORM) AllUpkeepIDsForRegistry(regID int64) (upkeeps []*utils.Big, err error) {
+	err = korm.q.Get(&upkeeps, `
+SELECT upkeep_id
+FROM upkeep_registrations
+WHERE registry_id = $1
+`, regID)
+	return upkeeps, errors.Wrap(err, "allUpkeepIDs failed")
+}
+
 // LowestUnsyncedID returns the largest upkeepID + 1, indicating the expected next upkeepID
 // to sync from the contract
+// Note: This function is only applicable for registry version 1_0 and 1_1
 func (korm ORM) LowestUnsyncedID(regID int64) (nextID int64, err error) {
 	err = korm.q.Get(&nextID, `
 SELECT coalesce(max(upkeep_id), -1) + 1

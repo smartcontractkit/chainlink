@@ -131,7 +131,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
@@ -174,7 +174,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 				}, nil).
 				Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
-			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+			registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 			registryMock.MockMatchedResponse(
 				"checkUpkeep",
 				func(callArgs ethereum.CallMsg) bool {
@@ -224,7 +224,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+config.KeeperGasPriceBufferPercent()), 100)
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
@@ -276,7 +276,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Return(txmgr.EthTx{}, nil).
 			Run(func(mock.Arguments) { etxs[0].ItHappened() })
 
-		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)
@@ -324,7 +324,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t)
 
 	wasCalled := atomic.NewBool(false)
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
 	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
 		wasCalled.Store(true)
 	})

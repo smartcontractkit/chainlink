@@ -10,6 +10,7 @@ import (
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
+	// TODO (sc-36399) support all v1.2 logs
 	wg := sync.WaitGroup{}
 	wg.Add(4)
 	go rs.handleSyncRegistryLog(wg.Done)
@@ -116,7 +117,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 		rs.logger.AssumptionViolationf("expected UpkeepRegistered log but got %T", broadcastedLog)
 		return
 	}
-	err = rs.syncUpkeep(registry, broadcastedLog.Id.Int64())
+	err = rs.syncUpkeep(registry, broadcastedLog.Id)
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to sync upkeep, log: %v", broadcast.String())
 		return

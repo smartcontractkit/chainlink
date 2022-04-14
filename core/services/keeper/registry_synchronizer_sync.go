@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -20,12 +21,9 @@ func (rs *RegistrySynchronizer) fullSync() {
 		rs.logger.With("error", err).Error("failed to sync registry during fullSyncing registry")
 		return
 	}
-	if err := rs.addNewUpkeeps(registry); err != nil {
-		rs.logger.With("error", err).Error("failed to add new upkeeps during fullSyncing registry")
-		return
-	}
-	if err := rs.deleteCanceledUpkeeps(); err != nil {
-		rs.logger.With("error", err).Error("failed to delete canceled upkeeps during fullSyncing registry")
+
+	if err := rs.fullSyncUpkeeps(registry); err != nil {
+		rs.logger.With("error", err).Error("failed to sync upkeeps during fullSyncing registry")
 		return
 	}
 }
@@ -43,13 +41,24 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 	return registry, nil
 }
 
-func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
+func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
+	switch rs.version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		return rs.fullSyncUpkeeps1_1(reg)
+	case RegistryVersion_1_2:
+		return rs.fullSyncUpkeeps1_2(reg)
+	}
+	return nil
+}
+
+func (rs *RegistrySynchronizer) fullSyncUpkeeps1_1(reg Registry) error {
+	// Add new upkeeps which are not in DB
 	nextUpkeepID, err := rs.orm.LowestUnsyncedID(reg.ID)
 	if err != nil {
 		return errors.Wrap(err, "unable to find next ID for registry")
 	}
 
-	countOnContractBig, err := rs.contract.GetUpkeepCount(nil)
+	countOnContractBig, err := rs.contract1_1.GetUpkeepCount(nil)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get upkeep count")
 	}
@@ -58,20 +67,80 @@ func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 	if nextUpkeepID > countOnContract {
 		return errors.New("invariant, contract should always have at least as many upkeeps as DB")
 	}
+	// newUpkeeps is the range nextUpkeepID, nextUpkeepID + 1 , ... , countOnContract-1
+	newUpkeeps := make([]*big.Int, countOnContract-nextUpkeepID)
+	for i := range newUpkeeps {
+		newUpkeeps[i].Add(big.NewInt(nextUpkeepID), big.NewInt(int64(i)))
+	}
+	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
 
-	rs.batchSyncUpkeepsOnRegistry(reg, nextUpkeepID, countOnContract)
+	// Delete upkeeps which have been cancelled
+	canceledBigs, err := rs.contract1_1.GetCanceledUpkeepList(nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to get canceled upkeep list")
+	}
+	canceled := make([]int64, len(canceledBigs))
+	for idx, upkeepID := range canceledBigs {
+		canceled[idx] = upkeepID.Int64()
+	}
+	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
+		return errors.Wrap(err, "failed to batch delete upkeeps from job")
+	}
+	return nil
+}
+
+func (rs *RegistrySynchronizer) fullSyncUpkeeps1_2(reg Registry) error {
+	startIndex := big.NewInt(0)
+	maxCount := big.NewInt(0)
+	// TODO (sc-37024): Get active upkeep IDs from contract in batches
+	activeUpkeepIDs, err := rs.contract1_2.GetActiveUpkeepIDs(nil, startIndex, maxCount)
+	if err != nil {
+		return errors.Wrapf(err, "unable to get active upkeep IDs")
+	}
+	existingUpkeepIDs, err := rs.orm.AllUpkeepIDsForRegistry(reg.ID)
+	if err != nil {
+		return errors.Wrap(err, "unable to fetch existing upkeep IDs from DB")
+	}
+
+	// New upkeeps are all elements in activeUpkeepIDs which are not in existingUpkeepIDs
+	newUpkeeps := make([]*big.Int, 0)
+	existingSet := make(map[*big.Int]bool)
+	for _, upkeepID := range existingUpkeepIDs {
+		existingSet[upkeepID.ToInt()] = true
+	}
+	for _, upkeepID := range activeUpkeepIDs {
+		if _, found := existingSet[upkeepID]; !found {
+			newUpkeeps = append(newUpkeeps, upkeepID)
+		}
+	}
+	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
+
+	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
+	activeSet := make(map[*big.Int]bool)
+	for _, upkeepID := range activeUpkeepIDs {
+		activeSet[upkeepID] = true
+	}
+	canceled := make([]int64, 0)
+	for _, upkeepID := range existingUpkeepIDs {
+		if _, found := activeSet[upkeepID.ToInt()]; !found {
+			canceled = append(canceled, upkeepID.ToInt().Int64())
+		}
+	}
+	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
+		return errors.Wrap(err, "failed to batch delete upkeeps from job")
+	}
 	return nil
 }
 
 // batchSyncUpkeepsOnRegistry syncs <syncUpkeepQueueSize> upkeeps at a time in parallel
-// starting at upkeep ID <start> and up to (but not including) <end>
-func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, end int64) {
+// for all the IDs within newUpkeeps slice
+func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, newUpkeeps []*big.Int) {
 	wg := sync.WaitGroup{}
-	wg.Add(int(end - start))
+	wg.Add(len(newUpkeeps))
 	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
 
 	done := func() { <-chSyncUpkeepQueue; wg.Done() }
-	for upkeepID := start; upkeepID < end; upkeepID++ {
+	for _, upkeepID := range newUpkeeps {
 		select {
 		case <-rs.chStop:
 			return
@@ -83,7 +152,7 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, 
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID int64, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID *big.Int, doneCallback func()) {
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(registry, upkeepID); err != nil {
@@ -94,35 +163,34 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) error {
-	upkeepConfig, err := rs.contract.GetUpkeep(nil, big.NewInt(upkeepID))
-	if err != nil {
-		return errors.Wrap(err, "failed to get upkeep config")
+func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *big.Int) error {
+	var checkData []byte
+	var executeGas uint64
+	switch rs.version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		upkeepConfig, err := rs.contract1_1.GetUpkeep(nil, upkeepID)
+		if err != nil {
+			return errors.Wrap(err, "failed to get upkeep config")
+		}
+		checkData = upkeepConfig.CheckData
+		executeGas = uint64(upkeepConfig.ExecuteGas)
+	case RegistryVersion_1_2:
+		upkeepConfig, err := rs.contract1_2.GetUpkeep(nil, upkeepID)
+		if err != nil {
+			return errors.Wrap(err, "failed to get upkeep config")
+		}
+		checkData = upkeepConfig.CheckData
+		executeGas = uint64(upkeepConfig.ExecuteGas)
 	}
+
 	newUpkeep := UpkeepRegistration{
-		CheckData:  upkeepConfig.CheckData,
-		ExecuteGas: uint64(upkeepConfig.ExecuteGas),
+		CheckData:  checkData,
+		ExecuteGas: executeGas,
 		RegistryID: registry.ID,
-		UpkeepID:   upkeepID,
+		UpkeepID:   upkeepID.Int64(),
 	}
 	if err := rs.orm.UpsertUpkeep(&newUpkeep); err != nil {
 		return errors.Wrap(err, "failed to upsert upkeep")
-	}
-
-	return nil
-}
-
-func (rs *RegistrySynchronizer) deleteCanceledUpkeeps() error {
-	canceledBigs, err := rs.contract.GetCanceledUpkeepList(nil)
-	if err != nil {
-		return errors.Wrap(err, "failed to get canceled upkeep list")
-	}
-	canceled := make([]int64, len(canceledBigs))
-	for idx, upkeepID := range canceledBigs {
-		canceled[idx] = upkeepID.Int64()
-	}
-	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
-		return errors.Wrap(err, "failed to batch delete upkeeps from job")
 	}
 
 	return nil
@@ -132,15 +200,35 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps() error {
 func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	fromAddress := rs.job.KeeperSpec.FromAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress
-	config, err := rs.contract.GetConfig(nil)
-	if err != nil {
-		rs.jrm.TryRecordError(rs.job.ID, err.Error())
-		return Registry{}, errors.Wrap(err, "failed to get contract config")
+
+	var blockCountPerTurn int32
+	var checkGas int32
+	var keeperAddresses []common.Address
+
+	switch rs.version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		config, err := rs.contract1_1.GetConfig(nil)
+		if err != nil {
+			rs.jrm.TryRecordError(rs.job.ID, err.Error())
+			return Registry{}, errors.Wrap(err, "failed to get contract config")
+		}
+		keeperAddresses, err = rs.contract1_1.GetKeeperList(nil)
+		if err != nil {
+			return Registry{}, errors.Wrap(err, "failed to get keeper list")
+		}
+		blockCountPerTurn = int32(config.BlockCountPerTurn.Int64())
+		checkGas = int32(config.CheckGasLimit)
+	case RegistryVersion_1_2:
+		state, err := rs.contract1_2.GetState(nil)
+		if err != nil {
+			rs.jrm.TryRecordError(rs.job.ID, err.Error())
+			return Registry{}, errors.Wrap(err, "failed to get contract state")
+		}
+		keeperAddresses = state.Keepers
+		blockCountPerTurn = int32(state.Config.BlockCountPerTurn.Int64())
+		checkGas = int32(state.Config.CheckGasLimit)
 	}
-	keeperAddresses, err := rs.contract.GetKeeperList(nil)
-	if err != nil {
-		return Registry{}, errors.Wrap(err, "failed to get keeper list")
-	}
+
 	keeperIndex := int32(-1)
 	keeperMap := map[ethkey.EIP55Address]int32{}
 	for idx, address := range keeperAddresses {
@@ -154,8 +242,8 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	}
 
 	return Registry{
-		BlockCountPerTurn: int32(config.BlockCountPerTurn.Int64()),
-		CheckGas:          int32(config.CheckGasLimit),
+		BlockCountPerTurn: blockCountPerTurn,
+		CheckGas:          checkGas,
 		ContractAddress:   contractAddress,
 		FromAddress:       fromAddress,
 		JobID:             rs.job.ID,

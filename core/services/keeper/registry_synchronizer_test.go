@@ -83,7 +83,8 @@ func setupRegistrySync(t *testing.T) (
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
-		Contract:                 contract,
+		Contract1_1:              contract,
+		Version:                  keeper.RegistryVersion_1_1,
 		ORM:                      orm,
 		JRM:                      jpv2.Jrm,
 		LogBroadcaster:           lbMock,
@@ -110,7 +111,7 @@ func Test_RegistrySynchronizer_Start(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	canceledUpkeeps := []*big.Int{big.NewInt(1)}
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
@@ -141,7 +142,7 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	canceledUpkeeps := []*big.Int{big.NewInt(1)}
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
@@ -191,7 +192,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
@@ -235,7 +236,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
@@ -279,7 +280,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
@@ -316,7 +317,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()
@@ -355,7 +356,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
-	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, contractAddress)
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
 	registryMock.MockResponse("getCanceledUpkeepList", []*big.Int{}).Once()

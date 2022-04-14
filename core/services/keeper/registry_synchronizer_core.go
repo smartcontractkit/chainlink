@@ -8,7 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,7 +31,9 @@ type MailRoom struct {
 
 type RegistrySynchronizerOptions struct {
 	Job                      job.Job
-	Contract                 *keeper_registry_wrapper1_1.KeeperRegistry
+	Version                  RegistryVersion
+	Contract1_1              *registry1_1.KeeperRegistry
+	Contract1_2              *registry1_2.KeeperRegistry
 	ORM                      ORM
 	JRM                      job.ORM
 	LogBroadcaster           log.Broadcaster
@@ -42,7 +45,9 @@ type RegistrySynchronizerOptions struct {
 
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
-	contract                 *keeper_registry_wrapper1_1.KeeperRegistry
+	version                  RegistryVersion
+	contract1_1              *registry1_1.KeeperRegistry
+	contract1_2              *registry1_2.KeeperRegistry
 	interval                 time.Duration
 	job                      job.Job
 	jrm                      job.ORM
@@ -66,7 +71,9 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 	}
 	return &RegistrySynchronizer{
 		chStop:                   make(chan struct{}),
-		contract:                 opts.Contract,
+		version:                  opts.Version,
+		contract1_1:              opts.Contract1_1,
+		contract1_2:              opts.Contract1_2,
 		interval:                 opts.SyncInterval,
 		job:                      opts.Job,
 		jrm:                      opts.JRM,
@@ -85,17 +92,35 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		rs.wgDone.Add(2)
 		go rs.run()
 
-		logListenerOpts := log.ListenerOpts{
-			Contract: rs.contract.Address(),
-			ParseLog: rs.contract.ParseLog,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				keeper_registry_wrapper1_1.KeeperRegistryKeepersUpdated{}.Topic():   nil,
-				keeper_registry_wrapper1_1.KeeperRegistryConfigSet{}.Topic():        nil,
-				keeper_registry_wrapper1_1.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
-				keeper_registry_wrapper1_1.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper1_1.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
-			},
-			MinIncomingConfirmations: rs.minIncomingConfirmations,
+		var logListenerOpts log.ListenerOpts
+		switch rs.version {
+		case RegistryVersion_1_0, RegistryVersion_1_1:
+			logListenerOpts = log.ListenerOpts{
+				Contract: rs.contract1_1.Address(),
+				ParseLog: rs.contract1_1.ParseLog,
+				LogsWithTopics: map[common.Hash][][]log.Topic{
+					registry1_1.KeeperRegistryKeepersUpdated{}.Topic():   nil,
+					registry1_1.KeeperRegistryConfigSet{}.Topic():        nil,
+					registry1_1.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
+					registry1_1.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
+					registry1_1.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
+				},
+				MinIncomingConfirmations: rs.minIncomingConfirmations,
+			}
+		case RegistryVersion_1_2:
+			// TODO (sc-36399) support all v1.2 logs
+			logListenerOpts = log.ListenerOpts{
+				Contract: rs.contract1_2.Address(),
+				ParseLog: rs.contract1_2.ParseLog,
+				LogsWithTopics: map[common.Hash][][]log.Topic{
+					registry1_2.KeeperRegistryKeepersUpdated{}.Topic():   nil,
+					registry1_2.KeeperRegistryConfigSet{}.Topic():        nil,
+					registry1_2.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
+					registry1_2.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
+					registry1_2.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
+				},
+				MinIncomingConfirmations: rs.minIncomingConfirmations,
+			}
 		}
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
 

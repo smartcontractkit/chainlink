@@ -28,6 +28,7 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	var mailboxName string
 	var wasOverCapacity bool
 	switch eventLog.(type) {
+	// TODO (sc-36399) support all v1.2 logs
 	case *keeper_registry_wrapper1_1.KeeperRegistryKeepersUpdated:
 		wasOverCapacity = rs.mailRoom.mbSyncRegistry.Deliver(broadcast) // same mailbox because same action
 		mailboxName = "mbSyncRegistry"

@@ -252,7 +252,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 
 func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
 	var performTxData []byte
-	performTxData, err = RegistryABI.Pack(
+	performTxData, err = Registry1_1ABI.Pack(
 		"performUpkeep",
 		big.NewInt(upkeep.UpkeepID),
 		common.Hex2Bytes("1234"), // placeholder
