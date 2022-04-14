@@ -109,8 +109,8 @@ jobs:
           name: eth-test-logs
           path: ./integration-tests/logs
   solana:
-    environment: integration
     name: Solana Tests
+    environment: integration
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
@@ -126,8 +126,8 @@ jobs:
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
   terra:
-    environment: integration
     name: Terra Tests
+    environment: integration
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-terra/.github/workflows/e2e.yml@main
