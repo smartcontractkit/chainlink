@@ -55,7 +55,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-solana v0.2.20-0.20220407141239-2baea958e1af
-	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220329201232-f561b9a79014
+	github.com/smartcontractkit/chainlink-terra v0.1.4-0.20220413164119-03e8d221b3fc
 	github.com/smartcontractkit/libocr v0.0.0-20220217180537-449836e6cfec
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/terra.go v1.0.3-0.20220108002221-62b39252ee16
@@ -281,7 +281,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.32.1 // indirect
+	github.com/prometheus/common v0.33.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/tsdb v0.10.0 // indirect
 	github.com/rakyll/statik v0.1.7 // indirect

@@ -335,6 +335,8 @@ func createVRFJobs(
 			MinIncomingConfirmations: incomingConfs,
 			PublicKey:                vrfkey.PublicKey.String(),
 			FromAddresses:            keyStrs,
+			BackoffInitialDelay:      10 * time.Millisecond,
+			BackoffMaxDelay:          time.Second,
 			V2:                       true,
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)
@@ -538,7 +540,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_happypath", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_happypath")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -601,7 +603,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_bigcallback", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_batch_bigcallback")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -670,7 +672,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 }
 
 func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_happypath")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -751,7 +753,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_needs_blockhash_store", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_needs_blockhash_store")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -850,7 +852,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_needstopup")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -915,7 +917,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_multiplegaslanes")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -1007,7 +1009,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
-	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback", true, true)
+	config, db := heavyweight.FullTestDB(t, "vrfv2_singleconsumer_alwaysrevertingcallback")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -1192,7 +1194,7 @@ func TestSimpleConsumerExample(t *testing.T) {
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration", true, true)
+	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration")
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
@@ -1383,7 +1385,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 }
 
 func TestMaliciousConsumer(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_malicious", true, true)
+	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_malicious")
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
@@ -1616,7 +1618,7 @@ func TestFulfillmentCost(t *testing.T) {
 }
 
 func TestStartingCountsV1(t *testing.T) {
-	cfg, db := heavyweight.FullTestDB(t, "vrf_test_starting_counts", true, false)
+	cfg, db := heavyweight.FullTestDBNoFixtures(t, "vrf_test_starting_counts")
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES (1337, NOW(), NOW())`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO evm_heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)

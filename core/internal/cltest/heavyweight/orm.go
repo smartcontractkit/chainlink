@@ -19,20 +19,38 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	migrations "github.com/smartcontractkit/chainlink/core/store/migrate"
 )
 
-// FullTestDB creates an DB which runs in a separate database than the normal
-// unit tests, so you can do things like use other Postgres connection types
-// with it.
-func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB) {
+// FullTestDB creates a pristine DB which runs in a separate database than the normal
+// unit tests, so you can do things like use other Postgres connection types with it.
+func FullTestDB(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
+	return prepareFullTestDB(t, name, false, true)
+}
+
+// FullTestDBNoFixtures is the same as FullTestDB, but it does not load fixtures.
+func FullTestDBNoFixtures(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
+	return prepareFullTestDB(t, name, false, false)
+}
+
+// FullTestDBEmpty creates an empty DB (without migrations).
+func FullTestDBEmpty(t *testing.T, name string) (*configtest.TestGeneralConfig, *sqlx.DB) {
+	return prepareFullTestDB(t, name, true, false)
+}
+
+func prepareFullTestDB(t *testing.T, name string, empty bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB) {
 	testutils.SkipShort(t, "FullTestDB")
+
+	if empty && loadFixtures {
+		t.Fatal("could not load fixtures into an empty DB")
+	}
+
 	overrides := configtest.GeneralConfigOverrides{
 		SecretGenerator: cltest.MockSecretGenerator{},
 	}
@@ -40,7 +58,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	gcfg.Overrides.Dialect = dialects.Postgres
 
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
-	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)
+	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name, empty)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	db, err := pg.NewConnection(migrationTestDBURL, string(dialects.Postgres), pg.Config{
@@ -54,13 +72,11 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 		os.RemoveAll(gcfg.RootDir())
 	})
 	gcfg.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
-	if migrate {
-		require.NoError(t, migrations.Migrate(db.DB, lggr))
-	}
+
 	if loadFixtures {
-		_, filename, _, ok := runtime.Caller(0)
+		_, filename, _, ok := runtime.Caller(1)
 		if !ok {
-			t.Fatal("could not get runtime.Caller(0)")
+			t.Fatal("could not get runtime.Caller(1)")
 		}
 		filepath := path.Join(path.Dir(filename), "../../../store/fixtures/fixtures.sql")
 		fixturesSQL, err := ioutil.ReadFile(filepath)
@@ -72,7 +88,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	return gcfg, db
 }
 
-func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error) {
+func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string, empty bool) (string, error) {
 	if parsed.Path == "" {
 		return "", errors.New("path missing from database URL")
 	}
@@ -94,10 +110,13 @@ func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("unable to drop postgres migrations test database: %v", err)
 	}
-	// `CREATE DATABASE $1` does not seem to work w CREATE DATABASE
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+	if empty {
+		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+	} else {
+		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH TEMPLATE %s", dbname, cmd.PristineDBName))
+	}
 	if err != nil {
-		return "", fmt.Errorf("unable to create postgres migrations test database with name '%s': %v", dbname, err)
+		return "", fmt.Errorf("unable to create postgres test database with name '%s': %v", dbname, err)
 	}
 	parsed.Path = fmt.Sprintf("/%s", dbname)
 	return parsed.String(), nil

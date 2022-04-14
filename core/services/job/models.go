@@ -448,8 +448,18 @@ type VRFSpec struct {
 	RequestedConfsDelay      int64         `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	RequestTimeout           time.Duration `toml:"requestTimeout"`      // Optional, defaults to 24hr if not provided.
 
-	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults to 20 if not provided.
-	ChunkSize uint32    `toml:"chunkSize"`
+	// ChunkSize is the number of pending VRF V2 requests to process in parallel. Optional, defaults
+	// to 20 if not provided.
+	ChunkSize uint32 `toml:"chunkSize"`
+
+	// BackoffInitialDelay is the amount of time to wait before retrying a failed request after the
+	// first failure. V2 only.
+	BackoffInitialDelay time.Duration `toml:"backoffInitialDelay"`
+
+	// BackoffMaxDelay is the maximum amount of time to wait before retrying a failed request. V2
+	// only.
+	BackoffMaxDelay time.Duration `toml:"backoffMaxDelay"`
+
 	CreatedAt time.Time `toml:"-"`
 	UpdatedAt time.Time `toml:"-"`
 }

@@ -437,7 +437,7 @@ func TestClient_RebroadcastTransactions_Txm(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
+	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions")
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -513,7 +513,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
+			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange")
 			config.Overrides.Dialect = dialects.Postgres
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
@@ -574,7 +574,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce", true, true)
+	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce")
 	ethKeyStore := cltest.NewKeyStore(t, sqlxDB, config).Eth()
 	lggr := logger.TestLogger(t)
 

@@ -14,6 +14,7 @@ jobs:
             src:
               - '**/*.go'
   build-chainlink:
+    environment: integration
     name: Build Chainlink Image
     runs-on: ubuntu-latest
     needs: changes
@@ -44,6 +45,7 @@ jobs:
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
   smoke:
+    environment: integration
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
     needs: [changes, build-chainlink]
@@ -112,6 +114,7 @@ jobs:
           path: ./integration-tests/logs
   solana:
     name: Solana Tests
+    environment: integration
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
@@ -128,6 +131,7 @@ jobs:
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
   terra:
     name: Terra Tests
+    environment: integration
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-terra/.github/workflows/e2e.yml@main
