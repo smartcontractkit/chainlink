@@ -1,0 +1,14 @@
+name: Lint GH Workflows
+on:
+  push:
+jobs:
+  lint_workflows:
+    name: Validate Github Action Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Code
+        uses: actions/checkout@v3
+      - name: Install asdf dependencies
+        uses: asdf-vm/actions/install@v1.1.0
+      - name: Run actionlint
+        run: actionlint

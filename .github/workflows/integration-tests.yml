@@ -98,7 +98,8 @@ jobs:
           go install github.com/onsi/ginkgo/v2/ginkgo
       - name: Run Tests
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
           make test_smoke args="-nodes=6"
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
@@ -114,7 +115,6 @@ jobs:
           path: ./integration-tests/logs
   solana:
     name: Solana Tests
-    environment: integration
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
@@ -131,7 +131,6 @@ jobs:
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
   terra:
     name: Terra Tests
-    environment: integration
     needs: [changes, build-chainlink]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-terra/.github/workflows/e2e.yml@main
