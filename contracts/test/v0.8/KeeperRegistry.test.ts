@@ -990,7 +990,7 @@ describe('KeeperRegistry', () => {
         assert.isTrue(normalAmount.lt(amountWithStaleFeed))
       })
 
-      it('uses the fallback link price if the feed price is non-sensical', async () => {
+      it('uses the fallback link price if the feed price is non-sensical [ @skip-coverage ]', async () => {
         const normalAmount = await getPerformPaymentAmount()
         const roundId = 99
         const updatedAt = Math.floor(Date.now() / 1000)
