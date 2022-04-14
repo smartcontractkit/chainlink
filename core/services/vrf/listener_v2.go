@@ -353,12 +353,12 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		// so we merged the new ones with the ones that need to be requeued.
 		lsn.reqsMu.Lock()
 		lsn.reqs = append(lsn.reqs, toKeep...)
-		lsn.reqsMu.Unlock()
 		lsn.l.Infow("Finished processing pending requests",
 			"totalProcessed", len(processed),
 			"totalFailed", len(toKeep),
 			"total", len(lsn.reqs),
 			"time", time.Since(start).String())
+		lsn.reqsMu.Unlock() // unlock here since len(lsn.reqs) is a read, to avoid a data race.
 	}()
 
 	// TODO: also probably want to order these by request time so we service oldest first
