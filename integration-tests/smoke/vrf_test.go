@@ -76,6 +76,9 @@ var _ = Describe("VRF suite @vrf", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF coordinator shouldn't fail")
 			consumer, err = cd.DeployVRFConsumer(lt.Address(), coordinator.Address())
 			Expect(err).ShouldNot(HaveOccurred(), "Deploying VRF consumer contract shouldn't fail")
+			err = nets.Default.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred(), "Failed to wait for VRF setup contracts to deploy")
+
 			err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 			Expect(err).ShouldNot(HaveOccurred(), "Funding consumer contract shouldn't fail")
 			_, err = cd.DeployVRFContract()

@@ -76,7 +76,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			err = nets.Default.SetWallet(0)
 			Expect(err).ShouldNot(HaveOccurred(), "Setting default wallet shouldn't fail")
 			err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
-			Expect(err).ShouldNot(HaveOccurred(), "Transfering %d to consumer contract shouldn't fail", big.NewInt(2e18))
+			Expect(err).ShouldNot(HaveOccurred(), "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 		})
 
 		By("Creating directrequest job", func() {
