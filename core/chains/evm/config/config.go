@@ -63,6 +63,7 @@ type ChainScopedOnlyConfig interface {
 	EvmMaxQueuedTransactions() uint64
 	EvmMinGasPriceWei() *big.Int
 	EvmNonceAutoSync() bool
+	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
@@ -865,6 +866,23 @@ func (c *chainScopedConfig) EvmNonceAutoSync() bool {
 		return p.Bool
 	}
 	return c.defaultSet.nonceAutoSync
+}
+
+// EvmUseForwarders enables/disables sending transactions through forwarder contracts
+func (c *chainScopedConfig) EvmUseForwarders() bool {
+	val, ok := c.GeneralConfig.GlobalEvmUseForwarders()
+	if ok {
+		c.logEnvOverrideOnce("EvmUseForwarders", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmUseForwarders
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmUseForwarders", p.Bool)
+		return p.Bool
+	}
+	return c.defaultSet.useForwarders
 }
 
 // EvmGasLimitMultiplier is a factor by which a transaction's GasLimit is

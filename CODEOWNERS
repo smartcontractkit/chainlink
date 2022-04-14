@@ -22,7 +22,7 @@
 /core/services/pipeline @spooktheducks @connorwstein @archseer @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
-/core/services/vrf @connorwstein
+/core/services/vrf @connorwstein @Nic0s @makramkd
 /core/services/webhook @spooktheducks @archseer
 
 # API

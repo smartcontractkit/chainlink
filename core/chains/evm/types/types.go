@@ -74,6 +74,7 @@ type ChainCfg struct {
 	EvmLogPollInterval                             *models.Duration
 	EvmMaxGasPriceWei                              *utils.Big
 	EvmNonceAutoSync                               null.Bool
+	EvmUseForwarders                               null.Bool
 	EvmRPCDefaultBatchSize                         null.Int
 	FlagsContractAddress                           null.String
 	GasEstimatorMode                               null.String

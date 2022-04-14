@@ -216,6 +216,7 @@ type GlobalConfig interface {
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
 	GlobalEvmMinGasPriceWei() (*big.Int, bool)
 	GlobalEvmNonceAutoSync() (bool, bool)
+	GlobalEvmUseForwarders() (bool, bool)
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
@@ -1247,6 +1248,9 @@ func (c *generalConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
 }
 func (c *generalConfig) GlobalEvmNonceAutoSync() (bool, bool) {
 	return lookupEnv(c, envvar.Name("EvmNonceAutoSync"), strconv.ParseBool)
+}
+func (c *generalConfig) GlobalEvmUseForwarders() (bool, bool) {
+	return lookupEnv(c, envvar.Name("EvmUseForwarders"), strconv.ParseBool)
 }
 func (c *generalConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmRPCDefaultBatchSize"), parse.Uint32)
