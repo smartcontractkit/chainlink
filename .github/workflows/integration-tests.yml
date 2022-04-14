@@ -114,8 +114,7 @@ jobs:
           path: ./integration-tests/logs
   solana:
     name: Solana Tests
-    environment: integration
-    needs: [changes, build-chainlink]
+    needs: [ changes, build-chainlink ]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-solana/.github/workflows/e2e.yml@develop
     with:
@@ -131,8 +130,7 @@ jobs:
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
   terra:
     name: Terra Tests
-    environment: integration
-    needs: [changes, build-chainlink]
+    needs: [ changes, build-chainlink ]
     if: ${{ needs.changes.outputs.src == 'true' }}
     uses: smartcontractkit/chainlink-terra/.github/workflows/e2e.yml@main
     with:
