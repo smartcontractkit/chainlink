@@ -1,4 +1,4 @@
-package smoke_test
+package smoke
 
 //revive:disable:dot-imports
 import (
@@ -15,68 +15,73 @@ import (
 	"github.com/smartcontractkit/helmenv/tools"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
+	"github.com/smartcontractkit/integrations-framework/config"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/utils"
 )
 
 var _ = Describe("Direct request suite @runlog", func() {
 	var (
-		err        error
-		nets       *client.Networks
-		cd         contracts.ContractDeployer
-		cls        []client.Chainlink
-		oracle     contracts.Oracle
-		consumer   contracts.APIConsumer
-		jobUUID    uuid.UUID
-		mockserver *client.MockserverClient
-		e          *environment.Environment
+		err            error
+		nets           *client.Networks
+		cd             contracts.ContractDeployer
+		chainlinkNodes []client.Chainlink
+		oracle         contracts.Oracle
+		consumer       contracts.APIConsumer
+		jobUUID        uuid.UUID
+		mockserver     *client.MockserverClient
+		e              *environment.Environment
 	)
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			e, err = environment.DeployOrLoadEnvironment(
-				environment.NewChainlinkConfig(environment.ChainlinkReplicas(3, nil), ""),
+				environment.NewChainlinkConfig(
+					environment.ChainlinkReplicas(3, config.ChainlinkVals()),
+					"chainlink-runlog",
+					config.GethNetworks()...,
+				),
 				tools.ChartsRoot,
 			)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Environment deployment shouldn't fail")
 			err = e.ConnectAll()
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Connecting to all nodes shouldn't fail")
 		})
 
 		By("Connecting to launched resources", func() {
-			networkRegistry := client.NewNetworkRegistry()
+			networkRegistry := client.NewDefaultNetworkRegistry()
 			nets, err = networkRegistry.GetNetworks(e)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Connecting to blockchain nodes shouldn't fail")
 			cd, err = contracts.NewContractDeployer(nets.Default)
-			Expect(err).ShouldNot(HaveOccurred())
-			cls, err = client.ConnectChainlinkNodes(e)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Deploying contracts shouldn't fail")
+			chainlinkNodes, err = client.ConnectChainlinkNodes(e)
+			Expect(err).ShouldNot(HaveOccurred(), "Connecting to chainlink nodes shouldn't fail")
 			mockserver, err = client.ConnectMockServer(e)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
 		By("Funding Chainlink nodes", func() {
 			ethAmount, err := nets.Default.EstimateCostForChainlinkOperations(1)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = actions.FundChainlinkNodes(cls, nets.Default, ethAmount)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
+			err = actions.FundChainlinkNodes(chainlinkNodes, nets.Default, ethAmount)
+			Expect(err).ShouldNot(HaveOccurred(), "Funding chainlink nodes with ETH shouldn't fail")
 		})
 
 		By("Deploying contracts", func() {
 			lt, err := cd.DeployLinkTokenContract()
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Deploying Link Token Contract shouldn't fail")
 			oracle, err = cd.DeployOracle(lt.Address())
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Deploying Oracle Contract shouldn't fail")
 			consumer, err = cd.DeployAPIConsumer(lt.Address())
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Deploying Consumer Contract shouldn't fail")
 			err = nets.Default.SetWallet(0)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Setting default wallet shouldn't fail")
 			err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Transfering %d to consumer contract shouldn't fail", big.NewInt(2e18))
 		})
 
 		By("Creating directrequest job", func() {
 			err = mockserver.SetValuePath("/variable", 5)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Setting mockserver value path shouldn't fail")
 
 			jobUUID = uuid.NewV4()
 
@@ -84,23 +89,23 @@ var _ = Describe("Direct request suite @runlog", func() {
 				Name: fmt.Sprintf("five-%s", jobUUID.String()),
 				URL:  fmt.Sprintf("%s/variable", mockserver.Config.ClusterURL),
 			}
-			err = cls[0].CreateBridge(&bta)
-			Expect(err).ShouldNot(HaveOccurred())
+			err = chainlinkNodes[0].CreateBridge(&bta)
+			Expect(err).ShouldNot(HaveOccurred(), "Creating bridge shouldn't fail")
 
 			os := &client.DirectRequestTxPipelineSpec{
 				BridgeTypeAttributes: bta,
 				DataPath:             "data,result",
 			}
 			ost, err := os.String()
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Building observation source spec shouldn't fail")
 
-			_, err = cls[0].CreateJob(&client.DirectRequestJobSpec{
+			_, err = chainlinkNodes[0].CreateJob(&client.DirectRequestJobSpec{
 				Name:              "direct_request",
 				ContractAddress:   oracle.Address(),
 				ExternalJobID:     jobUUID.String(),
 				ObservationSource: ost,
 			})
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Creating direct_request job shouldn't fail")
 		})
 
 		By("Calling oracle contract", func() {
@@ -115,7 +120,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 				"data,result",
 				big.NewInt(100),
 			)
-			Expect(err).ShouldNot(HaveOccurred())
+			Expect(err).ShouldNot(HaveOccurred(), "Calling oracle contract shouldn't fail")
 		})
 	})
 
@@ -123,10 +128,10 @@ var _ = Describe("Direct request suite @runlog", func() {
 		It("receives API call data on-chain", func() {
 			Eventually(func(g Gomega) {
 				d, err := consumer.Data(context.Background())
-				g.Expect(err).ShouldNot(HaveOccurred())
-				g.Expect(d).ShouldNot(BeNil())
+				g.Expect(err).ShouldNot(HaveOccurred(), "Getting data from consumer contract shouldn't fail")
+				g.Expect(d).ShouldNot(BeNil(), "Expected the initial on chain data to be nil")
 				log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
-				g.Expect(d.Int64()).Should(BeNumerically("==", 5))
+				g.Expect(d.Int64()).Should(BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
 			}, "2m", "1s").Should(Succeed())
 		})
 	})
@@ -134,8 +139,8 @@ var _ = Describe("Direct request suite @runlog", func() {
 	AfterEach(func() {
 		By("Tearing down the environment", func() {
 			nets.Default.GasStats().PrintStats()
-			err = actions.TeardownSuite(e, nets, utils.ProjectRoot, nil)
-			Expect(err).ShouldNot(HaveOccurred())
+			err = actions.TeardownSuite(e, nets, utils.ProjectRoot, chainlinkNodes, nil)
+			Expect(err).ShouldNot(HaveOccurred(), "Environment teardown shouldn't fail")
 		})
 	})
 })
