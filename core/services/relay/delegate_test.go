@@ -8,14 +8,18 @@ import (
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	terradb "github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
 	chainsMock "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	solMock "github.com/smartcontractkit/chainlink/core/chains/solana/mocks"
 	terraMock "github.com/smartcontractkit/chainlink/core/chains/terra/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -56,7 +60,16 @@ func TestNewOCR2Provider(t *testing.T) {
 	terraChain.On("Reader", "some-test-node").Return(new(terraMock.Reader), nil).Once()
 
 	terraChains := new(terraMock.ChainSet)
-	terraChains.On("Chain", "Chainlink-99").Return(terraChain, nil).Times(2)
+	terraChains.On("Chain", mock.Anything, "Chainlink-99").Return(terraChain, nil).Times(2)
+
+	// set up solana mocks
+	solChain := new(solMock.Chain)
+	solChain.On("Config").Return(solconfig.NewConfig(soldb.ChainCfg{}, lggr))
+	solChain.On("TxManager").Return(new(solMock.TxManager)).Once()
+	solChain.On("Reader").Return(new(solMock.Reader), nil).Once()
+
+	solChains := new(solMock.ChainSet)
+	solChains.On("Chain", mock.Anything, "Chainlink-99").Return(solChain, nil).Once()
 
 	d := relay.NewDelegate(keystore)
 
@@ -88,8 +101,8 @@ func TestNewOCR2Provider(t *testing.T) {
 	}
 
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
-	d.AddRelayer(relaytypes.Solana, relaytypes.NewRelayerCtx(solana.NewRelayer(lggr)))
-	d.AddRelayer(relaytypes.Terra, relaytypes.NewRelayerCtx(terra.NewRelayer(lggr, terraChains)))
+	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr, solChains))
+	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
@@ -110,4 +123,6 @@ func TestNewOCR2Provider(t *testing.T) {
 	solKey.AssertExpectations(t)
 	terraChains.AssertExpectations(t)
 	terraChain.AssertExpectations(t)
+	solChains.AssertExpectations(t)
+	solChain.AssertExpectations(t)
 }

@@ -171,13 +171,15 @@ func (s *service) SyncNodeInfo(id int64) error {
 			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_FLUX_MONITOR)
 		case JobTypeOffchainReporting:
 			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_OCR)
+		case JobTypeOffchainReporting2:
+			jobtypes = append(jobtypes, pb.JobType_JOB_TYPE_OCR2)
 		default:
 			// NOOP
 		}
 	}
 
 	// Assemble EVM keys
-	evmKeys, err := s.ethKeyStore.SendingKeys()
+	evmKeys, err := s.ethKeyStore.SendingKeys(nil)
 	if err != nil {
 		return err
 	}

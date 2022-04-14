@@ -3,12 +3,14 @@ package job_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -23,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
+	"github.com/smartcontractkit/chainlink/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
@@ -334,7 +337,15 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestedConfsDelay: 10}).Toml())
+	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
+	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour}).
+		Toml())
 	require.NoError(t, err)
 
 	require.NoError(t, jobORM.CreateJob(&jb))
@@ -343,9 +354,31 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	var requestedConfsDelay int64
 	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
 	require.Equal(t, int64(10), requestedConfsDelay)
+	var batchFulfillmentEnabled bool
+	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
+	require.False(t, batchFulfillmentEnabled)
+	var batchFulfillmentGasMultiplier float64
+	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
+	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)
+	var backoffInitialDelay time.Duration
+	require.NoError(t, db.Get(&backoffInitialDelay, `SELECT backoff_initial_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, time.Minute, backoffInitialDelay)
+	var backoffMaxDelay time.Duration
+	require.NoError(t, db.Get(&backoffMaxDelay, `SELECT backoff_max_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, time.Hour, backoffMaxDelay)
+	var chunkSize int
+	require.NoError(t, db.Get(&chunkSize, `SELECT chunk_size FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 25, chunkSize)
+	var fa pq.ByteaArray
+	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
+	var actual []string
+	for _, b := range fa {
+		actual = append(actual, common.BytesToAddress(b).String())
+	}
+	require.ElementsMatch(t, fromAddresses, actual)
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
@@ -388,6 +421,89 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	jobORM.DeleteJob(jb.ID)
 	cltest.AssertCount(t, db, "bootstrap_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
+}
+
+func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
+	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+
+	chain, err := cc.Default()
+	require.NoError(t, err)
+
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	t.Run("with the default chain id", func(t *testing.T) {
+		spec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+			TransmitterAddress: address.Hex(),
+		})
+		jb, err := ocr.ValidatedOracleSpecToml(cc, spec.Toml())
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(&jb)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
+		cltest.AssertCount(t, db, "jobs", 1)
+
+		spec2 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			EVMChainID:         chain.ID().String(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+			TransmitterAddress: address.Hex(),
+		})
+		jb2, err := ocr.ValidatedOracleSpecToml(cc, spec2.Toml())
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(&jb2)
+		require.Error(t, err)
+		assert.Equal(t, err.Error(), fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb2.OCROracleSpec.ContractAddress, jb2.OCROracleSpec.EVMChainID.ToInt()))
+	})
+
+	t.Run("with a set chain id", func(t *testing.T) {
+		externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+		_, contractAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
+
+		spec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			EVMChainID:         chain.ID().String(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+			TransmitterAddress: address.Hex(),
+			ContractAddress:    contractAddress.Hex(),
+			JobID:              externalJobID.UUID.String(),
+			Name:               "with a chain id",
+		})
+
+		jb, err := ocr.ValidatedOracleSpecToml(cc, spec.Toml())
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(&jb)
+		require.NoError(t, err)
+
+		spec2 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			EVMChainID:         chain.ID().String(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+			TransmitterAddress: address.Hex(),
+			ContractAddress:    contractAddress.Hex(),
+			JobID:              externalJobID.UUID.String(),
+			Name:               "with a chain id 2",
+		})
+		jb2, err := ocr.ValidatedOracleSpecToml(cc, spec2.Toml())
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(&jb2)
+		require.Error(t, err)
+		assert.Equal(t, err.Error(), fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb2.OCROracleSpec.ContractAddress, chain.ID()))
+	})
 }
 
 func Test_FindJobs(t *testing.T) {

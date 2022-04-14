@@ -154,7 +154,7 @@ func (p *Pool) report() {
 	}
 
 	live := total - dead
-	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%[1]d nodes live and %d/%[1]d nodes dead", live, total, dead), "nodeStates", nodeStates)
+	p.logger.Tracew(fmt.Sprintf("Pool state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		p.logger.Criticalw(fmt.Sprintf("No EVM primary nodes available: 0/%d nodes are alive", total), "nodeStates", nodeStates)
 	} else if dead > 0 {
@@ -285,11 +285,13 @@ func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error
 			p.wg.Add(1)
 			go func(n SendOnlyNode, txCp types.Transaction) {
 				defer p.wg.Done()
-				sendCtx, cancel := utils.ContextFromChan(p.chStop)
+				timeoutCtx, cancel := DefaultQueryCtx()
 				defer cancel()
+				sendCtx, cancel2 := utils.WithCloseChan(timeoutCtx, p.chStop)
+				defer cancel2()
 				err := NewSendError(n.SendTransaction(sendCtx, &txCp))
 				p.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
-				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
+				if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyMined() || err.IsTransactionAlreadyInMempool() {
 					// Nonce too low or transaction known errors are expected since
 					// the primary SendTransaction may well have succeeded already
 					return

@@ -3,6 +3,7 @@ package ocr_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -24,7 +24,6 @@ var ctx = context.Background()
 
 func Test_DB_ReadWriteState(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	sqlDB := db.DB
 
 	configDigest := cltest.MakeConfigDigest(t)
 	cfg := cltest.NewTestGeneralConfig(t)
@@ -33,7 +32,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		odb := ocr.NewTestDB(t, sqlDB, spec.ID)
+		fmt.Println("creating DB")
+		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
 			HighestSentEpoch:     2,
@@ -50,7 +50,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
-		odb := ocr.NewTestDB(t, sqlDB, spec.ID)
+		odb := ocr.NewTestDB(t, db, spec.ID)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
 			HighestSentEpoch:     3,
@@ -67,7 +67,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		odb := ocr.NewTestDB(t, sqlDB, spec.ID)
+		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
 			HighestSentEpoch:     4,
@@ -78,7 +78,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		require.NoError(t, err)
 
 		// db with different spec
-		odb = ocr.NewTestDB(t, sqlDB, -1)
+		odb = ocr.NewTestDB(t, db, -1)
 
 		readState, err := odb.ReadState(ctx, configDigest)
 		require.NoError(t, err)
@@ -87,7 +87,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
-		odb := ocr.NewTestDB(t, sqlDB, spec.ID)
+		odb := ocr.NewTestDB(t, db, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
 			HighestSentEpoch:     5,
@@ -106,7 +106,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	sqlDB := db.DB
+	sqlDB := db
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	config := ocrtypes.ContractConfig{
@@ -188,7 +188,7 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 
 func Test_DB_PendingTransmissions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	sqlDB := db.DB
+	sqlDB := db
 	cfg := cltest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -393,7 +393,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 
 func Test_DB_LatestRoundRequested(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	sqlDB := db.DB
+	sqlDB := db
 
 	pgtest.MustExec(t, db, `SET CONSTRAINTS offchainreporting_latest_roun_offchainreporting_oracle_spe_fkey DEFERRED`)
 
@@ -411,7 +411,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
-		err := odb.SaveLatestRoundRequested(pg.WrapDbWithSqlx(sqlDB), rr)
+		err := odb.SaveLatestRoundRequested(sqlDB, rr)
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -425,7 +425,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = odb.SaveLatestRoundRequested(pg.WrapDbWithSqlx(sqlDB), rr)
+		err = odb.SaveLatestRoundRequested(sqlDB, rr)
 		require.NoError(t, err)
 	})
 

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# This script generates .abi and .bin files for a selected .sol contract.
+# Example call:
+#   ./contracts/scripts/native_solc_compile dev/Operator.sol
+#
+# The resulting abi and bin files are stored in ./contracts/solc/v0.8
+
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+
+solc-select use 0.8.13
+solc @openzeppelin/=$ROOT/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs 1000000 --metadata-hash none \
+    -o $ROOT/contracts/solc/v0.8.13 \
+    --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/dev,$ROOT/contracts/src/v0.8/interfaces,$ROOT/contracts/src/v0.8/mocks,$ROOT/contracts/src/v0.8/tests,$ROOT/contracts/src/v0.8/vendor,$ROOT/node_modules/@openzeppelin/ \
+    $ROOT/contracts/src/v0.8/$1

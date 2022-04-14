@@ -72,8 +72,7 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
@@ -248,8 +247,8 @@ observationSource   = """
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+
 	app := cltest.NewApplication(t, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -353,7 +352,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			b := operatorContracts.sim
 			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 
-			sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+			sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
 			require.NoError(t, err)
 			authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
 			tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
@@ -495,10 +494,11 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
-	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, portV1))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(true)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
+	config.Overrides.P2PEnabled = null.BoolFrom(true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -531,7 +531,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 		config.Overrides.P2PV2ListenAddresses = []string{fmt.Sprintf("127.0.0.1:%d", portV2)}
 	}
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+	sendingKeys, err := app.KeyStore.Eth().SendingKeys(nil)
 	require.NoError(t, err)
 	transmitter := sendingKeys[0].Address.Address()
 
@@ -552,9 +552,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbNam
 }
 
 func TestIntegration_OCR(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+	testutils.SkipShort(t, "long test")
 	tests := []struct {
 		id        int
 		portStart int // Test need to run in parallel, all need distinct port ranges.
@@ -797,8 +795,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
-	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
-	defer assertMocksCalled()
+	ethClient, sub := cltest.NewEthMocksWithDefaultChain(t)
 	chchNewHeads := make(chan chan<- *evmtypes.Head, 1)
 
 	db := pgtest.NewSqlxDB(t)
@@ -847,12 +844,12 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, mock.AnythingOfType("*big.Int")).Return(&h42, nil)
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
-			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" &&
-			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a"
+			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" &&
+			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29"
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &b41
-		elems[1].Result = &b42
+		elems[0].Result = &b42
+		elems[1].Result = &b41
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
@@ -898,7 +895,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	keys, err := app.KeyStore.Eth().SendingKeys()
+	keys, err := app.KeyStore.Eth().SendingKeys(nil)
 	require.NoError(t, err)
 	// FIXME: This is a hack. Remove after https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
 	for _, chain := range app.GetChains().EVM.Chains() {

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
@@ -114,8 +114,7 @@ func TestClient_SendEther_From_Txm(t *testing.T) {
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethMock, assertMocksCalled := newEthMockWithTransactionsOnBlocksAssertions(t)
-	defer assertMocksCalled()
+	ethMock := newEthMockWithTransactionsOnBlocksAssertions(t)
 
 	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
 
@@ -162,8 +161,7 @@ func TestClient_SendEther_From_Txm_WEI(t *testing.T) {
 	balance, err := assets.NewEthValueS("200")
 	require.NoError(t, err)
 
-	ethMock, assertMocksCalled := newEthMockWithTransactionsOnBlocksAssertions(t)
-	defer assertMocksCalled()
+	ethMock := newEthMockWithTransactionsOnBlocksAssertions(t)
 
 	ethMock.On("BalanceAt", mock.Anything, key.Address.Address(), (*big.Int)(nil)).Return(balance.ToInt(), nil)
 

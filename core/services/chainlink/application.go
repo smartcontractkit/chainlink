@@ -15,7 +15,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgterra "github.com/smartcontractkit/chainlink-terra/pkg/terra"
 	"github.com/smartcontractkit/sqlx"
 
@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -146,16 +147,20 @@ type ApplicationOpts struct {
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM   evm.ChainSet
-	Terra terra.ChainSet // nil if disabled
+	EVM    evm.ChainSet
+	Solana solana.ChainSet // nil if disabled
+	Terra  terra.ChainSet  // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.EVM != nil {
 		s = append(s, c.EVM)
 	}
+	if c.Solana != nil {
+		s = append(s, c.Solana)
+	}
 	if c.Terra != nil {
-		s = append(s, services.NewServiceCtx(c.Terra))
+		s = append(s, c.Terra)
 	}
 	return
 }
@@ -207,7 +212,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
 		if cfg.TelemetryIngressUseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(cfg.TelemetryIngressURL(),
-				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval(), cfg.TelemetryIngressSendTimeout())
+				cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger, cfg.TelemetryIngressBufferSize(), cfg.TelemetryIngressMaxBatchSize(), cfg.TelemetryIngressSendInterval(), cfg.TelemetryIngressSendTimeout(), cfg.TelemetryIngressUniConn())
 			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
 
 		} else {
@@ -321,6 +326,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
+			cfg,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
@@ -334,13 +340,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relay.AddRelayer(relaytypes.EVM, evmRelayer)
 		}
 		if cfg.SolanaEnabled() {
-			solanaRelayer := solana.NewRelayer(globalLogger.Named("Solana.Relayer"))
-			solanaRelayerCtx := relaytypes.NewRelayerCtx(solanaRelayer)
+			solanaRelayer := pkgsolana.NewRelayer(globalLogger.Named("Solana.Relayer"), chains.Solana)
+			solanaRelayerCtx := solanaRelayer
 			relay.AddRelayer(relaytypes.Solana, solanaRelayerCtx)
 		}
 		if cfg.TerraEnabled() {
 			terraRelayer := pkgterra.NewRelayer(globalLogger.Named("Terra.Relayer"), chains.Terra)
-			terraRelayerCtx := relaytypes.NewRelayerCtx(terraRelayer)
+			terraRelayerCtx := terraRelayer
 			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
 		}
 		subservices = append(subservices, relay)

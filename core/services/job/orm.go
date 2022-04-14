@@ -8,11 +8,14 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -27,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -177,6 +181,29 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			existingSpec := new(OCROracleSpec)
+			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL) LIMIT 1;`,
+				jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID,
+			)
+			if !errors.Is(err, sql.ErrNoRows) {
+				if err != nil {
+					return errors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
+				}
+
+				matchErr := errors.Errorf("a job with contract address %s already exists for chain ID %d", jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID.ToInt())
+				if existingSpec.EVMChainID == nil {
+					chain, err2 := o.chainSet.Default()
+					if err2 != nil {
+						return errors.Wrap(err2, "failed to validate OffchainreportingOracleSpec on creation")
+					}
+					if jb.OCROracleSpec.EVMChainID.Equal((*utils.Big)(chain.ID())) {
+						return matchErr
+					}
+				} else {
+					return matchErr
+				}
+			}
+
 			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
 					observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id,
 					created_at, updated_at, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout)
@@ -184,7 +211,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					:observation_timeout, :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id,
 					NOW(), NOW(), :database_timeout, :observation_grace_period, :contract_transmitter_transmit_timeout)
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCROracleSpec)
+			err = pg.PrepareQueryRowx(tx, sql, &specID, jb.OCROracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec")
 			}
@@ -264,10 +291,21 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.CronSpecID = &specID
 		case VRF:
 			var specID int32
-			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_address, poll_period, requested_confs_delay, request_timeout, created_at, updated_at)
-			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, :requested_confs_delay, :request_timeout, NOW(), NOW())
+			sql := `INSERT INTO vrf_specs (
+				coordinator_address, public_key, min_incoming_confirmations, 
+				evm_chain_id, from_addresses, poll_period, requested_confs_delay, 
+				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled, 
+				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay,
+				created_at, updated_at)
+			VALUES (
+				:coordinator_address, :public_key, :min_incoming_confirmations, 
+				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, 
+				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
+				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay,
+				NOW(), NOW())
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.VRFSpec)
+
+			err := pg.PrepareQueryRowx(tx, sql, &specID, toVRFSpecRow(jb.VRFSpec))
 			var pqErr *pgconn.PgError
 			ok := errors.As(err, &pqErr)
 			if err != nil && ok && pqErr.Code == "23503" {
@@ -981,7 +1019,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "KeeperSpec", "keeper_specs", job.KeeperSpecID),
 		loadJobType(tx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		loadJobType(tx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
-		loadJobType(tx, job, "VRFSpec", "vrf_specs", job.VRFSpecID),
+		loadVRFJob(tx, job, job.VRFSpecID),
 		loadJobType(tx, job, "BlockhashStoreSpec", "blockhash_store_specs", job.BlockhashStoreSpecID),
 		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 	)
@@ -1007,6 +1045,45 @@ func loadJobType(tx pg.Queryer, job *Job, field, table string, id *int32) error 
 	}
 	reflect.ValueOf(job).Elem().FieldByName(field).Set(destVal)
 	return nil
+}
+
+func loadVRFJob(tx pg.Queryer, job *Job, id *int32) error {
+	if id == nil {
+		return nil
+	}
+
+	var row vrfSpecRow
+	err := tx.Get(&row, `SELECT * FROM vrf_specs WHERE id = $1`, *id)
+	if err != nil {
+		return errors.Wrapf(err, `failed to load job type VRFSpec with id %d`, *id)
+	}
+
+	job.VRFSpec = row.toVRFSpec()
+	return nil
+}
+
+// vrfSpecRow is a helper type for reading and writing VRF specs to the database. This is necessary
+// because the bytea[] in the DB is not automatically convertible to or from the spec's
+// FromAddresses field. pq.ByteaArray must be used instead.
+type vrfSpecRow struct {
+	*VRFSpec
+	FromAddresses pq.ByteaArray
+}
+
+func toVRFSpecRow(spec *VRFSpec) vrfSpecRow {
+	addresses := make(pq.ByteaArray, len(spec.FromAddresses))
+	for i, a := range spec.FromAddresses {
+		addresses[i] = a.Bytes()
+	}
+	return vrfSpecRow{VRFSpec: spec, FromAddresses: addresses}
+}
+
+func (r vrfSpecRow) toVRFSpec() *VRFSpec {
+	for _, a := range r.FromAddresses {
+		r.VRFSpec.FromAddresses = append(r.VRFSpec.FromAddresses,
+			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+	}
+	return r.VRFSpec
 }
 
 func loadJobSpecErrors(tx pg.Queryer, jb *Job) error {

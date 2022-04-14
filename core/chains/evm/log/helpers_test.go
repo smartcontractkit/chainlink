@@ -84,9 +84,6 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 }
 
 func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient.Client) *broadcasterHelper {
-	if testing.Short() {
-		t.Skip("skipping due to broadcasterHelper")
-	}
 	if c.db == nil {
 		c.db = pgtest.NewSqlxDB(t)
 	}
@@ -168,7 +165,7 @@ func (helper *broadcasterHelper) requireBroadcastCount(expectedCount int) {
 		return count.Count, err
 	}
 
-	g.Eventually(comparisonFunc, cltest.WaitTimeout(helper.t), time.Second).Should(gomega.Equal(expectedCount))
+	g.Eventually(comparisonFunc, testutils.WaitTimeout(helper.t), time.Second).Should(gomega.Equal(expectedCount))
 	g.Consistently(comparisonFunc, 1*time.Second, 200*time.Millisecond).Should(gomega.Equal(expectedCount))
 }
 

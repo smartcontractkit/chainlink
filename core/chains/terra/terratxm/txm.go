@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
+	"golang.org/x/exp/slices"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -29,8 +30,8 @@ import (
 )
 
 var (
-	_ services.Service = (*Txm)(nil)
-	_ terra.TxManager  = (*Txm)(nil)
+	_ services.ServiceCtx = (*Txm)(nil)
+	_ terra.TxManager     = (*Txm)(nil)
 )
 
 // Txm manages transactions for the terra blockchain.
@@ -65,7 +66,7 @@ func NewTxm(db *sqlx.DB, tc func() (terraclient.ReaderWriter, error), gpe terrac
 }
 
 // Start subscribes to pg notifications about terra msg inserts and processes them.
-func (txm *Txm) Start() error {
+func (txm *Txm) Start(context.Context) error {
 	return txm.starter.StartOnce("terratxm", func() error {
 		sub, err := txm.eb.Subscribe(pg.ChannelInsertOnTerraMsg, "")
 		if err != nil {
@@ -157,23 +158,61 @@ func unmarshalMsg(msgType string, raw []byte) (sdk.Msg, string, error) {
 	return nil, "", errors.Errorf("unrecognized message type: %s", msgType)
 }
 
+type msgValidator struct {
+	cutoff         time.Time
+	expired, valid terra.Msgs
+}
+
+func (e *msgValidator) add(msg terra.Msg) {
+	if msg.CreatedAt.Before(e.cutoff) {
+		e.expired = append(e.expired, msg)
+	} else {
+		e.valid = append(e.valid, msg)
+	}
+}
+
+func (e *msgValidator) sortValid() {
+	slices.SortFunc(e.valid, func(a, b terra.Msg) bool {
+		ac, bc := a.CreatedAt, b.CreatedAt
+		if ac.Equal(bc) {
+			return a.ID < b.ID
+		}
+		return ac.Before(bc)
+	})
+}
+
 func (txm *Txm) sendMsgBatch(ctx context.Context) {
-	var notExpired, expired terra.Msgs
+	msgs := msgValidator{cutoff: time.Now().Add(-txm.cfg.TxMsgTimeout())}
 	err := txm.orm.q.Transaction(func(tx pg.Queryer) error {
-		unstarted, err := txm.orm.GetMsgsState(db.Unstarted, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
+		// There may be leftover Started messages after a crash or failed send attempt.
+		started, err := txm.orm.GetMsgsState(db.Started, txm.cfg.MaxMsgsPerBatch(), pg.WithQueryer(tx))
 		if err != nil {
 			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 			return err
 		}
-		cutoff := time.Now().Add(-txm.cfg.TxMsgTimeout())
-		for _, msg := range unstarted {
-			if msg.CreatedAt.Before(cutoff) {
-				expired = append(expired, msg)
-			} else {
-				notExpired = append(notExpired, msg)
+		if limit := txm.cfg.MaxMsgsPerBatch() - int64(len(started)); limit > 0 {
+			// Use the remaining batch budget for Unstarted
+			unstarted, err := txm.orm.GetMsgsState(db.Unstarted, limit, pg.WithQueryer(tx))
+			if err != nil {
+				txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
+				return err
+			}
+			for _, msg := range unstarted {
+				msgs.add(msg)
+			}
+			// Update valid, Unstarted messages to Started
+			err = txm.orm.UpdateMsgs(msgs.valid.GetIDs(), db.Started, nil, pg.WithQueryer(tx))
+			if err != nil {
+				// Assume transient db error retry
+				txm.lggr.Errorw("unable to mark unstarted txes as started", "err", err)
+				return err
 			}
 		}
-		err = txm.orm.UpdateMsgs(expired.GetIDs(), db.Errored, nil, pg.WithQueryer(tx))
+		for _, msg := range started {
+			msgs.add(msg)
+		}
+		// Update expired messages (Unstarted or Started) to Errored
+		err = txm.orm.UpdateMsgs(msgs.expired.GetIDs(), db.Errored, nil, pg.WithQueryer(tx))
 		if err != nil {
 			// Assume transient db error retry
 			txm.lggr.Errorw("unable to mark expired txes as errored", "err", err)
@@ -184,12 +223,13 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	if len(notExpired) == 0 {
+	if len(msgs.valid) == 0 {
 		return
 	}
-	txm.lggr.Debugw("building a batch", "not expired", notExpired, "marked expired", expired)
+	msgs.sortValid()
+	txm.lggr.Debugw("building a batch", "not expired", msgs.valid, "marked expired", msgs.expired)
 	var msgsByFrom = make(map[string]terra.Msgs)
-	for _, m := range notExpired {
+	for _, m := range msgs.valid {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
 		if err2 != nil {
 			// Should be impossible given the check in Enqueue
@@ -293,6 +333,8 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 	// We need to ensure that we either broadcast successfully and mark the tx as
 	// broadcasted OR we do not broadcast successfully and we do not mark it as broadcasted.
 	// We do this by first marking it broadcasted then rolling back if the broadcast api call fails.
+	// There is still a small chance of network failure or node/db crash after broadcasting but before committing the tx,
+	// in which case the msgs would be picked up again and re-broadcast, ensuring at-least once delivery.
 	var resp *txtypes.BroadcastTxResponse
 	err = txm.orm.q.Transaction(func(tx pg.Queryer) error {
 		txHash := strings.ToUpper(hex.EncodeToString(tmhash.Sum(signedTx)))
@@ -396,36 +438,55 @@ func (txm *Txm) confirmTx(ctx context.Context, tc terraclient.Reader, txHash str
 
 // Enqueue enqueue a msg destined for the terra chain.
 func (txm *Txm) Enqueue(contractID string, msg sdk.Msg) (int64, error) {
-	switch ms := msg.(type) {
-	case *wasmtypes.MsgExecuteContract:
-		_, err := sdk.AccAddressFromBech32(ms.Sender)
-		if err != nil {
-			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.Sender)
-			return 0, err
-		}
-
-	case *types.MsgSend:
-		_, err := sdk.AccAddressFromBech32(ms.FromAddress)
-		if err != nil {
-			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.FromAddress)
-			return 0, err
-		}
-
-	default:
-		return 0, &terra.ErrMsgUnsupported{Msg: msg}
-	}
-	typeURL := sdk.MsgTypeURL(msg)
-	raw, err := proto.Marshal(msg)
+	typeURL, raw, err := txm.marshalMsg(msg)
 	if err != nil {
-		txm.lggr.Errorw("failed to marshal msg, skipping", "err", err, "msg", msg)
 		return 0, err
 	}
 
 	// We could consider simulating here too, but that would
 	// introduce another network call and essentially double
 	// the enqueue time. Enqueue is used in the context of OCRs Transmit
-	// and must be fast, so we do the minimum of a db write.
-	return txm.orm.InsertMsg(contractID, typeURL, raw)
+	// and must be fast, so we do the minimum.
+
+	var id int64
+	err = txm.orm.q.Transaction(func(tx pg.Queryer) (err error) {
+		// cancel any unstarted msgs (normally just one)
+		err = txm.orm.UpdateMsgsContract(contractID, db.Unstarted, db.Errored, pg.WithQueryer(tx))
+		if err != nil {
+			return err
+		}
+		id, err = txm.orm.InsertMsg(contractID, typeURL, raw, pg.WithQueryer(tx))
+		return err
+	})
+	return id, err
+}
+
+func (txm *Txm) marshalMsg(msg sdk.Msg) (string, []byte, error) {
+	switch ms := msg.(type) {
+	case *wasmtypes.MsgExecuteContract:
+		_, err := sdk.AccAddressFromBech32(ms.Sender)
+		if err != nil {
+			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.Sender)
+			return "", nil, err
+		}
+
+	case *types.MsgSend:
+		_, err := sdk.AccAddressFromBech32(ms.FromAddress)
+		if err != nil {
+			txm.lggr.Errorw("failed to parse sender, skipping", "err", err, "sender", ms.FromAddress)
+			return "", nil, err
+		}
+
+	default:
+		return "", nil, &terra.ErrMsgUnsupported{Msg: msg}
+	}
+	typeURL := sdk.MsgTypeURL(msg)
+	raw, err := proto.Marshal(msg)
+	if err != nil {
+		txm.lggr.Errorw("failed to marshal msg, skipping", "err", err, "msg", msg)
+		return "", nil, err
+	}
+	return typeURL, raw, nil
 }
 
 // GetMsgs returns any messages matching ids.

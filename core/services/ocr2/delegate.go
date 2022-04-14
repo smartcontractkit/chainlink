@@ -90,7 +90,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
 
-	ocrDB := NewDB(d.db.DB, spec.ID, d.lggr)
+	ocrDB := NewDB(d.db, spec.ID, d.lggr, d.cfg)
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -98,8 +98,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
 	}
 
-	lggr := d.lggr.With(
-		"OCRLogger", "true",
+	lggr := d.lggr.Named("OCR").With(
 		"contractID", spec.ContractID,
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,

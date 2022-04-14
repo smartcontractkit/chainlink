@@ -23,6 +23,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
@@ -40,11 +41,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
 const ownerPermsMask = os.FileMode(0700)
+
+// PristineDBName is a clean copy of test DB with migrations.
+// Used by heavyweight.FullTestDB* functions.
+const PristineDBName = "chainlink_test_pristine"
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
@@ -88,7 +92,9 @@ func (cli *Client) runNode(c *clipkg.Context) error {
 		}
 	}()
 
-	go shutdown.HandleShutdown(func() {
+	go shutdown.HandleShutdown(func(sig string) {
+		lggr.Infof("Shutting down due to %s signal received...", sig)
+
 		shutdownStartTime = time.Now()
 		cancelRootCtx()
 
@@ -500,6 +506,19 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
+
+	// Creating pristine DB copy to speed up FullTestDB
+	dbUrl := cfg.DatabaseURL()
+	db, err := sql.Open(string(dialects.Postgres), dbUrl.String())
+	defer db.Close()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	templateDB := strings.Trim(dbUrl.Path, "/")
+	if err = dropAndCreatePristineDB(db, templateDB); err != nil {
+		return cli.errorOut(err)
+	}
+
 	userOnly := c.Bool("user-only")
 	var fixturePath = "../store/fixtures/fixtures.sql"
 	if userOnly {
@@ -508,6 +527,7 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if err := insertFixtures(cfg, fixturePath); err != nil {
 		return cli.errorOut(err)
 	}
+
 	return nil
 }
 
@@ -647,6 +667,18 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
 	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, dbname))
+	if err != nil {
+		return fmt.Errorf("unable to create postgres database: %v", err)
+	}
+	return nil
+}
+
+func dropAndCreatePristineDB(db *sql.DB, template string) (err error) {
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, PristineDBName))
+	if err != nil {
+		return fmt.Errorf("unable to drop postgres database: %v", err)
+	}
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, PristineDBName, template))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}

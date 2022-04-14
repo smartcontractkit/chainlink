@@ -974,22 +974,24 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 	etx2 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
 		t, borm, 2, 1, originalBroadcastAt, fromAddress)
 	attempt2_1 := etx2.EthTxAttempts[0]
+	etx3 := cltest.MustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(
+		t, borm, 3, 1, originalBroadcastAt, fromAddress)
+	attempt3_1 := etx3.EthTxAttempts[0]
 
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 3 &&
+		return len(b) == 4 &&
 			cltest.BatchElemMatchesParams(b[0], hexutil.Encode(attempt0_2.SignedRawTx), "eth_sendRawTransaction") &&
 			cltest.BatchElemMatchesParams(b[1], hexutil.Encode(attempt1_2.SignedRawTx), "eth_sendRawTransaction") &&
-			cltest.BatchElemMatchesParams(b[2], hexutil.Encode(attempt2_1.SignedRawTx), "eth_sendRawTransaction")
+			cltest.BatchElemMatchesParams(b[2], hexutil.Encode(attempt2_1.SignedRawTx), "eth_sendRawTransaction") &&
+			cltest.BatchElemMatchesParams(b[3], hexutil.Encode(attempt3_1.SignedRawTx), "eth_sendRawTransaction")
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		// First transaction confirmed
 		elems[0].Error = errors.New("nonce too low")
 		elems[1].Error = errors.New("transaction underpriced")
 		elems[2].Error = nil
+		elems[3].Error = errors.New("transaction already finalized")
 	}).Once()
-	println("Test idx: ", etx0.ID)
-	println("Test idx: ", etx1.ID)
-	println("Test idx: ", etx2.ID)
 
 	// PERFORM
 	require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
@@ -1010,6 +1012,10 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, txmgr.EthTxUnconfirmed, etx2.State)
 	assert.Greater(t, etx2.BroadcastAt.Unix(), originalBroadcastAt.Unix())
+	etx3, err = borm.FindEthTxWithAttempts(etx3.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, txmgr.EthTxConfirmedMissingReceipt, etx3.State)
+	assert.Greater(t, etx3.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 }
 
 func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t *testing.T) {
@@ -2230,7 +2236,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	keys, err := ethKeyStore.SendingKeys()
+	keys, err := ethKeyStore.SendingKeys(nil)
 	require.NoError(t, err)
 	keyStates, err := ethKeyStore.GetStatesForKeys(keys)
 	require.NoError(t, err)

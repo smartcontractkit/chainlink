@@ -57,7 +57,7 @@ func TestRunner(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
-	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
@@ -452,6 +452,7 @@ ds1 -> ds1_parse;
 			nil,
 			cc,
 			logger.TestLogger(t),
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -477,6 +478,8 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		lggr := logger.TestLogger(t)
+		_, err = keyStore.P2P().Create()
+		assert.NoError(t, err)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start(testutils.Context(t)))
 		sd := ocr.NewDelegate(
@@ -488,6 +491,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -540,6 +544,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -574,6 +579,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -602,6 +608,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -633,6 +640,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)
@@ -749,8 +757,7 @@ ds1 -> ds1_parse;
 func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
@@ -927,8 +934,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMockCalls()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)

@@ -3,12 +3,16 @@ package vrf
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -18,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgr.EthTxState, maxLink string, subID uint64) {
@@ -34,8 +37,8 @@ func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgr.EthTxS
 		0,              // limit
 		state,
 		txmgr.EthTxMeta{
-			MaxLink: maxLink,
-			SubID:   subID,
+			MaxLink: &maxLink,
+			SubID:   &subID,
 		},
 		uuid.NullUUID{},
 		1337,
@@ -57,8 +60,8 @@ func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink s
 		0,              // value
 		0,              // limit
 		txmgr.EthTxMeta{
-			MaxLink: maxLink,
-			SubID:   subID,
+			MaxLink: &maxLink,
+			SubID:   &subID,
 		},
 		uuid.NullUUID{},
 		1337,
@@ -88,19 +91,19 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 
 	// Insert an unstarted eth tx with link metadata
 	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", subID)
-	start, err := MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err := MaybeSubtractReservedLink(lggr, q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// A confirmed tx should not affect the starting balance
 	addConfirmedEthTx(t, db, k.Address.Address(), "10000", subID, 1)
-	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// An unconfirmed tx _should_ affect the starting balance.
 	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", subID)
-	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
 
@@ -108,7 +111,7 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	otherSubID := uint64(2)
 	require.NoError(t, err)
 	addEthTx(t, db, k.Address.Address(), txmgr.EthTxUnstarted, "10000", otherSubID)
-	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
@@ -118,14 +121,14 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 
 	anotherSubID := uint64(3)
 	addEthTx(t, db, k2.Address.Address(), txmgr.EthTxUnstarted, "10000", anotherSubID)
-	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
 	// A subscriber's balance is deducted with the link reserved across multiple keys,
 	// i.e, gas lanes.
 	addEthTx(t, db, k2.Address.Address(), txmgr.EthTxUnstarted, "10000", subID)
-	start, err = MaybeSubtractReservedLink(lggr, q, k2.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "70000", start.String())
 }
@@ -168,4 +171,95 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 		},
 	}, uint32(nodeMinConfs))
 	require.Equal(t, uint64(200), confirmedAt) // log block number + # of confirmations
+}
+
+func TestListener_Backoff(t *testing.T) {
+	var tests = []struct {
+		name     string
+		initial  time.Duration
+		max      time.Duration
+		last     time.Duration
+		retries  int
+		expected bool
+	}{
+		{
+			name:     "Backoff disabled, ready",
+			expected: true,
+		},
+		{
+			name:     "First try, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     0,
+			retries:  0,
+			expected: true,
+		},
+		{
+			name:     "Second try, not ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     59 * time.Second,
+			retries:  1,
+			expected: false,
+		},
+		{
+			name:     "Second try, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     61 * time.Second, // Last try was over a minute ago
+			retries:  1,
+			expected: true,
+		},
+		{
+			name:     "Third try, not ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     77 * time.Second, // Slightly less than backoffFactor * initial
+			retries:  2,
+			expected: false,
+		},
+		{
+			name:     "Third try, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     79 * time.Second, // Slightly more than backoffFactor * initial
+			retries:  2,
+			expected: true,
+		},
+		{
+			name:     "Max, not ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     59 * time.Minute, // Slightly less than max
+			retries:  900,
+			expected: false,
+		},
+		{
+			name:     "Max, ready",
+			initial:  time.Minute,
+			max:      time.Hour,
+			last:     61 * time.Minute, // Slightly more than max
+			retries:  900,
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			lsn := &listenerV2{job: job.Job{
+				VRFSpec: &job.VRFSpec{
+					BackoffInitialDelay: test.initial,
+					BackoffMaxDelay:     test.max,
+				},
+			}}
+
+			req := pendingRequest{
+				confirmedAtBlock: 5,
+				attempts:         test.retries,
+				lastTry:          time.Now().Add(-test.last),
+			}
+
+			require.Equal(t, test.expected, lsn.ready(req, 10))
+		})
+	}
 }

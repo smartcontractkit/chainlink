@@ -25,8 +25,8 @@ var (
 		types.Terra:  {},
 	}
 	_ types.RelayerCtx = &evm.Relayer{}
-	_ types.Relayer    = &solana.Relayer{}
-	_ types.Relayer    = &terra.Relayer{}
+	_ types.RelayerCtx = &solana.Relayer{}
+	_ types.RelayerCtx = &terra.Relayer{}
 )
 
 type delegate struct {
@@ -170,18 +170,12 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (types
 		return r.NewOCR2Provider(externalJobID, solana.OCR2Spec{
 			ID:                 spec.ID,
 			IsBootstrap:        spec.IsBootstrapPeer,
-			NodeEndpointHTTP:   config.NodeEndpointHTTP,
+			ChainID:            config.ChainID,
 			ProgramID:          programID,
 			StateID:            stateID,
 			StoreProgramID:     storeProgramID,
 			TransmissionsID:    transmissionsID,
 			TransmissionSigner: transmissionSigner,
-			UsePreflight:       config.UsePreflight,
-			Commitment:         config.Commitment,
-			TxTimeout:          config.TxTimeout,
-			PollingInterval:    config.PollingInterval,
-			PollingCtxTimeout:  config.PollingCtxTimeout,
-			StaleTimeout:       config.StaleTimeout,
 		})
 	case types.Terra:
 		r, exists := d.relayers[types.Terra]

@@ -76,7 +76,7 @@ type FluxMonitor struct {
 
 	logger logger.Logger
 
-	backlog       *utils.BoundedPriorityQueue
+	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
 
 	utils.StartStopOnce
@@ -124,7 +124,7 @@ func NewFluxMonitor(
 		logBroadcaster:    logBroadcaster,
 		fluxAggregator:    fluxAggregator,
 		logger:            fmLogger,
-		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
+		backlog: utils.NewBoundedPriorityQueue[log.Broadcast](map[uint]int{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
 			PriorityNewRoundLog:      2,
@@ -309,8 +309,7 @@ func (fm *FluxMonitor) JobID() int32 { return fm.spec.JobID }
 func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		fm.logger.Error("HandleLog: ignoring nil value")
-		return
+		fm.logger.Panic("HandleLog: failed to handle log of type nil")
 	}
 
 	switch log := log.(type) {
@@ -453,7 +452,7 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
-	keys, err := fm.keyStore.SendingKeys()
+	keys, err := fm.keyStore.SendingKeys(nil) // FIXME: FluxMonitor is probably not compatible with multichain here
 	if err != nil {
 		return errors.Wrap(err, "failed to load keys")
 	}
@@ -487,11 +486,7 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 
 func (fm *FluxMonitor) processLogs() {
 	for !fm.backlog.Empty() {
-		maybeBroadcast := fm.backlog.Take()
-		broadcast, ok := maybeBroadcast.(log.Broadcast)
-		if !ok {
-			fm.logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
-		}
+		broadcast := fm.backlog.Take()
 		fm.processBroadcast(broadcast)
 	}
 }
