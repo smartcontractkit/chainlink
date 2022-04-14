@@ -31,6 +31,7 @@ type Txm struct {
 	queue      chan *solanaGo.Transaction
 	stop, done chan struct{}
 	cfg        config.Config
+	txCache    *TxCache
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
@@ -44,6 +45,7 @@ func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lgg
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 		cfg:     cfg,
+		txCache: NewTxCache(),
 	}
 }
 
@@ -83,9 +85,7 @@ func (txm *Txm) run() {
 
 			// start exponential retry
 
-			// send signature to confirmer
-
-			// send tx + signature for simulation
+			// send tx + signature to simulation queue
 
 			txm.lggr.Debugw("successfully sent transaction", "signature", sig.String())
 		case <-txm.stop:
@@ -94,8 +94,12 @@ func (txm *Txm) run() {
 	}
 }
 
-// TODO: transaction confirmation
-// use ConfirmPollPeriod() in config
+// TODO: goroutine that polls to confirm implementation
+// cancels the exponential retry once confirmed
+func (txm *Txm) confirm () {}
+
+// TODO: goroutine that simulates tx (use a bounded number of goroutines to pick from queue?)
+func (txm *Txm) simulate() {}
 
 // Enqueue enqueue a msg destined for the solana chain.
 func (txm *Txm) Enqueue(accountID string, msg *solanaGo.Transaction) error {
