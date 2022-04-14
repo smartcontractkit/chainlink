@@ -3,6 +3,7 @@ package soltxm
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	solanaGo "github.com/gagliardetto/solana-go"
@@ -30,28 +31,36 @@ var (
 // Txm manages transactions for the solana blockchain.
 // simple implementation with no persistently stored txs
 type Txm struct {
-	starter    utils.StartStopOnce
-	lggr       logger.Logger
-	tc         func() (solanaClient.ReaderWriter, error)
-	queue      chan *solanaGo.Transaction
-	stop, done chan struct{}
-	cfg        config.Config
-	txCache    *TxCache
-	client     solanaClient.ReaderWriter
+	starter  utils.StartStopOnce
+	lggr     logger.Logger
+	tc       func() (solanaClient.ReaderWriter, error)
+	queue    chan queueMsg
+	simQueue chan queueMsg
+	stop     chan struct{}
+	done     sync.WaitGroup
+	cfg      config.Config
+	txCache  *TxCache
+	client   solanaClient.ReaderWriter
+}
+
+type queueMsg struct {
+	tx        *solanaGo.Transaction
+	timeout   time.Duration
+	signature solanaGo.Signature
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lggr logger.Logger) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
-		starter: utils.StartStopOnce{},
-		tc:      tc,
-		lggr:    lggr,
-		queue:   make(chan *solanaGo.Transaction, MaxQueueLen), // queue can support 1000 pending txs
-		stop:    make(chan struct{}),
-		done:    make(chan struct{}),
-		cfg:     cfg,
-		txCache: NewTxCache(),
+		starter:  utils.StartStopOnce{},
+		tc:       tc,
+		lggr:     lggr,
+		queue:    make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
+		simQueue: make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
+		stop:     make(chan struct{}),
+		cfg:      cfg,
+		txCache:  NewTxCache(),
 	}
 }
 
@@ -64,13 +73,18 @@ func (txm *Txm) Start(context.Context) error {
 }
 
 func (txm *Txm) run() {
-	defer close(txm.done)
+	txm.done.Add(1)
+	defer txm.done.Done()
 	ctx, cancel := utils.ContextFromChan(txm.stop)
 	defer cancel()
 
+	// start confirmer + simulator
+	go txm.confirm(ctx)
+	go txm.simulate(ctx)
+
 	for {
 		select {
-		case tx := <-txm.queue:
+		case msg := <-txm.queue:
 			// fetch client (only if it doesn't exist, reduce need for db read each time)
 			if txm.client == nil {
 				newClient, err := txm.tc()
@@ -81,7 +95,7 @@ func (txm *Txm) run() {
 				txm.client = newClient
 			}
 			// process tx
-			sig, err := txm.sendWithRetry(ctx, tx)
+			sig, err := txm.sendWithRetry(ctx, msg.tx, msg.timeout)
 			if err != nil {
 				txm.lggr.Criticalw("failed to send transaction", "err", err)
 				txm.client = nil // clear client if tx fails immediately (potentially bad RPC)
@@ -89,22 +103,22 @@ func (txm *Txm) run() {
 			}
 
 			// send tx + signature to simulation queue
+			msg.signature = sig
+			txm.simQueue <- msg
 
-			txm.lggr.Debugw("successfully sent transaction", "signature", sig.String())
+			txm.lggr.Debugw("sent transaction", "signature", sig.String())
 		case <-txm.stop:
 			return
 		}
 	}
 }
 
-func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction) (solanaGo.Signature, error) {
+func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction, timeout time.Duration) (solanaGo.Signature, error) {
 	if txm.client == nil {
 		return solanaGo.Signature{}, errors.New("transaction manager client is nil")
 	}
 
 	// create timeout context
-	// TODO: pass in timeout parameter
-	timeout := 5 * time.Second
 	ctx, cancel := context.WithTimeout(chanCtx, timeout)
 
 	// send initial tx (do not retry and exit early if fails)
@@ -125,7 +139,6 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction)
 		deltaT := 1
 		tick := time.After(0)
 		for {
-			fmt.Println(deltaT)
 			select {
 			case <-ctx.Done():
 				return
@@ -154,15 +167,49 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction)
 	return sig, nil
 }
 
-// TODO: goroutine that polls to confirm implementation
+// goroutine that polls to confirm implementation
 // cancels the exponential retry once confirmed
-func (txm *Txm) confirm() {}
+func (txm *Txm) confirm(ctx context.Context) {
+	txm.done.Add(1)
+	defer txm.done.Done()
 
-// TODO: goroutine that simulates tx (use a bounded number of goroutines to pick from queue?)
-func (txm *Txm) simulate() {}
+	tick := time.After(0)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick:
+			// TODO: implement confirmation
+			fmt.Println("PLACEHOLDER: cache list", txm.txCache.List())
+		}
+		// TODO: defaults to 1s - should change to 0.5s
+		tick = time.After(utils.WithJitter(txm.cfg.ConfirmPollPeriod()))
+	}
+}
+
+// goroutine that simulates tx (use a bounded number of goroutines to pick from queue?)
+func (txm *Txm) simulate(ctx context.Context) {
+	txm.done.Add(1)
+	defer txm.done.Done()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-txm.simQueue:
+			// TODO: simulate tx that is passed from queue
+			fmt.Println("PLACEHOLDER: simQueue", msg)
+		}
+	}
+}
 
 // Enqueue enqueue a msg destined for the solana chain.
-func (txm *Txm) Enqueue(accountID string, msg *solanaGo.Transaction) error {
+func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
+	msg := queueMsg{
+		tx:      tx,
+		timeout: 5 * time.Second, // TODO: make this configurable via argument,
+	}
+
 	select {
 	case txm.queue <- msg:
 	default:
@@ -176,7 +223,7 @@ func (txm *Txm) Enqueue(accountID string, msg *solanaGo.Transaction) error {
 func (txm *Txm) Close() error {
 	return txm.starter.StopOnce("solanatxm", func() error {
 		close(txm.stop)
-		<-txm.done
+		txm.done.Wait()
 		return nil
 	})
 }
