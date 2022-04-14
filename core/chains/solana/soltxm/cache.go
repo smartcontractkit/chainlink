@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/gagliardetto/solana-go"
+	"golang.org/x/exp/maps"
 )
 
 type TxCache struct {
@@ -47,12 +48,5 @@ func (c *TxCache) Cancel(sig solana.Signature) {
 func (c *TxCache) List() []solana.Signature {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-
-	sigs := make([]solana.Signature, len(c.cache))
-	i := 0
-	for k := range c.cache {
-		sigs[i] = k
-		i++
-	}
-	return sigs
+	return maps.Keys(c.cache)
 }

@@ -96,7 +96,7 @@ func (txm *Txm) run() {
 
 // TODO: goroutine that polls to confirm implementation
 // cancels the exponential retry once confirmed
-func (txm *Txm) confirm () {}
+func (txm *Txm) confirm() {}
 
 // TODO: goroutine that simulates tx (use a bounded number of goroutines to pick from queue?)
 func (txm *Txm) simulate() {}
