@@ -2,6 +2,8 @@ package soltxm
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	solanaGo "github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
@@ -15,7 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const MaxQueueLen = 1000
+const (
+	MaxQueueLen    = 1000
+	MaxRetryTimeMs = 500
+)
 
 var (
 	_ services.ServiceCtx = (*Txm)(nil)
@@ -32,6 +37,7 @@ type Txm struct {
 	stop, done chan struct{}
 	cfg        config.Config
 	txCache    *TxCache
+	client     solanaClient.ReaderWriter
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
@@ -62,28 +68,25 @@ func (txm *Txm) run() {
 	ctx, cancel := utils.ContextFromChan(txm.stop)
 	defer cancel()
 
-	var client solanaClient.ReaderWriter
 	for {
 		select {
 		case tx := <-txm.queue:
 			// fetch client (only if it doesn't exist, reduce need for db read each time)
-			if client == nil {
+			if txm.client == nil {
 				newClient, err := txm.tc()
 				if err != nil {
 					txm.lggr.Errorw("failed to get client", "err", err)
 					continue
 				}
-				client = newClient
+				txm.client = newClient
 			}
 			// process tx
-			sig, err := client.SendTx(ctx, tx)
+			sig, err := txm.sendWithRetry(ctx, tx)
 			if err != nil {
 				txm.lggr.Criticalw("failed to send transaction", "err", err)
-				client = nil // clear client if tx fails immediately (potentially bad RPC)
-				continue
+				txm.client = nil // clear client if tx fails immediately (potentially bad RPC)
+				continue         // skip remainining
 			}
-
-			// start exponential retry
 
 			// send tx + signature to simulation queue
 
@@ -92,6 +95,63 @@ func (txm *Txm) run() {
 			return
 		}
 	}
+}
+
+func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction) (solanaGo.Signature, error) {
+	if txm.client == nil {
+		return solanaGo.Signature{}, errors.New("transaction manager client is nil")
+	}
+
+	// create timeout context
+	// TODO: pass in timeout parameter
+	timeout := 5 * time.Second
+	ctx, cancel := context.WithTimeout(chanCtx, timeout)
+
+	// send initial tx (do not retry and exit early if fails)
+	sig, err := txm.client.SendTx(ctx, tx)
+	if err != nil {
+		cancel() // cancel context when exiting early
+		return solanaGo.Signature{}, errors.Wrap(err, "tx failed initial transmit")
+	}
+
+	// store tx signature + cancel function
+	if err := txm.txCache.Insert(sig, cancel); err != nil {
+		return solanaGo.Signature{}, errors.Wrap(err, "failed to save tx signature to cache")
+	}
+
+	// retry with exponential backoff
+	// until context cancelled by timeout or called externally
+	go func() {
+		deltaT := 1
+		tick := time.After(0)
+		for {
+			fmt.Println(deltaT)
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick:
+				retrySig, err := txm.client.SendTx(ctx, tx)
+				// this could occur if endpoint goes down
+				if err != nil {
+					txm.lggr.Criticalw("failed to send retry transaction", "err", err, "signature", retrySig)
+				}
+				// this should never happen
+				if retrySig != sig {
+					txm.lggr.Criticalw("original signature does not match retry signature", "expectedSignature", sig, "receivedSignature", retrySig)
+				}
+			}
+
+			// exponential increase in wait time, capped at 500ms
+			deltaT *= 2
+			if deltaT > MaxRetryTimeMs {
+				deltaT = MaxRetryTimeMs
+			}
+			tick = time.After(time.Duration(deltaT) * time.Millisecond)
+		}
+	}()
+
+	// return signature for use in simulation
+	return sig, nil
 }
 
 // TODO: goroutine that polls to confirm implementation

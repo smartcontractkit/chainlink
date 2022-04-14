@@ -80,6 +80,7 @@ func TestTxm_Integration(t *testing.T) {
 	// enqueue tx
 	assert.NoError(t, txm.Enqueue("testTransmission", tx))
 	time.Sleep(time.Second) // wait for tx
+	assert.NoError(t, txm.Close())
 
 	// check balance changes
 	senderBal, err := client.Balance(pubKey)
