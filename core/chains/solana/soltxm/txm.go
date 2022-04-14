@@ -78,6 +78,9 @@ func (txm *Txm) run() {
 	ctx, cancel := utils.ContextFromChan(txm.stop)
 	defer cancel()
 
+	// fetch initial client
+	txm.client = txm.tc()
+
 	// start confirmer + simulator
 	go txm.confirm(ctx)
 	go txm.simulate(ctx)
@@ -98,6 +101,9 @@ func (txm *Txm) run() {
 			sig, err := txm.sendWithRetry(ctx, msg.tx, msg.timeout)
 			if err != nil {
 				txm.lggr.Criticalw("failed to send transaction", "err", err)
+
+				// TODO: handle RWLocks for recreating client
+				// confirm + simulate + sendWithRetry depend on having a valid client (otherwise will cause panic)
 				txm.client = nil // clear client if tx fails immediately (potentially bad RPC)
 				continue         // skip remainining
 			}
@@ -146,7 +152,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 				retrySig, err := txm.client.SendTx(ctx, tx)
 				// this could occur if endpoint goes down
 				if err != nil {
-					txm.lggr.Criticalw("failed to send retry transaction", "err", err, "signature", retrySig)
+					txm.lggr.Errorw("failed to send retry transaction", "err", err, "signature", retrySig)
 				}
 				// this should never happen
 				if retrySig != sig {
