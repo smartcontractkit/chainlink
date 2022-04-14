@@ -8,7 +8,5 @@ jobs:
     steps:
       - name: Check out Code
         uses: actions/checkout@v3
-      - name: Install asdf dependencies
-        uses: asdf-vm/actions/install@v1.1.0
       - name: Run actionlint
-        run: actionlint
+        uses: reviewdog/action-actionlint@v1
