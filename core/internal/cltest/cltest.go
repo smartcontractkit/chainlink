@@ -864,7 +864,7 @@ const (
 	AssertNoActionTimeout = 3 * time.Second
 )
 
-// WaitTimeout is just preserved for compatabilty. Use testutils.WaitTimeout directly instead.
+// WaitTimeout is just preserved for compatibility. Use testutils.WaitTimeout directly instead.
 // Deprecated
 var WaitTimeout = testutils.WaitTimeout
 

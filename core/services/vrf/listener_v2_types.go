@@ -129,6 +129,7 @@ func (lsn *listenerV2) processBatch(
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
 	)
 	ll.Info("Enqueuing batch fulfillment")
+	var ethTX txmgr.EthTx
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "inserting finished pipeline runs")
@@ -143,7 +144,7 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		_, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
+		ethTX, err = lsn.txm.CreateEthTransaction(txmgr.NewTx{
 			FromAddress:      fromAddress,
 			ToAddress:        lsn.batchCoordinator.Address(),
 			EncodedPayload:   payload,
@@ -163,6 +164,7 @@ func (lsn *listenerV2) processBatch(
 		ll.Errorw("Error enqueuing batch fulfillments, requeuing requests", "err", err)
 		return
 	}
+	ll.Infow("Enqueued fulfillment", "ethTxID", ethTX.ID)
 
 	// mark requests as processed since the fulfillment has been successfully enqueued
 	// to the txm.

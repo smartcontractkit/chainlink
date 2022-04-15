@@ -677,6 +677,16 @@ func (r *VRFSpecResolver) ChunkSize() int32 {
 	return int32(r.spec.ChunkSize)
 }
 
+// BackoffInitialDelay resolves the spec's backoff initial delay.
+func (r *VRFSpecResolver) BackoffInitialDelay() string {
+	return r.spec.BackoffInitialDelay.String()
+}
+
+// BackoffMaxDelay resolves the spec's backoff max delay.
+func (r *VRFSpecResolver) BackoffMaxDelay() string {
+	return r.spec.BackoffMaxDelay.String()
+}
+
 type WebhookSpecResolver struct {
 	spec job.WebhookSpec
 }

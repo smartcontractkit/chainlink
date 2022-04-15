@@ -90,7 +90,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
 	}
 
-	ocrDB := NewDB(d.db.DB, spec.ID, d.lggr)
+	ocrDB := NewDB(d.db, spec.ID, d.lggr, d.cfg)
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
