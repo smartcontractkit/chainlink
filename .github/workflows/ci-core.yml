@@ -35,20 +35,42 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: ~1.17
-      - name: Cache Go vendor packages
+          go-version: ^1.18
+      - name: Go Cache
         uses: actions/cache@v2
         with:
-          path: /go/pkg/mod
-          key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
+          # * Module download cache
+          # * Build cache (Linux)
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-mod-${{ matrix.cmd }}-${{ hashFiles('go.sum') }}
           restore-keys: |
-            go-mod-${{ env.CACHE_VERSION }}
+            go-mod-${{ matrix.cmd }}-
+            go-mod-
       - name: Touching core/web/assets/index.html
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Download Go vendor packages
         run: go mod download
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
       - name: Install terrad
         run: ./tools/ci/install_terrad
+      - name: Install solana cli
+        run: ./tools/ci/install_solana
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
@@ -66,4 +88,3 @@ jobs:
         uses: docker://docker:latest
         with:
           args: logs ${{ job.services.postgres.id }}
-
