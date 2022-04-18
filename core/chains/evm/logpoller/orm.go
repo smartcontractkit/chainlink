@@ -62,6 +62,20 @@ func (o *ORM) SelectLatestBlock(qopts ...pg.QOpt) (*LogPollerBlock, error) {
 	return &b, nil
 }
 
+func (o *ORM) SelectLatestLogEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error) {
+	q := o.q.WithOpts(qopts...)
+	var l Log
+	if err := q.Get(&l, `SELECT * FROM logs 
+         WHERE evm_chain_id = $1 
+            AND event_sig = $2 
+            AND address = $3 
+            AND (block_number + $4) <= (SELECT COALESCE(block_number, 0) FROM log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+        ORDER BY (block_number, log_index) DESC LIMIT 1`, utils.NewBig(o.chainID), eventSig, address, confs); err != nil {
+		return nil, err
+	}
+	return &l, nil
+}
+
 func (o *ORM) DeleteRangeBlocks(start, end int64, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	_, err := q.Exec(`DELETE FROM log_poller_blocks WHERE block_number >= $1 AND block_number <= $2 AND evm_chain_id = $3`, start, end, utils.NewBig(o.chainID))

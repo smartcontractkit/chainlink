@@ -83,4 +83,29 @@ func TestORM(t *testing.T) {
 	logs, err = o1.SelectLogsByBlockRangeFilter(10, 10, common.HexToAddress("0x1234"), topic[:])
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))
+
+	// With no blocks, should be an error
+	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	// With block 10, only 0 confs should work
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 10))
+	log, err := o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(10), log.BlockNumber)
+	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 1)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	// With block 12, anything <=2 should work
+	require.NoError(t, o1.DeleteRangeBlocks(10, 10))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 12))
+	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
+	require.NoError(t, err)
+	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 1)
+	require.NoError(t, err)
+	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 2)
+	require.NoError(t, err)
+	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 3)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
 }

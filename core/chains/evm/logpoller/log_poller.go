@@ -424,3 +424,12 @@ func (lp *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	}
 	return b.BlockNumber, nil
 }
+
+// LatestLogByEventSigWithConfs finds the latest log that has confs number of blocks on top of the log.
+func (lp *LogPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error) {
+	log, err := lp.orm.SelectLatestLogEventSigWithConfs(eventSig, address, confs, qopts...)
+	if err != nil {
+		return nil, err
+	}
+	return log, nil
+}
