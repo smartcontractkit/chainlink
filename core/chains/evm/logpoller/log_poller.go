@@ -133,8 +133,7 @@ func (lp *LogPoller) Close() error {
 
 func (lp *LogPoller) run() {
 	defer close(lp.done)
-	tick := time.After(utils.WithJitter(lp.pollPeriod))
-	initialTick := time.After(0)
+	tick := time.After(0)
 	var start int64
 	for {
 		select {
@@ -143,7 +142,13 @@ func (lp *LogPoller) run() {
 		case fromBlock := <-lp.replay:
 			lp.lggr.Warnw("Replay requested", "from", fromBlock)
 			start = fromBlock
-		case <-initialTick:
+		case <-tick:
+			tick = time.After(utils.WithJitter(lp.pollPeriod))
+			if start != 0 {
+				start = lp.pollAndSaveLogs(lp.ctx, start)
+				continue
+			}
+			// Otherwise, still need initial start
 			lastProcessed, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(lp.ctx))
 			if err != nil {
 				if !errors.Is(err, sql.ErrNoRows) {
@@ -167,9 +172,6 @@ func (lp *LogPoller) run() {
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
-		case <-tick:
-			tick = time.After(utils.WithJitter(lp.pollPeriod))
-			start = lp.pollAndSaveLogs(lp.ctx, start)
 		}
 	}
 }
