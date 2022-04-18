@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Added
+### Added
 
 - JSON parse tasks (v2) now support a custom `separator` parameter to substitute for the default `,`.
 - Added `ETH_USE_FORWARDERS` config option to enable transactions forwarding contracts.
