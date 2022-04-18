@@ -1,6 +1,15 @@
+##
+# NOTE: any changes to the event triggers or the paths here should be reflected in:
+#       dependency-check-paths-ignore.yml
+##
+
 name: Dependency Vulnerability Check
 
-on: [push]
+on: 
+  push:
+    paths:
+      - '**/go.mod'
+      - '**/go.sum'
 jobs:
   Go:
     runs-on: ubuntu-latest
@@ -11,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.17
+          go-version: ~1.17
         id: go
 
       - name: Write Go Modules list

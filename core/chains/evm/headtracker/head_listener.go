@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -116,9 +115,11 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			}
 
 		case err, open := <-hl.headSubscription.Err():
-			if open && err != nil {
-				return err
+			// err can be nil, because of using chainIDSubForwarder
+			if !open || err == nil {
+				return errors.New("head listener: subscription Err channel prematurely closed")
 			}
+			return err
 
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning
@@ -129,10 +130,7 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 }
 
 func (hl *headListener) subscribe(ctx context.Context) bool {
-	subscribeRetryBackoff := backoff.Backoff{
-		Min: 1 * time.Second,
-		Max: 10 * time.Second,
-	}
+	subscribeRetryBackoff := utils.NewRedialBackoff()
 
 	chainID := hl.ethClient.ChainID().String()
 

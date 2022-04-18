@@ -7,6 +7,7 @@ linters:
     - gosec
     - misspell
     - rowserrcheck
+    - errorlint
   disable:
     # These are all considered deprecated: https://github.com/golangci/golangci-lint/issues/1841
     - deadcode
@@ -28,6 +29,9 @@ linters-settings:
   govet:
     # report about shadowed variables
     check-shadowing: true
+  errorlint:
+    # Allow formatting of errors without %w
+    errorf: false
   revive:
     confidence: 0.8
     rules:

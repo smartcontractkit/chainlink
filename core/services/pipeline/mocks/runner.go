@@ -181,13 +181,13 @@ func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, s
 	return r0, r1
 }
 
-// Start provides a mock function with given fields:
-func (_m *Runner) Start() error {
-	ret := _m.Called()
+// Start provides a mock function with given fields: _a0
+func (_m *Runner) Start(_a0 context.Context) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}

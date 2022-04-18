@@ -13,6 +13,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -35,7 +36,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	url := &url.URL{}
 	serverPubKeyHex := "33333333333"
 	telemIngressClient := synchronization.NewTestTelemetryIngressClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient)
-	require.NoError(t, telemIngressClient.Start())
+	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
 	defer telemIngressClient.Close()
 
 	// Create the telemetry payload

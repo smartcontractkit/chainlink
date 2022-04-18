@@ -53,11 +53,7 @@ type GeneralConfigOverrides struct {
 	Dev                                       null.Bool
 	ShutdownGracePeriod                       *time.Duration
 	Dialect                                   dialects.DialectName
-	EVMEnabled                                null.Bool
-	EVMRPCEnabled                             null.Bool
 	EthereumURL                               null.String
-	FeatureExternalInitiators                 null.Bool
-	FeatureFeedsManager                       null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalBlockEmissionIdleWarningThreshold   *time.Duration
 	GlobalChainType                           null.String
@@ -98,13 +94,23 @@ type GeneralConfigOverrides struct {
 	LogLevel                                  *zapcore.Level
 	DefaultLogLevel                           *zapcore.Level
 	LogSQL                                    null.Bool
-	LogToDisk                                 null.Bool
+	LogFileMaxSize                            null.String
+	LogFileMaxAge                             null.Int
+	LogFileMaxBackups                         null.Int
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
-	FeatureOffchainReporting                  null.Bool
-	FeatureOffchainReporting2                 null.Bool
 	LinkContractAddress                       null.String
+
+	// Feature Flags
+	FeatureExternalInitiators null.Bool
+	FeatureFeedsManager       null.Bool
+	FeatureOffchainReporting  null.Bool
+	FeatureOffchainReporting2 null.Bool
+	EVMEnabled                null.Bool
+	EVMRPCEnabled             null.Bool
+	TerraEnabled              null.Bool
+	P2PEnabled                null.Bool
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -275,6 +281,14 @@ func (c *TestGeneralConfig) EVMRPCEnabled() bool {
 	return c.GeneralConfig.EVMRPCEnabled()
 }
 
+// TerraEnabled allows Terra to be used
+func (c *TestGeneralConfig) TerraEnabled() bool {
+	if c.Overrides.TerraEnabled.Valid {
+		return c.Overrides.TerraEnabled.Bool
+	}
+	return c.GeneralConfig.TerraEnabled()
+}
+
 func (c *TestGeneralConfig) EthereumURL() string {
 	if c.Overrides.EthereumURL.Valid {
 		return c.Overrides.EthereumURL.String
@@ -351,6 +365,7 @@ func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
 	return c.GeneralConfig.FeatureOffchainReporting2()
 }
 
+// TriggerFallbackDBPollInterval returns the test configured value for TriggerFallbackDBPollInterval
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
 		return *c.Overrides.TriggerFallbackDBPollInterval
@@ -358,11 +373,33 @@ func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	return c.GeneralConfig.TriggerFallbackDBPollInterval()
 }
 
-func (c *TestGeneralConfig) LogToDisk() bool {
-	if c.Overrides.LogToDisk.Valid {
-		return c.Overrides.LogToDisk.Bool
+// LogFileMaxSize allows to override the log file's max size before file rotation.
+func (c *TestGeneralConfig) LogFileMaxSize() utils.FileSize {
+	if c.Overrides.LogFileMaxSize.Valid {
+		var val utils.FileSize
+
+		err := val.UnmarshalText([]byte(c.Overrides.LogFileMaxSize.String))
+		require.NoError(c.t, err)
+
+		return val
 	}
-	return c.GeneralConfig.LogToDisk()
+	return c.GeneralConfig.LogFileMaxSize()
+}
+
+// LogFileMaxAge allows to override the log file's max age before file rotation.
+func (c *TestGeneralConfig) LogFileMaxAge() int64 {
+	if c.Overrides.LogFileMaxAge.Valid {
+		return c.Overrides.LogFileMaxAge.Int64
+	}
+	return int64(c.GeneralConfig.LogFileMaxAge())
+}
+
+// LogFileMaxBackups allows to override the max amount of old log files to retain.
+func (c *TestGeneralConfig) LogFileMaxBackups() int64 {
+	if c.Overrides.LogFileMaxBackups.Valid {
+		return c.Overrides.LogFileMaxBackups.Int64
+	}
+	return int64(c.GeneralConfig.LogFileMaxBackups())
 }
 
 func (c *TestGeneralConfig) AdminCredentialsFile() string {
@@ -463,6 +500,14 @@ func (c *TestGeneralConfig) EVMEnabled() bool {
 		return c.Overrides.EVMEnabled.Bool
 	}
 	return c.GeneralConfig.EVMEnabled()
+}
+
+// P2PEnabled overrides
+func (c *TestGeneralConfig) P2PEnabled() bool {
+	if c.Overrides.P2PEnabled.Valid {
+		return c.Overrides.P2PEnabled.Bool
+	}
+	return c.GeneralConfig.P2PEnabled()
 }
 
 func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {

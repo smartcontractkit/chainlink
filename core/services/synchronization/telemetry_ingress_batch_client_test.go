@@ -13,6 +13,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -36,8 +37,8 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	url := &url.URL{}
 	serverPubKeyHex := "33333333333"
 	sendInterval := time.Millisecond * 5
-	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval)
-	require.NoError(t, telemIngressClient.Start())
+	telemIngressClient := synchronization.NewTestTelemetryIngressBatchClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient, sendInterval, false)
+	require.NoError(t, telemIngressClient.Start(testutils.Context(t)))
 
 	// Create telemetry payloads for different contracts
 	telemPayload1 := synchronization.TelemPayload{

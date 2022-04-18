@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
@@ -25,7 +26,7 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ ID graphql.ID }) (*B
 		return nil, err
 	}
 
-	name, err := bridges.NewTaskType(string(args.ID))
+	name, err := bridges.ParseBridgeName(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +233,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().Node(id)
+	node, err := r.App.GetChains().EVM.GetNode(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewNodePayloadResolver(nil, err), nil
@@ -280,7 +281,7 @@ func (r *Resolver) VRFKey(ctx context.Context, args struct {
 
 	key, err := r.App.GetKeyStore().VRF().Get(string(args.ID))
 	if err != nil {
-		if errors.Cause(err) == keystore.ErrMissingVRFKey {
+		if errors.Is(errors.Cause(err), keystore.ErrMissingVRFKey) {
 			return NewVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
 		}
 		return nil, err
@@ -326,7 +327,7 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	nodes, count, err := r.App.EVMORM().Nodes(offset, limit)
+	nodes, count, err := r.App.GetChains().EVM.GetNodes(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +410,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		}
 
 		chain, err := r.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
-		if errors.Cause(err) == evm.ErrNoChains {
+		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.Address,
 				state: state,
@@ -427,6 +428,11 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			chain: chain,
 		})
 	}
+
+	// Put funding keys to the end
+	sort.SliceStable(ethKeys, func(i, j int) bool {
+		return !ethKeys[i].state.IsFunding && ethKeys[j].state.IsFunding
+	})
 
 	return NewETHKeysPayload(ethKeys), nil
 }
@@ -451,7 +457,7 @@ func (r *Resolver) EthTransaction(ctx context.Context, args struct {
 	}
 
 	hash := common.HexToHash(string(args.Hash))
-	etx, err := r.App.BPTXMORM().FindEthTxByHash(hash)
+	etx, err := r.App.TxmORM().FindEthTxByHash(hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewEthTransactionPayload(nil, err), nil
@@ -474,7 +480,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	txs, count, err := r.App.BPTXMORM().EthTransactions(offset, limit)
+	txs, count, err := r.App.TxmORM().EthTransactions(offset, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +499,7 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	attempts, count, err := r.App.BPTXMORM().EthTxAttempts(offset, limit)
+	attempts, count, err := r.App.TxmORM().EthTxAttempts(offset, limit)
 	if err != nil {
 		return nil, err
 	}

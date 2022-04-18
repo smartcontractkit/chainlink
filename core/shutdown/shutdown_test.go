@@ -22,7 +22,9 @@ func TestHandleShutdown(t *testing.T) {
 	for name, sig := range tests {
 		t.Run(name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			go HandleShutdown(cancel)
+			go HandleShutdown(func(string) {
+				cancel()
+			})
 
 			// have to wait for ossignal.Notify
 			time.Sleep(time.Second)

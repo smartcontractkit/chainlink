@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -402,8 +401,29 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	return chAwait
 }
 
+// WithCloseChan wraps a context so that it is canceled if the passed in
+// channel is closed.
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
+func WithCloseChan(parentCtx context.Context, chStop <-chan struct{}) (ctx context.Context, cancel context.CancelFunc) {
+	ctx, cancel = context.WithCancel(parentCtx)
+
+	go func() {
+		select {
+		case <-chStop:
+		case <-ctx.Done():
+		}
+		cancel()
+	}()
+
+	return ctx, cancel
+}
+
 // ContextFromChan creates a context that finishes when the provided channel
 // receives or is closed.
+// When channel closes, the ctx.Err() will always be context.Canceled
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
 func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -418,6 +438,8 @@ func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFun
 
 // ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
 // receives or is closed.
+// NOTE: Spins up a goroutine that exits on cancellation.
+// REMEMBER TO CALL CANCEL OTHERWISE IT CAN LEAD TO MEMORY LEAKS
 func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	go func() {
@@ -427,49 +449,6 @@ func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) 
 		case <-ctx.Done():
 		}
 	}()
-	return ctx, cancel
-}
-
-// CombinedContext creates a context that finishes when any of the provided
-// signals finish.  A signal can be a `context.Context`, a `chan struct{}`, or
-// a `time.Duration` (which is transformed into a `context.WithTimeout`).
-func CombinedContext(signals ...interface{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	if len(signals) == 0 {
-		return ctx, cancel
-	}
-	signals = append(signals, ctx)
-
-	var cases []reflect.SelectCase
-	var cancel2 context.CancelFunc
-	for _, signal := range signals {
-		var ch reflect.Value
-
-		switch sig := signal.(type) {
-		case context.Context:
-			ch = reflect.ValueOf(sig.Done())
-		case <-chan struct{}:
-			ch = reflect.ValueOf(sig)
-		case chan struct{}:
-			ch = reflect.ValueOf(sig)
-		case time.Duration:
-			var ctxTimeout context.Context
-			ctxTimeout, cancel2 = context.WithTimeout(ctx, sig)
-			ch = reflect.ValueOf(ctxTimeout.Done())
-		default:
-			panic(fmt.Sprintf("utils.CombinedContext cannot accept a value of type %T, skipping", sig))
-		}
-		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
-	}
-
-	go func() {
-		defer cancel()
-		if cancel2 != nil {
-			defer cancel2()
-		}
-		_, _, _ = reflect.Select(cases)
-	}()
-
 	return ctx, cancel
 }
 
@@ -814,10 +793,13 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
-var (
-	// ErrNotStarted is returned if the service is not started.
-	ErrNotStarted = errors.New("Not started")
-)
+type errNotStarted struct {
+	state StartStopOnceState
+}
+
+func (e *errNotStarted) Error() string {
+	return fmt.Sprintf("service is %q, not started", e.state)
+}
 
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
@@ -836,6 +818,23 @@ const (
 	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
+
+func (s StartStopOnceState) String() string {
+	switch s {
+	case StartStopOnce_Unstarted:
+		return "Unstarted"
+	case StartStopOnce_Started:
+		return "Started"
+	case StartStopOnce_Starting:
+		return "Starting"
+	case StartStopOnce_Stopping:
+		return "Stopping"
+	case StartStopOnce_Stopped:
+		return "Stopped"
+	default:
+		return fmt.Sprintf("unrecognized state: %d", s)
+	}
+}
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
@@ -874,7 +873,7 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
 
 	if !success {
-		return errors.Errorf("%v has already stopped once", name)
+		return errors.Errorf("%v is unstarted or has already stopped once", name)
 	}
 
 	err := fn()
@@ -926,27 +925,43 @@ func (once *StartStopOnce) IfNotStopped(f func()) (ok bool) {
 
 // Ready returns ErrNotStarted if the state is not started.
 func (once *StartStopOnce) Ready() error {
-	if once.State() == StartStopOnce_Started {
+	state := once.State()
+	if state == StartStopOnce_Started {
 		return nil
 	}
-	return ErrNotStarted
+	return &errNotStarted{state: state}
 }
 
 // Healthy returns ErrNotStarted if the state is not started.
 // Override this per-service with more specific implementations.
 func (once *StartStopOnce) Healthy() error {
-	if once.State() == StartStopOnce_Started {
+	state := once.State()
+	if state == StartStopOnce_Started {
 		return nil
 	}
-	return ErrNotStarted
+	return &errNotStarted{state: state}
 }
 
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {
 	// #nosec
+	if d == 0 {
+		return 0
+	}
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
+}
+
+// NewRedialBackoff is a standard backoff to use for redialling or reconnecting to
+// unreachable network endpoints
+func NewRedialBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    1 * time.Second,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
+
 }
 
 // KeyedMutex allows to lock based on particular values

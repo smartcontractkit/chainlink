@@ -111,7 +111,7 @@ func sqlxTransactionQ(ctx context.Context, db TxBeginner, lggr logger.Logger, fn
 				panic(fmt.Sprintf("panic in transaction; aborting rollback that took longer than 10s: %s", p))
 			}
 		} else if err != nil {
-			lggr.Debugf("Error in transaction, rolling back: %s", err)
+			lggr.Errorf("Error in transaction, rolling back: %s", err)
 			// An error occurred, rollback and return error
 			if rerr := tx.Rollback(); rerr != nil {
 				err = multierr.Combine(err, errors.WithStack(rerr))

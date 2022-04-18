@@ -141,87 +141,105 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	doneAwaiter.AwaitOrFail(t)
 }
 
-func Test_HeadListener_ResubscribesIfWSClosed(t *testing.T) {
-	l := logger.TestLogger(t)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(l, ethClient, evmcfg, chStop)
-
-	hnhCalled := make(chan *evmtypes.Head)
-	hnh := func(ctx context.Context, header *evmtypes.Head) error {
-		hnhCalled <- header
-		return nil
-	}
-	doneAwaiter := cltest.NewAwaiter()
-	done := func() {
-		doneAwaiter.ItHappened()
+func Test_HeadListener_SubscriptionErr(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		closeErr bool
+	}{
+		{"nil error", nil, false},
+		{"socket error", errors.New("close 1006 (abnormal closure): unexpected EOF"), false},
+		{"close Err channel", nil, true},
 	}
 
-	chSubErrTest := make(chan error)
-	var chSubErr <-chan error = chSubErrTest
-	sub := new(evmmocks.Subscription)
-	// sub.Err is called twice because we enter the select loop two times: once
-	// initially and once again after exactly one head has been received
-	sub.On("Err").Return(chSubErr).Twice()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			l := logger.TestLogger(t)
+			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+			cfg := cltest.NewTestGeneralConfig(t)
+			evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+			chStop := make(chan struct{})
+			hl := headtracker.NewHeadListener(l, ethClient, evmcfg, chStop)
 
-	subscribeAwaiter := cltest.NewAwaiter()
-	var headsCh chan<- *evmtypes.Head
-	// Initial subscribe
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
-		headsCh = args.Get(1).(chan<- *evmtypes.Head)
-		subscribeAwaiter.ItHappened()
-	})
-	go func() {
-		hl.ListenForNewHeads(hnh, done)
-	}()
+			hnhCalled := make(chan *evmtypes.Head)
+			hnh := func(ctx context.Context, header *evmtypes.Head) error {
+				hnhCalled <- header
+				return nil
+			}
+			doneAwaiter := cltest.NewAwaiter()
+			done := doneAwaiter.ItHappened
 
-	// Put a head on the channel to ensure we test all code paths
-	subscribeAwaiter.AwaitOrFail(t)
-	head := cltest.Head(0)
-	headsCh <- head
+			chSubErrTest := make(chan error)
+			var chSubErr <-chan error = chSubErrTest
+			sub := new(evmmocks.Subscription)
+			// sub.Err is called twice because we enter the select loop two times: once
+			// initially and once again after exactly one head has been received
+			sub.On("Err").Return(chSubErr).Twice()
 
-	h := <-hnhCalled
-	assert.Equal(t, head, h)
+			subscribeAwaiter := cltest.NewAwaiter()
+			var headsCh chan<- *evmtypes.Head
+			// Initial subscribe
+			ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub, nil).Once().Run(func(args mock.Arguments) {
+				headsCh = args.Get(1).(chan<- *evmtypes.Head)
+				subscribeAwaiter.ItHappened()
+			})
+			go func() {
+				hl.ListenForNewHeads(hnh, done)
+			}()
 
-	// Expect a call to unsubscribe on error
-	sub.On("Unsubscribe").Once().Run(func(_ mock.Arguments) {
-		close(headsCh)
-		// geth guarantees that Unsubscribe closes the errors channel
-		close(chSubErrTest)
-	})
-	// Expect a resubscribe
-	chSubErrTest2 := make(chan error)
-	var chSubErr2 <-chan error = chSubErrTest2
-	sub2 := new(evmmocks.Subscription)
-	sub2.On("Err").Return(chSubErr2)
-	subscribeAwaiter2 := cltest.NewAwaiter()
+			// Put a head on the channel to ensure we test all code paths
+			subscribeAwaiter.AwaitOrFail(t)
+			head := cltest.Head(0)
+			headsCh <- head
 
-	var headsCh2 chan<- *evmtypes.Head
-	ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub2, nil).Once().Run(func(args mock.Arguments) {
-		headsCh2 = args.Get(1).(chan<- *evmtypes.Head)
-		subscribeAwaiter2.ItHappened()
-	})
+			h := <-hnhCalled
+			assert.Equal(t, head, h)
 
-	// Simulate websocket error/close
-	chSubErrTest <- errors.New("close 1006 (abnormal closure): unexpected EOF")
+			// Expect a call to unsubscribe on error
+			sub.On("Unsubscribe").Once().Run(func(_ mock.Arguments) {
+				close(headsCh)
+				// geth guarantees that Unsubscribe closes the errors channel
+				if !test.closeErr {
+					close(chSubErrTest)
+				}
+			})
+			// Expect a resubscribe
+			chSubErrTest2 := make(chan error)
+			var chSubErr2 <-chan error = chSubErrTest2
+			sub2 := new(evmmocks.Subscription)
+			sub2.On("Err").Return(chSubErr2)
+			subscribeAwaiter2 := cltest.NewAwaiter()
 
-	// Wait for it to resubscribe
-	subscribeAwaiter2.AwaitOrFail(t)
+			var headsCh2 chan<- *evmtypes.Head
+			ethClient.On("SubscribeNewHead", mock.Anything, mock.AnythingOfType("chan<- *types.Head")).Return(sub2, nil).Once().Run(func(args mock.Arguments) {
+				headsCh2 = args.Get(1).(chan<- *evmtypes.Head)
+				subscribeAwaiter2.ItHappened()
+			})
 
-	head2 := cltest.Head(1)
-	headsCh2 <- head2
+			// Sending test error
+			if test.closeErr {
+				close(chSubErrTest)
+			} else {
+				chSubErrTest <- test.err
+			}
 
-	h2 := <-hnhCalled
-	assert.Equal(t, head2, h2)
+			// Wait for it to resubscribe
+			subscribeAwaiter2.AwaitOrFail(t)
 
-	// Second call to unsubscribe on close
-	sub2.On("Unsubscribe").Once().Run(func(_ mock.Arguments) {
-		close(headsCh2)
-		// geth guarantees that Unsubscribe closes the errors channel
-		close(chSubErrTest2)
-	})
-	close(chStop)
-	doneAwaiter.AwaitOrFail(t)
+			head2 := cltest.Head(1)
+			headsCh2 <- head2
+
+			h2 := <-hnhCalled
+			assert.Equal(t, head2, h2)
+
+			// Second call to unsubscribe on close
+			sub2.On("Unsubscribe").Once().Run(func(_ mock.Arguments) {
+				close(headsCh2)
+				// geth guarantees that Unsubscribe closes the errors channel
+				close(chSubErrTest2)
+			})
+			close(chStop)
+			doneAwaiter.AwaitOrFail(t)
+		})
+	}
 }
