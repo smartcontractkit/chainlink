@@ -22,29 +22,38 @@ on:
     inputs:
       cl_repo:
         required: true
+        description: The chainlik ecr repository to use
         default: ${{ github.repository }}
         type: string
       cl_ref:
         required: false
+        description: The git ref from cl to use
         default: develop
         type: string
       dep_solana_sha:
         required: false
+        description: chainlink-solana commit or branch
         type: string
       dep_terra_sha:
         required: false
+        description: chainlink-terra commit or branch
         type: string
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
+        description: The AWS access key id to use
       AWS_SECRET_ACCESS_KEY:
         required: true
+        description: The AWS secret key to use
       AWS_REGION:
         required: true
+        description: The AWS region to use
       AWS_ROLE_TO_ASSUME:
         required: true
+        description: The AWS role to assume
       QA_KUBECONFIG:
         required: true
+        description: The kubernetes configuation to use
 jobs:
   build-chainlink:
     name: Build Chainlink Image

@@ -94,7 +94,8 @@ jobs:
         run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
       - name: Run Tests
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
           make test_smoke args="-nodes=6"
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
