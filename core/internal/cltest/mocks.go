@@ -374,6 +374,10 @@ func (m MockCookieAuthenticator) Authenticate(sessions.SessionRequest) (*http.Co
 	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
 }
 
+func (m MockCookieAuthenticator) Logout() error {
+	return nil
+}
+
 type MockSessionRequestBuilder struct {
 	Count int
 	Error error

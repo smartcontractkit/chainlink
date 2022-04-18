@@ -1,6 +1,7 @@
 package terra
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -16,9 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/chains/terra/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/terratxm"
 	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -31,18 +34,19 @@ import (
 // So we set a fairly high timeout here.
 const DefaultRequestTimeout = 30 * time.Second
 
-//go:generate mockery --name MsgEnqueuer --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
+//go:generate mockery --name TxManager --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 //go:generate mockery --name Reader --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra/client --output ./mocks/ --case=underscore
 //go:generate mockery --name Chain --srcpkg github.com/smartcontractkit/chainlink-terra/pkg/terra --output ./mocks/ --case=underscore
 var _ terra.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id   string
-	cfg  terra.Config
-	txm  *terratxm.Txm
-	orm  types.ORM
-	lggr logger.Logger
+	id             string
+	cfg            terra.Config
+	txm            *terratxm.Txm
+	balanceMonitor services.ServiceCtx
+	orm            types.ORM
+	lggr           logger.Logger
 }
 
 // NewChain returns a new chain backed by node.
@@ -67,7 +71,8 @@ func NewChain(db *sqlx.DB, ks keystore.Terra, logCfg pg.LogConfig, eb pg.EventBr
 			}, nil
 		}),
 	}, lggr)
-	ch.txm = terratxm.NewTxm(db, tc, *gpe, dbchain.ID, cfg, ks, lggr, logCfg, eb)
+	ch.txm = terratxm.NewTxm(db, tc, *gpe, ch.id, cfg, ks, lggr, logCfg, eb)
+	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 
 	return &ch, nil
 }
@@ -84,7 +89,7 @@ func (c *chain) UpdateConfig(cfg db.ChainCfg) {
 	c.cfg.Update(cfg)
 }
 
-func (c *chain) MsgEnqueuer() terra.MsgEnqueuer {
+func (c *chain) TxManager() terra.TxManager {
 	return c.txm
 }
 
@@ -93,7 +98,7 @@ func (c *chain) Reader(name string) (terraclient.Reader, error) {
 }
 
 // getClient returns a client, optionally requiring a specific node by name.
-func (c *chain) getClient(name string) (*terraclient.Client, error) {
+func (c *chain) getClient(name string) (terraclient.ReaderWriter, error) {
 	//TODO cache clients?
 	var node db.Node
 	if name == "" { // Any node
@@ -120,17 +125,21 @@ func (c *chain) getClient(name string) (*terraclient.Client, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client")
 	}
-	c.lggr.Debugw("Created client", "name", name, "tendermint-url", node.TendermintURL)
+	c.lggr.Debugw("Created client", "name", node.Name, "tendermint-url", node.TendermintURL)
 	return client, nil
 }
 
-func (c *chain) Start() error {
+// Start starts terra chain.
+func (c *chain) Start(ctx context.Context) error {
 	return c.StartOnce("Chain", func() error {
 		c.lggr.Debug("Starting")
 		//TODO dial client?
 
 		c.lggr.Debug("Starting txm")
-		return c.txm.Start()
+		c.lggr.Debug("Starting balance monitor")
+		return multierr.Combine(
+			c.txm.Start(ctx),
+			c.balanceMonitor.Start(ctx))
 	})
 }
 
@@ -138,7 +147,9 @@ func (c *chain) Close() error {
 	return c.StopOnce("Chain", func() error {
 		c.lggr.Debug("Stopping")
 		c.lggr.Debug("Stopping txm")
-		return c.txm.Close()
+		c.lggr.Debug("Stopping balance monitor")
+		return multierr.Combine(c.txm.Close(),
+			c.balanceMonitor.Close())
 	})
 }
 

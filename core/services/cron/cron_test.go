@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -47,7 +48,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
 
-	err = service.Start()
+	err = service.Start(testutils.Context(t))
 	require.NoError(t, err)
 	defer service.Close()
 }
@@ -68,7 +69,7 @@ func TestCronV2Schedule(t *testing.T) {
 
 	service, err := cron.NewCronFromJobSpec(spec, runner, logger.TestLogger(t))
 	require.NoError(t, err)
-	err = service.Start()
+	err = service.Start(testutils.Context(t))
 	require.NoError(t, err)
 	defer service.Close()
 

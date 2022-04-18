@@ -8,6 +8,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ...
+## [1.3.0] - 2022-04-18
+
+### Added
+
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
+  - `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
+  - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
+  - `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
+- Added support for the `force` flag on `chainlink blocks replay`. If set to true, already consumed logs that would otherwise be skipped will be rebroadcasted.
+- Added version compatibility check when using CLI to login to a remote node. flag `bypass-version-check` skips this check.
+- Interrim solution to set multiple nodes/chains from ENV. This gives the ability to specify multiple RPCs that the Chainlink node will constantly monitor for health and sync status, detecting dead nodes and out of sync nodes, with automatic failover. This is a temporary stand-in until configuration is overhauled and will be removed in future in favor of a config file. Set as such: `EVM_NODES='{...}'` where the var is a JSON array containing the node specifications. This is not compatible with using any other way to specify node via env (e.g. `ETH_URL`, `ETH_SECONDARY_URL`, `ETH_CHAIN_ID` etc). **WARNING**: Setting this environment variable will COMPLETELY ERASE your `evm_nodes` table on every boot and repopulate from the given data, nullifying any runtime modifications. Make sure to carefully read the [EVM performance configuration guide](https://chainlink.notion.site/EVM-performance-configuration-handbook-a36b9f84dcac4569ba68772aa0c1368c) for best practices here.
+
+For example:
+
+```bash
+export EVM_NODES='
+[
+	{
+		"name": "primary_1",
+		"evmChainId": "137",
+		"wsUrl": "wss://endpoint-1.example.com/ws",
+    "httpUrl": "http://endpoint-1.example.com/",
+		"sendOnly": false
+	},
+	{
+		"name": "primary_2",
+		"evmChainId": "137",
+		"wsUrl": "ws://endpoint-2.example.com/ws",
+    "httpUrl": "http://endpoint-2.example.com/",
+		"sendOnly": false
+	},
+	{
+		"name": "primary_3",
+		"evmChainId": "137",
+		"wsUrl": "wss://endpoint-3.example.com/ws",
+    "httpUrl": "http://endpoint-3.example.com/",
+		"sendOnly": false
+	},
+	{
+		"name": "sendonly_1",
+		"evmChainId": "137",
+		"httpUrl": "http://endpoint-4.example.com/",
+		"sendOnly": true
+	},
+  {
+		"name": "sendonly_2",
+		"evmChainId": "137",
+		"httpUrl": "http://endpoint-5.example.com/",
+		"sendOnly": true
+	}
+]
+'
+```
+
+### Changed
+
+- Changed default locking mode to "dual". Bugs in lease locking have been ironed out and this paves the way to making "lease" the default in future. It is recommended to set `DATABASE_LOCKING_MODE=lease`, default is set to "dual" only for backwards compatibility.
+- EIP-1559 is now enabled by default on mainnet. To disable (go back to legacy mode) set `EVM_EIP1559_DYNAMIC_FEES=false`. The default settings should work well, but if you wish to tune your gas controls, see the [documentation](https://docs.chain.link/docs/configuration-variables/#evm-gas-controls).
+
+Note that EIP-1559 can be manually enabled on other chains by setting `EVM_EIP1559_DYNAMIC_FEES=true` but we only support it for official Ethereum mainnet and testnets. It is _not_ recommended to enable this setting on Polygon since during our testing process we found that the EIP-1559 fee market appears to be broken on all Polygon chains and EIP-1559 transactions are actually less likely to get included than legacy transactions.
+
+See issue: https://github.com/maticnetwork/bor/issues/347
+
+### Removed
+
+- `LOG_TO_DISK` ENV var.
 
 ## [1.2.1] - 2022-03-17
 
@@ -29,7 +95,7 @@ New ENV vars:
 
 - `ADVISORY_LOCK_CHECK_INTERVAL` (default: 1s) - when advisory locking mode is enabled, this controls how often Chainlink checks to make sure it still holds the advisory lock. It is recommended to leave this at the default.
 - `ADVISORY_LOCK_ID` (default: 1027321974924625846) - when advisory locking mode is enabled, the application advisory lock ID can be changed using this env var. All instances of Chainlink that might run on a particular database must share the same advisory lock ID. It is recommended to leave this at the default.
-- `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_TO_DISK` is enabled, this env var allows you to override the output directory for logging.
+- `LOG_FILE_DIR` (default: chainlink root directory) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the output directory for logging.
 - `SHUTDOWN_GRACE_PERIOD` (default: 5s) - when node is shutting down gracefully and exceeded this grace period, it terminates immediately (trying to close DB connection) to avoid being SIGKILLed.
 - `SOLANA_ENABLED` (default: false) - set to true to enable Solana support
 - `TERRA_ENABLED` (default: false) - set to true to enable Terra support
@@ -37,7 +103,11 @@ New ENV vars:
 - `TELEMETRY_INGRESS_BUFFER_SIZE` (default: 100) - the number of telemetry messages to buffer before dropping new ones
 - `TELEMETRY_INGRESS_MAX_BATCH_SIZE` (default: 50) - the maximum number of messages to batch into one telemetry request
 - `TELEMETRY_INGRESS_SEND_INTERVAL` (default: 500ms) - the cadence on which batched telemetry is sent to the ingress server
+- `TELEMETRY_INGRESS_SEND_TIMEOUT` (default: 10s) - the max duration to wait for the request to complete when sending batch telemetry
 - `TELEMETRY_INGRESS_USE_BATCH_SEND` (default: true) - toggles sending telemetry using the batch client to the ingress server
+- `NODE_NO_NEW_HEADS_THRESHOLD` (default: 3m) - RPC node will be marked out-of-sync if it does not receive a new block for this length of time. Set to 0 to disable head monitoring for liveness checking,
+- `NODE_POLL_FAILURE_THRESHOLD` (default: 5) - number of consecutive failed polls before an RPC node is marked dead. Set to 0 to disable poll liveness checking.
+- `NODE_POLL_INTERVAL` (default: 10s) - how often to poll. Set to 0 to disable all polling.
 
 #### Bootstrap job
 
@@ -54,6 +124,12 @@ contractID      = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 [relayConfig]
 chainID	        = 4
 ```
+
+#### EVM node hot failover and liveness checking
+
+Chainlink now supports hot failover and liveness checking for EVM nodes. This completely supercedes and replaces the Fiews failover proxy and should remove the need for any kind of failover proxy between Chainlink and its RPC nodes.
+
+In order to use this feature, you'll need to set multiple primary RPC nodes.
 
 ### Removed
 

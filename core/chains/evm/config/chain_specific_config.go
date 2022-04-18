@@ -14,7 +14,7 @@ var (
 	DefaultGasFeeCap                     = assets.GWei(100)
 	DefaultGasLimit               uint64 = 500000
 	DefaultGasPrice                      = assets.GWei(20)
-	DefaultGasTip                        = assets.GWei(0)
+	DefaultGasTip                        = big.NewInt(1)                           // go-ethereum requires the tip to be at least 1 wei
 	DefaultMinimumContractPayment        = assets.NewLinkFromJuels(10000000000000) // 0.00001 LINK
 )
 
@@ -60,8 +60,12 @@ type (
 		minIncomingConfirmations                       uint32
 		minRequiredOutgoingConfirmations               uint64
 		minimumContractPayment                         *assets.Link
-		nonceAutoSync                                  bool
-		rpcDefaultBatchSize                            uint32
+		nodeDeadAfterNoNewHeadersThreshold             time.Duration
+		nodePollFailureThreshold                       uint32
+		nodePollInterval                               time.Duration
+
+		nonceAutoSync       bool
+		rpcDefaultBatchSize uint32
 		// set true if fully configured
 		complete bool
 
@@ -99,7 +103,7 @@ func setChainSpecificConfigDefaultSets() {
 		blockEmissionIdleWarningThreshold:          1 * time.Minute,
 		blockHistoryEstimatorBatchSize:             4, // FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
 		blockHistoryEstimatorBlockDelay:            1,
-		blockHistoryEstimatorBlockHistorySize:      16,
+		blockHistoryEstimatorBlockHistorySize:      8,
 		blockHistoryEstimatorTransactionPercentile: 60,
 		chainType:                             "",
 		eip1559DynamicFees:                    false,
@@ -118,7 +122,7 @@ func setChainSpecificConfigDefaultSets() {
 		gasLimitTransfer:                      21000,
 		gasPriceDefault:                       *DefaultGasPrice,
 		gasTipCapDefault:                      *DefaultGasTip,
-		gasTipCapMinimum:                      *big.NewInt(0),
+		gasTipCapMinimum:                      *big.NewInt(1),
 		headTrackerHistoryDepth:               100,
 		headTrackerMaxBufferSize:              3,
 		headTrackerSamplingInterval:           1 * time.Second,
@@ -131,6 +135,9 @@ func setChainSpecificConfigDefaultSets() {
 		minIncomingConfirmations:              3,
 		minRequiredOutgoingConfirmations:      12,
 		minimumContractPayment:                DefaultMinimumContractPayment,
+		nodeDeadAfterNoNewHeadersThreshold:    3 * time.Minute,
+		nodePollFailureThreshold:              5,
+		nodePollInterval:                      10 * time.Second,
 		nonceAutoSync:                         true,
 		ocrContractConfirmations:              4,
 		ocrContractTransmitterTransmitTimeout: 10 * time.Second,
@@ -141,9 +148,11 @@ func setChainSpecificConfigDefaultSets() {
 	}
 
 	mainnet := fallbackDefaultSet
+	mainnet.blockHistoryEstimatorBlockHistorySize = 4 // EIP-1559 does well on a smaller block history size
+	mainnet.blockHistoryEstimatorTransactionPercentile = 50
+	mainnet.eip1559DynamicFees = true // enable EIP-1559 on Eth Mainnet and all testnets
 	mainnet.linkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
 	mainnet.minimumContractPayment = assets.NewLinkFromJuels(100000000000000000) // 0.1 LINK
-	mainnet.blockHistoryEstimatorBlockHistorySize = 12                           // mainnet has longer block times than everything else, so ideally this is kept small to keep it responsive
 	// NOTE: There are probably other variables we can tweak for Kovan and other
 	// test chains, but the defaults have been working fine and if it ain't
 	// broke, don't fix it.
@@ -151,10 +160,13 @@ func setChainSpecificConfigDefaultSets() {
 	ropsten.linkContractAddress = "0x20fe562d797a42dcb3399062ae9546cd06f63280"
 	kovan := mainnet
 	kovan.linkContractAddress = "0xa36085F69e2889c224210F603D836748e7dC0088"
+	kovan.eip1559DynamicFees = false // FIXME: Kovan has strange behaviour with EIP1559, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	goerli := mainnet
 	goerli.linkContractAddress = "0x326c977e6efc84e512bb9c30f76e30c160ed06fb"
+	goerli.eip1559DynamicFees = false // TODO: EIP1559 on goerli has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 	rinkeby := mainnet
 	rinkeby.linkContractAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
+	rinkeby.eip1559DynamicFees = false // TODO: EIP1559 on rinkeby has not been adequately tested, see: https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
 
 	// xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
 	// See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority

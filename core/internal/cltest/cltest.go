@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -24,7 +24,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	"github.com/gorilla/websocket"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
@@ -34,18 +33,21 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/bulletprooftxmanager"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -77,8 +79,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -181,15 +181,15 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	}
 }
 
-// NewEthBroadcaster creates a new bulletprooftxmanager.EthBroadcaster for use in testing.
-func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory bulletprooftxmanager.TransmitCheckerFactory) *bulletprooftxmanager.EthBroadcaster {
+// NewEthBroadcaster creates a new txmgr.EthBroadcaster for use in testing.
+func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, keyStore txmgr.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State, checkerFactory txmgr.TransmitCheckerFactory) *txmgr.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
-	err := eventBroadcaster.Start()
+	err := eventBroadcaster.Start(testutils.Context(t.(*testing.T)))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
+	return txmgr.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
 		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr,
 		checkerFactory)
 }
@@ -199,10 +199,10 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn txmgr.ResumeCallback) *txmgr.EthConfirmer {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates,
+	ec := txmgr.NewEthConfirmer(db, ethClient, config, ks, keyStates,
 		gas.NewFixedPriceEstimator(config, lggr), fn, lggr)
 	return ec
 }
@@ -218,82 +218,12 @@ type TestApplication struct {
 	Key     ethkey.KeyV2
 }
 
-// jsonrpcHandler is called with the method and request param(s).
-// respResult will be sent immediately. notifyResult is optional, and sent after a short delay.
-type jsonrpcHandler func(reqMethod string, reqParams gjson.Result) (respResult, notifyResult string)
-
 // NewWSServer starts a websocket server which invokes callback for each message received.
 // If chainID is set, then eth_chainId calls will be automatically handled.
-func NewWSServer(t *testing.T, chainID *big.Int, callback jsonrpcHandler) string {
-	upgrader := websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool { return true },
-	}
-	lggr := logger.TestLogger(t).Named("WSServer")
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		require.NoError(t, err, "Failed to upgrade WS connection")
-		defer conn.Close()
-		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseAbnormalClosure) {
-					lggr.Info("Closing")
-					return
-				}
-				lggr.Errorw("Failed to read message", "err", err)
-				return
-			}
-			lggr.Debugw("Received message", "wsmsg", string(data))
-			req := ParseJSON(t, bytes.NewReader(data))
-			if !req.IsObject() {
-				lggr.Errorw("Request must be object", "type", req.Type)
-				return
-			}
-			if e := req.Get("error"); e.Exists() {
-				lggr.Warnw("Received jsonrpc error message", "err", e)
-				break
-			}
-			m := req.Get("method")
-			if m.Type != gjson.String {
-				lggr.Errorw("method must be string", "type", m.Type)
-				return
-			}
-
-			var resp, notify string
-			if chainID != nil && m.String() == "eth_chainId" {
-				resp = `"0x` + chainID.Text(16) + `"`
-			} else {
-				resp, notify = callback(m.String(), req.Get("params"))
-			}
-			id := req.Get("id")
-			msg := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, id, resp)
-			lggr.Debugw("Sending message", "wsmsg", msg)
-			err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
-			if err != nil {
-				lggr.Errorw("Failed to write message", "err", err)
-				return
-			}
-
-			if notify != "" {
-				time.Sleep(100 * time.Millisecond)
-				msg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_subscription","params":{"subscription":"0x00","result":%s}}`, notify)
-				lggr.Debugw("Sending message", "wsmsg", msg)
-				err = conn.WriteMessage(websocket.BinaryMessage, []byte(msg))
-				if err != nil {
-					lggr.Errorw("Failed to write message", "err", err)
-					return
-				}
-			}
-		}
-	})
-	server := httptest.NewServer(handler)
+func NewWSServer(t *testing.T, chainID *big.Int, callback testutils.JSONRPCHandler) string {
+	server := testutils.NewWSServer(t, chainID, callback)
 	t.Cleanup(server.Close)
-
-	u, err := url.Parse(server.URL)
-	require.NoError(t, err, "Failed to parse url")
-	u.Scheme = "ws"
-
-	return u.String()
+	return server.WSURL().String()
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
@@ -302,6 +232,7 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 		SecretGenerator:     MockSecretGenerator{},
 		Dialect:             dialects.TransactionWrappedPostgres,
 		AdvisoryLockID:      null.IntFrom(NewRandomInt64()),
+		P2PEnabled:          null.BoolFrom(false),
 		ShutdownGracePeriod: &shutdownGracePeriod,
 	}
 	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
@@ -370,6 +301,7 @@ const (
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
 func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
+	testutils.SkipShortDB(t)
 
 	lggr := logger.TestLogger(t)
 
@@ -414,7 +346,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ethClient = evmclient.NewNullClient(nil, lggr)
 	}
 	if chainORM == nil {
-		chainORM = evm.NewORM(db)
+		chainORM = evm.NewORM(db, lggr, cfg)
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
@@ -436,17 +368,19 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if err != nil {
 		lggr.Fatal(err)
 	}
-	terraLggr := lggr.Named("Terra")
-	chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
-		Config:           cfg,
-		Logger:           terraLggr,
-		DB:               db,
-		KeyStore:         keyStore.Terra(),
-		EventBroadcaster: eventBroadcaster,
-		ORM:              terra.NewORM(db, terraLggr, cfg),
-	})
-	if err != nil {
-		lggr.Fatal(err)
+	if cfg.TerraEnabled() {
+		terraLggr := lggr.Named("Terra")
+		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
+			Config:           cfg,
+			Logger:           terraLggr,
+			DB:               db,
+			KeyStore:         keyStore.Terra(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			lggr.Fatal(err)
+		}
 	}
 
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -456,6 +390,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		KeyStore:                 keyStore,
 		Chains:                   chains,
 		Logger:                   lggr,
+		CloseLogger:              lggr.Sync,
 		ExternalInitiatorManager: externalInitiatorManager,
 	})
 	require.NoError(t, err)
@@ -476,25 +411,23 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription, f func()) {
-	c, s, f = NewEthMocks(t)
+func NewEthMocksWithDefaultChain(t testing.TB) (c *evmMocks.Client, s *evmMocks.Subscription) {
+	testutils.SkipShortDB(t)
+	c, s = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
+func NewEthMocks(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription) {
 	c, s := NewEthClientAndSubMock(t)
-	var assertMocksCalled func()
 	switch tt := t.(type) {
 	case *testing.T:
-		assertMocksCalled = func() {
+		t.Cleanup(func() {
 			c.AssertExpectations(tt)
 			s.AssertExpectations(tt)
-		}
-	case *testing.B:
-		assertMocksCalled = func() {}
+		})
 	}
-	return c, s, assertMocksCalled
+	return c, s
 }
 
 func NewEthClientAndSubMock(t mock.TestingT) (*evmMocks.Client, *evmMocks.Subscription) {
@@ -523,8 +456,9 @@ func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
 	return c
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
-	c, s, assertMocksCalled := NewEthMocks(t)
+func NewEthMocksWithStartupAssertions(t testing.TB) *evmMocks.Client {
+	testutils.SkipShort(t, "long test")
+	c, s := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -539,12 +473,13 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*evmMocks.Client, *evmMocks
 
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
-	return c, s, assertMocksCalled
+	return c
 }
 
 // NewEthMocksWithTransactionsOnBlocksAssertions sets an Eth mock with transactions on blocks
-func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Client, *evmMocks.Subscription, func()) {
-	c, s, assertMocksCalled := NewEthMocks(t)
+func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmMocks.Client {
+	testutils.SkipShort(t, "long test")
+	c, s := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
@@ -574,7 +509,8 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) (*evmMocks.Clie
 
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
-	return c, s, assertMocksCalled
+
+	return c
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -583,7 +519,7 @@ func newServer(app chainlink.Application) *httptest.Server {
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.
-func (ta *TestApplication) Start() error {
+func (ta *TestApplication) Start(ctx context.Context) error {
 	ta.t.Helper()
 	ta.Started = true
 	err := ta.ChainlinkApplication.KeyStore.Unlock(Password)
@@ -591,7 +527,7 @@ func (ta *TestApplication) Start() error {
 		return err
 	}
 
-	err = ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start(ctx)
 	if err != nil {
 		return err
 	}
@@ -647,10 +583,12 @@ func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
 func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
+	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Client{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
-		Logger:                         logger.TestLogger(ta.t),
+		Logger:                         lggr,
+		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -670,6 +608,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
+		CloseLogger:                    lggr.Sync,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -805,31 +744,9 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 
 // ReadLogs returns the contents of the applications log file as a string
 func ReadLogs(dir string) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", dir)
+	logFile := filepath.Join(dir, logger.LogsFile)
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
-}
-
-// FindLogMessage returns the message from the first JSON log line for which test returns true.
-func FindLogMessage(logs string, test func(msg string) bool) string {
-	for _, l := range strings.Split(logs, "\n") {
-		var line map[string]interface{}
-		if json.Unmarshal([]byte(l), &line) != nil {
-			continue
-		}
-		m, ok := line["msg"]
-		if !ok {
-			continue
-		}
-		ms, ok := m.(string)
-		if !ok {
-			continue
-		}
-		if test(ms) {
-			return ms
-		}
-	}
-	return ""
 }
 
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
@@ -1013,13 +930,13 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *sqlx.DB, wa
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []bulletprooftxmanager.EthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []txmgr.EthTxAttempt {
 	g := gomega.NewWithT(t)
 
-	var txas []bulletprooftxmanager.EthTxAttempt
+	var txas []txmgr.EthTxAttempt
 	var err error
-	g.Consistently(func() []bulletprooftxmanager.EthTxAttempt {
-		txas = make([]bulletprooftxmanager.EthTxAttempt, 0)
+	g.Consistently(func() []txmgr.EthTxAttempt {
+		txas = make([]txmgr.EthTxAttempt, 0)
 		err = db.Select(&txas, `SELECT * FROM eth_tx_attempts ORDER BY id ASC`)
 		assert.NoError(t, err)
 		return txas
@@ -1253,11 +1170,7 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 }
 
 func MustParseURL(t *testing.T, input string) *url.URL {
-	u, err := url.Parse(input)
-	if err != nil {
-		logger.TestLogger(t).Panic(err)
-	}
-	return u
+	return testutils.MustParseURL(t, input)
 }
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
@@ -1332,14 +1245,14 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmM
 	}
 }
 
-func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
-	return req.Method == "eth_getTransactionReceipt" &&
-		len(req.Args) == 1 && req.Args[0] == hash
+func BatchElemMatchesParams(req rpc.BatchElem, arg interface{}, method string) bool {
+	return req.Method == method &&
+		len(req.Args) == 1 && req.Args[0] == arg
 }
 
-func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
+func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash, method string) {
 	t.Helper()
-	if !BatchElemMatchesHash(req, hash) {
+	if !BatchElemMatchesParams(req, hash, method) {
 		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
 	}
 }
@@ -1637,8 +1550,8 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	return states[0]
 }
 
-func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bulletprooftxmanager.ORM {
-	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t), cfg)
+func NewTxmORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) txmgr.ORM {
+	return txmgr.NewORM(db, logger.TestLogger(t), cfg)
 }
 
 // ClearDBTables deletes all rows from the given tables

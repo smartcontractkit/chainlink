@@ -1,0 +1,69 @@
+name: CI Core
+
+on: push
+
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        cmd: ["go_core_tests", "go_core_race_tests"]
+    name: Core Tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+      LOG_LEVEL: debug
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: chainlink_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        # Set health checks to wait until postgres has started
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ~1.17
+      - name: Cache Go vendor packages
+        uses: actions/cache@v2
+        with:
+          path: /go/pkg/mod
+          key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            go-mod-${{ env.CACHE_VERSION }}
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Install terrad
+        run: ./tools/ci/install_terrad
+      - name: Setup DB
+        run: go run ./core local db preparetest
+      - name: Run tests
+        run: ./tools/bin/${{ matrix.cmd }}
+      - name: Store logs artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v2.3.0
+        with:
+          name: ${{ matrix.cmd }}_logs
+          path: |
+            ./output.txt
+            ./race.*
+      - name: Print postgres logs
+        if: always()
+        uses: docker://docker:latest
+        with:
+          args: logs ${{ job.services.postgres.id }}
+
