@@ -35,6 +35,27 @@ func Mod(dividend, divisor interface{}) *big.Int { return I().Mod(bnIfy(dividend
 // Sub performs subtraction with the given values after coercing them to big.Int, or panics if it cannot.
 func Sub(minuend, subtrahend interface{}) *big.Int { return I().Sub(bnIfy(minuend), bnIfy(subtrahend)) }
 
+// Max returns the maximum of the two given values after coercing them to big.Int,
+// or panics if it cannot.
+func Max(x, y interface{}) *big.Int {
+	xBig := bnIfy(x)
+	yBig := bnIfy(y)
+	if xBig.Cmp(yBig) == 1 {
+		return xBig
+	}
+	return yBig
+}
+
+// Accumulate returns the sum of the given slice after coercing all elements
+// to a big.Int, or panics if it cannot.
+func Accumulate(s []interface{}) (r *big.Int) {
+	r = big.NewInt(0)
+	for _, e := range s {
+		r.Add(r, bnIfy(e))
+	}
+	return
+}
+
 func bnIfy(val interface{}) *big.Int {
 	switch v := val.(type) {
 	case uint:

@@ -105,7 +105,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			backend.Commit()
 
 			// setup app
-			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559), true, true)
+			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559))
 			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			d := 24 * time.Hour
@@ -119,6 +119,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 			// test with gas price feature enabled
 			config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
+			// testing doesn't need to do far look back
+			config.Overrides.KeeperTurnLookBack = null.IntFrom(0)
 			// helps prevent missed heads
 			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 

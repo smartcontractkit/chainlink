@@ -49,6 +49,7 @@ import (
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/chains/terra"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -377,6 +378,20 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			KeyStore:         keyStore.Terra(),
 			EventBroadcaster: eventBroadcaster,
 			ORM:              terra.NewORM(db, terraLggr, cfg),
+		})
+		if err != nil {
+			lggr.Fatal(err)
+		}
+	}
+	if cfg.SolanaEnabled() {
+		solLggr := lggr.Named("Solana")
+		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
+			Config:           cfg,
+			Logger:           solLggr,
+			DB:               db,
+			KeyStore:         keyStore.Solana(),
+			EventBroadcaster: eventBroadcaster,
+			ORM:              solana.NewORM(db, solLggr, cfg),
 		})
 		if err != nil {
 			lggr.Fatal(err)
@@ -849,7 +864,7 @@ const (
 	AssertNoActionTimeout = 3 * time.Second
 )
 
-// WaitTimeout is just preserved for compatabilty. Use testutils.WaitTimeout directly instead.
+// WaitTimeout is just preserved for compatibility. Use testutils.WaitTimeout directly instead.
 // Deprecated
 var WaitTimeout = testutils.WaitTimeout
 
@@ -1510,7 +1525,7 @@ func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt s
 }
 
 func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth) []ethkey.State {
-	keys, err := ethKeyStore.SendingKeys()
+	keys, err := ethKeyStore.SendingKeys(nil)
 	require.NoError(t, err)
 	states, err := ethKeyStore.GetStatesForKeys(keys)
 	require.NoError(t, err)

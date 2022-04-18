@@ -88,6 +88,7 @@ type GeneralConfigOverrides struct {
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
+	KeeperTurnLookBack                        null.Int
 	LeaseLockDuration                         *time.Duration
 	LeaseLockRefreshInterval                  *time.Duration
 	LogFileDir                                null.String
@@ -111,6 +112,7 @@ type GeneralConfigOverrides struct {
 	EVMRPCEnabled             null.Bool
 	TerraEnabled              null.Bool
 	P2PEnabled                null.Bool
+	SolanaEnabled             null.Bool
 
 	// OCR v2
 	OCR2DatabaseTimeout *time.Duration
@@ -289,6 +291,14 @@ func (c *TestGeneralConfig) TerraEnabled() bool {
 	return c.GeneralConfig.TerraEnabled()
 }
 
+// SolanaEnabled allows Solana to be used
+func (c *TestGeneralConfig) SolanaEnabled() bool {
+	if c.Overrides.SolanaEnabled.Valid {
+		return c.Overrides.SolanaEnabled.Bool
+	}
+	return c.GeneralConfig.SolanaEnabled()
+}
+
 func (c *TestGeneralConfig) EthereumURL() string {
 	if c.Overrides.EthereumURL.Valid {
 		return c.Overrides.EthereumURL.String
@@ -457,6 +467,13 @@ func (c *TestGeneralConfig) KeeperMaximumGracePeriod() int64 {
 		return c.Overrides.KeeperMaximumGracePeriod.Int64
 	}
 	return c.GeneralConfig.KeeperMaximumGracePeriod()
+}
+
+func (c *TestGeneralConfig) KeeperTurnLookBack() int64 {
+	if c.Overrides.KeeperTurnLookBack.Valid {
+		return c.Overrides.KeeperTurnLookBack.Int64
+	}
+	return c.GeneralConfig.KeeperTurnLookBack()
 }
 
 func (c *TestGeneralConfig) BlockBackfillSkip() bool {

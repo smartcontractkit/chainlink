@@ -32,14 +32,6 @@ contract CronInternalTestHelper {
   }
 
   /**
-   * @notice encodedSpecToString is a helper function for turning a string
-   * into a spec struct.
-   */
-  function cronStringtoEncodedSpec(string memory cronString) public pure returns (Spec memory) {
-    return CronInternal.toSpec(cronString);
-  }
-
-  /**
    * @notice calculateNextTick calculates the next time a cron job should "tick".
    * This should only be called off-chain, as it is gas expensive!
    * @param cronString the cron string to consider
@@ -84,14 +76,6 @@ contract CronExternalTestHelper {
   function encodedSpecToString(bytes memory encodedSpec) public pure returns (string memory) {
     Spec memory spec = abi.decode(encodedSpec, (Spec));
     return CronExternal.toCronString(spec);
-  }
-
-  /**
-   * @notice encodedSpecToString is a helper function for turning a string
-   * into a spec struct.
-   */
-  function cronStringtoEncodedSpec(string memory cronString) public pure returns (Spec memory) {
-    return CronExternal.toSpec(cronString);
   }
 
   /**

@@ -198,4 +198,8 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   function acceptSubscriptionOwnerTransfer(uint64 _subId) external pure override {
     revert("not implemented");
   }
+
+  function pendingRequestExists(uint64 subId) public view override returns (bool) {
+    revert("not implemented");
+  }
 }

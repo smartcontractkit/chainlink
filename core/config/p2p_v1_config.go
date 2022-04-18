@@ -128,7 +128,7 @@ func (c *generalConfig) P2PDHTLookupInterval() int {
 	if c.OCRDHTLookupInterval() != 0 {
 		return c.OCRDHTLookupInterval()
 	}
-	return int(c.getWithFallback("P2PDHTLookupInterval", parse.Uint16).(uint16))
+	return int(getEnvWithFallback(c, envvar.NewUint16("P2PDHTLookupInterval")))
 }
 
 func (c *generalConfig) P2PNewStreamTimeout() time.Duration {
