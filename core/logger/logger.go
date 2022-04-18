@@ -170,7 +170,7 @@ func NewLogger() (Logger, func() error) {
 	var parseErrs []string
 
 	var invalid string
-	c.LogLevel, invalid = envvar.LogLevel.ParseLogLevel()
+	c.LogLevel, invalid = envvar.LogLevel.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
@@ -178,19 +178,19 @@ func NewLogger() (Logger, func() error) {
 	c.Dir = os.Getenv("LOG_FILE_DIR")
 	if c.Dir == "" {
 		var invalid2 string
-		c.Dir, invalid2 = envvar.RootDir.ParseString()
+		c.Dir, invalid2 = envvar.RootDir.Parse()
 		if invalid2 != "" {
 			parseErrs = append(parseErrs, invalid2)
 		}
 	}
 
-	c.JsonConsole, invalid = envvar.JSONConsole.ParseBool()
+	c.JsonConsole, invalid = envvar.JSONConsole.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}
 
 	var fileMaxSize utils.FileSize
-	fileMaxSize, invalid = envvar.LogFileMaxSize.ParseFileSize()
+	fileMaxSize, invalid = envvar.LogFileMaxSize.Parse()
 	c.FileMaxSize = int(fileMaxSize)
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
@@ -202,20 +202,20 @@ func NewLogger() (Logger, func() error) {
 			maxBackups int64
 		)
 
-		fileMaxAge, invalid = envvar.LogFileMaxAge.ParseInt64()
+		fileMaxAge, invalid = envvar.LogFileMaxAge.Parse()
 		c.FileMaxAge = int(fileMaxAge)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 
-		maxBackups, invalid = envvar.LogFileMaxBackups.ParseInt64()
+		maxBackups, invalid = envvar.LogFileMaxBackups.Parse()
 		c.FileMaxBackups = int(maxBackups)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
 	}
 
-	c.UnixTS, invalid = envvar.LogUnixTS.ParseBool()
+	c.UnixTS, invalid = envvar.LogUnixTS.Parse()
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
 	}

@@ -73,6 +73,56 @@ func TestORM_broadcasts(t *testing.T) {
 		require.Equal(t, null.BoolFrom(true), consumed)
 	}))
 
+	t.Run("MarkBroadcastsConsumed Success", func(t *testing.T) {
+		var (
+			err          error
+			blockHashes  []common.Hash
+			blockNumbers []uint64
+			logIndexes   []uint
+			jobIDs       []int32
+		)
+		for i := 0; i < 3; i++ {
+			l := cltest.RandomLog(t)
+			err = orm.CreateBroadcast(l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
+			require.NoError(t, err)
+			blockHashes = append(blockHashes, l.BlockHash)
+			blockNumbers = append(blockNumbers, l.BlockNumber)
+			logIndexes = append(logIndexes, l.Index)
+			jobIDs = append(jobIDs, listener.JobID())
+
+		}
+		err = orm.MarkBroadcastsConsumed(blockHashes, blockNumbers, logIndexes, jobIDs)
+		require.NoError(t, err)
+
+		for i := range blockHashes {
+			was, err := orm.WasBroadcastConsumed(blockHashes[i], logIndexes[i], jobIDs[i])
+			require.NoError(t, err)
+			require.True(t, was)
+		}
+	})
+
+	t.Run("MarkBroadcastsConsumed Failure", func(t *testing.T) {
+		var (
+			err          error
+			blockHashes  []common.Hash
+			blockNumbers []uint64
+			logIndexes   []uint
+			jobIDs       []int32
+		)
+		for i := 0; i < 5; i++ {
+			l := cltest.RandomLog(t)
+			err = orm.CreateBroadcast(l.BlockHash, l.BlockNumber, l.Index, listener.JobID())
+			require.NoError(t, err)
+			blockHashes = append(blockHashes, l.BlockHash)
+			blockNumbers = append(blockNumbers, l.BlockNumber)
+			logIndexes = append(logIndexes, l.Index)
+			jobIDs = append(jobIDs, listener.JobID())
+
+		}
+		err = orm.MarkBroadcastsConsumed(blockHashes[:len(blockHashes)-2], blockNumbers, logIndexes, jobIDs)
+		require.Error(t, err)
+	})
+
 	t.Run("WasBroadcastConsumed_true", func(t *testing.T) {
 		was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
 		require.NoError(t, err)

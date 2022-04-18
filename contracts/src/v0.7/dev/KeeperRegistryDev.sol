@@ -1,25 +1,30 @@
 // SPDX-License-Identifier: MIT
+/*
+ * This is a development version of KeeperRegistry. Once it's audited and finalised
+ * it will be copied to KeeperRegistry
+ */
+
 pragma solidity ^0.7.0;
 
-import "./interfaces/AggregatorV3Interface.sol";
-import "./interfaces/LinkTokenInterface.sol";
-import "./interfaces/KeeperCompatibleInterface.sol";
-import "./interfaces/KeeperRegistryInterface.sol";
-import "./interfaces/TypeAndVersionInterface.sol";
-import "./vendor/SafeMathChainlink.sol";
-import "./vendor/Address.sol";
-import "./vendor/Pausable.sol";
-import "./vendor/ReentrancyGuard.sol";
-import "./vendor/SignedSafeMath.sol";
-import "./vendor/SafeMath96.sol";
-import "./KeeperBase.sol";
-import "./ConfirmedOwner.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/LinkTokenInterface.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/KeeperRegistryInterface.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
+import "../vendor/SafeMathChainlink.sol";
+import "../vendor/Address.sol";
+import "../vendor/Pausable.sol";
+import "../vendor/ReentrancyGuard.sol";
+import "../vendor/SignedSafeMath.sol";
+import "../vendor/SafeMath96.sol";
+import "../KeeperBase.sol";
+import "../ConfirmedOwner.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistryVB is
+contract KeeperRegistryDev is
   TypeAndVersionInterface,
   ConfirmedOwner,
   KeeperBase,
@@ -65,10 +70,11 @@ contract KeeperRegistryVB is
 
   /**
    * @notice versions:
+   * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 1.1.0";
+  string public constant override typeAndVersion = "KeeperRegistry 1.2.0";
 
   struct Upkeep {
     address target;
@@ -92,7 +98,6 @@ contract KeeperRegistryVB is
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
     uint16 gasCeilingMultiplier;
-    bool mustTakeTurns;
   }
 
   struct PerformParams {
@@ -123,8 +128,7 @@ contract KeeperRegistryVB is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice,
-    bool mustTakeTurns
+    uint256 fallbackLinkPrice
   );
   event FlatFeeSet(uint32 flatFeeMicroLink);
   event KeepersUpdated(address[] keepers, address[] payees);
@@ -163,8 +167,7 @@ contract KeeperRegistryVB is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice,
-    bool mustTakeTurns
+    uint256 fallbackLinkPrice
   ) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
@@ -178,8 +181,7 @@ contract KeeperRegistryVB is
       stalenessSeconds,
       gasCeilingMultiplier,
       fallbackGasPrice,
-      fallbackLinkPrice,
-      mustTakeTurns
+      fallbackLinkPrice
     );
   }
 
@@ -432,7 +434,6 @@ contract KeeperRegistryVB is
    * be stale before switching to the fallback pricing
    * @param fallbackGasPrice gas price used if the gas price feed is stale
    * @param fallbackLinkPrice LINK price used if the LINK price feed is stale
-   * @param mustTakeTurns flag if true requires node performing Upkeep be different then previous
    */
   function setConfig(
     uint32 paymentPremiumPPB,
@@ -442,8 +443,7 @@ contract KeeperRegistryVB is
     uint24 stalenessSeconds,
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
-    uint256 fallbackLinkPrice,
-    bool mustTakeTurns
+    uint256 fallbackLinkPrice
   ) public onlyOwner {
     s_config = Config({
       paymentPremiumPPB: paymentPremiumPPB,
@@ -451,8 +451,7 @@ contract KeeperRegistryVB is
       blockCountPerTurn: blockCountPerTurn,
       checkGasLimit: checkGasLimit,
       stalenessSeconds: stalenessSeconds,
-      gasCeilingMultiplier: gasCeilingMultiplier,
-      mustTakeTurns: mustTakeTurns
+      gasCeilingMultiplier: gasCeilingMultiplier
     });
     s_fallbackGasPrice = fallbackGasPrice;
     s_fallbackLinkPrice = fallbackLinkPrice;
@@ -464,8 +463,7 @@ contract KeeperRegistryVB is
       stalenessSeconds,
       gasCeilingMultiplier,
       fallbackGasPrice,
-      fallbackLinkPrice,
-      mustTakeTurns
+      fallbackLinkPrice
     );
     emit FlatFeeSet(flatFeeMicroLink);
   }
@@ -568,13 +566,6 @@ contract KeeperRegistryVB is
    */
   function getRegistrar() external view returns (address) {
     return s_registrar;
-  }
-
-  /**
-   * @notice read the current config value for mustTakeTurns
-   */
-  function getMustTakeTurns() external view returns (bool) {
-    return s_config.mustTakeTurns;
   }
 
   /**
@@ -688,8 +679,7 @@ contract KeeperRegistryVB is
     uint256 premium = PPB_BASE.add(config.paymentPremiumPPB);
     uint256 total = weiForGas.mul(1e9).mul(premium).div(linkEth).add(uint256(config.flatFeeMicroLink).mul(1e12));
     require(total <= LINK_TOTAL_SUPPLY, "payment greater than all LINK");
-    return uint96(total);
-    // LINK_TOTAL_SUPPLY < UINT96_MAX
+    return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
 
   /**
@@ -742,11 +732,13 @@ contract KeeperRegistryVB is
     gasUsed = gasUsed - gasleft();
 
     uint96 payment = calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
-    upkeep.balance = upkeep.balance.sub(payment);
-    upkeep.lastKeeper = params.from;
-    s_upkeep[params.id] = upkeep;
-    uint96 newBalance = s_keeperInfo[params.from].balance.add(payment);
-    s_keeperInfo[params.from].balance = newBalance;
+
+    uint96 newUpkeepBalance = s_upkeep[params.id].balance.sub(payment);
+    s_upkeep[params.id].balance = newUpkeepBalance;
+    s_upkeep[params.id].lastKeeper = params.from;
+
+    uint96 newKeeperBalance = s_keeperInfo[params.from].balance.add(payment);
+    s_keeperInfo[params.from].balance = newKeeperBalance;
 
     emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
     return success;
@@ -769,9 +761,7 @@ contract KeeperRegistryVB is
   ) private view {
     require(s_keeperInfo[from].active, "only active keepers");
     require(upkeep.balance >= maxLinkPayment, "insufficient funds");
-    if (s_config.mustTakeTurns) {
-      require(upkeep.lastKeeper != from, "keepers must take turns");
-    }
+    require(upkeep.lastKeeper != from, "keepers must take turns");
   }
 
   /**

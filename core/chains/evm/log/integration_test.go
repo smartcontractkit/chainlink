@@ -527,7 +527,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	// the first backfill should start from before the last stored head
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
-		lggr.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
+		lggr.Infof("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 
 		if times <= 7 {
 			require.Equal(t, backfillStart+batchSize*times, fromBlock)
@@ -638,14 +638,15 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	listener3 := helper.newLogListenerWithJob("listener 3")
 	listener4 := helper.newLogListenerWithJob("listener 4")
 
+	helper.register(listener1, contract1, 1)
+	helper.register(listener2, contract1, 1)
+	helper.register(listener3, contract2, 1)
+	helper.register(listener4, contract2, 1)
+
 	func() {
 		helper.start()
 		defer helper.stop()
 
-		helper.register(listener1, contract1, 1)
-		helper.register(listener2, contract1, 1)
-		helper.register(listener3, contract2, 1)
-		helper.register(listener4, contract2, 1)
 		headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     0,
 			EndBlock:       9,
@@ -1371,7 +1372,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				EndBlock:   test.blockHeight2 + 1,
 				Blocks:     blocks,
 				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
-					lggr.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
+					lggr.Infof("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						lggr.Warnf("  ** not exists")
 						return

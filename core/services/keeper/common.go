@@ -21,5 +21,6 @@ type Config interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
+	KeeperTurnLookBack() int64
 	LogSQL() bool
 }
