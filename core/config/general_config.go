@@ -136,6 +136,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
+	KeeperTurnLookBack() int64
 	KeyFile() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
@@ -843,6 +844,11 @@ func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 // KeeperCheckUpkeepGasPriceFeatureEnabled enables keepers to include a gas price when running checkUpkeep
 func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	return getEnvWithFallback(c, envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled"))
+}
+
+// KeeperTurnLookBack represents the number of blocks in the past to loo back when getting block for turn
+func (c *generalConfig) KeeperTurnLookBack() int64 {
+	return c.viper.GetInt64(envvar.Name("KeeperTurnLookBack"))
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format

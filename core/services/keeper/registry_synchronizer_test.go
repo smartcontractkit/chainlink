@@ -371,8 +371,8 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	head := cltest.MustInsertHead(t, db, cfg, 1)
-	rawLog := types.Log{BlockHash: head.Hash}
-	log := keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{Id: big.NewInt(0)}
+	rawLog := types.Log{BlockHash: head.Hash, BlockNumber: 200}
+	log := keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{Id: big.NewInt(0), From: fromAddress}
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
@@ -388,6 +388,13 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
+	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(200)))
+
+	g.Eventually(func() int64 {
+		var upkeep keeper.UpkeepRegistration
+		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
+		require.NoError(t, err)
+		return upkeep.LastKeeperIndex.Int64
 	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 
 	ethMock.AssertExpectations(t)

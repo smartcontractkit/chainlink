@@ -2166,6 +2166,20 @@ func (_m *GeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 	return r0
 }
 
+// KeeperTurnLookBack provides a mock function with given fields:
+func (_m *GeneralConfig) KeeperTurnLookBack() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
 // KeyFile provides a mock function with given fields:
 func (_m *GeneralConfig) KeyFile() string {
 	ret := _m.Called()
