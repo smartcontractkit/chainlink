@@ -93,13 +93,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 				keeper_registry_wrapper.KeeperRegistryConfigSet{}.Topic():        nil,
 				keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
 				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic(): {
-					{},
-					{},
-					{
-						log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
-					},
-				},
+				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
 			},
 			MinIncomingConfirmations: rs.minIncomingConfirmations,
 		}
