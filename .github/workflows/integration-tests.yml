@@ -98,7 +98,7 @@ jobs:
           export PATH
           make test_smoke args="-nodes=6"
       - name: Publish Test Results
-        uses: mikepenz/action-junit-report@v2
+        uses: mikepenz/action-junit-report@v3
         if: always()
         with:
           report_paths: './tests-smoke-report.xml'
