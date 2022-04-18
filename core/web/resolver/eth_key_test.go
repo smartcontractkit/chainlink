@@ -161,7 +161,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address.Address()).Return(assets.NewLinkFromJuels(12), nil)
@@ -220,7 +220,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, evm.ErrNoChains)
@@ -282,7 +282,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(nil, gError)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(nil, gError)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -303,7 +303,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(nil, gError)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -335,7 +335,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(ethkey.KeyV2{}, gError)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
@@ -368,7 +368,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(ethkey.KeyV2{}, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
@@ -405,7 +405,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
@@ -465,7 +465,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				f.Mocks.cfg.On("Dev").Return(false)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
-				f.Mocks.ethKs.On("SendingKeys").Return(keys, nil)
+				f.Mocks.ethKs.On("SendingKeys", (*big.Int)(nil)).Return(keys, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethClient.On("GetLINKBalance", linkAddr, address.Address()).Return(assets.NewLinkFromJuels(12), nil)

@@ -1,6 +1,8 @@
 package fluxmonitorv2
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -10,8 +12,8 @@ import (
 
 // KeyStoreInterface defines an interface to interact with the keystore
 type KeyStoreInterface interface {
-	SendingKeys() ([]ethkey.KeyV2, error)
-	GetRoundRobinAddress(...common.Address) (common.Address, error)
+	SendingKeys(chainID *big.Int) ([]ethkey.KeyV2, error)
+	GetRoundRobinAddress(chainID *big.Int, addrs ...common.Address) (common.Address, error)
 }
 
 // KeyStore implements KeyStoreInterface

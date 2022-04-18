@@ -30,7 +30,7 @@ func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 	return &headBroadcaster{
 		logger:        lggr.Named(logger.HeadBroadcaster),
 		callbacks:     make(callbackSet),
-		mailbox:       utils.NewMailbox(1),
+		mailbox:       utils.NewMailbox[*evmtypes.Head](1),
 		mutex:         &sync.Mutex{},
 		chClose:       make(chan struct{}),
 		wgDone:        sync.WaitGroup{},
@@ -41,7 +41,7 @@ func NewHeadBroadcaster(lggr logger.Logger) httypes.HeadBroadcaster {
 type headBroadcaster struct {
 	logger    logger.Logger
 	callbacks callbackSet
-	mailbox   *utils.Mailbox
+	mailbox   *utils.Mailbox[*evmtypes.Head]
 	mutex     *sync.Mutex
 	chClose   chan struct{}
 	wgDone    sync.WaitGroup
@@ -112,12 +112,11 @@ func (hb *headBroadcaster) run() {
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
 func (hb *headBroadcaster) executeCallbacks() {
-	item, exists := hb.mailbox.Retrieve()
+	head, exists := hb.mailbox.Retrieve()
 	if !exists {
 		hb.logger.Info("No head to retrieve. It might have been skipped")
 		return
 	}
-	head := evmtypes.AsHead(item)
 
 	hb.mutex.Lock()
 	callbacks := hb.callbacks.values()
