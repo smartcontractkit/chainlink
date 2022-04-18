@@ -61,7 +61,7 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, header
 
 	r, err := client.Do(h.Request)
 	if err != nil {
-		h.Logger.Errorw("http adapter got error", "error", err)
+		h.Logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, nil, err
 	}
 	defer h.Logger.ErrorIfClosing(r.Body, "SendRequest response body")
