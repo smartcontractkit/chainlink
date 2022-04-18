@@ -119,6 +119,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 			// test with gas price feature enabled
 			config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
+			// testing doesn't need to do far look back
+			config.Overrides.KeeperTurnLookBack = null.IntFrom(0)
 			// helps prevent missed heads
 			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 
