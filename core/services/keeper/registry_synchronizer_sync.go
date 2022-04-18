@@ -99,16 +99,11 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) er
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
-	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
-	if err != nil {
-		return errors.Wrap(err, "failed to calc positioning constant")
-	}
 	newUpkeep := UpkeepRegistration{
-		CheckData:           upkeepConfig.CheckData,
-		ExecuteGas:          uint64(upkeepConfig.ExecuteGas),
-		RegistryID:          registry.ID,
-		PositioningConstant: positioningConstant,
-		UpkeepID:            upkeepID,
+		CheckData:  upkeepConfig.CheckData,
+		ExecuteGas: uint64(upkeepConfig.ExecuteGas),
+		RegistryID: registry.ID,
+		UpkeepID:   upkeepID,
 	}
 	if err := rs.orm.UpsertUpkeep(&newUpkeep); err != nil {
 		return errors.Wrap(err, "failed to upsert upkeep")
@@ -147,7 +142,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		return Registry{}, errors.Wrap(err, "failed to get keeper list")
 	}
 	keeperIndex := int32(-1)
+	keeperMap := map[ethkey.EIP55Address]int32{}
 	for idx, address := range keeperAddresses {
+		keeperMap[ethkey.EIP55AddressFromAddress(address)] = int32(idx)
 		if address == fromAddress.Address() {
 			keeperIndex = int32(idx)
 		}
@@ -164,6 +161,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		JobID:             rs.job.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        int32(len(keeperAddresses)),
+		KeeperIndexMap:    keeperMap,
 	}, nil
 }
 

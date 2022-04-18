@@ -65,10 +65,11 @@ contract KeeperRegistry is
 
   /**
    * @notice versions:
+   * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    * - KeeperRegistry 1.1.0: added flatFeeMicroLink
    * - KeeperRegistry 1.0.0: initial release
    */
-  string public constant override typeAndVersion = "KeeperRegistry 1.1.0";
+  string public constant override typeAndVersion = "KeeperRegistry 1.2.0";
 
   struct Upkeep {
     address target;
@@ -726,11 +727,13 @@ contract KeeperRegistry is
     gasUsed = gasUsed - gasleft();
 
     uint96 payment = calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
-    upkeep.balance = upkeep.balance.sub(payment);
-    upkeep.lastKeeper = params.from;
-    s_upkeep[params.id] = upkeep;
-    uint96 newBalance = s_keeperInfo[params.from].balance.add(payment);
-    s_keeperInfo[params.from].balance = newBalance;
+
+    uint96 newUpkeepBalance = s_upkeep[params.id].balance.sub(payment);
+    s_upkeep[params.id].balance = newUpkeepBalance;
+    s_upkeep[params.id].lastKeeper = params.from;
+
+    uint96 newKeeperBalance = s_keeperInfo[params.from].balance.add(payment);
+    s_keeperInfo[params.from].balance = newKeeperBalance;
 
     emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
     return success;

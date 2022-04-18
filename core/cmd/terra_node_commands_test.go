@@ -102,13 +102,13 @@ func TestClient_CreateTerraNode(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, nodes, initialNodesCount+2)
 	n := nodes[initialNodesCount]
-	assertEqual(t, types.NewNode{
+	assertEqualNodesTerra(t, types.NewNode{
 		Name:          "first",
 		TerraChainID:  chainIDA,
 		TendermintURL: "http://tender.mint.test/columbus-5",
 	}, n)
 	n = nodes[initialNodesCount+1]
-	assertEqual(t, types.NewNode{
+	assertEqualNodesTerra(t, types.NewNode{
 		Name:          "second",
 		TerraChainID:  chainIDB,
 		TendermintURL: "http://tender.mint.test/bombay-12",
@@ -153,7 +153,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func assertEqual(t *testing.T, newNode types.NewNode, gotNode db.Node) {
+func assertEqualNodesTerra(t *testing.T, newNode types.NewNode, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

@@ -25,12 +25,12 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -98,7 +98,7 @@ type EthConfirmer struct {
 
 	keyStates []ethkey.State
 
-	mb        *utils.Mailbox
+	mb        *utils.Mailbox[*evmtypes.Head]
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
@@ -128,7 +128,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient evmclient.Client, config Config, key
 		estimator,
 		resumeCallback,
 		keyStates,
-		utils.NewMailbox(1),
+		utils.NewMailbox[*evmtypes.Head](1),
 		context,
 		cancel,
 		sync.WaitGroup{},
@@ -175,8 +175,7 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h := evmtypes.AsHead(head)
-				if err := ec.ProcessHead(ec.ctx, h); err != nil {
+				if err := ec.ProcessHead(ec.ctx, head); err != nil {
 					ec.lggr.Errorw("Error processing head", "err", err)
 					continue
 				}
@@ -483,10 +482,10 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			return nil, errors.Errorf("expected result to be a %T, got %T", (*evmtypes.Receipt)(nil), result)
 		}
 
-		l := lggr.With(
+		l := logger.Sugared(lggr.With(
 			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID,
 			"ethTxID", attempt.EthTxID, "err", err, "nonce", attempt.EthTx.Nonce,
-		)
+		))
 
 		if err != nil {
 			l.Error("FetchReceipt failed")
@@ -496,7 +495,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		if receipt == nil {
 			// NOTE: This should never happen, but it seems safer to check
 			// regardless to avoid a potential panic
-			l.Error("AssumptionViolation: got nil receipt")
+			l.AssumptionViolation("got nil receipt")
 			continue
 		}
 
@@ -505,7 +504,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 			continue
 		}
 
-		l = l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex)
+		l = logger.Sugared(l.With("blockHash", receipt.BlockHash.Hex(), "status", receipt.Status, "transactionIndex", receipt.TransactionIndex))
 
 		if receipt.IsUnmined() {
 			l.Debug("Got receipt for transaction but it's still in the mempool and not included in a block yet")
@@ -880,7 +879,7 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 		} else {
 			lggr.Warnw("Expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
-		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, static.EthNodeConnectivityProblemLabel), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
+		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, label.NodeConnectivityProblemWarning), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
 
 	seen := make(map[int64]struct{})
@@ -900,7 +899,7 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 	})
 
 	if maxInFlightTransactions > 0 && len(etxs) > int(maxInFlightTransactions) {
-		lggr.Warnf("%d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, static.EvmMaxInFlightTransactionsWarningLabel)
+		lggr.Warnf("%d transactions to rebroadcast which exceeds limit of %d. %s", len(etxs), maxInFlightTransactions, label.MaxInFlightTransactionsWarning)
 		etxs = etxs[:maxInFlightTransactions]
 	}
 
@@ -1124,7 +1123,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 		//
 		// Best thing we can do is to re-send the previous attempt at the old
 		// price and discard this bumped version.
-		ec.lggr.Errorw("Bumped transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+		ec.lggr.Errorw(fmt.Sprintf("Transaction gas bump failed; %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
 			"ethTxID", etx.ID,
 			"err", sendError,
 			"gasPrice", attempt.GasPrice,

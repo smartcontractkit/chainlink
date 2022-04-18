@@ -3,6 +3,9 @@ import { ethers } from 'hardhat'
 import { Contract } from 'ethers'
 import { assert, expect } from 'chai'
 import { CronUpkeepTestHelper } from '../../typechain/CronUpkeepTestHelper'
+import { CronUpkeepDelegate } from '../../typechain/CronUpkeepDelegate'
+import { CronUpkeepFactory } from '../../typechain/CronUpkeepFactory'
+import { CronUpkeepTestHelper__factory as CronUpkeepTestHelperFactory } from '../../typechain/factories/CronUpkeepTestHelper__factory'
 import { CronInternalTestHelper } from '../../typechain/CronInternalTestHelper'
 import { CronReceiver } from '../../typechain/CronReceiver'
 import { BigNumber, BigNumberish } from '@ethersproject/bignumber'
@@ -18,6 +21,9 @@ const CALL_FAILED_ERR = 'CallFailed'
 const CRON_NOT_FOUND_ERR = 'CronJobIDNotFound'
 
 let cron: CronUpkeepTestHelper
+let cronFactory: CronUpkeepTestHelperFactory // the typechain factory that deploys cron upkeep contracts
+let cronFactoryContract: CronUpkeepFactory // the cron factory contract
+let cronDelegate: CronUpkeepDelegate
 let cronTestHelper: CronInternalTestHelper
 let cronReceiver1: CronReceiver
 let cronReceiver2: CronReceiver
@@ -27,6 +33,7 @@ let owner: SignerWithAddress
 let stranger: SignerWithAddress
 
 const timeStamp = 32503680000 // Jan 1, 3000 12:00AM
+const basicCronString = '0 * * * *'
 
 let handler1Sig: string
 let handler2Sig: string
@@ -73,22 +80,24 @@ describe('CronUpkeep', () => {
       'CronUpkeepDelegate',
       admin,
     )
-    const cronDelegate = await cronDelegateFactory.deploy()
+    cronDelegate = await cronDelegateFactory.deploy()
     const cronExternalFactory = await ethers.getContractFactory(
       'src/v0.8/libraries/external/Cron.sol:Cron',
       admin,
     )
     const cronExternalLib = await cronExternalFactory.deploy()
-    const cronFactory = await ethers.getContractFactory(
-      'CronUpkeepTestHelper',
-      {
-        signer: admin,
-        libraries: { Cron: cronExternalLib.address },
-      },
-    )
+    cronFactory = await ethers.getContractFactory('CronUpkeepTestHelper', {
+      signer: admin,
+      libraries: { Cron: cronExternalLib.address },
+    })
     cron = (
-      await cronFactory.deploy(owner.address, cronDelegate.address)
+      await cronFactory.deploy(owner.address, cronDelegate.address, 5, [])
     ).connect(owner)
+    const cronFactoryContractFactory = await ethers.getContractFactory(
+      'CronUpkeepFactory',
+      { signer: admin, libraries: { Cron: cronExternalLib.address } },
+    ) // the typechain factory that creates the cron factory contract
+    cronFactoryContract = await cronFactoryContractFactory.deploy()
     const fs = cronReceiver1.interface.functions
     handler1Sig = utils.id(fs['handler1()'].format('sighash')).slice(0, 10) // TODO this seems like an ethers bug
     handler2Sig = utils.id(fs['handler2()'].format('sighash')).slice(0, 10)
@@ -99,7 +108,7 @@ describe('CronUpkeep', () => {
       'CronInternalTestHelper',
     )
     cronTestHelper = await cronTHFactory.deploy()
-    basicSpec = await cron.cronStringToEncodedSpec('0 * * * *')
+    basicSpec = await cronFactoryContract.encodeCronString(basicCronString)
   })
 
   afterEach(async () => {
@@ -111,13 +120,14 @@ describe('CronUpkeep', () => {
     // and typechain. Remove once the version issue is resolved.
     // https://app.shortcut.com/chainlinklabs/story/21905/remove-contract-cast-in-cronupkeep-test-ts
     h.publicAbi(cron as unknown as Contract, [
+      's_maxJobs',
       'performUpkeep',
       'createCronJobFromEncodedSpec',
+      'updateCronJob',
       'deleteCronJob',
       'checkUpkeep',
       'getActiveCronJobIDs',
       'getCronJob',
-      'cronStringToEncodedSpec',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -133,8 +143,29 @@ describe('CronUpkeep', () => {
   })
 
   describe('constructor()', () => {
-    it('sets the owner to the address provided', async () => {
+    it('sets the initial values', async () => {
       expect(await cron.owner()).to.equal(owner.address)
+      expect(await cron.s_maxJobs()).to.equal(5)
+    })
+
+    it('optionally creates a first job', async () => {
+      const payload = await cronFactoryContract.encodeCronJob(
+        cronReceiver1.address,
+        handler1Sig,
+        basicCronString,
+      )
+      cron = (
+        await cronFactory.deploy(
+          owner.address,
+          cronDelegate.address,
+          5,
+          payload,
+        )
+      ).connect(owner)
+      const job = await cron.getCronJob(1)
+      assert.equal(job.target, cronReceiver1.address)
+      assert.equal(job.handler, handler1Sig)
+      assert.equal(job.cronString, basicCronString)
     })
   })
 
@@ -292,8 +323,12 @@ describe('CronUpkeep', () => {
     it('creates jobs with sequential IDs', async () => {
       const cronString1 = '0 * * * *'
       const cronString2 = '0 1,2,3 */4 5-6 1-2'
-      const encodedSpec1 = await cron.cronStringToEncodedSpec(cronString1)
-      const encodedSpec2 = await cron.cronStringToEncodedSpec(cronString2)
+      const encodedSpec1 = await cronFactoryContract.encodeCronString(
+        cronString1,
+      )
+      const encodedSpec2 = await cronFactoryContract.encodeCronString(
+        cronString2,
+      )
       const nextTick1 = (
         await cronTestHelper.calculateNextTick(cronString1)
       ).toNumber()
@@ -351,16 +386,78 @@ describe('CronUpkeep', () => {
     })
 
     it('is only callable by the owner', async () => {
-      const encodedSpec = await cron.cronStringToEncodedSpec('0 * * * *')
       await expect(
         cron
           .connect(stranger)
           .createCronJobFromEncodedSpec(
             cronReceiver1.address,
             handler1Sig,
-            encodedSpec,
+            basicSpec,
           ),
       ).to.be.revertedWith(OWNABLE_ERR)
+    })
+
+    it('errors if trying to create more jobs than allowed', async () => {
+      for (let idx = 0; idx < 5; idx++) {
+        await createBasicCron()
+      }
+      await expect(createBasicCron()).to.be.revertedWith('ExceedsMaxJobs')
+    })
+  })
+
+  describe('updateCronJob()', () => {
+    const newCronString = '0 0 1 1 1'
+    let newEncodedSpec: string
+    beforeEach(async () => {
+      await createBasicCron()
+      newEncodedSpec = await cronFactoryContract.encodeCronString(newCronString)
+    })
+
+    it('updates a cron job', async () => {
+      let cron1 = await cron.getCronJob(1)
+      assert.equal(cron1.target, cronReceiver1.address)
+      assert.equal(cron1.handler, handler1Sig)
+      assert.equal(cron1.cronString, basicCronString)
+      await cron.updateCronJob(
+        1,
+        cronReceiver2.address,
+        handler2Sig,
+        newEncodedSpec,
+      )
+      cron1 = await cron.getCronJob(1)
+      assert.equal(cron1.target, cronReceiver2.address)
+      assert.equal(cron1.handler, handler2Sig)
+      assert.equal(cron1.cronString, newCronString)
+    })
+
+    it('emits an event', async () => {
+      await expect(
+        await cron.updateCronJob(
+          1,
+          cronReceiver2.address,
+          handler2Sig,
+          newEncodedSpec,
+        ),
+      ).to.emit(cron, 'CronJobUpdated')
+    })
+
+    it('is only callable by the owner', async () => {
+      await expect(
+        cron
+          .connect(stranger)
+          .updateCronJob(1, cronReceiver2.address, handler2Sig, newEncodedSpec),
+      ).to.be.revertedWith(OWNABLE_ERR)
+    })
+
+    it('reverts if trying to update a non-existent ID', async () => {
+      await expect(
+        cron.updateCronJob(
+          2,
+          cronReceiver2.address,
+          handler2Sig,
+          newEncodedSpec,
+        ),
+      ).to.be.revertedWith(CRON_NOT_FOUND_ERR)
     })
   })
 
@@ -388,13 +485,6 @@ describe('CronUpkeep', () => {
       await expect(cron.deleteCronJob(1)).to.emit(cron, 'CronJobDeleted')
     })
 
-    it('is only callable by the owner', async () => {
-      await createBasicCron()
-      await expect(cron.connect(stranger).deleteCronJob(1)).to.be.revertedWith(
-        OWNABLE_ERR,
-      )
-    })
-
     it('reverts if trying to delete a non-existent ID', async () => {
       await createBasicCron()
       await createBasicCron()
@@ -420,7 +510,7 @@ describe('CronUpkeep', () => {
 })
 
 // only run during yarn test:gas
-describe('Cron Gas Usage', () => {
+describe.skip('Cron Gas Usage', () => {
   before(async () => {
     const accounts = await ethers.getSigners()
     admin = accounts[0]
@@ -444,7 +534,7 @@ describe('Cron Gas Usage', () => {
         libraries: { Cron: cronExternalLib.address },
       },
     )
-    cron = await cronFactory.deploy(owner.address, cronDelegate.address)
+    cron = await cronFactory.deploy(owner.address, cronDelegate.address, 5, [])
     const fs = cronReceiver1.interface.functions
     handler1Sig = utils
       .id(fs['handler1()'].format('sighash')) // TODO this seems like an ethers bug

@@ -179,7 +179,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 	}
 
 	// Assemble EVM keys
-	evmKeys, err := s.ethKeyStore.SendingKeys()
+	evmKeys, err := s.ethKeyStore.SendingKeys(nil)
 	if err != nil {
 		return err
 	}
