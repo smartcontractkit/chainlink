@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink/core/chains/solana/soltxm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +28,10 @@ func TestTxm_Integration(t *testing.T) {
 
 	// set up txm
 	lggr := logger.TestLogger(t)
-	cfg := config.NewConfig(db.ChainCfg{}, lggr)
+	confirmDuration := models.MustMakeDuration(500 * time.Millisecond)
+	cfg := config.NewConfig(db.ChainCfg{
+		ConfirmPollPeriod: &confirmDuration,
+	}, lggr)
 	client, err := solanaClient.NewClient(url, cfg, 2*time.Second, lggr)
 	require.NoError(t, err)
 	getClient := func() (solanaClient.ReaderWriter, error) {

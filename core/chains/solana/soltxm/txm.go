@@ -7,6 +7,7 @@ import (
 	"time"
 
 	solanaGo "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
@@ -96,7 +97,7 @@ func (txm *Txm) run() {
 			msg.signature = sig
 			txm.simQueue <- msg
 
-			txm.lggr.Debugw("sent transaction", "signature", sig.String())
+			txm.lggr.Debugw("transaction sent", "signature", sig.String())
 		case <-txm.stop:
 			return
 		}
@@ -139,9 +140,10 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 				// this could occur if endpoint goes down
 				if err != nil {
 					txm.lggr.Errorw("failed to send retry transaction", "err", err, "signature", retrySig)
+					break // exit switch
 				}
 				// this should never happen
-				if err == nil && retrySig != sig {
+				if retrySig != sig {
 					txm.lggr.Criticalw("original signature does not match retry signature", "expectedSignature", sig, "receivedSignature", retrySig)
 				}
 			}
@@ -171,8 +173,58 @@ func (txm *Txm) confirm(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick:
-			// TODO: implement confirmation
-			fmt.Println("PLACEHOLDER: cache list", txm.txCache.List())
+			// get list of tx signatures to confirm
+			sigs := txm.txCache.List()
+
+			// skip loop if not txs to confirm
+			if len(sigs) == 0 {
+				break
+			}
+
+			// get client
+			client, err := txm.client.Get()
+			if err != nil {
+				txm.lggr.Errorw("failed to get client in soltxm.confirm", "err", err)
+				break // exit switch
+			}
+
+			// fetch signature statuses
+			statuses, err := client.SignatureStatuses(ctx, sigs)
+			if err != nil {
+				txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "err", err)
+				break // exit switch
+			}
+
+			// process signatures
+			for i := 0; i < len(statuses); i++ {
+				// if signature has an error, end polling
+				if statuses[i].Err != nil {
+					txm.lggr.Warnw("transaction failed",
+						"signature", sigs[i],
+						"err", err,
+						"status", statuses[i].ConfirmationStatus,
+					)
+					txm.txCache.Cancel(sigs[i])
+					continue
+				}
+
+				// if signature is processed, keep polling
+				if statuses[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
+					txm.lggr.Tracew("transaction processed",
+						"signature", sigs[i],
+					)
+					continue
+				}
+
+				// if signature is confirmed, end polling
+				if statuses[i].ConfirmationStatus == rpc.ConfirmationStatusConfirmed {
+					txm.lggr.Debugw("transaction confirmed",
+						"signature", sigs[i],
+					)
+					txm.txCache.Cancel(sigs[i])
+					continue
+				}
+			}
 		}
 		// TODO: defaults to 1s - should change to 0.5s
 		tick = time.After(utils.WithJitter(txm.cfg.ConfirmPollPeriod()))
