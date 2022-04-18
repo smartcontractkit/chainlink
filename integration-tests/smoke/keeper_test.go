@@ -3,7 +3,6 @@ package smoke
 //revive:disable:dot-imports
 import (
 	"context"
-	"math/big"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,11 +59,6 @@ var _ = Describe("Keeper suite @keeper", func() {
 			Expect(err).ShouldNot(HaveOccurred(), "Estimating cost for Chainlink Operations shouldn't fail")
 			err = actions.FundChainlinkNodes(chainlinkNodes, networks.Default, txCost)
 			Expect(err).ShouldNot(HaveOccurred(), "Funding Chainlink nodes shouldn't fail")
-			// Edge case where simulated networks need some funds at the 0x0 address in order for keeper reads to work
-			if networks.Default.GetNetworkType() == "eth_simulated" {
-				err = actions.FundAddresses(networks.Default, big.NewFloat(1), "0x0")
-				Expect(err).ShouldNot(HaveOccurred())
-			}
 		})
 
 		By("Deploy Keeper Contracts", func() {
