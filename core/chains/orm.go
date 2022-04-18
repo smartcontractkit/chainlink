@@ -30,7 +30,7 @@ type ChainsORM[ID, CFG any, CH Chain[ID, CFG]] struct {
 	prefix string
 }
 
-// NewChainsORM returns an ChainsORM backed by db.
+// NewChainsORM returns an ChainsORM backed by q, for the table <prefix>_chains.
 func NewChainsORM[ID, CFG any, CH Chain[ID, CFG]](q pg.Q, prefix string) *ChainsORM[ID, CFG, CH] {
 	return &ChainsORM[ID, CFG, CH]{q: q, prefix: prefix}
 }
@@ -142,13 +142,16 @@ func (o *ChainsORM[ID, CFG, CH]) EnabledChains(qopts ...pg.QOpt) (chains []CH, e
 }
 
 // NodesORM is a generic ORM for nodes.
+//
+// OPT: shared generic Node = db.Node[whichever.Node]
 type NodesORM[ID, NEW, N any] struct {
 	q           pg.Q
 	prefix      string
 	createNodeQ string
 }
 
-// NewNodesORM returns a NodesORM backed by db.
+// NewNodesORM returns a NodesORM backed by q, for the table <prefix>_nodes.
+// NEW must have fields matching the column <prefix>_chain_id, as well as the given nodeCols.
 func NewNodesORM[ID, NEW, N any](q pg.Q, prefix string, nodeCols ...string) *NodesORM[ID, NEW, N] {
 	// pre-compute query for CreateNode
 	var withColon []string

@@ -64,7 +64,7 @@ func DefaultQueryCtxWithParent(ctx context.Context) (context.Context, context.Ca
 
 var _ driver.Valuer = Limit(-1)
 
-//TODO doc
+// Limit is a helper driver.Valuer for LIMIT queries which uses nil/NULL for negative values.
 type Limit int
 
 func (l Limit) String() string {
