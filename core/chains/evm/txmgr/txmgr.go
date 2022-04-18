@@ -413,7 +413,7 @@ func (c *ChainKeyStore) SignTx(address common.Address, tx *gethTypes.Transaction
 }
 
 func signedTxHash(signedTx *gethTypes.Transaction, chainType config.ChainType) (hash common.Hash, err error) {
-	if chainType == config.ExChain {
+	if chainType == config.ChainExChain {
 		hash, err = exchainutils.LegacyHash(signedTx)
 		if err != nil {
 			return hash, errors.Wrap(err, "error getting signed tx hash from exchain")

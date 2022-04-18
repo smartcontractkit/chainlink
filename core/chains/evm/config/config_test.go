@@ -196,7 +196,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(config.Arbitrum)),
+				ChainType:        null.StringFrom(string(config.ChainArbitrum)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
 			assert.Error(t, cfg.Validate())
@@ -224,7 +224,7 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.TestLogger(t)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
-				ChainType:        null.StringFrom(string(config.Optimism)),
+				ChainType:        null.StringFrom(string(config.ChainOptimism)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
 			assert.Error(t, cfg.Validate())

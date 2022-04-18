@@ -142,6 +142,8 @@ func (o *ChainsORM[ID, CFG, CH]) EnabledChains(qopts ...pg.QOpt) (chains []CH, e
 }
 
 // NodesORM is a generic ORM for nodes.
+// ID is the chain id.
+// NEW contains the subset of fields for creating new nodes.
 //
 // OPT: shared generic Node = db.Node[whichever.Node]
 type NodesORM[ID, NEW, N any] struct {

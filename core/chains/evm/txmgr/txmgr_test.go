@@ -614,7 +614,7 @@ func TestTxm_SignTx(t *testing.T) {
 		chainID := big.NewInt(1)
 		cfg := new(txmmocks.Config)
 		cfg.Test(t)
-		cfg.On("ChainType").Return(config.ExChain)
+		cfg.On("ChainType").Return(config.ChainExChain)
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()

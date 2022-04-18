@@ -19,9 +19,9 @@ type BlockTranslator interface {
 // NewBlockTranslator returns the block translator for the given chain
 func NewBlockTranslator(cfg Config, client evmclient.Client, lggr logger.Logger) BlockTranslator {
 	switch cfg.ChainType() {
-	case config.Arbitrum:
+	case config.ChainArbitrum:
 		return NewArbitrumBlockTranslator(client, lggr)
-	case config.XDai, config.ExChain, config.Optimism:
+	case config.ChainXDai, config.ChainExChain, config.ChainOptimism:
 		fallthrough
 	default:
 		return &l1BlockTranslator{}
