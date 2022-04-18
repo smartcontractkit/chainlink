@@ -2,7 +2,6 @@ package soltxm
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -67,13 +66,13 @@ func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lgg
 // Start subscribes to queuing channel and processes them.
 func (txm *Txm) Start(context.Context) error {
 	return txm.starter.StartOnce("solanatxm", func() error {
+		txm.done.Add(3) // waitgroup: tx retry, confirmer, simulator
 		go txm.run()
 		return nil
 	})
 }
 
 func (txm *Txm) run() {
-	txm.done.Add(1)
 	defer txm.done.Done()
 	ctx, cancel := utils.ContextFromChan(txm.stop)
 	defer cancel()
@@ -88,14 +87,18 @@ func (txm *Txm) run() {
 			// process tx
 			sig, err := txm.sendWithRetry(ctx, msg.tx, msg.timeout)
 			if err != nil {
-				txm.lggr.Errorw("failed to send transaction", "err", err)
+				txm.lggr.Errorw("failed to send transaction", "error", err)
 				txm.client.Clear() // clear client if tx fails immediately (potentially bad RPC)
 				continue           // skip remainining
 			}
 
 			// send tx + signature to simulation queue
 			msg.signature = sig
-			txm.simQueue <- msg
+			select {
+			case txm.simQueue <- msg:
+			default:
+				txm.lggr.Warnw("failed to enqeue tx for simulation", "queueFull", len(txm.queue) == MaxQueueLen, "tx", msg)
+			}
 
 			txm.lggr.Debugw("transaction sent", "signature", sig.String())
 		case <-txm.stop:
@@ -123,12 +126,16 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 
 	// store tx signature + cancel function
 	if err := txm.txCache.Insert(sig, cancel); err != nil {
+		cancel() // cancel context when exiting early
 		return solanaGo.Signature{}, errors.Wrap(err, "failed to save tx signature to cache")
 	}
 
 	// retry with exponential backoff
 	// until context cancelled by timeout or called externally
 	go func() {
+		// remove sig from cache if context is cancelled
+		defer txm.txCache.Cancel(sig)
+
 		deltaT := 1
 		tick := time.After(0)
 		for {
@@ -139,7 +146,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 				retrySig, err := client.SendTx(ctx, tx)
 				// this could occur if endpoint goes down
 				if err != nil {
-					txm.lggr.Errorw("failed to send retry transaction", "err", err, "signature", retrySig)
+					txm.lggr.Errorw("failed to send retry transaction", "error", err, "signature", retrySig)
 					break // exit switch
 				}
 				// this should never happen
@@ -164,7 +171,6 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 // goroutine that polls to confirm implementation
 // cancels the exponential retry once confirmed
 func (txm *Txm) confirm(ctx context.Context) {
-	txm.done.Add(1)
 	defer txm.done.Done()
 
 	tick := time.After(0)
@@ -184,24 +190,33 @@ func (txm *Txm) confirm(ctx context.Context) {
 			// get client
 			client, err := txm.client.Get()
 			if err != nil {
-				txm.lggr.Errorw("failed to get client in soltxm.confirm", "err", err)
+				txm.lggr.Errorw("failed to get client in soltxm.confirm", "error", err)
 				break // exit switch
 			}
 
 			// fetch signature statuses
 			statuses, err := client.SignatureStatuses(ctx, sigs)
 			if err != nil {
-				txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "err", err)
+				txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "error", err)
 				break // exit switch
 			}
 
 			// process signatures
 			for i := 0; i < len(statuses); i++ {
+				// if status is nil (sig not found), continue polling
+				// sig not found could mean invalid tx or not picked up yet
+				if statuses[i] == nil {
+					txm.lggr.Debugw("transaction not found",
+						"signature", sigs[i],
+					)
+					continue
+				}
+
 				// if signature has an error, end polling
 				if statuses[i].Err != nil {
-					txm.lggr.Warnw("transaction failed",
+					txm.lggr.Errorw("transaction failed",
 						"signature", sigs[i],
-						"err", err,
+						"error", err,
 						"status", statuses[i].ConfirmationStatus,
 					)
 					txm.txCache.Cancel(sigs[i])
@@ -233,7 +248,6 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 // goroutine that simulates tx (use a bounded number of goroutines to pick from queue?)
 func (txm *Txm) simulate(ctx context.Context) {
-	txm.done.Add(1)
 	defer txm.done.Done()
 
 	for {
@@ -241,8 +255,29 @@ func (txm *Txm) simulate(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-txm.simQueue:
-			// TODO: simulate tx that is passed from queue
-			fmt.Println("PLACEHOLDER: simQueue", msg)
+			// TODO: consider bounded number of workers for simulating
+			// current: single worker
+			// compared to tx retrying (unbounded goroutines)
+
+			// get client
+			client, err := txm.client.Get()
+			if err != nil {
+				txm.lggr.Errorw("failed to get client in soltxm.simulate", "error", err)
+				break // exit switch
+			}
+
+			res, err := client.SimulateTx(ctx, msg.tx, nil) // use default options
+			if err != nil {
+				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
+				break // exit switch
+			}
+
+			// stop tx retrying if simulate returns error
+			if res.Err != nil {
+				txm.txCache.Cancel(msg.signature) // cancel retry
+				txm.lggr.Errorw("simulate error", "signature", msg.signature, "error", res)
+				break
+			}
 		}
 	}
 }
@@ -257,7 +292,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	select {
 	case txm.queue <- msg:
 	default:
-		txm.lggr.Errorw("failed to enqeue tx", "queueLength", len(txm.queue), "tx", msg)
+		txm.lggr.Errorw("failed to enqeue tx", "queueFull", len(txm.queue) == MaxQueueLen, "tx", msg)
 		return errors.Errorf("failed to enqueue transaction for %s", accountID)
 	}
 	return nil
