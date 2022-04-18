@@ -21,7 +21,7 @@ jobs:
   golangci:
     name: lint
     runs-on: ubuntu-latest
-    go: '1.17'
+    go: '1.18'
     steps:
       - uses: actions/checkout@v2
         with:
