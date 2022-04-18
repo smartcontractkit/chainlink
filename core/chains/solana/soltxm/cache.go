@@ -55,7 +55,7 @@ func (c *TxCache) List() []solana.Signature {
 type ValidClient struct {
 	tc     func() (solanaClient.ReaderWriter, error)
 	client solanaClient.ReaderWriter
-	lock   sync.RWMutex
+	lock   sync.Mutex
 }
 
 func NewValidClient(tc func() (solanaClient.ReaderWriter, error)) *ValidClient {
@@ -66,22 +66,16 @@ func NewValidClient(tc func() (solanaClient.ReaderWriter, error)) *ValidClient {
 
 // Get a new client if it doesnt already exist
 func (vc *ValidClient) Get() (solanaClient.ReaderWriter, error) {
-	vc.lock.RLock()
-	exist := vc.client != nil
-	vc.lock.RUnlock()
+	vc.lock.Lock()
+	defer vc.lock.Unlock()
 
-	if !exist {
+	if vc.client == nil {
 		client, err := vc.tc()
 		if err != nil {
 			return nil, err
 		}
-		vc.lock.Lock()
 		vc.client = client
-		vc.lock.Unlock()
 	}
-
-	vc.lock.RLock()
-	defer vc.lock.RUnlock()
 	return vc.client, nil
 }
 

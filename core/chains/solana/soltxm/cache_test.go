@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
+	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,4 +49,58 @@ func TestTxCache(t *testing.T) {
 		assert.Equal(t, n-i-1, len(cache.List()))
 	}
 	wg.Wait()
+}
+
+func TestValidClient(t *testing.T) {
+	called := false
+	tc := func() (solanaClient.ReaderWriter, error) {
+		return &solanaClient.Client{}, nil
+	}
+	callOnce := func() (solanaClient.ReaderWriter, error) {
+		assert.False(t, called)
+		called = true
+		return tc()
+	}
+
+	// Get should only request a client once, use cached afterward
+	t.Run("get", func(t *testing.T) {
+		c := NewValidClient(callOnce)
+		rw, err := c.Get()
+		assert.NoError(t, err)
+		assert.NotNil(t, rw)
+		assert.NotNil(t, c.client)
+
+		// used cached client
+		rw, err = c.Get()
+		assert.NoError(t, err)
+		assert.NotNil(t, rw)
+	})
+
+	// Clear removes the cached client
+	t.Run("clear", func(t *testing.T) {
+		c := NewValidClient(tc)
+		c.Get()
+		assert.NotNil(t, c.client)
+
+		c.Clear()
+		assert.Nil(t, c.client)
+	})
+
+	// Race checks a race condition of Getting and Clearing a new client
+	t.Run("race", func(t *testing.T) {
+		c := NewValidClient(tc)
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			rw, err := c.Get()
+			assert.NoError(t, err)
+			assert.NotNil(t, rw)
+			wg.Done()
+		}()
+		go func() {
+			c.Clear()
+			wg.Done()
+		}()
+		wg.Wait()
+	})
 }
