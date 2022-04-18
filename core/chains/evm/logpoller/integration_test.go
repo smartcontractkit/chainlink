@@ -86,6 +86,10 @@ func TestLogPoller_Integration(t *testing.T) {
 		emitter1.EmitLog2(owner, []*big.Int{big.NewInt(int64(i))})
 		ec.Commit()
 	}
+	// The poller starts on a new chain at latest-finality (5 in this case),
+	// replay to ensure we get all the logs.
+	require.NoError(t, lp.Replay(context.Background(), 1))
+
 	// We should eventually receive all those Log1 logs.
 	testutils.AssertEventually(t, func() bool {
 		logs, err := lp.Logs(2, 7, logpoller.EmitterABI.Events["Log1"].ID, emitterAddress1)
