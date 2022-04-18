@@ -33,14 +33,13 @@ var (
 type Txm struct {
 	starter  utils.StartStopOnce
 	lggr     logger.Logger
-	tc       func() (solanaClient.ReaderWriter, error)
 	queue    chan queueMsg
 	simQueue chan queueMsg
 	stop     chan struct{}
 	done     sync.WaitGroup
 	cfg      config.Config
 	txCache  *TxCache
-	client   solanaClient.ReaderWriter
+	client   *ValidClient
 }
 
 type queueMsg struct {
@@ -54,13 +53,13 @@ func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lgg
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter:  utils.StartStopOnce{},
-		tc:       tc,
 		lggr:     lggr,
 		queue:    make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
 		simQueue: make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
 		stop:     make(chan struct{}),
 		cfg:      cfg,
 		txCache:  NewTxCache(),
+		client:   NewValidClient(tc),
 	}
 }
 
@@ -78,9 +77,6 @@ func (txm *Txm) run() {
 	ctx, cancel := utils.ContextFromChan(txm.stop)
 	defer cancel()
 
-	// fetch initial client
-	txm.client = txm.tc()
-
 	// start confirmer + simulator
 	go txm.confirm(ctx)
 	go txm.simulate(ctx)
@@ -88,24 +84,12 @@ func (txm *Txm) run() {
 	for {
 		select {
 		case msg := <-txm.queue:
-			// fetch client (only if it doesn't exist, reduce need for db read each time)
-			if txm.client == nil {
-				newClient, err := txm.tc()
-				if err != nil {
-					txm.lggr.Errorw("failed to get client", "err", err)
-					continue
-				}
-				txm.client = newClient
-			}
 			// process tx
 			sig, err := txm.sendWithRetry(ctx, msg.tx, msg.timeout)
 			if err != nil {
-				txm.lggr.Criticalw("failed to send transaction", "err", err)
-
-				// TODO: handle RWLocks for recreating client
-				// confirm + simulate + sendWithRetry depend on having a valid client (otherwise will cause panic)
-				txm.client = nil // clear client if tx fails immediately (potentially bad RPC)
-				continue         // skip remainining
+				txm.lggr.Errorw("failed to send transaction", "err", err)
+				txm.client.Clear() // clear client if tx fails immediately (potentially bad RPC)
+				continue           // skip remainining
 			}
 
 			// send tx + signature to simulation queue
@@ -120,15 +104,17 @@ func (txm *Txm) run() {
 }
 
 func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction, timeout time.Duration) (solanaGo.Signature, error) {
-	if txm.client == nil {
-		return solanaGo.Signature{}, errors.New("transaction manager client is nil")
+	// fetch client
+	client, err := txm.client.Get()
+	if err != nil {
+		return solanaGo.Signature{}, errors.Wrap(err, "failed to get client in soltxm.sendWithRetry")
 	}
 
 	// create timeout context
 	ctx, cancel := context.WithTimeout(chanCtx, timeout)
 
 	// send initial tx (do not retry and exit early if fails)
-	sig, err := txm.client.SendTx(ctx, tx)
+	sig, err := client.SendTx(ctx, tx)
 	if err != nil {
 		cancel() // cancel context when exiting early
 		return solanaGo.Signature{}, errors.Wrap(err, "tx failed initial transmit")
@@ -149,13 +135,13 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 			case <-ctx.Done():
 				return
 			case <-tick:
-				retrySig, err := txm.client.SendTx(ctx, tx)
+				retrySig, err := client.SendTx(ctx, tx)
 				// this could occur if endpoint goes down
 				if err != nil {
 					txm.lggr.Errorw("failed to send retry transaction", "err", err, "signature", retrySig)
 				}
 				// this should never happen
-				if retrySig != sig {
+				if err == nil && retrySig != sig {
 					txm.lggr.Criticalw("original signature does not match retry signature", "expectedSignature", sig, "receivedSignature", retrySig)
 				}
 			}
