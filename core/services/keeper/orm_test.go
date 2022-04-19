@@ -41,7 +41,7 @@ func setupKeeperDB(t *testing.T) (
 
 func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistration {
 	return keeper.UpkeepRegistration{
-		UpkeepID:   upkeepID,
+		UpkeepID:   utils.NewBigI(upkeepID),
 		ExecuteGas: executeGas,
 		Registry:   registry,
 		RegistryID: registry.ID,
@@ -99,7 +99,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := keeper.UpkeepRegistration{
-		UpkeepID:            0,
+		UpkeepID:            utils.NewBigI(0),
 		ExecuteGas:          executeGas,
 		Registry:            registry,
 		RegistryID:          registry.ID,
@@ -147,7 +147,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	var remainingUpkeep keeper.UpkeepRegistration
 	err = db.Get(&remainingUpkeep, `SELECT * FROM upkeep_registrations ORDER BY id LIMIT 1`)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), remainingUpkeep.UpkeepID)
+	require.Equal(t, int64(1), remainingUpkeep.UpkeepID.Int64())
 }
 
 func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
@@ -173,7 +173,7 @@ func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, eligibleUpkeeps, 100)
-	shuffled := [100]int64{}
+	shuffled := [100]*utils.Big{}
 	for i := 0; i < 100; i++ {
 		shuffled[i] = eligibleUpkeeps[i].UpkeepID
 	}
@@ -233,16 +233,16 @@ func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 
 	// sort before compare
 	sort.Slice(list1, func(i, j int) bool {
-		return list1[i].UpkeepID < list1[j].UpkeepID
+		return list1[i].UpkeepID.Cmp(list1[j].UpkeepID) == -1
 	})
 	sort.Slice(list2, func(i, j int) bool {
-		return list2[i].UpkeepID < list2[j].UpkeepID
+		return list2[i].UpkeepID.Cmp(list2[j].UpkeepID) == -1
 	})
 	sort.Slice(list3, func(i, j int) bool {
-		return list3[i].UpkeepID < list3[j].UpkeepID
+		return list3[i].UpkeepID.Cmp(list3[j].UpkeepID) == -1
 	})
 	sort.Slice(list4, func(i, j int) bool {
-		return list4[i].UpkeepID < list4[j].UpkeepID
+		return list4[i].UpkeepID.Cmp(list4[j].UpkeepID) == -1
 	})
 
 	assert.NotEqual(t, list1, list2, "list1 vs list2")

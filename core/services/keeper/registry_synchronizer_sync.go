@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"encoding/binary"
-	"math/big"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -53,9 +52,9 @@ func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 	if err != nil {
 		return errors.Wrapf(err, "unable to get upkeep count")
 	}
-	countOnContract := countOnContractBig.Int64()
+	countOnContract := utils.NewBig(countOnContractBig)
 
-	if nextUpkeepID > countOnContract {
+	if nextUpkeepID.Cmp(countOnContract) == 1 {
 		return errors.New("invariant, contract should always have at least as many upkeeps as DB")
 	}
 
@@ -65,13 +64,13 @@ func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 
 // batchSyncUpkeepsOnRegistry syncs <syncUpkeepQueueSize> upkeeps at a time in parallel
 // starting at upkeep ID <start> and up to (but not including) <end>
-func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, end int64) {
+func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, end *utils.Big) {
 	wg := sync.WaitGroup{}
-	wg.Add(int(end - start))
+	wg.Add(int(end.Sub(start).Int64()))
 	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
 
 	done := func() { <-chSyncUpkeepQueue; wg.Done() }
-	for upkeepID := start; upkeepID < end; upkeepID++ {
+	for upkeepID := start; upkeepID.Cmp(end) == -1; upkeepID = upkeepID.Add(1) {
 		select {
 		case <-rs.chStop:
 			return
@@ -83,7 +82,7 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, 
 	wg.Wait()
 }
 
-func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID int64, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID *utils.Big, doneCallback func()) {
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(registry, upkeepID); err != nil {
@@ -94,8 +93,8 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 	}
 }
 
-func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) error {
-	upkeepConfig, err := rs.contract.GetUpkeep(nil, big.NewInt(upkeepID))
+func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *utils.Big) error {
+	upkeepConfig, err := rs.contract.GetUpkeep(nil, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
@@ -172,9 +171,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 
 // CalcPositioningConstant calculates a positioning constant.
 // The positioning constant is fixed because upkeepID and registryAddress are immutable
-func CalcPositioningConstant(upkeepID int64, registryAddress ethkey.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID *utils.Big, registryAddress ethkey.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(upkeepBytes, upkeepID)
+	binary.PutVarint(upkeepBytes, upkeepID.ToInt().Int64()) // XXX - not valid but doesn't matter bc we're removing this code
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
 	checksum, err := utils.Keccak256(bytesToHash)
 	if err != nil {

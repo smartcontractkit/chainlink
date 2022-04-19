@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
@@ -116,7 +117,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 		rs.logger.AssumptionViolationf("expected UpkeepRegistered log but got %T", broadcastedLog)
 		return
 	}
-	err = rs.syncUpkeep(registry, broadcastedLog.Id.Int64())
+	err = rs.syncUpkeep(registry, utils.NewBig(broadcastedLog.Id))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to sync upkeep, log: %v", broadcast.String())
 		return
@@ -155,7 +156,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return
 	}
-	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.From))
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, utils.NewBig(log.Id), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.From))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return
