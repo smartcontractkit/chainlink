@@ -77,12 +77,12 @@ func TestObjectParam_Marshal(t *testing.T) {
 		input  *pipeline.ObjectParam
 		output string
 	}{
-		{"nil", pipeline.MustNewObjectParam(nil), "null"},
-		{"bool", pipeline.MustNewObjectParam(true), "true"},
-		{"integer", pipeline.MustNewObjectParam(17), `"17"`},
-		{"string", pipeline.MustNewObjectParam("hello world"), `"hello world"`},
-		{"array", pipeline.MustNewObjectParam([]int{17, 19}), "[17,19]"},
-		{"map", pipeline.MustNewObjectParam(map[string]interface{}{"key": 19}), `{"key":19}`},
+		{"nil", mustNewObjectParam(nil), "null"},
+		{"bool", mustNewObjectParam(true), "true"},
+		{"integer", mustNewObjectParam(17), `"17"`},
+		{"string", mustNewObjectParam("hello world"), `"hello world"`},
+		{"array", mustNewObjectParam([]int{17, 19}), "[17,19]"},
+		{"map", mustNewObjectParam(map[string]interface{}{"key": 19}), `{"key":19}`},
 	}
 
 	for _, test := range tests {

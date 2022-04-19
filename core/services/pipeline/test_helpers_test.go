@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/sqlx"
 )
 
@@ -47,4 +49,13 @@ func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}
 	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
 
 	return server, bt.Name.String()
+}
+
+func mustNewObjectParam(val interface{}) *pipeline.ObjectParam {
+	var value pipeline.ObjectParam
+	err := value.UnmarshalPipelineParam(val)
+	if err != nil {
+		panic(fmt.Errorf("failed to init ObjectParam from %v, err: %w", val, err))
+	}
+	return &value
 }
