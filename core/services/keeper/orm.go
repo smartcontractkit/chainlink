@@ -118,30 +118,31 @@ to disribute the upkeeps over the keepers so long as num keepers < 4294967296
 */
 func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
 	stmt := `
-SELECT upkeep_registrations.* FROM upkeep_registrations
-INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
-WHERE
-	keeper_registries.contract_address = $1 AND
-	keeper_registries.num_keepers > 0 AND
-  (
-		(
-			-- My turn
-      keeper_registries.keeper_index =
-				ABS((least_significant(uint256_to_bit(upkeep_registrations.upkeep_id), 32) # least_significant($4, 32))::integer) % keeper_registries.num_keepers
-      AND (
-				upkeep_registrations.last_keeper_index IS DISTINCT FROM keeper_registries.keeper_index
-				OR
-				upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM keeper_registries.keeper_index AND upkeep_registrations.last_run_block_height + $2 < $3
-			)
+SELECT upkeep_registrations.*
+FROM upkeep_registrations
+         INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id,
+     LATERAL ABS((least_significant(uint256_to_bit(upkeep_registrations.upkeep_id), 32) # least_significant($4, 32))::bigint) AS turn
+WHERE keeper_registries.contract_address = $1
+  AND keeper_registries.num_keepers > 0
+  AND (
+        (
+				-- my turn
+				keeper_registries.keeper_index = turn % keeper_registries.num_keepers
+			AND
+				(
+						upkeep_registrations.last_keeper_index IS DISTINCT FROM keeper_registries.keeper_index
+					OR
+						(upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM keeper_registries.keeper_index AND upkeep_registrations.last_run_block_height + $2 < $3)
+				)
+		)
+        OR
+        (
+				-- my buddy's turn
+				(keeper_registries.keeper_index + 1) % keeper_registries.num_keepers = turn % keeper_registries.num_keepers
+			AND
+				upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers
+		)
     )
-    OR (
-			-- My buddy's turn
-      (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers =
-        ABS((least_significant(uint256_to_bit(upkeep_registrations.upkeep_id), 32) # least_significant($4, 32))::integer) % keeper_registries.num_keepers
-      AND
-        upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers
-    )
-	)
 `
 	if err = korm.q.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber, binaryHash); err != nil {
 		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get upkeep_registrations")
