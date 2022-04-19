@@ -3,7 +3,6 @@ package pipeline_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -51,11 +50,10 @@ func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}
 	return server, bt.Name.String()
 }
 
-func mustNewObjectParam(val interface{}) *pipeline.ObjectParam {
+func mustNewObjectParam(t *testing.T, val interface{}) *pipeline.ObjectParam {
 	var value pipeline.ObjectParam
-	err := value.UnmarshalPipelineParam(val)
-	if err != nil {
-		panic(fmt.Errorf("failed to init ObjectParam from %v, err: %w", val, err))
+	if err := value.UnmarshalPipelineParam(val); err != nil {
+		t.Fatalf("failed to init ObjectParam from %v, err: %v", val, err)
 	}
 	return &value
 }
