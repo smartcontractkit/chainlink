@@ -121,27 +121,32 @@ func (korm ORM) EligibleUpkeepsForRegistry(registryAddress ethkey.EIP55Address, 
 SELECT upkeep_registrations.*
 FROM upkeep_registrations
          INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id,
-     LATERAL ABS((least_significant(uint256_to_bit(upkeep_registrations.upkeep_id), 32) # least_significant($4, 32))::bigint) AS turn
+     LATERAL ABS((least_significant(uint256_to_bit(upkeep_registrations.upkeep_id), 32) #
+                  least_significant($4, 32))::bigint) AS turn
 WHERE keeper_registries.contract_address = $1
   AND keeper_registries.num_keepers > 0
   AND (
         (
-				-- my turn
-				keeper_registries.keeper_index = turn % keeper_registries.num_keepers
-			AND
-				(
-						upkeep_registrations.last_keeper_index IS DISTINCT FROM keeper_registries.keeper_index
-					OR
-						(upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM keeper_registries.keeper_index AND upkeep_registrations.last_run_block_height + $2 < $3)
-				)
-		)
+            -- my turn
+                    keeper_registries.keeper_index = turn % keeper_registries.num_keepers
+                AND
+                    (
+                                upkeep_registrations.last_keeper_index IS DISTINCT FROM keeper_registries.keeper_index
+                            OR
+                                (upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM
+                                 keeper_registries.keeper_index AND
+                                 upkeep_registrations.last_run_block_height + $2 < $3)
+                        )
+            )
         OR
         (
-				-- my buddy's turn
-				(keeper_registries.keeper_index + 1) % keeper_registries.num_keepers = turn % keeper_registries.num_keepers
-			AND
-				upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers
-		)
+            -- my buddy's turn
+                        (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers =
+                        turn % keeper_registries.num_keepers
+                AND
+                        upkeep_registrations.last_keeper_index IS NOT DISTINCT FROM
+                        (keeper_registries.keeper_index + 1) % keeper_registries.num_keepers
+            )
     )
 `
 	if err = korm.q.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber, binaryHash); err != nil {
