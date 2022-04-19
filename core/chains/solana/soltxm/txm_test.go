@@ -85,7 +85,7 @@ func TestTxm_Integration(t *testing.T) {
 	senderBal, err := client.Balance(pubKey)
 	assert.NoError(t, err)
 	assert.Greater(t, initBal, senderBal)
-	assert.Greater(t, initBal - senderBal, solana.LAMPORTS_PER_SOL) // balance change = sent + fees
+	assert.Greater(t, initBal-senderBal, solana.LAMPORTS_PER_SOL) // balance change = sent + fees
 
 	receiverBal, err := client.Balance(pubKeyReceiver)
 	assert.NoError(t, err)
