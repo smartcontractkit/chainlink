@@ -1,20 +1,20 @@
-package chains
+package config
 
 // ChainType denotes the chain or network to work with
 type ChainType string
 
 //nolint
 const (
-	Arbitrum ChainType = "arbitrum"
-	ExChain  ChainType = "exchain"
-	Optimism ChainType = "optimism"
-	XDai     ChainType = "xdai"
+	ChainArbitrum ChainType = "arbitrum"
+	ChainExChain  ChainType = "exchain"
+	ChainOptimism ChainType = "optimism"
+	ChainXDai     ChainType = "xdai"
 )
 
 // IsValid returns true if the ChainType value is known or empty.
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", Arbitrum, ExChain, Optimism, XDai:
+	case "", ChainArbitrum, ChainExChain, ChainOptimism, ChainXDai:
 		return true
 	}
 	return false
@@ -24,10 +24,10 @@ func (c ChainType) IsValid() bool {
 // used for log searching are different from calling block.number
 func (c ChainType) IsL2() bool {
 	switch c {
-	case Arbitrum, Optimism:
+	case ChainArbitrum, ChainOptimism:
 		return true
 
-	case XDai, ExChain:
+	case ChainXDai, ChainExChain:
 		fallthrough
 	default:
 		return false

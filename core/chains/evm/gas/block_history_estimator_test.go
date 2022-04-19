@@ -18,11 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	gumocks "github.com/smartcontractkit/chainlink/core/chains/evm/gas/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	cfg "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -33,7 +33,7 @@ func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
-	config.On("ChainType").Maybe().Return(chains.ChainType(""))
+	config.On("ChainType").Maybe().Return(cfg.ChainType(""))
 	return config
 }
 
@@ -41,7 +41,7 @@ func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(false)
-	config.On("ChainType").Maybe().Return(chains.ChainType(""))
+	config.On("ChainType").Maybe().Return(cfg.ChainType(""))
 	return config
 }
 

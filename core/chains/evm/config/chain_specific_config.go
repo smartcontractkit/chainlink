@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/config"
 )
 
 var (
@@ -29,7 +29,7 @@ type (
 		blockHistoryEstimatorBlockHistorySize          uint16
 		blockHistoryEstimatorEIP1559FeeCapBufferBlocks *uint16
 		blockHistoryEstimatorTransactionPercentile     uint16
-		chainType                                      chains.ChainType
+		chainType                                      config.ChainType
 		eip1559DynamicFees                             bool
 		ethTxReaperInterval                            time.Duration
 		ethTxReaperThreshold                           time.Duration
@@ -180,7 +180,7 @@ func setChainSpecificConfigDefaultSets() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := fallbackDefaultSet
-	xDaiMainnet.chainType = chains.XDai
+	xDaiMainnet.chainType = config.ChainXDai
 	xDaiMainnet.gasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.gasPriceDefault = *assets.GWei(1)
 	xDaiMainnet.minGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
@@ -240,7 +240,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	arbitrumMainnet := fallbackDefaultSet
-	arbitrumMainnet.chainType = chains.Arbitrum
+	arbitrumMainnet.chainType = config.ChainArbitrum
 	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasLimitDefault = 7000000
 	arbitrumMainnet.gasLimitTransfer = 800000            // estimating gas returns 695,344 so 800,000 should be safe with some buffer
@@ -258,7 +258,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet := fallbackDefaultSet
 	optimismMainnet.balanceMonitorBlockDelay = 0
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
-	optimismMainnet.chainType = chains.Optimism
+	optimismMainnet.chainType = config.ChainOptimism
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
@@ -328,7 +328,7 @@ func setChainSpecificConfigDefaultSets() {
 	// OKExChain
 	// (stubbed so that the ChainType is autoset for known IDs)
 	okxMainnet := fallbackDefaultSet
-	okxMainnet.chainType = chains.ExChain
+	okxMainnet.chainType = config.ChainExChain
 
 	okxTestnet := okxMainnet
 

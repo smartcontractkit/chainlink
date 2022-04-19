@@ -6,17 +6,18 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/libocr/offchainreporting"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
-	"github.com/smartcontractkit/libocr/offchainreporting"
 )
 
 type ValidationConfig interface {
-	ChainType() chains.ChainType
+	ChainType() config.ChainType
 	Dev() bool
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
