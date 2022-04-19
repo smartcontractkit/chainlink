@@ -53,6 +53,7 @@ type (
 		headTrackerSamplingInterval                    time.Duration
 		linkContractAddress                            string
 		logBackfillBatchSize                           uint32
+		logPollInterval                                time.Duration
 		maxGasPriceWei                                 big.Int
 		maxInFlightTransactions                        uint32
 		maxQueuedTransactions                          uint64
@@ -129,6 +130,7 @@ func setChainSpecificConfigDefaultSets() {
 		headTrackerSamplingInterval:           1 * time.Second,
 		linkContractAddress:                   "",
 		logBackfillBatchSize:                  100,
+		logPollInterval:                       15 * time.Second,
 		maxGasPriceWei:                        *assets.GWei(5000),
 		maxInFlightTransactions:               16,
 		maxQueuedTransactions:                 250,
@@ -184,6 +186,7 @@ func setChainSpecificConfigDefaultSets() {
 	xDaiMainnet.minGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
 	xDaiMainnet.maxGasPriceWei = *assets.GWei(500)
 	xDaiMainnet.linkContractAddress = "0xE2e73A1c69ecF83F464EFCE6A5be353a37cA09b2"
+	xDaiMainnet.logPollInterval = 5 * time.Second
 
 	// BSC uses Clique consensus with ~3s block times
 	// Clique offers finality within (N/2)+1 blocks where N is number of signers
@@ -207,6 +210,7 @@ func setChainSpecificConfigDefaultSets() {
 	bscMainnet.ocrDatabaseTimeout = 2 * time.Second
 	bscMainnet.ocrContractTransmitterTransmitTimeout = 2 * time.Second
 	bscMainnet.ocrObservationGracePeriod = 500 * time.Millisecond
+	bscMainnet.logPollInterval = 3 * time.Second
 
 	hecoMainnet := bscMainnet
 
@@ -230,6 +234,7 @@ func setChainSpecificConfigDefaultSets() {
 	polygonMainnet.linkContractAddress = "0xb0897686c545045afc77cf20ec7a532e3120e0f1"
 	polygonMainnet.minIncomingConfirmations = 5
 	polygonMainnet.minRequiredOutgoingConfirmations = 12
+	polygonMainnet.logPollInterval = 1 * time.Second
 	polygonMumbai := polygonMainnet
 	polygonMumbai.linkContractAddress = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 
@@ -275,6 +280,7 @@ func setChainSpecificConfigDefaultSets() {
 	fantomMainnet.linkContractAddress = "0x6f43ff82cca38001b6699a8ac47a2d0e66939407"
 	fantomMainnet.minIncomingConfirmations = 3
 	fantomMainnet.minRequiredOutgoingConfirmations = 2
+	fantomMainnet.logPollInterval = 1 * time.Second
 	fantomTestnet := fantomMainnet
 	fantomTestnet.linkContractAddress = "0xfafedb041c0dd4fa2dc0d87a6b0979ee6fa7af5f"
 
@@ -287,6 +293,7 @@ func setChainSpecificConfigDefaultSets() {
 	rskMainnet.gasFeeCapDefault = *big.NewInt(100000000) // rsk does not yet support EIP-1559 but this allows validation to pass
 	rskMainnet.minGasPriceWei = *big.NewInt(0)
 	rskMainnet.minimumContractPayment = assets.NewLinkFromJuels(1000000000000000)
+	rskMainnet.logPollInterval = 30 * time.Second
 	rskTestnet := rskMainnet
 	rskTestnet.linkContractAddress = "0x8bbbd80981fe76d44854d8df305e8985c19f0e78"
 
@@ -303,6 +310,7 @@ func setChainSpecificConfigDefaultSets() {
 	avalancheMainnet.minIncomingConfirmations = 1
 	avalancheMainnet.minRequiredOutgoingConfirmations = 1
 	avalancheMainnet.ocrContractConfirmations = 1
+	avalancheMainnet.logPollInterval = 3 * time.Second
 
 	avalancheFuji := avalancheMainnet
 	avalancheFuji.linkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
@@ -313,6 +321,7 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
 	harmonyMainnet.minIncomingConfirmations = 1
 	harmonyMainnet.minRequiredOutgoingConfirmations = 2
+	harmonyMainnet.logPollInterval = 2 * time.Second
 	harmonyTestnet := harmonyMainnet
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 

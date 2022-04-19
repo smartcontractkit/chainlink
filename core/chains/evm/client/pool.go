@@ -328,6 +328,10 @@ func (p *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block
 	return p.getRoundRobin().BlockByNumber(ctx, number)
 }
 
+func (p *Pool) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	return p.getRoundRobin().BlockByHash(ctx, hash)
+}
+
 func (p *Pool) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return p.getRoundRobin().BalanceAt(ctx, account, blockNumber)
 }
