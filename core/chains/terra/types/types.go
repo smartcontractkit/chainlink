@@ -16,7 +16,7 @@ type ORM interface {
 	DeleteChain(id string, qopts ...pg.QOpt) error
 	EnabledChains(...pg.QOpt) ([]Chain, error)
 
-	CreateNode(NewNode, ...pg.QOpt) (db.Node, error)
+	CreateNode(db.Node, ...pg.QOpt) (db.Node, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	Node(int32, ...pg.QOpt) (db.Node, error)
 	NodeNamed(string, ...pg.QOpt) (db.Node, error)

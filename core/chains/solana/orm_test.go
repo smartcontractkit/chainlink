@@ -44,7 +44,7 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dbcs, 2)
 
-	newNode := db.NewNode{
+	newNode := db.Node{
 		Name:          "first",
 		SolanaChainID: chainIDA,
 		SolanaURL:     "http://tender.mint.test/columbus-5",
@@ -57,7 +57,7 @@ func Test_ORM(t *testing.T) {
 	require.NoError(t, err)
 	assertEqual(t, newNode, gotNode)
 
-	newNode2 := db.NewNode{
+	newNode2 := db.Node{
 		Name:          "second",
 		SolanaChainID: chainIDB,
 		SolanaURL:     "http://tender.mint.test/bombay-12",
@@ -91,7 +91,7 @@ func Test_ORM(t *testing.T) {
 		assertEqual(t, newNode2, gotNodes[0])
 	}
 
-	newNode3 := db.NewNode{
+	newNode3 := db.Node{
 		Name:          "third",
 		SolanaChainID: chainIDB,
 		SolanaURL:     "http://tender.mint.test/bombay-12",
@@ -105,7 +105,7 @@ func Test_ORM(t *testing.T) {
 	assertEqual(t, newNode3, gotNamed)
 }
 
-func assertEqual(t *testing.T, newNode db.NewNode, gotNode db.Node) {
+func assertEqual(t *testing.T, newNode db.Node, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

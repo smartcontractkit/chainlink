@@ -233,7 +233,7 @@ func (m *mockORM) DeleteChain(id string, qopts ...pg.QOpt) error { panic("unimpl
 
 func (m *mockORM) EnabledChains(opt ...pg.QOpt) ([]Chain, error) { panic("unimplemented") }
 
-func (m *mockORM) CreateNode(node db.NewNode, opt ...pg.QOpt) (db.Node, error) {
+func (m *mockORM) CreateNode(node db.Node, opt ...pg.QOpt) (db.Node, error) {
 	panic("unimplemented")
 }
 
