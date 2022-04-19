@@ -51,6 +51,7 @@ type FeatureFlags interface {
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
+	FeatureLogPoller() bool
 
 	AutoPprofEnabled() bool
 	EVMEnabled() bool
@@ -210,6 +211,7 @@ type GlobalConfig interface {
 	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
 	GlobalEvmLogBackfillBatchSize() (uint32, bool)
+	GlobalEvmLogPollInterval() (time.Duration, bool)
 	GlobalEvmMaxGasPriceWei() (*big.Int, bool)
 	GlobalEvmMaxInFlightTransactions() (uint32, bool)
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
@@ -626,6 +628,10 @@ func (c *generalConfig) FeatureExternalInitiators() bool {
 // FeatureFeedsManager enables the feeds manager
 func (c *generalConfig) FeatureFeedsManager() bool {
 	return c.viper.GetBool(envvar.Name("FeatureFeedsManager"))
+}
+
+func (c *generalConfig) FeatureLogPoller() bool {
+	return c.viper.GetBool(envvar.Name("FeatureLogPoller"))
 }
 
 // FeatureOffchainReporting enables the OCR job type.
@@ -1230,6 +1236,9 @@ func (c *generalConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duration, b
 }
 func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmLogBackfillBatchSize"), parse.Uint32)
+}
+func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	return lookupEnv(c, envvar.Name("EvmLogPollInterval"), time.ParseDuration)
 }
 func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)
