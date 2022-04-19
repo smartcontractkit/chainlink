@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
-	"github.com/smartcontractkit/chainlink/core/chains/solana/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 const TestSolanaGenesisHashTemplate = `{"jsonrpc":"2.0","result":"%s","id":1}`
@@ -43,7 +43,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	solORM := new(mocks.ORM)
+	solORM := &mockORM{}
 	lggr := logger.TestLogger(t)
 	testChain := chain{
 		id:          "devnet",
@@ -54,7 +54,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	}
 
 	// random nodes (happy path, all valid)
-	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
+	solORM.nodesForChain = []db.Node{
 		db.Node{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/1",
@@ -63,12 +63,12 @@ func TestSolanaChain_GetClient(t *testing.T) {
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/2",
 		},
-	}, 2, nil).Once()
+	}
 	_, err := testChain.getClient()
 	assert.NoError(t, err)
 
 	// random nodes (happy path, 1 valid + multiple invalid)
-	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
+	solORM.nodesForChain = []db.Node{
 		db.Node{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/1",
@@ -89,17 +89,17 @@ func TestSolanaChain_GetClient(t *testing.T) {
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/4",
 		},
-	}, 2, nil).Once()
+	}
 	_, err = testChain.getClient()
 	assert.NoError(t, err)
 
 	// empty nodes response
-	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{}, 0, nil).Once()
+	solORM.nodesForChain = nil
 	_, err = testChain.getClient()
 	assert.Error(t, err)
 
 	// no valid nodes to select from
-	solORM.On("NodesForChain", mock.Anything, mock.Anything, mock.Anything).Return([]db.Node{
+	solORM.nodesForChain = []db.Node{
 		db.Node{
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/1",
@@ -108,7 +108,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 			SolanaChainID: "devnet",
 			SolanaURL:     mockServer.URL + "/mismatch/2",
 		},
-	}, 2, nil).Once()
+	}
 	_, err = testChain.getClient()
 	assert.Error(t, err)
 }
@@ -203,4 +203,46 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	// check if pointers are all the same
 	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client0)
 	assert.Equal(t, testChain.clientCache[mockServer.URL].rw, client1)
+}
+
+var _ ORM = &mockORM{}
+
+type mockORM struct {
+	nodesForChain []db.Node
+}
+
+func (m *mockORM) NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
+	return m.nodesForChain, len(m.nodesForChain), nil
+}
+
+func (m *mockORM) Chain(s string, opt ...pg.QOpt) (Chain, error) { panic("unimplemented") }
+
+func (m *mockORM) Chains(offset, limit int, qopts ...pg.QOpt) ([]Chain, int, error) {
+	panic("unimplemented")
+}
+
+func (m *mockORM) CreateChain(id string, config db.ChainCfg, qopts ...pg.QOpt) (Chain, error) {
+	panic("unimplemented")
+}
+
+func (m *mockORM) UpdateChain(id string, enabled bool, config db.ChainCfg, qopts ...pg.QOpt) (Chain, error) {
+	panic("unimplemented")
+}
+
+func (m *mockORM) DeleteChain(id string, qopts ...pg.QOpt) error { panic("unimplemented") }
+
+func (m *mockORM) EnabledChains(opt ...pg.QOpt) ([]Chain, error) { panic("unimplemented") }
+
+func (m *mockORM) CreateNode(node db.NewNode, opt ...pg.QOpt) (db.Node, error) {
+	panic("unimplemented")
+}
+
+func (m *mockORM) DeleteNode(i int32, opt ...pg.QOpt) error { panic("unimplemented") }
+
+func (m *mockORM) Node(i int32, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
+
+func (m *mockORM) NodeNamed(s string, opt ...pg.QOpt) (db.Node, error) { panic("unimplemented") }
+
+func (m *mockORM) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
+	panic("unimplemented")
 }

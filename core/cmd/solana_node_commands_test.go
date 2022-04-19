@@ -14,12 +14,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
-func mustInsertSolanaChain(t *testing.T, orm db.ORM, id string) db.Chain {
+func mustInsertSolanaChain(t *testing.T, orm solana.ORM, id string) solana.Chain {
 	chain, err := orm.CreateChain(id, db.ChainCfg{})
 	require.NoError(t, err)
 	return chain

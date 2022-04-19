@@ -1,8 +1,15 @@
 package evmtest
 
 import (
+	"database/sql"
 	"math/big"
+	"math/rand"
+	"sync"
 	"testing"
+	"time"
+
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
@@ -74,18 +81,20 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 
 	chains := []evmtypes.Chain{
 		{
-			ID:  *utils.NewBigI(0),
-			Cfg: testopts.ChainCfg,
-			Nodes: []evmtypes.Node{{
-				Name:       "evm-test-only-0",
-				EVMChainID: *utils.NewBigI(0),
-				WSURL:      null.StringFrom("ws://example.invalid"),
-			}},
+			ID:      *utils.NewBigI(0),
+			Cfg:     testopts.ChainCfg,
 			Enabled: true,
 		},
 	}
+	nodes := map[string][]evmtypes.Node{
+		"0": {{
+			Name:       "evm-test-only-0",
+			EVMChainID: *utils.NewBigI(0),
+			WSURL:      null.StringFrom("ws://example.invalid"),
+		}},
+	}
 
-	cc, err := evm.NewChainSet(opts, chains)
+	cc, err := evm.NewChainSet(opts, chains, nodes)
 	require.NoError(t, err)
 	return cc
 }
@@ -105,60 +114,121 @@ INSERT INTO evm_chains (id, cfg, enabled, created_at, updated_at) VALUES (:id, :
 }
 
 type MockORM struct {
-	chains []evmtypes.Chain
+	mu     sync.RWMutex
+	chains map[string]evmtypes.Chain
+	nodes  map[string][]evmtypes.Node
 }
 
 var _ evmtypes.ORM = &MockORM{}
 
-func NewMockORM(chains []evmtypes.Chain) *MockORM {
+func NewMockORM(chains []evmtypes.Chain, nodes []evmtypes.Node) *MockORM {
 	mo := &MockORM{
-		chains: chains,
+		chains: make(map[string]evmtypes.Chain),
+		nodes:  make(map[string][]evmtypes.Node),
 	}
+	mo.PutChains(chains...)
+	mo.AddNodes(nodes...)
 	return mo
 }
 
-func (mo *MockORM) EnabledChainsWithNodes() ([]evmtypes.Chain, error) {
-	return mo.chains, nil
+func (mo *MockORM) PutChains(cs ...evmtypes.Chain) {
+	for _, c := range cs {
+		mo.chains[c.ID.String()] = c
+	}
 }
 
-func (mo *MockORM) StoreString(chainID *big.Int, key, val string) error {
-	return nil
+func (mo *MockORM) AddNodes(ns ...evmtypes.Node) {
+	for _, n := range ns {
+		id := n.EVMChainID.String()
+		mo.nodes[id] = append(mo.nodes[id], n)
+	}
 }
 
-func (mo *MockORM) Clear(chainID *big.Int, key string) error {
-	return nil
+func (mo *MockORM) EnabledChainsWithNodes() ([]evmtypes.Chain, map[string][]evmtypes.Node, error) {
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+	return maps.Values(mo.chains), mo.nodes, nil
 }
 
-func (mo *MockORM) Chain(id utils.Big) (evmtypes.Chain, error) {
+func (mo *MockORM) StoreString(chainID utils.Big, key, val string) error {
 	panic("not implemented")
 }
 
-func (mo *MockORM) CreateChain(id utils.Big, config evmtypes.ChainCfg) (evmtypes.Chain, error) {
+func (mo *MockORM) Clear(chainID utils.Big, key string) error {
 	panic("not implemented")
 }
 
-func (mo *MockORM) UpdateChain(id utils.Big, enabled bool, config evmtypes.ChainCfg) (evmtypes.Chain, error) {
+func (mo *MockORM) Chain(id utils.Big, qopts ...pg.QOpt) (evmtypes.Chain, error) {
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+	c, ok := mo.chains[id.String()]
+	if !ok {
+		return evmtypes.Chain{}, sql.ErrNoRows
+	}
+	return c, nil
+}
+
+func (mo *MockORM) CreateChain(id utils.Big, config evmtypes.ChainCfg, qopts ...pg.QOpt) (evmtypes.Chain, error) {
+	panic("not implemented")
+}
+
+func (mo *MockORM) UpdateChain(id utils.Big, enabled bool, config evmtypes.ChainCfg, qopts ...pg.QOpt) (evmtypes.Chain, error) {
 	return evmtypes.Chain{}, nil
 }
 
-func (mo *MockORM) DeleteChain(id utils.Big) error {
+func (mo *MockORM) DeleteChain(id utils.Big, qopts ...pg.QOpt) error {
 	panic("not implemented")
 }
 
-func (mo *MockORM) Chains(offset int, limit int) ([]evmtypes.Chain, int, error) {
-	panic("not implemented")
+func (mo *MockORM) Chains(offset int, limit int, qopts ...pg.QOpt) (chains []evmtypes.Chain, count int, err error) {
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+	chains = maps.Values(mo.chains)
+	count = len(chains)
+	return
 }
 
 func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.Chain, err error) {
-	panic("not implemented")
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+	for _, id := range ids {
+		c, ok := mo.chains[id.String()]
+		if ok {
+			chains = append(chains, c)
+		}
+	}
+	return
 }
 
-func (mo *MockORM) CreateNode(data evmtypes.NewNode) (evmtypes.Node, error) {
-	panic("not implemented")
+func (mo *MockORM) CreateNode(data evmtypes.NewNode, qopts ...pg.QOpt) (n evmtypes.Node, err error) {
+	mo.mu.Lock()
+	defer mo.mu.Unlock()
+	n.ID = rand.Int31()
+	n.Name = data.Name
+	n.EVMChainID = data.EVMChainID
+	n.WSURL = data.WSURL
+	n.HTTPURL = data.HTTPURL
+	n.SendOnly = data.SendOnly
+	n.CreatedAt = time.Now()
+	n.UpdatedAt = n.CreatedAt
+	mo.AddNodes(n)
+	return n, nil
 }
 
-func (mo *MockORM) DeleteNode(id int64) error {
-	panic("not implemented")
+func (mo *MockORM) DeleteNode(id int32, qopts ...pg.QOpt) error {
+	mo.mu.Lock()
+	defer mo.mu.Unlock()
+	for chainID, ns := range mo.nodes {
+		i := slices.IndexFunc(ns, func(n evmtypes.Node) bool {
+			return n.ID == id
+		})
+		if i < 0 {
+			continue
+		}
+		mo.nodes[chainID] = slices.Delete(ns, i, i)
+		return nil
+	}
+	return sql.ErrNoRows
 }
 
 // Nodes implements evmtypes.ORM

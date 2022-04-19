@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
-func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) db.Chain {
+func mustInsertTerraChain(t *testing.T, orm types.ORM, id string) types.Chain {
 	chain, err := orm.CreateChain(id, db.ChainCfg{})
 	require.NoError(t, err)
 	return chain
