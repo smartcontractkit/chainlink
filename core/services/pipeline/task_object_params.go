@@ -129,12 +129,3 @@ func (o *ObjectParam) UnmarshalPipelineParam(val interface{}) error {
 
 	return fmt.Errorf("bad input for task: %T", val)
 }
-
-func MustNewObjectParam(val interface{}) *ObjectParam {
-	var value ObjectParam
-	err := value.UnmarshalPipelineParam(val)
-	if err != nil {
-		panic(fmt.Errorf("failed to init ObjectParam from %v, err: %w", val, err))
-	}
-	return &value
-}
