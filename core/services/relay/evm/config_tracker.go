@@ -13,10 +13,10 @@ import (
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,7 +28,7 @@ type ConfigTracker struct {
 	client      evmclient.Client
 	addr        common.Address
 	contractABI abi.ABI
-	chainType   chains.ChainType
+	chainType   config.ChainType
 
 	latestBlockHeight   int64
 	latestBlockHeightMu sync.RWMutex
@@ -40,7 +40,7 @@ type ConfigTracker struct {
 }
 
 // NewConfigTracker builds a new config tracker
-func NewConfigTracker(lggr logger.Logger, contractABI abi.ABI, client evmclient.Client, addr common.Address, chainType chains.ChainType, headBroadcaster httypes.HeadBroadcaster) *ConfigTracker {
+func NewConfigTracker(lggr logger.Logger, contractABI abi.ABI, client evmclient.Client, addr common.Address, chainType config.ChainType, headBroadcaster httypes.HeadBroadcaster) *ConfigTracker {
 	return &ConfigTracker{
 		client:              client,
 		addr:                addr,

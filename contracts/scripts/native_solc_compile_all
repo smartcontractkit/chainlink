@@ -70,3 +70,6 @@ $SCRIPTPATH/native_solc8_6_compile dev/VRFCoordinatorV2.sol
 
 # Feeds
 $SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
+
+# Log tester
+$SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol

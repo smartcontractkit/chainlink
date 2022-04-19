@@ -1,13 +1,12 @@
 package config
 
 import (
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type chainScopedConfigORM struct {
-	id  *big.Int
+	id  utils.Big
 	orm types.ChainConfigORM
 }
 

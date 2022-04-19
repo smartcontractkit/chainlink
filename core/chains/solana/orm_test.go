@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-func setupORM(t *testing.T) (*sqlx.DB, db.ORM) {
+func setupORM(t *testing.T) (*sqlx.DB, solana.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)

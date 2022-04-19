@@ -16,6 +16,7 @@ import (
 	txmgrMocks "github.com/smartcontractkit/chainlink/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -28,12 +29,11 @@ import (
 func TestLoader_Chains(t *testing.T) {
 	t.Parallel()
 
-	evmORM := &evmmocks.ORM{}
 	app := &coremocks.Application{}
 	ctx := InjectDataloader(context.Background(), app)
 
 	defer t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, app, evmORM)
+		mock.AssertExpectationsForObjects(t, app)
 	})
 
 	id := utils.Big{}
@@ -56,11 +56,7 @@ func TestLoader_Chains(t *testing.T) {
 		ID:      id2,
 		Enabled: true,
 	}
-
-	evmORM.On("GetChainsByIDs", []utils.Big{id2, id, chainId3}).Return([]types.Chain{
-		chain,
-		chain2,
-	}, nil)
+	evmORM := evmtest.NewMockORM([]types.Chain{chain, chain2}, nil)
 	app.On("EVMORM").Return(evmORM)
 
 	batcher := chainBatcher{app}

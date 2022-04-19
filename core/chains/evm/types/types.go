@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,20 +28,20 @@ type NewNode struct {
 }
 
 type ChainConfigORM interface {
-	StoreString(chainID *big.Int, key, val string) error
-	Clear(chainID *big.Int, key string) error
+	StoreString(chainID utils.Big, key, val string) error
+	Clear(chainID utils.Big, key string) error
 }
 
 //go:generate mockery --name ORM --output ./../mocks/ --case=underscore
 type ORM interface {
-	EnabledChainsWithNodes() ([]Chain, error)
-	Chain(id utils.Big) (chain Chain, err error)
-	CreateChain(id utils.Big, config ChainCfg) (Chain, error)
-	UpdateChain(id utils.Big, enabled bool, config ChainCfg) (Chain, error)
-	DeleteChain(id utils.Big) error
-	Chains(offset, limit int) ([]Chain, int, error)
-	CreateNode(data NewNode) (Node, error)
-	DeleteNode(id int64) error
+	EnabledChainsWithNodes() ([]Chain, map[string][]Node, error)
+	Chain(id utils.Big, qopts ...pg.QOpt) (chain Chain, err error)
+	CreateChain(id utils.Big, config ChainCfg, qopts ...pg.QOpt) (Chain, error)
+	UpdateChain(id utils.Big, enabled bool, config ChainCfg, qopts ...pg.QOpt) (Chain, error)
+	DeleteChain(id utils.Big, qopts ...pg.QOpt) error
+	Chains(offset, limit int, qopts ...pg.QOpt) ([]Chain, int, error)
+	CreateNode(data NewNode, qopts ...pg.QOpt) (Node, error)
+	DeleteNode(id int32, qopts ...pg.QOpt) error
 	GetChainsByIDs(ids []utils.Big) (chains []Chain, err error)
 	GetNodesByChainIDs(chainIDs []utils.Big, qopts ...pg.QOpt) (nodes []Node, err error)
 	Node(id int32, qopts ...pg.QOpt) (Node, error)
@@ -71,6 +72,7 @@ type ChainCfg struct {
 	EvmHeadTrackerMaxBufferSize                    null.Int
 	EvmHeadTrackerSamplingInterval                 *models.Duration
 	EvmLogBackfillBatchSize                        null.Int
+	EvmLogPollInterval                             *models.Duration
 	EvmMaxGasPriceWei                              *utils.Big
 	EvmNonceAutoSync                               null.Bool
 	EvmUseForwarders                               null.Bool
@@ -99,14 +101,7 @@ func (c ChainCfg) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
-type Chain struct {
-	ID        utils.Big
-	Nodes     []Node
-	Cfg       ChainCfg
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Enabled   bool
-}
+type Chain = chains.Chain[utils.Big, ChainCfg]
 
 type Node struct {
 	ID         int32

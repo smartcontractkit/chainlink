@@ -97,14 +97,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.chainSet.On("Get", states[1].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID, chainID2}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-					{
-						ID: chainID2,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID}, types.Chain{ID: chainID2})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
@@ -172,11 +165,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
@@ -224,11 +213,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, evm.ErrNoChains)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
@@ -419,11 +404,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query: query,
@@ -475,11 +456,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.scfg.On("KeySpecificMaxGasPriceWei", keys[0].Address.Address()).Return(big.NewInt(1))
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
-				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{chainID}).Return([]types.Chain{
-					{
-						ID: chainID,
-					},
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)

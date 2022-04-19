@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -142,6 +142,11 @@ func (nc *NullClient) TransactionReceipt(ctx context.Context, txHash common.Hash
 
 func (nc *NullClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
 	nc.lggr.Debug("BlockByNumber")
+	return nil, nil
+}
+
+func (nc *NullClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	nc.lggr.Debug("BlockByHash")
 	return nil, nil
 }
 
