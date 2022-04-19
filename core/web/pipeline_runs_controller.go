@@ -109,6 +109,15 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
+	if err != nil && isUser {
+	   var jobID64 int64
+	   var jb job.Job
+	   jobID64, err = strconv.ParseInt(idStr, 10, 32)
+	   jb, err = prc.App.JobORM().FindJob(c.Request.Context(),
+	       int32(jobID64))
+	   jobUUID = jb.ExternalJobID
+	}
+
 	if err == nil {
 		canRun, err2 := authorizer.CanRun(c.Request.Context(), prc.App.GetConfig(), jobUUID)
 		if err2 != nil {
@@ -129,23 +138,6 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("external initiator %s is not allowed to run job %s", ei.Name, jobUUID))
 		}
 		return
-	}
-
-	// only users are allowed to run jobs using int IDs - EIs not allowed
-	if isUser {
-		// Is it an int32? Then process it regardless of type
-		var jobID int32
-		jobID64, err := strconv.ParseInt(idStr, 10, 32)
-		if err == nil {
-			jobID = int32(jobID64)
-			jobRunID, err := prc.App.RunJobV2(c.Request.Context(), jobID, nil)
-			if err != nil {
-				jsonAPIError(c, http.StatusInternalServerError, err)
-				return
-			}
-			respondWithPipelineRun(jobRunID)
-			return
-		}
 	}
 
 	jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("bad job ID"))
