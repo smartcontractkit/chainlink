@@ -12,7 +12,13 @@ type Exporter interface {
 	Cleanup(ctx context.Context)
 }
 
+type ExporterParams struct {
+	ChainConfig ChainConfig
+	FeedConfig  FeedConfig
+	Nodes       []NodeConfig
+}
+
 // ExporterFactory is used to create a new exporter for each feed that needs to be monitored.
 type ExporterFactory interface {
-	NewExporter(chainConfig ChainConfig, feedConfig FeedConfig) (Exporter, error)
+	NewExporter(ExporterParams) (Exporter, error)
 }

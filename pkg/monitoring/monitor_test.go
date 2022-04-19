@@ -66,6 +66,7 @@ func TestMonitor(t *testing.T) {
 		&fakeRandomDataSourceFactory{make(chan interface{})},
 		&fakeRandomDataSourceFactory{make(chan interface{})},
 		func(buf io.ReadCloser) ([]FeedConfig, error) { return []FeedConfig{}, nil },
+		func(buf io.ReadCloser) ([]NodeConfig, error) { return []NodeConfig{}, nil },
 	)
 	require.NoError(t, err)
 

@@ -7,7 +7,7 @@ import (
 )
 
 type MultiFeedMonitor interface {
-	Run(ctx context.Context, feeds []FeedConfig)
+	Run(ctx context.Context, data RDDData)
 }
 
 func NewMultiFeedMonitor(
@@ -41,12 +41,12 @@ type multiFeedMonitor struct {
 }
 
 // Run should be executed as a goroutine.
-func (m *multiFeedMonitor) Run(ctx context.Context, feeds []FeedConfig) {
+func (m *multiFeedMonitor) Run(ctx context.Context, data RDDData) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
 FEED_LOOP:
-	for _, feedConfig := range feeds {
+	for _, feedConfig := range data.Feeds {
 		feedLogger := m.log.With(
 			"feed_name", feedConfig.GetName(),
 			"feed_id", feedConfig.GetID(),
@@ -76,7 +76,11 @@ FEED_LOOP:
 		// Create exporters
 		exporters := []Exporter{}
 		for _, exporterFactory := range m.exporterFactories {
-			exporter, err := exporterFactory.NewExporter(m.chainConfig, feedConfig)
+			exporter, err := exporterFactory.NewExporter(ExporterParams{
+				m.chainConfig,
+				feedConfig,
+				data.Nodes,
+			})
 			if err != nil {
 				feedLogger.Errorw("failed to create new exporter", "error", err, "exporter-type", fmt.Sprintf("%T", exporterFactory))
 				continue

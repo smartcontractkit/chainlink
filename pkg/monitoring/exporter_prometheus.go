@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 func NewPrometheusExporterFactory(
@@ -23,9 +25,9 @@ type prometheusExporterFactory struct {
 }
 
 func (p *prometheusExporterFactory) NewExporter(
-	chainConfig ChainConfig,
-	feedConfig FeedConfig,
+	params ExporterParams,
 ) (Exporter, error) {
+	chainConfig, feedConfig, nodes := params.ChainConfig, params.FeedConfig, params.Nodes
 	p.metrics.SetFeedContractMetadata(
 		chainConfig.GetChainID(),
 		feedConfig.GetID(),
@@ -41,6 +43,7 @@ func (p *prometheusExporterFactory) NewExporter(
 	exporter := &prometheusExporter{
 		chainConfig,
 		feedConfig,
+		nodes,
 		p.log,
 		p.metrics,
 		prometheusLabels{},
@@ -67,6 +70,7 @@ func (p *prometheusExporterFactory) NewExporter(
 type prometheusExporter struct {
 	chainConfig ChainConfig
 	feedConfig  FeedConfig
+	nodes       []NodeConfig
 
 	log     Logger
 	metrics Metrics
@@ -126,11 +130,15 @@ func (p *prometheusExporter) exportEnvelope(envelope Envelope) {
 		p.chainConfig.GetNetworkID(),
 		p.chainConfig.GetNetworkName(),
 	)
+	oracleName, found := getOracleName(envelope.Transmitter, p.nodes)
+	if !found {
+		oracleName = string(envelope.Transmitter)
+	}
 	p.metrics.SetNodeMetadata(
 		p.chainConfig.GetChainID(),
 		p.chainConfig.GetNetworkID(),
 		p.chainConfig.GetNetworkName(),
-		string(envelope.Transmitter), // oracleName
+		oracleName,                   // oracleName
 		string(envelope.Transmitter), // sender
 	)
 	p.metrics.SetHeadTrackerCurrentHead(
@@ -278,11 +286,15 @@ func (p *prometheusExporter) Cleanup(_ context.Context) {
 	p.labelsMu.Lock()
 	defer p.labelsMu.Unlock()
 	for sender := range p.labels.senders {
+		oracleName, found := getOracleName(types.Account(sender), p.nodes)
+		if !found {
+			oracleName = sender
+		}
 		p.metrics.Cleanup(
 			p.labels.networkName,
 			p.labels.networkID,
 			p.labels.chainID,
-			sender,
+			oracleName,
 			sender,
 			p.labels.feedName,
 			p.labels.feedPath,
@@ -371,4 +383,15 @@ func (p *prometheusExporter) updateLabels(newLabels prometheusLabels) {
 	if newLabels.feedID != "" {
 		p.labels.feedID = newLabels.feedID
 	}
+}
+
+// Helpers
+
+func getOracleName(account types.Account, nodes []NodeConfig) (string, bool) {
+	for _, node := range nodes {
+		if node.GetAccount() == account {
+			return node.GetName(), true
+		}
+	}
+	return "", false
 }

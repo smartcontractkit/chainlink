@@ -25,6 +25,7 @@ func TestFeedMonitor(t *testing.T) {
 		cfg := config.Config{}
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
+		nodes := []NodeConfig{generateNodeConfig()}
 
 		sourceFactory1 := &fakeRandomDataSourceFactory{make(chan interface{})}
 		source1, err := sourceFactory1.NewSource(chainConfig, feedConfig)
@@ -81,15 +82,17 @@ func TestFeedMonitor(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		prometheusExporter, err := prometheusExporterFactory.NewExporter(
+		prometheusExporter, err := prometheusExporterFactory.NewExporter(ExporterParams{
 			chainConfig,
 			feedConfig,
-		)
+			nodes,
+		})
 		require.NoError(t, err)
-		kafkaExporter, err := kafkaExporterFactory.NewExporter(
+		kafkaExporter, err := kafkaExporterFactory.NewExporter(ExporterParams{
 			chainConfig,
 			feedConfig,
-		)
+			nodes,
+		})
 		require.NoError(t, err)
 
 		exporters := []Exporter{prometheusExporter, kafkaExporter}

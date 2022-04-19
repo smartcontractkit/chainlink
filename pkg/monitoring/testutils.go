@@ -172,7 +172,7 @@ type fakeExporterFactory struct {
 	returnError bool
 }
 
-func (f *fakeExporterFactory) NewExporter(chainConfig ChainConfig, feedConfig FeedConfig) (Exporter, error) {
+func (f *fakeExporterFactory) NewExporter(_ ExporterParams) (Exporter, error) {
 	if f.returnError {
 		return nil, fmt.Errorf("fake exporter factory error")
 	}
@@ -296,6 +296,35 @@ func fakeFeedsParser(buf io.ReadCloser) ([]FeedConfig, error) {
 		feeds[i] = FeedConfig(rawFeed)
 	}
 	return feeds, nil
+}
+
+type fakeNodeConfig struct {
+	Name    string        `json:"name,omitempty"`
+	Account types.Account `json:"account,omitempty"`
+}
+
+func (f fakeNodeConfig) GetName() string           { return f.Name }
+func (f fakeNodeConfig) GetAccount() types.Account { return f.Account }
+
+func generateNodeConfig() NodeConfig {
+	id := uint8(rand.Intn(32))
+	return fakeNodeConfig{
+		fmt.Sprintf("noop-#%d", id),
+		types.Account(hexutil.Encode([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, id})),
+	}
+}
+
+func fakeNodesParser(buf io.ReadCloser) ([]NodeConfig, error) {
+	rawNodes := []fakeNodeConfig{}
+	decoder := json.NewDecoder(buf)
+	if err := decoder.Decode(&rawNodes); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal nodes config data: %w", err)
+	}
+	nodes := []NodeConfig{}
+	for _, node := range rawNodes {
+		nodes = append(nodes, node)
+	}
+	return nodes, nil
 }
 
 func generateNumericalMedianOffchainConfig() (*pb.NumericalMedianConfigProto, []byte, error) {
@@ -628,4 +657,7 @@ var (
 	_ = fakeSourceFactoryWithError{}
 	_ = fakeSourceWithPanic{}
 	_ = fakeFeedsParser
+	_ = generateNodeConfig()
+	_ = fakeNodesParser
+	_ = fakeNodeConfig{}
 )

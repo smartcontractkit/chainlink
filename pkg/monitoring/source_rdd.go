@@ -4,46 +4,92 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
+
+	"go.uber.org/multierr"
 )
+
+type RDDData struct {
+	Feeds []FeedConfig `json:"feeds,omitempty"`
+	Nodes []NodeConfig `json:"nodes,omitempty"`
+}
 
 // rddSource produces a list of feeds to monitor.
 // Any feed with the "status" field set to "dead" will be ignored and not returned by this source.
 type rddSource struct {
-	rddURL         string
-	httpClient     *http.Client
-	feedParser     FeedParser
-	log            Logger
+	feedsURL       string
+	feedsParser    FeedsParser
 	feedsIgnoreIDs map[string]struct{}
+	nodesURL       string
+	nodesParser    NodesParser
+	httpClient     *http.Client
+	log            Logger
 }
 
 func NewRDDSource(
-	rddURL string,
-	feedParser FeedParser,
-	log Logger,
+	feedsURL string,
+	feedsParser FeedsParser,
 	feedsIgnoreIDs []string,
+	nodesURL string,
+	nodesParser NodesParser,
+	log Logger,
 ) Source {
 	return &rddSource{
-		rddURL,
-		&http.Client{},
-		feedParser,
-		log,
+		feedsURL,
+		feedsParser,
 		makeSet(feedsIgnoreIDs),
+		nodesURL,
+		nodesParser,
+		&http.Client{},
+		log,
 	}
 }
 
 func (r *rddSource) Fetch(ctx context.Context) (interface{}, error) {
-	readFeedsReq, err := http.NewRequestWithContext(ctx, http.MethodGet, r.rddURL, nil)
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	data := RDDData{}
+	dataMu := &sync.Mutex{}
+	var dataErr error
+	go func() {
+		defer wg.Done()
+		feeds, feedsErr := r.fetchFeeds(ctx)
+		dataMu.Lock()
+		defer dataMu.Unlock()
+		if feedsErr != nil {
+			dataErr = multierr.Combine(dataErr, feedsErr)
+		} else {
+			data.Feeds = feeds
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		nodes, nodesErr := r.fetchNodes(ctx)
+		dataMu.Lock()
+		defer dataMu.Unlock()
+		if nodesErr != nil {
+			dataErr = multierr.Combine(dataErr, nodesErr)
+		} else {
+			data.Nodes = nodes
+		}
+	}()
+	wg.Wait()
+	return data, dataErr
+}
+
+func (r *rddSource) fetchFeeds(ctx context.Context) ([]FeedConfig, error) {
+	readFeedsReq, err := http.NewRequestWithContext(ctx, http.MethodGet, r.feedsURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("unable to build a request to the RDD: %w", err)
+		return nil, fmt.Errorf("unable to build a request to get feeds from the RDD: %w", err)
 	}
 	res, err := r.httpClient.Do(readFeedsReq)
 	if err != nil {
-		return nil, fmt.Errorf("unable to fetch RDD data: %w", err)
+		return nil, fmt.Errorf("unable to fetch feeds RDD data: %w", err)
 	}
 	defer res.Body.Close()
-	feeds, err := r.feedParser(res.Body)
+	feeds, err := r.feedsParser(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse RDD data into an array of feed configurations: %w", err)
+		return nil, fmt.Errorf("unable to parse RDD feeds data: %w", err)
 	}
 	feeds = r.filterFeeds(feeds)
 	return feeds, nil
@@ -66,6 +112,23 @@ func (r *rddSource) filterFeeds(feeds []FeedConfig) []FeedConfig {
 		out = append(out, feed)
 	}
 	return out
+}
+
+func (r *rddSource) fetchNodes(ctx context.Context) ([]NodeConfig, error) {
+	readFeedsReq, err := http.NewRequestWithContext(ctx, http.MethodGet, r.nodesURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to build a request to get nodes from the RDD: %w", err)
+	}
+	res, err := r.httpClient.Do(readFeedsReq)
+	if err != nil {
+		return nil, fmt.Errorf("unable to fetch nodes RDD data: %w", err)
+	}
+	defer res.Body.Close()
+	nodes, err := r.nodesParser(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse RDD nodes data: %w", err)
+	}
+	return nodes, nil
 }
 
 // Helpers

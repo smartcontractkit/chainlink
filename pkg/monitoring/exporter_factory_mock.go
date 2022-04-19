@@ -9,13 +9,13 @@ type ExporterFactoryMock struct {
 	mock.Mock
 }
 
-// NewExporter provides a mock function with given fields: chainConfig, feedConfig
-func (_m *ExporterFactoryMock) NewExporter(chainConfig ChainConfig, feedConfig FeedConfig) (Exporter, error) {
-	ret := _m.Called(chainConfig, feedConfig)
+// NewExporter provides a mock function with given fields: _a0
+func (_m *ExporterFactoryMock) NewExporter(_a0 ExporterParams) (Exporter, error) {
+	ret := _m.Called(_a0)
 
 	var r0 Exporter
-	if rf, ok := ret.Get(0).(func(ChainConfig, FeedConfig) Exporter); ok {
-		r0 = rf(chainConfig, feedConfig)
+	if rf, ok := ret.Get(0).(func(ExporterParams) Exporter); ok {
+		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(Exporter)
@@ -23,8 +23,8 @@ func (_m *ExporterFactoryMock) NewExporter(chainConfig ChainConfig, feedConfig F
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(ChainConfig, FeedConfig) error); ok {
-		r1 = rf(chainConfig, feedConfig)
+	if rf, ok := ret.Get(1).(func(ExporterParams) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}
