@@ -247,7 +247,11 @@ func (v *VRFV2Checker) Check(
 	}
 
 	vrfRequestID := meta.RequestID.Big()
-	blockNumber := bigmath.Max(h.Number, v.RequestBlockNumber)
+
+	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not found"
+	// errors.
+	latest := new(big.Int).Sub(h.Number, big.NewInt(5))
+	blockNumber := bigmath.Max(latest, v.RequestBlockNumber)
 	callback, err := v.GetCommitment(&bind.CallOpts{
 		Context:     ctx,
 		BlockNumber: blockNumber,

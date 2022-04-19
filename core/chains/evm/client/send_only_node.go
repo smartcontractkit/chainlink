@@ -21,6 +21,7 @@ import (
 
 // SendOnlyNode represents one ethereum node used as a sendonly
 type SendOnlyNode interface {
+	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
 	Close()
 
@@ -62,23 +63,30 @@ func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
 // TODO: Failures to dial should put it into a retry loop
+// https://app.shortcut.com/chainlinklabs/story/28182/eth-node-failover-consider-introducing-a-state-for-sendonly-nodes
 func (s *sendOnlyNode) Start(startCtx context.Context) error {
 	s.log.Debugw("evmclient.Client#Dial(...)")
 	if s.dialed {
 		panic("evmclient.Client.Dial(...) should only be called once during the node's lifetime.")
 	}
 
-	uri := s.uri.String()
-	rpc, err := rpc.DialHTTP(uri)
+	rpc, err := rpc.DialHTTP(s.uri.String())
 	if err != nil {
-		return errors.Wrapf(err, "failed to dial secondary client: %v", uri)
+		return errors.Wrapf(err, "failed to dial secondary client: %v", s.uri.Redacted())
 	}
 	s.dialed = true
 	s.rpc = rpc
 	s.geth = ethclient.NewClient(rpc)
 
-	if err := s.verify(startCtx); err != nil {
-		return errors.Wrap(err, "failed to verify sendonly node")
+	if id, err := s.getChainID(startCtx); err != nil {
+		s.log.Warn("sendonly rpc ChainID verification skipped", "err", err)
+	} else if id.Cmp(s.chainID) != 0 {
+		return errors.Errorf(
+			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+			id.String(),
+			s.chainID.String(),
+			s.name,
+		)
 	}
 
 	return nil
@@ -134,28 +142,25 @@ func (s *sendOnlyNode) ChainID() (chainID *big.Int) {
 }
 
 func (s *sendOnlyNode) wrap(err error) error {
-	return wrap(err, fmt.Sprintf("sendonly http (%s)", s.uri.String()))
+	return wrap(err, fmt.Sprintf("sendonly http (%s)", s.uri.Redacted()))
 }
 
 func (s *sendOnlyNode) String() string {
-	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.String())
+	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.Redacted())
 }
 
-func (s *sendOnlyNode) verify(parentCtx context.Context) (err error) {
-	s.log.Debugw("evmclient.Client#ChainID(...)")
+// getChainID returns the chainID and converts zero/empty values to errors.
+func (s *sendOnlyNode) getChainID(parentCtx context.Context) (*big.Int, error) {
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
-	if chainID, err := s.geth.ChainID(ctx); err != nil {
-		return errors.Wrap(err, "failed to verify chain ID")
-	} else if chainID.Cmp(s.chainID) != 0 {
-		return errors.Errorf(
-			"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
-			chainID.String(),
-			s.chainID.String(),
-			s.name,
-		)
+
+	chainID, err := s.geth.ChainID(ctx)
+	if err != nil {
+		return nil, err
+	} else if chainID.Cmp(big.NewInt(0)) == 0 {
+		return nil, errors.New("zero/empty value")
 	}
-	return nil
+	return chainID, nil
 }
 
 // makeQueryCtx returns a context that cancels if:

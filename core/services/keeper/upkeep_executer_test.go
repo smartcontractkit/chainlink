@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -57,10 +58,15 @@ func setup(t *testing.T) (
 ) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	cfg.Overrides.KeeperTurnLookBack = null.IntFrom(0)
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	block := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(1),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(block, nil)
 	txm := new(txmmocks.TxManager)
 	txm.Test(t)
 	estimator := new(gasmocks.Estimator)
@@ -75,7 +81,7 @@ func setup(t *testing.T) (
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
-	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth())
+	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)

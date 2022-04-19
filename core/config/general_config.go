@@ -135,6 +135,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
+	KeeperTurnLookBack() int64
 	KeyFile() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
@@ -214,6 +215,7 @@ type GlobalConfig interface {
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
 	GlobalEvmMinGasPriceWei() (*big.Int, bool)
 	GlobalEvmNonceAutoSync() (bool, bool)
+	GlobalEvmUseForwarders() (bool, bool)
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
@@ -838,6 +840,11 @@ func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	return getEnvWithFallback(c, envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled"))
 }
 
+// KeeperTurnLookBack represents the number of blocks in the past to loo back when getting block for turn
+func (c *generalConfig) KeeperTurnLookBack() int64 {
+	return c.viper.GetInt64(envvar.Name("KeeperTurnLookBack"))
+}
+
 // JSONConsole when set to true causes logging to be made in JSON format
 // If set to false, logs in console format
 func (c *generalConfig) JSONConsole() bool {
@@ -1238,6 +1245,9 @@ func (c *generalConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
 }
 func (c *generalConfig) GlobalEvmNonceAutoSync() (bool, bool) {
 	return lookupEnv(c, envvar.Name("EvmNonceAutoSync"), strconv.ParseBool)
+}
+func (c *generalConfig) GlobalEvmUseForwarders() (bool, bool) {
+	return lookupEnv(c, envvar.Name("EvmUseForwarders"), strconv.ParseBool)
 }
 func (c *generalConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmRPCDefaultBatchSize"), parse.Uint32)

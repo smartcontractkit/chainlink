@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/pelletier/go-toml"
@@ -68,6 +69,11 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 
 	if spec.ChunkSize == 0 {
 		spec.ChunkSize = 20
+	}
+
+	if spec.BackoffMaxDelay < spec.BackoffInitialDelay {
+		return jb, fmt.Errorf("backoff max delay (%s) cannot be less than backoff initial delay (%s)",
+			spec.BackoffMaxDelay.String(), spec.BackoffInitialDelay.String())
 	}
 
 	var foundVRFTask bool

@@ -6,12 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/mock"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 )
 
 func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
@@ -428,90 +430,103 @@ func TestJSONPathParam_UnmarshalPipelineParam(t *testing.T) {
 	}
 }
 
-func TestVarExpr(t *testing.T) {
+func TestResolveValue(t *testing.T) {
 	t.Parallel()
 
-	vars := createTestVars()
+	t.Run("calls getters in order until the first one that returns without ErrParameterEmpty", func(t *testing.T) {
+		t.Parallel()
 
-	tests := []struct {
-		expr   string
-		result interface{}
-		err    error
-	}{
-		// no errors
-		{" $(  foo.bar  ) ", "value", nil},
-		{" $(  zet)", 123, nil},
-		{"$(arr.1  ) ", 200, nil},
-		// errors
-		{" $(  missing)", nil, pipeline.ErrKeypathNotFound},
-		{" $$(  zet)", nil, pipeline.ErrParameterEmpty},
-		{"  ", nil, pipeline.ErrParameterEmpty},
-	}
+		param := new(mocks.PipelineParamUnmarshaler)
+		param.On("UnmarshalPipelineParam", mock.Anything).Return(nil)
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.expr, func(t *testing.T) {
-			t.Parallel()
+		called := []int{}
+		getters := []pipeline.GetterFunc{
+			func() (interface{}, error) {
+				called = append(called, 0)
+				return nil, errors.Wrap(pipeline.ErrParameterEmpty, "make sure it still notices when wrapped")
+			},
+			func() (interface{}, error) {
+				called = append(called, 1)
+				return 123, nil
+			},
+			func() (interface{}, error) {
+				called = append(called, 2)
+				return 123, nil
+			},
+		}
 
-			getter := pipeline.VarExpr(test.expr, vars)
-			v, err := getter()
-			if test.err == nil {
-				require.NoError(t, err)
-				require.Equal(t, test.result, v)
-			} else {
-				require.ErrorIs(t, err, test.err)
-			}
-		})
-	}
-}
+		err := pipeline.ResolveParam(param, getters)
+		require.NoError(t, err)
+		require.Equal(t, []int{0, 1}, called)
 
-func TestJSONWithVarExprs(t *testing.T) {
-	t.Parallel()
+		param.AssertExpectations(t)
+	})
 
-	vars := createTestVars()
+	t.Run("returns any GetterFunc error that isn't ErrParameterEmpty", func(t *testing.T) {
+		t.Parallel()
 
-	tests := []struct {
-		json   string
-		field  string
-		result interface{}
-		err    error
-	}{
-		// no errors
-		{`{ "x": $(zet) }`, "x", 123, nil},
-		{`{ "x": { "y": $(zet) } }`, "x", map[string]interface{}{"y": 123}, nil},
-		{`{ "z": "foo" }`, "z", "foo", nil},
-		// errors
-		{`{ "x": $(missing) }`, "x", nil, pipeline.ErrKeypathNotFound},
-		{`{ "x": "$(zet)" }`, "x", "$(zet)", pipeline.ErrBadInput},
-		{`{ "$(foo.bar)": $(zet) }`, "value", 123, pipeline.ErrBadInput},
-	}
+		param := new(mocks.PipelineParamUnmarshaler)
+		called := []int{}
+		expectedErr := errors.New("some other issue")
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.json, func(t *testing.T) {
-			t.Parallel()
+		getters := []pipeline.GetterFunc{
+			func() (interface{}, error) {
+				called = append(called, 0)
+				return nil, expectedErr
+			},
+			func() (interface{}, error) {
+				called = append(called, 1)
+				return 123, nil
+			},
+			func() (interface{}, error) {
+				called = append(called, 2)
+				return 123, nil
+			},
+		}
 
-			getter := pipeline.JSONWithVarExprs(test.json, vars, false)
-			v, err := getter()
-			if test.err != nil {
-				require.ErrorIs(t, err, test.err)
-			} else {
-				require.NoError(t, err)
-				m := v.(map[string]interface{})
-				require.Equal(t, test.result, m[test.field])
-			}
-		})
-	}
-}
+		err := pipeline.ResolveParam(param, getters)
+		require.Equal(t, expectedErr, err)
+		require.Equal(t, []int{0}, called)
+	})
 
-func createTestVars() pipeline.Vars {
-	return pipeline.NewVarsFrom(map[string]interface{}{
-		"foo": map[string]interface{}{
-			"bar": "value",
-		},
-		"zet": 123,
-		"arr": []interface{}{
-			100, 200, 300,
-		},
+	t.Run("calls UnmarshalPipelineParam with the value obtained from the GetterFuncs", func(t *testing.T) {
+		t.Parallel()
+
+		expectedValue := 123
+
+		param := new(mocks.PipelineParamUnmarshaler)
+		param.On("UnmarshalPipelineParam", expectedValue).Return(nil)
+
+		getters := []pipeline.GetterFunc{
+			func() (interface{}, error) {
+				return expectedValue, nil
+			},
+		}
+
+		err := pipeline.ResolveParam(param, getters)
+		require.NoError(t, err)
+
+		param.AssertExpectations(t)
+	})
+
+	t.Run("returns any error returned by UnmarshalPipelineParam", func(t *testing.T) {
+		t.Parallel()
+
+		expectedValue := 123
+		expectedErr := errors.New("some issue")
+
+		param := new(mocks.PipelineParamUnmarshaler)
+		param.On("UnmarshalPipelineParam", expectedValue).Return(expectedErr)
+
+		getters := []pipeline.GetterFunc{
+			func() (interface{}, error) {
+				return expectedValue, nil
+			},
+		}
+
+		err := pipeline.ResolveParam(param, getters)
+		require.Equal(t, expectedErr, err)
+
+		param.AssertExpectations(t)
 	})
 }
