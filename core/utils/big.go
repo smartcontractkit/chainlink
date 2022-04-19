@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const base10 = 10
@@ -149,6 +150,11 @@ func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
 }
 
+// Hex returns the hex encoding of b.
+func (b *Big) Bytes() []byte {
+	return b.ToInt().Bytes()
+}
+
 // Cmp compares b and c as big.Ints.
 func (b *Big) Cmp(c *Big) int {
 	return b.ToInt().Cmp(c.ToInt())
@@ -157,4 +163,19 @@ func (b *Big) Cmp(c *Big) int {
 // Equal returns true if c is equal according to Cmp.
 func (b *Big) Equal(c *Big) bool {
 	return b.Cmp(c) == 0
+}
+
+// Int64 casts b as an int64 type
+func (b *Big) Int64() int64 {
+	return b.ToInt().Int64()
+}
+
+// Add returns the sum of b and c
+func (b *Big) Add(c interface{}) *Big {
+	return NewBig(bigmath.Add(b, c))
+}
+
+// Sub returns the differencs between b and c
+func (b *Big) Sub(c interface{}) *Big {
+	return NewBig(bigmath.Sub(b, c))
 }

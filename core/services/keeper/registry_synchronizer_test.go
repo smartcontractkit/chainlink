@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -130,7 +131,7 @@ func Test_RegistrySynchronizer_Start(t *testing.T) {
 func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 	t.Parallel()
 	for _, upkeepID := range []int64{0, 1, 100, 10_000} {
-		_, err := keeper.CalcPositioningConstant(upkeepID, cltest.NewEIP55Address())
+		_, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepID), cltest.NewEIP55Address())
 		require.NoError(t, err)
 	}
 }

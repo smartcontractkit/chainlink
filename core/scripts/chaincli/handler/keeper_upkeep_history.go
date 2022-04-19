@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
@@ -42,7 +43,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId int64, from, to, ga
 	registryAddr, registryClient := k.GetRegistry(ctx)
 
 	// Get positioning constant of the current registry
-	positioningConstant, err := keeper.CalcPositioningConstant(upkeepId, ethkey.EIP55AddressFromAddress(registryAddr))
+	positioningConstant, err := keeper.CalcPositioningConstant(utils.NewBigI(upkeepId), ethkey.EIP55AddressFromAddress(registryAddr))
 	if err != nil {
 		log.Fatal("failed to get positioning constant: ", err)
 	}
