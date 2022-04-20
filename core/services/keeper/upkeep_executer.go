@@ -150,18 +150,18 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 
 	var activeUpkeeps []UpkeepRegistration
 	if ex.config.KeeperTurnFlagEnabled() == true {
-		turnBinary, err := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
-		if err != nil {
-			ex.logger.With("error", err).Error("unable to get turn block number hash")
+		turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
+		if err2 != nil {
+			ex.logger.With("error", err2).Error("unable to get turn block number hash")
 			return
 		}
-		activeUpkeeps, err = ex.orm.NewEligibleUpkeepsForRegistry(
+		activeUpkeeps, err2 = ex.orm.NewEligibleUpkeepsForRegistry(
 			ex.job.KeeperSpec.ContractAddress,
 			head.Number,
 			ex.config.KeeperMaximumGracePeriod(),
 			turnBinary)
-		if err != nil {
-			ex.logger.With("error", err).Error("unable to load active registrations")
+		if err2 != nil {
+			ex.logger.With("error", err2).Error("unable to load active registrations")
 			return
 		}
 	} else {
