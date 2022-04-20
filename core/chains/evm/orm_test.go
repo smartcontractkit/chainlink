@@ -38,7 +38,7 @@ func mustInsertChain(t *testing.T, orm types.ORM) types.Chain {
 func mustInsertNode(t *testing.T, orm types.ORM, chainID utils.Big) types.Node {
 	t.Helper()
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chainID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),
@@ -90,7 +90,7 @@ func Test_EVMORM_CreateNode(t *testing.T) {
 	_, initialCount, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),

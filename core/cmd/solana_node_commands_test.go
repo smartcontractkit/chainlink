@@ -46,7 +46,7 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_ = mustInsertSolanaChain(t, orm, chainID)
 
-	params := db.NewNode{
+	params := db.Node{
 		Name:          "second",
 		SolanaChainID: chainID,
 		SolanaURL:     "https://solana.example",
@@ -100,13 +100,13 @@ func TestClient_CreateSolanaNode(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, nodes, initialNodesCount+2)
 	n := nodes[initialNodesCount]
-	assertEqualNodesSolana(t, db.NewNode{
+	assertEqualNodesSolana(t, db.Node{
 		Name:          "first",
 		SolanaChainID: chainIDA,
 		SolanaURL:     "http://tender.mint.test/columbus-5",
 	}, n)
 	n = nodes[initialNodesCount+1]
-	assertEqualNodesSolana(t, db.NewNode{
+	assertEqualNodesSolana(t, db.Node{
 		Name:          "second",
 		SolanaChainID: chainIDB,
 		SolanaURL:     "http://tender.mint.test/bombay-12",
@@ -127,7 +127,7 @@ func TestClient_RemoveSolanaNode(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_ = mustInsertSolanaChain(t, orm, chainID)
 
-	params := db.NewNode{
+	params := db.Node{
 		Name:          "first",
 		SolanaChainID: chainID,
 		SolanaURL:     "http://tender.mint.test/columbus-5",
@@ -151,7 +151,7 @@ func TestClient_RemoveSolanaNode(t *testing.T) {
 	assertTableRenders(t, r)
 }
 
-func assertEqualNodesSolana(t *testing.T, newNode db.NewNode, gotNode db.Node) {
+func assertEqualNodesSolana(t *testing.T, newNode db.Node, gotNode db.Node) {
 	t.Helper()
 
 	assert.Equal(t, newNode.Name, gotNode.Name)

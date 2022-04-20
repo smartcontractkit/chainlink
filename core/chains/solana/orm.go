@@ -21,7 +21,7 @@ type ORM interface {
 	DeleteChain(id string, qopts ...pg.QOpt) error
 	EnabledChains(...pg.QOpt) ([]Chain, error)
 
-	CreateNode(soldb.NewNode, ...pg.QOpt) (soldb.Node, error)
+	CreateNode(soldb.Node, ...pg.QOpt) (soldb.Node, error)
 	DeleteNode(int32, ...pg.QOpt) error
 	Node(int32, ...pg.QOpt) (soldb.Node, error)
 	NodeNamed(string, ...pg.QOpt) (soldb.Node, error)
@@ -29,18 +29,8 @@ type ORM interface {
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
 }
 
-type orm struct {
-	*chains.ChainsORM[string, soldb.ChainCfg, Chain]
-	*chains.NodesORM[string, soldb.NewNode, soldb.Node]
-}
-
-var _ ORM = (*orm)(nil)
-
 // NewORM returns an ORM backed by db.
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	q := pg.NewQ(db, lggr.Named("ORM"), cfg)
-	return &orm{
-		chains.NewChainsORM[string, soldb.ChainCfg, Chain](q, "solana"),
-		chains.NewNodesORM[string, soldb.NewNode, soldb.Node](q, "solana", "solana_url"),
-	}
+	return chains.NewORM[string, soldb.ChainCfg, soldb.Node](q, "solana", "solana_url")
 }
