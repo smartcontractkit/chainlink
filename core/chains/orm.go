@@ -15,7 +15,9 @@ import (
 // ORM manages chains and nodes.
 //
 // I: Chain ID
+//
 // C: Chain Config
+//
 // N: Node including these default fields:
 //  ID        int32
 //  Name      string
@@ -44,7 +46,7 @@ type ORM[I, C, N any] interface {
 	// SetupNodes is a shim to help with configuring multiple nodes via ENV.
 	// All existing nodes are dropped, and any missing chains are automatically created.
 	// Then all nodes are inserted, and conflicts are ignored.
-	SetupNodes([]N, []I) error
+	SetupNodes(nodes []N, chainIDs []I) error
 }
 
 type orm[I, C, N any] struct {
@@ -62,21 +64,24 @@ func NewORM[I, C, N any](q pg.Q, prefix string, nodeCols ...string) ORM[I, C, N]
 }
 
 func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
-	if err := o.truncateNodes(); err != nil {
-		return err
-	}
-
-	for _, id := range ids {
-		if err := o.ensureChain(id); err != nil {
+	return o.chainsORM.q.Transaction(func(q pg.Queryer) error {
+		tx := pg.WithQueryer(q)
+		if err := o.truncateNodes(tx); err != nil {
 			return err
 		}
-	}
 
-	return o.ensureNodes(nodes)
+		if err := o.ensureChains(ids, tx); err != nil {
+			return err
+		}
+
+		return o.ensureNodes(nodes, tx)
+	})
 }
 
 // Chain is a generic DB chain for any configuration C and chain id I.
+//
 // C normally implements sql.Scanner and driver.Valuer, but that is not enforced here.
+//
 // A Chain type alias can be used for convenience:
 // 	type Chain = chains.Chain[string, pkg.ChainCfg]
 type Chain[I, C any] struct {
@@ -123,11 +128,16 @@ func (o *chainsORM[I, C]) CreateChain(id I, config C, qopts ...pg.QOpt) (chain C
 	return
 }
 
-func (o *chainsORM[I, C]) ensureChain(id I) (err error) {
-	sql := fmt.Sprintf("INSERT INTO %s_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW()) ON CONFLICT DO NOTHING;", o.prefix)
+func (o *chainsORM[I, C]) ensureChains(ids []I, qopts ...pg.QOpt) (err error) {
+	named := make([]struct{ ID I }, len(ids))
+	for i, id := range ids {
+		named[i].ID = id
+	}
+	q := o.q.WithOpts(qopts...)
+	sql := fmt.Sprintf("INSERT INTO %s_chains (id, created_at, updated_at) VALUES (:id, NOW(), NOW()) ON CONFLICT DO NOTHING;", o.prefix)
 
-	if _, err := o.q.Exec(sql, id); err != nil {
-		return errors.Wrapf(err, "failed to insert chain %v", id)
+	if _, err := q.NamedExec(sql, named); err != nil {
+		return errors.Wrapf(err, "failed to insert chains %v", ids)
 	}
 
 	return nil
@@ -238,8 +248,9 @@ func newNodesORM[I, N any](q pg.Q, prefix string, nodeCols ...string) *nodesORM[
 	}
 }
 
-func (o *nodesORM[I, N]) ensureNodes(nodes []N) (err error) {
-	_, err = o.q.NamedExec(o.ensureNodeQ, nodes)
+func (o *nodesORM[I, N]) ensureNodes(nodes []N, qopts ...pg.QOpt) (err error) {
+	q := o.q.WithOpts(qopts...)
+	_, err = q.NamedExec(o.ensureNodeQ, nodes)
 	err = errors.Wrap(err, "failed to insert nodes")
 	return
 }
@@ -271,8 +282,9 @@ func (o *nodesORM[I, N]) DeleteNode(id int32, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *nodesORM[I, N]) truncateNodes() error {
-	_, err := o.q.Exec(fmt.Sprintf(`TRUNCATE %s_nodes;`, o.prefix))
+func (o *nodesORM[I, N]) truncateNodes(qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
+	_, err := q.Exec(fmt.Sprintf(`TRUNCATE %s_nodes;`, o.prefix))
 	if err != nil {
 		return errors.Wrapf(err, "failed to truncate %s_nodes table", o.prefix)
 	}
