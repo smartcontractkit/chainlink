@@ -99,6 +99,11 @@ func (_m *MetricsMock) SetOffchainAggregatorJuelsPerFeeCoinRaw(juelsPerFeeCoin f
 	_m.Called(juelsPerFeeCoin, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
 }
 
+// SetOffchainAggregatorJuelsPerFeeCoinReceivedValues provides a mock function with given fields: value, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
+func (_m *MetricsMock) SetOffchainAggregatorJuelsPerFeeCoinReceivedValues(value float64, contractAddress string, feedID string, sender string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
+	_m.Called(value, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
+}
+
 // SetOffchainAggregatorRoundID provides a mock function with given fields: aggregatorRoundID, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName
 func (_m *MetricsMock) SetOffchainAggregatorRoundID(aggregatorRoundID float64, contractAddress string, feedID string, chainID string, contractStatus string, contractType string, feedName string, feedPath string, networkID string, networkName string) {
 	_m.Called(aggregatorRoundID, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName)
