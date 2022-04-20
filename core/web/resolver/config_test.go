@@ -277,7 +277,7 @@ func TestResolver_Config(t *testing.T) {
         "value": "0"
       },
       {
-        "key": "KEEPER_TURN_FLAG",
+        "key": "KEEPER_TURN_FLAG_ENABLED",
         "value": "false"
       },
       {
