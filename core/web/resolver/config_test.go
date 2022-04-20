@@ -278,7 +278,7 @@ func TestResolver_Config(t *testing.T) {
       },
       {
         "key": "KEEPER_TURN_FLAG_ENABLED",
-        "value": "false"
+        "value": "true"
       },
       {
         "key": "LEASE_LOCK_DURATION",
