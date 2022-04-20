@@ -46,7 +46,7 @@ func TestClient_IndexTerraNodes(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_ = mustInsertTerraChain(t, orm, chainID)
 
-	params := types.NewNode{
+	params := db.Node{
 		Name:          "second",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/bombay-12",
@@ -129,7 +129,7 @@ func TestClient_RemoveTerraNode(t *testing.T) {
 	chainID := fmt.Sprintf("Chainlinktest-%d", rand.Int31n(999999))
 	_ = mustInsertTerraChain(t, orm, chainID)
 
-	params := types.NewNode{
+	params := db.Node{
 		Name:          "first",
 		TerraChainID:  chainID,
 		TendermintURL: "http://tender.mint.test/columbus-5",

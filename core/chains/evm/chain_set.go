@@ -361,11 +361,20 @@ func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	dbchains, nodes, err := opts.ORM.EnabledChainsWithNodes()
+	chains, err := opts.ORM.EnabledChains()
 	if err != nil {
 		return nil, errors.Wrap(err, "error loading chains")
 	}
-	return NewChainSet(opts, dbchains, nodes)
+	nodesSlice, _, err := opts.ORM.Nodes(0, -1)
+	if err != nil {
+		return nil, errors.Wrap(err, "error loading nodes")
+	}
+	nodes := make(map[string][]types.Node)
+	for _, n := range nodesSlice {
+		id := n.EVMChainID.String()
+		nodes[id] = append(nodes[id], n)
+	}
+	return NewChainSet(opts, chains, nodes)
 }
 
 func NewChainSet(opts ChainSetOpts, dbchains []types.Chain, nodes map[string][]types.Node) (ChainSet, error) {
