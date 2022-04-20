@@ -374,6 +374,10 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			lsn.l.Errorw("Unable to read subscription balance", "err", err)
 			continue
 		}
+		if !lsn.shouldProcessSub(subID, sub, reqs) {
+			lsn.l.Warnw("Not processing sub", "subID", subID, "balance", sub.Balance)
+			continue
+		}
 		startBalance := sub.Balance
 		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
 		for reqID := range p {
@@ -381,6 +385,46 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		}
 	}
 	lsn.pruneConfirmedRequestCounts()
+}
+
+func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
+	if len(reqs) == 0 {
+		return true
+	}
+
+	vrfRequest := reqs[0].req
+	l := lsn.l.With(
+		"subID", subID,
+		"balance", sub.Balance,
+		"requestID", vrfRequest.RequestId.String(),
+	)
+
+	// do this just so that we get the gas lane gas price
+	// this gas price is used to estimate
+	fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
+	if err != nil {
+		l.Errorw("Couldn't get next from address, processing sub anyway", "err", err)
+		return true
+	}
+
+	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
+	estimatedFee, err := lsn.estimateFeeJuels(reqs[0].req, gasPriceWei)
+	if err != nil {
+		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
+	}
+
+	if estimatedFee.Cmp(sub.Balance) == -1 {
+		lsn.l.Infow("Subscription is underfunded, not processing it's requests",
+			"subID", subID,
+			"balance", sub.Balance,
+			"estimatedFeeJuels", estimatedFee,
+		)
+		return false
+	}
+
+	// balance is sufficient for at least one request, good to process
+	return true
 }
 
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
