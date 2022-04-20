@@ -533,6 +533,11 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) == -1 {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+					return processed
+				}
+
 				ll.Errorw("Pipeline error", "err", p.err)
 				continue
 			}
@@ -651,6 +656,11 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) == -1 {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+					return processed
+				}
+
 				ll.Errorw("Pipeline error", "err", p.err)
 				continue
 			}
