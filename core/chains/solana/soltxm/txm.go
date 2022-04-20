@@ -127,7 +127,7 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 	// store tx signature + cancel function
 	if err := txm.txCache.Insert(sig, cancel); err != nil {
 		cancel() // cancel context when exiting early
-		return solanaGo.Signature{}, errors.Wrap(err, "failed to save tx signature to cache")
+		return solanaGo.Signature{}, errors.Wrapf(err, "failed to save tx signature (%s) to cache", sig)
 	}
 
 	// retry with exponential backoff
@@ -206,7 +206,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 				// if status is nil (sig not found), continue polling
 				// sig not found could mean invalid tx or not picked up yet
 				if statuses[i] == nil {
-					txm.lggr.Debugw("transaction not found",
+					txm.lggr.Debugw("tx state: not found",
 						"signature", sigs[i],
 					)
 					continue
@@ -214,9 +214,9 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 				// if signature has an error, end polling
 				if statuses[i].Err != nil {
-					txm.lggr.Errorw("transaction failed",
+					txm.lggr.Errorw("tx state: failed",
 						"signature", sigs[i],
-						"error", err,
+						"error", statuses[i].Err,
 						"status", statuses[i].ConfirmationStatus,
 					)
 					txm.txCache.Cancel(sigs[i])
@@ -225,7 +225,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 				// if signature is processed, keep polling
 				if statuses[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
-					txm.lggr.Tracew("transaction processed",
+					txm.lggr.Debugw("tx state: processed",
 						"signature", sigs[i],
 					)
 					continue
@@ -233,7 +233,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 
 				// if signature is confirmed, end polling
 				if statuses[i].ConfirmationStatus == rpc.ConfirmationStatusConfirmed {
-					txm.lggr.Debugw("transaction confirmed",
+					txm.lggr.Debugw("tx state: confirmed",
 						"signature", sigs[i],
 					)
 					txm.txCache.Cancel(sigs[i])
@@ -268,6 +268,8 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 			res, err := client.SimulateTx(ctx, msg.tx, nil) // use default options
 			if err != nil {
+				// this error can occur if endpoint goes down or even if invalid signature
+				// will continue to retry and confirm until timeout
 				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
 				break // exit switch
 			}
@@ -296,6 +298,10 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 		return errors.Errorf("failed to enqueue transaction for %s", accountID)
 	}
 	return nil
+}
+
+func (txm Txm) InflightTxs() int {
+	return len(txm.txCache.List())
 }
 
 // Close close service
