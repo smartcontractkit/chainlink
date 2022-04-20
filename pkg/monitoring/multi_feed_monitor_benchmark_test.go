@@ -39,6 +39,7 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 	chainCfg.ReadTimeout = 0 * time.Second
 	chainCfg.PollInterval = 0 * time.Second
 	feeds := []FeedConfig{generateFeedConfig()}
+	nodes := []NodeConfig{generateNodeConfig()}
 
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
@@ -75,7 +76,7 @@ func BenchmarkMultiFeedMonitor(b *testing.B) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		monitor.Run(ctx, feeds)
+		monitor.Run(ctx, RDDData{feeds, nodes})
 	}()
 
 	envelope, err := generateEnvelope()

@@ -10,6 +10,7 @@ type Config struct {
 	Kafka          Kafka
 	SchemaRegistry SchemaRegistry
 	Feeds          Feeds
+	Nodes          Nodes
 	HTTP           HTTP
 	Feature        Feature
 }
@@ -41,6 +42,10 @@ type Feeds struct {
 	// These get matched against the string returned by FeedConfig#GetID() for
 	// each feed in RDD. If equal, the feed will get ignored!
 	IgnoreIDs []string
+}
+
+type Nodes struct {
+	URL string
 }
 
 type HTTP struct {

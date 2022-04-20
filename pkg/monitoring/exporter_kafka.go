@@ -37,14 +37,13 @@ type kafkaExporterFactory struct {
 }
 
 func (k *kafkaExporterFactory) NewExporter(
-	chainConfig ChainConfig,
-	feedConfig FeedConfig,
+	params ExporterParams,
 ) (Exporter, error) {
 	return &kafkaExporter{
-		chainConfig,
-		feedConfig,
+		params.ChainConfig,
+		params.FeedConfig,
 
-		k.log.With("feed", feedConfig.GetName()),
+		k.log.With("feed", params.FeedConfig.GetName()),
 		k.producer,
 
 		k.pipelines,

@@ -43,7 +43,7 @@ func TestManager(t *testing.T) {
 			newNullLogger(),
 			poller,
 		)
-		managed := func(ctx context.Context, _ []FeedConfig) {
+		managed := func(ctx context.Context, _ RDDData) {
 			localWg := &sync.WaitGroup{}
 			defer localWg.Wait()
 			localWg.Add(numGoroutinesPerManaged)
@@ -71,6 +71,7 @@ func TestManager(t *testing.T) {
 			generateFeedConfig(),
 			generateFeedConfig(),
 		}
+		nodes := []NodeConfig{generateNodeConfig()}
 		rddPoller := &fakePoller{0, make(chan interface{})}
 		manager := NewManager(
 			newNullLogger(),
@@ -78,7 +79,7 @@ func TestManager(t *testing.T) {
 		)
 
 		var countManagedFuncExecutions uint64 = 0
-		var managedFunc = func(_ context.Context, _ []FeedConfig) {
+		var managedFunc = func(_ context.Context, _ RDDData) {
 			atomic.AddUint64(&countManagedFuncExecutions, 1)
 		}
 
@@ -94,7 +95,7 @@ func TestManager(t *testing.T) {
 		// The rdd poller returns the same feed configs three times!
 		for i := 0; i < 3; i++ {
 			select {
-			case rddPoller.ch <- feeds:
+			case rddPoller.ch <- RDDData{feeds, nodes}:
 			case <-ctx.Done():
 			}
 		}
@@ -107,19 +108,25 @@ func TestManager(t *testing.T) {
 
 	t.Run("should expose the current feeds to http", func(t *testing.T) {
 		feeds := []FeedConfig{generateFeedConfig()}
+		nodes := []NodeConfig{generateNodeConfig()}
 		manager := &managerImpl{
 			newNullLogger(),
 			&fakePoller{0, make(chan interface{})},
-			feeds,
+			RDDData{feeds, nodes},
 			sync.Mutex{},
 		}
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/debug", nil)
 		manager.HTTPHandler().ServeHTTP(rec, req)
+		type rddData struct {
+			Feeds []fakeFeedConfig
+			Nodes []fakeNodeConfig
+		}
 		dec := json.NewDecoder(rec.Body)
-		decodedFeeds := []fakeFeedConfig{}
-		err := dec.Decode(&decodedFeeds)
+		decodedData := rddData{}
+		err := dec.Decode(&decodedData)
 		require.NoError(t, err)
-		require.Equal(t, len(feeds), len(decodedFeeds))
+		require.Equal(t, len(decodedData.Feeds), len(feeds))
+		require.Equal(t, len(decodedData.Nodes), len(nodes))
 	})
 }

@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -22,6 +20,7 @@ func TestPrometheusExporter(t *testing.T) {
 
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
+		nodes := []NodeConfig{generateNodeConfig(), generateNodeConfig()}
 		metrics.On("SetFeedContractMetadata",
 			chainConfig.GetChainID(),       // chainID
 			feedConfig.GetID(),             // contractAddress
@@ -34,19 +33,15 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			feedConfig.GetSymbol(),         // symbol
 		).Once()
-		exporter, err := factory.NewExporter(chainConfig, feedConfig)
+		exporter, err := factory.NewExporter(ExporterParams{chainConfig, feedConfig, nodes})
 		require.NoError(t, err)
 
 		envelope1, err := generateEnvelope()
 		require.NoError(t, err)
-		envelope1.Transmitter = types.Account(hexutil.Encode([]byte{
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(1),
-		}))
+		envelope1.Transmitter = nodes[0].GetAccount()
 		envelope2, err := generateEnvelope()
 		require.NoError(t, err)
-		envelope2.Transmitter = types.Account(hexutil.Encode([]byte{
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8(2),
-		}))
+		envelope2.Transmitter = nodes[1].GetAccount()
 
 		humanizedAnswer1 := toFloat64(envelope1.LatestAnswer) / toFloat64(feedConfig.GetMultiply())
 		humanizedAnswer2 := toFloat64(envelope2.LatestAnswer) / toFloat64(feedConfig.GetMultiply())
@@ -80,7 +75,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(envelope1.Transmitter), // oracleName
+			string(nodes[0].GetName()),    // oracleName
 			string(envelope1.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -214,7 +209,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(envelope2.Transmitter), // oracleName
+			string(nodes[1].GetName()),    // oracleName
 			string(envelope2.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -325,7 +320,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			chainConfig.GetNetworkID(),     // networkID
 			chainConfig.GetChainID(),       // chainID
-			string(envelope1.Transmitter),  // oracleName
+			string(nodes[0].GetName()),     // oracleName
 			string(envelope1.Transmitter),  // sender
 			feedConfig.GetName(),           // feedName
 			feedConfig.GetPath(),           // feedPath
@@ -339,7 +334,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			chainConfig.GetNetworkID(),     // networkID
 			chainConfig.GetChainID(),       // chainID
-			string(envelope2.Transmitter),  // oracleName
+			string(nodes[1].GetName()),     // oracleName
 			string(envelope2.Transmitter),  // sender
 			feedConfig.GetName(),           // feedName
 			feedConfig.GetPath(),           // feedPath
@@ -363,6 +358,7 @@ func TestPrometheusExporter(t *testing.T) {
 
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
+		nodes := []NodeConfig{generateNodeConfig()}
 		metrics.On("SetFeedContractMetadata",
 			chainConfig.GetChainID(),       // chainID
 			feedConfig.GetID(),             // contractAddress
@@ -375,7 +371,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			feedConfig.GetSymbol(),         // symbol
 		).Once()
-		exporter, err := factory.NewExporter(chainConfig, feedConfig)
+		exporter, err := factory.NewExporter(ExporterParams{chainConfig, feedConfig, nodes})
 		require.NoError(t, err)
 
 		envelope1, err := generateEnvelope()
@@ -384,7 +380,8 @@ func TestPrometheusExporter(t *testing.T) {
 		require.NoError(t, err)
 		envelope2.LatestAnswer = envelope1.LatestAnswer
 		envelope2.LatestTimestamp = envelope1.LatestTimestamp
-		envelope2.Transmitter = envelope1.Transmitter
+		envelope2.Transmitter = nodes[0].GetAccount()
+		envelope1.Transmitter = nodes[0].GetAccount()
 
 		humanizedAnswer := toFloat64(envelope1.LatestAnswer) / toFloat64(feedConfig.GetMultiply())
 		humanizedJuelsPerFeeCoin := toFloat64(envelope1.JuelsPerFeeCoin) / toFloat64(feedConfig.GetMultiply())
@@ -416,7 +413,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(envelope1.Transmitter), // oracleName
+			string(nodes[0].GetName()),    // oracleName
 			string(envelope1.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -550,7 +547,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetChainID(),      // chainID
 			chainConfig.GetNetworkID(),    // networkID
 			chainConfig.GetNetworkName(),  // networkName
-			string(envelope2.Transmitter), // oracleName
+			string(nodes[0].GetName()),    // oracleName
 			string(envelope2.Transmitter), // sender
 		).Once()
 		metrics.On("SetHeadTrackerCurrentHead",
@@ -577,7 +574,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			chainConfig.GetNetworkID(),     // networkID
 			chainConfig.GetChainID(),       // chainID
-			string(envelope1.Transmitter),  // oracleName
+			string(nodes[0].GetName()),     // oracleName
 			string(envelope1.Transmitter),  // sender
 			feedConfig.GetName(),           // feedName
 			feedConfig.GetPath(),           // feedPath
@@ -605,6 +602,7 @@ func TestPrometheusExporter(t *testing.T) {
 
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
+		nodes := []NodeConfig{generateNodeConfig()}
 
 		metrics.On("SetFeedContractMetadata",
 			chainConfig.GetChainID(),       // chainID
@@ -618,7 +616,7 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkName(),   // networkName
 			feedConfig.GetSymbol(),         // symbol
 		).Once()
-		exporter, err := factory.NewExporter(chainConfig, feedConfig)
+		exporter, err := factory.NewExporter(ExporterParams{chainConfig, feedConfig, nodes})
 		require.NoError(t, err)
 
 		txResults := generateTxResults()

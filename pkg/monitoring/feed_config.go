@@ -5,7 +5,7 @@ import (
 	"math/big"
 )
 
-type FeedParser func(buf io.ReadCloser) ([]FeedConfig, error)
+type FeedsParser func(buf io.ReadCloser) ([]FeedConfig, error)
 
 // FeedConfig is the interface for feed configurations extracted from the RDD.
 type FeedConfig interface {

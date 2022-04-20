@@ -85,6 +85,9 @@ func parseEnvVars(cfg *Config) error {
 			cfg.Feeds.IgnoreIDs = append(cfg.Feeds.IgnoreIDs, strings.TrimSpace(id))
 		}
 	}
+	if value, isPresent := os.LookupEnv("NODES_URL"); isPresent {
+		cfg.Nodes.URL = value
+	}
 
 	if value, isPresent := os.LookupEnv("HTTP_ADDRESS"); isPresent {
 		cfg.HTTP.Address = value
@@ -116,6 +119,7 @@ func validateConfig(cfg Config) error {
 		"SCHEMA_REGISTRY_URL": cfg.SchemaRegistry.URL,
 
 		"FEEDS_URL": cfg.Feeds.URL,
+		"NODES_URL": cfg.Nodes.URL,
 
 		"HTTP_ADDRESS": cfg.HTTP.Address,
 	} {
@@ -127,6 +131,7 @@ func validateConfig(cfg Config) error {
 	for envVarName, currentValue := range map[string]string{
 		"SCHEMA_REGISTRY_URL": cfg.SchemaRegistry.URL,
 		"FEEDS_URL":           cfg.Feeds.URL,
+		"NODES_URL":           cfg.Nodes.URL,
 	} {
 		if _, err := url.ParseRequestURI(currentValue); err != nil {
 			return fmt.Errorf("%s='%s' is not a valid URL: %w", envVarName, currentValue, err)

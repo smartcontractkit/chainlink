@@ -32,6 +32,7 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 	for i := 0; i < numFeeds; i++ {
 		feeds[i] = generateFeedConfig()
 	}
+	nodes := []NodeConfig{generateNodeConfig()}
 
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
@@ -63,7 +64,7 @@ func TestMultiFeedMonitorSynchronousMode(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		monitor.Run(ctx, feeds)
+		monitor.Run(ctx, RDDData{feeds, nodes})
 	}()
 
 	count := 0
@@ -116,6 +117,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	for i := 0; i < numFeeds; i++ {
 		feeds = append(feeds, generateFeedConfig())
 	}
+	nodes := []NodeConfig{generateNodeConfig()}
 
 	transmissionSchema := fakeSchema{transmissionCodec, SubjectFromTopic(cfg.Kafka.TransmissionTopic)}
 	configSetSimplifiedSchema := fakeSchema{configSetSimplifiedCodec, SubjectFromTopic(cfg.Kafka.ConfigSetSimplifiedTopic)}
@@ -147,7 +149,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		monitor.Run(ctx, feeds)
+		monitor.Run(ctx, RDDData{feeds, nodes})
 	}()
 
 	var count int64 = 0
@@ -207,6 +209,9 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 			generateFeedConfig(),
 			generateFeedConfig(),
 		}
+		nodes := []NodeConfig{
+			generateNodeConfig(),
+		}
 
 		monitor := NewMultiFeedMonitor(
 			chainConfig,
@@ -224,17 +229,19 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		sourceFactory1.On("GetType").Return("fake")
 		sourceFactory2.On("GetType").Return("fake")
 
-		exporterFactory1.On("NewExporter", chainConfig, feeds[0]).Return(exporter1, nil)
-		exporterFactory2.On("NewExporter", chainConfig, feeds[0]).Return(exporter2, nil)
-		exporterFactory1.On("NewExporter", chainConfig, feeds[1]).Return(nil, fmt.Errorf("exporter_factory1/feed2 failed"))
-		exporterFactory2.On("NewExporter", chainConfig, feeds[1]).Return(nil, fmt.Errorf("exporter_factory2/feed2 failed"))
+		exporterFactory1.On("NewExporter", ExporterParams{chainConfig, feeds[0], nodes}).Return(exporter1, nil)
+		exporterFactory2.On("NewExporter", ExporterParams{chainConfig, feeds[0], nodes}).Return(exporter2, nil)
+		exporterFactory1.On("NewExporter", ExporterParams{chainConfig, feeds[1], nodes}).Return(nil, fmt.Errorf("exporter_factory1/feed2 failed"))
+		exporterFactory2.On("NewExporter", ExporterParams{chainConfig, feeds[1], nodes}).Return(nil, fmt.Errorf("exporter_factory2/feed2 failed"))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		monitor.Run(ctx, feeds)
+		monitor.Run(ctx, RDDData{feeds, nodes})
 	})
 	t.Run("one SourceFactory and an ExporterFactory fail for one feed", func(t *testing.T) {
+		chainCfg := fakeChainConfig{}
 		feeds := []FeedConfig{generateFeedConfig()}
+		nodes := []NodeConfig{generateNodeConfig()}
 
 		wg := &sync.WaitGroup{}
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -247,7 +254,6 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		exporterFactory2 := &fakeExporterFactory{make(chan interface{}), true} // factory errors out on NewExporter.
 		exporterFactory3 := &fakeExporterFactory{make(chan interface{}), false}
 
-		chainCfg := fakeChainConfig{}
 		monitor := NewMultiFeedMonitor(
 			chainCfg,
 			newNullLogger(),
@@ -262,7 +268,7 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			monitor.Run(ctx, feeds)
+			monitor.Run(ctx, RDDData{feeds, nodes})
 		}()
 
 		wg.Add(2)

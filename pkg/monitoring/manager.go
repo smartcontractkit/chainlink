@@ -16,7 +16,7 @@ type Manager interface {
 	HTTPHandler() http.Handler
 }
 
-type ManagedFunc func(localCtx context.Context, feeds []FeedConfig)
+type ManagedFunc func(localCtx context.Context, data RDDData)
 
 func NewManager(
 	log Logger,
@@ -25,7 +25,7 @@ func NewManager(
 	return &managerImpl{
 		log,
 		rddPoller,
-		[]FeedConfig{},
+		RDDData{},
 		sync.Mutex{},
 	}
 }
@@ -34,8 +34,8 @@ type managerImpl struct {
 	log       Logger
 	rddPoller Poller
 
-	currentFeeds   []FeedConfig
-	currentFeedsMu sync.Mutex
+	currentData   RDDData
+	currentDataMu sync.Mutex
 }
 
 func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
@@ -44,25 +44,25 @@ func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
 	var localWg *sync.WaitGroup
 	for {
 		select {
-		case rawUpdatedFeeds := <-m.rddPoller.Updates():
-			updatedFeeds, ok := rawUpdatedFeeds.([]FeedConfig)
+		case rawData := <-m.rddPoller.Updates():
+			updatedData, ok := rawData.(RDDData)
 			if !ok {
-				m.log.Errorw("unexpected type for rdd updates", "type", fmt.Sprintf("%T", updatedFeeds))
+				m.log.Errorw("unexpected type for rdd updates", "type", fmt.Sprintf("%T", updatedData))
 				continue
 			}
 			shouldRestartMonitor := false
 			func() {
-				m.currentFeedsMu.Lock()
-				defer m.currentFeedsMu.Unlock()
-				shouldRestartMonitor = isDifferentFeeds(m.currentFeeds, updatedFeeds)
+				m.currentDataMu.Lock()
+				defer m.currentDataMu.Unlock()
+				shouldRestartMonitor = isDifferentData(m.currentData, updatedData)
 				if shouldRestartMonitor {
-					m.currentFeeds = updatedFeeds
+					m.currentData = updatedData
 				}
 			}()
 			if !shouldRestartMonitor {
 				continue
 			}
-			m.log.Infow("change in feeds configuration detected", "feeds", fmt.Sprintf("%#v", updatedFeeds))
+			m.log.Infow("change in feeds configuration detected", "feeds", fmt.Sprintf("%#v", updatedData))
 			// Terminate previous managed function if not the first run.
 			if localCtxCancel != nil && localWg != nil {
 				localCtxCancel()
@@ -74,7 +74,7 @@ func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
 			localWg.Add(1)
 			go func() {
 				defer localWg.Done()
-				managed(localCtx, updatedFeeds)
+				managed(localCtx, updatedData)
 			}()
 		case <-backgroundCtx.Done():
 			if localCtxCancel != nil {
@@ -91,21 +91,21 @@ func (m *managerImpl) Run(backgroundCtx context.Context, managed ManagedFunc) {
 
 func (m *managerImpl) HTTPHandler() http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		var currentFeeds []FeedConfig
+		var currentData RDDData
 		func() { // take a snaphost of the current feeds
-			m.currentFeedsMu.Lock()
-			defer m.currentFeedsMu.Unlock()
-			currentFeeds = m.currentFeeds
+			m.currentDataMu.Lock()
+			defer m.currentDataMu.Unlock()
+			currentData = m.currentData
 		}()
 		writer.Header().Set("content-type", "application/json")
 		encoder := json.NewEncoder(writer)
-		if err := encoder.Encode(currentFeeds); err != nil {
+		if err := encoder.Encode(currentData); err != nil {
 			m.log.Errorw("failed to write current feeds to the http handler", "error", err)
 		}
 	})
 }
 
-// isDifferentFeeds checks whether there is a difference between the current list of feeds and the new feeds - Manager
-func isDifferentFeeds(current, updated []FeedConfig) bool {
+// isDifferentData checks whether there is a difference between the current list of feeds and the new feeds - Manager
+func isDifferentData(current, updated RDDData) bool {
 	return !assert.ObjectsAreEqual(current, updated)
 }

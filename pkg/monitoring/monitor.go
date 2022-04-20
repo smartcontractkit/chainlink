@@ -40,7 +40,8 @@ func NewMonitor(
 	chainConfig ChainConfig,
 	envelopeSourceFactory SourceFactory,
 	txResultsSourceFactory SourceFactory,
-	feedParser FeedParser,
+	feedsParser FeedsParser,
+	nodesParser NodesParser,
 ) (*Monitor, error) {
 	cfg, err := config.Parse()
 	if err != nil {
@@ -89,7 +90,11 @@ func NewMonitor(
 
 	exporterFactories := []ExporterFactory{prometheusExporterFactory, kafkaExporterFactory}
 
-	rddSource := NewRDDSource(cfg.Feeds.URL, feedParser, log.With("component", "rdd-source"), cfg.Feeds.IgnoreIDs)
+	rddSource := NewRDDSource(
+		cfg.Feeds.URL, feedsParser, cfg.Feeds.IgnoreIDs,
+		cfg.Nodes.URL, nodesParser,
+		log.With("component", "rdd-source"),
+	)
 
 	rddPoller := NewSourcePoller(
 		rddSource,
@@ -162,9 +167,9 @@ func (m Monitor) Run() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		m.Manager.Run(rootCtx, func(localCtx context.Context, feeds []FeedConfig) {
-			m.ChainMetrics.SetNewFeedConfigsDetected(float64(len(feeds)))
-			monitor.Run(localCtx, feeds)
+		m.Manager.Run(rootCtx, func(localCtx context.Context, data RDDData) {
+			m.ChainMetrics.SetNewFeedConfigsDetected(float64(len(data.Feeds)))
+			monitor.Run(localCtx, data)
 		})
 	}()
 

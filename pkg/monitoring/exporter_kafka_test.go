@@ -32,7 +32,8 @@ func TestKafkaExporter(t *testing.T) {
 		require.NoError(t, err)
 		chainConfig := generateChainConfig()
 		feedConfig := generateFeedConfig()
-		exporter, err := factory.NewExporter(chainConfig, feedConfig)
+		nodes := []NodeConfig{generateNodeConfig()}
+		exporter, err := factory.NewExporter(ExporterParams{chainConfig, feedConfig, nodes})
 		require.NoError(t, err)
 		envelope, err := generateEnvelope()
 		require.NoError(t, err)
