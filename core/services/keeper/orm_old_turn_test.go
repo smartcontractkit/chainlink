@@ -160,8 +160,8 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	db, config, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
-	registry1, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
-	registry2, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
+	registry1, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+	registry2, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
 	cltest.MustInsertUpkeepForRegistry(t, db, config, registry1)
 	cltest.MustInsertUpkeepForRegistry(t, db, config, registry2)

@@ -71,12 +71,25 @@ func TestKeeperDB_Registries(t *testing.T) {
 	db, config, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
-	cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
-	cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
+	cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+	cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
 	existingRegistries, err := orm.Registries()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(existingRegistries))
+}
+
+func TestKeeperDB_RegistryByContractAddress(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+
+	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+	cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+
+	registryByContractAddress, err := orm.RegistryByContractAddress(registry.ContractAddress)
+	require.NoError(t, err)
+	require.Equal(t, registry, registryByContractAddress)
 }
 
 func TestKeeperDB_UpsertUpkeep(t *testing.T) {
@@ -84,7 +97,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	db, config, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
-	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:            0,
 		ExecuteGas:          executeGas,
@@ -100,7 +113,6 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	// update upkeep
 	upkeep.ExecuteGas = 20_000
 	upkeep.CheckData = common.Hex2Bytes("8888")
-	upkeep.PositioningConstant = 2
 	upkeep.LastRunBlockHeight = 2
 
 	err := orm.UpsertUpkeep(&upkeep)
@@ -112,7 +124,6 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(20_000), upkeepFromDB.ExecuteGas)
 	require.Equal(t, "8888", common.Bytes2Hex(upkeepFromDB.CheckData))
-	require.Equal(t, int32(2), upkeepFromDB.PositioningConstant)
 	require.Equal(t, int64(1), upkeepFromDB.LastRunBlockHeight) // shouldn't change on upsert
 }
 
@@ -121,7 +132,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	db, config, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
-	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 2, 20)
+	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
 
 	for i := int64(0); i < 3; i++ {
 		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
@@ -140,50 +151,6 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 }
 
 func TestKeeperDB_EligibleUpkeeps_Shuffle(t *testing.T) {
-	t.Parallel()
-	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
-
-	blockheight := int64(63)
-	gracePeriod := int64(10)
-
-	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
-
-	ordered := [100]int64{}
-	for i := 0; i < 100; i++ {
-		k := newUpkeep(registry, int64(i))
-		k.PositioningConstant = int32(i)
-		ordered[i] = int64(i)
-		err := orm.UpsertUpkeep(&k)
-		require.NoError(t, err)
-	}
-
-	cltest.AssertCount(t, db, "upkeep_registrations", 100)
-
-	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(registry.ContractAddress, blockheight, gracePeriod)
-	assert.NoError(t, err)
-
-	require.Len(t, eligibleUpkeeps, 100)
-	shuffled := [100]int64{}
-	for i := 0; i < 100; i++ {
-		shuffled[i] = eligibleUpkeeps[i].UpkeepID
-	}
-	assert.NotEqualValues(t, ordered, shuffled)
-}
-func TestKeeperDB_RegistryByContractAddress(t *testing.T) {
-	t.Parallel()
-	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
-
-	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
-	cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
-
-	registryByContractAddress, err := orm.RegistryByContractAddress(registry.ContractAddress)
-	require.NoError(t, err)
-	require.Equal(t, registry, registryByContractAddress)
-}
-
-func TestKeeperDB_NewEligibleUpkeeps_Shuffle(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
@@ -240,7 +207,7 @@ func TestKeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 	require.NotEqual(t, 0, len(list1), "should get some eligible upkeeps now that they are outside grace period")
 }
 
-func TestKeeperDB_NewEligibleUpkeeps_TurnsRandom(t *testing.T) {
+func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
