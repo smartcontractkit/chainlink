@@ -1,24 +1,10 @@
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
-import { evmRevert } from '../../test-helpers/matchers'
-import { getUsers, Personas } from '../../test-helpers/setup'
+import { evmRevert } from '../test-helpers/matchers'
+import { getUsers, Personas } from '../test-helpers/setup'
 import { BigNumber, Signer } from 'ethers'
-import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
+import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
 
-<<<<<<< HEAD:contracts/test/v0.8/dev/KeeperRegistrarDev.test.ts
-import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
-import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
-// These 4 dependencies are mocked from Dev
-import { KeeperRegistryDev as KeeperRegistry } from '../../../typechain/KeeperRegistryDev'
-import { KeeperRegistrarDev as KeeperRegistrar } from '../../../typechain/KeeperRegistrarDev'
-import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistryDev__factory'
-import { KeeperRegistrarDev__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrarDev__factory'
-
-import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
-import { LinkToken } from '../../../typechain/LinkToken'
-import { UpkeepMock } from '../../../typechain/UpkeepMock'
-import { toWei } from '../../test-helpers/helpers'
-=======
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
 import { KeeperRegistry } from '../../typechain/KeeperRegistry'
@@ -30,7 +16,6 @@ import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
 import { toWei } from '../test-helpers/helpers'
->>>>>>> feature-keeper-registry-1.2.0:contracts/test/v0.8/KeeperRegistrar.test.ts
 
 let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
@@ -47,14 +32,8 @@ before(async () => {
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-<<<<<<< HEAD:contracts/test/v0.8/dev/KeeperRegistrarDev.test.ts
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
-  // Lifts the Dev contract
-  keeperRegistrar = await ethers.getContractFactory('KeeperRegistrarDev')
-=======
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   keeperRegistrar = await ethers.getContractFactory('KeeperRegistrar')
->>>>>>> feature-keeper-registry-1.2.0:contracts/test/v0.8/KeeperRegistrar.test.ts
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
 
@@ -158,19 +137,11 @@ describe('KeeperRegistrar', () => {
         registry.address,
         minUpkeepSpend,
       )
-<<<<<<< HEAD:contracts/test/v0.8/dev/KeeperRegistrarDev.test.ts
 
     await linkToken
       .connect(owner)
       .transfer(await requestSender.getAddress(), toWei('1000'))
 
-=======
-
-    await linkToken
-      .connect(owner)
-      .transfer(await requestSender.getAddress(), toWei('1000'))
-
->>>>>>> feature-keeper-registry-1.2.0:contracts/test/v0.8/KeeperRegistrar.test.ts
     config.registrar = registrar.address
     await registry.setConfig(config)
   })
@@ -442,7 +413,6 @@ describe('KeeperRegistrar', () => {
         .connect(requestSender)
         .transferAndCall(registrar.address, amount, abiEncodedBytes)
       assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 2) // 1 -> 2
-<<<<<<< HEAD:contracts/test/v0.8/dev/KeeperRegistrarDev.test.ts
 
       // One more upkeep should not get registered
       abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
@@ -480,45 +450,6 @@ describe('KeeperRegistrar', () => {
         .connect(registrarOwner)
         .setAutoApproveAllowedSender(senderAddress, true)
 
-=======
-
-      // One more upkeep should not get registered
-      abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
-        upkeepName,
-        emptyBytes,
-        mock.address,
-        executeGas.toNumber() + 3, // make unique hash
-        await admin.getAddress(),
-        emptyBytes,
-        amount,
-        source,
-        await requestSender.getAddress(),
-      ])
-      await linkToken
-        .connect(requestSender)
-        .transferAndCall(registrar.address, amount, abiEncodedBytes)
-      assert.equal((await registry.getState()).state.numUpkeeps.toNumber(), 2) // Still 2
-    })
-
-    it('Auto Approve Sender Allowlist - sender in allowlist - registers an upkeep on KeeperRegistry instantly and emits both RegistrationRequested and RegistrationApproved events', async () => {
-      const senderAddress = await requestSender.getAddress()
-
-      //set auto approve to ENABLED_SENDER_ALLOWLIST type with high threshold limits
-      await registrar
-        .connect(registrarOwner)
-        .setRegistrationConfig(
-          autoApproveType_ENABLED_SENDER_ALLOWLIST,
-          maxAllowedAutoApprove,
-          registry.address,
-          minUpkeepSpend,
-        )
-
-      // Add sender to allowlist
-      await registrar
-        .connect(registrarOwner)
-        .setAutoApproveAllowedSender(senderAddress, true)
-
->>>>>>> feature-keeper-registry-1.2.0:contracts/test/v0.8/KeeperRegistrar.test.ts
       //register with auto approve ON
       const abiEncodedBytes = registrar.interface.encodeFunctionData(
         'register',
