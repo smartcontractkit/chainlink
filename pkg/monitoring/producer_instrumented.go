@@ -15,6 +15,7 @@ func (i *instrumentedProducer) Produce(key, value []byte, topic string) error {
 		i.chainMetrics.IncSendMessageToKafkaFailed(topic)
 	} else {
 		i.chainMetrics.IncSendMessageToKafkaSucceeded(topic)
+		i.chainMetrics.AddSendMessageToKafkaBytes(float64(len(key)+len(value)+len(topic)), topic)
 	}
 	return err
 }
