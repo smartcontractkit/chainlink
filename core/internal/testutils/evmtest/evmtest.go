@@ -144,10 +144,10 @@ func (mo *MockORM) AddNodes(ns ...evmtypes.Node) {
 	}
 }
 
-func (mo *MockORM) EnabledChainsWithNodes() ([]evmtypes.Chain, map[string][]evmtypes.Node, error) {
+func (mo *MockORM) EnabledChains(qopts ...pg.QOpt) ([]evmtypes.Chain, error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
-	return maps.Values(mo.chains), mo.nodes, nil
+	return maps.Values(mo.chains), nil
 }
 
 func (mo *MockORM) StoreString(chainID utils.Big, key, val string) error {
@@ -200,7 +200,7 @@ func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.Chain, err
 	return
 }
 
-func (mo *MockORM) CreateNode(data evmtypes.NewNode, qopts ...pg.QOpt) (n evmtypes.Node, err error) {
+func (mo *MockORM) CreateNode(data evmtypes.Node, qopts ...pg.QOpt) (n evmtypes.Node, err error) {
 	mo.mu.Lock()
 	defer mo.mu.Unlock()
 	n.ID = rand.Int31()
@@ -232,8 +232,14 @@ func (mo *MockORM) DeleteNode(id int32, qopts ...pg.QOpt) error {
 }
 
 // Nodes implements evmtypes.ORM
-func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) ([]evmtypes.Node, int, error) {
-	panic("not implemented")
+func (mo *MockORM) Nodes(offset int, limit int, qopts ...pg.QOpt) (nodes []evmtypes.Node, cnt int, err error) {
+	mo.mu.RLock()
+	defer mo.mu.RUnlock()
+	for _, ns := range maps.Values(mo.nodes) {
+		nodes = append(nodes, ns...)
+	}
+	cnt = len(nodes)
+	return
 }
 
 // Node implements evmtypes.ORM

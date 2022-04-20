@@ -46,7 +46,7 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	require.NoError(t, err)
 	chain := mustInsertEVMChain(t, orm)
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),
@@ -133,7 +133,7 @@ func TestClient_RemoveEVMNode(t *testing.T) {
 
 	chain := mustInsertEVMChain(t, orm)
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),

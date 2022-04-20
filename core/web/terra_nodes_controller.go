@@ -81,7 +81,11 @@ func (nc *TerraNodesController) Create(c *gin.Context) {
 		return
 	}
 
-	node, err := orm.CreateNode(request)
+	node, err := orm.CreateNode(db.Node{
+		Name:          request.Name,
+		TerraChainID:  request.TerraChainID,
+		TendermintURL: request.TendermintURL,
+	})
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

@@ -362,7 +362,13 @@ func (r *Resolver) CreateNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().CreateNode(*args.Input)
+	node, err := r.App.EVMORM().CreateNode(types.Node{
+		Name:       args.Input.Name,
+		EVMChainID: args.Input.EVMChainID,
+		WSURL:      args.Input.WSURL,
+		HTTPURL:    args.Input.HTTPURL,
+		SendOnly:   args.Input.SendOnly,
+	})
 	if err != nil {
 		return nil, err
 	}

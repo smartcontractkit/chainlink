@@ -58,7 +58,13 @@ func (nc *EVMNodesController) Create(c *gin.Context) {
 		return
 	}
 
-	node, err := nc.App.EVMORM().CreateNode(request)
+	node, err := nc.App.EVMORM().CreateNode(types.Node{
+		Name:       request.Name,
+		EVMChainID: request.EVMChainID,
+		WSURL:      request.WSURL,
+		HTTPURL:    request.HTTPURL,
+		SendOnly:   request.SendOnly,
+	})
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
