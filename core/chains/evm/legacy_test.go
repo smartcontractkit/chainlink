@@ -114,7 +114,7 @@ func Test_ClobberDBFromEnv(t *testing.T) {
 	})
 }
 
-func Test_SetupMultiplePrimaries(t *testing.T) {
+func TestSetupNodes(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	// Insert existing node which will be erased
@@ -186,7 +186,7 @@ func Test_SetupMultiplePrimaries(t *testing.T) {
 		evmNodes: s,
 	}
 
-	err := evm.ClobberDBFromEnv(db, cfg, logger.TestLogger(t))
+	err := evm.SetupNodes(db, cfg, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	cltest.AssertCount(t, db, "evm_nodes", 7)
