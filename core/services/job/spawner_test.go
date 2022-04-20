@@ -100,7 +100,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2 := new(mocks.ServiceCtx)
 		serviceA1.On("Start", mock.Anything).Return(nil).Once()
 		serviceA2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
-		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		dA := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, make(chan struct{}), dA}
 		eventuallyB := cltest.NewAwaiter()
 		serviceB1 := new(mocks.ServiceCtx)
@@ -108,7 +108,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB1.On("Start", mock.Anything).Return(nil).Once()
 		serviceB2.On("Start", mock.Anything).Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
-		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config)
 		delegateB := &delegate{jobB.Type, []job.ServiceCtx{serviceB1, serviceB2}, 0, make(chan struct{}), dB}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
@@ -163,7 +163,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
@@ -199,7 +199,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
+		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t), config)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,

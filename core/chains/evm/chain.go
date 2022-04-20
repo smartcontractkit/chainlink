@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -38,6 +39,7 @@ type Chain interface {
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
+	LogPoller() *logpoller.LogPoller
 }
 
 var _ Chain = &chain{}
@@ -52,11 +54,12 @@ type chain struct {
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
 	logBroadcaster  log.Broadcaster
+	logPoller       *logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
 	keyStore        keystore.Eth
 }
 
-func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
+func newChain(dbchain types.Chain, nodes []types.Node, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !dbchain.Enabled {
@@ -78,7 +81,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(cfg, l, dbchain)
+		client, err2 = newEthClientFromChain(cfg, l, dbchain, nodes)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", dbchain.ID.String())
 		}
@@ -140,6 +143,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}
+	logPoller := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
 
 	// AddDependent for this chain
 	// log broadcaster will not start until dependent ready is called by a
@@ -148,20 +152,19 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 
 	headBroadcaster.Subscribe(logBroadcaster)
 
-	c := chain{
-		utils.StartStopOnce{},
-		chainID,
-		cfg,
-		client,
-		txm,
-		l,
-		headBroadcaster,
-		headTracker,
-		logBroadcaster,
-		balanceMonitor,
-		opts.KeyStore,
-	}
-	return &c, nil
+	return &chain{
+		id:              chainID,
+		cfg:             cfg,
+		client:          client,
+		txm:             txm,
+		logger:          l,
+		headBroadcaster: headBroadcaster,
+		headTracker:     headTracker,
+		logBroadcaster:  logBroadcaster,
+		logPoller:       logPoller,
+		balanceMonitor:  balanceMonitor,
+		keyStore:        opts.KeyStore,
+	}, nil
 }
 
 func (c *chain) Start(ctx context.Context) error {
@@ -172,6 +175,8 @@ func (c *chain) Start(ctx context.Context) error {
 		if err := c.client.Dial(ctx); err != nil {
 			return errors.Wrap(err, "failed to dial ethclient")
 		}
+		// We do not start the log poller here, it gets
+		// started after the jobs so they have a chance to apply their filters.
 		merr = multierr.Combine(
 			c.txm.Start(ctx),
 			c.headBroadcaster.Start(ctx),
@@ -275,14 +280,14 @@ func (c *chain) ID() *big.Int                             { return c.id }
 func (c *chain) Client() evmclient.Client                 { return c.client }
 func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
+func (c *chain) LogPoller() *logpoller.LogPoller          { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
 func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 
-func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.Chain) (evmclient.Client, error) {
-	nodes := chain.Nodes
+func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chain types.Chain, nodes []types.Node) (evmclient.Client, error) {
 	chainID := big.Int(chain.ID)
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode

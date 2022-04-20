@@ -49,7 +49,7 @@ type listenerV1 struct {
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             txmgr.TxManager
 	gethks          GethKeyStore
-	reqLogs         *utils.Mailbox
+	reqLogs         *utils.Mailbox[log.Broadcast]
 	chStop          chan struct{}
 	waitOnStop      chan struct{}
 	newHead         chan struct{}
@@ -229,13 +229,9 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 		case <-lsn.reqLogs.Notify():
 			// Process all the logs in the queue if one is added
 			for {
-				i, exists := lsn.reqLogs.Retrieve()
+				lb, exists := lsn.reqLogs.Retrieve()
 				if !exists {
 					break
-				}
-				lb, ok := i.(log.Broadcast)
-				if !ok {
-					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 				}
 				recovery.WrapRecover(lsn.l, func() {
 					lsn.handleLog(lb, minConfs)
@@ -407,26 +403,30 @@ func (lsn *listenerV1) ProcessRequest(req request) bool {
 			"reqID", hex.EncodeToString(req.req.RequestID[:]),
 			"reqTxHash", req.req.Raw.TxHash)
 		return false
-	} else {
-		if run.HasErrors() || run.HasFatalErrors() {
-			lsn.l.Error("VRFV1 pipeline run failed with errors",
-				"reqID", hex.EncodeToString(req.req.RequestID[:]),
-				"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-				"reqTxHash", req.req.Raw.TxHash,
-				"runErrors", run.AllErrors.ToError(),
-				"runFatalErrors", run.FatalErrors.ToError(),
-			)
-			return false
-		} else {
-			lsn.l.Debugw("Executed VRFV1 fulfillment run",
-				"reqID", hex.EncodeToString(req.req.RequestID[:]),
-				"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
-				"reqTxHash", req.req.Raw.TxHash,
-			)
-			incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
-			return true
-		}
 	}
+
+	// At this point the pipeline runner has completed the run of the pipeline,
+	// but it may have errored out.
+	if run.HasErrors() || run.HasFatalErrors() {
+		lsn.l.Error("VRFV1 pipeline run failed with errors",
+			"reqID", hex.EncodeToString(req.req.RequestID[:]),
+			"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+			"reqTxHash", req.req.Raw.TxHash,
+			"runErrors", run.AllErrors.ToError(),
+			"runFatalErrors", run.FatalErrors.ToError(),
+		)
+		return false
+	}
+
+	// At this point, the pipeline run executed successfully, and we mark
+	// the request as processed.
+	lsn.l.Debugw("Executed VRFV1 fulfillment run",
+		"reqID", hex.EncodeToString(req.req.RequestID[:]),
+		"keyHash", hex.EncodeToString(req.req.KeyHash[:]),
+		"reqTxHash", req.req.Raw.TxHash,
+	)
+	incProcessedReqs(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v1)
+	return true
 }
 
 // Close complies with job.Service

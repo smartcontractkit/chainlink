@@ -115,9 +115,11 @@ func (hl *headListener) receiveHeaders(ctx context.Context, handleNewHead httype
 			}
 
 		case err, open := <-hl.headSubscription.Err():
-			if open && err != nil {
-				return err
+			// err can be nil, because of using chainIDSubForwarder
+			if !open || err == nil {
+				return errors.New("head listener: subscription Err channel prematurely closed")
 			}
+			return err
 
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning

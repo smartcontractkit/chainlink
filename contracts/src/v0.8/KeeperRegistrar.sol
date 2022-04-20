@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT
-/*
- * This is a development version of UpkeepRegistrationRequests (soon to be renamed to KeeperRegistrar).
- * Once this is audited and finalised it will be copied to KeeperRegistrar
- */
-pragma solidity ^0.8.0;
+pragma solidity 0.8.13;
 
-import "../interfaces/LinkTokenInterface.sol";
+import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/KeeperRegistryInterfaceDev.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
-import "../ConfirmedOwner.sol";
+import "./interfaces/TypeAndVersionInterface.sol";
+import "./ConfirmedOwner.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -20,7 +16,7 @@ import "../ConfirmedOwner.sol";
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
+contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner {
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.
@@ -99,6 +95,7 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
   error SenderMismatch();
   error FunctionNotPermitted();
   error LinkTransferFailed(address to);
+  error InvalidDataLength();
 
   /*
    * @param LINKAddress Address of Link token
@@ -302,6 +299,7 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     uint256 amount,
     bytes calldata data
   ) external onlyLINK permittedFunctionsForLINK(data) isActualAmount(amount, data) isActualSender(sender, data) {
+    if (data.length < 292) revert InvalidDataLength();
     if (amount < s_config.minLINKJuels) {
       revert InsufficientPayment();
     }
@@ -377,7 +375,7 @@ contract KeeperRegistrarDev is TypeAndVersionInterface, ConfirmedOwner {
     bytes4 funcSelector;
     assembly {
       // solhint-disable-next-line avoid-low-level-calls
-      funcSelector := mload(add(_data, 32))
+      funcSelector := mload(add(_data, 32)) // First 32 bytes contain length of data
     }
     if (funcSelector != REGISTER_REQUEST_SELECTOR) {
       revert FunctionNotPermitted();

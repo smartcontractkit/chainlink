@@ -1,10 +1,3 @@
-/*
- * This test is for KeeperRegistryDev contract which is the
- * development version of KeeperRegistry. Until it's audited and finalised
- * this test will be used for development. There are 2 places marked in the test
- * which will need to be changed when these tests are ported back to the prod version
- */
-
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
@@ -16,10 +9,8 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factor
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../typechain/factories/UpkeepTranscoder__factory'
-// These 2 dependencies are mocked from Dev
-import { KeeperRegistryDev__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistryDev__factory'
-import { KeeperRegistryDev as KeeperRegistry } from '../../typechain/KeeperRegistryDev'
-
+import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { KeeperRegistry } from '../../typechain/KeeperRegistry'
 import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../typechain/LinkToken'
 import { UpkeepMock } from '../../typechain/UpkeepMock'
@@ -57,10 +48,9 @@ before(async () => {
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
   mockV3AggregatorFactory = (await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
-  // Lifts the Dev contract
-  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistryDev')
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
   upkeepAutoFunderFactory = await ethers.getContractFactory('UpkeepAutoFunder')
@@ -463,6 +453,62 @@ describe('KeeperRegistry', () => {
         registry.connect(keeper1).addFunds(id, amount),
         'UpkeepNotActive()',
       )
+    })
+  })
+
+  describe('#setUpkeepGasLimit', () => {
+    const newGasLimit = BigNumber.from('500000')
+
+    it('reverts if the registration does not exist', async () => {
+      await evmRevert(
+        registry.connect(keeper1).setUpkeepGasLimit(id.add(1), newGasLimit),
+        'UpkeepNotActive()',
+      )
+    })
+
+    it('reverts if the upkeep is canceled', async () => {
+      await registry.connect(admin).cancelUpkeep(id)
+      await evmRevert(
+        registry.connect(keeper1).setUpkeepGasLimit(id, newGasLimit),
+        'UpkeepNotActive()',
+      )
+    })
+
+    it('reverts if called by anyone but the admin', async () => {
+      await evmRevert(
+        registry.connect(owner).setUpkeepGasLimit(id, newGasLimit),
+        'OnlyCallableByAdmin()',
+      )
+    })
+
+    it('reverts if new gas limit is out of bounds', async () => {
+      await evmRevert(
+        registry.connect(admin).setUpkeepGasLimit(id, BigNumber.from('100')),
+        'GasLimitOutsideRange()',
+      )
+      await evmRevert(
+        registry
+          .connect(admin)
+          .setUpkeepGasLimit(id, BigNumber.from('6000000')),
+        'GasLimitOutsideRange()',
+      )
+    })
+
+    it('updates the gas limit successfully', async () => {
+      const initialGasLimit = (await registry.getUpkeep(id)).executeGas
+      assert.equal(initialGasLimit, executeGas.toNumber())
+      await registry.connect(admin).setUpkeepGasLimit(id, newGasLimit)
+      const updatedGasLimit = (await registry.getUpkeep(id)).executeGas
+      assert.equal(updatedGasLimit, newGasLimit.toNumber())
+    })
+
+    it('emits a log', async () => {
+      const tx = await registry
+        .connect(admin)
+        .setUpkeepGasLimit(id, newGasLimit)
+      await expect(tx)
+        .to.emit(registry, 'UpkeepGasLimitSet')
+        .withArgs(id, newGasLimit)
     })
   })
 
@@ -990,7 +1036,7 @@ describe('KeeperRegistry', () => {
         assert.isTrue(normalAmount.lt(amountWithStaleFeed))
       })
 
-      it('uses the fallback link price if the feed price is non-sensical', async () => {
+      it('uses the fallback link price if the feed price is non-sensical [ @skip-coverage ]', async () => {
         const normalAmount = await getPerformPaymentAmount()
         const roundId = 99
         const updatedAt = Math.floor(Date.now() / 1000)
@@ -2008,6 +2054,14 @@ describe('KeeperRegistry', () => {
       await registry.setPeerRegistryMigrationPermission(peer, 2)
       permission = await registry.getPeerRegistryMigrationPermission(peer)
       expect(permission).to.equal(2)
+      await registry.setPeerRegistryMigrationPermission(peer, 0)
+      permission = await registry.getPeerRegistryMigrationPermission(peer)
+      expect(permission).to.equal(0)
+    })
+    it('reverts if passed an unsupported permission', async () => {
+      await expect(
+        registry.connect(admin).setPeerRegistryMigrationPermission(peer, 10),
+      ).to.be.reverted
     })
     it('reverts if not called by the owner', async () => {
       await expect(
@@ -2024,7 +2078,6 @@ describe('KeeperRegistry', () => {
         await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
         await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
       })
-
       it('migrates an upkeep', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
@@ -2037,6 +2090,20 @@ describe('KeeperRegistry', () => {
         expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
         expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
+      })
+      it('emits an event on both contracts', async () => {
+        expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(1)
+        const tx = registry
+          .connect(admin)
+          .migrateUpkeeps([id], registry2.address)
+        await expect(tx)
+          .to.emit(registry, 'UpkeepMigrated')
+          .withArgs(id, toWei('100'), registry2.address)
+        await expect(tx)
+          .to.emit(registry2, 'UpkeepReceived')
+          .withArgs(id, toWei('100'), registry.address)
       })
     })
 

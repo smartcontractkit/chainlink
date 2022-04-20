@@ -25,15 +25,21 @@ import (
 
 // EthTxMeta contains fields of the transaction metadata
 type EthTxMeta struct {
-	JobID         int32       `json:"JobID"`
+	JobID int32 `json:"JobID"`
+
+	// VRF-only fields
 	RequestID     common.Hash `json:"RequestID"`
 	RequestTxHash common.Hash `json:"RequestTxHash"`
+	// Batch variants of the above
+	RequestIDs      []common.Hash `json:"RequestIDs"`
+	RequestTxHashes []common.Hash `json:"RequestTxHashes"`
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink *string `json:"MaxLink,omitempty"`
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
 	SubID *uint64 `json:"SubId,omitempty"`
+
 	// Used for keepers
 	UpkeepID *int64 `json:"UpkeepID,omitempty"`
 }

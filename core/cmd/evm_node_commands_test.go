@@ -6,18 +6,20 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	null "gopkg.in/guregu/null.v4"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func mustInsertEVMChain(t *testing.T, orm types.ORM) types.Chain {
-	id := utils.NewBigI(99)
+	id := utils.NewBig(testutils.NewRandomEVMChainID())
 	config := types.ChainCfg{}
 	chain, err := orm.CreateChain(*id, config)
 	require.NoError(t, err)
@@ -44,7 +46,7 @@ func TestClient_IndexEVMNodes(t *testing.T) {
 	require.NoError(t, err)
 	chain := mustInsertEVMChain(t, orm)
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),
@@ -131,7 +133,7 @@ func TestClient_RemoveEVMNode(t *testing.T) {
 
 	chain := mustInsertEVMChain(t, orm)
 
-	params := types.NewNode{
+	params := types.Node{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),

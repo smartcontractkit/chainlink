@@ -332,7 +332,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			if chainORM != nil {
 				panic("cannot set more than one chain")
 			}
-			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
+			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep}, nil)
 		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
@@ -864,7 +864,7 @@ const (
 	AssertNoActionTimeout = 3 * time.Second
 )
 
-// WaitTimeout is just preserved for compatabilty. Use testutils.WaitTimeout directly instead.
+// WaitTimeout is just preserved for compatibility. Use testutils.WaitTimeout directly instead.
 // Deprecated
 var WaitTimeout = testutils.WaitTimeout
 

@@ -41,6 +41,20 @@ func (_m *Config) JobPipelineResultWriteQueueDepth() uint64 {
 	return r0
 }
 
+// LogSQL provides a mock function with given fields:
+func (_m *Config) LogSQL() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // OCR2BlockchainTimeout provides a mock function with given fields:
 func (_m *Config) OCR2BlockchainTimeout() time.Duration {
 	ret := _m.Called()

@@ -35,7 +35,7 @@ type ChainSetOpts struct {
 	DB               *sqlx.DB
 	KeyStore         keystore.Solana
 	EventBroadcaster pg.EventBroadcaster
-	ORM              db.ORM
+	ORM              ORM
 }
 
 func (o ChainSetOpts) validate() (err error) {
@@ -63,7 +63,7 @@ func (o ChainSetOpts) validate() (err error) {
 	return
 }
 
-func (o ChainSetOpts) newChain(dbchain db.Chain) (*chain, error) {
+func (o ChainSetOpts) newChain(dbchain Chain) (*chain, error) {
 	if !dbchain.Enabled {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", dbchain.ID)
 	}
@@ -74,11 +74,11 @@ func (o ChainSetOpts) newChain(dbchain db.Chain) (*chain, error) {
 type ChainSet interface {
 	solana.ChainSet
 
-	Add(context.Context, string, db.ChainCfg) (db.Chain, error)
+	Add(context.Context, string, db.ChainCfg) (Chain, error)
 	Remove(string) error
-	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (db.Chain, error)
+	Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (Chain, error)
 
-	ORM() db.ORM
+	ORM() ORM
 }
 
 //go:generate mockery --name ChainSet --srcpkg github.com/smartcontractkit/chainlink-solana/pkg/solana --output ./mocks/ --case=underscore
@@ -117,7 +117,7 @@ func NewChainSet(opts ChainSetOpts) (*chainSet, error) {
 	return &cs, err
 }
 
-func (c *chainSet) ORM() db.ORM {
+func (c *chainSet) ORM() ORM {
 	return c.opts.ORM
 }
 
@@ -168,23 +168,23 @@ func (c *chainSet) Chain(ctx context.Context, id string) (solana.Chain, error) {
 	return c.chains[id], nil
 }
 
-func (c *chainSet) Add(ctx context.Context, id string, config db.ChainCfg) (db.Chain, error) {
+func (c *chainSet) Add(ctx context.Context, id string, config db.ChainCfg) (Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
 	if _, exists := c.chains[id]; exists {
-		return db.Chain{}, errors.Errorf("chain already exists with id %s", id)
+		return Chain{}, errors.Errorf("chain already exists with id %s", id)
 	}
 
 	dbchain, err := c.opts.ORM.CreateChain(id, config)
 	if err != nil {
-		return db.Chain{}, err
+		return Chain{}, err
 	}
 	return dbchain, c.initializeChain(ctx, &dbchain)
 }
 
 // Requires a lock on chainsMu
-func (c *chainSet) initializeChain(ctx context.Context, dbchain *db.Chain) error {
+func (c *chainSet) initializeChain(ctx context.Context, dbchain *Chain) error {
 	// Start it
 	cid := dbchain.ID
 	chain, err := c.opts.newChain(*dbchain)
@@ -215,14 +215,14 @@ func (c *chainSet) Remove(id string) error {
 	return chain.Close()
 }
 
-func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (db.Chain, error) {
+func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, config db.ChainCfg) (Chain, error) {
 	c.chainsMu.Lock()
 	defer c.chainsMu.Unlock()
 
 	// Update configuration stored in the database
 	dbchain, err := c.opts.ORM.UpdateChain(id, enabled, config)
 	if err != nil {
-		return db.Chain{}, err
+		return Chain{}, err
 	}
 
 	chain, exists := c.chains[id]
@@ -231,7 +231,7 @@ func (c *chainSet) Configure(ctx context.Context, id string, enabled bool, confi
 	case exists && !enabled:
 		// Chain was toggled to disabled
 		delete(c.chains, id)
-		return db.Chain{}, chain.Close()
+		return Chain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
 		return dbchain, c.initializeChain(ctx, &dbchain)

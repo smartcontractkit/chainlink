@@ -14,19 +14,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	pkgconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
@@ -174,7 +174,7 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
 		cfg.On("Dev").Return(true)
-		cfg.On("ChainType").Return(chains.ChainType(""))
+		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
 		c := new(evmmocks.Chain)
 		c.On("Config").Return(cfg)
 		cs := new(evmmocks.ChainSet)
@@ -452,6 +452,7 @@ ds1 -> ds1_parse;
 			nil,
 			cc,
 			logger.TestLogger(t),
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -490,6 +491,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -542,6 +544,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -576,6 +579,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -604,6 +608,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -635,6 +640,7 @@ ds1 -> ds1_parse;
 			monitoringEndpoint,
 			cc,
 			lggr,
+			config,
 		)
 		services, err := sd.ServicesForSpec(*jb)
 		require.NoError(t, err)

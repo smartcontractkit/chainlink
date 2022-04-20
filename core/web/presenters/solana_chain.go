@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
+	"github.com/smartcontractkit/chainlink/core/chains/solana"
 )
 
 // SolanaChainResource is an Solana chain JSONAPI resource.
@@ -21,7 +23,7 @@ func (r SolanaChainResource) GetName() string {
 }
 
 // NewSolanaChainResource returns a new SolanaChainResource for chain.
-func NewSolanaChainResource(chain db.Chain) SolanaChainResource {
+func NewSolanaChainResource(chain solana.Chain) SolanaChainResource {
 	return SolanaChainResource{
 		JAID:      NewJAID(chain.ID),
 		Config:    chain.Cfg,

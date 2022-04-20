@@ -24,13 +24,13 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 		return
 	}
 
-	// check if force_broadcast query string parameter provided
+	// check if "force" query string parameter provided
 	var force bool
 	var err error
 	if fb := c.Query("force"); fb != "" {
 		force, err = strconv.ParseBool(fb)
 		if err != nil {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "boolean value required for 'force_broadcast' query string param"))
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "boolean value required for 'force' query string param"))
 			return
 		}
 	}

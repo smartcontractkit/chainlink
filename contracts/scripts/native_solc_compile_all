@@ -25,16 +25,17 @@ $SCRIPTPATH/native_solc6_compile dev/BlockhashStore.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
+$SCRIPTPATH/native_solc7_compile AuthorizedForwarder.sol
 $SCRIPTPATH/native_solc7_compile tests/Consumer.sol
 $SCRIPTPATH/native_solc7_compile tests/VRFCoordinatorMock.sol
 
 # Keeper
-$SCRIPTPATH/native_solc7_compile KeeperRegistry.sol
+$SCRIPTPATH/native_solc7_compile KeeperRegistry1_1.sol
 $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepCounter.sol
 $SCRIPTPATH/native_solc8_6_compile factories/CronUpkeepFactory.sol
-$SCRIPTPATH/native_solc8_6_compile upkeeps/CronUpkeep.sol
+$SCRIPTPATH/native_solc8_13_compile KeeperRegistry.sol
 
 # Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
@@ -55,6 +56,7 @@ $SCRIPTPATH/native_solc8_6_compile tests/VRFTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VRFV2RevertingExample.sol
 
 $SCRIPTPATH/native_solc8_6_compile dev/BatchBlockhashStore.sol
+$SCRIPTPATH/native_solc8_13_compile dev/BatchVRFCoordinatorV2.sol
 
 # Make sure the example consumers compile
 $SCRIPTPATH/native_solc8_6_compile tests/VRFExternalSubOwnerExample.sol
@@ -68,3 +70,6 @@ $SCRIPTPATH/native_solc8_6_compile dev/VRFCoordinatorV2.sol
 
 # Feeds
 $SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
+
+# Log tester
+$SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol

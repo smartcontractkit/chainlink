@@ -5,7 +5,8 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
@@ -20,13 +21,8 @@ func (rs *RegistrySynchronizer) processLogs() {
 
 func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	defer done()
-	i, exists := rs.mailRoom.mbSyncRegistry.Retrieve()
+	broadcast, exists := rs.mailRoom.mbSyncRegistry.Retrieve()
 	if !exists {
-		return
-	}
-	broadcast, ok := i.(log.Broadcast)
-	if !ok {
-		rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
 		return
 	}
 	txHash := broadcast.RawLog().TxHash.Hex()
@@ -52,14 +48,9 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(done func()) {
 	defer done()
 	for {
-		i, exists := rs.mailRoom.mbUpkeepCanceled.Retrieve()
+		broadcast, exists := rs.mailRoom.mbUpkeepCanceled.Retrieve()
 		if !exists {
 			return
-		}
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
-			continue
 		}
 		rs.handleUpkeepCancelled(broadcast)
 	}
@@ -76,7 +67,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	if was {
 		return
 	}
-	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepCanceled)
+	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper1_1.KeeperRegistryUpkeepCanceled)
 	if !ok {
 		rs.logger.AssumptionViolationf("expected UpkeepCanceled log but got %T", broadcastedLog)
 		return
@@ -101,14 +92,9 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 		return
 	}
 	for {
-		i, exists := rs.mailRoom.mbUpkeepRegistered.Retrieve()
+		broadcast, exists := rs.mailRoom.mbUpkeepRegistered.Retrieve()
 		if !exists {
 			return
-		}
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
-			continue
 		}
 		rs.HandleUpkeepRegistered(broadcast, registry)
 	}
@@ -125,7 +111,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 	if was {
 		return
 	}
-	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepRegistered)
+	broadcastedLog, ok := broadcast.DecodedLog().(*keeper_registry_wrapper1_1.KeeperRegistryUpkeepRegistered)
 	if !ok {
 		rs.logger.AssumptionViolationf("expected UpkeepRegistered log but got %T", broadcastedLog)
 		return
@@ -143,14 +129,9 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 	defer done()
 	for {
-		i, exists := rs.mailRoom.mbUpkeepPerformed.Retrieve()
+		broadcast, exists := rs.mailRoom.mbUpkeepPerformed.Retrieve()
 		if !exists {
 			return
-		}
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			rs.logger.AssumptionViolationf("expected log.Broadcast but got %T", broadcast)
-			continue
 		}
 		rs.handleUpkeepPerformed(broadcast)
 	}
@@ -158,7 +139,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 
 func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	txHash := broadcast.RawLog().TxHash.Hex()
-	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", txHash)
+	rs.logger.Debugw("processing UpkeepPerformed log", "jobID", rs.job.ID, "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(broadcast)
 	if err != nil {
 		rs.logger.With("error", err).Warn("unable to check if log was consumed")
@@ -169,18 +150,21 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		return
 	}
 
-	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepPerformed)
+	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper1_1.KeeperRegistryUpkeepPerformed)
 	if !ok {
 		rs.logger.AssumptionViolationf("expected UpkeepPerformed log but got %T", log)
 		return
 	}
-
-	// set last run to 0 so that keeper can resume checkUpkeep()
-	err = rs.orm.SetLastRunHeightForUpkeepOnJob(rs.job.ID, log.Id.Int64(), 0)
+	err = rs.orm.SetLastRunInfoForUpkeepOnJob(rs.job.ID, log.Id.Int64(), int64(broadcast.RawLog().BlockNumber), ethkey.EIP55AddressFromAddress(log.From))
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return
 	}
+	rs.logger.Debugw("updated db for UpkeepPerformed log",
+		"jobID", rs.job.ID,
+		"upkeepID", log.Id.Int64(),
+		"blockNumber", int64(broadcast.RawLog().BlockNumber),
+		"fromAddr", ethkey.EIP55AddressFromAddress(log.From))
 
 	if err := rs.logBroadcaster.MarkConsumed(broadcast); err != nil {
 		rs.logger.With("error", err).With("log", broadcast.String()).Error("unable to mark KeeperRegistryUpkeepPerformed log as consumed")

@@ -16,6 +16,7 @@ import (
 
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	solanadb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 )
@@ -36,7 +37,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 	chain, err := chains.Solana.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
-	_, err = chains.Solana.ORM().CreateNode(solanadb.NewNode{
+	_, err = chains.Solana.ORM().CreateNode(solanadb.Node{
 		Name:          t.Name(),
 		SolanaChainID: chainID,
 		SolanaURL:     url,

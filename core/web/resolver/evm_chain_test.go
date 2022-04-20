@@ -74,29 +74,27 @@ func TestResolver_Chains(t *testing.T) {
 				require.NoError(t, err)
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.On("Chains", PageDefaultOffset, PageDefaultLimit).Return([]types.Chain{
-					{
-						ID:        chainID,
-						Enabled:   true,
-						CreatedAt: f.Timestamp(),
-						Cfg: types.ChainCfg{
-							BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
-							EthTxReaperThreshold:            &threshold,
-							EthTxResendAfterThreshold:       &threshold,
-							EvmEIP1559DynamicFees:           null.BoolFrom(true),
-							EvmGasLimitMultiplier:           null.FloatFrom(1.23),
-							GasEstimatorMode:                null.StringFrom("BlockHistory"),
-							ChainType:                       null.StringFrom("optimism"),
-							LinkContractAddress:             null.StringFrom(linkContractAddress),
-							KeySpecific: map[string]types.ChainCfg{
-								"test-address": {
-									BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
-									EvmEIP1559DynamicFees:           null.BoolFrom(false),
-								},
+				f.Mocks.evmORM.PutChains(types.Chain{
+					ID:        chainID,
+					Enabled:   true,
+					CreatedAt: f.Timestamp(),
+					Cfg: types.ChainCfg{
+						BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+						EthTxReaperThreshold:            &threshold,
+						EthTxResendAfterThreshold:       &threshold,
+						EvmEIP1559DynamicFees:           null.BoolFrom(true),
+						EvmGasLimitMultiplier:           null.FloatFrom(1.23),
+						GasEstimatorMode:                null.StringFrom("BlockHistory"),
+						ChainType:                       null.StringFrom("optimism"),
+						LinkContractAddress:             null.StringFrom(linkContractAddress),
+						KeySpecific: map[string]types.ChainCfg{
+							"test-address": {
+								BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+								EvmEIP1559DynamicFees:           null.BoolFrom(false),
 							},
 						},
 					},
-				}, 1, nil)
+				})
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 				f.Mocks.chainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainID}).
 					Return([]types.Node{
@@ -197,7 +195,7 @@ func TestResolver_Chain(t *testing.T) {
 
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{
+				f.Mocks.evmORM.PutChains(types.Chain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
@@ -216,7 +214,7 @@ func TestResolver_Chain(t *testing.T) {
 							},
 						},
 					},
-				}, nil)
+				})
 				f.Mocks.chainSet.On("GetNodesByChainIDs", mock.Anything, []utils.Big{chainID}).
 					Return([]types.Node{
 						{
@@ -259,7 +257,6 @@ func TestResolver_Chain(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{}, sql.ErrNoRows)
 			},
 			query: query,
 			result: `
@@ -516,9 +513,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{
-					ID: chainID,
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.Mocks.chainSet.On("Remove", chainID.ToInt()).Return(nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
@@ -538,7 +533,6 @@ func TestResolver_DeleteChain(t *testing.T) {
 			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{}, sql.ErrNoRows)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     mutation,
@@ -555,9 +549,7 @@ func TestResolver_DeleteChain(t *testing.T) {
 			name:          "generic error on delete",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{
-					ID: chainID,
-				}, nil)
+				f.Mocks.evmORM.PutChains(types.Chain{ID: chainID})
 				f.Mocks.chainSet.On("Remove", chainID.ToInt()).Return(gError)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})

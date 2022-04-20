@@ -141,7 +141,7 @@ func (v *VRFV1Checker) Check(
 	if err != nil {
 		l.Errorw("Failed to parse transaction meta. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta)
 		return nil
 	}
@@ -149,7 +149,7 @@ func (v *VRFV1Checker) Check(
 	if meta == nil {
 		l.Errorw("Expected a non-nil meta for a VRF transaction. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta)
 		return nil
 	}
@@ -157,7 +157,7 @@ func (v *VRFV1Checker) Check(
 	if len(meta.RequestID.Bytes()) != 32 {
 		l.Errorw("Unexpected request ID. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta)
 		return nil
 	}
@@ -168,7 +168,7 @@ func (v *VRFV1Checker) Check(
 	if err != nil {
 		l.Errorw("Unable to check if already fulfilled. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta,
 			"reqID", reqID)
 		return nil
@@ -176,7 +176,7 @@ func (v *VRFV1Checker) Check(
 		// Request already fulfilled
 		l.Infow("Request already fulfilled",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta,
 			"reqID", reqID)
 		return errors.New("request already fulfilled")
@@ -213,7 +213,7 @@ func (v *VRFV2Checker) Check(
 	if err != nil {
 		l.Errorw("Failed to parse transaction meta. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta)
 		return nil
 	}
@@ -221,7 +221,7 @@ func (v *VRFV2Checker) Check(
 	if meta == nil {
 		l.Errorw("Expected a non-nil meta for a VRF transaction. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta)
 		return nil
 	}
@@ -230,7 +230,7 @@ func (v *VRFV2Checker) Check(
 	if err != nil {
 		l.Errorw("Failed to fetch latest header. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta,
 		)
 		return nil
@@ -240,14 +240,18 @@ func (v *VRFV2Checker) Check(
 	// Worst we can do is revert due to the request already being fulfilled.
 	if v.RequestBlockNumber == nil {
 		l.Errorw("Was provided with a nil request block number. Attempting to transmit anyway.",
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta,
 		)
 		return nil
 	}
 
 	vrfRequestID := meta.RequestID.Big()
-	blockNumber := bigmath.Max(h.Number, v.RequestBlockNumber)
+
+	// Subtract 5 since the newest block likely isn't indexed yet and will cause "header not found"
+	// errors.
+	latest := new(big.Int).Sub(h.Number, big.NewInt(5))
+	blockNumber := bigmath.Max(latest, v.RequestBlockNumber)
 	callback, err := v.GetCommitment(&bind.CallOpts{
 		Context:     ctx,
 		BlockNumber: blockNumber,
@@ -255,7 +259,7 @@ func (v *VRFV2Checker) Check(
 	if err != nil {
 		l.Errorw("Failed to check request fulfillment status, error calling GetCommitment. Attempting to transmit anyway.",
 			"err", err,
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta,
 			"vrfRequestId", vrfRequestID,
 			"blockNumber", h.Number,
@@ -264,13 +268,13 @@ func (v *VRFV2Checker) Check(
 	} else if utils.IsEmpty(callback[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled and we should skip it.
 		l.Infow("Request already fulfilled.",
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta,
 			"vrfRequestId", vrfRequestID)
 		return errors.New("request already fulfilled")
 	} else {
 		l.Debugw("Request not yet fulfilled",
-			"ethTxId", tx.ID,
+			"ethTxID", tx.ID,
 			"meta", tx.Meta,
 			"vrfRequestId", vrfRequestID)
 		return nil

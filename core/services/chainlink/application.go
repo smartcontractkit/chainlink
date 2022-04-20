@@ -326,6 +326,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chains.EVM,
 			globalLogger,
+			cfg,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
@@ -379,6 +380,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
+
+	// We start the log poller after the job spawner
+	// so jobs have a chance to apply their initial log filters.
+	if cfg.FeatureLogPoller() {
+		for _, c := range chains.EVM.Chains() {
+			subservices = append(subservices, c.LogPoller())
+		}
+	}
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm

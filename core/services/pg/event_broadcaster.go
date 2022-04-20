@@ -161,7 +161,7 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 		channel:          channel,
 		payloadFilter:    payloadFilter,
 		eventBroadcaster: b,
-		queue:            utils.NewBoundedQueue(1000),
+		queue:            utils.NewBoundedQueue[Event](1000),
 		chEvents:         make(chan Event),
 		chDone:           make(chan struct{}),
 		lggr:             logger.Sugared(b.lggr),
@@ -233,7 +233,7 @@ type subscription struct {
 	channel            string
 	payloadFilter      string
 	eventBroadcaster   *eventBroadcaster
-	queue              *utils.BoundedQueue
+	queue              *utils.BoundedQueue[Event]
 	processQueueWorker utils.SleeperTask
 	chEvents           chan Event
 	chDone             chan struct{}
@@ -258,11 +258,7 @@ func (sub *subscription) processQueue() {
 	defer cancel()
 
 	for !sub.queue.Empty() {
-		event, ok := sub.queue.Take().(Event)
-		if !ok {
-			sub.lggr.AssumptionViolationf("Postgres event broadcaster subscription expected an Event, got %T", event)
-			continue
-		}
+		event := sub.queue.Take()
 		select {
 		case sub.chEvents <- event:
 		case <-ctx.Done():
