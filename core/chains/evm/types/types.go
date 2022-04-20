@@ -47,7 +47,10 @@ type ORM interface {
 	Node(id int32, qopts ...pg.QOpt) (Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int, qopts ...pg.QOpt) ([]Node, int, error)
+
 	ChainConfigORM
+
+	SetupNodes([]Node, []utils.Big) error
 }
 
 type ChainCfg struct {

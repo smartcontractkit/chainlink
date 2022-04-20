@@ -257,6 +257,11 @@ func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts
 	panic("not implemented")
 }
 
+// NodesForChain implements evmtypes.ORM
+func (mo *MockORM) SetupNodes([]evmtypes.Node, []utils.Big) error {
+	panic("not implemented")
+}
+
 func ChainEthMainnet(t *testing.T) evmconfig.ChainScopedConfig      { return scopedConfig(t, 1) }
 func ChainOptimismMainnet(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 10) }
 func ChainOptimismKovan(t *testing.T) evmconfig.ChainScopedConfig   { return scopedConfig(t, 69) }
