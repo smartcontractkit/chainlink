@@ -246,3 +246,5 @@ func (m *mockORM) NodeNamed(s string, opt ...pg.QOpt) (db.Node, error) { panic("
 func (m *mockORM) Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error) {
 	panic("unimplemented")
 }
+
+func (m *mockORM) SetupNodes([]db.Node, []string) error { panic("unimplemented") }

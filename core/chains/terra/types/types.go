@@ -22,6 +22,8 @@ type ORM interface {
 	NodeNamed(string, ...pg.QOpt) (db.Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []db.Node, count int, err error)
+
+	SetupNodes([]db.Node, []string) error
 }
 
 type Chain = chains.Chain[string, db.ChainCfg]

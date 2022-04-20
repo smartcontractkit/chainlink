@@ -4038,6 +4038,34 @@ func (_m *ChainScopedConfig) SolanaEnabled() bool {
 	return r0
 }
 
+// SolanaNodes provides a mock function with given fields:
+func (_m *ChainScopedConfig) SolanaNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// TerraNodes provides a mock function with given fields:
+func (_m *ChainScopedConfig) TerraNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // TLSCertPath provides a mock function with given fields:
 func (_m *ChainScopedConfig) TLSCertPath() string {
 	ret := _m.Called()
