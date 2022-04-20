@@ -147,20 +147,33 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		ex.logger.With("error", err).Error("unable to load registry")
 		return
 	}
-	turnBinary, err := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
-	if err != nil {
-		ex.logger.With("error", err).Error("unable to get turn block number hash")
-		return
-	}
 
-	activeUpkeeps, err := ex.orm.EligibleUpkeepsForRegistry(
-		ex.job.KeeperSpec.ContractAddress,
-		head.Number,
-		ex.config.KeeperMaximumGracePeriod(),
-		turnBinary)
-	if err != nil {
-		ex.logger.With("error", err).Error("unable to load active registrations")
-		return
+	var activeUpkeeps []UpkeepRegistration
+	if ex.config.KeeperTurnFlagEnabled() == true {
+		turnBinary, err := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
+		if err != nil {
+			ex.logger.With("error", err).Error("unable to get turn block number hash")
+			return
+		}
+		activeUpkeeps, err = ex.orm.NewEligibleUpkeepsForRegistry(
+			ex.job.KeeperSpec.ContractAddress,
+			head.Number,
+			ex.config.KeeperMaximumGracePeriod(),
+			turnBinary)
+		if err != nil {
+			ex.logger.With("error", err).Error("unable to load active registrations")
+			return
+		}
+	} else {
+		activeUpkeeps, err = ex.orm.EligibleUpkeepsForRegistry(
+			ex.job.KeeperSpec.ContractAddress,
+			head.Number,
+			ex.config.KeeperMaximumGracePeriod(),
+		)
+		if err != nil {
+			ex.logger.With("error", err).Error("unable to load active registrations")
+			return
+		}
 	}
 
 	wg := sync.WaitGroup{}

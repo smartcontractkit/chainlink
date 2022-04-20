@@ -127,6 +127,7 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperRegistrySyncInterval":                     "KEEPER_REGISTRY_SYNC_INTERVAL",
 		"KeeperRegistrySyncUpkeepQueueSize":              "KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE",
 		"KeeperTurnLookBack":                             "KEEPER_TURN_LOOK_BACK",
+		"KeeperTurnFlag":                                 "KEEPER_TURN_FLAG",
 		"LeaseLockDuration":                              "LEASE_LOCK_DURATION",
 		"LeaseLockRefreshInterval":                       "LEASE_LOCK_REFRESH_INTERVAL",
 		"LinkContractAddress":                            "LINK_CONTRACT_ADDRESS",
