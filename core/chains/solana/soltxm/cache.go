@@ -11,13 +11,15 @@ import (
 )
 
 type TxCache struct {
-	cache map[solana.Signature]context.CancelFunc
-	lock  sync.RWMutex
+	chainID string
+	cache   map[solana.Signature]context.CancelFunc
+	lock    sync.RWMutex
 }
 
-func NewTxCache() *TxCache {
+func NewTxCache(id string) *TxCache {
 	return &TxCache{
-		cache: map[solana.Signature]context.CancelFunc{},
+		chainID: id,
+		cache:   map[solana.Signature]context.CancelFunc{},
 	}
 }
 
@@ -32,7 +34,35 @@ func (c *TxCache) Insert(sig solana.Signature, cancel context.CancelFunc) error 
 	return nil
 }
 
+// Success - tx included in block and confirmed
+func (c *TxCache) Success(sig solana.Signature) {
+	promSolTxmSuccessfulTxs.WithLabelValues(c.chainID).Add(1)
+	c.cancel(sig)
+	return
+}
+
+// Revert - tx included in block but failed execution
+func (c *TxCache) Revert(sig solana.Signature) {
+	promSolTxmRevertedTxs.WithLabelValues(c.chainID).Add(1)
+	c.cancel(sig)
+	return
+}
+
+// Failed - tx failed sending to chain or failed simulation
+func (c *TxCache) Failed(sig solana.Signature) {
+	promSolTxmFailedTxs.WithLabelValues(c.chainID).Add(1)
+	c.cancel(sig)
+	return
+}
+
+// Cancel - tx retry timed out, was not picked up by the network and confirmed in time
 func (c *TxCache) Cancel(sig solana.Signature) {
+	promSolTxmTimedOutTxs.WithLabelValues(c.chainID).Add(1)
+	c.cancel(sig)
+	return
+}
+
+func (c *TxCache) cancel(sig solana.Signature) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -48,8 +78,11 @@ func (c *TxCache) Cancel(sig solana.Signature) {
 
 func (c *TxCache) List() []solana.Signature {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return maps.Keys(c.cache)
+	sigs := maps.Keys(c.cache)
+	c.lock.RUnlock()
+
+	promSolTxmInflightTxs.WithLabelValues(c.chainID).Set(float64(len(sigs)))
+	return sigs
 }
 
 type ValidClient struct {

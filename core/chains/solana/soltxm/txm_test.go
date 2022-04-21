@@ -37,7 +37,7 @@ func TestTxm_Integration(t *testing.T) {
 	getClient := func() (solanaClient.ReaderWriter, error) {
 		return client, nil
 	}
-	txm := soltxm.NewTxm(getClient, cfg, lggr)
+	txm := soltxm.NewTxm("localnet", getClient, cfg, lggr)
 
 	// track initial balance
 	initBal, err := client.Balance(pubKey)

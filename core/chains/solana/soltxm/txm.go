@@ -49,7 +49,7 @@ type queueMsg struct {
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lggr logger.Logger) *Txm {
+func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lggr logger.Logger) *Txm {
 	lggr = lggr.Named("Txm")
 	return &Txm{
 		starter:  utils.StartStopOnce{},
@@ -58,7 +58,7 @@ func NewTxm(tc func() (solanaClient.ReaderWriter, error), cfg config.Config, lgg
 		simQueue: make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
 		stop:     make(chan struct{}),
 		cfg:      cfg,
-		txCache:  NewTxCache(),
+		txCache:  NewTxCache(chainID),
 		client:   NewValidClient(tc),
 	}
 }
@@ -120,7 +120,8 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 	// send initial tx (do not retry and exit early if fails)
 	sig, err := client.SendTx(ctx, tx)
 	if err != nil {
-		cancel() // cancel context when exiting early
+		cancel()                // cancel context when exiting early
+		txm.txCache.Failed(sig) // increment failed metric
 		return solanaGo.Signature{}, errors.Wrap(err, "tx failed initial transmit")
 	}
 
@@ -133,14 +134,16 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 	// retry with exponential backoff
 	// until context cancelled by timeout or called externally
 	go func() {
-		// remove sig from cache if context is cancelled
-		defer txm.txCache.Cancel(sig)
-
-		deltaT := 1
+		deltaT := 1 // ms
 		tick := time.After(0)
 		for {
 			select {
 			case <-ctx.Done():
+				deadline, _ := ctx.Deadline()
+				if time.Now().After(deadline) {
+					// remove sig from cache if context is cancelled by timeout
+					txm.txCache.Cancel(sig)
+				}
 				return
 			case <-tick:
 				retrySig, err := client.SendTx(ctx, tx)
@@ -219,7 +222,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 						"error", statuses[i].Err,
 						"status", statuses[i].ConfirmationStatus,
 					)
-					txm.txCache.Cancel(sigs[i])
+					txm.txCache.Revert(sigs[i])
 					continue
 				}
 
@@ -236,7 +239,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 					txm.lggr.Debugw("tx state: confirmed",
 						"signature", sigs[i],
 					)
-					txm.txCache.Cancel(sigs[i])
+					txm.txCache.Success(sigs[i])
 					continue
 				}
 			}
@@ -276,7 +279,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 			// stop tx retrying if simulate returns error
 			if res.Err != nil {
-				txm.txCache.Cancel(msg.signature) // cancel retry
+				txm.txCache.Failed(msg.signature) // cancel retry
 				txm.lggr.Errorw("simulate error", "signature", msg.signature, "error", res)
 				break
 			}
@@ -300,7 +303,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	return nil
 }
 
-func (txm Txm) InflightTxs() int {
+func (txm *Txm) InflightTxs() int {
 	return len(txm.txCache.List())
 }
 

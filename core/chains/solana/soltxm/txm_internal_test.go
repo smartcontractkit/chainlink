@@ -11,6 +11,7 @@ import (
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client/mocks"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -22,18 +23,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type soltxmProm struct {
+	id                              string
+	success, revert, fail, timedOut float64
+}
+
+func (p soltxmProm) assertEqual(t *testing.T) {
+	assert.Equal(t, p.success, testutil.ToFloat64(promSolTxmSuccessfulTxs.WithLabelValues(p.id)), "mismatch: success")
+	assert.Equal(t, p.revert, testutil.ToFloat64(promSolTxmRevertedTxs.WithLabelValues(p.id)), "mismatch: revert")
+	assert.Equal(t, p.fail, testutil.ToFloat64(promSolTxmFailedTxs.WithLabelValues(p.id)), "mismatch: fail")
+	assert.Equal(t, p.timedOut, testutil.ToFloat64(promSolTxmTimedOutTxs.WithLabelValues(p.id)), "mismatch: timedOut")
+}
+
+func (p soltxmProm) getInflight() float64 {
+	return testutil.ToFloat64(promSolTxmInflightTxs.WithLabelValues(p.id))
+}
+
 func TestTxm(t *testing.T) {
 	// set up configs needed in txm
+	id := "mocknet"
 	lggr := logger.TestLogger(t)
 	confirmDuration := models.MustMakeDuration(500 * time.Millisecond)
 	cfg := config.NewConfig(db.ChainCfg{
 		ConfirmPollPeriod: &confirmDuration,
 	}, lggr)
 	mc := new(mocks.ReaderWriter)
-	txm := NewTxm(func() (client.ReaderWriter, error) {
+	txm := NewTxm(id, func() (client.ReaderWriter, error) {
 		return mc, nil
 	}, cfg, lggr)
 	require.NoError(t, txm.Start(context.Background()))
+
+	// tracking prom metrics
+	prom := soltxmProm{id: id}
 
 	// create random signature
 	getSig := func() solana.Signature {
@@ -63,7 +84,9 @@ func TestTxm(t *testing.T) {
 
 	// check if cached transaction is cleared
 	empty := func() bool {
-		return len(txm.txCache.List()) == 0
+		count := len(txm.txCache.List())
+		assert.Equal(t, float64(count), prom.getInflight()) // validate prom metric and cache length
+		return count == 0
 	}
 
 	waitFor := func(func() bool) {
@@ -75,6 +98,7 @@ func TestTxm(t *testing.T) {
 		}
 		assert.NoError(t, errors.New("unable to confirm tx cache is empty"))
 	}
+
 	// happy path (send => simulate success => tx: nil => tx: processed => tx: confirmed => done)
 	t.Run("happyPath", func(t *testing.T) {
 		sig := getSig()
@@ -113,6 +137,10 @@ func TestTxm(t *testing.T) {
 
 		// panic if sendTx called after context cancelled
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
+
+		// check prom metric
+		prom.success++
+		prom.assertEqual(t)
 	})
 
 	// fail on initial transmit (RPC immediate rejects)
@@ -132,6 +160,10 @@ func TestTxm(t *testing.T) {
 
 		// no transactions stored cache list
 		waitFor(empty)
+
+		// check prom metric
+		prom.fail++
+		prom.assertEqual(t)
 	})
 
 	// tx fails simulation (simulation error)
@@ -153,6 +185,10 @@ func TestTxm(t *testing.T) {
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
 		waitFor(empty) // tx cache cleared quickly
+
+		// check prom metric
+		prom.fail++
+		prom.assertEqual(t)
 	})
 
 	// tx fails simulation (rpc error, timeout should clean up)
@@ -174,12 +210,16 @@ func TestTxm(t *testing.T) {
 		wg.Wait()      // wait to be picked up and processed
 		waitFor(empty) // tx cache cleared after timeout
 
+		// check prom metric
+		prom.timedOut++
+		prom.assertEqual(t)
+
 		// panic if sendTx called after context cancelled
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
 	})
 
 	// tx passes sim, never passes processed (timeout should cleanup)
-	t.Run("fail_confirmProcessed", func(t *testing.T) {
+	t.Run("fail_confirm_processed", func(t *testing.T) {
 		tx := getTx()
 		sig := getSig()
 		var wg sync.WaitGroup
@@ -198,12 +238,16 @@ func TestTxm(t *testing.T) {
 		wg.Wait()      // wait to be picked up and processed
 		waitFor(empty) // tx cache cleared after timeout
 
+		// check prom metric
+		prom.timedOut++
+		prom.assertEqual(t)
+
 		// panic if sendTx called after context cancelled
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
 	})
 
 	// tx passes sim, shows processed, moves to nil (timeout should cleanup)
-	t.Run("fail_confirmProcessedToNil", func(t *testing.T) {
+	t.Run("fail_confirm_processedToNil", func(t *testing.T) {
 		tx := getTx()
 		sig := getSig()
 		var wg sync.WaitGroup
@@ -223,12 +267,16 @@ func TestTxm(t *testing.T) {
 		wg.Wait()      // wait to be picked up and processed
 		waitFor(empty) // tx cache cleared after timeout
 
+		// check prom metric
+		prom.timedOut++
+		prom.assertEqual(t)
+
 		// panic if sendTx called after context cancelled
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")
 	})
 
 	// tx passes sim, errors on confirm
-	t.Run("fail_confirmProcessedToNil", func(t *testing.T) {
+	t.Run("fail_confirm_revert", func(t *testing.T) {
 		tx := getTx()
 		sig := getSig()
 		var wg sync.WaitGroup
@@ -240,13 +288,17 @@ func TestTxm(t *testing.T) {
 		}).Return(&rpc.SimulateTransactionResult{}, nil).Once()
 		mc.On("SignatureStatuses", mock.Anything, []solana.Signature{sig}).Return([]*rpc.SignatureStatusesResult{&rpc.SignatureStatusesResult{
 			ConfirmationStatus: rpc.ConfirmationStatusProcessed,
-			Err: "ERROR",
+			Err:                "ERROR",
 		}}, nil).Once()
 
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
 		waitFor(empty) // tx cache cleared after timeout
+
+		// check prom metric
+		prom.revert++
+		prom.assertEqual(t)
 
 		// panic if sendTx called after context cancelled
 		mc.On("SendTx", mock.Anything, tx).Panic("SendTx should not be called anymore")

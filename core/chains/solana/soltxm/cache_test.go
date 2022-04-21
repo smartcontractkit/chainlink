@@ -31,7 +31,7 @@ func TestTxCache(t *testing.T) {
 	}
 
 	// init cache + store some signatures and cancelFunc
-	cache := NewTxCache()
+	cache := NewTxCache("test")
 	n := 5
 	for i := 0; i < n; i++ {
 		sig, cancel := newProcess(i)
