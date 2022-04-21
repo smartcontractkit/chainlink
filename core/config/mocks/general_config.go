@@ -785,6 +785,20 @@ func (_m *GeneralConfig) FeatureFeedsManager() bool {
 	return r0
 }
 
+// FeatureLogPoller provides a mock function with given fields:
+func (_m *GeneralConfig) FeatureLogPoller() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // FeatureOffchainReporting provides a mock function with given fields:
 func (_m *GeneralConfig) FeatureOffchainReporting() bool {
 	ret := _m.Called()
@@ -1441,6 +1455,27 @@ func (_m *GeneralConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmLogPollInterval provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	var r1 bool
@@ -3218,6 +3253,34 @@ func (_m *GeneralConfig) SolanaEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// SolanaNodes provides a mock function with given fields:
+func (_m *GeneralConfig) SolanaNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// TerraNodes provides a mock function with given fields:
+func (_m *GeneralConfig) TerraNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

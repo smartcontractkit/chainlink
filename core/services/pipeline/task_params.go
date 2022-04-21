@@ -151,6 +151,14 @@ type MaybeUint64Param struct {
 	isSet bool
 }
 
+// NewMaybeUint64Param creates new instance of MaybeUint64Param
+func NewMaybeUint64Param(n uint64, isSet bool) MaybeUint64Param {
+	return MaybeUint64Param{
+		n:     n,
+		isSet: isSet,
+	}
+}
+
 func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	var n uint64
 	switch v := val.(type) {
@@ -202,6 +210,14 @@ func (p MaybeUint64Param) Uint64() (uint64, bool) {
 type MaybeInt32Param struct {
 	n     int32
 	isSet bool
+}
+
+// NewMaybeInt32Param creates new instance of MaybeInt32Param
+func NewMaybeInt32Param(n int32, isSet bool) MaybeInt32Param {
+	return MaybeInt32Param{
+		n:     n,
+		isSet: isSet,
+	}
 }
 
 func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
@@ -502,12 +518,12 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		err := json.Unmarshal([]byte(v), &dsp)
 		if err != nil {
-			return err
+			return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 		}
 	case []byte:
 		err := json.Unmarshal(v, &dsp)
 		if err != nil {
-			return err
+			return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 		}
 	case []interface{}:
 		for _, h := range v {
@@ -518,6 +534,16 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 				}
 				dsp = append(dsp, hash)
+			} else if b, is := h.([]byte); is {
+				// same semantic as AddressSliceParam
+				var hash common.Hash
+				err := hash.UnmarshalText(b)
+				if err != nil {
+					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
+				}
+				dsp = append(dsp, hash)
+			} else if h, is := h.(common.Hash); is {
+				dsp = append(dsp, h)
 			} else {
 				return errors.Wrap(ErrBadInput, "HashSliceParam")
 			}
@@ -616,6 +642,13 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 
 type MaybeBigIntParam struct {
 	n *big.Int
+}
+
+// NewMaybeBigIntParam creates a new instance of MaybeBigIntParam
+func NewMaybeBigIntParam(n *big.Int) MaybeBigIntParam {
+	return MaybeBigIntParam{
+		n: n,
+	}
 }
 
 func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {

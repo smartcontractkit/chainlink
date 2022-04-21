@@ -143,4 +143,3 @@ jobs:
       QA_AWS_REGION: ${{ secrets.AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
