@@ -96,7 +96,7 @@ func TestRetryUnmarshal(t *testing.T) {
 
 	for _, test := range tests {
 		test := test
-		t.Run("returns error if task is not the right type", func(t *testing.T) {
+		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			p, err := pipeline.Parse(test.spec)
