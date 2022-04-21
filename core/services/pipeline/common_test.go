@@ -2,7 +2,6 @@ package pipeline_test
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 	"time"
 
