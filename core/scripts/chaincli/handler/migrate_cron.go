@@ -52,9 +52,10 @@ func (k *Keeper) MigrateCron(ctx context.Context, inputFilePath string, proxyAbi
 		if err != nil {
 			log.Fatalln("Error decoding encrypted email:", inputLine[5], err)
 		}
-		gasLimit, err := strconv.ParseUint(inputLine[6], 10, 32)
+		upkeepAdminAddr := common.HexToAddress(inputLine[6])
+		gasLimit, err := strconv.ParseUint(inputLine[7], 10, 32)
 		if err != nil {
-			log.Fatalln("Error parsing gas limit:", inputLine[6], err)
+			log.Fatalln("Error parsing gas limit:", inputLine[7], err)
 		}
 
 		fmt.Println("Processing:", targetContractAddr, targetFunction, cronSchedule)
@@ -67,12 +68,12 @@ func (k *Keeper) MigrateCron(ctx context.Context, inputFilePath string, proxyAbi
 		proxyAddr := common.HexToAddress(k.cfg.ProxyAddr)
 		cronUpkeepAddr := k.deployNewCronUpkeep(ctx, proxyAddr, cronByteHandler, cronSchedule)
 		k.setProxyPermission(ctx, cronUpkeepAddr, targetContractAddr)
-		registrationHash, blockNum := k.registerUpkeep(ctx, upkeepName, encryptedEmail, cronUpkeepAddr, uint32(gasLimit), fundingAmountLink)
+		registrationHash, blockNum := k.registerUpkeep(ctx, upkeepName, encryptedEmail, cronUpkeepAddr, upkeepAdminAddr, uint32(gasLimit), fundingAmountLink)
 
 		row := []string{
 			targetContractAddr.String(), targetFunction, cronSchedule,
 			upkeepName, cronUpkeepAddr.String(), strconv.FormatUint(gasLimit, 10),
-			k.fromAddr.String(), registrationHash, blockNum.String(),
+			upkeepAdminAddr.String(), registrationHash, blockNum.String(),
 		}
 		if err := w.Write(row); err != nil {
 			log.Fatalln("Error writing record to output file", err)
@@ -155,7 +156,7 @@ func (k *Keeper) setProxyPermission(ctx context.Context, from, to common.Address
 	log.Println("Proxy permission from", from, "to", to, "set:", helpers.ExplorerLink(k.cfg.ChainID, proxyTx.Hash()))
 }
 
-func (k *Keeper) registerUpkeep(ctx context.Context, name string, encryptedEmail []byte, target common.Address, gasLimit uint32, amount *big.Int) (string, *big.Int) {
+func (k *Keeper) registerUpkeep(ctx context.Context, name string, encryptedEmail []byte, target, admin common.Address, gasLimit uint32, amount *big.Int) (string, *big.Int) {
 	log.Println("Registering upkeep")
 
 	registrarAddr := common.HexToAddress(k.cfg.RegistrarAddr)
@@ -171,7 +172,7 @@ func (k *Keeper) registerUpkeep(ctx context.Context, name string, encryptedEmail
 		log.Fatalln("Error generating Registrar ABI", err)
 	}
 
-	registrationData, err := registrarABI.Pack("register", name, encryptedEmail, target, gasLimit, k.fromAddr, []byte{}, amount, uint8(0))
+	registrationData, err := registrarABI.Pack("register", name, encryptedEmail, target, gasLimit, admin, []byte{}, amount, uint8(0))
 	if err != nil {
 		log.Fatalln("Error generating registration data", err)
 	}

@@ -48,6 +48,6 @@ var MigrateCronCmd = &cobra.Command{
 }
 
 func init() {
-	MigrateCronCmd.Flags().StringVar(&inputFile, "input-file", "", "path to csv file in format: targetAddress,targetFunction,cronSchedule,fundingAmountLink,name,encryptedEmail,gasLimit")
+	MigrateCronCmd.Flags().StringVar(&inputFile, "input-file", "", "path to csv file in format: targetAddress,targetFunction,cronSchedule,fundingAmountLink,name,encryptedEmail,admin,gasLimit")
 	MigrateCronCmd.Flags().BoolP("fetch-ids", "f", false, "Specify to fetch upkeep IDs for registration requests given in input")
 }
