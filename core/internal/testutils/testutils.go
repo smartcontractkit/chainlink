@@ -15,8 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
@@ -34,6 +36,16 @@ var FixtureChainID = big.NewInt(0)
 
 // SimulatedChainID is the chain ID for the go-ethereum simulated backend
 var SimulatedChainID = big.NewInt(1337)
+
+// MustNewSimTransactor returns a transactor for interacting with the
+// geth simulated backend.
+func MustNewSimTransactor(t *testing.T) *bind.TransactOpts {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, SimulatedChainID)
+	require.NoError(t, err)
+	return transactor
+}
 
 // NewAddress return a random new address
 func NewAddress() common.Address {

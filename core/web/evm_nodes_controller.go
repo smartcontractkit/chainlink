@@ -58,7 +58,13 @@ func (nc *EVMNodesController) Create(c *gin.Context) {
 		return
 	}
 
-	node, err := nc.App.EVMORM().CreateNode(request)
+	node, err := nc.App.EVMORM().CreateNode(types.Node{
+		Name:       request.Name,
+		EVMChainID: request.EVMChainID,
+		WSURL:      request.WSURL,
+		HTTPURL:    request.HTTPURL,
+		SendOnly:   request.SendOnly,
+	})
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -70,13 +76,13 @@ func (nc *EVMNodesController) Create(c *gin.Context) {
 
 // Delete removes an EVM node.
 func (nc *EVMNodesController) Delete(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("ID"), 10, 64)
+	id, err := strconv.ParseInt(c.Param("ID"), 10, 32)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	err = nc.App.EVMORM().DeleteNode(id)
+	err = nc.App.EVMORM().DeleteNode(int32(id))
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
