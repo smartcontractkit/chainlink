@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	keystore_mocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	vrf_mocks "github.com/smartcontractkit/chainlink/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -282,13 +281,6 @@ func TestListener_ShouldProcessSub_NotEnoughBalance(t *testing.T) {
 	)
 	defer mockAggregator.AssertExpectations(t)
 
-	ksMock := &keystore_mocks.Eth{}
-	ksMock.On("GetRoundRobinAddress", mock.Anything, mock.Anything).Return(
-		common.HexToAddress("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
-		nil,
-	)
-	defer ksMock.AssertExpectations(t)
-
 	cfg := &vrf_mocks.Config{}
 	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(
 		assets.GWei(200),
@@ -306,7 +298,6 @@ func TestListener_ShouldProcessSub_NotEnoughBalance(t *testing.T) {
 		aggregator: mockAggregator,
 		l:          logger.TestLogger(t),
 		chainID:    big.NewInt(1337),
-		gethks:     ksMock,
 		cfg:        cfg,
 	}
 	subID := uint64(1)
@@ -334,13 +325,6 @@ func TestListener_ShouldProcessSub_EnoughBalance(t *testing.T) {
 	)
 	defer mockAggregator.AssertExpectations(t)
 
-	ksMock := &keystore_mocks.Eth{}
-	ksMock.On("GetRoundRobinAddress", mock.Anything, mock.Anything).Return(
-		common.HexToAddress("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
-		nil,
-	)
-	defer ksMock.AssertExpectations(t)
-
 	cfg := &vrf_mocks.Config{}
 	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(
 		assets.GWei(200),
@@ -358,7 +342,6 @@ func TestListener_ShouldProcessSub_EnoughBalance(t *testing.T) {
 		aggregator: mockAggregator,
 		l:          logger.TestLogger(t),
 		chainID:    big.NewInt(1337),
-		gethks:     ksMock,
 		cfg:        cfg,
 	}
 	subID := uint64(1)
@@ -384,13 +367,6 @@ func TestListener_ShouldProcessSub_NoLinkEthPrice(t *testing.T) {
 	)
 	defer mockAggregator.AssertExpectations(t)
 
-	ksMock := &keystore_mocks.Eth{}
-	ksMock.On("GetRoundRobinAddress", mock.Anything, mock.Anything).Return(
-		common.HexToAddress("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
-		nil,
-	)
-	defer ksMock.AssertExpectations(t)
-
 	cfg := &vrf_mocks.Config{}
 	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(
 		assets.GWei(200),
@@ -408,7 +384,6 @@ func TestListener_ShouldProcessSub_NoLinkEthPrice(t *testing.T) {
 		aggregator: mockAggregator,
 		l:          logger.TestLogger(t),
 		chainID:    big.NewInt(1337),
-		gethks:     ksMock,
 		cfg:        cfg,
 	}
 	subID := uint64(1)
@@ -426,16 +401,9 @@ func TestListener_ShouldProcessSub_NoLinkEthPrice(t *testing.T) {
 	assert.True(t, shouldProcess) // no fee available, try to process it.
 }
 
-func TestListener_ShouldProcessSub_KeystoreFail(t *testing.T) {
+func TestListener_ShouldProcessSub_NoFromAddresses(t *testing.T) {
 	mockAggregator := &vrf_mocks.AggregatorV3Interface{}
 	defer mockAggregator.AssertExpectations(t)
-
-	ksMock := &keystore_mocks.Eth{}
-	ksMock.On("GetRoundRobinAddress", mock.Anything, mock.Anything).Return(
-		common.Address{},
-		errors.New("keystore error"),
-	)
-	defer ksMock.AssertExpectations(t)
 
 	cfg := &vrf_mocks.Config{}
 	defer cfg.AssertExpectations(t)
@@ -443,15 +411,12 @@ func TestListener_ShouldProcessSub_KeystoreFail(t *testing.T) {
 	lsn := &listenerV2{
 		job: job.Job{
 			VRFSpec: &job.VRFSpec{
-				FromAddresses: []ethkey.EIP55Address{
-					ethkey.EIP55Address("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
-				},
+				FromAddresses: []ethkey.EIP55Address{},
 			},
 		},
 		aggregator: mockAggregator,
 		l:          logger.TestLogger(t),
 		chainID:    big.NewInt(1337),
-		gethks:     ksMock,
 		cfg:        cfg,
 	}
 	subID := uint64(1)
@@ -466,5 +431,5 @@ func TestListener_ShouldProcessSub_KeystoreFail(t *testing.T) {
 			},
 		},
 	})
-	assert.True(t, shouldProcess) // keystore fail, try to process it.
+	assert.True(t, shouldProcess) // no addresses, but try to process it.
 }

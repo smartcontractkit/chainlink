@@ -405,16 +405,15 @@ func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.Get
 		"requestID", vrfRequest.RequestId.String(),
 	)
 
-	// do this just so that we get the gas lane gas price
-	// this gas price is used to estimate.
-	// if an error is returned, try to process anyway, though
-	// things will most likely fail in the request processing loop if
-	// they fail here.
-	fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, lsn.fromAddresses()...)
-	if err != nil {
-		l.Errorw("Couldn't get next from address, processing sub anyway", "err", err)
+	fromAddresses := lsn.fromAddresses()
+	if len(fromAddresses) == 0 {
+		l.Warn("Couldn't get next from address, processing sub anyway")
 		return true
 	}
+
+	// NOTE: we are assuming that all keys have an identical max gas price.
+	// Otherwise, this is a misconfiguration of the node and/or job.
+	fromAddress := fromAddresses[0]
 
 	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
 
