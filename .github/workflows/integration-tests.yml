@@ -13,6 +13,8 @@ jobs:
           filters: |
             src:
               - '**/*.go'
+              - '**/*go.sum'
+              - '**/*go.mod'
   build-chainlink:
     environment: integration
     name: Build Chainlink Image
