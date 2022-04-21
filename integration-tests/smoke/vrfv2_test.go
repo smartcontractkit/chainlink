@@ -81,6 +81,7 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			err = nets.Default.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
+
 			err = lt.Transfer(consumer.Address(), big.NewInt(0).Mul(big.NewInt(1e4), big.NewInt(1e18)))
 			Expect(err).ShouldNot(HaveOccurred())
 			err = coordinator.SetConfig(
@@ -101,6 +102,9 @@ var _ = Describe("VRFv2 suite @v2vrf", func() {
 					ReqsForTier5:                   big.NewInt(40)},
 			)
 			Expect(err).ShouldNot(HaveOccurred())
+			err = nets.Default.WaitForEvents()
+			Expect(err).ShouldNot(HaveOccurred())
+
 			err = consumer.CreateFundedSubscription(big.NewInt(0).Mul(big.NewInt(30), big.NewInt(1e18)))
 			Expect(err).ShouldNot(HaveOccurred())
 			err = nets.Default.WaitForEvents()
