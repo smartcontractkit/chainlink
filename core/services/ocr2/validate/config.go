@@ -15,6 +15,7 @@ import (
 type Config interface {
 	config.OCR2Config
 	Dev() bool
+	LogSQL() bool
 	JobPipelineResultWriteQueueDepth() uint64
 }
 

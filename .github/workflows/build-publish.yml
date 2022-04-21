@@ -7,7 +7,6 @@ on:
       - 'v*'
     branches:
       - master
-      - develop
 
 jobs:
   build-sign-publish-chainlink:

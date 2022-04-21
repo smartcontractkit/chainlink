@@ -653,9 +653,38 @@ func (r *VRFSpecResolver) RequestTimeout() string {
 	return r.spec.RequestTimeout.String()
 }
 
+// BatchCoordinatorAddress resolves the spec's batch coordinator address.
+func (r *VRFSpecResolver) BatchCoordinatorAddress() *string {
+	if r.spec.BatchCoordinatorAddress == nil {
+		return nil
+	}
+	addr := r.spec.BatchCoordinatorAddress.String()
+	return &addr
+}
+
+// BatchFulfillmentEnabled resolves the spec's batch fulfillment enabled flag.
+func (r *VRFSpecResolver) BatchFulfillmentEnabled() bool {
+	return r.spec.BatchFulfillmentEnabled
+}
+
+// BatchFulfillmentGasMultiplier resolves the spec's batch fulfillment gas multiplier.
+func (r *VRFSpecResolver) BatchFulfillmentGasMultiplier() float64 {
+	return r.spec.BatchFulfillmentGasMultiplier
+}
+
 // ChunkSize resolves the spec's chunk size.
 func (r *VRFSpecResolver) ChunkSize() int32 {
 	return int32(r.spec.ChunkSize)
+}
+
+// BackoffInitialDelay resolves the spec's backoff initial delay.
+func (r *VRFSpecResolver) BackoffInitialDelay() string {
+	return r.spec.BackoffInitialDelay.String()
+}
+
+// BackoffMaxDelay resolves the spec's backoff max delay.
+func (r *VRFSpecResolver) BackoffMaxDelay() string {
+	return r.spec.BackoffMaxDelay.String()
 }
 
 type WebhookSpecResolver struct {

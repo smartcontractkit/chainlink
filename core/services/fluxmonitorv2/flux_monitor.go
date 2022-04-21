@@ -76,7 +76,7 @@ type FluxMonitor struct {
 
 	logger logger.Logger
 
-	backlog       *utils.BoundedPriorityQueue
+	backlog       *utils.BoundedPriorityQueue[log.Broadcast]
 	chProcessLogs chan struct{}
 
 	utils.StartStopOnce
@@ -124,7 +124,7 @@ func NewFluxMonitor(
 		logBroadcaster:    logBroadcaster,
 		fluxAggregator:    fluxAggregator,
 		logger:            fmLogger,
-		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
+		backlog: utils.NewBoundedPriorityQueue[log.Broadcast](map[uint]int{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
 			PriorityNewRoundLog:      2,
@@ -486,11 +486,7 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 
 func (fm *FluxMonitor) processLogs() {
 	for !fm.backlog.Empty() {
-		maybeBroadcast := fm.backlog.Take()
-		broadcast, ok := maybeBroadcast.(log.Broadcast)
-		if !ok {
-			fm.logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
-		}
+		broadcast := fm.backlog.Take()
 		fm.processBroadcast(broadcast)
 	}
 }

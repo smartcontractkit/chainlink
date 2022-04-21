@@ -14,6 +14,7 @@ jobs:
             src:
               - '**/*.go'
   build-chainlink:
+    environment: integration
     name: Build Chainlink Image
     runs-on: ubuntu-latest
     needs: changes
@@ -44,6 +45,7 @@ jobs:
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
   smoke:
+    environment: integration
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
     needs: [changes, build-chainlink]
@@ -89,14 +91,11 @@ jobs:
         if: steps.cache-packages.outputs.cache-hit != 'true'
         run: go mod download
       - name: Install Ginkgo CLI
-        run: |
-          go get github.com/onsi/ginkgo/v2/ginkgo/generators@v2.1.2
-          go get github.com/onsi/ginkgo/v2/ginkgo/internal@v2.1.2
-          go get github.com/onsi/ginkgo/v2/ginkgo/labels@v2.1.2
-          go install github.com/onsi/ginkgo/v2/ginkgo
+        run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.3
       - name: Run Tests
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
           make test_smoke args="-nodes=6"
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
@@ -106,10 +105,11 @@ jobs:
           check_name: 'Smoke Test Results'
       - name: Publish Artifacts
         if: failure()
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v3
         with:
-          name: test-logs
+          name: eth-test-logs
           path: ./integration-tests/logs
+
   solana:
     name: Solana Tests
     needs: [changes, build-chainlink]
@@ -126,6 +126,7 @@ jobs:
       QA_AWS_REGION: ${{ secrets.AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
       QA_KUBECONFIG: ${{ secrets.KUBECONFIG }}
+
   terra:
     name: Terra Tests
     needs: [changes, build-chainlink]

@@ -15,6 +15,8 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -28,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -179,6 +181,29 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			existingSpec := new(OCROracleSpec)
+			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL) LIMIT 1;`,
+				jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID,
+			)
+			if !errors.Is(err, sql.ErrNoRows) {
+				if err != nil {
+					return errors.Wrap(err, "failed to validate OffchainreportingOracleSpec on creation")
+				}
+
+				matchErr := errors.Errorf("a job with contract address %s already exists for chain ID %d", jb.OCROracleSpec.ContractAddress, jb.OCROracleSpec.EVMChainID.ToInt())
+				if existingSpec.EVMChainID == nil {
+					chain, err2 := o.chainSet.Default()
+					if err2 != nil {
+						return errors.Wrap(err2, "failed to validate OffchainreportingOracleSpec on creation")
+					}
+					if jb.OCROracleSpec.EVMChainID.Equal((*utils.Big)(chain.ID())) {
+						return matchErr
+					}
+				} else {
+					return matchErr
+				}
+			}
+
 			sql := `INSERT INTO ocr_oracle_specs (contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address,
 					observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, evm_chain_id,
 					created_at, updated_at, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout)
@@ -186,7 +211,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					:observation_timeout, :blockchain_timeout, :contract_config_tracker_subscribe_interval, :contract_config_tracker_poll_interval, :contract_config_confirmations, :evm_chain_id,
 					NOW(), NOW(), :database_timeout, :observation_grace_period, :contract_transmitter_transmit_timeout)
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCROracleSpec)
+			err = pg.PrepareQueryRowx(tx, sql, &specID, jb.OCROracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec")
 			}
@@ -266,8 +291,18 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.CronSpecID = &specID
 		case VRF:
 			var specID int32
-			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_addresses, poll_period, requested_confs_delay, request_timeout, chunk_size, created_at, updated_at)
-			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, :request_timeout, :chunk_size, NOW(), NOW())
+			sql := `INSERT INTO vrf_specs (
+				coordinator_address, public_key, min_incoming_confirmations, 
+				evm_chain_id, from_addresses, poll_period, requested_confs_delay, 
+				request_timeout, chunk_size, batch_coordinator_address, batch_fulfillment_enabled, 
+				batch_fulfillment_gas_multiplier, backoff_initial_delay, backoff_max_delay,
+				created_at, updated_at)
+			VALUES (
+				:coordinator_address, :public_key, :min_incoming_confirmations, 
+				:evm_chain_id, :from_addresses, :poll_period, :requested_confs_delay, 
+				:request_timeout, :chunk_size, :batch_coordinator_address, :batch_fulfillment_enabled,
+				:batch_fulfillment_gas_multiplier, :backoff_initial_delay, :backoff_max_delay,
+				NOW(), NOW())
 			RETURNING id;`
 
 			err := pg.PrepareQueryRowx(tx, sql, &specID, toVRFSpecRow(jb.VRFSpec))
