@@ -7,8 +7,6 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
-	chains "github.com/smartcontractkit/chainlink/core/chains"
-
 	common "github.com/ethereum/go-ethereum/common"
 
 	commontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -490,14 +488,14 @@ func (_m *ChainScopedConfig) ChainID() *big.Int {
 }
 
 // ChainType provides a mock function with given fields:
-func (_m *ChainScopedConfig) ChainType() chains.ChainType {
+func (_m *ChainScopedConfig) ChainType() coreconfig.ChainType {
 	ret := _m.Called()
 
-	var r0 chains.ChainType
-	if rf, ok := ret.Get(0).(func() chains.ChainType); ok {
+	var r0 coreconfig.ChainType
+	if rf, ok := ret.Get(0).(func() coreconfig.ChainType); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(chains.ChainType)
+		r0 = ret.Get(0).(coreconfig.ChainType)
 	}
 
 	return r0
@@ -1123,6 +1121,20 @@ func (_m *ChainScopedConfig) EvmLogBackfillBatchSize() uint32 {
 	return r0
 }
 
+// EvmLogPollInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmLogPollInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // EvmMaxGasPriceWei provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmMaxGasPriceWei() *big.Int {
 	ret := _m.Called()
@@ -1313,6 +1325,20 @@ func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
 
 // FeatureFeedsManager provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureFeedsManager() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// FeatureLogPoller provides a mock function with given fields:
+func (_m *ChainScopedConfig) FeatureLogPoller() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2009,6 +2035,27 @@ func (_m *ChainScopedConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmLogPollInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	var r1 bool
@@ -3986,6 +4033,34 @@ func (_m *ChainScopedConfig) SolanaEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// SolanaNodes provides a mock function with given fields:
+func (_m *ChainScopedConfig) SolanaNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// TerraNodes provides a mock function with given fields:
+func (_m *ChainScopedConfig) TerraNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0

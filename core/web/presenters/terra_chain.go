@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-terra/pkg/terra/db"
+
+	"github.com/smartcontractkit/chainlink/core/chains/terra/types"
 )
 
 // TerraChainResource is an Terra chain JSONAPI resource.
@@ -21,7 +23,7 @@ func (r TerraChainResource) GetName() string {
 }
 
 // NewTerraChainResource returns a new TerraChainResource for chain.
-func NewTerraChainResource(chain db.Chain) TerraChainResource {
+func NewTerraChainResource(chain types.Chain) TerraChainResource {
 	return TerraChainResource{
 		JAID:      NewJAID(chain.ID),
 		Config:    chain.Cfg,
