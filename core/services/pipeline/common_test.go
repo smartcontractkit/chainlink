@@ -173,7 +173,7 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 			taskMap := map[string]string{}
 			task, err := pipeline.UnmarshalTaskFromMap(test.taskType, taskMap, 0, "foo-dot-id")
 			require.NoError(t, err)
-			require.Equal(t, reflect.TypeOf(test.expectedTaskType), reflect.TypeOf(task))
+			require.IsType(t, test.expectedTaskType, task)
 		})
 	}
 }
