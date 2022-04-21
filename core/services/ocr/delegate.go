@@ -35,6 +35,7 @@ type Delegate struct {
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
 	lggr                  logger.Logger
+	cfg                   Config
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -50,6 +51,7 @@ func NewDelegate(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
+	cfg Config,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -60,6 +62,7 @@ func NewDelegate(
 		monitoringEndpointGen,
 		chainSet,
 		lggr.Named("OCR"),
+		cfg,
 	}
 }
 
@@ -104,7 +107,7 @@ func (d Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err er
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrDB := NewDB(d.db.DB, concreteSpec.ID, lggr)
+	ocrDB := NewDB(d.db, concreteSpec.ID, lggr, d.cfg)
 
 	tracker := NewOCRContractTracker(
 		contract,

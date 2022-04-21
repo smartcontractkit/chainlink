@@ -88,6 +88,7 @@ type GeneralConfigOverrides struct {
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
+	KeeperTurnLookBack                        null.Int
 	LeaseLockDuration                         *time.Duration
 	LeaseLockRefreshInterval                  *time.Duration
 	LogFileDir                                null.String
@@ -466,6 +467,13 @@ func (c *TestGeneralConfig) KeeperMaximumGracePeriod() int64 {
 		return c.Overrides.KeeperMaximumGracePeriod.Int64
 	}
 	return c.GeneralConfig.KeeperMaximumGracePeriod()
+}
+
+func (c *TestGeneralConfig) KeeperTurnLookBack() int64 {
+	if c.Overrides.KeeperTurnLookBack.Valid {
+		return c.Overrides.KeeperTurnLookBack.Int64
+	}
+	return c.GeneralConfig.KeeperTurnLookBack()
 }
 
 func (c *TestGeneralConfig) BlockBackfillSkip() bool {

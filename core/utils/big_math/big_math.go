@@ -46,6 +46,16 @@ func Max(x, y interface{}) *big.Int {
 	return yBig
 }
 
+// Accumulate returns the sum of the given slice after coercing all elements
+// to a big.Int, or panics if it cannot.
+func Accumulate(s []interface{}) (r *big.Int) {
+	r = big.NewInt(0)
+	for _, e := range s {
+		r.Add(r, bnIfy(e))
+	}
+	return
+}
+
 func bnIfy(val interface{}) *big.Int {
 	switch v := val.(type) {
 	case uint:

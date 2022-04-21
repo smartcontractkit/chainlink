@@ -1211,6 +1211,20 @@ func (_m *ChainScopedConfig) EvmRPCDefaultBatchSize() uint32 {
 	return r0
 }
 
+// EvmUseForwarders provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmUseForwarders() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // ExplorerAccessKey provides a mock function with given fields:
 func (_m *ChainScopedConfig) ExplorerAccessKey() string {
 	ret := _m.Called()
@@ -2137,6 +2151,27 @@ func (_m *ChainScopedConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmUseForwarders provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmUseForwarders() (bool, bool) {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalFlagsContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalFlagsContractAddress() (string, bool) {
 	ret := _m.Called()
@@ -2659,6 +2694,20 @@ func (_m *ChainScopedConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// KeeperTurnLookBack provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperTurnLookBack() int64 {
+	ret := _m.Called()
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
 	}
 
 	return r0

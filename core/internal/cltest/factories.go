@@ -554,7 +554,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	return jb
 }
 
-func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
+func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
 	from := key.Address
 	t.Helper()
@@ -562,12 +562,15 @@ func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKey
 	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
-		BlockCountPerTurn: 20,
+		BlockCountPerTurn: blockCountPerTurn,
 		CheckGas:          150_000,
 		FromAddress:       from,
 		JobID:             job.ID,
-		KeeperIndex:       0,
-		NumKeepers:        1,
+		KeeperIndex:       keeperIndex,
+		NumKeepers:        numKeepers,
+		KeeperIndexMap: map[ethkey.EIP55Address]int32{
+			from: keeperIndex,
+		},
 	}
 	err := korm.UpsertRegistry(&registry)
 	require.NoError(t, err)
@@ -585,9 +588,6 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, r
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),
 	}
-	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
-	require.NoError(t, err)
-	upkeep.PositioningConstant = positioningConstant
 	err = korm.UpsertUpkeep(&upkeep)
 	require.NoError(t, err)
 	return upkeep
