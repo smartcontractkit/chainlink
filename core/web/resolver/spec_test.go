@@ -112,7 +112,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 									evmChainID
 									minIncomingConfirmations
 									minIncomingConfirmationsEnv
-									minContractPayment
+									minContractPaymentLinkJuels
 									requesters
 								}
 							}
@@ -130,7 +130,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 							"evmChainID": "42",
 							"minIncomingConfirmations": 1,
 							"minIncomingConfirmationsEnv": true,
-							"minContractPayment": "1000",
+							"minContractPaymentLinkJuels": "1000",
 							"requesters": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"]
 						}
 					}
