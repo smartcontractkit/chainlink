@@ -16,7 +16,9 @@ import (
 type ORM interface {
 	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
+	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, int, error)
 	DeleteForwarder(id int32) error
+	FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error)
 }
 
 type orm struct {
@@ -65,4 +67,53 @@ func (o *orm) FindForwarders(offset, limit int) (fwds []Forwarder, count int, er
 		return
 	}
 	return
+}
+
+// FindForwardersByChain returns all forwarder addresses for a chain.
+func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, count int, err error) {
+	sql := `SELECT count(*) FROM evm_forwarders where evm_chain_id = $1`
+	if err = o.q.Get(&count, sql, evmChainId); err != nil {
+		return
+	}
+
+	sql = `SELECT * FROM evm_forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC LIMIT 10`
+	if err = o.q.Select(&fwds, sql, evmChainId); err != nil {
+		return
+	}
+	return
+}
+
+func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error) {
+	var fwdrs []Forwarder
+
+	arg := map[string]interface{}{
+		"addresses": addrs,
+		"chainid":   evmChainId,
+	}
+
+	query, args, err := sqlx.Named(`
+		SELECT * FROM evm_forwarders 
+		WHERE evm_chain_id = :chainid
+		AND address IN (:addrs)
+		ORDER BY created_at DESC, id DESC LIMIT 10`,
+		arg,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	query = o.q.Rebind(query)
+	err = o.q.Select(&fwdrs, query, args...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fwdrs, nil
 }

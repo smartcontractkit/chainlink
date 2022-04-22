@@ -74,7 +74,28 @@ func TestORM(t *testing.T) {
 			TxHash:      common.HexToHash("0x1888"),
 			Data:        []byte("hello"),
 		},
-	}))
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    2,
+			BlockHash:   common.HexToHash("0x1234"),
+			BlockNumber: int64(11),
+			EventSig:    topic[:],
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    3,
+			BlockHash:   common.HexToHash("0x1234"),
+			BlockNumber: int64(12),
+			EventSig:    topic[:],
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello"),
+		}}))
 	logs, err := o1.selectLogsByBlockRange(10, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))
@@ -98,6 +119,7 @@ func TestORM(t *testing.T) {
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	// With block 12, anything <=2 should work
 	require.NoError(t, o1.DeleteRangeBlocks(10, 10))
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 11))
 	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1234"), 12))
 	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 0)
 	require.NoError(t, err)
@@ -108,4 +130,22 @@ func TestORM(t *testing.T) {
 	_, err = o1.SelectLatestLogEventSigWithConfs(topic, common.HexToAddress("0x1234"), 3)
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
+
+	// 0 conf should return the most recent block 12
+	lgs, err := o1.LatestLogEventSigsAddrsWithConfs([]common.Address{common.HexToAddress("0x1234")}, [][]byte{topic[:]}, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(lgs))
+	require.Equal(t, int64(12), lgs[0].BlockNumber)
+
+	// 1 conf should return the second most recent block 11
+	lgs, err = o1.LatestLogEventSigsAddrsWithConfs([]common.Address{common.HexToAddress("0x1234")}, [][]byte{topic[:]}, 1)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(lgs))
+	require.Equal(t, int64(11), lgs[0].BlockNumber)
+
+	// 2 conf should return the third most recent block 10
+	lgs, err = o1.LatestLogEventSigsAddrsWithConfs([]common.Address{common.HexToAddress("0x1234")}, [][]byte{topic[:]}, 2)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(lgs))
+	require.Equal(t, int64(10), lgs[0].BlockNumber)
 }
