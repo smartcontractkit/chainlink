@@ -191,9 +191,17 @@ func NewLogger() (Logger, func() error) {
 
 	var fileMaxSize utils.FileSize
 	fileMaxSize, invalid = envvar.LogFileMaxSize.Parse()
-	c.FileMaxSize = int(fileMaxSize)
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
+	}
+	if fileMaxSize == 0 || invalid != "" {
+		c.FileMaxSizeMB = 5120 * utils.MB // our default (env var) is 5120mb
+		parseErrs = append(parseErrs, "LogFileMaxSize will default to 5120mb")
+	} else if fileMaxSize < utils.MB {
+		c.FileMaxSizeMB = 1 // 1Mb is the minimum accepted by logging backend
+		parseErrs = append(parseErrs, "LogFileMaxSize will default to 1Mb")
+	} else {
+		c.FileMaxSizeMB = int(fileMaxSize / utils.MB)
 	}
 
 	if c.DebugLogsToDisk() {
@@ -203,7 +211,7 @@ func NewLogger() (Logger, func() error) {
 		)
 
 		fileMaxAge, invalid = envvar.LogFileMaxAge.Parse()
-		c.FileMaxAge = int(fileMaxAge)
+		c.FileMaxAgeDays = int(fileMaxAge)
 		if invalid != "" {
 			parseErrs = append(parseErrs, invalid)
 		}
@@ -232,8 +240,8 @@ type Config struct {
 	Dir            string
 	JsonConsole    bool
 	UnixTS         bool
-	FileMaxSize    int // megabytes
-	FileMaxAge     int // days
+	FileMaxSizeMB  int
+	FileMaxAgeDays int
 	FileMaxBackups int // files
 }
 
@@ -257,12 +265,12 @@ func (c *Config) New() (Logger, func() error) {
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
 func (c Config) DebugLogsToDisk() bool {
-	return c.FileMaxSize > 0
+	return c.FileMaxSizeMB > 0
 }
 
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
-	return utils.FileSize(c.FileMaxSize * (c.FileMaxBackups + 1))
+	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
 }
 
 // InitColor explicitly sets the global color.NoColor option.
