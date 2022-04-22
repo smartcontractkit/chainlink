@@ -70,7 +70,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps1_1(reg Registry) error {
 	// newUpkeeps is the range nextUpkeepID, nextUpkeepID + 1 , ... , countOnContract-1
 	newUpkeeps := make([]*big.Int, countOnContract-nextUpkeepID)
 	for i := range newUpkeeps {
-		newUpkeeps[i].Add(big.NewInt(nextUpkeepID), big.NewInt(int64(i)))
+		newUpkeeps[i] = big.NewInt(nextUpkeepID + int64(i))
 	}
 	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
 
