@@ -185,6 +185,20 @@ func (txm *Txm) confirm(ctx context.Context) {
 	timestamps := map[solanaGo.Signature]time.Time{}
 	timestampsMu := sync.Mutex{}
 
+	// if transaction is older than MaxConfirmTimeout, trigger Cancel (removes from list of signatures to check)
+	checkTimestamp := func(sig solanaGo.Signature, warnStr string) {
+		timestampsMu.Lock()
+		timestamp, exists := timestamps[sig]
+		if !exists { // if new, add timestamp
+			timestamps[sig] = time.Now()
+		} else if time.Since(timestamp) > MaxConfirmTimeout { // if timed out, drop tx sig (remove from txCache + timestamps)
+			txm.txCache.Cancel(sig)
+			txm.lggr.Warnw(warnStr, "signature", sig, "timeoutSeconds", MaxConfirmTimeout)
+			delete(timestamps, sig)
+		}
+		timestampsMu.Unlock()
+	}
+
 	tick := time.After(0)
 	for {
 		select {
@@ -227,17 +241,8 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"signature", s[i],
 						)
 
-						// if transaction has been at nil after MaxNilStatus times, trigger Cancel (removes from list of signatures to check)
-						timestampsMu.Lock()
-						timestamp, exists := timestamps[s[i]]
-						if !exists { // if new, add timestamp
-							timestamps[s[i]] = time.Now()
-						} else if time.Since(timestamp) > MaxConfirmTimeout { // if timed out, drop tx sig (remove from txCache + timestamps)
-							txm.txCache.Cancel(s[i])
-							txm.lggr.Warnw("failed to find transaction within confirm timeout", "signature", s[i], "timeoutSeconds", MaxConfirmTimeout)
-							delete(timestamps, s[i])
-						}
-						timestampsMu.Unlock()
+						// check confirm timeout exceeded
+						checkTimestamp(s[i], "failed to find transaction within confirm timeout")
 						continue
 					}
 
@@ -262,6 +267,9 @@ func (txm *Txm) confirm(ctx context.Context) {
 						txm.lggr.Debugw("tx state: processed",
 							"signature", s[i],
 						)
+
+						// check confirm timeout exceeded
+						checkTimestamp(s[i], "tx failed to move beyond 'processed' within confirm timeout")
 						continue
 					}
 
@@ -322,8 +330,8 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 			res, err := client.SimulateTx(ctx, msg.tx, nil) // use default options
 			if err != nil {
-				// this error can occur if endpoint goes down or if invalid signature (endpoint failures should occur further upstream in sendWithRetry)
-				txm.txCache.Failed(msg.signature) // cancel retry
+				// this error can occur if endpoint goes down or if invalid signature (invalid signature should occur further upstream in sendWithRetry)
+				// allow retry to continue in case temporary endpoint failure (if still invalid, confirm or timeout will cleanup)
 				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
 				break // exit switch
 			}

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -43,10 +42,7 @@ func TestTxm(t *testing.T) {
 	// set up configs needed in txm
 	id := "mocknet"
 	lggr := logger.TestLogger(t)
-	confirmDuration := models.MustMakeDuration(500 * time.Millisecond)
-	cfg := config.NewConfig(db.ChainCfg{
-		ConfirmPollPeriod: &confirmDuration,
-	}, lggr)
+	cfg := config.NewConfig(db.ChainCfg{}, lggr)
 	mc := new(mocks.ReaderWriter)
 	txm := NewTxm(id, func() (client.ReaderWriter, error) {
 		return mc, nil
@@ -84,14 +80,14 @@ func TestTxm(t *testing.T) {
 
 	// check if cached transaction is cleared
 	empty := func() bool {
-		count := len(txm.txCache.List())
+		count := txm.InflightTxs()
 		assert.Equal(t, float64(count), prom.getInflight()) // validate prom metric and cache length
 		return count == 0
 	}
 
-	waitFor := func(func() bool) {
-		for i := 0; i < 10; i++ {
-			if len(txm.txCache.List()) == 0 {
+	waitFor := func(f func() bool) {
+		for i := 0; i < 30; i++ {
+			if f() {
 				return
 			}
 			time.Sleep(time.Second)
@@ -191,8 +187,7 @@ func TestTxm(t *testing.T) {
 		prom.assertEqual(t)
 	})
 
-	// tx fails simulation (rpc error, timeout should clean up)
-	// same case as tx simulation never passes nil
+	// tx fails simulation (rpc error, timeout should clean up b/c sig status will be nil)
 	t.Run("fail_simulation_confirmNil", func(t *testing.T) {
 		tx := getTx()
 		sig := getSig()
