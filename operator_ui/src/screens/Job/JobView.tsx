@@ -23,7 +23,7 @@ const JOB_PAYLOAD__SPEC = gql`
       evmChainID
       minIncomingConfirmations
       minIncomingConfirmationsEnv
-      # minContractPayment - This is not being used but should we display it?
+      minContractPaymentLinkJuels
       requesters
     }
     ... on FluxMonitorSpec {
