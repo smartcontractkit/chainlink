@@ -5,6 +5,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -98,7 +99,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to determine version of keeper registry contract")
 	}
-	svcLogger.Debug("Registry version is: ", *registryVersion)
+	svcLogger.Info("Registry version is: ", *registryVersion)
 
 	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
 	if spec.KeeperSpec.MinIncomingConfirmations != nil {
@@ -139,9 +140,13 @@ func getRegistryVersion(contract1_1 *registry1_1.KeeperRegistry) (*RegistryVersi
 	// Use registry 1_1 wrapper to get version information
 	typeAndVersion, err := contract1_1.TypeAndVersion(nil)
 	if err != nil {
-		// Version 1.0 does not support typeAndVersion interface, hence gives an error on this call
-		version := RegistryVersion_1_0
-		return &version, nil
+		jsonErr := evmclient.ExtractRPCError(err)
+		if jsonErr != nil {
+			// Version 1.0 does not support typeAndVersion interface, hence gives a json error on this call
+			version := RegistryVersion_1_0
+			return &version, nil
+		}
+		return nil, errors.Wrap(err, "unable to fetch version of registry")
 	}
 	switch typeAndVersion {
 	case "KeeperRegistry 1.1.0":
