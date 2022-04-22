@@ -94,15 +94,12 @@ func TestTxm_Integration(t *testing.T) {
 	require.NoError(t, txm.Enqueue("test_txFail", createTx(&privKey, pubKey, pubKeyReceiver, 1000*solana.LAMPORTS_PER_SOL)))
 
 	// load test: try to overload txs, confirm, or simulation
-	// TODO: confirmation can take longer than tx retry lifetime
 	for i := 0; i < 1000; i++ {
 		assert.NoError(t, txm.Enqueue(fmt.Sprintf("load_%d", i), createTx(&loadTestKey, loadTestKey.PublicKey(), loadTestKey.PublicKey(), uint64(i))))
-		if i%10 == 0 {
-			time.Sleep(100 * time.Millisecond) // ~100 txs per second
-		}
+		time.Sleep(10 * time.Millisecond) // ~100 txs per second (note: have run 5ms delays for ~200tx/s succesfully)
 	}
 
-	// check to make sure all txs are closed out from cache (longest tx should last 5s)
+	// check to make sure all txs are closed out from cache (longest should last MaxConfirmTimeout)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	ticker := time.NewTicker(time.Second)

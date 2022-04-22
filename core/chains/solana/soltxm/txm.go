@@ -3,6 +3,7 @@ package soltxm
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,10 +21,11 @@ import (
 )
 
 const (
-	MaxQueueLen      = 1000
-	MaxRetryTimeMs   = 500
-	MaxTxTimeout     = 5 * time.Second
-	MaxSigsToConfirm = 256
+	MaxQueueLen       = 1000
+	MaxRetryTimeMs    = 500              // max tx retry time
+	MaxRetryTxTimeout = 5 * time.Second  // transaction timeout to stop retrying
+	MaxSigsToConfirm  = 256              // max number of signatures in GetSignatureStatus call
+	MaxConfirmTimeout = 15 * time.Second // confirmation timeout to stop checking signature
 )
 
 var (
@@ -142,18 +144,18 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 		for {
 			select {
 			case <-ctx.Done():
-				deadline, _ := ctx.Deadline()
-				if time.Now().After(deadline) {
-					// remove sig from cache if context is cancelled by timeout
-					txm.txCache.Cancel(sig)
-					txm.lggr.Warnw("failed to find transaction within timeout", "signature", sig)
-				}
+				// stop sending tx after retry tx ctx times out (does not stop confirmation polling for tx)
 				return
 			case <-tick:
 				retrySig, err := client.SendTx(ctx, tx)
 				// this could occur if endpoint goes down or if ctx cancelled
 				if err != nil {
-					txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", retrySig)
+					if strings.Contains(err.Error(), "context canceled") {
+						txm.lggr.Debugw("ctx cancelled on send retry transaction", "error", err, "signature", retrySig)
+					} else {
+						txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", retrySig)
+					}
+
 					break // exit switch
 				}
 				// this should never happen
@@ -179,6 +181,9 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 // cancels the exponential retry once confirmed
 func (txm *Txm) confirm(ctx context.Context) {
 	defer txm.done.Done()
+
+	timestamps := map[solanaGo.Signature]time.Time{}
+	timestampsMu := sync.Mutex{}
 
 	tick := time.After(0)
 	for {
@@ -221,6 +226,18 @@ func (txm *Txm) confirm(ctx context.Context) {
 						txm.lggr.Debugw("tx state: not found",
 							"signature", s[i],
 						)
+
+						// if transaction has been at nil after MaxNilStatus times, trigger Cancel (removes from list of signatures to check)
+						timestampsMu.Lock()
+						timestamp, exists := timestamps[s[i]]
+						if !exists { // if new, add timestamp
+							timestamps[s[i]] = time.Now()
+						} else if time.Since(timestamp) > MaxConfirmTimeout { // if timed out, drop tx sig (remove from txCache + timestamps)
+							txm.txCache.Cancel(s[i])
+							txm.lggr.Warnw("failed to find transaction within confirm timeout", "signature", s[i], "timeoutSeconds", MaxConfirmTimeout)
+							delete(timestamps, s[i])
+						}
+						timestampsMu.Unlock()
 						continue
 					}
 
@@ -232,6 +249,11 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"status", res[i].ConfirmationStatus,
 						)
 						txm.txCache.Revert(s[i])
+
+						// clear timestamp
+						timestampsMu.Lock()
+						delete(timestamps, s[i])
+						timestampsMu.Unlock()
 						continue
 					}
 
@@ -249,6 +271,11 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"signature", s[i],
 						)
 						txm.txCache.Success(s[i])
+
+						// clear timestamp
+						timestampsMu.Lock()
+						delete(timestamps, s[i])
+						timestampsMu.Unlock()
 						continue
 					}
 				}
@@ -286,10 +313,6 @@ func (txm *Txm) simulate(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-txm.simQueue:
-			// TODO: consider bounded number of workers for simulating
-			// current: single worker
-			// compared to tx retrying (unbounded goroutines)
-
 			// get client
 			client, err := txm.client.Get()
 			if err != nil {
@@ -299,8 +322,8 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 			res, err := client.SimulateTx(ctx, msg.tx, nil) // use default options
 			if err != nil {
-				// this error can occur if endpoint goes down or even if invalid signature
-				// will continue to retry and confirm until timeout
+				// this error can occur if endpoint goes down or if invalid signature (endpoint failures should occur further upstream in sendWithRetry)
+				txm.txCache.Failed(msg.signature) // cancel retry
 				txm.lggr.Errorw("failed to simulate tx", "signature", msg.signature, "error", err)
 				break // exit switch
 			}
@@ -319,7 +342,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	msg := queueMsg{
 		tx:      tx,
-		timeout: MaxTxTimeout,
+		timeout: MaxRetryTxTimeout,
 	}
 
 	select {
