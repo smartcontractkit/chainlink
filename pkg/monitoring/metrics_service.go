@@ -30,6 +30,13 @@ var (
 		},
 		[]string{"topic", "network_name", "network_id", "chain_id"},
 	)
+	sendMessageToKafkaBytes = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "send_message_to_kafka_bytes",
+			Help: "a lower bound on the number of bytes written to Kafka. It does not measure the kafka protocol traffic, only the key, value and topic sent",
+		},
+		[]string{"topic", "network_name", "network_id", "chain_id"},
+	)
 
 	// Feed-level Metrics
 
@@ -70,6 +77,7 @@ type ChainMetrics interface {
 
 	IncSendMessageToKafkaFailed(topic string)
 	IncSendMessageToKafkaSucceeded(topic string)
+	AddSendMessageToKafkaBytes(bytes float64, topic string)
 }
 
 func NewChainMetrics(chainConfig ChainConfig) ChainMetrics {
@@ -104,6 +112,15 @@ func (c *chainMetrics) IncSendMessageToKafkaSucceeded(topic string) {
 		"network_id":   c.chainConfig.GetNetworkID(),
 		"chain_id":     c.chainConfig.GetChainID(),
 	}).Inc()
+}
+
+func (c *chainMetrics) AddSendMessageToKafkaBytes(bytes float64, topic string) {
+	sendMessageToKafkaBytes.With(prometheus.Labels{
+		"topic":        topic,
+		"network_name": c.chainConfig.GetNetworkName(),
+		"network_id":   c.chainConfig.GetNetworkID(),
+		"chain_id":     c.chainConfig.GetChainID(),
+	}).Add(bytes)
 }
 
 type FeedMetrics interface {

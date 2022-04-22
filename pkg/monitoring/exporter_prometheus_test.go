@@ -168,6 +168,19 @@ func TestPrometheusExporter(t *testing.T) {
 			chainConfig.GetNetworkID(),     // networkID
 			chainConfig.GetNetworkName(),   // networkName
 		).Once()
+		metrics.On("SetOffchainAggregatorJuelsPerFeeCoinReceivedValues",
+			humanizedJuelsPerFeeCoin1,      //juels/feecoin
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			string(envelope1.Transmitter),  // sender
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
 		metrics.On("SetOffchainAggregatorRoundID",
 			float64(envelope1.AggregatorRoundID),
 			feedConfig.GetID(),
@@ -291,6 +304,19 @@ func TestPrometheusExporter(t *testing.T) {
 		).Once()
 		metrics.On("SetOffchainAggregatorSubmissionReceivedValues",
 			humanizedAnswer2,
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			string(envelope2.Transmitter),  // sender
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
+		metrics.On("SetOffchainAggregatorJuelsPerFeeCoinReceivedValues",
+			humanizedJuelsPerFeeCoin2,
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
 			string(envelope2.Transmitter),  // sender
@@ -495,6 +521,19 @@ func TestPrometheusExporter(t *testing.T) {
 		).Once()
 		metrics.On("SetOffchainAggregatorSubmissionReceivedValues",
 			humanizedAnswer,                // answer
+			feedConfig.GetID(),             // contractAddress
+			feedConfig.GetID(),             // feedID
+			string(envelope1.Transmitter),  // sender
+			chainConfig.GetChainID(),       // chainID
+			feedConfig.GetContractStatus(), // contractStatus
+			feedConfig.GetContractType(),   // contractType
+			feedConfig.GetName(),           // feedName
+			feedConfig.GetPath(),           // feedPath
+			chainConfig.GetNetworkID(),     // networkID
+			chainConfig.GetNetworkName(),   // networkName
+		).Once()
+		metrics.On("SetOffchainAggregatorJuelsPerFeeCoinReceivedValues",
+			humanizedJuelsPerFeeCoin,       // answer
 			feedConfig.GetID(),             // contractAddress
 			feedConfig.GetID(),             // feedID
 			string(envelope1.Transmitter),  // sender

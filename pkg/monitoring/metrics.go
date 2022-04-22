@@ -27,6 +27,7 @@ type Metrics interface {
 	SetOffchainAggregatorJuelsPerFeeCoinRaw(juelsPerFeeCoin float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorJuelsPerFeeCoin(juelsPerFeeCoin float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorSubmissionReceivedValues(value float64, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
+	SetOffchainAggregatorJuelsPerFeeCoinReceivedValues(value float64, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorAnswerStalled(isSet bool, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	SetOffchainAggregatorRoundID(aggregatorRoundID float64, contractAddress, feedID, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string)
 	// Cleanup deletes all the metrics
@@ -121,6 +122,13 @@ var (
 		prometheus.GaugeOpts{
 			Name: "offchain_aggregator_submission_received_values",
 			Help: "Report individual node observations for the latest transmission on chain. (Should be 1 time series per node per contract). The values are divided by the feed's multiplier config.",
+		},
+		[]string{"contract_address", "feed_id", "sender", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
+	)
+	offchainAggregatorJuelsPerFeeCoinReceivedValues = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "offchain_aggregator_juels_per_fee_coin_received_values",
+			Help: "Report individual node observations of the Juels/FeeCoing feeds at the latest transmission on chain. (Should be 1 time series per node per contract). The values are divided by the feed's multiplier config.",
 		},
 		[]string{"contract_address", "feed_id", "sender", "chain_id", "contract_status", "contract_type", "feed_name", "feed_path", "network_id", "network_name"},
 	)
@@ -308,6 +316,21 @@ func (d *defaultMetrics) SetOffchainAggregatorJuelsPerFeeCoin(juelsPerFeeCoin fl
 
 func (d *defaultMetrics) SetOffchainAggregatorSubmissionReceivedValues(value float64, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
 	offchainAggregatorSubmissionReceivedValues.With(prometheus.Labels{
+		"contract_address": contractAddress,
+		"feed_id":          feedID,
+		"sender":           sender,
+		"chain_id":         chainID,
+		"contract_status":  contractStatus,
+		"contract_type":    contractType,
+		"feed_name":        feedName,
+		"feed_path":        feedPath,
+		"network_id":       networkID,
+		"network_name":     networkName,
+	}).Set(value)
+}
+
+func (d *defaultMetrics) SetOffchainAggregatorJuelsPerFeeCoinReceivedValues(value float64, contractAddress, feedID, sender, chainID, contractStatus, contractType, feedName, feedPath, networkID, networkName string) {
+	offchainAggregatorJuelsPerFeeCoinReceivedValues.With(prometheus.Labels{
 		"contract_address": contractAddress,
 		"feed_id":          feedID,
 		"sender":           sender,
@@ -536,6 +559,22 @@ func (d *defaultMetrics) Cleanup(
 		{
 			"offchain_aggregator_submission_received_values",
 			offchainAggregatorSubmissionReceivedValues.MetricVec,
+			prometheus.Labels{
+				"contract_address": contractAddress,
+				"feed_id":          feedID,
+				"sender":           sender,
+				"chain_id":         chainID,
+				"contract_status":  contractStatus,
+				"contract_type":    contractType,
+				"feed_name":        feedName,
+				"feed_path":        feedPath,
+				"network_id":       networkID,
+				"network_name":     networkName,
+			},
+		},
+		{
+			"offchain_aggregator_juels_per_fee_coin_received_values",
+			offchainAggregatorJuelsPerFeeCoinReceivedValues.MetricVec,
 			prometheus.Labels{
 				"contract_address": contractAddress,
 				"feed_id":          feedID,
