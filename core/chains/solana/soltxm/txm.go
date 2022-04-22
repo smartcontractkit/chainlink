@@ -2,6 +2,7 @@ package soltxm
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -19,8 +20,10 @@ import (
 )
 
 const (
-	MaxQueueLen    = 1000
-	MaxRetryTimeMs = 500
+	MaxQueueLen      = 1000
+	MaxRetryTimeMs   = 500
+	MaxTxTimeout     = 5 * time.Second
+	MaxSigsToConfirm = 256
 )
 
 var (
@@ -143,13 +146,14 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 				if time.Now().After(deadline) {
 					// remove sig from cache if context is cancelled by timeout
 					txm.txCache.Cancel(sig)
+					txm.lggr.Warnw("failed to find transaction within timeout", "signature", sig)
 				}
 				return
 			case <-tick:
 				retrySig, err := client.SendTx(ctx, tx)
-				// this could occur if endpoint goes down
+				// this could occur if endpoint goes down or if ctx cancelled
 				if err != nil {
-					txm.lggr.Errorw("failed to send retry transaction", "error", err, "signature", retrySig)
+					txm.lggr.Warnw("failed to send retry transaction", "error", err, "signature", retrySig)
 					break // exit switch
 				}
 				// this should never happen
@@ -197,52 +201,76 @@ func (txm *Txm) confirm(ctx context.Context) {
 				break // exit switch
 			}
 
-			// fetch signature statuses
-			statuses, err := client.SignatureStatuses(ctx, sigs)
-			if err != nil {
-				txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "error", err)
-				break // exit switch
+			// batch sigs no more than MaxSigsToConfirm each
+			sigsBatch := [][]solanaGo.Signature{}
+			for len(sigs) > MaxSigsToConfirm {
+				sigs, sigsBatch = sigs[MaxSigsToConfirm:], append(sigsBatch, sigs[:MaxSigsToConfirm])
 			}
+			sigsBatch = append(sigsBatch, sigs)
+
+			// waitgroup for processing
+			var wg sync.WaitGroup
+			wg.Add(len(sigsBatch))
 
 			// process signatures
-			for i := 0; i < len(statuses); i++ {
-				// if status is nil (sig not found), continue polling
-				// sig not found could mean invalid tx or not picked up yet
-				if statuses[i] == nil {
-					txm.lggr.Debugw("tx state: not found",
-						"signature", sigs[i],
-					)
-					continue
-				}
+			processSigs := func(s []solanaGo.Signature, res []*rpc.SignatureStatusesResult) {
+				for i := 0; i < len(res); i++ {
+					// if status is nil (sig not found), continue polling
+					// sig not found could mean invalid tx or not picked up yet
+					if res[i] == nil {
+						txm.lggr.Debugw("tx state: not found",
+							"signature", s[i],
+						)
+						continue
+					}
 
-				// if signature has an error, end polling
-				if statuses[i].Err != nil {
-					txm.lggr.Errorw("tx state: failed",
-						"signature", sigs[i],
-						"error", statuses[i].Err,
-						"status", statuses[i].ConfirmationStatus,
-					)
-					txm.txCache.Revert(sigs[i])
-					continue
-				}
+					// if signature has an error, end polling
+					if res[i].Err != nil {
+						txm.lggr.Errorw("tx state: failed",
+							"signature", s[i],
+							"error", res[i].Err,
+							"status", res[i].ConfirmationStatus,
+						)
+						txm.txCache.Revert(s[i])
+						continue
+					}
 
-				// if signature is processed, keep polling
-				if statuses[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
-					txm.lggr.Debugw("tx state: processed",
-						"signature", sigs[i],
-					)
-					continue
-				}
+					// if signature is processed, keep polling
+					if res[i].ConfirmationStatus == rpc.ConfirmationStatusProcessed {
+						txm.lggr.Debugw("tx state: processed",
+							"signature", s[i],
+						)
+						continue
+					}
 
-				// if signature is confirmed, end polling
-				if statuses[i].ConfirmationStatus == rpc.ConfirmationStatusConfirmed {
-					txm.lggr.Debugw("tx state: confirmed",
-						"signature", sigs[i],
-					)
-					txm.txCache.Success(sigs[i])
-					continue
+					// if signature is confirmed/finalized, end polling
+					if res[i].ConfirmationStatus == rpc.ConfirmationStatusConfirmed || res[i].ConfirmationStatus == rpc.ConfirmationStatusFinalized {
+						txm.lggr.Debugw(fmt.Sprintf("tx state: %s", res[i].ConfirmationStatus),
+							"signature", s[i],
+						)
+						txm.txCache.Success(s[i])
+						continue
+					}
 				}
 			}
+
+			// loop through batch
+			for i := 0; i < len(sigsBatch); i++ {
+				// fetch signature statuses
+				statuses, err := client.SignatureStatuses(ctx, sigsBatch[i])
+				if err != nil {
+					txm.lggr.Errorw("failed to get signature statuses in soltxm.confirm", "error", err)
+					wg.Done() // don't block if exit early
+					break     // exit switch
+				}
+
+				// nonblocking: process batches as soon as they come in
+				go func(index int) {
+					defer wg.Done()
+					processSigs(sigsBatch[index], statuses)
+				}(i)
+			}
+			wg.Wait() // wait for processing to finish
 		}
 		// TODO: defaults to 1s - should change to 0.5s
 		tick = time.After(utils.WithJitter(txm.cfg.ConfirmPollPeriod()))
@@ -291,7 +319,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 	msg := queueMsg{
 		tx:      tx,
-		timeout: 5 * time.Second, // TODO: make this configurable via argument,
+		timeout: MaxTxTimeout,
 	}
 
 	select {
