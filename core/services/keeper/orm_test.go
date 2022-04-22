@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 	"testing"
 	"time"
@@ -366,6 +367,34 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	nextID, err = orm.LowestUnsyncedID(registry.ID)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), nextID)
+}
+
+func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+	registry, _ := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+
+	upkeepIDs, err := orm.AllUpkeepIDsForRegistry(registry.ID)
+	require.NoError(t, err)
+	// No upkeeps returned
+	require.Len(t, upkeepIDs, 0)
+
+	upkeep := newUpkeep(registry, 3)
+	err = orm.UpsertUpkeep(&upkeep)
+	require.NoError(t, err)
+
+	upkeep = newUpkeep(registry, 8)
+	err = orm.UpsertUpkeep(&upkeep)
+	require.NoError(t, err)
+
+	// We should get two upkeeps IDs, 3 & 8
+	upkeepIDs, err = orm.AllUpkeepIDsForRegistry(registry.ID)
+	require.NoError(t, err)
+	// No upkeeps returned
+	require.Len(t, upkeepIDs, 2)
+	require.Contains(t, upkeepIDs, utils.NewBig(big.NewInt(3)))
+	require.Contains(t, upkeepIDs, utils.NewBig(big.NewInt(8)))
 }
 
 func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {

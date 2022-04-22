@@ -177,7 +177,7 @@ func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
 }
 
 func (korm ORM) AllUpkeepIDsForRegistry(regID int64) (upkeeps []*utils.Big, err error) {
-	err = korm.q.Get(&upkeeps, `
+	err = korm.q.Select(&upkeeps, `
 SELECT upkeep_id
 FROM upkeep_registrations
 WHERE registry_id = $1
