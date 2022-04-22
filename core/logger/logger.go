@@ -191,9 +191,17 @@ func NewLogger() (Logger, func() error) {
 
 	var fileMaxSize utils.FileSize
 	fileMaxSize, invalid = envvar.LogFileMaxSize.Parse()
-	c.FileMaxSize = int(fileMaxSize)
 	if invalid != "" {
 		parseErrs = append(parseErrs, invalid)
+	}
+	if fileMaxSize == 0 || invalid != "" {
+		c.FileMaxSize = 0 // default is 100Mb
+		parseErrs = append(parseErrs, "LogFileMaxSize will default to 100Mb")
+	} else if fileMaxSize < utils.MB {
+		c.FileMaxSize = 1 // 1Mb
+		parseErrs = append(parseErrs, "LogFileMaxSize will default to 1Mb")
+	} else {
+		c.FileMaxSize = int(fileMaxSize / utils.MB)
 	}
 
 	if c.DebugLogsToDisk() {
@@ -262,7 +270,7 @@ func (c Config) DebugLogsToDisk() bool {
 
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
-	return utils.FileSize(c.FileMaxSize * (c.FileMaxBackups + 1))
+	return utils.FileSize(c.FileMaxSize * utils.MB * (c.FileMaxBackups + 1))
 }
 
 // InitColor explicitly sets the global color.NoColor option.
