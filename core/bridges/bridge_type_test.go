@@ -44,7 +44,7 @@ func BenchmarkParseBridgeName(b *testing.B) {
 	const valid = `abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_`
 	for _, l := range []int{1, 10, 20, 50, 100, 1000, 10000} {
 		b.Run(strconv.Itoa(l), func(b *testing.B) {
-			sb := strings.Builder{}
+			var sb strings.Builder
 			for i := 0; i < l; i++ {
 				sb.WriteByte(valid[rand.Intn(len(valid))])
 			}
