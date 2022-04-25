@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -30,17 +31,17 @@ type RegistryWrapper struct {
 	contract1_2 *registry1_2.KeeperRegistry
 }
 
-func NewRegistryWrapper(address ethkey.EIP55Address, client evmclient.Client) (*RegistryWrapper, error) {
+func NewRegistryWrapper(address ethkey.EIP55Address, backend bind.ContractBackend) (*RegistryWrapper, error) {
 	contract1_1, err := registry1_1.NewKeeperRegistry(
 		address.Address(),
-		client,
+		backend,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry 1_1 contract wrapper")
 	}
 	contract1_2, err := registry1_2.NewKeeperRegistry(
 		address.Address(),
-		client,
+		backend,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry 1_2 contract wrapper")
@@ -216,5 +217,79 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 		}, nil
 	default:
 		return nil, errors.Errorf("Registry version %d does not support GetConfig", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) SetKeepers(opts *bind.TransactOpts, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
+	switch rw.Version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		return rw.contract1_1.SetKeepers(opts, keepers, payees)
+	case RegistryVersion_1_2:
+		return rw.contract1_2.SetKeepers(opts, keepers, payees)
+	default:
+		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte) (*types.Transaction, error) {
+	switch rw.Version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		return rw.contract1_1.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
+	case RegistryVersion_1_2:
+		return rw.contract1_2.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
+	default:
+		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) AddFunds(opts *bind.TransactOpts, id *big.Int, amount *big.Int) (*types.Transaction, error) {
+	switch rw.Version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		return rw.contract1_1.AddFunds(opts, id, amount)
+	case RegistryVersion_1_2:
+		return rw.contract1_2.AddFunds(opts, id, amount)
+	default:
+		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) PerformUpkeep(opts *bind.TransactOpts, id *big.Int, performData []byte) (*types.Transaction, error) {
+	switch rw.Version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		return rw.contract1_1.PerformUpkeep(opts, id, performData)
+	case RegistryVersion_1_2:
+		return rw.contract1_2.PerformUpkeep(opts, id, performData)
+	default:
+		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*types.Transaction, error) {
+	switch rw.Version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		return rw.contract1_1.CancelUpkeep(opts, id)
+	case RegistryVersion_1_2:
+		return rw.contract1_2.CancelUpkeep(opts, id)
+	default:
+		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+	}
+}
+
+func (rw *RegistryWrapper) GetUpkeepIdFromRegistrationLog(rawLog *types.Log) (*big.Int, error) {
+	switch rw.Version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		parsedLog, err := rw.contract1_1.ParseUpkeepRegistered(*rawLog)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get parse log")
+		}
+		return parsedLog.Id, nil
+	case RegistryVersion_1_2:
+		parsedLog, err := rw.contract1_2.ParseUpkeepRegistered(*rawLog)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get parse log")
+		}
+		return parsedLog.Id, nil
+	default:
+		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
 	}
 }

@@ -6,10 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -20,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -38,13 +43,86 @@ var (
 	payload3 = common.Hex2Bytes("6789")
 )
 
+func deployKeeperRegistry(
+	t *testing.T,
+	version keeper.RegistryVersion,
+	auth *bind.TransactOpts,
+	backend *backends.SimulatedBackend,
+	linkAddr, linkFeedAddr, gasFeedAddr common.Address,
+) (common.Address, *keeper.RegistryWrapper) {
+	switch version {
+	case keeper.RegistryVersion_1_1:
+		regAddr, _, _, err := keeper_registry_wrapper1_1.DeployKeeperRegistry(
+			auth,
+			backend,
+			linkAddr,
+			linkFeedAddr,
+			gasFeedAddr,
+			250_000_000,
+			0,
+			big.NewInt(1),
+			20_000_000,
+			big.NewInt(3600),
+			1,
+			big.NewInt(60000000000),
+			big.NewInt(20000000000000000),
+		)
+		require.NoError(t, err)
+		backend.Commit()
+		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
+		require.NoError(t, err)
+		return regAddr, wrapper
+	case keeper.RegistryVersion_1_2:
+		regAddr, _, _, err := keeper_registry_wrapper1_2.DeployKeeperRegistry(
+			auth,
+			backend,
+			linkAddr,
+			linkFeedAddr,
+			gasFeedAddr,
+			keeper_registry_wrapper1_2.Config{
+				PaymentPremiumPPB:    250_000_000,
+				FlatFeeMicroLink:     0,
+				BlockCountPerTurn:    big.NewInt(1),
+				CheckGasLimit:        20_000_000,
+				StalenessSeconds:     big.NewInt(3600),
+				GasCeilingMultiplier: 1,
+				MinUpkeepSpend:       big.NewInt(0),
+				MaxPerformGas:        5_000_000,
+				FallbackGasPrice:     big.NewInt(60000000000),
+				FallbackLinkPrice:    big.NewInt(20000000000000000),
+				Transcoder:           testutils.NewAddress(),
+				Registrar:            testutils.NewAddress(),
+			},
+		)
+		require.NoError(t, err)
+		backend.Commit()
+		wrapper, err := keeper.NewRegistryWrapper(ethkey.EIP55AddressFromAddress(regAddr), backend)
+		require.NoError(t, err)
+		return regAddr, wrapper
+	default:
+		panic(errors.Errorf("Deployment of registry verdion %d not defined", version))
+	}
+}
+
+func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
+	receipt, err := backend.TransactionReceipt(nil, registrationTx.Hash())
+	require.NoError(t, err)
+	upkeepId, err := registryWrapper.GetUpkeepIdFromRegistrationLog(receipt.Logs[0])
+	require.NoError(t, err)
+	return upkeepId
+}
+
 func TestKeeperEthIntegration(t *testing.T) {
 	tests := []struct {
-		name    string
-		eip1559 bool
+		name            string
+		eip1559         bool
+		registryVersion keeper.RegistryVersion
 	}{
-		{"legacy mode", false},
-		{"eip1559 mode", true},
+		// name should be valud ORM name, only contain alphanumeric and underscore
+		{"legacy_mode_registry1_1", false, keeper.RegistryVersion_1_1},
+		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
+		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
+		{"eip1559_mode_registry1_2", true, keeper.RegistryVersion_1_2},
 	}
 
 	for _, tt := range tests {
@@ -84,28 +162,32 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(20000000000000000))
 			require.NoError(t, err)
-			regAddr, _, registryContract, err := keeper_registry_wrapper1_1.DeployKeeperRegistry(steve, backend, linkAddr, linkFeedAddr, gasFeedAddr, 250_000_000, 0, big.NewInt(1), 20_000_000, big.NewInt(3600), 1, big.NewInt(60000000000), big.NewInt(20000000000000000))
-			require.NoError(t, err)
+
+			regAddr, registryWrapper := deployKeeperRegistry(t, test.registryVersion, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+
 			upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 			require.NoError(t, err)
 			_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
 			require.NoError(t, err)
 			_, err = linkToken.Approve(carrol, regAddr, oneHunEth)
 			require.NoError(t, err)
-			_, err = registryContract.SetKeepers(steve, []common.Address{nodeAddress, nelly.From}, []common.Address{nodeAddress, nelly.From})
+			_, err = registryWrapper.SetKeepers(steve, []common.Address{nodeAddress, nelly.From}, []common.Address{nodeAddress, nelly.From})
 			require.NoError(t, err)
-			_, err = registryContract.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
+			registrationTx, err := registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 			require.NoError(t, err)
+			backend.Commit()
+			upkeepID := getUpkeepIdFromTx(t, registryWrapper, registrationTx, backend)
+
 			_, err = upkeepContract.SetBytesToSend(carrol, payload1)
 			require.NoError(t, err)
 			_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 			require.NoError(t, err)
-			_, err = registryContract.AddFunds(carrol, big.NewInt(0), tenEth)
+			_, err = registryWrapper.AddFunds(carrol, upkeepID, tenEth)
 			require.NoError(t, err)
 			backend.Commit()
 
 			// setup app
-			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559))
+			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%s", test.name))
 			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			d := 24 * time.Hour
@@ -142,7 +224,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
 			// submit from other keeper (because keepers must alternate)
-			_, err = registryContract.PerformUpkeep(nelly, big.NewInt(0), []byte{})
+			_, err = registryWrapper.PerformUpkeep(nelly, big.NewInt(0), []byte{})
 			require.NoError(t, err)
 
 			// change payload
@@ -155,20 +237,23 @@ func TestKeeperEthIntegration(t *testing.T) {
 			g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 
 			// cancel upkeep
-			_, err = registryContract.CancelUpkeep(carrol, big.NewInt(0))
+			_, err = registryWrapper.CancelUpkeep(carrol, big.NewInt(0))
 			require.NoError(t, err)
 			backend.Commit()
 
 			cltest.WaitForCount(t, app.GetSqlxDB(), "upkeep_registrations", 0)
 
 			// add new upkeep (same target contract)
-			_, err = registryContract.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
+			registrationTx, err = registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 			require.NoError(t, err)
+			backend.Commit()
+
+			upkeepID = getUpkeepIdFromTx(t, registryWrapper, registrationTx, backend)
 			_, err = upkeepContract.SetBytesToSend(carrol, payload3)
 			require.NoError(t, err)
 			_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 			require.NoError(t, err)
-			_, err = registryContract.AddFunds(carrol, big.NewInt(1), tenEth)
+			_, err = registryWrapper.AddFunds(carrol, upkeepID, tenEth)
 			require.NoError(t, err)
 			backend.Commit()
 
@@ -176,7 +261,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload3))
 
 			// remove this node from keeper list
-			_, err = registryContract.SetKeepers(steve, []common.Address{nick.From, nelly.From}, []common.Address{nick.From, nelly.From})
+			_, err = registryWrapper.SetKeepers(steve, []common.Address{nick.From, nelly.From}, []common.Address{nick.From, nelly.From})
 			require.NoError(t, err)
 
 			var registry keeper.Registry
