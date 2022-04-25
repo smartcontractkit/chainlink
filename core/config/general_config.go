@@ -748,7 +748,7 @@ func (c *generalConfig) TerraEnabled() bool {
 	return c.viper.GetBool(envvar.Name("TerraEnabled"))
 }
 
-// DydxEnabled allows DyDx to be used
+// CustomEndpointEnabled allows Custom Endpoint to be used
 func (c *generalConfig) CustomEndpointEnabled() bool {
 	return c.viper.GetBool(envvar.Name("CustomEndpointEnabled"))
 }

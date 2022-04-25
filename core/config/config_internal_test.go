@@ -25,6 +25,7 @@ func TestGeneralConfig_Defaults(t *testing.T) {
 	assert.True(t, config.EVMEnabled())
 	assert.False(t, config.TerraEnabled())
 	assert.False(t, config.SolanaEnabled())
+	assert.False(t, config.CustomEndpointEnabled())
 	assert.Equal(t, false, config.FeatureExternalInitiators())
 	assert.Equal(t, 15*time.Minute, config.SessionTimeout().Duration())
 }

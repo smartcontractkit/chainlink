@@ -41,6 +41,7 @@ func TestConfigSchema(t *testing.T) {
 		"BridgeResponseURL":                              "BRIDGE_RESPONSE_URL",
 		"ChainType":                                      "CHAIN_TYPE",
 		"ClientNodeURL":                                  "CLIENT_NODE_URL",
+		"CustomEndpointEnabled":                          "CUSTOM_ENDPOINT_ENABLED",
 		"DatabaseBackupDir":                              "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                        "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                             "DATABASE_BACKUP_MODE",
