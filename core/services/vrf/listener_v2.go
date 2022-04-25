@@ -423,7 +423,7 @@ func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.Get
 		return true
 	}
 
-	if sub.Balance.Cmp(estimatedFee) == -1 {
+	if sub.Balance.Cmp(estimatedFee) < 0 {
 		l.Infow("Subscription is underfunded, not processing it's requests",
 			"estimatedFeeJuels", estimatedFee,
 		)
@@ -584,7 +584,7 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
-				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) == -1 {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
 					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
 					return processed
 				}
@@ -707,7 +707,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
-				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) == -1 {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
 					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
 					return processed
 				}
