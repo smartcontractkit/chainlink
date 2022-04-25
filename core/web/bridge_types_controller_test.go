@@ -23,10 +23,6 @@ import (
 func TestValidateBridgeType(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-
 	tests := []struct {
 		description string
 		request     bridges.BridgeTypeRequest
@@ -108,7 +104,7 @@ func TestValidateBridgeType(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			result := web.ValidateBridgeType(&test.request, orm)
+			result := web.ValidateBridgeType(&test.request)
 			assert.Equal(t, test.want, result)
 		})
 	}
