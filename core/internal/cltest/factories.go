@@ -588,6 +588,9 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, r
 		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),
 	}
+	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
+	require.NoError(t, err)
+	upkeep.PositioningConstant = positioningConstant
 	err = korm.UpsertUpkeep(&upkeep)
 	require.NoError(t, err)
 	return upkeep
