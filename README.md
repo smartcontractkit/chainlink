@@ -48,6 +48,26 @@ regarding Chainlink social accounts, news, and networking.
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
+### Mac M1/ARM64 [EXPERIMENTAL]
+
+Chainlink can be experimentally compiled with ARM64 as the target arch. You may run into errors with cosmwasm:
+
+```
+# github.com/CosmWasm/wasmvm/api
+ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
+Undefined symbols for architecture arm64:# github.com/CosmWasm/wasmvm/api
+ld: warning: ignoring file ../../../.asdf/installs/golang/1.18/packages/pkg/mod/github.com/!cosm!wasm/wasmvm@v0.16.3/api/libwasmvm.dylib, building for macOS-arm64 but attempting to link with file built for macOS-x86_64
+Undefined symbols for architecture arm64:
+```
+
+In this case, try the following steps:
+
+1. `git clone git@github.com:mandrean/terra-core.git`
+2. `git checkout /feat/multiarch`
+3. `cd terra-core; make install; cd ..`
+4. `go work init /path/to/chainlink`
+5. `go work use /path/to/terra-core`
+
 ### Ethereum Node Requirements
 
 In order to run the Chainlink node you must have access to a running Ethereum node with an open websocket connection.
