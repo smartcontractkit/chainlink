@@ -63,8 +63,8 @@ Undefined symbols for architecture arm64:
 In this case, try the following steps:
 
 1. `git clone git@github.com:mandrean/terra-core.git`
-2. `git checkout /feat/multiarch`
-3. `cd terra-core; make install; cd ..`
+2. `cd terra-core; git checkout feat/multiarch`
+3. `make install; cd ..`
 4. `go work init /path/to/chainlink`
 5. `go work use /path/to/terra-core`
 
