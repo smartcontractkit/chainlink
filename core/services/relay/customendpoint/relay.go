@@ -109,20 +109,20 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		PayloadType:    spec.PayloadType,
 	}
 	codec := evmreportcodec.ReportCodec{}
-	contractTracker := NewTracker(spec, digester, r.lggr, r.pipelineORM, r.config, codec, r.clock)
+	tracker := NewTracker(spec, digester, r.lggr, r.pipelineORM, r.config, codec, r.clock)
 
 	if spec.IsBootstrap {
 		// Return early if bootstrap node (doesn't require the full OCR2 provider)
 		return &ocr2Provider{
 			configDigester: digester,
-			tracker:        &contractTracker,
+			tracker:        &tracker,
 		}, nil
 	}
 
 	return &ocr2Provider{
 		configDigester: digester,
 		reportCodec:    codec,
-		tracker:        &contractTracker,
+		tracker:        &tracker,
 	}, nil
 }
 

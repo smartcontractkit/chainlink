@@ -182,7 +182,7 @@ func (c *contractTracker) getMedianFromReport(report types.Report) (decimal.Deci
 	if divideBy.Cmp(zero) == 0 {
 		return decimal.NewFromInt(0), zero, errors.New("multiplierUsed cannot be 0")
 	}
-	var powerOf10 int32 = 0
+	var powerOf10 int32
 	one := big.NewInt(int64(1))
 	for divideBy.Cmp(one) != 0 {
 		mod := big.NewInt(int64(0))
@@ -191,7 +191,7 @@ func (c *contractTracker) getMedianFromReport(report types.Report) (decimal.Deci
 			return decimal.NewFromInt(0), zero,
 				errors.New("multiplierUsed should only be a power of 10")
 		}
-		powerOf10 -= 1
+		powerOf10--
 	}
 	return decimal.NewFromBigInt(median, powerOf10), median, err
 }

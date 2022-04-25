@@ -21,12 +21,12 @@ func (c *contractTracker) LatestTransmissionDetails(
 	err error,
 ) {
 	digester, err := c.digester.configDigest()
-	answer := c.getLastTransmittedAnswer()
+	storedAnswer := c.getLastTransmittedAnswer()
 	return digester,
-		answer.epoch,
-		answer.round,
-		answer.Data,
-		answer.Timestamp,
+		storedAnswer.epoch,
+		storedAnswer.round,
+		storedAnswer.Data,
+		storedAnswer.Timestamp,
 		err
 }
 

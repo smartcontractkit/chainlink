@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
+// TODO: Add this to libocr repo.
 const ConfigDigestPrefixCustomEndpoint types.ConfigDigestPrefix = 4
 
 var _ types.OffchainConfigDigester = (*offchainConfigDigester)(nil)
