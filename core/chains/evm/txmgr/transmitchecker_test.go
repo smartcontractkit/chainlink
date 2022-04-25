@@ -26,7 +26,7 @@ import (
 )
 
 func TestFactory(t *testing.T) {
-	client, _ := cltest.NewEthMocksWithDefaultChain(t)
+	client := cltest.NewEthMocksWithDefaultChain(t)
 	factory := &txmgr.CheckerFactory{Client: client}
 
 	t.Run("no checker", func(t *testing.T) {
