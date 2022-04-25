@@ -57,7 +57,7 @@ func TestRunner(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
-	ethClient, _ := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 

@@ -106,6 +106,7 @@ export const generateJobDefinition = (
           'contractAddress',
           'evmChainID',
           'minIncomingConfirmations',
+          'minContractPaymentLinkJuels',
           'requesters',
         ),
         ...extractObservationSourceField(job),
