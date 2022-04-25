@@ -181,7 +181,6 @@ func (c *chain) Start(ctx context.Context) error {
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
 		merr = multierr.Combine(
-			c.logPoller.Start(ctx),
 			c.txm.Start(ctx),
 			c.headBroadcaster.Start(ctx),
 			c.headTracker.Start(ctx),
