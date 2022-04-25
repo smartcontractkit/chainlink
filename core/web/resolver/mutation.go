@@ -362,7 +362,13 @@ func (r *Resolver) CreateNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().CreateNode(*args.Input)
+	node, err := r.App.EVMORM().CreateNode(types.Node{
+		Name:       args.Input.Name,
+		EVMChainID: args.Input.EVMChainID,
+		WSURL:      args.Input.WSURL,
+		HTTPURL:    args.Input.HTTPURL,
+		SendOnly:   args.Input.SendOnly,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +397,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	err = r.App.EVMORM().DeleteNode(int64(id))
+	err = r.App.EVMORM().DeleteNode(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// Sending the SQL error as the expected error to happen

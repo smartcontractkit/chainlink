@@ -10,11 +10,11 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/sqlx"
+
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 type LegacyEthNodeConfig interface {
@@ -61,8 +61,8 @@ For more information on configuring your node, check the docs: https://docs.chai
 `
 
 func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logger) error {
-	if err := SetupMultiplePrimaries(db, config, lggr); err != nil {
-		return errors.Wrap(err, "failed to setup multiple primary nodes")
+	if err := SetupNodes(db, config, lggr); err != nil {
+		return errors.Wrap(err, "failed to setup EVM nodes")
 	}
 
 	primaryWS := config.EthereumURL()
@@ -96,6 +96,10 @@ func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logge
 	}
 
 	for i, url := range config.EthereumSecondaryURLs() {
+		if config.EthereumHTTPURL() != nil && url.String() == config.EthereumHTTPURL().String() {
+			lggr.Errorf("Got secondary URL %s which is already specified as a primary node HTTP URL. It does not make any sense to have both primary and sendonly nodes sharing the same URL and does not grant any extra redundancy. This sendonly RPC url will be ignored.", url.String())
+			continue
+		}
 		name := fmt.Sprintf("sendonly-%d-%s", i, ethChainID)
 		if _, err := db.Exec(stmt, name, ethChainID, nil, url.String(), true); err != nil {
 			return errors.Wrapf(err, "failed to upsert %s", name)
@@ -105,38 +109,38 @@ func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logge
 	return nil
 }
 
-// SetupMultiplePrimaries is a hack/shim method to allow node operators to
-// specify multiple nodes via ENV
+// SetupNodes is a hack/shim method to allow node operators to specify multiple nodes via ENV.
 // See: https://app.shortcut.com/chainlinklabs/epic/33587/overhaul-config?cf_workflow=500000005&ct_workflow=all
-func SetupMultiplePrimaries(db *sqlx.DB, cfg LegacyEthNodeConfig, lggr logger.Logger) error {
+func SetupNodes(db *sqlx.DB, cfg LegacyEthNodeConfig, lggr logger.Logger) (err error) {
 	if cfg.EthereumNodes() == "" {
 		return nil
 	}
 
 	var nodes []evmtypes.Node
-	if err := json.Unmarshal([]byte(cfg.EthereumNodes()), &nodes); err != nil {
-		return errors.Wrapf(err, "invalid nodes json, got: %q", cfg.EthereumNodes())
+	if err = json.Unmarshal([]byte(cfg.EthereumNodes()), &nodes); err != nil {
+		return errors.Wrapf(err, "invalid EVM_NODES json, got: %q", cfg.EthereumNodes())
 	}
 	// Sorting gives a consistent insert ordering
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Name < nodes[j].Name
 	})
 
-	chainIDs := make(map[string]struct{})
-	for _, n := range nodes {
-		chainIDs[n.EVMChainID.String()] = struct{}{}
-	}
-	for cid := range chainIDs {
-		if _, err := pg.NewQ(db, lggr, cfg).Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW()) ON CONFLICT DO NOTHING;", cid); err != nil {
-			return errors.Wrapf(err, "failed to insert chain %s", cid)
+	lggr.Info("EVM_NODES was set; clobbering evm_nodes table")
+
+	orm := NewORM(db, lggr, cfg)
+	return orm.SetupNodes(nodes, uniqueIDs(nodes))
+}
+
+func uniqueIDs(ns []evmtypes.Node) (ids []utils.Big) {
+	m := make(map[string]struct{})
+	for _, n := range ns {
+		id := n.EVMChainID
+		sid := id.String()
+		if _, ok := m[sid]; ok {
+			continue
 		}
+		ids = append(ids, id)
+		m[sid] = struct{}{}
 	}
-
-	stmt := `INSERT INTO evm_nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at)
-	VALUES (:name, :evm_chain_id, :ws_url, :http_url, :send_only, now(), now())
-	ON CONFLICT DO NOTHING;`
-	_, err := pg.NewQ(db, lggr, cfg).NamedExec(stmt, nodes)
-
-	return errors.Wrap(err, "failed to insert nodes")
-
+	return
 }

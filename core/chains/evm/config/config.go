@@ -16,7 +16,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -57,15 +56,17 @@ type ChainScopedOnlyConfig interface {
 	EvmHeadTrackerMaxBufferSize() uint32
 	EvmHeadTrackerSamplingInterval() time.Duration
 	EvmLogBackfillBatchSize() uint32
+	EvmLogPollInterval() time.Duration
 	EvmMaxGasPriceWei() *big.Int
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
 	EvmMinGasPriceWei() *big.Int
 	EvmNonceAutoSync() bool
+	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
-	ChainType() chains.ChainType
+	ChainType() config.ChainType
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
@@ -114,7 +115,7 @@ type chainScopedConfig struct {
 }
 
 func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) ChainScopedConfig {
-	csorm := &chainScopedConfigORM{chainID, orm}
+	csorm := &chainScopedConfigORM{*utils.NewBig(chainID), orm}
 	defaultSet, exists := chainSpecificConfigDefaultSets[chainID.Int64()]
 	if !exists {
 		lggr.Warnf("Unrecognised chain %d, falling back to generic default configuration", chainID)
@@ -213,22 +214,22 @@ func (c *chainScopedConfig) validate() (err error) {
 		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
 	} else {
 		switch chainType {
-		case chains.Arbitrum:
+		case config.ChainArbitrum:
 			if gasEst := c.GasEstimatorMode(); gasEst != "FixedPrice" {
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q", gasEst, chains.Arbitrum, "FixedPrice"))
+					"must be %q", gasEst, config.ChainArbitrum, "FixedPrice"))
 			}
-		case chains.ExChain:
+		case config.ChainExChain:
 
-		case chains.Optimism:
+		case config.ChainOptimism:
 			gasEst := c.GasEstimatorMode()
 			switch gasEst {
 			case "Optimism", "Optimism2":
 			default:
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q or %q", gasEst, chains.Optimism, "Optimism", "Optimism2"))
+					"must be %q or %q", gasEst, config.ChainOptimism, "Optimism", "Optimism2"))
 			}
-		case chains.XDai:
+		case config.ChainXDai:
 
 		}
 	}
@@ -719,18 +720,18 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 	return c.EvmMaxGasPriceWei()
 }
 
-func (c *chainScopedConfig) ChainType() chains.ChainType {
+func (c *chainScopedConfig) ChainType() config.ChainType {
 	val, ok := c.GeneralConfig.GlobalChainType()
 	if ok {
 		c.logEnvOverrideOnce("ChainType", val)
-		return chains.ChainType(val)
+		return config.ChainType(val)
 	}
 	c.persistMu.RLock()
 	p := c.persistedCfg.ChainType
 	c.persistMu.RUnlock()
 	if p.Valid {
 		c.logPersistedOverrideOnce("ChainType", p.String)
-		return chains.ChainType(p.String)
+		return config.ChainType(p.String)
 	}
 	return c.defaultSet.chainType
 }
@@ -866,6 +867,23 @@ func (c *chainScopedConfig) EvmNonceAutoSync() bool {
 	return c.defaultSet.nonceAutoSync
 }
 
+// EvmUseForwarders enables/disables sending transactions through forwarder contracts
+func (c *chainScopedConfig) EvmUseForwarders() bool {
+	val, ok := c.GeneralConfig.GlobalEvmUseForwarders()
+	if ok {
+		c.logEnvOverrideOnce("EvmUseForwarders", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmUseForwarders
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmUseForwarders", p.Bool)
+		return p.Bool
+	}
+	return c.defaultSet.useForwarders
+}
+
 // EvmGasLimitMultiplier is a factor by which a transaction's GasLimit is
 // multiplied before transmission. So if the value is 1.1, and the GasLimit for
 // a transaction is 10, 10% will be added before transmission.
@@ -941,6 +959,23 @@ func (c *chainScopedConfig) EthTxReaperThreshold() time.Duration {
 		return p.Duration()
 	}
 	return c.defaultSet.ethTxReaperThreshold
+}
+
+// EvmLogPollInterval how fast we poll for new logs.
+func (c *chainScopedConfig) EvmLogPollInterval() time.Duration {
+	val, ok := c.GeneralConfig.GlobalEvmLogPollInterval()
+	if ok {
+		c.logEnvOverrideOnce("EvmLogPollInterval", val)
+		return val
+	}
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmLogPollInterval
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmLogPollInterval", *p)
+		return p.Duration()
+	}
+	return c.defaultSet.logPollInterval
 }
 
 // EvmLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs

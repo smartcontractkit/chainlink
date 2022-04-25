@@ -14,19 +14,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfigmocks "github.com/smartcontractkit/chainlink/core/chains/evm/config/mocks"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	ocr2mocks "github.com/smartcontractkit/chainlink/core/services/ocr2/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/ocr2/validate"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	pkgconfig "github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocr"
@@ -57,7 +57,7 @@ func TestRunner(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
-	ethClient, _ := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
@@ -174,7 +174,7 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		cfg := new(evmconfigmocks.ChainScopedConfig)
 		cfg.On("Dev").Return(true)
-		cfg.On("ChainType").Return(chains.ChainType(""))
+		cfg.On("ChainType").Return(pkgconfig.ChainType(""))
 		c := new(evmmocks.Chain)
 		c.On("Config").Return(cfg)
 		cs := new(evmmocks.ChainSet)

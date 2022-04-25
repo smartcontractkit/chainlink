@@ -16,7 +16,7 @@ import (
 )
 
 func TestEventBroadcaster(t *testing.T) {
-	config, _ := heavyweight.FullTestDB(t, "event_broadcaster", true, false)
+	config, _ := heavyweight.FullTestDBNoFixtures(t, "event_broadcaster")
 
 	eventBroadcaster := cltest.NewEventBroadcaster(t, config.DatabaseURL())
 	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))

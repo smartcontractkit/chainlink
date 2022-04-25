@@ -112,6 +112,8 @@ runs:
     id: meta-root
     uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681 # v3.6.2
     with:
+      flavor: |
+        suffix=-root
       # list of Docker images to use as base name for tags
       images: ${{ env.shared-images }}
       tags: ${{ env.shared-tag-list }}
@@ -183,9 +185,9 @@ runs:
 
   - if: inputs.sign-images == 'true'
     name: Install cosign
-    uses: sigstore/cosign-installer@1e95c1de343b5b0c23352d6417ee3e48d5bcd422 # v1.4.0
+    uses: sigstore/cosign-installer@581838fbedd492d2350a9ecd427a95d6de1e5d01 # v2.1.0
     with:
-      cosign-release: 'v1.4.0'
+      cosign-release: 'v1.6.0'
 
   - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
     name: Sign the published root Docker image using keypair method

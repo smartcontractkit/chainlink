@@ -164,6 +164,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 	if cfg.TerraEnabled() {
 		terraLggr := appLggr.Named("Terra")
+		if err := terra.SetupNodes(db, cfg, terraLggr); err != nil {
+			return nil, errors.Wrap(err, "failed to setup Terra nodes")
+		}
 		chains.Terra, err = terra.NewChainSet(terra.ChainSetOpts{
 			Config:           cfg,
 			Logger:           terraLggr,
@@ -179,6 +182,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig, db *sqlx.D
 
 	if cfg.SolanaEnabled() {
 		solLggr := appLggr.Named("Solana")
+		if err := solana.SetupNodes(db, cfg, solLggr); err != nil {
+			return nil, errors.Wrap(err, "failed to setup Solana nodes")
+		}
 		chains.Solana, err = solana.NewChainSet(solana.ChainSetOpts{
 			Config:           cfg,
 			Logger:           solLggr,
@@ -219,7 +225,7 @@ func takeBackupIfVersionUpgrade(cfg config.GeneralConfig, lggr logger.Logger, ap
 		lggr.Debugf("Application version %s is older or equal to database version %s, skipping automatic DB backup.", appv.String(), dbv.String())
 		return nil
 	}
-	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic databsae backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
+	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set DATABASE_BACKUP_ON_VERSION_UPGRADE=false. To disable backups entirely set DATABASE_BACKUP_MODE=none.", appv.String(), dbv.String())
 
 	databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg, lggr)
 	if err != nil {

@@ -72,7 +72,7 @@ func (cll *chainSet) Start(ctx context.Context) error {
 	}
 	for _, c := range cll.Chains() {
 		if err := c.Start(ctx); err != nil {
-			cll.logger.Errorw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
+			cll.logger.Criticalw(fmt.Sprintf("EVM: Chain with ID %s failed to start. You will need to fix this issue and restart the Chainlink node before any services that use this chain will work properly. Got error: %v", c.ID(), err), "evmChainID", c.ID(), "err", err)
 			continue
 		}
 		cll.startedChains = append(cll.startedChains, c)
@@ -141,10 +141,9 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) 
 	if err != nil {
 		return err
 	}
-	dbchain.Nodes = nodes
 
 	cid := dbchain.ID.String()
-	chain, err := newChain(*dbchain, cll.opts)
+	chain, err := newChain(*dbchain, nodes, cll.opts)
 	if err != nil {
 		return errors.Wrapf(err, "initializeChain: failed to instantiate chain %s", dbchain.ID.String())
 	}
@@ -362,14 +361,23 @@ func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	dbchains, err := opts.ORM.EnabledChainsWithNodes()
+	chains, err := opts.ORM.EnabledChains()
 	if err != nil {
 		return nil, errors.Wrap(err, "error loading chains")
 	}
-	return NewChainSet(opts, dbchains)
+	nodesSlice, _, err := opts.ORM.Nodes(0, -1)
+	if err != nil {
+		return nil, errors.Wrap(err, "error loading nodes")
+	}
+	nodes := make(map[string][]types.Node)
+	for _, n := range nodesSlice {
+		id := n.EVMChainID.String()
+		nodes[id] = append(nodes[id], n)
+	}
+	return NewChainSet(opts, chains, nodes)
 }
 
-func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
+func NewChainSet(opts ChainSetOpts, dbchains []types.Chain, nodes map[string][]types.Node) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
@@ -386,7 +394,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := newChain(dbchains[i], opts)
+		chain, err2 := newChain(dbchains[i], nodes[cid], opts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
 			continue

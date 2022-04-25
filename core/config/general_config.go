@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/config/envvar"
 	"github.com/smartcontractkit/chainlink/core/config/parse"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -51,6 +50,7 @@ type FeatureFlags interface {
 	FeatureOffchainReporting() bool
 	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
+	FeatureLogPoller() bool
 
 	AutoPprofEnabled() bool
 	EVMEnabled() bool
@@ -136,6 +136,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
+	KeeperTurnLookBack() int64
 	KeyFile() string
 	LeaseLockDuration() time.Duration
 	LeaseLockRefreshInterval() time.Duration
@@ -158,6 +159,8 @@ type GeneralOnlyConfig interface {
 	SessionOptions() sessions.Options
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
+	SolanaNodes() string
+	TerraNodes() string
 	TLSCertPath() string
 	TLSDir() string
 	TLSHost() string
@@ -210,11 +213,13 @@ type GlobalConfig interface {
 	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
 	GlobalEvmLogBackfillBatchSize() (uint32, bool)
+	GlobalEvmLogPollInterval() (time.Duration, bool)
 	GlobalEvmMaxGasPriceWei() (*big.Int, bool)
 	GlobalEvmMaxInFlightTransactions() (uint32, bool)
 	GlobalEvmMaxQueuedTransactions() (uint64, bool)
 	GlobalEvmMinGasPriceWei() (*big.Int, bool)
 	GlobalEvmNonceAutoSync() (bool, bool)
+	GlobalEvmUseForwarders() (bool, bool)
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
@@ -356,7 +361,7 @@ EVM_ENABLED=false
 			return errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
 	}
-	if ct, set := c.GlobalChainType(); set && !chains.ChainType(ct).IsValid() {
+	if ct, set := c.GlobalChainType(); set && !ChainType(ct).IsValid() {
 		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}
 
@@ -627,6 +632,10 @@ func (c *generalConfig) FeatureFeedsManager() bool {
 	return c.viper.GetBool(envvar.Name("FeatureFeedsManager"))
 }
 
+func (c *generalConfig) FeatureLogPoller() bool {
+	return c.viper.GetBool(envvar.Name("FeatureLogPoller"))
+}
+
 // FeatureOffchainReporting enables the OCR job type.
 func (c *generalConfig) FeatureOffchainReporting() bool {
 	return getEnvWithFallback(c, envvar.NewBool("FeatureOffchainReporting"))
@@ -844,6 +853,11 @@ func (c *generalConfig) KeeperCheckUpkeepGasPriceFeatureEnabled() bool {
 	return getEnvWithFallback(c, envvar.NewBool("KeeperCheckUpkeepGasPriceFeatureEnabled"))
 }
 
+// KeeperTurnLookBack represents the number of blocks in the past to loo back when getting block for turn
+func (c *generalConfig) KeeperTurnLookBack() int64 {
+	return c.viper.GetInt64(envvar.Name("KeeperTurnLookBack"))
+}
+
 // JSONConsole when set to true causes logging to be made in JSON format
 // If set to false, logs in console format
 func (c *generalConfig) JSONConsole() bool {
@@ -863,6 +877,18 @@ func (c *generalConfig) ExplorerAccessKey() string {
 // ExplorerSecret returns the secret for authenticating with explorer
 func (c *generalConfig) ExplorerSecret() string {
 	return c.viper.GetString(envvar.Name("ExplorerSecret"))
+}
+
+// SolanaNodes is a hack to allow node operators to give a JSON string that
+// sets up multiple nodes
+func (c *generalConfig) SolanaNodes() string {
+	return c.viper.GetString(envvar.Name("SolanaNodes"))
+}
+
+// TerraNodes is a hack to allow node operators to give a JSON string that
+// sets up multiple nodes
+func (c *generalConfig) TerraNodes() string {
+	return c.viper.GetString(envvar.Name("TerraNodes"))
 }
 
 // TelemetryIngressURL returns the WSRPC URL for this node to push telemetry to, or nil.
@@ -1230,6 +1256,9 @@ func (c *generalConfig) GlobalEvmHeadTrackerSamplingInterval() (time.Duration, b
 func (c *generalConfig) GlobalEvmLogBackfillBatchSize() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmLogBackfillBatchSize"), parse.Uint32)
 }
+func (c *generalConfig) GlobalEvmLogPollInterval() (time.Duration, bool) {
+	return lookupEnv(c, envvar.Name("EvmLogPollInterval"), time.ParseDuration)
+}
 func (c *generalConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	return lookupEnv(c, envvar.Name("EvmMaxGasPriceWei"), parse.BigInt)
 }
@@ -1244,6 +1273,9 @@ func (c *generalConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
 }
 func (c *generalConfig) GlobalEvmNonceAutoSync() (bool, bool) {
 	return lookupEnv(c, envvar.Name("EvmNonceAutoSync"), strconv.ParseBool)
+}
+func (c *generalConfig) GlobalEvmUseForwarders() (bool, bool) {
+	return lookupEnv(c, envvar.Name("EvmUseForwarders"), strconv.ParseBool)
 }
 func (c *generalConfig) GlobalEvmRPCDefaultBatchSize() (uint32, bool) {
 	return lookupEnv(c, envvar.Name("EvmRPCDefaultBatchSize"), parse.Uint32)

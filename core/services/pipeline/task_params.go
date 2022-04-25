@@ -3,7 +3,6 @@ package pipeline
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"math"
 	"math/big"
 	"net/url"
@@ -46,156 +45,6 @@ func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
 		return err
 	}
 	return nil
-}
-
-type GetterFunc func() (interface{}, error)
-
-func From(getters ...interface{}) []GetterFunc {
-	var gfs []GetterFunc
-	for _, g := range getters {
-		switch v := g.(type) {
-		case GetterFunc:
-			gfs = append(gfs, v)
-
-		default:
-			// If a bare value is passed in, create a simple getter
-			gfs = append(gfs, func() (interface{}, error) {
-				return v, nil
-			})
-		}
-	}
-	return gfs
-}
-
-func VarExpr(s string, vars Vars) GetterFunc {
-	return func() (interface{}, error) {
-		trimmed := strings.TrimSpace(s)
-		if len(trimmed) == 0 {
-			return nil, ErrParameterEmpty
-		}
-		isVariableExpr := strings.Count(trimmed, "$") == 1 && trimmed[:2] == "$(" && trimmed[len(trimmed)-1] == ')'
-		if !isVariableExpr {
-			return nil, ErrParameterEmpty
-		}
-		keypath := strings.TrimSpace(trimmed[2 : len(trimmed)-1])
-		val, err := vars.Get(keypath)
-		if err != nil {
-			return nil, err
-		} else if as, is := val.(error); is {
-			return nil, errors.Wrapf(ErrTooManyErrors, "VarExpr: %v", as)
-		}
-		return val, nil
-	}
-}
-
-func JSONWithVarExprs(s string, vars Vars, allowErrors bool) GetterFunc {
-	return func() (interface{}, error) {
-		if strings.TrimSpace(s) == "" {
-			return nil, ErrParameterEmpty
-		}
-		replaced := variableRegexp.ReplaceAllFunc([]byte(s), func(expr []byte) []byte {
-			keypathStr := strings.TrimSpace(string(expr[2 : len(expr)-1]))
-			return []byte(fmt.Sprintf(`{ "__chainlink_var_expr__": "%v" }`, keypathStr))
-		})
-		var val interface{}
-		err := json.Unmarshal(replaced, &val)
-		if err != nil {
-			return nil, errors.Wrapf(ErrBadInput, "while interpolating variables in JSON payload: %v; got input: %v", err, replaced)
-		}
-		return mapGoValue(val, func(val interface{}) (interface{}, error) {
-			if m, is := val.(map[string]interface{}); is {
-				maybeKeypath, exists := m["__chainlink_var_expr__"]
-				if !exists {
-					return val, nil
-				}
-				keypath, is := maybeKeypath.(string)
-				if !is {
-					return nil, errors.New("you cannot use __chainlink_var_expr__ in your JSON")
-				}
-				newVal, err := vars.Get(keypath)
-				if err != nil {
-					return nil, err
-				} else if err, is := newVal.(error); is && !allowErrors {
-					return nil, errors.Wrapf(ErrBadInput, "JSONWithVarExprs: %v", err)
-				}
-				return newVal, nil
-			}
-			return val, nil
-		})
-	}
-}
-
-func mapGoValue(v interface{}, fn func(val interface{}) (interface{}, error)) (x interface{}, err error) {
-	type item struct {
-		val         interface{}
-		parentMap   map[string]interface{}
-		parentKey   string
-		parentSlice []interface{}
-		parentIdx   int
-	}
-
-	stack := []item{{val: v}}
-	var current item
-
-	for len(stack) > 0 {
-		current = stack[0]
-		stack = stack[1:]
-
-		val, err := fn(current.val)
-		if err != nil {
-			return nil, err
-		}
-
-		if current.parentMap != nil {
-			current.parentMap[current.parentKey] = val
-		} else if current.parentSlice != nil {
-			current.parentSlice[current.parentIdx] = val
-		}
-
-		if asMap, isMap := val.(map[string]interface{}); isMap {
-			for key := range asMap {
-				stack = append(stack, item{val: asMap[key], parentMap: asMap, parentKey: key})
-			}
-		} else if asSlice, isSlice := val.([]interface{}); isSlice {
-			for i := range asSlice {
-				stack = append(stack, item{val: asSlice[i], parentSlice: asSlice, parentIdx: i})
-			}
-		}
-	}
-	return v, nil
-}
-
-func NonemptyString(s string) GetterFunc {
-	return func() (interface{}, error) {
-		trimmed := strings.TrimSpace(s)
-		if len(trimmed) == 0 {
-			return nil, ErrParameterEmpty
-		}
-		return trimmed, nil
-	}
-}
-
-func Input(inputs []Result, index int) GetterFunc {
-	return func() (interface{}, error) {
-		if len(inputs)-1 < index {
-			return nil, ErrParameterEmpty
-		}
-		return inputs[index].Value, inputs[index].Error
-	}
-}
-
-func Inputs(inputs []Result) GetterFunc {
-	return func() (interface{}, error) {
-		var vals []interface{}
-		for _, input := range inputs {
-			if input.Error != nil {
-				vals = append(vals, input.Error)
-			} else {
-				vals = append(vals, input.Value)
-			}
-		}
-		return vals, nil
-	}
 }
 
 type StringParam string
@@ -302,6 +151,14 @@ type MaybeUint64Param struct {
 	isSet bool
 }
 
+// NewMaybeUint64Param creates new instance of MaybeUint64Param
+func NewMaybeUint64Param(n uint64, isSet bool) MaybeUint64Param {
+	return MaybeUint64Param{
+		n:     n,
+		isSet: isSet,
+	}
+}
+
 func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	var n uint64
 	switch v := val.(type) {
@@ -353,6 +210,14 @@ func (p MaybeUint64Param) Uint64() (uint64, bool) {
 type MaybeInt32Param struct {
 	n     int32
 	isSet bool
+}
+
+// NewMaybeInt32Param creates new instance of MaybeInt32Param
+func NewMaybeInt32Param(n int32, isSet bool) MaybeInt32Param {
+	return MaybeInt32Param{
+		n:     n,
+		isSet: isSet,
+	}
 }
 
 func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
@@ -653,12 +518,12 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 	case string:
 		err := json.Unmarshal([]byte(v), &dsp)
 		if err != nil {
-			return err
+			return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 		}
 	case []byte:
 		err := json.Unmarshal(v, &dsp)
 		if err != nil {
-			return err
+			return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 		}
 	case []interface{}:
 		for _, h := range v {
@@ -669,6 +534,16 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
 				}
 				dsp = append(dsp, hash)
+			} else if b, is := h.([]byte); is {
+				// same semantic as AddressSliceParam
+				var hash common.Hash
+				err := hash.UnmarshalText(b)
+				if err != nil {
+					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
+				}
+				dsp = append(dsp, hash)
+			} else if h, is := h.(common.Hash); is {
+				dsp = append(dsp, h)
 			} else {
 				return errors.Wrap(ErrBadInput, "HashSliceParam")
 			}
@@ -717,7 +592,23 @@ func (s *AddressSliceParam) UnmarshalPipelineParam(val interface{}) error {
 
 type JSONPathParam []string
 
+// NewJSONPathParam returns a new JSONPathParam using the given separator, or the default if empty.
+func NewJSONPathParam(sep string) JSONPathParam {
+	if len(sep) == 0 {
+		return nil
+	}
+	return []string{sep}
+}
+
+// UnmarshalPipelineParam unmarshals a slice of strings from val.
+// If val is a string or []byte, it is split on a separator.
+// The default separator is ',' but can be overridden by initializing via NewJSONPathParam.
 func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
+	sep := ","
+	if len(*p) > 0 {
+		// custom separator
+		sep = (*p)[0]
+	}
 	var ssp JSONPathParam
 	switch v := val.(type) {
 	case nil:
@@ -736,12 +627,12 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 		if len(v) == 0 {
 			return nil
 		}
-		ssp = strings.Split(v, ",")
+		ssp = strings.Split(v, sep)
 	case []byte:
 		if len(v) == 0 {
 			return nil
 		}
-		ssp = strings.Split(string(v), ",")
+		ssp = strings.Split(string(v), sep)
 	default:
 		return ErrBadInput
 	}
@@ -751,6 +642,13 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 
 type MaybeBigIntParam struct {
 	n *big.Int
+}
+
+// NewMaybeBigIntParam creates a new instance of MaybeBigIntParam
+func NewMaybeBigIntParam(n *big.Int) MaybeBigIntParam {
+	return MaybeBigIntParam{
+		n: n,
+	}
 }
 
 func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {

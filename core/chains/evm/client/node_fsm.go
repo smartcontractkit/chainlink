@@ -116,7 +116,7 @@ func (n *node) setState(s NodeState) {
 
 func (n *node) declareAlive() {
 	n.transitionToAlive(func() {
-		n.log.Infow("RPC Node is online", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is online", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -142,7 +142,7 @@ func (n *node) transitionToAlive(fn func()) {
 // pool consumers again
 func (n *node) declareInSync() {
 	n.transitionToInSync(func() {
-		n.log.Infow("RPC Node is back in sync", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is back in sync", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -169,7 +169,7 @@ func (n *node) transitionToInSync(fn func()) {
 // clients and making it unavailable for use
 func (n *node) declareOutOfSync(latestReceivedBlockNumber int64) {
 	n.transitionToOutOfSync(func() {
-		n.log.Errorw("RPC Node is out of sync", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.outOfSyncLoop(latestReceivedBlockNumber)
 	})
@@ -185,7 +185,9 @@ func (n *node) transitionToOutOfSync(fn func()) {
 	switch n.state {
 	case NodeStateAlive:
 		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
+		if n.ws.rpc != nil {
+			n.ws.rpc.Close()
+		}
 		n.cancelInflightRequests()
 		n.state = NodeStateOutOfSync
 	default:
@@ -196,7 +198,7 @@ func (n *node) transitionToOutOfSync(fn func()) {
 
 func (n *node) declareUnreachable() {
 	n.transitionToUnreachable(func() {
-		n.log.Errorw("RPC Node is unreachable", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is unreachable", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.unreachableLoop()
 	})
@@ -212,7 +214,9 @@ func (n *node) transitionToUnreachable(fn func()) {
 	switch n.state {
 	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID:
 		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
+		if n.ws.rpc != nil {
+			n.ws.rpc.Close()
+		}
 		n.cancelInflightRequests()
 		n.state = NodeStateUnreachable
 	default:
@@ -223,7 +227,7 @@ func (n *node) transitionToUnreachable(fn func()) {
 
 func (n *node) declareInvalidChainID() {
 	n.transitionToInvalidChainID(func() {
-		n.log.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.invalidChainIDLoop()
 	})
@@ -239,7 +243,9 @@ func (n *node) transitionToInvalidChainID(fn func()) {
 	switch n.state {
 	case NodeStateDialed:
 		// Need to disconnect all clients subscribed to this node
-		n.ws.rpc.Close()
+		if n.ws.rpc != nil {
+			n.ws.rpc.Close()
+		}
 		n.cancelInflightRequests()
 		n.state = NodeStateInvalidChainID
 	default:

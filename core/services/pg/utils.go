@@ -2,8 +2,10 @@ package pg
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/config/parse"
@@ -58,4 +60,23 @@ func DefaultQueryCtx() (context.Context, context.CancelFunc) {
 // SQL queries with the given parent context
 func DefaultQueryCtxWithParent(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, DefaultQueryTimeout)
+}
+
+var _ driver.Valuer = Limit(-1)
+
+// Limit is a helper driver.Valuer for LIMIT queries which uses nil/NULL for negative values.
+type Limit int
+
+func (l Limit) String() string {
+	if l < 0 {
+		return "NULL"
+	}
+	return strconv.Itoa(int(l))
+}
+
+func (l Limit) Value() (driver.Value, error) {
+	if l < 0 {
+		return nil, nil
+	}
+	return l, nil
 }

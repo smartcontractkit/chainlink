@@ -112,7 +112,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 									evmChainID
 									minIncomingConfirmations
 									minIncomingConfirmationsEnv
-									minContractPayment
+									minContractPaymentLinkJuels
 									requesters
 								}
 							}
@@ -130,7 +130,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 							"evmChainID": "42",
 							"minIncomingConfirmations": 1,
 							"minIncomingConfirmationsEnv": true,
-							"minContractPayment": "1000",
+							"minContractPaymentLinkJuels": "1000",
 							"requesters": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"]
 						}
 					}
@@ -616,6 +616,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 						RequestTimeout:                24 * time.Hour,
 						ChunkSize:                     25,
 						BatchFulfillmentGasMultiplier: 1,
+						BackoffInitialDelay:           time.Minute,
+						BackoffMaxDelay:               time.Hour,
 					},
 				}, nil)
 			},
@@ -639,6 +641,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 									batchFulfillmentEnabled
 									batchFulfillmentGasMultiplier
 									chunkSize
+									backoffInitialDelay
+									backoffMaxDelay
 								}
 							}
 						}
@@ -662,7 +666,9 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"batchCoordinatorAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
 							"batchFulfillmentEnabled": true,
 							"batchFulfillmentGasMultiplier": 1,
-							"chunkSize": 25
+							"chunkSize": 25,
+							"backoffInitialDelay": "1m0s",
+							"backoffMaxDelay": "1h0m0s" 
 						}
 					}
 				}
