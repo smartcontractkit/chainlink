@@ -102,16 +102,16 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps1_2(reg Registry) error {
 		return errors.Wrap(err, "unable to fetch existing upkeep IDs from DB")
 	}
 
-	existingSet := make(map[*big.Int]bool)
-	activeSet := make(map[*big.Int]bool)
+	existingSet := make(map[string]bool)
+	activeSet := make(map[string]bool)
 	// New upkeeps are all elements in activeUpkeepIDs which are not in existingUpkeepIDs
 	newUpkeeps := make([]*big.Int, 0)
 	for _, upkeepID := range existingUpkeepIDs {
-		existingSet[upkeepID.ToInt()] = true
+		existingSet[upkeepID.ToInt().String()] = true
 	}
 	for _, upkeepID := range activeUpkeepIDs {
-		activeSet[upkeepID] = true
-		if _, found := existingSet[upkeepID]; !found {
+		activeSet[upkeepID.String()] = true
+		if _, found := existingSet[upkeepID.String()]; !found {
 			newUpkeeps = append(newUpkeeps, upkeepID)
 		}
 	}
@@ -120,7 +120,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps1_2(reg Registry) error {
 	// All upkeeps in existingUpkeepIDs, not in activeUpkeepIDs should be deleted
 	canceled := make([]int64, 0)
 	for _, upkeepID := range existingUpkeepIDs {
-		if _, found := activeSet[upkeepID.ToInt()]; !found {
+		if _, found := activeSet[upkeepID.ToInt().String()]; !found {
 			canceled = append(canceled, upkeepID.ToInt().Int64())
 		}
 	}
