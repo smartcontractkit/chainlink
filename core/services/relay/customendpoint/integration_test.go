@@ -140,11 +140,10 @@ func TestOcr2Provider(t *testing.T) {
 	addBridgeToDb(t, db, relayConfig.EndpointTarget, bridgeUrl.String())
 
 	// Get the expected digester from TOML file
-	digesterFromToml := customendpoint.OffchainConfigDigester{
-		EndpointName:   relayConfig.EndpointName,
-		EndpointTarget: relayConfig.EndpointTarget,
-		PayloadType:    relayConfig.PayloadType,
-	}
+	digesterFromToml := customendpoint.CreateConfigDigester(
+		relayConfig.EndpointName,
+		relayConfig.EndpointTarget,
+		relayConfig.PayloadType)
 	expectedDigestPrefix := digesterFromToml.ConfigDigestPrefix()
 	config := types.ContractConfig{}
 	expectedDigest, err := digesterFromToml.ConfigDigest(config)

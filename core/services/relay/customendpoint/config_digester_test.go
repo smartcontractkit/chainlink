@@ -8,7 +8,7 @@ import (
 )
 
 func TestConfigDigester(t *testing.T) {
-	initialDigester := OffchainConfigDigester{
+	initialDigester := offchainConfigDigester{
 		EndpointName:   "dydx",
 		EndpointTarget: "staging",
 		PayloadType:    "ETHUSD",

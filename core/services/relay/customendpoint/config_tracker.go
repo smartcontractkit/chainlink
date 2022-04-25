@@ -27,7 +27,7 @@ type answer struct {
 }
 
 type contractTracker struct {
-	digester          OffchainConfigDigester
+	digester          offchainConfigDigester
 	bridgeRequestData string
 	bridgeInputAtKey  string
 	multiplierUsed    int32
@@ -46,7 +46,7 @@ type contractTracker struct {
 }
 
 func NewTracker(spec OCR2Spec,
-	configDigester OffchainConfigDigester,
+	configDigester offchainConfigDigester,
 	lggr logger.Logger,
 	pipelineORM pipeline.ORM,
 	config config.GeneralConfig,
@@ -100,8 +100,9 @@ func (c *contractTracker) LatestBlockHeight(ctx context.Context) (blockHeight ui
 	return 1, nil
 }
 
-// Return a fixed config.
-// TODO: Figure out where to get config from. Job Spec, or API endpoint, or some onchain.
+// For now, return a fixed config.
+// TODO: Figure out the right source for this config. Whether to put it in JobSpec file,
+// or some onchain where EngOps control access to the contract.
 func (c *contractTracker) getContractConfig() (types.ContractConfig, error) {
 	digest, err := c.digester.configDigest()
 

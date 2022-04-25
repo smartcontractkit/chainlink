@@ -10,9 +10,9 @@ import (
 
 const ConfigDigestPrefixCustomEndpoint types.ConfigDigestPrefix = 4
 
-var _ types.OffchainConfigDigester = (*OffchainConfigDigester)(nil)
+var _ types.OffchainConfigDigester = (*offchainConfigDigester)(nil)
 
-type OffchainConfigDigester struct {
+type offchainConfigDigester struct {
 	// This uniquely identifies a custom endpoint class. For example, dydx.
 	EndpointName string
 	// Endpoint class specific target. Example, if target is bridge, then bridge name
@@ -22,14 +22,14 @@ type OffchainConfigDigester struct {
 	PayloadType string
 }
 
-func (d OffchainConfigDigester) ConfigDigest(cfg types.ContractConfig) (types.ConfigDigest, error) {
+func (d offchainConfigDigester) ConfigDigest(cfg types.ContractConfig) (types.ConfigDigest, error) {
 	return d.configDigest()
 }
 
-// The digest is unique per OffchainConfigDigester.endpointType value. This ensures
+// The digest is unique per offchainConfigDigester.endpointType value. This ensures
 // protocol instances for staging vs prod are distinct, and we have separate
 // monitoring for each.
-func (d OffchainConfigDigester) configDigest() (types.ConfigDigest, error) {
+func (d offchainConfigDigester) configDigest() (types.ConfigDigest, error) {
 	digest := types.ConfigDigest{}
 	buf := sha256.New()
 
@@ -54,6 +54,6 @@ func (d OffchainConfigDigester) configDigest() (types.ConfigDigest, error) {
 }
 
 // This should return the same constant value on every invocation
-func (OffchainConfigDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
+func (offchainConfigDigester) ConfigDigestPrefix() types.ConfigDigestPrefix {
 	return ConfigDigestPrefixCustomEndpoint
 }

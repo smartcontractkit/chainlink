@@ -15,3 +15,11 @@ func WaitForTransmitters(t *testing.T, transmitter types.ContractTransmitter) {
 	}
 	tracker.transmittersWg.Wait()
 }
+
+func CreateConfigDigester(EndpointName string, EndpointTarget string, PayloadType string) types.OffchainConfigDigester {
+	return offchainConfigDigester{
+		EndpointName:   EndpointName,
+		EndpointTarget: EndpointTarget,
+		PayloadType:    PayloadType,
+	}
+}

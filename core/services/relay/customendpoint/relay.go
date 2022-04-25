@@ -87,7 +87,7 @@ func (r *Relayer) Healthy() error {
 }
 
 type ocr2Provider struct {
-	configDigester OffchainConfigDigester
+	configDigester offchainConfigDigester
 	reportCodec    evmreportcodec.ReportCodec
 	tracker        *contractTracker
 }
@@ -103,7 +103,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		return &provider, errors.New("invalid multiplierUsed in 'customendpoint.OCR2Spec'")
 	}
 
-	digester := OffchainConfigDigester{
+	digester := offchainConfigDigester{
 		EndpointName:   spec.EndpointName,
 		EndpointTarget: spec.EndpointTarget,
 		PayloadType:    spec.PayloadType,
