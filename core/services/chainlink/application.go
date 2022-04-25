@@ -351,7 +351,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			relay.AddRelayer(relaytypes.Terra, terraRelayerCtx)
 		}
 		if cfg.CustomEndpointEnabled() {
-			customEndpointRelayer := customendpoint.NewRelayer(globalLogger.Named("CustomEndpoint.Relayer"), cfg, pipelineORM)
+			customEndpointRelayer := customendpoint.NewRelayer(globalLogger.Named("CustomEndpoint.Relayer"), cfg, pipelineORM, utils.Clock{})
 			customEndpointRelayerCtx := customEndpointRelayer
 			relay.AddRelayer(relaytypes.CustomEndpoint, customEndpointRelayerCtx)
 		}

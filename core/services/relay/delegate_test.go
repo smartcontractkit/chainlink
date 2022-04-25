@@ -21,11 +21,15 @@ import (
 	chainsMock "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	solMock "github.com/smartcontractkit/chainlink/core/chains/solana/mocks"
 	terraMock "github.com/smartcontractkit/chainlink/core/chains/terra/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/solkey"
 	keystoreMock "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/services/relay/customendpoint"
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -43,6 +47,9 @@ func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OCR2OracleSpe
 
 func TestNewOCR2Provider(t *testing.T) {
 	lggr := logger.TestLogger(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg)
 
 	// setup keystore mock
 	solKey := new(keystoreMock.Solana)
@@ -82,6 +89,7 @@ func TestNewOCR2Provider(t *testing.T) {
 		{"solana", testspecs.OCR2SolanaSpecMinimal},
 		{"terra", testspecs.OCR2TerraSpecMinimal},
 		{"terra", testspecs.OCR2TerraNodeSpecMinimal}, // nodeName: "some-test-node"
+		{"customendpoint", testspecs.OCR2CustomEndpointSpecMinimal},
 	}
 
 	for _, s := range specs {
@@ -103,6 +111,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
 	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr, solChains))
 	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
+	d.AddRelayer(relaytypes.CustomEndpoint, customendpoint.NewRelayer(lggr, cfg, pipelineORM))
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {

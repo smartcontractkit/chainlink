@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -17,15 +18,15 @@ import (
 var StaticTransmitters = []types.Account{"str"}
 var StaticOnChainPublicKeys = []types.OnchainPublicKey{[]byte{'a'}}
 
-// Answer contains the value and other details of a particular transmission
-type Answer struct {
+// answer contains the value and other details of a particular transmission
+type answer struct {
 	Data      *big.Int
 	Timestamp time.Time
 	epoch     uint32
 	round     uint8
 }
 
-type ContractTracker struct {
+type contractTracker struct {
 	digester          OffchainConfigDigester
 	bridgeRequestData string
 	bridgeInputAtKey  string
@@ -34,16 +35,24 @@ type ContractTracker struct {
 	lggr        logger.Logger
 	pipelineORM pipeline.ORM
 	config      config.GeneralConfig
+	reportCodec evmreportcodec.ReportCodec
+	clock       utils.Nower
 
 	transmittersWg sync.WaitGroup
-	answer         Answer
-	ansLock        *sync.RWMutex
+	storedAnswer   answer
+	ansLock        sync.RWMutex
 
 	utils.StartStopOnce
 }
 
-func NewTracker(spec OCR2Spec, configDigester OffchainConfigDigester, lggr logger.Logger, pipelineORM pipeline.ORM, config config.GeneralConfig) ContractTracker {
-	return ContractTracker{
+func NewTracker(spec OCR2Spec,
+	configDigester OffchainConfigDigester,
+	lggr logger.Logger,
+	pipelineORM pipeline.ORM,
+	config config.GeneralConfig,
+	reportCodec evmreportcodec.ReportCodec,
+	clock utils.Nower) contractTracker {
+	return contractTracker{
 		digester:          configDigester,
 		bridgeRequestData: spec.BridgeRequestData,
 		bridgeInputAtKey:  spec.BridgeInputAtKey,
@@ -51,47 +60,49 @@ func NewTracker(spec OCR2Spec, configDigester OffchainConfigDigester, lggr logge
 		lggr:              lggr,
 		pipelineORM:       pipelineORM,
 		config:            config,
-		answer: Answer{
-			Data:      nil,
-			Timestamp: time.Now(),
+		reportCodec:       reportCodec,
+		clock:             clock,
+		storedAnswer: answer{
+			Data:      big.NewInt(0),
+			Timestamp: clock.Now(),
 			epoch:     0,
 			round:     0,
 		},
 	}
 }
 
-func (c *ContractTracker) GetLastTransmittedAnswer() Answer {
+func (c *contractTracker) getLastTransmittedAnswer() answer {
 	c.ansLock.RLock()
 	defer c.ansLock.RUnlock()
-	return c.answer
+	return c.storedAnswer
 }
 
 // Since we are returning a fixed config, so no need to notify changes about this config.
-func (c *ContractTracker) Notify() <-chan struct{} {
+func (c *contractTracker) Notify() <-chan struct{} {
 	return nil
 }
 
 // LatestConfigDetails returns information about the latest configuration,
 // but not the configuration itself.
-func (c *ContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest types.ConfigDigest, err error) {
+func (c *contractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest types.ConfigDigest, err error) {
 	digest, err := c.digester.configDigest()
 	return 1, digest, err
 }
 
 // LatestConfig always returns a fixed config, as it doesn't change.
-func (c *ContractTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (types.ContractConfig, error) {
+func (c *contractTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (types.ContractConfig, error) {
 	return c.getContractConfig()
 }
 
 // LatestBlockHeight isn't used if LatestConfig() always returns a static config that doesn't
 // change. So we can return a static value from here, which is a no-op.
-func (c *ContractTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+func (c *contractTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	return 1, nil
 }
 
 // Return a fixed config.
 // TODO: Figure out where to get config from. Job Spec, or API endpoint, or some onchain.
-func (c *ContractTracker) getContractConfig() (types.ContractConfig, error) {
+func (c *contractTracker) getContractConfig() (types.ContractConfig, error) {
 	digest, err := c.digester.configDigest()
 
 	return types.ContractConfig{
@@ -106,19 +117,24 @@ func (c *ContractTracker) getContractConfig() (types.ContractConfig, error) {
 	}, err
 }
 
-func (c *ContractTracker) Start() error {
+func (c *contractTracker) Start() error {
 	return nil
 }
 
-func (c *ContractTracker) Close() error {
+func (c *contractTracker) Close() error {
 	c.transmittersWg.Wait()
 	return nil
 }
 
-func (c *ContractTracker) Ready() error {
+func (c *contractTracker) Ready() error {
 	return nil
 }
 
-func (c *ContractTracker) Healthy() error {
+func (c *contractTracker) Healthy() error {
 	return nil
+}
+
+// Waits till all the transmission threads are done. Used for testing.
+func (c *contractTracker) WaitForTransmissions() {
+	c.transmittersWg.Wait()
 }

@@ -9,8 +9,8 @@ import (
 )
 
 // This returns the latest observations that were last uploaded to the endpoint.
-// All transmissions are saved in the ContractTracker, during call to Transmit().
-func (c *ContractTracker) LatestTransmissionDetails(
+// All transmissions are saved in the contractTracker, during call to Transmit().
+func (c *contractTracker) LatestTransmissionDetails(
 	ctx context.Context,
 ) (
 	configDigest types.ConfigDigest,
@@ -21,7 +21,7 @@ func (c *ContractTracker) LatestTransmissionDetails(
 	err error,
 ) {
 	digester, err := c.digester.configDigest()
-	answer := c.GetLastTransmittedAnswer()
+	answer := c.getLastTransmittedAnswer()
 	return digester,
 		answer.epoch,
 		answer.round,
@@ -31,7 +31,7 @@ func (c *ContractTracker) LatestTransmissionDetails(
 }
 
 // It is safe to return 0 values here.
-func (c *ContractTracker) LatestRoundRequested(
+func (c *contractTracker) LatestRoundRequested(
 	ctx context.Context,
 	lookback time.Duration,
 ) (

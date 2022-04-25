@@ -14,15 +14,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // CL Core OCR2 job spec RelayConfig for customendpoint
-// All the required fields are used to compute ConfigDigest
 type RelayConfig struct {
 	// The name of custom endpoint. For example, dydx.
 	EndpointName string `json:"endpointName"` // required
+
 	// Endpoint specific transmission target. For example, staging/prod bridge names.
 	EndpointTarget string `json:"endpointTarget"` // required
+
 	// The identifier of what payload this job sends.
 	// For example, ETHUSD represents the ETH-USD price feed.
 	PayloadType string `json:"payloadType"` // required
@@ -31,7 +33,10 @@ type RelayConfig struct {
 	BridgeRequestData string `json:"bridgeRequestData"`
 	BridgeInputAtKey  string `json:"bridgeInputAtKey"`
 
-	// The multiplier used in the job spec for storing price feed
+	// The multiplier used in the job spec for storing price feed.
+	// Must be a positive integer, which is a power of 10.
+	// This should be same as the value used in the multiply task
+	// of the Observation phase while reporting final result.
 	MultiplierUsed int32 `json:"multiplierUsed"`
 }
 
@@ -42,41 +47,41 @@ type OCR2Spec struct {
 }
 
 // Relayer for customendpoint.
-// Note that our customendpoint integration doesn't have any associated Chain.
-// We are just uploading to an API endpoint. This relayer is an interface to
+// Note that a customendpoint integration doesn't have any associated Chain.
+// We are just uploading to some custom endpoint. This relayer is an interface to
 // doing that via OCR2. The implementation just has basic functionality needed
 // to make OCR2 work, without any associated chain.
 type Relayer struct {
 	lggr        logger.Logger
 	config      config.GeneralConfig
 	pipelineORM pipeline.ORM
+	clock       utils.Nower
 }
 
-func NewRelayer(lggr logger.Logger, config config.GeneralConfig, pipelineORM pipeline.ORM) *Relayer {
+func NewRelayer(lggr logger.Logger,
+	config config.GeneralConfig,
+	pipelineORM pipeline.ORM,
+	clock utils.Nower) *Relayer {
 	return &Relayer{
 		lggr:        lggr,
 		config:      config,
 		pipelineORM: pipelineORM,
+		clock:       clock,
 	}
 }
 
-// Start starts the relayer respecting the given context.
 func (r *Relayer) Start(context.Context) error {
-	// No subservices started on relay start, but when the first job is started
 	return nil
 }
 
-// Close will close all open subservices
 func (r *Relayer) Close() error {
 	return nil
 }
 
 func (r *Relayer) Ready() error {
-	// always ready
 	return nil
 }
 
-// Healthy only if all subservices are healthy
 func (r *Relayer) Healthy() error {
 	return nil
 }
@@ -84,7 +89,7 @@ func (r *Relayer) Healthy() error {
 type ocr2Provider struct {
 	configDigester OffchainConfigDigester
 	reportCodec    evmreportcodec.ReportCodec
-	tracker        *ContractTracker
+	tracker        *contractTracker
 }
 
 // NewOCR2Provider creates a new OCR2ProviderCtx instance.
@@ -103,8 +108,8 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 		EndpointTarget: spec.EndpointTarget,
 		PayloadType:    spec.PayloadType,
 	}
-
-	contractTracker := NewTracker(spec, digester, r.lggr, r.pipelineORM, r.config)
+	codec := evmreportcodec.ReportCodec{}
+	contractTracker := NewTracker(spec, digester, r.lggr, r.pipelineORM, r.config, codec, r.clock)
 
 	if spec.IsBootstrap {
 		// Return early if bootstrap node (doesn't require the full OCR2 provider)
@@ -116,7 +121,7 @@ func (r *Relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 
 	return &ocr2Provider{
 		configDigester: digester,
-		reportCodec:    evmreportcodec.ReportCodec{},
+		reportCodec:    codec,
 		tracker:        &contractTracker,
 	}, nil
 }

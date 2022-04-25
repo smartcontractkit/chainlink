@@ -131,6 +131,29 @@ chainID = "Chainlink-99"`
 	OCR2TerraNodeSpecMinimal = OCR2TerraSpecMinimal + `
 nodeName = "some-test-node"`
 
+	OCR2CustomEndpointSpecMinimal = `type = "offchainreporting2"
+schemaVersion = 1
+name = "local testing job"
+contractID = "CustomEndpoint7ydDXVvgvJXyBr9tHA5hd6a1GBGBx"
+p2pBootstrapPeers = []
+relay = "customendpoint"
+pluginType = "median"
+transmitterID = "CustomEndpointWGFfKuEh2Ca794U3McLJBy7tfmDynK"
+observationSource = """
+"""
+[pluginConfig]
+juelsPerFeeCoinSource = """
+"""
+
+[relayConfig]
+endpointName = "dydx"
+endpointTarget = "bridge-dydx-stark-staging"
+payloadType = "ETHUSD"
+bridgeRequestData = '{"data": {"asset":"%s"}}'
+bridgeInputAtKey = "result"
+multiplierUsed = 100000000
+`
+
 	WebhookSpecNoBody = `
 type            = "webhook"
 schemaVersion   = 1

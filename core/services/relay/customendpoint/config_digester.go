@@ -15,7 +15,7 @@ var _ types.OffchainConfigDigester = (*OffchainConfigDigester)(nil)
 type OffchainConfigDigester struct {
 	// This uniquely identifies a custom endpoint class. For example, dydx.
 	EndpointName string
-	// Endpoint class specific target. Example, staging/prod
+	// Endpoint class specific target. Example, if target is bridge, then bridge name
 	EndpointTarget string
 	// Uniquely identifies the type of data being uploaded to the endpoint
 	// For example, ETHUSD represents ETH price in USD.
