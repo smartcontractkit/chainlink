@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -42,7 +41,7 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 }
 
 func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
-	switch rs.version {
+	switch rs.registryWrapper.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return rs.fullSyncUpkeeps1_1(reg)
 	case RegistryVersion_1_2:
@@ -58,7 +57,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps1_1(reg Registry) error {
 		return errors.Wrap(err, "unable to find next ID for registry")
 	}
 
-	countOnContractBig, err := rs.contract1_1.GetUpkeepCount(nil)
+	countOnContractBig, err := rs.registryWrapper.GetRegisteredUpkeepCount(nil)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get upkeep count")
 	}
@@ -75,7 +74,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps1_1(reg Registry) error {
 	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
 
 	// Delete upkeeps which have been cancelled
-	canceledBigs, err := rs.contract1_1.GetCanceledUpkeepList(nil)
+	canceledBigs, err := rs.registryWrapper.GetCanceledUpkeepList(nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to get canceled upkeep list")
 	}
@@ -93,7 +92,7 @@ func (rs *RegistrySynchronizer) fullSyncUpkeeps1_2(reg Registry) error {
 	startIndex := big.NewInt(0)
 	maxCount := big.NewInt(0)
 	// TODO (sc-37024): Get active upkeep IDs from contract in batches
-	activeUpkeepIDs, err := rs.contract1_2.GetActiveUpkeepIDs(nil, startIndex, maxCount)
+	activeUpkeepIDs, err := rs.registryWrapper.GetActiveUpkeepIDs(nil, startIndex, maxCount)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get active upkeep IDs")
 	}
@@ -162,28 +161,13 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *big.Int) error {
-	var checkData []byte
-	var executeGas uint64
-	switch rs.version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		upkeepConfig, err := rs.contract1_1.GetUpkeep(nil, upkeepID)
-		if err != nil {
-			return errors.Wrap(err, "failed to get upkeep config")
-		}
-		checkData = upkeepConfig.CheckData
-		executeGas = uint64(upkeepConfig.ExecuteGas)
-	case RegistryVersion_1_2:
-		upkeepConfig, err := rs.contract1_2.GetUpkeep(nil, upkeepID)
-		if err != nil {
-			return errors.Wrap(err, "failed to get upkeep config")
-		}
-		checkData = upkeepConfig.CheckData
-		executeGas = uint64(upkeepConfig.ExecuteGas)
+	upkeepConfig, err := rs.registryWrapper.GetUpkeep(nil, upkeepID)
+	if err != nil {
+		return errors.Wrap(err, "failed to get upkeep config")
 	}
-
 	newUpkeep := UpkeepRegistration{
-		CheckData:  checkData,
-		ExecuteGas: executeGas,
+		CheckData:  upkeepConfig.CheckData,
+		ExecuteGas: uint64(upkeepConfig.ExecuteGas),
 		RegistryID: registry.ID,
 		UpkeepID:   upkeepID.Int64(),
 	}
@@ -199,37 +183,15 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	fromAddress := rs.job.KeeperSpec.FromAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 
-	var blockCountPerTurn int32
-	var checkGas int32
-	var keeperAddresses []common.Address
-
-	switch rs.version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		config, err := rs.contract1_1.GetConfig(nil)
-		if err != nil {
-			rs.jrm.TryRecordError(rs.job.ID, err.Error())
-			return Registry{}, errors.Wrap(err, "failed to get contract config")
-		}
-		keeperAddresses, err = rs.contract1_1.GetKeeperList(nil)
-		if err != nil {
-			return Registry{}, errors.Wrap(err, "failed to get keeper list")
-		}
-		blockCountPerTurn = int32(config.BlockCountPerTurn.Int64())
-		checkGas = int32(config.CheckGasLimit)
-	case RegistryVersion_1_2:
-		state, err := rs.contract1_2.GetState(nil)
-		if err != nil {
-			rs.jrm.TryRecordError(rs.job.ID, err.Error())
-			return Registry{}, errors.Wrap(err, "failed to get contract state")
-		}
-		keeperAddresses = state.Keepers
-		blockCountPerTurn = int32(state.Config.BlockCountPerTurn.Int64())
-		checkGas = int32(state.Config.CheckGasLimit)
+	registryConfig, err := rs.registryWrapper.GetConfig(nil)
+	if err != nil {
+		rs.jrm.TryRecordError(rs.job.ID, err.Error())
+		return Registry{}, errors.Wrap(err, "failed to get contract config")
 	}
 
 	keeperIndex := int32(-1)
 	keeperMap := map[ethkey.EIP55Address]int32{}
-	for idx, address := range keeperAddresses {
+	for idx, address := range registryConfig.KeeperAddresses {
 		keeperMap[ethkey.EIP55AddressFromAddress(address)] = int32(idx)
 		if address == fromAddress.Address() {
 			keeperIndex = int32(idx)
@@ -240,13 +202,13 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	}
 
 	return Registry{
-		BlockCountPerTurn: blockCountPerTurn,
-		CheckGas:          checkGas,
+		BlockCountPerTurn: registryConfig.BlockCountPerTurn,
+		CheckGas:          registryConfig.CheckGas,
 		ContractAddress:   contractAddress,
 		FromAddress:       fromAddress,
 		JobID:             rs.job.ID,
 		KeeperIndex:       keeperIndex,
-		NumKeepers:        int32(len(keeperAddresses)),
+		NumKeepers:        int32(len(registryConfig.KeeperAddresses)),
 		KeeperIndexMap:    keeperMap,
 	}, nil
 }

@@ -96,15 +96,16 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
-	contract1_1, err := registry1_1.NewKeeperRegistry(
-		contractAddress,
-		ethClient,
-	)
-	require.NoError(t, err)
-	contract1_2, err := registry1_2.NewKeeperRegistry(
-		contractAddress,
-		ethClient,
-	)
+
+	registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_1ABI, contractAddress)
+	switch version {
+	case keeper.RegistryVersion_1_0, keeper.RegistryVersion_1_1:
+		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.1.0").Once()
+	case keeper.RegistryVersion_1_2:
+		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.2.0").Once()
+	}
+
+	registryWrapper, err := keeper.NewRegistryWrapper(j.KeeperSpec.ContractAddress, ethClient)
 	require.NoError(t, err)
 
 	lbMock.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
@@ -115,9 +116,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config(), txmgr.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
-		Contract1_1:              contract1_1,
-		Contract1_2:              contract1_2,
-		Version:                  version,
+		RegistryWrapper:          registryWrapper,
 		ORM:                      orm,
 		JRM:                      jpv2.Jrm,
 		LogBroadcaster:           lbMock,
