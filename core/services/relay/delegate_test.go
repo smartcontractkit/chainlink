@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/relay/evm"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func makeOCR2JobSpecFromToml(t *testing.T, jobSpecToml string) job.OCR2OracleSpec {
@@ -111,7 +112,7 @@ func TestNewOCR2Provider(t *testing.T) {
 	d.AddRelayer(relaytypes.EVM, evm.NewRelayer(&sqlx.DB{}, &chainsMock.ChainSet{}, lggr))
 	d.AddRelayer(relaytypes.Solana, solana.NewRelayer(lggr, solChains))
 	d.AddRelayer(relaytypes.Terra, terra.NewRelayer(lggr, terraChains))
-	d.AddRelayer(relaytypes.CustomEndpoint, customendpoint.NewRelayer(lggr, cfg, pipelineORM))
+	d.AddRelayer(relaytypes.CustomEndpoint, customendpoint.NewRelayer(lggr, cfg, pipelineORM, utils.Clock{}))
 
 	for _, s := range specs {
 		t.Run(s.name, func(t *testing.T) {
