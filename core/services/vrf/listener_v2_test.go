@@ -7,19 +7,26 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
+	vrf_mocks "github.com/smartcontractkit/chainlink/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -262,4 +269,167 @@ func TestListener_Backoff(t *testing.T) {
 			require.Equal(t, test.expected, lsn.ready(req, 10))
 		})
 	}
+}
+
+func TestListener_ShouldProcessSub_NotEnoughBalance(t *testing.T) {
+	mockAggregator := &vrf_mocks.AggregatorV3Interface{}
+	mockAggregator.On("LatestRoundData", mock.Anything).Return(
+		aggregator_v3_interface.LatestRoundData{
+			Answer: decimal.RequireFromString("9821673525377230000").BigInt(),
+		},
+		nil,
+	)
+	defer mockAggregator.AssertExpectations(t)
+
+	cfg := &vrf_mocks.Config{}
+	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(
+		assets.GWei(200),
+	)
+	defer cfg.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{
+					ethkey.EIP55Address("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
+				},
+			},
+		},
+		aggregator: mockAggregator,
+		l:          logger.TestLogger(t),
+		chainID:    big.NewInt(1337),
+		cfg:        cfg,
+	}
+	subID := uint64(1)
+	sub := vrf_coordinator_v2.GetSubscription{
+		Balance: assets.GWei(100),
+	}
+	shouldProcess := lsn.shouldProcessSub(subID, sub, []pendingRequest{
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 1e6,
+				RequestId:        big.NewInt(1),
+			},
+		},
+	})
+	assert.False(t, shouldProcess) // estimated fee: 24435754189944131 juels, 100 GJuels not enough
+}
+
+func TestListener_ShouldProcessSub_EnoughBalance(t *testing.T) {
+	mockAggregator := &vrf_mocks.AggregatorV3Interface{}
+	mockAggregator.On("LatestRoundData", mock.Anything).Return(
+		aggregator_v3_interface.LatestRoundData{
+			Answer: decimal.RequireFromString("9821673525377230000").BigInt(),
+		},
+		nil,
+	)
+	defer mockAggregator.AssertExpectations(t)
+
+	cfg := &vrf_mocks.Config{}
+	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(
+		assets.GWei(200),
+	)
+	defer cfg.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{
+					ethkey.EIP55Address("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
+				},
+			},
+		},
+		aggregator: mockAggregator,
+		l:          logger.TestLogger(t),
+		chainID:    big.NewInt(1337),
+		cfg:        cfg,
+	}
+	subID := uint64(1)
+	sub := vrf_coordinator_v2.GetSubscription{
+		Balance: assets.Ether(1),
+	}
+	shouldProcess := lsn.shouldProcessSub(subID, sub, []pendingRequest{
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 1e6,
+				RequestId:        big.NewInt(1),
+			},
+		},
+	})
+	assert.True(t, shouldProcess) // estimated fee: 24435754189944131 juels, 1 LINK is enough.
+}
+
+func TestListener_ShouldProcessSub_NoLinkEthPrice(t *testing.T) {
+	mockAggregator := &vrf_mocks.AggregatorV3Interface{}
+	mockAggregator.On("LatestRoundData", mock.Anything).Return(
+		aggregator_v3_interface.LatestRoundData{},
+		errors.New("aggregator error"),
+	)
+	defer mockAggregator.AssertExpectations(t)
+
+	cfg := &vrf_mocks.Config{}
+	cfg.On("KeySpecificMaxGasPriceWei", mock.Anything).Return(
+		assets.GWei(200),
+	)
+	defer cfg.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{
+					ethkey.EIP55Address("0x7Bf4E7069d96eEce4f48F50A9768f8615A8cD6D8"),
+				},
+			},
+		},
+		aggregator: mockAggregator,
+		l:          logger.TestLogger(t),
+		chainID:    big.NewInt(1337),
+		cfg:        cfg,
+	}
+	subID := uint64(1)
+	sub := vrf_coordinator_v2.GetSubscription{
+		Balance: assets.Ether(1),
+	}
+	shouldProcess := lsn.shouldProcessSub(subID, sub, []pendingRequest{
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 1e6,
+				RequestId:        big.NewInt(1),
+			},
+		},
+	})
+	assert.True(t, shouldProcess) // no fee available, try to process it.
+}
+
+func TestListener_ShouldProcessSub_NoFromAddresses(t *testing.T) {
+	mockAggregator := &vrf_mocks.AggregatorV3Interface{}
+	defer mockAggregator.AssertExpectations(t)
+
+	cfg := &vrf_mocks.Config{}
+	defer cfg.AssertExpectations(t)
+
+	lsn := &listenerV2{
+		job: job.Job{
+			VRFSpec: &job.VRFSpec{
+				FromAddresses: []ethkey.EIP55Address{},
+			},
+		},
+		aggregator: mockAggregator,
+		l:          logger.TestLogger(t),
+		chainID:    big.NewInt(1337),
+		cfg:        cfg,
+	}
+	subID := uint64(1)
+	sub := vrf_coordinator_v2.GetSubscription{
+		Balance: assets.Ether(1),
+	}
+	shouldProcess := lsn.shouldProcessSub(subID, sub, []pendingRequest{
+		{
+			req: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				CallbackGasLimit: 1e6,
+				RequestId:        big.NewInt(1),
+			},
+		},
+	})
+	assert.True(t, shouldProcess) // no addresses, but try to process it.
 }
