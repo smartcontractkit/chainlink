@@ -149,7 +149,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	}
 
 	var activeUpkeeps []UpkeepRegistration
-	if ex.config.KeeperTurnFlagEnabled() == true {
+	if ex.config.KeeperTurnFlagEnabled() {
 		turnBinary, err2 := ex.turnBlockHashBinary(registry, head, ex.config.KeeperTurnLookBack())
 		if err2 != nil {
 			ex.logger.With("error", err2).Error("unable to get turn block number hash")

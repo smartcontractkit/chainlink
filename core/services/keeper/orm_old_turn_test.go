@@ -34,9 +34,9 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	upkeeps[3].LastRunBlockHeight = 59 // Run last turn, inside grace period (EXCLUDE)
 	upkeeps[4].LastRunBlockHeight = 61 // Run this turn, inside grace period (EXCLUDE)
 
-	for i, upkeep := range upkeeps {
-		upkeep.PositioningConstant = int32(i)
-		err := orm.UpsertUpkeep(&upkeep)
+	for i := range upkeeps {
+		upkeeps[i].PositioningConstant = int32(i)
+		err := orm.UpsertUpkeep(&upkeeps[i])
 		require.NoError(t, err)
 	}
 
@@ -79,8 +79,9 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	upkeep3 := newUpkeep(registry, 2)
 	upkeep3.LastRunBlockHeight = 20
 
-	for _, upkeep := range [3]keeper.UpkeepRegistration{upkeep1, upkeep2, upkeep3} {
-		err := orm.UpsertUpkeep(&upkeep)
+	upkeeps := [3]keeper.UpkeepRegistration{upkeep1, upkeep2, upkeep3}
+	for i := range upkeeps {
+		err := orm.UpsertUpkeep(&upkeeps[i])
 		require.NoError(t, err)
 	}
 

@@ -89,7 +89,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		go rs.run()
 
 		var logListenerOpts log.ListenerOpts
-		if rs.newTurnEnabled == true {
+		if rs.newTurnEnabled {
 			logListenerOpts = log.ListenerOpts{
 				Contract: rs.contract.Address(),
 				ParseLog: rs.contract.ParseLog,
