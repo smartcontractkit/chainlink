@@ -171,7 +171,7 @@ type listenerV2 struct {
 	wg *sync.WaitGroup
 
 	// aggregator client to get link/eth feed prices from chain.
-	aggregator *aggregator_v3_interface.AggregatorV3Interface
+	aggregator aggregator_v3_interface.AggregatorV3InterfaceInterface
 
 	// deduper prevents processing duplicate requests from the log broadcaster.
 	deduper *logDeduper
@@ -369,11 +369,19 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		return
 	}
 	for subID, reqs := range confirmed {
-		sub, err := lsn.coordinator.GetSubscription(nil, subID)
+		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
+			Context: ctx,
+		}, subID)
 		if err != nil {
 			lsn.l.Errorw("Unable to read subscription balance", "err", err)
 			continue
 		}
+
+		if !lsn.shouldProcessSub(subID, sub, reqs) {
+			lsn.l.Warnw("Not processing sub", "subID", subID, "balance", sub.Balance)
+			continue
+		}
+
 		startBalance := sub.Balance
 		p := lsn.processRequestsPerSub(ctx, subID, startBalance, reqs)
 		for reqID := range p {
@@ -381,6 +389,49 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		}
 	}
 	lsn.pruneConfirmedRequestCounts()
+}
+
+func (lsn *listenerV2) shouldProcessSub(subID uint64, sub vrf_coordinator_v2.GetSubscription, reqs []pendingRequest) bool {
+	// This really shouldn't happen, but sanity check.
+	// No point in processing a sub if there are no requests to service.
+	if len(reqs) == 0 {
+		return false
+	}
+
+	vrfRequest := reqs[0].req
+	l := lsn.l.With(
+		"subID", subID,
+		"balance", sub.Balance,
+		"requestID", vrfRequest.RequestId.String(),
+	)
+
+	fromAddresses := lsn.fromAddresses()
+	if len(fromAddresses) == 0 {
+		l.Warn("Couldn't get next from address, processing sub anyway")
+		return true
+	}
+
+	// NOTE: we are assuming that all keys have an identical max gas price.
+	// Otherwise, this is a misconfiguration of the node and/or job.
+	fromAddress := fromAddresses[0]
+
+	gasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress)
+
+	estimatedFee, err := lsn.estimateFeeJuels(reqs[0].req, gasPriceWei)
+	if err != nil {
+		l.Warnw("Couldn't estimate fee, processing sub anyway", "err", err)
+		return true
+	}
+
+	if sub.Balance.Cmp(estimatedFee) < 0 {
+		l.Infow("Subscription is underfunded, not processing it's requests",
+			"estimatedFeeJuels", estimatedFee,
+		)
+		return false
+	}
+
+	// balance is sufficient for at least one request, good to process
+	return true
 }
 
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
@@ -533,6 +584,11 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+					return processed
+				}
+
 				ll.Errorw("Pipeline error", "err", p.err)
 				continue
 			}
@@ -651,6 +707,11 @@ func (lsn *listenerV2) processRequestsPerSub(
 				"attempts", p.req.attempts)
 
 			if p.err != nil {
+				if startBalanceNoReserveLink.Cmp(p.juelsNeeded) < 0 {
+					ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning")
+					return processed
+				}
+
 				ll.Errorw("Pipeline error", "err", p.err)
 				continue
 			}
@@ -827,9 +888,7 @@ func (lsn *listenerV2) estimateFeeJuels(
 	if err != nil {
 		return nil, errors.Wrap(err, "get aggregator latestAnswer")
 	}
-	// NOTE: no need to sanity check this as this is for logging purposes only
-	// and should not be used to determine whether a user has enough funds in actuality,
-	// we should always simulate for that.
+
 	juelsNeeded, err := EstimateFeeJuels(
 		req.CallbackGasLimit,
 		maxGasPriceWei,
