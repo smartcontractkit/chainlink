@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -1550,6 +1551,10 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 
 func NewTxmORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) txmgr.ORM {
 	return txmgr.NewORM(db, logger.TestLogger(t), cfg)
+}
+
+func NewFwdMgrORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) forwarders.ORM {
+	return forwarders.NewORM(db, logger.TestLogger(t), cfg)
 }
 
 // ClearDBTables deletes all rows from the given tables

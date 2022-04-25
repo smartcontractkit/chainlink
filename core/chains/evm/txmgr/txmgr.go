@@ -18,9 +18,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/label"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,6 +47,7 @@ type Config interface {
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
 	EvmNonceAutoSync() bool
+	EvmUseForwarders() bool
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	TriggerFallbackDBPollInterval() time.Duration
@@ -99,8 +102,9 @@ type Txm struct {
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper      *Reaper
-	ethResender *EthResender
+	reaper        *Reaper
+	ethResender   *EthResender
+	forwardersMgr *forwarders.FwdMgr
 }
 
 func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
@@ -108,7 +112,7 @@ func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 // NewTxm creates a new Txm with the given configuration.
-func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory) *Txm {
+func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger, checkerFactory TransmitCheckerFactory, logPoller *logpoller.LogPoller) *Txm {
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
@@ -143,6 +147,11 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		b.reaper = NewReaper(lggr, db, cfg, *ethClient.ChainID())
 	} else {
 		b.logger.Info("EthTxReaper: Disabled")
+	}
+	if cfg.EvmUseForwarders() {
+		b.forwardersMgr = forwarders.NewFwdMgr(db, cfg, ethClient, logPoller, lggr)
+	} else {
+		b.logger.Criticalf("EvmForwarders: Disabled")
 	}
 
 	return &b
@@ -188,6 +197,9 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 			b.ethResender.Start()
 		}
 
+		if b.forwardersMgr != nil {
+			b.forwardersMgr.Start()
+		}
 		return nil
 	})
 }
@@ -201,6 +213,9 @@ func (b *Txm) Close() (merr error) {
 		}
 		if b.ethResender != nil {
 			b.ethResender.Stop()
+		}
+		if b.forwardersMgr != nil {
+			b.forwardersMgr.Stop()
 		}
 
 		b.wg.Wait()
@@ -300,6 +315,18 @@ type NewTx struct {
 // CreateEthTransaction inserts a new transaction
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
+	if b.config.EvmUseForwarders() {
+		// tx, err := b.MakeForwardedTransaction(newTx)
+		b.logger.Criticalf("Using Forwarders: from %s to %s", newTx.FromAddress.String(), newTx.ToAddress.String())
+		fwdAddr, fwdPayload, err := b.forwardersMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
+		if err == nil {
+			b.logger.Criticalf("Found proper forwarder: %s with payload", fwdAddr.String(), string(fwdPayload))
+			newTx.ToAddress = fwdAddr
+			newTx.EncodedPayload = fwdPayload
+		} else {
+			b.logger.Criticalf("Skipping using forwarders: %s", err.Error())
+		}
+	}
 
 	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {

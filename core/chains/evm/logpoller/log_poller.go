@@ -436,12 +436,12 @@ func (lp *LogPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address 
 	return log, nil
 }
 
-func (lp *LogPoller) LatestLogEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
+func (lp *LogPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	sigs := [][]byte{}
 	for _, sig := range eventSigs {
 		sigs = append(sigs, sig[:])
 	}
-	logs, err := lp.orm.LatestLogEventSigsAddrsWithConfs(addresses, sigs, confs, qopts...)
+	logs, err := lp.orm.LatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 	if err != nil {
 		return nil, err
 	}

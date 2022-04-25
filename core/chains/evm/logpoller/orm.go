@@ -131,7 +131,7 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 }
 
 // LatestLogEventSigsAddrsWithConfs finds the latest logs by block that matches a list of addresses and list of events
-func (o *ORM) LatestLogEventSigsAddrsWithConfs(addresses []common.Address, eventSigs [][]byte, confs int, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ORM) LatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 
 	var latestBlocks []int64
@@ -141,6 +141,7 @@ func (o *ORM) LatestLogEventSigsAddrsWithConfs(addresses []common.Address, event
 		"sigs":      eventSigs,
 		"confs":     confs,
 		"chainid":   utils.NewBig(o.chainID),
+		"fromBlock": fromBlock,
 	}
 
 	// Get the latest block with a matching update for each address
@@ -149,6 +150,7 @@ func (o *ORM) LatestLogEventSigsAddrsWithConfs(addresses []common.Address, event
 	WHERE evm_chain_id = :chainid
 	AND address IN (:addresses)
 	AND event_sig IN (:sigs)
+	AND block_number > :fromBlock
 	AND (block_number + :confs) <= (
 		SELECT COALESCE(block_number, 0)
 		FROM log_poller_blocks

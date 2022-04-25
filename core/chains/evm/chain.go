@@ -13,6 +13,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -50,6 +51,7 @@ type chain struct {
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
 	txm             txmgr.TxManager
+	fwdMgr          *forwarders.FwdMgr
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -110,12 +112,14 @@ func newChain(dbchain types.Chain, nodes []types.Node, opts ChainSetOpts) (*chai
 		headTracker = opts.GenHeadTracker(dbchain, headBroadcaster)
 	}
 
+	logPoller := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
+
 	var txm txmgr.TxManager
 	if !cfg.EVMRPCEnabled() {
 		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
 		checker := &txmgr.CheckerFactory{Client: client}
-		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker)
+		txm = txmgr.NewTxm(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l, checker, logPoller)
 	} else {
 		txm = opts.GenTxManager(dbchain)
 	}
@@ -143,7 +147,6 @@ func newChain(dbchain types.Chain, nodes []types.Node, opts ChainSetOpts) (*chai
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}
-	logPoller := logpoller.NewLogPoller(logpoller.NewORM(chainID, db, l, cfg), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()))
 
 	// AddDependent for this chain
 	// log broadcaster will not start until dependent ready is called by a
@@ -178,6 +181,7 @@ func (c *chain) Start(ctx context.Context) error {
 		// We do not start the log poller here, it gets
 		// started after the jobs so they have a chance to apply their filters.
 		merr = multierr.Combine(
+			c.logPoller.Start(ctx), // demo
 			c.txm.Start(ctx),
 			c.headBroadcaster.Start(ctx),
 			c.headTracker.Start(ctx),
