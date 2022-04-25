@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/stretchr/testify/mock"
+	"go.uber.org/atomic"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
@@ -20,9 +23,11 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
+	evmMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -257,6 +262,11 @@ func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int, qopts
 	panic("not implemented")
 }
 
+// NodesForChain implements evmtypes.ORM
+func (mo *MockORM) SetupNodes([]evmtypes.Node, []utils.Big) error {
+	panic("not implemented")
+}
+
 func ChainEthMainnet(t *testing.T) evmconfig.ChainScopedConfig      { return scopedConfig(t, 1) }
 func ChainOptimismMainnet(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 10) }
 func ChainOptimismKovan(t *testing.T) evmconfig.ChainScopedConfig   { return scopedConfig(t, 69) }
@@ -266,4 +276,84 @@ func ChainArbitrumRinkeby(t *testing.T) evmconfig.ChainScopedConfig { return sco
 func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
 	return evmconfig.NewChainScopedConfig(big.NewInt(chainID), evmtypes.ChainCfg{}, nil,
 		logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
+}
+
+func NewEthClientMock(t mock.TestingT) *evmMocks.Client {
+	mockEth := new(evmMocks.Client)
+	mockEth.Test(t)
+	return mockEth
+}
+
+func NewEthClientMockWithDefaultChain(t testing.TB) *evmMocks.Client {
+	c := NewEthClientMock(t)
+	c.On("ChainID").Return(testutils.FixtureChainID).Maybe()
+	return c
+}
+
+type MockEth struct {
+	EthClient       *evmMocks.Client
+	CheckFilterLogs func(int64, int64)
+
+	subs             []*evmMocks.Subscription
+	errChs           []chan error
+	subscribeCalls   atomic.Int32
+	unsubscribeCalls atomic.Int32
+}
+
+func (m *MockEth) AssertExpectations(t *testing.T) {
+	m.EthClient.AssertExpectations(t)
+	for _, sub := range m.subs {
+		sub.AssertExpectations(t)
+	}
+}
+
+func (m *MockEth) SubscribeCallCount() int32 {
+	return m.subscribeCalls.Load()
+}
+
+func (m *MockEth) UnsubscribeCallCount() int32 {
+	return m.unsubscribeCalls.Load()
+}
+
+func (m *MockEth) NewSub(t *testing.T) ethereum.Subscription {
+	m.subscribeCalls.Inc()
+	sub := new(evmMocks.Subscription)
+	sub.Test(t)
+	errCh := make(chan error)
+	sub.On("Err").
+		Return(func() <-chan error { return errCh })
+	sub.On("Unsubscribe").
+		Run(func(mock.Arguments) {
+			m.unsubscribeCalls.Inc()
+			close(errCh)
+		}).Return().Maybe()
+	m.subs = append(m.subs, sub)
+	m.errChs = append(m.errChs, errCh)
+	return sub
+}
+
+func (m *MockEth) SubsErr(err error) {
+	for _, errCh := range m.errChs {
+		errCh <- err
+	}
+}
+
+type RawSub[T any] struct {
+	ch  chan<- T
+	err <-chan error
+}
+
+func NewRawSub[T any](ch chan<- T, err <-chan error) RawSub[T] {
+	return RawSub[T]{ch: ch, err: err}
+}
+
+func (r *RawSub[T]) CloseCh() {
+	close(r.ch)
+}
+
+func (r *RawSub[T]) TrySend(t T) {
+	select {
+	case <-r.err:
+	case r.ch <- t:
+	}
 }

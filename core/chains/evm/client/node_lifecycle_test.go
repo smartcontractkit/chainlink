@@ -32,7 +32,7 @@ func newTestNodeWithCallback(t *testing.T, cfg NodeConfig, callback testutils.JS
 	return n
 }
 
-// dial setups up the node and puts it into the live state, bypassing the
+// dial sets up the node and puts it into the live state, bypassing the
 // normal Start() method which would fire off unwanted goroutines
 func dial(t *testing.T, n *node) {
 	ctx := testutils.TestCtx(t)
@@ -65,12 +65,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		dial(t, n)
 
 		ch := make(chan struct{})
+		n.wg.Add(1)
 		go func() {
-			n.IfStarted(func() {
-				n.wg.Add(1)
-				n.aliveLoop()
-			})
-			close(ch)
+			defer close(ch)
+			n.aliveLoop()
 		}()
 		n.Close()
 		testutils.WaitWithTimeout(t, ch, "expected aliveLoop to exit")
@@ -297,12 +295,11 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		n.setState(NodeStateOutOfSync)
 
 		ch := make(chan struct{})
+
+		n.wg.Add(1)
 		go func() {
-			n.IfStarted(func() {
-				n.wg.Add(1)
-				n.aliveLoop()
-			})
-			close(ch)
+			defer close(ch)
+			n.aliveLoop()
 		}()
 		n.Close()
 		testutils.WaitWithTimeout(t, ch, "expected outOfSyncLoop to exit")
@@ -534,8 +531,8 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		n.setState(NodeStateInvalidChainID)
 
 		ch := make(chan struct{})
+		n.wg.Add(1)
 		go func() {
-			n.wg.Add(1)
 			n.invalidChainIDLoop()
 			close(ch)
 		}()

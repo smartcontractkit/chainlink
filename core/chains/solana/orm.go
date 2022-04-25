@@ -27,6 +27,8 @@ type ORM interface {
 	NodeNamed(string, ...pg.QOpt) (soldb.Node, error)
 	Nodes(offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
 	NodesForChain(chainID string, offset, limit int, qopts ...pg.QOpt) (nodes []soldb.Node, count int, err error)
+
+	SetupNodes([]soldb.Node, []string) error
 }
 
 // NewORM returns an ORM backed by db.

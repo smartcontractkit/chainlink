@@ -161,6 +161,8 @@ func TestConfigSchema(t *testing.T) {
 		"SessionTimeout":                                 "SESSION_TIMEOUT",
 		"ShutdownGracePeriod":                            "SHUTDOWN_GRACE_PERIOD",
 		"SolanaEnabled":                                  "SOLANA_ENABLED",
+		"SolanaNodes":                                    "SOLANA_NODES",
+		"TerraNodes":                                     "TERRA_NODES",
 		"TLSCertPath":                                    "TLS_CERT_PATH",
 		"TLSHost":                                        "CHAINLINK_TLS_HOST",
 		"TLSKeyPath":                                     "TLS_KEY_PATH",

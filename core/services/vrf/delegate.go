@@ -40,6 +40,7 @@ type GethKeyStore interface {
 	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
 }
 
+//go:generate mockery --name Config --output mocks/ --case=underscore
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EvmGasLimitDefault() uint64
