@@ -102,9 +102,9 @@ type Txm struct {
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper        *Reaper
-	ethResender   *EthResender
-	forwardersMgr *forwarders.FwdMgr
+	reaper      *Reaper
+	ethResender *EthResender
+	fwdMgr      *forwarders.FwdMgr
 }
 
 func (b *Txm) RegisterResumeCallback(fn ResumeCallback) {
@@ -149,7 +149,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		b.logger.Info("EthTxReaper: Disabled")
 	}
 	if cfg.EvmUseForwarders() {
-		b.forwardersMgr = forwarders.NewFwdMgr(db, cfg, ethClient, logPoller, lggr)
+		b.fwdMgr = forwarders.NewFwdMgr(db, cfg, ethClient, logPoller, lggr)
 	} else {
 		b.logger.Criticalf("EvmForwarders: Disabled")
 	}
@@ -197,9 +197,12 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 			b.ethResender.Start()
 		}
 
-		if b.forwardersMgr != nil {
-			b.forwardersMgr.Start()
+		if b.fwdMgr != nil {
+			if err = b.fwdMgr.Start(); err != nil {
+				return errors.Wrap(err, "Txm: ForwardManager failed to start")
+			}
 		}
+
 		return nil
 	})
 }
@@ -214,8 +217,8 @@ func (b *Txm) Close() (merr error) {
 		if b.ethResender != nil {
 			b.ethResender.Stop()
 		}
-		if b.forwardersMgr != nil {
-			b.forwardersMgr.Stop()
+		if b.fwdMgr != nil {
+			b.fwdMgr.Stop()
 		}
 
 		b.wg.Wait()
@@ -316,15 +319,12 @@ type NewTx struct {
 func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
 	q := b.q.WithOpts(qs...)
 	if b.config.EvmUseForwarders() {
-		// tx, err := b.MakeForwardedTransaction(newTx)
-		b.logger.Criticalf("Using Forwarders: from %s to %s", newTx.FromAddress.String(), newTx.ToAddress.String())
-		fwdAddr, fwdPayload, err := b.forwardersMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
-		if err == nil {
-			b.logger.Criticalf("Found proper forwarder: %s with payload", fwdAddr.String(), string(fwdPayload))
+		fwdAddr, fwdPayload, fwdErr := b.fwdMgr.MaybeForwardTransaction(newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload)
+		if fwdErr == nil {
 			newTx.ToAddress = fwdAddr
 			newTx.EncodedPayload = fwdPayload
 		} else {
-			b.logger.Criticalf("Skipping using forwarders: %s", err.Error())
+			b.logger.Criticalf("Skipping using forwarders: %s", fwdErr.Error())
 		}
 	}
 

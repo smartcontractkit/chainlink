@@ -2,7 +2,6 @@ package forwarders
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -46,8 +45,8 @@ type FwdMgr struct {
 	destSenders map[common.Address][]common.Address
 	latestBlock int64
 
-	authRvr  authorized_receiver.AuthorizedReceiverInterface
-	configSt offchain_aggregator_wrapper.OffchainAggregatorInterface
+	authRcvr    authorized_receiver.AuthorizedReceiverInterface
+	offchainAgg offchain_aggregator_wrapper.OffchainAggregatorInterface
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -75,24 +74,22 @@ func NewFwdMgr(db *sqlx.DB, cfg Config, client evmclient.Client, logpoller *evml
 func (f *FwdMgr) Start() error {
 	fwdrs, cnt, err := f.ORM.FindForwardersByChain(utils.Big(*f.evmClient.ChainID()))
 	if err != nil {
-		return errors.Errorf("Error retrieving forwarders for chain %d: %s", f.evmClient.ChainID(), err)
+		return errors.Errorf("Failed to retrieve forwarders for chain %d: %s", f.evmClient.ChainID(), err)
 	}
 	f.ctx, f.cancel = context.WithCancel(context.Background())
 	if cnt != 0 {
 		f.initForwardersCache(f.ctx, fwdrs)
 		f.subscribeForwardersLogs(fwdrs)
-		bs, _ := json.Marshal(f.fwdrsSenders)
-		f.logger.Criticalf("state of the world cache %v", string(bs))
 	}
 
-	f.authRvr, err = authorized_receiver.NewAuthorizedReceiver(common.Address{}, f.evmClient)
+	f.authRcvr, err = authorized_receiver.NewAuthorizedReceiver(common.Address{}, f.evmClient)
 	if err != nil {
-		f.logger.Criticalf("failed to init receiver")
+		f.logger.Criticalf("Failed to init AuthorizedReceiver")
 	}
 
-	f.configSt, err = offchain_aggregator_wrapper.NewOffchainAggregator(common.Address{}, f.evmClient)
+	f.offchainAgg, err = offchain_aggregator_wrapper.NewOffchainAggregator(common.Address{}, f.evmClient)
 	if err != nil {
-		f.logger.Criticalf("Failed to init receiver")
+		f.logger.Criticalf("Failed to init OffchainAggregator")
 	}
 
 	go f.runLoop()
@@ -208,7 +205,10 @@ func (f *FwdMgr) runLoop() {
 			f.logger.Infof("handling new %d auth updates", len(logs))
 
 			for _, log := range logs {
-				f.handleAuthChange(log)
+				if err = f.handleAuthChange(log); err != nil {
+					f.logger.Warnf("Error handling auth change %s: %s", log.TxHash, err)
+				}
+
 			}
 
 		case <-f.chStop:
@@ -234,7 +234,7 @@ func (f *FwdMgr) handleAuthChange(log evmlogpoller.Log) error {
 
 	switch {
 	case ethLog.Topics[0] == AuthTopics[0]:
-		event, err := f.authRvr.ParseAuthorizedSendersChanged(ethLog)
+		event, err := f.authRcvr.ParseAuthorizedSendersChanged(ethLog)
 		if err != nil {
 			return errors.Errorf("Failed to parse senders change log")
 		}
@@ -245,7 +245,7 @@ func (f *FwdMgr) handleAuthChange(log evmlogpoller.Log) error {
 		}
 	case ethLog.Topics[0] == AuthTopics[1]:
 		// ConfigSet event
-		event, err := f.configSt.ParseConfigSet(ethLog)
+		event, err := f.offchainAgg.ParseConfigSet(ethLog)
 		if err != nil {
 			return errors.Errorf("Failed to parse config set log")
 		}
@@ -276,8 +276,7 @@ func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
 }
 
 // Stop cancels all outgoings calls and stops internal ticker loop.
-func (f *FwdMgr) Stop() error {
+func (f *FwdMgr) Stop() {
 	f.cancel()
 	close(f.chStop)
-	return nil
 }
