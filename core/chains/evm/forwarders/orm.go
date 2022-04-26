@@ -94,7 +94,7 @@ func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.A
 	query, args, err := sqlx.Named(`
 		SELECT * FROM evm_forwarders 
 		WHERE evm_chain_id = :chainid
-		AND address IN (:addrs)
+		AND address IN (:addresses)
 		ORDER BY created_at DESC, id DESC LIMIT 10`,
 		arg,
 	)

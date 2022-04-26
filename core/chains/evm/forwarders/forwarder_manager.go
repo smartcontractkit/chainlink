@@ -2,6 +2,7 @@ package forwarders
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -33,6 +34,8 @@ var AuthTopics = []common.Hash{
 
 var ForwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI).Methods["forward"]
 
+var AuthLogCheckInterval = time.Duration(5 * time.Second)
+
 type FwdMgr struct {
 	ORM       ORM
 	config    Config
@@ -40,9 +43,9 @@ type FwdMgr struct {
 	logger    logger.Logger
 	logpoller *evmlogpoller.LogPoller
 
-	fwdrsSenders map[common.Address][]common.Address
-	// TODO(samhassan): destSenders should be an LRU capped cache
-	destSenders map[common.Address][]common.Address
+	// TODO(samhassan): sendersCache should be an LRU capped cache
+	sendersCache map[common.Address][]common.Address
+	// sendersCache  map[common.Address][]common.Address
 	latestBlock int64
 
 	authRcvr    authorized_receiver.AuthorizedReceiverInterface
@@ -50,7 +53,9 @@ type FwdMgr struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	chStop chan struct{}
+
+	cacheMu sync.RWMutex
+	chStop  chan struct{}
 }
 
 func NewFwdMgr(db *sqlx.DB, cfg Config, client evmclient.Client, logpoller *evmlogpoller.LogPoller, lggr logger.Logger) *FwdMgr {
@@ -62,9 +67,9 @@ func NewFwdMgr(db *sqlx.DB, cfg Config, client evmclient.Client, logpoller *evml
 		ORM:          NewORM(db, lggr, cfg),
 		logpoller:    logpoller,
 		config:       cfg,
-		fwdrsSenders: make(map[common.Address][]common.Address),
-		destSenders:  make(map[common.Address][]common.Address),
+		sendersCache: make(map[common.Address][]common.Address),
 		chStop:       make(chan struct{}),
+		cacheMu:      sync.RWMutex{},
 		latestBlock:  0,
 	}
 	return &fwdMgr
@@ -104,19 +109,26 @@ func (f *FwdMgr) MaybeForwardTransaction(from common.Address, to common.Address,
 		return to, EncodedPayload, errors.Wrap(err, "Skipping forwarding transaction")
 	}
 
-	// TODO(samhassan): This block should be optimised to prevent folks from getting epilepsy just looking at it.
-	for _, sender := range senders {
-		if EOAs, ok := f.fwdrsSenders[sender]; ok {
-			for _, EOA := range EOAs {
-				if EOA == from {
-					f.logger.Debugf("Found forwarder %s", sender.String())
-					forwardedPayload, err := f.getForwardedPayload(to, EncodedPayload)
-					if err != nil {
-						f.logger.Criticalf("Forwarder encoding failed, this should never happen")
-						continue
-					}
-					return sender, forwardedPayload, nil
+	// Gets current forwarders that are in `to` senders
+	fwdrs, err := f.ORM.FindForwardersInListByChain(utils.Big(*f.evmClient.ChainID()), senders)
+	if err != nil {
+		return to, EncodedPayload, errors.Wrap(err, "Skipping forwarding transaction")
+	}
+
+	for _, fwdr := range fwdrs {
+		EOAs, err := f.getContractSenders(fwdr.Address)
+		if err != nil {
+			f.logger.Warnf("Failed to get forwarder senders %s", err)
+			continue
+		}
+		for _, EOA := range EOAs {
+			if EOA == from {
+				forwardedPayload, err := f.getForwardedPayload(to, EncodedPayload)
+				if err != nil {
+					f.logger.Criticalf("Forwarder encoding failed, this should never happen")
+					continue
 				}
+				return fwdr.Address, forwardedPayload, nil
 			}
 		}
 	}
@@ -135,7 +147,7 @@ func (f *FwdMgr) getForwardedPayload(dest common.Address, origPayload []byte) ([
 }
 
 func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, error) {
-	if senders, ok := f.destSenders[addr]; ok {
+	if senders, ok := f.getCachedSenders(addr); ok {
 		return senders, nil
 	}
 	senders, err := f.getAuthorizedSenders(addr)
@@ -143,7 +155,7 @@ func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, erro
 		f.logger.Warnf("Failed to call getAuthorizedSenders on %s", addr)
 		return nil, err
 	}
-	f.destSenders[addr] = senders
+	f.setCachedSenders(addr, senders)
 	f.subscribeSendersChangedLogs(addr)
 	return senders, nil
 }
@@ -169,7 +181,8 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 			f.logger.Criticalf("Failed to call getAuthorizedSenders on forwarder %s: %s", fwdr, err)
 			continue
 		}
-		f.fwdrsSenders[fwdr.Address] = senders
+		f.setCachedSenders(fwdr.Address, senders)
+
 	}
 }
 func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) {
@@ -184,17 +197,30 @@ func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) {
 		addr)
 }
 
+func (f *FwdMgr) setCachedSenders(addr common.Address, senders []common.Address) {
+	f.cacheMu.Lock()
+	defer f.cacheMu.Unlock()
+	f.sendersCache[addr] = senders
+}
+
+func (f *FwdMgr) getCachedSenders(addr common.Address) ([]common.Address, bool) {
+	f.cacheMu.RLock()
+	defer f.cacheMu.RUnlock()
+	addrs, ok := f.sendersCache[addr]
+	return addrs, ok
+}
+
 func (f *FwdMgr) runLoop() {
 	tick := time.After(0)
 
 	for {
 		select {
 		case <-tick:
-			tick = time.After(utils.WithJitter(time.Duration(1 * time.Second)))
+			tick = time.After(utils.WithJitter(AuthLogCheckInterval))
 			addrs := f.collectAddresses()
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(f.latestBlock, AuthTopics, addrs, 0)
 			if err != nil {
-				f.logger.Errorf("Failed to retrieve latest log round %s", err)
+				f.logger.Warnf("Failed to retrieve latest log round %s", err)
 				continue
 			}
 			if len(logs) == 0 {
@@ -238,18 +264,14 @@ func (f *FwdMgr) handleAuthChange(log evmlogpoller.Log) error {
 		if err != nil {
 			return errors.Errorf("Failed to parse senders change log")
 		}
-		if _, ok := f.destSenders[event.Raw.Address]; ok {
-			f.destSenders[event.Raw.Address] = event.Senders
-		} else if _, ok := f.fwdrsSenders[event.Raw.Address]; ok {
-			f.fwdrsSenders[event.Raw.Address] = event.Senders
-		}
+		f.setCachedSenders(event.Raw.Address, event.Senders)
 	case ethLog.Topics[0] == AuthTopics[1]:
 		// ConfigSet event
 		event, err := f.offchainAgg.ParseConfigSet(ethLog)
 		if err != nil {
 			return errors.Errorf("Failed to parse config set log")
 		}
-		f.destSenders[event.Raw.Address] = event.Transmitters
+		f.setCachedSenders(event.Raw.Address, event.Transmitters)
 	}
 
 	return nil
@@ -264,14 +286,11 @@ func topics(l evmlogpoller.Log) []common.Hash {
 }
 
 func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
-	for addr := range f.destSenders {
+	f.cacheMu.RLock()
+	defer f.cacheMu.RUnlock()
+	for addr := range f.sendersCache {
 		addrs = append(addrs, addr)
 	}
-
-	for addr := range f.fwdrsSenders {
-		addrs = append(addrs, addr)
-	}
-
 	return
 }
 
