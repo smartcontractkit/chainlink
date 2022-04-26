@@ -149,7 +149,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 		b.logger.Info("EthTxReaper: Disabled")
 	}
 	if cfg.EvmUseForwarders() {
-		b.fwdMgr = forwarders.NewFwdMgr(db, cfg, ethClient, logPoller, lggr)
+		b.fwdMgr = forwarders.NewFwdMgr(db, ethClient, logPoller, lggr, cfg)
 	} else {
 		b.logger.Infof("EvmForwardManager: Disabled")
 	}
@@ -199,7 +199,7 @@ func (b *Txm) Start(ctx context.Context) (merr error) {
 
 		if b.fwdMgr != nil {
 			if err = b.fwdMgr.Start(); err != nil {
-				return errors.Wrap(err, "Txm: ForwardManager failed to start")
+				return errors.Wrap(err, "Txm: EVMForwarderManager failed to start")
 			}
 		}
 
@@ -218,7 +218,9 @@ func (b *Txm) Close() (merr error) {
 			b.ethResender.Stop()
 		}
 		if b.fwdMgr != nil {
-			b.fwdMgr.Stop()
+			if err := b.fwdMgr.Stop(); err != nil {
+				return errors.Wrap(err, "Txm: failed to stop EVMForwarderManager")
+			}
 		}
 
 		b.wg.Wait()
@@ -324,7 +326,7 @@ func (b *Txm) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err e
 			newTx.ToAddress = fwdAddr
 			newTx.EncodedPayload = fwdPayload
 		} else {
-			b.logger.Criticalf("Skipping using forwarders: %s", fwdErr.Error())
+			b.logger.Infof("Skipping using forwarders: %s", fwdErr.Error())
 		}
 	}
 

@@ -132,20 +132,8 @@ func TestORM(t *testing.T) {
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
 	// 0 conf should return the most recent block 12
-	lgs, err := o1.LatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic}, 0)
+	lgs, err := o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(lgs))
 	require.Equal(t, int64(12), lgs[0].BlockNumber)
-
-	// 1 conf should return the second most recent block 11
-	lgs, err = o1.LatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic}, 1)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(lgs))
-	require.Equal(t, int64(11), lgs[0].BlockNumber)
-
-	// 2 conf should return the third most recent block 10
-	lgs, err = o1.LatestLogEventSigsAddrsWithConfs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic}, 2)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(lgs))
-	require.Equal(t, int64(10), lgs[0].BlockNumber)
 }

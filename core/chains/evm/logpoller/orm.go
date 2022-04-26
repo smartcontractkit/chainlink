@@ -130,20 +130,16 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 	return logs, nil
 }
 
-// LatestLogEventSigsAddrsWithConfs finds the latest logs by block that matches a list of addresses and list of events
-func (o *ORM) LatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+// LatestLogEventSigsAddrs finds the latest log by (address, event) combination that matches a list of addresses and list of events
+func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
-
 	var latestBlocks []int64
-
 	arg := map[string]interface{}{
 		"addresses": addresses,
 		"sigs":      eventSigs,
-		"confs":     confs,
 		"chainid":   utils.NewBig(o.chainID),
 		"fromBlock": fromBlock,
 	}
-
 	// Get the latest block with a matching update for each address
 	query, args, err := sqlx.Named(`
 	SELECT MAX(block_number) as block_number FROM logs
@@ -151,41 +147,27 @@ func (o *ORM) LatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []comm
 	AND address IN (:addresses)
 	AND event_sig IN (:sigs)
 	AND block_number > :fromBlock
-	AND (block_number + :confs) <= (
-		SELECT COALESCE(block_number, 0)
-		FROM log_poller_blocks
-		WHERE evm_chain_id = :chainid
-		ORDER BY block_number DESC
-		LIMIT 1
-	)
 	GROUP BY address, event_sig, evm_chain_id
 	ORDER BY block_number DESC`,
 		arg,
 	)
-
 	if err != nil {
 		return nil, err
 	}
-
 	query, args, err = sqlx.In(query, args...)
 	if err != nil {
 		return nil, err
 	}
-
 	q := o.q.WithOpts(qopts...)
 	query = o.q.Rebind(query)
 	err = q.Select(&latestBlocks, query, args...)
-
 	if err != nil {
 		return nil, err
 	}
-
 	if len(latestBlocks) == 0 {
 		return logs, nil
 	}
-
 	arg["latestblocks"] = latestBlocks
-
 	query, args, err = sqlx.Named(`
 		SELECT * FROM logs 
 		WHERE evm_chain_id = :chainid 
@@ -196,12 +178,10 @@ func (o *ORM) LatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []comm
 	if err != nil {
 		return nil, err
 	}
-
 	query, args, err = sqlx.In(query, args...)
 	if err != nil {
 		return nil, err
 	}
-
 	query = o.q.Rebind(query)
 	err = q.Select(&logs, query, args...)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,7 +17,7 @@ import (
 type ORM interface {
 	CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error)
 	FindForwarders(offset, limit int) ([]Forwarder, int, error)
-	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, int, error)
+	FindForwardersByChain(evmChainId utils.Big) ([]Forwarder, error)
 	DeleteForwarder(id int32) error
 	FindForwardersInListByChain(evmChainId utils.Big, addrs []common.Address) ([]Forwarder, error)
 }
@@ -70,13 +71,8 @@ func (o *orm) FindForwarders(offset, limit int) (fwds []Forwarder, count int, er
 }
 
 // FindForwardersByChain returns all forwarder addresses for a chain.
-func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, count int, err error) {
-	sql := `SELECT count(*) FROM evm_forwarders where evm_chain_id = $1`
-	if err = o.q.Get(&count, sql, evmChainId); err != nil {
-		return
-	}
-
-	sql = `SELECT * FROM evm_forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC LIMIT 10`
+func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, err error) {
+	sql := `SELECT * FROM evm_forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC`
 	if err = o.q.Select(&fwds, sql, evmChainId); err != nil {
 		return
 	}
@@ -95,12 +91,12 @@ func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.A
 		SELECT * FROM evm_forwarders 
 		WHERE evm_chain_id = :chainid
 		AND address IN (:addresses)
-		ORDER BY created_at DESC, id DESC LIMIT 10`,
+		ORDER BY created_at DESC, id DESC`,
 		arg,
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to format query")
 	}
 
 	query, args, err = sqlx.In(query, args...)
@@ -112,7 +108,7 @@ func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.A
 	err = o.q.Select(&fwdrs, query, args...)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to execute query")
 	}
 
 	return fwdrs, nil

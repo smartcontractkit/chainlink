@@ -31,12 +31,11 @@ var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.Authorized
 
 var SimpleOracleCallABI = evmtypes.MustGetABI(operator_wrapper.OperatorABI).Methods["getChainlinkToken"]
 
-func Test_EvmFwdMgr(t *testing.T) {
+func TestFwdMgr(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	owner := testutils.MustNewSimTransactor(t)
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
@@ -56,15 +55,15 @@ func Test_EvmFwdMgr(t *testing.T) {
 
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
 		client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID), lggr, 100*time.Millisecond, 2, 3)
-	fwdMgr := forwarders.NewFwdMgr(db, evmcfg, ethClient, lp, lggr)
+	fwdMgr := forwarders.NewFwdMgr(db, ethClient, lp, lggr, pgtest.NewPGCfg(true))
 	fwdMgr.ORM = cltest.NewFwdMgrORM(t, db, cfg)
 
 	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
 
-	lst, cnt, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))
+	lst, err := fwdMgr.ORM.FindForwardersByChain(utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)
-	require.Equal(t, cnt, 1)
+	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
 
 	// Mocking getAuthorisedSenders on forwarder to return EOA
@@ -83,6 +82,9 @@ func Test_EvmFwdMgr(t *testing.T) {
 	f, _, err := fwdMgr.MaybeForwardTransaction(owner.From, operatorAddr, getSimpleOperatorCall(t))
 	require.NoError(t, err)
 	require.Equal(t, f, forwarderAddr)
+
+	err = fwdMgr.Stop()
+	require.NoError(t, err)
 }
 
 func genAuthorisedSenders(t *testing.T, addrs []common.Address) []byte {
