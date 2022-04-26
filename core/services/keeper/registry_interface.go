@@ -203,7 +203,7 @@ func (rw *RegistryWrapper) RegisterUpkeep(opts *bind.TransactOpts, target common
 	case RegistryVersion_1_2:
 		return rw.contract1_2.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 	default:
-		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+		return nil, errors.Errorf("Registry version %d does not support RegisterUpkeep", rw.Version)
 	}
 }
 
@@ -214,7 +214,7 @@ func (rw *RegistryWrapper) AddFunds(opts *bind.TransactOpts, id *big.Int, amount
 	case RegistryVersion_1_2:
 		return rw.contract1_2.AddFunds(opts, id, amount)
 	default:
-		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+		return nil, errors.Errorf("Registry version %d does not support AddFunds", rw.Version)
 	}
 }
 
@@ -225,7 +225,7 @@ func (rw *RegistryWrapper) PerformUpkeep(opts *bind.TransactOpts, id *big.Int, p
 	case RegistryVersion_1_2:
 		return rw.contract1_2.PerformUpkeep(opts, id, performData)
 	default:
-		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+		return nil, errors.Errorf("Registry version %d does not support PerformUpkeep", rw.Version)
 	}
 }
 
@@ -236,6 +236,6 @@ func (rw *RegistryWrapper) CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*
 	case RegistryVersion_1_2:
 		return rw.contract1_2.CancelUpkeep(opts, id)
 	default:
-		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
+		return nil, errors.Errorf("Registry version %d does not support CancelUpkeep", rw.Version)
 	}
 }
