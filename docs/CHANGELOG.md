@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Log slow SQL queries
 - Fantom and avalanche block explorer urls
 - Display `requestTimeout` in job UI
+- Keeper upkeep order is shuffled
 
 ### Fixed
 
