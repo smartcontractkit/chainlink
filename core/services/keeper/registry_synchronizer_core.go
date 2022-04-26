@@ -20,10 +20,11 @@ var (
 
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
 type MailRoom struct {
-	mbUpkeepCanceled   *utils.Mailbox[log.Broadcast]
-	mbSyncRegistry     *utils.Mailbox[log.Broadcast]
-	mbUpkeepPerformed  *utils.Mailbox[log.Broadcast]
-	mbUpkeepRegistered *utils.Mailbox[log.Broadcast]
+	mbUpkeepCanceled    *utils.Mailbox[log.Broadcast]
+	mbSyncRegistry      *utils.Mailbox[log.Broadcast]
+	mbUpkeepPerformed   *utils.Mailbox[log.Broadcast]
+	mbUpkeepRegistered  *utils.Mailbox[log.Broadcast]
+	mbUpkeepGasLimitSet *utils.Mailbox[log.Broadcast]
 }
 
 type RegistrySynchronizerOptions struct {
@@ -57,10 +58,11 @@ type RegistrySynchronizer struct {
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
 func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchronizer {
 	mailRoom := MailRoom{
-		mbUpkeepCanceled:   utils.NewMailbox[log.Broadcast](50),
-		mbSyncRegistry:     utils.NewMailbox[log.Broadcast](1),
-		mbUpkeepPerformed:  utils.NewMailbox[log.Broadcast](300),
-		mbUpkeepRegistered: utils.NewMailbox[log.Broadcast](50),
+		mbUpkeepCanceled:    utils.NewMailbox[log.Broadcast](50),
+		mbSyncRegistry:      utils.NewMailbox[log.Broadcast](1),
+		mbUpkeepPerformed:   utils.NewMailbox[log.Broadcast](300),
+		mbUpkeepRegistered:  utils.NewMailbox[log.Broadcast](50),
+		mbUpkeepGasLimitSet: utils.NewMailbox[log.Broadcast](50),
 	}
 	return &RegistrySynchronizer{
 		chStop:                   make(chan struct{}),

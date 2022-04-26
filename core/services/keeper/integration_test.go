@@ -107,7 +107,7 @@ func deployKeeperRegistry(
 func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *backends.SimulatedBackend) *big.Int {
 	receipt, err := backend.TransactionReceipt(nil, registrationTx.Hash())
 	require.NoError(t, err)
-	upkeepId, err := registryWrapper.GetUpkeepIdFromRegistrationLog(receipt.Logs[0])
+	upkeepId, err := registryWrapper.GetUpkeepIdFromRawRegistrationLog(*receipt.Logs[0])
 	require.NoError(t, err)
 	return upkeepId
 }

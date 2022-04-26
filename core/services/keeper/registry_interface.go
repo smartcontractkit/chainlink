@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -81,40 +80,6 @@ func getRegistryVersion(contract1_1 *registry1_1.KeeperRegistry) (*RegistryVersi
 		return &version, nil
 	default:
 		return nil, errors.Errorf("Registry type and version %s not supported", typeAndVersion)
-	}
-}
-
-func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32) (*log.ListenerOpts, error) {
-	switch rw.Version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		return &log.ListenerOpts{
-			Contract: rw.contract1_1.Address(),
-			ParseLog: rw.contract1_1.ParseLog,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				registry1_1.KeeperRegistryKeepersUpdated{}.Topic():   nil,
-				registry1_1.KeeperRegistryConfigSet{}.Topic():        nil,
-				registry1_1.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
-				registry1_1.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				registry1_1.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
-			},
-			MinIncomingConfirmations: minIncomingConfirmations,
-		}, nil
-	case RegistryVersion_1_2:
-		// TODO (sc-36399) support all v1.2 logs
-		return &log.ListenerOpts{
-			Contract: rw.contract1_2.Address(),
-			ParseLog: rw.contract1_2.ParseLog,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				registry1_2.KeeperRegistryKeepersUpdated{}.Topic():   nil,
-				registry1_2.KeeperRegistryConfigSet{}.Topic():        nil,
-				registry1_2.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
-				registry1_2.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				registry1_2.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
-			},
-			MinIncomingConfirmations: minIncomingConfirmations,
-		}, nil
-	default:
-		return nil, errors.Errorf("registry version not supported %d", rw.Version)
 	}
 }
 
@@ -270,25 +235,6 @@ func (rw *RegistryWrapper) CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*
 		return rw.contract1_1.CancelUpkeep(opts, id)
 	case RegistryVersion_1_2:
 		return rw.contract1_2.CancelUpkeep(opts, id)
-	default:
-		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
-	}
-}
-
-func (rw *RegistryWrapper) GetUpkeepIdFromRegistrationLog(rawLog *types.Log) (*big.Int, error) {
-	switch rw.Version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		parsedLog, err := rw.contract1_1.ParseUpkeepRegistered(*rawLog)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get parse log")
-		}
-		return parsedLog.Id, nil
-	case RegistryVersion_1_2:
-		parsedLog, err := rw.contract1_2.ParseUpkeepRegistered(*rawLog)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get parse log")
-		}
-		return parsedLog.Id, nil
 	default:
 		return nil, errors.Errorf("Registry version %d does not support SetKeepers", rw.Version)
 	}

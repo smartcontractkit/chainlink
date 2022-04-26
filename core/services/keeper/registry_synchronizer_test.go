@@ -606,3 +606,5 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }
+
+// TODO (sc-36399) add test for gas limit set log
