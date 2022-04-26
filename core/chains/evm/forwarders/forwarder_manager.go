@@ -23,7 +23,6 @@ import (
 // Config encompasses config used by fwdmgr
 //go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
-	EvmUseForwarders() bool
 	LogSQL() bool
 }
 
@@ -45,8 +44,7 @@ type FwdMgr struct {
 
 	// TODO(samhassan): sendersCache should be an LRU capped cache
 	sendersCache map[common.Address][]common.Address
-	// sendersCache  map[common.Address][]common.Address
-	latestBlock int64
+	latestBlock  int64
 
 	authRcvr    authorized_receiver.AuthorizedReceiverInterface
 	offchainAgg offchain_aggregator_wrapper.OffchainAggregatorInterface

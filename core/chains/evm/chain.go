@@ -13,7 +13,6 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
@@ -51,7 +50,6 @@ type chain struct {
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
 	txm             txmgr.TxManager
-	fwdMgr          *forwarders.FwdMgr
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
