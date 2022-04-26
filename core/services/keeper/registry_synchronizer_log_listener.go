@@ -42,7 +42,7 @@ func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 		wasOverCapacity = rs.mailRoom.mbUpkeepCanceled.Deliver(broadcast)
 		mailboxName = "mbUpkeepCanceled"
 	case *registry1_1.KeeperRegistryUpkeepRegistered,
-		registry1_2.KeeperRegistryUpkeepRegistered:
+		*registry1_2.KeeperRegistryUpkeepRegistered:
 		wasOverCapacity = rs.mailRoom.mbUpkeepRegistered.Deliver(broadcast)
 		mailboxName = "mbUpkeepRegistered"
 	case *registry1_1.KeeperRegistryUpkeepPerformed,

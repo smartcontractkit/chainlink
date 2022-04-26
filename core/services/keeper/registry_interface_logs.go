@@ -64,6 +64,25 @@ func (rw *RegistryWrapper) GetCancelledUpkeepIDFromLog(broadcast log.Broadcast) 
 	}
 }
 
+func (rw *RegistryWrapper) GetUpkeepIdFromRegistrationLog(broadcast log.Broadcast) (*big.Int, error) {
+	switch rw.Version {
+	case RegistryVersion_1_0, RegistryVersion_1_1:
+		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_1.KeeperRegistryUpkeepRegistered)
+		if !ok {
+			return nil, errors.Errorf("expected UpkeepRegistered log but got %T", broadcastedLog)
+		}
+		return broadcastedLog.Id, nil
+	case RegistryVersion_1_2:
+		broadcastedLog, ok := broadcast.DecodedLog().(*registry1_2.KeeperRegistryUpkeepRegistered)
+		if !ok {
+			return nil, errors.Errorf("expected UpkeepRegistered log but got %T", broadcastedLog)
+		}
+		return broadcastedLog.Id, nil
+	default:
+		return nil, errors.Errorf("Registry version %d does not support GetUpkeepIdFromRegistrationLog", rw.Version)
+	}
+}
+
 func (rw *RegistryWrapper) GetUpkeepIdFromRawRegistrationLog(rawLog types.Log) (*big.Int, error) {
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:

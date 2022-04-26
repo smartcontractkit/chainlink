@@ -114,7 +114,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 		return
 	}
 
-	upkeepID, err := rs.registryWrapper.GetUpkeepIdFromRawRegistrationLog(broadcast.RawLog())
+	upkeepID, err := rs.registryWrapper.GetUpkeepIdFromRegistrationLog(broadcast)
 	if err != nil {
 		rs.logger.With("error", err).Error("Unable to fetch upkeep ID from registration log")
 		return
