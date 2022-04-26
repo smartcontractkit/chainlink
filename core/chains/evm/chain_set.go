@@ -37,12 +37,14 @@ type ChainConfigUpdater func(*types.ChainCfg) error
 type ChainSet interface {
 	services.ServiceCtx
 	Get(id *big.Int) (Chain, error)
-	Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error)
-	Remove(id *big.Int) error
+	Show(id utils.Big) (types.Chain, error)
+	Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error)
+	Remove(id utils.Big) error
 	Default() (Chain, error)
-	Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
+	Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error)
 	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
 	Chains() []Chain
+	Index(offset, limit int) ([]types.Chain, int, error)
 	ChainCount() int
 	ORM() types.ORM
 	// GetNode et al retrieves Nodes from the ORM and adds additional state info
@@ -118,6 +120,14 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	return nil, errors.Errorf("chain not found with id %v", id.String())
 }
 
+func (cll *chainSet) Show(id utils.Big) (types.Chain, error) {
+	return cll.orm.Chain(id)
+}
+
+func (cll *chainSet) Index(offset, limit int) ([]types.Chain, int, error) {
+	return cll.orm.Chains(offset, limit)
+}
+
 func (cll *chainSet) Default() (Chain, error) {
 	cll.chainsMu.RLock()
 	len := len(cll.chains)
@@ -154,7 +164,7 @@ func (cll *chainSet) initializeChain(ctx context.Context, dbchain *types.Chain) 
 	return nil
 }
 
-func (cll *chainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
@@ -163,19 +173,18 @@ func (cll *chainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg
 		return types.Chain{}, errors.Errorf("chain already exists with id %s", id.String())
 	}
 
-	bid := utils.NewBig(id)
-	dbchain, err := cll.orm.CreateChain(*bid, config)
+	dbchain, err := cll.orm.CreateChain(id, config)
 	if err != nil {
 		return types.Chain{}, err
 	}
 	return dbchain, cll.initializeChain(ctx, &dbchain)
 }
 
-func (cll *chainSet) Remove(id *big.Int) error {
+func (cll *chainSet) Remove(id utils.Big) error {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
-	if err := cll.orm.DeleteChain(*utils.NewBig(id)); err != nil {
+	if err := cll.orm.DeleteChain(id); err != nil {
 		return err
 	}
 
@@ -189,13 +198,12 @@ func (cll *chainSet) Remove(id *big.Int) error {
 	return chain.Close()
 }
 
-func (cll *chainSet) Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (cll *chainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error) {
 	cll.chainsMu.Lock()
 	defer cll.chainsMu.Unlock()
 
 	// Update configuration stored in the database
-	bid := utils.NewBig(id)
-	dbchain, err := cll.orm.UpdateChain(*bid, enabled, config)
+	dbchain, err := cll.orm.UpdateChain(id, enabled, config)
 	if err != nil {
 		return types.Chain{}, err
 	}
