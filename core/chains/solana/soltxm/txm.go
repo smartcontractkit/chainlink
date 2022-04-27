@@ -64,7 +64,7 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 		stop:     make(chan struct{}),
 		cfg:      cfg,
 		txs:      NewTxProcesses(chainID),
-		client:   NewValidClient(tc, lggr),
+		client:   NewValidClient(tc),
 	}
 }
 
@@ -206,7 +206,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 			return
 		case <-tick:
 			// get list of tx signatures to confirm
-			sigs := txm.txs.List()
+			sigs := txm.txs.FetchAndUpdateInflight()
 
 			// skip loop if not txs to confirm
 			if len(sigs) == 0 {
@@ -363,7 +363,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 }
 
 func (txm *Txm) InflightTxs() int {
-	return len(txm.txs.List())
+	return len(txm.txs.FetchAndUpdateInflight())
 }
 
 // Close close service

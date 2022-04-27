@@ -76,7 +76,7 @@ func (c *TxProcesses) cancel(sig solana.Signature) {
 	return
 }
 
-func (c *TxProcesses) List() []solana.Signature {
+func (c *TxProcesses) FetchAndUpdateInflight() []solana.Signature {
 	c.lock.RLock()
 	sigs := maps.Keys(c.inflight)
 	c.lock.RUnlock()
