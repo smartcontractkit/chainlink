@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/big"
 	"net/url"
 	"strconv"
@@ -33,18 +34,30 @@ type SendOnlyNode interface {
 	String() string
 }
 
+//go:generate mockery --name TxSender --output ./mocks/ --case=underscore
+
+type TxSender interface {
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	ChainID(context.Context) (*big.Int, error)
+}
+
+//go:generate mockery --name BatchSender --output ./mocks/ --case=underscore
+
+type BatchSender interface {
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+}
+
 // It only supports sending transactions
 // It must a http(s) url
 type sendOnlyNode struct {
-	uri     url.URL
-	rpc     *rpc.Client
-	geth    *ethclient.Client
-	log     logger.Logger
-	dialed  bool
-	name    string
-	chainID *big.Int
-
-	chStop chan struct{}
+	uri         url.URL
+	batchSender BatchSender
+	sender      TxSender
+	log         logger.Logger
+	dialed      bool
+	name        string
+	chainID     *big.Int
+	chStop      chan struct{}
 }
 
 // NewSendOnlyNode returns a new sendonly node
@@ -75,8 +88,8 @@ func (s *sendOnlyNode) Start(startCtx context.Context) error {
 		return errors.Wrapf(err, "failed to dial secondary client: %v", s.uri.Redacted())
 	}
 	s.dialed = true
-	s.rpc = rpc
-	s.geth = ethclient.NewClient(rpc)
+	geth := ethclient.NewClient(rpc)
+	s.SetEthClient(rpc, geth)
 
 	if id, err := s.getChainID(startCtx); err != nil {
 		s.log.Warn("sendonly rpc ChainID verification skipped", "err", err)
@@ -90,6 +103,15 @@ func (s *sendOnlyNode) Start(startCtx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *sendOnlyNode) SetEthClient(newBatchSender BatchSender, newSender TxSender) {
+	if s.sender != nil {
+		log.Panicf("sendOnlyNode.SetEthClient should only be called once!")
+		return
+	}
+	s.batchSender = newBatchSender
+	s.sender = newSender
 }
 
 func (s *sendOnlyNode) Close() {
@@ -112,7 +134,7 @@ func (s *sendOnlyNode) logTiming(lggr logger.Logger, duration time.Duration, err
 		"rpcDomain", s.uri.Host,
 		"name", s.name,
 		"chainID", s.chainID,
-		"sendOnly", false,
+		"sendOnly", true,
 		"err", err,
 	)
 }
@@ -124,7 +146,7 @@ func (s *sendOnlyNode) SendTransaction(parentCtx context.Context, tx *types.Tran
 
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
-	return s.wrap(s.geth.SendTransaction(ctx, tx))
+	return s.wrap(s.sender.SendTransaction(ctx, tx))
 }
 
 func (s *sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.BatchElem) (err error) {
@@ -134,7 +156,7 @@ func (s *sendOnlyNode) BatchCallContext(parentCtx context.Context, b []rpc.Batch
 
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
-	return s.wrap(s.rpc.BatchCallContext(ctx, b))
+	return s.wrap(s.batchSender.BatchCallContext(ctx, b))
 }
 
 func (s *sendOnlyNode) ChainID() (chainID *big.Int) {
@@ -154,7 +176,7 @@ func (s *sendOnlyNode) getChainID(parentCtx context.Context) (*big.Int, error) {
 	ctx, cancel := s.makeQueryCtx(parentCtx)
 	defer cancel()
 
-	chainID, err := s.geth.ChainID(ctx)
+	chainID, err := s.sender.ChainID(ctx)
 	if err != nil {
 		return nil, err
 	} else if chainID.Cmp(big.NewInt(0)) == 0 {
