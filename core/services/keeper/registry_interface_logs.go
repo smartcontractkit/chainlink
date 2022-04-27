@@ -10,7 +10,7 @@ import (
 	registry1_2 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_2"
 )
 
-func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32) (*log.ListenerOpts, error) {
+func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32, upkeepPerformedFilter [][]log.Topic) (*log.ListenerOpts, error) {
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return &log.ListenerOpts{
@@ -21,7 +21,7 @@ func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32) (
 				registry1_1.KeeperRegistryConfigSet{}.Topic():        nil,
 				registry1_1.KeeperRegistryUpkeepCanceled{}.Topic():   nil,
 				registry1_1.KeeperRegistryUpkeepRegistered{}.Topic(): nil,
-				registry1_1.KeeperRegistryUpkeepPerformed{}.Topic():  nil,
+				registry1_1.KeeperRegistryUpkeepPerformed{}.Topic():  upkeepPerformedFilter,
 			},
 			MinIncomingConfirmations: minIncomingConfirmations,
 		}, nil
@@ -34,7 +34,7 @@ func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32) (
 				registry1_2.KeeperRegistryConfigSet{}.Topic():         nil,
 				registry1_2.KeeperRegistryUpkeepCanceled{}.Topic():    nil,
 				registry1_2.KeeperRegistryUpkeepRegistered{}.Topic():  nil,
-				registry1_2.KeeperRegistryUpkeepPerformed{}.Topic():   nil,
+				registry1_2.KeeperRegistryUpkeepPerformed{}.Topic():   upkeepPerformedFilter,
 				registry1_2.KeeperRegistryUpkeepGasLimitSet{}.Topic(): nil,
 			},
 			MinIncomingConfirmations: minIncomingConfirmations,
