@@ -428,6 +428,19 @@ describe('KeeperRegistry', () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
     })
 
+    context('and the registry is paused', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).pause()
+      })
+
+      it('reverts', async () => {
+        await evmRevert(
+          registry.connect(keeper1).addFunds(id.add(1), amount),
+          'Pausable: paused',
+        )
+      })
+    })
+
     it('reverts if the registration does not exist', async () => {
       await evmRevert(
         registry.connect(keeper1).addFunds(id.add(1), amount),
@@ -688,6 +701,19 @@ describe('KeeperRegistry', () => {
         registry.connect(keeper2).performUpkeep(id, '0x'),
         'InsufficientFunds()',
       )
+    })
+
+    context('and the registry is paused', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).pause()
+      })
+
+      it('reverts', async () => {
+        await evmRevert(
+          registry.connect(keeper2).performUpkeep(id, '0x'),
+          'Pausable: paused',
+        )
+      })
     })
 
     context('when the registration is funded', () => {
@@ -2024,6 +2050,20 @@ describe('KeeperRegistry', () => {
         await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
         await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
       })
+
+      context('and the registry is paused', () => {
+        beforeEach(async () => {
+          await registry.connect(owner).pause()
+        })
+
+        it('receiveUpkeeps reverts', async () => {
+          await evmRevert(
+            registry.connect(admin).receiveUpkeeps(emptyBytes),
+            'Pausable: paused',
+          )
+        })
+      })
+
       it('migrates an upkeep', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)

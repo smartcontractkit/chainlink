@@ -260,7 +260,7 @@ contract KeeperRegistry is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData) external override returns (bool success) {
+  function performUpkeep(uint256 id, bytes calldata performData) external override whenNotPaused returns (bool success) {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
   }
 
@@ -292,7 +292,7 @@ contract KeeperRegistry is
    * @param id upkeep to fund
    * @param amount number of LINK to transfer
    */
-  function addFunds(uint256 id, uint96 amount) external override onlyActiveUpkeep(id) {
+  function addFunds(uint256 id, uint96 amount) external override whenNotPaused onlyActiveUpkeep(id) {
     s_upkeep[id].balance = s_upkeep[id].balance + amount;
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
     LINK.transferFrom(msg.sender, address(this), amount);
@@ -692,7 +692,7 @@ contract KeeperRegistry is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
+  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override whenNotPaused {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
