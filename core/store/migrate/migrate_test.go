@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	relaytypes "github.com/smartcontractkit/chainlink/core/services/relay/types"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -375,4 +376,28 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	err = db.Get(&juels, sql)
 	require.NoError(t, err)
 	require.Equal(t, spec.JuelsPerFeeCoinPipeline, juels)
+}
+
+func TestMigrate(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	_, db := heavyweight.FullTestDBEmpty(t, migrationDir)
+	err := goose.UpTo(db.DB, migrationDir, 100)
+	require.NoError(t, err)
+
+	err = migrate.Status(db.DB, lggr)
+	require.NoError(t, err)
+
+	ver, err := migrate.Current(db.DB, lggr)
+	require.NoError(t, err)
+	require.Equal(t, int64(100), ver)
+
+	err = migrate.Migrate(db.DB, lggr)
+	require.NoError(t, err)
+
+	err = migrate.Rollback(db.DB, lggr, null.IntFrom(99))
+	require.NoError(t, err)
+
+	ver, err = migrate.Current(db.DB, lggr)
+	require.NoError(t, err)
+	require.Equal(t, int64(99), ver)
 }
