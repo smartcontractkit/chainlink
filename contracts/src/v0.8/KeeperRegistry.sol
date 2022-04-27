@@ -104,6 +104,8 @@ contract KeeperRegistry is
   error InvalidRecipient();
   error InvalidDataLength();
   error TargetCheckReverted(bytes reason);
+  error ZeroAddressNotAllowed();
+  error MaxGasPerformMustBeLargerThanMin();
 
   enum MigrationPermission {
     NONE,
@@ -454,6 +456,7 @@ contract KeeperRegistry is
    * @param config registry config fields
    */
   function setConfig(Config memory config) public onlyOwner {
+    if (config.maxPerformGas < PERFORM_GAS_MIN) revert MaxGasPerformMustBeLargerThanMin();
     if (config.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
     s_storage = Storage({
       paymentPremiumPPB: config.paymentPremiumPPB,
@@ -468,6 +471,8 @@ contract KeeperRegistry is
     });
     s_fallbackGasPrice = config.fallbackGasPrice;
     s_fallbackLinkPrice = config.fallbackLinkPrice;
+    if (config.transcoder == ZERO_ADDRESS) revert ZeroAddressNotAllowed();
+    if (config.registrar == ZERO_ADDRESS) revert ZeroAddressNotAllowed();
     s_transcoder = config.transcoder;
     s_registrar = config.registrar;
     emit ConfigSet(config);

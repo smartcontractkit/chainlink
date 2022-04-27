@@ -96,6 +96,7 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner {
   error FunctionNotPermitted();
   error LinkTransferFailed(address to);
   error InvalidDataLength();
+  error ApprovedCountGreaterThanMax();
 
   /*
    * @param LINKAddress Address of Link token
@@ -226,6 +227,8 @@ contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner {
     uint96 minLINKJuels
   ) public onlyOwner {
     uint32 approvedCount = s_config.approvedCount;
+    if (autoApproveConfigType != AutoApproveType.DISABLED && approvedCount > autoApproveMaxAllowed)
+      revert ApprovedCountGreaterThanMax();
     s_config = Config({
       autoApproveConfigType: autoApproveConfigType,
       autoApproveMaxAllowed: autoApproveMaxAllowed,

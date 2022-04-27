@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
-import { BigNumber, Signer, BigNumberish } from 'ethers'
+import { BigNumber, BigNumberish, Signer } from 'ethers'
 import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
@@ -70,6 +70,7 @@ describe('KeeperRegistry', () => {
   const emptyBytes = '0x00'
   const randomBytes = '0x1234abcd'
   const zeroAddress = ethers.constants.AddressZero
+  const nonZeroAddress = '0x0000000000000000000000000000000000000001'
   const extraGas = BigNumber.from('250000')
   const registryGasOverhead = BigNumber.from('80000')
   const stalenessSeconds = BigNumber.from(43820)
@@ -78,6 +79,7 @@ describe('KeeperRegistry', () => {
   const fallbackGasPrice = BigNumber.from(200)
   const fallbackLinkPrice = BigNumber.from(200000000)
   const maxPerformGas = BigNumber.from(5000000)
+  const lowMaxPerformGas = BigNumber.from(1)
   const minUpkeepSpend = BigNumber.from(0)
 
   let owner: Signer
@@ -146,7 +148,7 @@ describe('KeeperRegistry', () => {
         fallbackGasPrice,
         fallbackLinkPrice,
         transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
+        registrar: nonZeroAddress,
       })
     registry2 = await keeperRegistryFactory
       .connect(owner)
@@ -162,7 +164,7 @@ describe('KeeperRegistry', () => {
         fallbackGasPrice,
         fallbackLinkPrice,
         transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
+        registrar: nonZeroAddress,
       })
     mock = await upkeepMockFactory.deploy()
     await linkToken
@@ -633,7 +635,7 @@ describe('KeeperRegistry', () => {
             fallbackGasPrice,
             fallbackLinkPrice,
             transcoder: transcoder.address,
-            registrar: ethers.constants.AddressZero,
+            registrar: nonZeroAddress,
           })
           const response = await registry
             .connect(zeroAddress)
@@ -669,6 +671,7 @@ describe('KeeperRegistry', () => {
 
   describe('#performUpkeep', () => {
     let _lastKeeper = keeper1
+
     async function getPerformPaymentAmount() {
       _lastKeeper = _lastKeeper === keeper1 ? keeper2 : keeper1
       const before = (
@@ -835,7 +838,7 @@ describe('KeeperRegistry', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrar: nonZeroAddress,
         })
 
         const before = (
@@ -873,7 +876,7 @@ describe('KeeperRegistry', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrar: nonZeroAddress,
         })
 
         const before = (
@@ -1186,7 +1189,7 @@ describe('KeeperRegistry', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrar: nonZeroAddress,
         })
 
         const payee1Before = await linkToken.balanceOf(
@@ -1231,7 +1234,7 @@ describe('KeeperRegistry', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrar: nonZeroAddress,
         })
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
@@ -1268,7 +1271,7 @@ describe('KeeperRegistry', () => {
           fallbackGasPrice,
           fallbackLinkPrice,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrar: nonZeroAddress,
         })
         const payee1Before = await linkToken.balanceOf(
           await payee1.getAddress(),
@@ -1318,7 +1321,7 @@ describe('KeeperRegistry', () => {
         fallbackGasPrice,
         fallbackLinkPrice,
         transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
+        registrar: nonZeroAddress,
       })
       let upkeepBalance = (await registry.getUpkeep(id)).balance
       const ownerBefore = await linkToken.balanceOf(await owner.getAddress())
@@ -1703,9 +1706,69 @@ describe('KeeperRegistry', () => {
           fallbackGasPrice: fbGasEth,
           fallbackLinkPrice: fbLinkEth,
           transcoder: transcoder.address,
-          registrar: ethers.constants.AddressZero,
+          registrar: nonZeroAddress,
         }),
         'Only callable by owner',
+      )
+    })
+
+    it('reverts transcode is zeroAddress', async () => {
+      await evmRevert(
+        registry.connect(owner).setConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          blockCountPerTurn: checks,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+          transcoder: zeroAddress,
+          registrar: nonZeroAddress,
+        }),
+        'ZeroAddressNotAllowed()',
+      )
+    })
+
+    it('reverts registrar is zeroAddress', async () => {
+      await evmRevert(
+        registry.connect(owner).setConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          blockCountPerTurn: checks,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas,
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+          transcoder: nonZeroAddress,
+          registrar: zeroAddress,
+        }),
+        'ZeroAddressNotAllowed()',
+      )
+    })
+
+    it('reverts max gas is too low', async () => {
+      await evmRevert(
+        registry.connect(owner).setConfig({
+          paymentPremiumPPB: payment,
+          flatFeeMicroLink: flatFee,
+          blockCountPerTurn: checks,
+          checkGasLimit: maxGas,
+          stalenessSeconds: staleness,
+          gasCeilingMultiplier,
+          minUpkeepSpend,
+          maxPerformGas: lowMaxPerformGas,
+          fallbackGasPrice: fbGasEth,
+          fallbackLinkPrice: fbLinkEth,
+          transcoder: nonZeroAddress,
+          registrar: zeroAddress,
+        }),
+        'MaxGasPerformMustBeLargerThanMin()',
       )
     })
 
@@ -1729,7 +1792,7 @@ describe('KeeperRegistry', () => {
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
         transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
+        registrar: nonZeroAddress,
       })
 
       const updated = (await registry.getState()).config
@@ -1756,7 +1819,7 @@ describe('KeeperRegistry', () => {
         fallbackGasPrice: fbGasEth,
         fallbackLinkPrice: fbLinkEth,
         transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
+        registrar: nonZeroAddress,
       })
       await expect(tx)
         .to.emit(registry, 'ConfigSet')
@@ -1978,7 +2041,7 @@ describe('KeeperRegistry', () => {
               fallbackGasPrice,
               fallbackLinkPrice,
               transcoder: transcoder.address,
-              registrar: ethers.constants.AddressZero,
+              registrar: nonZeroAddress,
             })
             const price = await registry.getMaxPaymentForGas(gas)
             expect(price).to.equal(linkForGas(gas, premium, flatFee))
@@ -2097,7 +2160,7 @@ describe('KeeperRegistry', () => {
         fallbackGasPrice,
         fallbackLinkPrice,
         transcoder: transcoder.address,
-        registrar: ethers.constants.AddressZero,
+        registrar: nonZeroAddress,
       })
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
 

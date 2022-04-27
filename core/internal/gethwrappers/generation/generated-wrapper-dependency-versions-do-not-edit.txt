@@ -13,7 +13,7 @@ derived_price_feed_wrapper: ../../../contracts/solc/v0.8.6/DerivedPriceFeed.abi 
 flags_wrapper: ../../../contracts/solc/v0.6/Flags.abi ../../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
 keeper_registry_wrapper1_1: ../../../contracts/solc/v0.7/KeeperRegistry1_1.abi ../../../contracts/solc/v0.7/KeeperRegistry1_1.bin 6ce079f2738f015f7374673a2816e8e9787143d00b780ea7652c8aa9ad9e1e20
-keeper_registry_wrapper1_2: ../../../contracts/solc/v0.8.13/KeeperRegistry.abi ../../../contracts/solc/v0.8.13/KeeperRegistry.bin b34af47b2d5041d0b88954a1bf62a463d71a2dc709a0b6a36ee285b03bf1e3d2
+keeper_registry_wrapper1_2: ../../../contracts/solc/v0.8.13/KeeperRegistry.abi ../../../contracts/solc/v0.8.13/KeeperRegistry.bin c567248929dc2efde613eef15eaa137ebbae35f48c1ff946e8df1940d3cdcb0e
 log_emitter: ../../../contracts/solc/v0.8.6/LogEmitter.abi ../../../contracts/solc/v0.8.6/LogEmitter.bin 375488d19b6ee1c180d42048be10abea9146e2a58347fd180358850d435cb854
 multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877

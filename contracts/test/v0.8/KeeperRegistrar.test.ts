@@ -66,7 +66,7 @@ describe('KeeperRegistrar', () => {
   const minUpkeepSpend = BigNumber.from('1000000000000000000')
   const amount = BigNumber.from('5000000000000000000')
   const amount1 = BigNumber.from('6000000000000000000')
-  const transcoder = ethers.constants.AddressZero
+  const transcoder = '0x0000000000000000000000000000000000000001'
 
   // Enum values are not auto exported in ABI so have to manually declare
   const autoApproveType_DISABLED = 0
@@ -107,7 +107,7 @@ describe('KeeperRegistrar', () => {
       fallbackGasPrice,
       fallbackLinkPrice,
       transcoder,
-      registrar: ethers.constants.AddressZero,
+      registrar: '0x0000000000000000000000000000000000000001',
     }
 
     linkToken = await linkTokenFactory.connect(owner).deploy()
@@ -571,6 +571,53 @@ describe('KeeperRegistrar', () => {
         .connect(owner)
         .getAutoApproveAllowedSender(senderAddress)
       assert.isFalse(senderAllowedStatus)
+    })
+  })
+
+  describe('#approve / #setRegistrationConfig', () => {
+    beforeEach(async () => {
+      await registrar
+        .connect(registrarOwner)
+        .setRegistrationConfig(
+          autoApproveType_ENABLED_ALL,
+          maxAllowedAutoApprove,
+          registry.address,
+          minUpkeepSpend,
+        )
+      // auto approved
+      const abiEncodedBytes = registrar.interface.encodeFunctionData(
+        'register',
+        [
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+          source,
+          await requestSender.getAddress(),
+        ],
+      )
+
+      const tx = await linkToken
+        .connect(requestSender)
+        .transferAndCall(registrar.address, amount, abiEncodedBytes)
+      await expect(tx).to.ok
+    })
+
+    it('#setRegistrationConfig reverts if max approvals is less than currently approved', async () => {
+      await evmRevert(
+        registrar
+          .connect(registrarOwner)
+          .setRegistrationConfig(
+            autoApproveType_ENABLED_ALL,
+            0,
+            registry.address,
+            minUpkeepSpend,
+          ),
+        'ApprovedCountGreaterThanMax()',
+      )
     })
   })
 
