@@ -112,7 +112,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		canceledUpkeeps,
 		big.NewInt(3),
 		upkeepConfig1_1,
-		3) // sync all 3, then delete
+		2) // sync only 2 (#0,#2)
 
 	synchronizer.ExportedFullSync()
 
@@ -145,7 +145,7 @@ func Test_RegistrySynchronizer1_1_FullSync(t *testing.T) {
 		canceledUpkeeps,
 		big.NewInt(5),
 		upkeepConfig1_1,
-		2) // two new upkeeps to sync
+		1) // only one new upkeep to sync (#4)
 	synchronizer.ExportedFullSync()
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)

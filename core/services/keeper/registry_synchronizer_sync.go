@@ -41,58 +41,7 @@ func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 }
 
 func (rs *RegistrySynchronizer) fullSyncUpkeeps(reg Registry) error {
-	switch rs.registryWrapper.Version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		return rs.fullSyncUpkeeps1_1(reg)
-	case RegistryVersion_1_2:
-		return rs.fullSyncUpkeeps1_2(reg)
-	}
-	return nil
-}
-
-func (rs *RegistrySynchronizer) fullSyncUpkeeps1_1(reg Registry) error {
-	// Add new upkeeps which are not in DB
-	nextUpkeepID, err := rs.orm.LowestUnsyncedID(reg.ID)
-	if err != nil {
-		return errors.Wrap(err, "unable to find next ID for registry")
-	}
-
-	countOnContractBig, err := rs.registryWrapper.GetRegisteredUpkeepCount(nil)
-	if err != nil {
-		return errors.Wrapf(err, "unable to get upkeep count")
-	}
-	countOnContract := countOnContractBig.Int64()
-
-	if nextUpkeepID > countOnContract {
-		return errors.New("invariant, contract should always have at least as many upkeeps as DB")
-	}
-	// newUpkeeps is the range nextUpkeepID, nextUpkeepID + 1 , ... , countOnContract-1
-	newUpkeeps := make([]*big.Int, countOnContract-nextUpkeepID)
-	for i := range newUpkeeps {
-		newUpkeeps[i] = big.NewInt(nextUpkeepID + int64(i))
-	}
-	rs.batchSyncUpkeepsOnRegistry(reg, newUpkeeps)
-
-	// Delete upkeeps which have been cancelled
-	canceledBigs, err := rs.registryWrapper.GetCanceledUpkeepList(nil)
-	if err != nil {
-		return errors.Wrap(err, "failed to get canceled upkeep list")
-	}
-	canceled := make([]int64, len(canceledBigs))
-	for idx, upkeepID := range canceledBigs {
-		canceled[idx] = upkeepID.Int64()
-	}
-	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
-		return errors.Wrap(err, "failed to batch delete upkeeps from job")
-	}
-	return nil
-}
-
-func (rs *RegistrySynchronizer) fullSyncUpkeeps1_2(reg Registry) error {
-	startIndex := big.NewInt(0)
-	maxCount := big.NewInt(0)
-	// TODO (sc-37024): Get active upkeep IDs from contract in batches
-	activeUpkeepIDs, err := rs.registryWrapper.GetActiveUpkeepIDs(nil, startIndex, maxCount)
+	activeUpkeepIDs, err := rs.registryWrapper.GetActiveUpkeepIDs(nil)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get active upkeep IDs")
 	}

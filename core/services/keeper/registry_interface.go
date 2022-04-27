@@ -83,35 +83,32 @@ func getRegistryVersion(contract1_1 *registry1_1.KeeperRegistry) (*RegistryVersi
 	}
 }
 
-/*
- * This returns the numebr of registered upkeeps on contract, which can be different
- * from number of active upkeeps as some might be cancelled
- */
-func (rw *RegistryWrapper) GetRegisteredUpkeepCount(opts *bind.CallOpts) (*big.Int, error) {
-	// only applicable on 1.0 and 1.1.
+func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, error) {
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
-		return rw.contract1_1.GetUpkeepCount(opts)
-	default:
-		return nil, errors.Errorf("Registry version %d does not support GetUpkeepCount", rw.Version)
-	}
-}
-
-func (rw *RegistryWrapper) GetCanceledUpkeepList(opts *bind.CallOpts) ([]*big.Int, error) {
-	// only applicable on 1.0 and 1.1
-	switch rw.Version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		return rw.contract1_1.GetCanceledUpkeepList(opts)
-	default:
-		return *new([]*big.Int), errors.Errorf("Registry version %d does not support GetCanceledUpkeepList", rw.Version)
-	}
-}
-
-func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
-	// only applicable on 1.2
-	switch rw.Version {
+		upkeepCount, err := rw.contract1_1.GetUpkeepCount(opts)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get upkeep count")
+		}
+		cancelledUpkeeps, err := rw.contract1_1.GetCanceledUpkeepList(opts)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get cancelled upkeeps")
+		}
+		cancelledSet := make(map[int64]bool)
+		for _, upkeepID := range cancelledUpkeeps {
+			cancelledSet[upkeepID.Int64()] = true
+		}
+		// Active upkeep IDs are 0,1 ... upkeepCount-1, removing the cancelled ones
+		activeUpkeeps := make([]*big.Int, 0)
+		for i := int64(0); i < upkeepCount.Int64(); i++ {
+			if _, found := cancelledSet[i]; !found {
+				activeUpkeeps = append(activeUpkeeps, big.NewInt(i))
+			}
+		}
+		return activeUpkeeps, nil
 	case RegistryVersion_1_2:
-		return rw.contract1_2.GetActiveUpkeepIDs(opts, startIndex, maxCount)
+		// TODO (sc-37024): Get active upkeep IDs from contract in batches
+		return rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(0), big.NewInt(0))
 	default:
 		return *new([]*big.Int), errors.Errorf("Registry version %d does not support GetActiveUpkeepIDs", rw.Version)
 	}
