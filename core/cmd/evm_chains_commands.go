@@ -10,10 +10,10 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // EVMChainPresenter implements TableRenderer for an EVMChainResource.
@@ -42,11 +42,10 @@ func (p *EVMChainPresenter) ToRow() []string {
 // RenderTable implements TableRenderer
 // Just renders a single row
 func (p EVMChainPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
 	rows = append(rows, p.ToRow())
 
-	renderList(headers, rows, rt.Writer)
+	renderList(chainHeaders, rows, rt.Writer)
 
 	return nil
 }
@@ -56,14 +55,13 @@ type EVMChainPresenters []EVMChainPresenter
 
 // RenderTable implements TableRenderer
 func (ps EVMChainPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(chainHeaders, rows, rt.Writer)
 
 	return nil
 }

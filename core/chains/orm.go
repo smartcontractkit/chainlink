@@ -13,17 +13,7 @@ import (
 )
 
 // ORM manages chains and nodes.
-//
-// I: Chain ID
-//
-// C: Chain Config
-//
-// N: Node including these default fields:
-//  ID        int32
-//  Name      string
-//  CreatedAt time.Time
-//  UpdatedAt time.Time
-type ORM[I, C, N any] interface {
+type ORM[I ID, C Config, N Node] interface {
 	Chain(I, ...pg.QOpt) (Chain[I, C], error)
 	Chains(offset, limit int, qopts ...pg.QOpt) ([]Chain[I, C], int, error)
 	CreateChain(id I, config C, qopts ...pg.QOpt) (Chain[I, C], error)
@@ -49,14 +39,14 @@ type ORM[I, C, N any] interface {
 	SetupNodes(nodes []N, chainIDs []I) error
 }
 
-type orm[I, C, N any] struct {
+type orm[I ID, C Config, N Node] struct {
 	*chainsORM[I, C]
 	*nodesORM[I, N]
 }
 
 // NewORM returns an ORM backed by q, for the tables <prefix>_chains and <prefix>_nodes with column <prefix>_chain_id.
 // Additional Node fields should be included in nodeCols.
-func NewORM[I, C, N any](q pg.Q, prefix string, nodeCols ...string) ORM[I, C, N] {
+func NewORM[I ID, C Config, N Node](q pg.Q, prefix string, nodeCols ...string) ORM[I, C, N] {
 	return orm[I, C, N]{
 		newChainsORM[I, C](q, prefix),
 		newNodesORM[I, N](q, prefix, nodeCols...),
@@ -84,7 +74,7 @@ func (o orm[I, C, N]) SetupNodes(nodes []N, ids []I) error {
 //
 // A Chain type alias can be used for convenience:
 // 	type Chain = chains.Chain[string, pkg.ChainCfg]
-type Chain[I, C any] struct {
+type Chain[I ID, C Config] struct {
 	ID        I
 	Cfg       C
 	CreatedAt time.Time
@@ -93,13 +83,13 @@ type Chain[I, C any] struct {
 }
 
 // chainsORM is a generic ORM for chains.
-type chainsORM[I, C any] struct {
+type chainsORM[I ID, C Config] struct {
 	q      pg.Q
 	prefix string
 }
 
 // newChainsORM returns an chainsORM backed by q, for the table <prefix>_chains.
-func newChainsORM[I, C any](q pg.Q, prefix string) *chainsORM[I, C] {
+func newChainsORM[I ID, C Config](q pg.Q, prefix string) *chainsORM[I, C] {
 	return &chainsORM[I, C]{q: q, prefix: prefix}
 }
 
@@ -225,14 +215,14 @@ func (o *chainsORM[I, C]) EnabledChains(qopts ...pg.QOpt) (chains []Chain[I, C],
 }
 
 // nodesORM is a generic ORM for nodes.
-type nodesORM[I, N any] struct {
+type nodesORM[I ID, N Node] struct {
 	q           pg.Q
 	prefix      string
 	createNodeQ string
 	ensureNodeQ string
 }
 
-func newNodesORM[I, N any](q pg.Q, prefix string, nodeCols ...string) *nodesORM[I, N] {
+func newNodesORM[I ID, N Node](q pg.Q, prefix string, nodeCols ...string) *nodesORM[I, N] {
 	// pre-compute query for CreateNode
 	var withColon []string
 	for _, c := range nodeCols {

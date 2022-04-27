@@ -12,9 +12,10 @@ import (
 var ErrEVMNotEnabled = errors.New("EVM is disabled. Set EVM_ENABLED=true to enable.")
 
 func NewEVMChainsController(app chainlink.Application) ChainsController {
+	parse := func(s string) (id utils.Big, err error) {
+		err = id.UnmarshalText([]byte(s))
+		return
+	}
 	return NewChainsController[utils.Big, types.ChainCfg, presenters.EVMChainResource](
-		"evm", app.GetChains().EVM, ErrEVMNotEnabled, func(s string) (id utils.Big, err error) {
-			err = id.UnmarshalText([]byte(s))
-			return
-		}, presenters.NewEVMChainResource)
+		"evm", app.GetChains().EVM, ErrEVMNotEnabled, parse, presenters.NewEVMChainResource)
 }

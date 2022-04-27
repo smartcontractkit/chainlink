@@ -42,11 +42,10 @@ func (p *TerraChainPresenter) ToRow() []string {
 // RenderTable implements TableRenderer
 // Just renders a single row
 func (p TerraChainPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
 	rows = append(rows, p.ToRow())
 
-	renderList(headers, rows, rt.Writer)
+	renderList(chainHeaders, rows, rt.Writer)
 
 	return nil
 }
@@ -56,14 +55,13 @@ type TerraChainPresenters []TerraChainPresenter
 
 // RenderTable implements TableRenderer
 func (ps TerraChainPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(chainHeaders, rows, rt.Writer)
 
 	return nil
 }

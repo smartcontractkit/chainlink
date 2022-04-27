@@ -6,12 +6,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 )
 
-type ChainSet[I, C any] interface {
+type ChainSet[I chains.ID, C chains.Config] interface {
 	Add(ctx context.Context, id I, cfg C) (chains.Chain[I, C], error)
 	Show(id I) (chains.Chain[I, C], error)
 	Configure(ctx context.Context, id I, enabled bool, cfg C) (chains.Chain[I, C], error)
@@ -32,7 +33,7 @@ type ChainsController interface {
 	Delete(*gin.Context)
 }
 
-type chainsController[I, C, R any] struct {
+type chainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer] struct {
 	resourceName  string
 	chainSet      ChainSet[I, C]
 	errNotEnabled error
@@ -40,7 +41,7 @@ type chainsController[I, C, R any] struct {
 	newResource   func(chains.Chain[I, C]) R
 }
 
-func NewChainsController[I, C, R any](prefix string, chainSet ChainSet[I, C], errNotEnabled error,
+func NewChainsController[I chains.ID, C chains.Config, R jsonapi.EntityNamer](prefix string, chainSet ChainSet[I, C], errNotEnabled error,
 	parseChainID func(string) (I, error), newResource func(chains.Chain[I, C]) R) *chainsController[I, C, R] {
 	return &chainsController[I, C, R]{
 		resourceName:  prefix + "_chain",
@@ -63,7 +64,7 @@ func (cc *chainsController[I, C, R]) Index(c *gin.Context, size, page, offset in
 		return
 	}
 
-	var resources []interface{}
+	var resources []R
 	for _, chain := range chains {
 		resources = append(resources, cc.newResource(chain))
 	}
@@ -71,12 +72,12 @@ func (cc *chainsController[I, C, R]) Index(c *gin.Context, size, page, offset in
 	paginatedResponse(c, cc.resourceName, size, page, resources, count, err)
 }
 
-type CreateChainRequest[I, C any] struct {
+type CreateChainRequest[I chains.ID, C chains.Config] struct {
 	ID     I `json:"chainID"`
 	Config C `json:"config"`
 }
 
-func NewCreateChainRequest[I, C any](id I, config C) CreateChainRequest[I, C] {
+func NewCreateChainRequest[I chains.ID, C chains.Config](id I, config C) CreateChainRequest[I, C] {
 	return CreateChainRequest[I, C]{ID: id, Config: config}
 }
 
@@ -123,7 +124,7 @@ func (cc *chainsController[I, C, R]) Show(c *gin.Context) {
 	jsonAPIResponse(c, cc.newResource(chain), cc.resourceName)
 }
 
-type UpdateChainRequest[C any] struct {
+type UpdateChainRequest[C chains.Config] struct {
 	Enabled bool `json:"enabled"`
 	Config  C    `json:"config"`
 }

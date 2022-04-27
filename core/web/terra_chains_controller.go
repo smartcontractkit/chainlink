@@ -8,6 +8,7 @@ import (
 )
 
 func NewTerraChainsController(app chainlink.Application) ChainsController {
-	return NewChainsController[string, db.ChainCfg, presenters.TerraChainResource]("terra", app.GetChains().Terra,
-		ErrTerraNotEnabled, func(s string) (string, error) { return s, nil }, presenters.NewTerraChainResource)
+	parse := func(s string) (string, error) { return s, nil }
+	return NewChainsController[string, db.ChainCfg, presenters.TerraChainResource](
+		"terra", app.GetChains().Terra, ErrTerraNotEnabled, parse, presenters.NewTerraChainResource)
 }

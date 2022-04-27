@@ -8,6 +8,6 @@ import (
 )
 
 func NewSolanaChainsController(app chainlink.Application) ChainsController {
-	return NewChainsController[string, db.ChainCfg, presenters.SolanaChainResource]("solana", app.GetChains().Solana,
-		ErrSolanaNotEnabled, func(s string) (string, error) { return s, nil }, presenters.NewSolanaChainResource)
+	return NewChainsController[string, db.ChainCfg]("solana", app.GetChains().Solana, ErrSolanaNotEnabled,
+		func(s string) (string, error) { return s, nil }, presenters.NewSolanaChainResource)
 }
