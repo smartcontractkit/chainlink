@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"math/big"
 	"math/rand"
 	"time"
 
@@ -88,6 +89,19 @@ RETURNING *
 `
 	err := korm.q.GetNamed(stmt, registration, registration)
 	return errors.Wrap(err, "failed to upsert upkeep")
+}
+
+// Update the last keeper index for an upkeep
+func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *big.Int, fromAddress ethkey.EIP55Address) error {
+	_, err := korm.q.Exec(`
+	UPDATE upkeep_registrations
+	SET
+		last_keeper_index = CAST((SELECT keeper_index_map -> $3 FROM keeper_registries WHERE job_id = $1) as int)
+	WHERE upkeep_id = $2 AND
+	registry_id = (SELECT id FROM keeper_registries WHERE job_id = $1)`,
+		jobID, upkeepID.Int64(), fromAddress.Hex())
+	// TODO: Remove int64 comversion in upkeep ID after #6457 is merged
+	return errors.Wrap(err, "UpdateUpkeepLastKeeperIndex failed")
 }
 
 // BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID

@@ -121,6 +121,7 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 type UpkeepConfig struct {
 	ExecuteGas uint32
 	CheckData  []byte
+	LastKeeper common.Address
 }
 
 func (rw *RegistryWrapper) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepConfig, error) {
@@ -133,6 +134,7 @@ func (rw *RegistryWrapper) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 		return &UpkeepConfig{
 			ExecuteGas: upkeep.ExecuteGas,
 			CheckData:  upkeep.CheckData,
+			LastKeeper: upkeep.LastKeeper,
 		}, nil
 	case RegistryVersion_1_2:
 		upkeep, err := rw.contract1_2.GetUpkeep(opts, id)
@@ -142,6 +144,7 @@ func (rw *RegistryWrapper) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 		return &UpkeepConfig{
 			ExecuteGas: upkeep.ExecuteGas,
 			CheckData:  upkeep.CheckData,
+			LastKeeper: upkeep.LastKeeper,
 		}, nil
 	default:
 		return nil, getUnsupportedVersionError("GetUpkeep", rw.Version)

@@ -124,6 +124,10 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *big.Int)
 		return errors.Wrap(err, "failed to upsert upkeep")
 	}
 
+	if err := rs.orm.UpdateUpkeepLastKeeperIndex(rs.job.ID, upkeepID, ethkey.EIP55AddressFromAddress(upkeepConfig.LastKeeper)); err != nil {
+		return errors.Wrap(err, "failed to upsert upkeep")
+	}
+
 	return nil
 }
 

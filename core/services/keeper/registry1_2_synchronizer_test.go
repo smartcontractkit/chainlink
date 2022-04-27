@@ -105,10 +105,14 @@ func Test_RegistrySynchronizer1_2_Start(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
+	g := gomega.NewWithT(t)
 	db, synchronizer, ethMock, _, job := setupRegistrySync(t, keeper.RegistryVersion_1_2)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
+
+	upkeepConfig := upkeepConfig1_2
+	upkeepConfig.LastKeeper = fromAddress
 	mockRegistry1_2(
 		t,
 		ethMock,
@@ -116,12 +120,26 @@ func Test_RegistrySynchronizer1_2_FullSync(t *testing.T) {
 		registryConfig1_2,
 		[]*big.Int{big.NewInt(3), big.NewInt(69), big.NewInt(420)}, // Upkeep IDs
 		[]common.Address{fromAddress},
-		upkeepConfig1_2,
+		upkeepConfig,
 		3) // sync all 3
 	synchronizer.ExportedFullSync()
 
 	cltest.AssertCount(t, db, "keeper_registries", 1)
 	cltest.AssertCount(t, db, "upkeep_registrations", 3)
+
+	// Last keeper index should be set correctly on upkeep
+	g.Eventually(func() bool {
+		var upkeep keeper.UpkeepRegistration
+		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
+		require.NoError(t, err)
+		return upkeep.LastKeeperIndex.Valid
+	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
+	g.Eventually(func() int64 {
+		var upkeep keeper.UpkeepRegistration
+		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
+		require.NoError(t, err)
+		return upkeep.LastKeeperIndex.Int64
+	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 
 	var registry keeper.Registry
 	var upkeepRegistration keeper.UpkeepRegistration
