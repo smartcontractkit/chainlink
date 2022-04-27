@@ -43,7 +43,7 @@ type Txm struct {
 	stop     chan struct{}
 	done     sync.WaitGroup
 	cfg      config.Config
-	txCache  *TxCache
+	txs      *TxProcesses
 	client   *ValidClient
 }
 
@@ -63,8 +63,8 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 		simQueue: make(chan queueMsg, MaxQueueLen), // queue can support 1000 pending txs
 		stop:     make(chan struct{}),
 		cfg:      cfg,
-		txCache:  NewTxCache(chainID),
-		client:   NewValidClient(tc),
+		txs:      NewTxProcesses(chainID),
+		client:   NewValidClient(tc, lggr),
 	}
 }
 
@@ -125,15 +125,15 @@ func (txm *Txm) sendWithRetry(chanCtx context.Context, tx *solanaGo.Transaction,
 	// send initial tx (do not retry and exit early if fails)
 	sig, err := client.SendTx(ctx, tx)
 	if err != nil {
-		cancel()                // cancel context when exiting early
-		txm.txCache.Failed(sig) // increment failed metric
+		cancel()            // cancel context when exiting early
+		txm.txs.Failed(sig) // increment failed metric
 		return solanaGo.Signature{}, errors.Wrap(err, "tx failed initial transmit")
 	}
 
 	// store tx signature + cancel function
-	if err := txm.txCache.Insert(sig, cancel); err != nil {
+	if err := txm.txs.Insert(sig, cancel); err != nil {
 		cancel() // cancel context when exiting early
-		return solanaGo.Signature{}, errors.Wrapf(err, "failed to save tx signature (%s) to cache", sig)
+		return solanaGo.Signature{}, errors.Wrapf(err, "failed to save tx signature (%s) to inflight txs", sig)
 	}
 
 	// retry with exponential backoff
@@ -191,8 +191,8 @@ func (txm *Txm) confirm(ctx context.Context) {
 		timestamp, exists := timestamps[sig]
 		if !exists { // if new, add timestamp
 			timestamps[sig] = time.Now()
-		} else if time.Since(timestamp) > MaxConfirmTimeout { // if timed out, drop tx sig (remove from txCache + timestamps)
-			txm.txCache.Cancel(sig)
+		} else if time.Since(timestamp) > MaxConfirmTimeout { // if timed out, drop tx sig (remove from txs + timestamps)
+			txm.txs.Cancel(sig)
 			txm.lggr.Warnw(warnStr, "signature", sig, "timeoutSeconds", MaxConfirmTimeout)
 			delete(timestamps, sig)
 		}
@@ -206,7 +206,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 			return
 		case <-tick:
 			// get list of tx signatures to confirm
-			sigs := txm.txCache.List()
+			sigs := txm.txs.List()
 
 			// skip loop if not txs to confirm
 			if len(sigs) == 0 {
@@ -253,7 +253,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 							"error", res[i].Err,
 							"status", res[i].ConfirmationStatus,
 						)
-						txm.txCache.Revert(s[i])
+						txm.txs.Revert(s[i])
 
 						// clear timestamp
 						timestampsMu.Lock()
@@ -278,7 +278,7 @@ func (txm *Txm) confirm(ctx context.Context) {
 						txm.lggr.Debugw(fmt.Sprintf("tx state: %s", res[i].ConfirmationStatus),
 							"signature", s[i],
 						)
-						txm.txCache.Success(s[i])
+						txm.txs.Success(s[i])
 
 						// clear timestamp
 						timestampsMu.Lock()
@@ -338,7 +338,7 @@ func (txm *Txm) simulate(ctx context.Context) {
 
 			// stop tx retrying if simulate returns error
 			if res.Err != nil {
-				txm.txCache.Failed(msg.signature) // cancel retry
+				txm.txs.Failed(msg.signature) // cancel retry
 				txm.lggr.Errorw("simulate error", "signature", msg.signature, "error", res)
 				break
 			}
@@ -363,7 +363,7 @@ func (txm *Txm) Enqueue(accountID string, tx *solanaGo.Transaction) error {
 }
 
 func (txm *Txm) InflightTxs() int {
-	return len(txm.txCache.List())
+	return len(txm.txs.List())
 }
 
 // Close close service

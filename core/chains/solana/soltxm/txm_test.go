@@ -99,7 +99,7 @@ func TestTxm_Integration(t *testing.T) {
 		time.Sleep(10 * time.Millisecond) // ~100 txs per second (note: have run 5ms delays for ~200tx/s succesfully)
 	}
 
-	// check to make sure all txs are closed out from cache (longest should last MaxConfirmTimeout)
+	// check to make sure all txs are closed out from inflight list (longest should last MaxConfirmTimeout)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	ticker := time.NewTicker(time.Second)

@@ -10,75 +10,75 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-type TxCache struct {
-	chainID string
-	cache   map[solana.Signature]context.CancelFunc
-	lock    sync.RWMutex
+type TxProcesses struct {
+	chainID  string
+	inflight map[solana.Signature]context.CancelFunc
+	lock     sync.RWMutex
 }
 
-func NewTxCache(id string) *TxCache {
-	return &TxCache{
-		chainID: id,
-		cache:   map[solana.Signature]context.CancelFunc{},
+func NewTxProcesses(id string) *TxProcesses {
+	return &TxProcesses{
+		chainID:  id,
+		inflight: map[solana.Signature]context.CancelFunc{},
 	}
 }
 
-func (c *TxCache) Insert(sig solana.Signature, cancel context.CancelFunc) error {
+func (c *TxProcesses) Insert(sig solana.Signature, cancel context.CancelFunc) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.cache[sig] != nil {
+	if c.inflight[sig] != nil {
 		return errors.New("signature already exists")
 	}
-	c.cache[sig] = cancel
+	c.inflight[sig] = cancel
 	return nil
 }
 
 // Success - tx included in block and confirmed
-func (c *TxCache) Success(sig solana.Signature) {
+func (c *TxProcesses) Success(sig solana.Signature) {
 	promSolTxmSuccessfulTxs.WithLabelValues(c.chainID).Add(1)
 	c.cancel(sig)
 	return
 }
 
 // Revert - tx included in block but failed execution
-func (c *TxCache) Revert(sig solana.Signature) {
+func (c *TxProcesses) Revert(sig solana.Signature) {
 	promSolTxmRevertedTxs.WithLabelValues(c.chainID).Add(1)
 	c.cancel(sig)
 	return
 }
 
 // Failed - tx failed sending to chain or failed simulation
-func (c *TxCache) Failed(sig solana.Signature) {
+func (c *TxProcesses) Failed(sig solana.Signature) {
 	promSolTxmFailedTxs.WithLabelValues(c.chainID).Add(1)
 	c.cancel(sig)
 	return
 }
 
 // Cancel - tx retry timed out, was not picked up by the network and confirmed in time
-func (c *TxCache) Cancel(sig solana.Signature) {
+func (c *TxProcesses) Cancel(sig solana.Signature) {
 	promSolTxmTimedOutTxs.WithLabelValues(c.chainID).Add(1)
 	c.cancel(sig)
 	return
 }
 
-func (c *TxCache) cancel(sig solana.Signature) {
+func (c *TxProcesses) cancel(sig solana.Signature) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	// already cancelled
-	if c.cache[sig] == nil {
+	if c.inflight[sig] == nil {
 		return
 	}
 
-	c.cache[sig]() // cancel context
-	delete(c.cache, sig)
+	c.inflight[sig]() // cancel context
+	delete(c.inflight, sig)
 	return
 }
 
-func (c *TxCache) List() []solana.Signature {
+func (c *TxProcesses) List() []solana.Signature {
 	c.lock.RLock()
-	sigs := maps.Keys(c.cache)
+	sigs := maps.Keys(c.inflight)
 	c.lock.RUnlock()
 
 	promSolTxmInflightTxs.WithLabelValues(c.chainID).Set(float64(len(sigs)))
@@ -109,6 +109,7 @@ func (vc *ValidClient) Get() (solanaClient.ReaderWriter, error) {
 		}
 		vc.client = client
 	}
+
 	return vc.client, nil
 }
 

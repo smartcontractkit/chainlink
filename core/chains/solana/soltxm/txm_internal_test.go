@@ -81,7 +81,7 @@ func TestTxm(t *testing.T) {
 	// check if cached transaction is cleared
 	empty := func() bool {
 		count := txm.InflightTxs()
-		assert.Equal(t, float64(count), prom.getInflight()) // validate prom metric and cache length
+		assert.Equal(t, float64(count), prom.getInflight()) // validate prom metric and txs length
 		return count == 0
 	}
 
@@ -92,7 +92,7 @@ func TestTxm(t *testing.T) {
 			}
 			time.Sleep(time.Second)
 		}
-		assert.NoError(t, errors.New("unable to confirm tx cache is empty"))
+		assert.NoError(t, errors.New("unable to confirm inflight txs is empty"))
 	}
 
 	// happy path (send => simulate success => tx: nil => tx: processed => tx: confirmed => done)
@@ -125,7 +125,7 @@ func TestTxm(t *testing.T) {
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()
 
-		// no transactions stored cache list
+		// no transactions stored inflight txs list
 		waitFor(empty)
 		// transaction should be sent more than twice
 		t.Logf("sendTx received %d calls", sendCount)
@@ -154,7 +154,7 @@ func TestTxm(t *testing.T) {
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait() // wait to be picked up and processed
 
-		// no transactions stored cache list
+		// no transactions stored inflight txs list
 		waitFor(empty)
 
 		// check prom metric
@@ -180,7 +180,7 @@ func TestTxm(t *testing.T) {
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
-		waitFor(empty) // tx cache cleared quickly
+		waitFor(empty) // txs cleared quickly
 
 		// check prom metric
 		prom.fail++
@@ -203,7 +203,7 @@ func TestTxm(t *testing.T) {
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
-		waitFor(empty) // tx cache cleared after timeout
+		waitFor(empty) // txs cleared after timeout
 
 		// check prom metric
 		prom.timedOut++
@@ -231,7 +231,7 @@ func TestTxm(t *testing.T) {
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
-		waitFor(empty) // tx cache cleared after timeout
+		waitFor(empty) // inflight txs cleared after timeout
 
 		// check prom metric
 		prom.timedOut++
@@ -260,7 +260,7 @@ func TestTxm(t *testing.T) {
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
-		waitFor(empty) // tx cache cleared after timeout
+		waitFor(empty) // inflight txs cleared after timeout
 
 		// check prom metric
 		prom.timedOut++
@@ -289,7 +289,7 @@ func TestTxm(t *testing.T) {
 		// tx should be able to queue
 		assert.NoError(t, txm.Enqueue(t.Name(), tx))
 		wg.Wait()      // wait to be picked up and processed
-		waitFor(empty) // tx cache cleared after timeout
+		waitFor(empty) // inflight txs cleared after timeout
 
 		// check prom metric
 		prom.revert++

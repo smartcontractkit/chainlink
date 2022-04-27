@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTxCache(t *testing.T) {
+func TestTxProcesses(t *testing.T) {
 	// setup
 	var wg sync.WaitGroup
 	ctx := context.Background()
@@ -30,23 +30,23 @@ func TestTxCache(t *testing.T) {
 		return solana.SignatureFromBytes(sig), cancel
 	}
 
-	// init cache + store some signatures and cancelFunc
-	cache := NewTxCache("test")
+	// init inflight txs map + store some signatures and cancelFunc
+	txs := NewTxProcesses("test")
 	n := 5
 	for i := 0; i < n; i++ {
 		sig, cancel := newProcess(i)
-		err := cache.Insert(sig, cancel)
+		err := txs.Insert(sig, cancel)
 		assert.NoError(t, err)
 	}
 
 	// return list of signatures
-	list := cache.List()
+	list := txs.List()
 	assert.Equal(t, n, len(list))
 
 	// stop all sub processes
 	for i := 0; i < len(list); i++ {
-		cache.Cancel(list[i])
-		assert.Equal(t, n-i-1, len(cache.List()))
+		txs.Cancel(list[i])
+		assert.Equal(t, n-i-1, len(txs.List()))
 	}
 	wg.Wait()
 }

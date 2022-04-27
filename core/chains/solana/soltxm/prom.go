@@ -24,6 +24,6 @@ var (
 	}, []string{"chainID"})
 	promSolTxmInflightTxs = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "soltxm_num_tx_inflight",
-		Help: "Number of transactions that are currently being retried (and are stored in tx cache)",
+		Help: "Number of transactions that are currently being retried and confirmed",
 	}, []string{"chainID"})
 )
