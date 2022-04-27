@@ -118,7 +118,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 		eip1559         bool
 		registryVersion keeper.RegistryVersion
 	}{
-		// name should be valud ORM name, only contain alphanumeric and underscore
+		// name should be a valid ORM name, only containing alphanumeric/underscore
 		{"legacy_mode_registry1_1", false, keeper.RegistryVersion_1_1},
 		{"eip1559_mode_registry1_1", true, keeper.RegistryVersion_1_1},
 		{"legacy_mode_registry1_2", false, keeper.RegistryVersion_1_2},
