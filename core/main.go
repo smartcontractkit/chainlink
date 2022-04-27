@@ -29,18 +29,20 @@ var (
 )
 
 func init() {
+	// prometheus.DefaultRegisterer.MustRegister(simpleCounter)
 	// prometheus.DefaultRegisterer.MustRegister(simpleCounterVec)
-	simpleCounterVec.WithLabelValues("foo", "bar")
-	simpleCounterVec.WithLabelValues("qux", "baz")
-	simpleCounterVec.WithLabelValues("1", "2")
+	// simpleCounterVec.WithLabelValues("foo", "bar")
+	// simpleCounterVec.WithLabelValues("qux", "baz")
+	// simpleCounterVec.WithLabelValues("1", "2")
 
-	metricsFamilies, err := prometheus.DefaultGatherer.Gather()
+	metricsFamilies, err := promauto.CustomGatherer.Gather()
 	if err != nil {
 		panic(err)
 	}
 	for _, f := range metricsFamilies {
 		fmt.Println(f)
 	}
+	panic("booted")
 }
 
 func main() {

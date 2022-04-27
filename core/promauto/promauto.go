@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var _ prometheus.Registerer = &registry{}
@@ -89,7 +90,7 @@ func (r *registry) Register(c prometheus.Collector) error {
 // error.
 func (r *registry) MustRegister(c ...prometheus.Collector) {
 	r.add(c...)
-	r.promRegisterer.MustRegister(c)
+	r.promRegisterer.MustRegister(c...)
 }
 
 // Unregister unregisters the Collector that equals the Collector passed
@@ -106,8 +107,8 @@ func (r *registry) MustRegister(c ...prometheus.Collector) {
 // instance must only collect consistent metrics throughout its
 // lifetime.
 func (r *registry) Unregister(c prometheus.Collector) bool {
-	r.remove(c...)
-	return errors.WithStack(r.promRegisterer.Unregister(c))
+	r.remove(c)
+	return r.promRegisterer.Unregister(c)
 }
 
 // Gather calls the Collect method of the registered Collectors and then
