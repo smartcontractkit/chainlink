@@ -44,7 +44,7 @@ type RegistrySynchronizerOptions struct {
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
 	newTurnEnabled           bool
-	contract                 *keeper_registry_wrapper.KeeperRegistry
+	contract                 *keeper_registry_wrapper1_1.KeeperRegistry
 	interval                 time.Duration
 	job                      job.Job
 	jrm                      job.ORM
