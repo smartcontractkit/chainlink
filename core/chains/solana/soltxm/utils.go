@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/gagliardetto/solana-go"
-	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	"golang.org/x/exp/maps"
 )
 
@@ -85,37 +84,40 @@ func (c *TxProcesses) FetchAndUpdateInflight() []solana.Signature {
 	return sigs
 }
 
-type ValidClient struct {
-	tc     func() (solanaClient.ReaderWriter, error)
-	client solanaClient.ReaderWriter
-	lock   sync.Mutex
+type LazyLoad[T any] struct {
+	f     func() (T, error)
+	state T
+	lock  sync.RWMutex
+	once  sync.Once
 }
 
-func NewValidClient(tc func() (solanaClient.ReaderWriter, error)) *ValidClient {
-	return &ValidClient{
-		tc: tc,
+func NewLazyLoad[T any](f func() (T, error)) *LazyLoad[T] {
+	return &LazyLoad[T]{
+		f: f,
 	}
 }
 
-// Get a new client if it doesnt already exist
-func (vc *ValidClient) Get() (solanaClient.ReaderWriter, error) {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
+func (l *LazyLoad[T]) Get() (out T, err error) {
 
-	if vc.client == nil {
-		client, err := vc.tc()
-		if err != nil {
-			return nil, err
-		}
-		vc.client = client
+	// fetch only once (or whenever cleared)
+	l.lock.Lock()
+	l.once.Do(func() {
+		l.state, err = l.f()
+	})
+	l.lock.Unlock()
+
+	// if err, clear so next get will retry
+	if err != nil {
+		l.Clear()
 	}
 
-	return vc.client, nil
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	return l.state, err
 }
 
-// Clear the existing client
-func (vc *ValidClient) Clear() {
-	vc.lock.Lock()
-	defer vc.lock.Unlock()
-	vc.client = nil
+func (l *LazyLoad[T]) Clear() {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	l.once = sync.Once{}
 }

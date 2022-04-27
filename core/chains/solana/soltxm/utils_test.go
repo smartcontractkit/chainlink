@@ -52,43 +52,51 @@ func TestTxProcesses(t *testing.T) {
 }
 
 func TestValidClient(t *testing.T) {
-	called := false
+	var clientwg sync.WaitGroup
+
 	tc := func() (solanaClient.ReaderWriter, error) {
+		clientwg.Done()
 		return &solanaClient.Client{}, nil
-	}
-	callOnce := func() (solanaClient.ReaderWriter, error) {
-		assert.False(t, called)
-		called = true
-		return tc()
 	}
 
 	// Get should only request a client once, use cached afterward
 	t.Run("get", func(t *testing.T) {
-		c := NewValidClient(callOnce)
+		clientwg.Add(1) // expect one call to get client
+		c := NewLazyLoad(tc)
 		rw, err := c.Get()
 		assert.NoError(t, err)
 		assert.NotNil(t, rw)
-		assert.NotNil(t, c.client)
+		assert.NotNil(t, c.state)
 
 		// used cached client
 		rw, err = c.Get()
 		assert.NoError(t, err)
 		assert.NotNil(t, rw)
+		clientwg.Wait()
 	})
 
-	// Clear removes the cached client
+	// Clear removes the cached client, should refetch
 	t.Run("clear", func(t *testing.T) {
-		c := NewValidClient(tc)
-		c.Get()
-		assert.NotNil(t, c.client)
+		clientwg.Add(2) // expect two calls to get client
+
+		c := NewLazyLoad(tc)
+		rw, err := c.Get()
+		assert.NotNil(t, rw)
+		assert.NoError(t, err)
 
 		c.Clear()
-		assert.Nil(t, c.client)
+
+		rw, err = c.Get()
+		assert.NotNil(t, rw)
+		assert.NoError(t, err)
+		clientwg.Wait()
 	})
 
 	// Race checks a race condition of Getting and Clearing a new client
 	t.Run("race", func(t *testing.T) {
-		c := NewValidClient(tc)
+		clientwg.Add(1) // expect one call to get client
+
+		c := NewLazyLoad(tc)
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go func() {
@@ -102,5 +110,6 @@ func TestValidClient(t *testing.T) {
 			wg.Done()
 		}()
 		wg.Wait()
+		clientwg.Wait()
 	})
 }

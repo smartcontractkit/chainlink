@@ -44,7 +44,7 @@ type Txm struct {
 	done     sync.WaitGroup
 	cfg      config.Config
 	txs      *TxProcesses
-	client   *ValidClient
+	client   *LazyLoad[solanaClient.ReaderWriter]
 }
 
 type queueMsg struct {
@@ -64,7 +64,7 @@ func NewTxm(chainID string, tc func() (solanaClient.ReaderWriter, error), cfg co
 		stop:     make(chan struct{}),
 		cfg:      cfg,
 		txs:      NewTxProcesses(chainID),
-		client:   NewValidClient(tc),
+		client:   NewLazyLoad(tc),
 	}
 }
 
