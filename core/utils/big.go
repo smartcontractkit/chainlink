@@ -179,3 +179,8 @@ func (b *Big) Add(c interface{}) *Big {
 func (b *Big) Sub(c interface{}) *Big {
 	return NewBig(bigmath.Sub(b, c))
 }
+
+// Sub returns b % c
+func (b *Big) Mod(c interface{}) *Big {
+	return NewBig(bigmath.Mod(b, c))
+}

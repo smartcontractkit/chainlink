@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/binary"
+	"math"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -121,9 +122,9 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get canceled upkeep list")
 	}
-	canceled := make([]int64, len(canceledBigs))
+	canceled := make([]utils.Big, len(canceledBigs))
 	for idx, upkeepID := range canceledBigs {
-		canceled[idx] = upkeepID.Int64()
+		canceled[idx] = *utils.NewBig(upkeepID)
 	}
 	if _, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, canceled); err != nil {
 		return errors.Wrap(err, "failed to batch delete upkeeps from job")
@@ -173,7 +174,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 // The positioning constant is fixed because upkeepID and registryAddress are immutable
 func CalcPositioningConstant(upkeepID *utils.Big, registryAddress ethkey.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
-	binary.PutVarint(upkeepBytes, upkeepID.ToInt().Int64()) // XXX - not valid but doesn't matter bc we're removing this code
+	binary.PutVarint(upkeepBytes, upkeepID.Mod(math.MaxInt64).Int64())
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
 	checksum, err := utils.Keccak256(bytesToHash)
 	if err != nil {

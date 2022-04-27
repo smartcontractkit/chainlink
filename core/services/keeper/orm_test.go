@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 var (
@@ -140,7 +142,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 	cltest.AssertCount(t, db, "upkeep_registrations", 3)
 
-	_, err := orm.BatchDeleteUpkeepsForJob(job.ID, []int64{0, 2})
+	_, err := orm.BatchDeleteUpkeepsForJob(job.ID, []utils.Big{*utils.NewBigI(0), *utils.NewBigI(2)})
 	require.NoError(t, err)
 	cltest.AssertCount(t, db, "upkeep_registrations", 1)
 
@@ -358,4 +360,100 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	// update to higher block allowed
 	require.NoError(t, orm.SetLastRunInfoForUpkeepOnJob(j.ID, upkeep.UpkeepID, 101, registry.FromAddress))
 	assertLastRunHeight(t, db, upkeep, 101, 0)
+}
+
+func TestKeeperDB_LeastSignificant(t *testing.T) {
+	t.Parallel()
+	db, _, _ := setupKeeperDB(t)
+	sql := `SELECT least_significant($1, $2)`
+	inputBytes := "10001000101010101101"
+	for _, test := range []struct {
+		name           string
+		inputLength    int
+		expectedOutput string
+		expectedError  bool
+	}{
+		{
+			name:           "half slice",
+			inputLength:    10,
+			expectedOutput: "1010101101",
+		},
+		{
+			name:           "full slice",
+			inputLength:    20,
+			expectedOutput: "10001000101010101101",
+		},
+		{
+			name:           "no slice",
+			inputLength:    0,
+			expectedOutput: "",
+		},
+		{
+			name:          "slice too large",
+			inputLength:   21,
+			expectedError: true,
+		},
+	} {
+		t.Run(test.name, func(tt *testing.T) {
+			var test = test
+			var result string
+			err := db.Get(&result, sql, inputBytes, test.inputLength)
+			if test.expectedError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedOutput, result)
+		})
+	}
+}
+
+func TestKeeperDB_Uint256ToBit(t *testing.T) {
+	t.Parallel()
+	db, _, _ := setupKeeperDB(t)
+	sql := `SELECT uint256_to_bit($1)`
+
+	min := big.NewInt(0)
+	max := utils.MaxUint256
+	rand := utils.RandUint256()
+	for _, test := range []struct {
+		name          string
+		input         *big.Int
+		errorExpected bool
+	}{
+		{
+			name:  "min",
+			input: min,
+		},
+		{
+			name:  "max",
+			input: max,
+		},
+		{
+			name:  "rand",
+			input: rand,
+		},
+		{
+			name:  "padded",
+			input: min,
+		},
+		{
+			name:          "overflow",
+			input:         bigmath.Add(max, 1),
+			errorExpected: true,
+		},
+	} {
+		t.Run(test.name, func(tt *testing.T) {
+			var test = test
+			var result string
+			err := db.Get(&result, sql, test.input.String())
+			if test.errorExpected {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			expected := utils.LeftPadBitString(fmt.Sprintf("%b", test.input), 256)
+			require.Equal(t, expected, result)
+		})
+	}
 }

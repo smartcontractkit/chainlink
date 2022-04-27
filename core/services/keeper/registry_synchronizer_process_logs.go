@@ -73,7 +73,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 		rs.logger.AssumptionViolationf("expected UpkeepCanceled log but got %T", broadcastedLog)
 		return
 	}
-	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []int64{broadcastedLog.Id.Int64()})
+	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []utils.Big{*utils.NewBig(broadcastedLog.Id)})
 	if err != nil {
 		rs.logger.With("error", err).Error("unable to batch delete upkeeps")
 		return
