@@ -669,6 +669,7 @@ describe('KeeperRegistry', () => {
 
   describe('#performUpkeep', () => {
     let _lastKeeper = keeper1
+
     async function getPerformPaymentAmount() {
       _lastKeeper = _lastKeeper === keeper1 ? keeper2 : keeper1
       const before = (
