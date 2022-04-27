@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
-import { BigNumber, Signer, BigNumberish } from 'ethers'
+import { BigNumber, BigNumberish, Signer } from 'ethers'
 import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
@@ -2034,6 +2034,9 @@ describe('KeeperRegistry', () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(0)
         expect((await registry.getUpkeep(id)).checkData).to.equal('0x')
         expect((await registry2.getUpkeep(id)).balance).to.equal(toWei('100'))
+        expect((await registry2.getState()).state.expectedLinkBalance).to.equal(
+          toWei('100'),
+        )
         expect((await registry2.getUpkeep(id)).checkData).to.equal(randomBytes)
       })
       it('emits an event on both contracts', async () => {

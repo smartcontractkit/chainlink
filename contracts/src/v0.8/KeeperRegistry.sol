@@ -589,6 +589,7 @@ contract KeeperRegistry is
     Storage memory store = s_storage;
     state.nonce = store.nonce;
     state.ownerLinkBalance = s_ownerLinkBalance;
+    state.expectedLinkBalance = s_expectedLinkBalance;
     state.numUpkeeps = s_upkeepIDs.length();
     config.paymentPremiumPPB = store.paymentPremiumPPB;
     config.flatFeeMicroLink = store.flatFeeMicroLink;
@@ -730,14 +731,15 @@ contract KeeperRegistry is
     if (!target.isContract()) revert NotAContract();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
     s_upkeep[id] = Upkeep({
-      target: target,
-      executeGas: gasLimit,
-      balance: balance,
-      admin: admin,
-      maxValidBlocknumber: UINT64_MAX,
-      lastKeeper: ZERO_ADDRESS,
-      amountSpent: 0
+    target : target,
+    executeGas : gasLimit,
+    balance : balance,
+    admin : admin,
+    maxValidBlocknumber : UINT64_MAX,
+    lastKeeper : ZERO_ADDRESS,
+    amountSpent : 0
     });
+    s_expectedLinkBalance = s_expectedLinkBalance + balance;
     s_checkData[id] = checkData;
     s_upkeepIDs.add(id);
   }
