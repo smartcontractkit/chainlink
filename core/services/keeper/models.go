@@ -23,14 +23,15 @@ type Registry struct {
 	KeeperIndexMap    KeeperIndexMap
 }
 type UpkeepRegistration struct {
-	ID                 int32
-	CheckData          []byte
-	ExecuteGas         uint64
-	LastRunBlockHeight int64
-	RegistryID         int64
-	Registry           Registry
-	UpkeepID           int64
-	LastKeeperIndex    null.Int64
+	ID                  int32
+	CheckData           []byte
+	ExecuteGas          uint64
+	LastRunBlockHeight  int64
+	RegistryID          int64
+	Registry            Registry
+	UpkeepID            int64
+	LastKeeperIndex     null.Int64
+	PositioningConstant int32
 }
 
 func (k *KeeperIndexMap) Scan(val interface{}) error {
