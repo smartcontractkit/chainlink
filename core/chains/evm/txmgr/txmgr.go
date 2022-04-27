@@ -151,7 +151,7 @@ func NewTxm(db *sqlx.DB, ethClient evmclient.Client, cfg Config, keyStore KeySto
 	if cfg.EvmUseForwarders() {
 		b.fwdMgr = forwarders.NewFwdMgr(db, ethClient, logPoller, lggr, cfg)
 	} else {
-		b.logger.Infof("EvmForwardManager: Disabled")
+		b.logger.Info("EvmForwardManager: Disabled")
 	}
 
 	return &b

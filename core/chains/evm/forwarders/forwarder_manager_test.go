@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/authorized_receiver"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
@@ -56,7 +55,7 @@ func TestFwdMgr(t *testing.T) {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewPGCfg(true)),
 		client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID), lggr, 100*time.Millisecond, 2, 3)
 	fwdMgr := forwarders.NewFwdMgr(db, ethClient, lp, lggr, pgtest.NewPGCfg(true))
-	fwdMgr.ORM = cltest.NewFwdMgrORM(t, db, cfg)
+	fwdMgr.ORM = forwarders.NewORM(db, logger.TestLogger(t), cfg)
 
 	_, err = fwdMgr.ORM.CreateForwarder(forwarderAddr, utils.Big(*testutils.FixtureChainID))
 	require.NoError(t, err)

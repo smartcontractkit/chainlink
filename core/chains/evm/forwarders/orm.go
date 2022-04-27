@@ -73,9 +73,7 @@ func (o *orm) FindForwarders(offset, limit int) (fwds []Forwarder, count int, er
 // FindForwardersByChain returns all forwarder addresses for a chain.
 func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, err error) {
 	sql := `SELECT * FROM evm_forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC`
-	if err = o.q.Select(&fwds, sql, evmChainId); err != nil {
-		return
-	}
+	err = o.q.Select(&fwds, sql, evmChainId)
 	return
 }
 
@@ -101,7 +99,7 @@ func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.A
 
 	query, args, err = sqlx.In(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to run sqlx.IN on query")
 	}
 
 	query = o.q.Rebind(query)

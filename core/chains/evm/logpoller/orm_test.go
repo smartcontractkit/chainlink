@@ -62,6 +62,7 @@ func TestORM(t *testing.T) {
 
 	// Should be able to insert and read back a log.
 	topic := common.HexToHash("0x1599")
+	topic2 := common.HexToHash("0x1600")
 	require.NoError(t, o1.InsertLogs([]Log{
 		{
 			EvmChainId:  utils.NewBigI(137),
@@ -92,10 +93,44 @@ func TestORM(t *testing.T) {
 			BlockNumber: int64(12),
 			EventSig:    topic[:],
 			Topics:      [][]byte{topic[:]},
-			Address:     common.HexToAddress("0x1234"),
+			Address:     common.HexToAddress("0x1235"),
 			TxHash:      common.HexToHash("0x1888"),
 			Data:        []byte("hello"),
-		}}))
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    4,
+			BlockHash:   common.HexToHash("0x1234"),
+			BlockNumber: int64(13),
+			EventSig:    topic[:],
+			Topics:      [][]byte{topic[:]},
+			Address:     common.HexToAddress("0x1235"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    5,
+			BlockHash:   common.HexToHash("0x1234"),
+			BlockNumber: int64(14),
+			EventSig:    topic2[:],
+			Topics:      [][]byte{topic2[:]},
+			Address:     common.HexToAddress("0x1234"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello2"),
+		},
+		{
+			EvmChainId:  utils.NewBigI(137),
+			LogIndex:    6,
+			BlockHash:   common.HexToHash("0x1234"),
+			BlockNumber: int64(15),
+			EventSig:    topic2[:],
+			Topics:      [][]byte{topic2[:]},
+			Address:     common.HexToAddress("0x1235"),
+			TxHash:      common.HexToHash("0x1888"),
+			Data:        []byte("hello2"),
+		},
+	}))
 	logs, err := o1.selectLogsByBlockRange(10, 10)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(logs))
@@ -131,9 +166,25 @@ func TestORM(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 
-	// 0 conf should return the most recent block 12
+	// Latest log for topic for addr "0x1234" is @ block 11
 	lgs, err := o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic})
 	require.NoError(t, err)
+
 	require.Equal(t, 1, len(lgs))
-	require.Equal(t, int64(12), lgs[0].BlockNumber)
+	require.Equal(t, int64(11), lgs[0].BlockNumber)
+
+	// should return two entries one for each address with the latest update
+	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic})
+	require.NoError(t, err)
+	require.Equal(t, 2, len(lgs))
+
+	// should return two entries one for each topic for addr 0x1234
+	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234")}, []common.Hash{topic, topic2})
+	require.NoError(t, err)
+	require.Equal(t, 2, len(lgs))
+
+	// should return 4 entries one for each (address,topic) combination
+	lgs, err = o1.LatestLogEventSigsAddrs(0 /* startBlock */, []common.Address{common.HexToAddress("0x1234"), common.HexToAddress("0x1235")}, []common.Hash{topic, topic2})
+	require.NoError(t, err)
+	require.Equal(t, 4, len(lgs))
 }

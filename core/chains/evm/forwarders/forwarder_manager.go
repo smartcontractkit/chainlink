@@ -31,6 +31,7 @@ type FwdMgr struct {
 	logpoller *evmlogpoller.LogPoller
 
 	// TODO(samhassan): sendersCache should be an LRU capped cache
+	// https://app.shortcut.com/chainlinklabs/story/37884/forwarder-manager-uses-lru-for-caching-dest-addresses
 	sendersCache map[common.Address][]common.Address
 	latestBlock  int64
 
@@ -93,6 +94,8 @@ func (f *FwdMgr) Start() error {
 }
 
 // TODO(samhassan): this should be aware of job type to decide how to fetch senders list.
+// 	This is necessary to support ocr1 jobs.
+// 	https://app.shortcut.com/chainlinklabs/story/15448/ocr1-feeds-jobs-should-detect-if-they-are-configured-to-use-a-forwarder-contract
 func (f *FwdMgr) MaybeForwardTransaction(from common.Address, to common.Address, encodedPayload []byte) (fwdAddr common.Address, fwdPayload []byte, err error) {
 
 	senders, err := f.getContractSenders(to)
@@ -109,7 +112,7 @@ func (f *FwdMgr) MaybeForwardTransaction(from common.Address, to common.Address,
 	for _, fwdr := range fwdrs {
 		eoas, err := f.getContractSenders(fwdr.Address)
 		if err != nil {
-			f.logger.Warnf("Failed to get forwarder senders %s", err)
+			f.logger.Errorw("Failed to get forwarder senders", "err", err)
 			continue
 		}
 		for _, eoa := range eoas {
@@ -118,7 +121,8 @@ func (f *FwdMgr) MaybeForwardTransaction(from common.Address, to common.Address,
 			}
 			forwardedPayload, err := f.getForwardedPayload(to, encodedPayload)
 			if err != nil {
-				f.logger.AssumptionViolation("Forwarder encoding failed, this should never happen")
+				f.logger.AssumptionViolationw("Forwarder encoding failed, this should never happen",
+					"err", err, "to", to, "payload", encodedPayload)
 				continue
 			}
 			return fwdr.Address, forwardedPayload, nil
@@ -204,7 +208,7 @@ func (f *FwdMgr) runLoop() {
 	defer f.wg.Done()
 	tick := time.After(0)
 
-	for ; ; tick = time.After(utils.WithJitter(time.Duration(1 * time.Minute))) {
+	for ; ; tick = time.After(utils.WithJitter(time.Duration(time.Minute))) {
 		select {
 		case <-tick:
 			addrs := f.collectAddresses()
@@ -217,7 +221,7 @@ func (f *FwdMgr) runLoop() {
 				addrs,
 			)
 			if err != nil {
-				f.logger.Warnw("Failed to retrieve latest log round", "err", err)
+				f.logger.Errorw("Failed to retrieve latest log round", "err", err)
 				continue
 			}
 			if len(logs) == 0 {
@@ -227,7 +231,7 @@ func (f *FwdMgr) runLoop() {
 			f.logger.Debugf("Handling new %d auth updates", len(logs))
 			for _, log := range logs {
 				if err = f.handleAuthChange(log); err != nil {
-					f.logger.Warnf("Error handling auth change %s: %s", log.TxHash, err)
+					f.logger.Warnw("Error handling auth change", "TxHash", log.TxHash, "err", err)
 				}
 			}
 

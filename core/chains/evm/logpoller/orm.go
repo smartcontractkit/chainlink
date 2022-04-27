@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -133,59 +134,29 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 // LatestLogEventSigsAddrs finds the latest log by (address, event) combination that matches a list of addresses and list of events
 func (o *ORM) LatestLogEventSigsAddrs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
-	var latestBlocks []int64
-	arg := map[string]interface{}{
-		"addresses": addresses,
-		"sigs":      eventSigs,
-		"chainid":   utils.NewBig(o.chainID),
-		"fromBlock": fromBlock,
+
+	sigs := [][]byte{}
+	for _, sig := range eventSigs {
+		sigs = append(sigs, sig.Bytes())
 	}
-	// Get the latest block with a matching update for each address
-	query, args, err := sqlx.Named(`
-	SELECT MAX(block_number) as block_number FROM logs
-	WHERE evm_chain_id = :chainid
-	AND address IN (:addresses)
-	AND event_sig IN (:sigs)
-	AND block_number > :fromBlock
-	GROUP BY address, event_sig, evm_chain_id
-	ORDER BY block_number DESC`,
-		arg,
-	)
-	if err != nil {
-		return nil, err
+	addrs := [][]byte{}
+	for _, addr := range addresses {
+		addrs = append(addrs, addr.Bytes())
 	}
-	query, args, err = sqlx.In(query, args...)
-	if err != nil {
-		return nil, err
-	}
+
 	q := o.q.WithOpts(qopts...)
-	query = o.q.Rebind(query)
-	err = q.Select(&latestBlocks, query, args...)
+	err := q.Select(&logs, `
+		SELECT max(block_number) as block_number, evm_chain_id, address, event_sig, topics, data
+		FROM logs WHERE 
+			evm_chain_id = $1 AND
+			event_sig = ANY($2) AND
+			address = ANY($3) AND
+			block_number > $4
+		GROUP BY evm_chain_id, address, event_sig, topics, data
+		ORDER BY block_number ASC
+	`, o.chainID.Int64(), pq.Array(sigs), pq.Array(addrs), fromBlock)
 	if err != nil {
-		return nil, err
-	}
-	if len(latestBlocks) == 0 {
-		return logs, nil
-	}
-	arg["latestblocks"] = latestBlocks
-	query, args, err = sqlx.Named(`
-		SELECT * FROM logs 
-		WHERE evm_chain_id = :chainid 
-        AND block_number IN (:latestblocks)
-		ORDER BY (block_number, log_index) DESC`,
-		arg,
-	)
-	if err != nil {
-		return nil, err
-	}
-	query, args, err = sqlx.In(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	query = o.q.Rebind(query)
-	err = q.Select(&logs, query, args...)
-	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to execute query")
 	}
 	return logs, nil
 }

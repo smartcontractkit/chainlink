@@ -33,7 +33,7 @@ type Log struct {
 	CreatedAt   time.Time
 }
 
-func (l Log) GetTopics() []common.Hash {
+func (l *Log) GetTopics() []common.Hash {
 	var tps []common.Hash
 	for _, topic := range l.Topics {
 		tps = append(tps, common.BytesToHash(topic))
