@@ -37,10 +37,12 @@ type RegistrySynchronizerOptions struct {
 	MinIncomingConfirmations uint32
 	Logger                   logger.Logger
 	SyncUpkeepQueueSize      uint32
+	newTurnEnabled           bool
 }
 
 type RegistrySynchronizer struct {
 	chStop                   chan struct{}
+	newTurnEnabled           bool
 	registryWrapper          *RegistryWrapper
 	interval                 time.Duration
 	job                      job.Job
@@ -76,6 +78,7 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		orm:                      opts.ORM,
 		logger:                   logger.Sugared(opts.Logger.Named("RegistrySynchronizer")),
 		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
+		newTurnEnabled:           opts.newTurnEnabled,
 	}
 }
 
@@ -85,7 +88,19 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 		rs.wgDone.Add(2)
 		go rs.run()
 
-		logListenerOpts, err := rs.registryWrapper.GetLogListenerOpts(rs.minIncomingConfirmations)
+		var upkeepPerformedFilter [][]log.Topic
+		upkeepPerformedFilter = nil
+		if !rs.newTurnEnabled {
+			upkeepPerformedFilter = [][]log.Topic{
+				{},
+				{},
+				{
+					log.Topic(rs.job.KeeperSpec.FromAddress.Hash()),
+				},
+			}
+		}
+
+		logListenerOpts, err := rs.registryWrapper.GetLogListenerOpts(rs.minIncomingConfirmations, upkeepPerformedFilter)
 		if err != nil {
 			return errors.Wrap(err, "Unable to fetch log listener opts from wrapper")
 		}

@@ -203,6 +203,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			config.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 			// testing doesn't need to do far look back
 			config.Overrides.KeeperTurnLookBack = null.IntFrom(0)
+			// testing new turn taking
+			config.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
 			// helps prevent missed heads
 			config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 

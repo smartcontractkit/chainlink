@@ -114,11 +114,16 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID *big.Int)
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
+	positioningConstant, err := CalcPositioningConstant(upkeepID.Int64(), registry.ContractAddress)
+	if err != nil {
+		return errors.Wrap(err, "failed to calc positioning constant")
+	}
 	newUpkeep := UpkeepRegistration{
-		CheckData:  upkeepConfig.CheckData,
-		ExecuteGas: uint64(upkeepConfig.ExecuteGas),
-		RegistryID: registry.ID,
-		UpkeepID:   upkeepID.Int64(),
+		CheckData:           upkeepConfig.CheckData,
+		ExecuteGas:          uint64(upkeepConfig.ExecuteGas),
+		RegistryID:          registry.ID,
+		PositioningConstant: positioningConstant,
+		UpkeepID:            upkeepID.Int64(),
 	}
 	if err := rs.orm.UpsertUpkeep(&newUpkeep); err != nil {
 		return errors.Wrap(err, "failed to upsert upkeep")

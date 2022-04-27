@@ -24,5 +24,6 @@ type Config interface {
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeeperCheckUpkeepGasPriceFeatureEnabled() bool
 	KeeperTurnLookBack() int64
+	KeeperTurnFlagEnabled() bool
 	LogSQL() bool
 }

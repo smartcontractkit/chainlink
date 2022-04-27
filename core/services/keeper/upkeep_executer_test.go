@@ -59,6 +59,7 @@ func setup(t *testing.T) (
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	cfg.Overrides.KeeperTurnLookBack = null.IntFrom(0)
+	cfg.Overrides.KeeperTurnFlagEnabled = null.BoolFrom(true)
 	cfg.Overrides.KeeperCheckUpkeepGasPriceFeatureEnabled = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
