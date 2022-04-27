@@ -58,11 +58,11 @@ type RegistrySynchronizer struct {
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
 func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchronizer {
 	mailRoom := MailRoom{
-		mbUpkeepCanceled:    utils.NewMailbox[log.Broadcast](50),
+		mbUpkeepCanceled:    utils.NewMailbox[log.Broadcast](500),
 		mbSyncRegistry:      utils.NewMailbox[log.Broadcast](1),
-		mbUpkeepPerformed:   utils.NewMailbox[log.Broadcast](300),
-		mbUpkeepRegistered:  utils.NewMailbox[log.Broadcast](50),
-		mbUpkeepGasLimitSet: utils.NewMailbox[log.Broadcast](50),
+		mbUpkeepPerformed:   utils.NewMailbox[log.Broadcast](3000),
+		mbUpkeepRegistered:  utils.NewMailbox[log.Broadcast](500),
+		mbUpkeepGasLimitSet: utils.NewMailbox[log.Broadcast](500),
 	}
 	return &RegistrySynchronizer{
 		chStop:                   make(chan struct{}),
