@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/log"
 	registry1_1 "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper1_1"
@@ -41,7 +40,7 @@ func (rw *RegistryWrapper) GetLogListenerOpts(minIncomingConfirmations uint32) (
 			MinIncomingConfirmations: minIncomingConfirmations,
 		}, nil
 	default:
-		return nil, errors.Errorf("registry version not supported %d", rw.Version)
+		return nil, getUnsupportedVersionError("GetLogListenerOpts", rw.Version)
 	}
 }
 
@@ -60,7 +59,7 @@ func (rw *RegistryWrapper) GetCancelledUpkeepIDFromLog(broadcast log.Broadcast) 
 		}
 		return broadcastedLog.Id, nil
 	default:
-		return nil, errors.Errorf("Registry version %d does not support GetCancelledUpkeepIDFromLog", rw.Version)
+		return nil, getUnsupportedVersionError("GetCancelledUpkeepIDFromLog", rw.Version)
 	}
 }
 
@@ -79,26 +78,7 @@ func (rw *RegistryWrapper) GetUpkeepIdFromRegistrationLog(broadcast log.Broadcas
 		}
 		return broadcastedLog.Id, nil
 	default:
-		return nil, errors.Errorf("Registry version %d does not support GetUpkeepIdFromRegistrationLog", rw.Version)
-	}
-}
-
-func (rw *RegistryWrapper) GetUpkeepIdFromRawRegistrationLog(rawLog types.Log) (*big.Int, error) {
-	switch rw.Version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		parsedLog, err := rw.contract1_1.ParseUpkeepRegistered(rawLog)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get parse UpkeepRegistered log")
-		}
-		return parsedLog.Id, nil
-	case RegistryVersion_1_2:
-		parsedLog, err := rw.contract1_2.ParseUpkeepRegistered(rawLog)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get parse UpkeepRegistered log")
-		}
-		return parsedLog.Id, nil
-	default:
-		return nil, errors.Errorf("Registry version %d does not support GetUpkeepIdFromRawRegistrationLog", rw.Version)
+		return nil, getUnsupportedVersionError("GetUpkeepIdFromRegistrationLog", rw.Version)
 	}
 }
 
@@ -128,7 +108,7 @@ func (rw *RegistryWrapper) ParseUpkeepPerformedLog(broadcast log.Broadcast) (*Up
 			FromKeeper: broadcastedLog.From,
 		}, nil
 	default:
-		return nil, errors.Errorf("Registry version %d does not support ParseUpkeepPerformedLog", rw.Version)
+		return nil, getUnsupportedVersionError("ParseUpkeepPerformedLog", rw.Version)
 	}
 }
 
@@ -142,6 +122,6 @@ func (rw *RegistryWrapper) GetIDFromGasLimitSetLog(broadcast log.Broadcast) (*bi
 		}
 		return broadcastedLog.Id, nil
 	default:
-		return nil, errors.Errorf("Registry version %d does not support GetIDFromGasLimitSetLog", rw.Version)
+		return nil, getUnsupportedVersionError("GetIDFromGasLimitSetLog", rw.Version)
 	}
 }
