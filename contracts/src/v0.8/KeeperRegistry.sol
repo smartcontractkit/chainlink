@@ -14,19 +14,21 @@ import "./interfaces/KeeperCompatibleInterface.sol";
 import "./interfaces/KeeperRegistryInterface.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
+import "./interfaces/ERC677ReceiverInterface.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
 contract KeeperRegistry is
-  TypeAndVersionInterface,
-  ConfirmedOwner,
-  KeeperBase,
-  ReentrancyGuard,
-  Pausable,
-  KeeperRegistryExecutableInterface,
-  MigratableKeeperRegistryInterface
+TypeAndVersionInterface,
+ConfirmedOwner,
+KeeperBase,
+ReentrancyGuard,
+Pausable,
+KeeperRegistryExecutableInterface,
+MigratableKeeperRegistryInterface,
+ERC677ReceiverInterface
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
