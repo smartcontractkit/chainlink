@@ -36,8 +36,9 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/VRFLoadTestOwnerlessConsumer.abi ../../../contracts/solc/v0.8.6/VRFLoadTestOwnerlessConsumer.bin VRFLoadTestOwnerlessConsumer vrf_load_test_ownerless_consumer
 //go:generate go run ./generation/generate/wrap.go ../../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.abi ../../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.bin VRFLoadTestExternalSubOwner vrf_load_test_external_sub_owner
 
-//go:generate mockery --recursive --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
-//go:generate mockery --recursive --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
+//go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
+//go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
+//go:generate mockery --srcpkg github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/aggregator_v3_interface --name AggregatorV3InterfaceInterface --output ../../services/vrf/mocks/ --case=underscore --structname AggregatorV3Interface --filename aggregator_v3_interface.go
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 

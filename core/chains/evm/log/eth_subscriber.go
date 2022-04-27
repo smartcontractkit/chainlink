@@ -255,6 +255,7 @@ func (sub managedSubscriptionImpl) Logs() chan types.Log {
 
 func (sub managedSubscriptionImpl) Unsubscribe() {
 	sub.subscription.Unsubscribe()
+	<-sub.Err() // ensure sending has stopped before closing the chan
 	close(sub.chRawLogs)
 }
 

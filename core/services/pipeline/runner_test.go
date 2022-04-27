@@ -14,11 +14,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -28,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/require"
 )
 
 func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
@@ -122,10 +123,15 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, errorResults, 3)
 }
 
-func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
-	t.Parallel()
+type taskRunWithVars struct {
+	bridgeName        string
+	ds2URL, ds4URL    string
+	submitBridgeName  string
+	includeInputAtKey string
+}
 
-	specTemplate := `
+func (t taskRunWithVars) String() string {
+	return fmt.Sprintf(`
         ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": $(foo)}>]
         ds1_parse [type=jsonparse lax=false  path="data,result" data="$(ds1)"]
         ds1_multiply [type=multiply input="$(ds1_parse.result)" times="$(ds1_parse.times)"]
@@ -155,7 +161,11 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
         median -> submit;
         ds4 -> submit;
-    `
+    `, t.bridgeName, t.ds2URL, t.ds4URL, t.submitBridgeName, t.includeInputAtKey)
+}
+
+func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		name              string
@@ -245,7 +255,13 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer submit.Close()
 
 			runner, _ := newRunner(t, db, cfg)
-			specStr := fmt.Sprintf(specTemplate, bridgeName, ds2.URL, ds4.URL, submitBridgeName, test.includeInputAtKey)
+			specStr := taskRunWithVars{
+				bridgeName:        bridgeName,
+				ds2URL:            ds2.URL,
+				ds4URL:            ds4.URL,
+				submitBridgeName:  submitBridgeName,
+				includeInputAtKey: test.includeInputAtKey,
+			}.String()
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
@@ -288,13 +304,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	}
 }
 
-func Test_PipelineRunner_CBORParse(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
-
-	t.Run("diet mode, empty CBOR", func(t *testing.T) {
-		s := `
+const (
+	CBORDietEmpty = `
 decode_log  [type="ethabidecodelog"
              data="$(jobRun.logData)"
              topics="$(jobRun.logTopics)"
@@ -306,6 +317,27 @@ decode_cbor [type="cborparse"
 
 decode_log -> decode_cbor;
 `
+	CBORStdString = `
+decode_log  [type="ethabidecodelog"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"
+             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
+
+decode_cbor [type="cborparse"
+             data="$(decode_log.cborPayload)"
+			 mode=standard]
+
+decode_log -> decode_cbor;
+`
+)
+
+func Test_PipelineRunner_CBORParse(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
+
+	t.Run("diet mode, empty CBOR", func(t *testing.T) {
+		s := CBORDietEmpty
 		d, err := pipeline.Parse(s)
 		require.NoError(t, err)
 
@@ -333,18 +365,7 @@ decode_log -> decode_cbor;
 	})
 
 	t.Run("standard mode, string value", func(t *testing.T) {
-		s := `
-decode_log  [type="ethabidecodelog"
-             data="$(jobRun.logData)"
-             topics="$(jobRun.logTopics)"
-             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
-
-decode_cbor [type="cborparse"
-             data="$(decode_log.cborPayload)"
-			 mode=standard]
-
-decode_log -> decode_cbor;
-`
+		s := CBORStdString
 		d, err := pipeline.Parse(s)
 		require.NoError(t, err)
 
