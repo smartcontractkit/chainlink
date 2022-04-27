@@ -383,6 +383,20 @@ func (_m *GeneralConfig) ClientNodeURL() string {
 	return r0
 }
 
+// CustomEndpointEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) CustomEndpointEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // DatabaseBackupDir provides a mock function with given fields:
 func (_m *GeneralConfig) DatabaseBackupDir() string {
 	ret := _m.Called()
@@ -3272,20 +3286,6 @@ func (_m *GeneralConfig) SolanaNodes() string {
 	return r0
 }
 
-// TerraNodes provides a mock function with given fields:
-func (_m *GeneralConfig) TerraNodes() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
 // TLSCertPath provides a mock function with given fields:
 func (_m *GeneralConfig) TLSCertPath() string {
 	ret := _m.Called()
@@ -3507,6 +3507,20 @@ func (_m *GeneralConfig) TerraEnabled() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// TerraNodes provides a mock function with given fields:
+func (_m *GeneralConfig) TerraNodes() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
