@@ -260,7 +260,12 @@ contract KeeperRegistry is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData) external override whenNotPaused returns (bool success) {
+  function performUpkeep(uint256 id, bytes calldata performData)
+    external
+    override
+    whenNotPaused
+    returns (bool success)
+  {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
   }
 
