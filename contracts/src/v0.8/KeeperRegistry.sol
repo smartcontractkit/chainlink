@@ -65,7 +65,7 @@ contract KeeperRegistry is
   AggregatorV3Interface public immutable FAST_GAS_FEED;
 
   /**
-     * @notice versions:
+   * @notice versions:
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
@@ -209,7 +209,7 @@ contract KeeperRegistry is
     uint32 gasLimit,
     address admin,
     bytes calldata checkData
-  ) external override onlyOwnerOrRegistrar returns (uint256 id) {
+  ) external override onlyOwnerOrRegistrar whenNotPaused returns (uint256 id) {
     id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData);
     s_storage.nonce++;
@@ -297,7 +297,7 @@ contract KeeperRegistry is
    * @param id upkeep to fund
    * @param amount number of LINK to transfer
    */
-  function addFunds(uint256 id, uint96 amount) external override whenNotPaused onlyActiveUpkeep(id) {
+  function addFunds(uint256 id, uint96 amount) external override onlyActiveUpkeep(id) {
     s_upkeep[id].balance = s_upkeep[id].balance + amount;
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
     LINK.transferFrom(msg.sender, address(this), amount);
@@ -697,7 +697,7 @@ contract KeeperRegistry is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override whenNotPaused {
+  function receiveUpkeeps(bytes calldata encodedUpkeeps) external override {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL

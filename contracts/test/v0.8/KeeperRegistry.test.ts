@@ -344,6 +344,25 @@ describe('KeeperRegistry', () => {
   })
 
   describe('#registerUpkeep', () => {
+    context('and the registry is paused', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).pause()
+      })
+      it('reverts', async () => {
+        await evmRevert(
+          registry
+            .connect(owner)
+            .registerUpkeep(
+              zeroAddress,
+              executeGas,
+              await admin.getAddress(),
+              emptyBytes,
+            ),
+          'Pausable: paused',
+        )
+      })
+    })
+
     it('reverts if the target is not a contract', async () => {
       await evmRevert(
         registry
@@ -426,19 +445,6 @@ describe('KeeperRegistry', () => {
 
     beforeEach(async () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-    })
-
-    context('and the registry is paused', () => {
-      beforeEach(async () => {
-        await registry.connect(owner).pause()
-      })
-
-      it('reverts', async () => {
-        await evmRevert(
-          registry.connect(keeper1).addFunds(id.add(1), amount),
-          'Pausable: paused',
-        )
-      })
     })
 
     it('reverts if the registration does not exist', async () => {
@@ -2049,19 +2055,6 @@ describe('KeeperRegistry', () => {
         await registry.connect(owner).addFunds(id, toWei('100'))
         await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
         await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
-      })
-
-      context('and the registry is paused', () => {
-        beforeEach(async () => {
-          await registry.connect(owner).pause()
-        })
-
-        it('receiveUpkeeps reverts', async () => {
-          await evmRevert(
-            registry.connect(admin).receiveUpkeeps(emptyBytes),
-            'Pausable: paused',
-          )
-        })
       })
 
       it('migrates an upkeep', async () => {
