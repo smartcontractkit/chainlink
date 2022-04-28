@@ -145,12 +145,12 @@ func (b *Big) String() string {
 	return b.ToInt().String()
 }
 
-// Hex returns the hex encoding of b.
+// Bytes returns the absolute value of b as a big-endian byte slice.
 func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
 }
 
-// Hex returns the hex encoding of b.
+// Bytes returns the
 func (b *Big) Bytes() []byte {
 	return b.ToInt().Bytes()
 }

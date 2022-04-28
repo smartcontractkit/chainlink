@@ -412,10 +412,6 @@ func TestKeeperDB_Uint256ToBit(t *testing.T) {
 	t.Parallel()
 	db, _, _ := setupKeeperDB(t)
 	sql := `SELECT uint256_to_bit($1)`
-
-	min := big.NewInt(0)
-	max := utils.MaxUint256
-	rand := utils.RandUint256()
 	for _, test := range []struct {
 		name          string
 		input         *big.Int
@@ -423,23 +419,23 @@ func TestKeeperDB_Uint256ToBit(t *testing.T) {
 	}{
 		{
 			name:  "min",
-			input: min,
+			input: big.NewInt(0),
 		},
 		{
 			name:  "max",
-			input: max,
+			input: utils.MaxUint256,
 		},
 		{
 			name:  "rand",
-			input: rand,
+			input: utils.RandUint256(),
 		},
 		{
-			name:  "padded",
-			input: min,
+			name:  "needs pading",
+			input: big.NewInt(1),
 		},
 		{
 			name:          "overflow",
-			input:         bigmath.Add(max, 1),
+			input:         bigmath.Add(utils.MaxUint256, 1),
 			errorExpected: true,
 		},
 	} {
