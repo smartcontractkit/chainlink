@@ -617,27 +617,6 @@ describe('KeeperRegistry', () => {
           await mock.setCanPerform(true)
         })
 
-        context('and the registry is paused', () => {
-          beforeEach(async () => {
-            await registry.connect(owner).pause()
-          })
-
-          it('reverts', async () => {
-            await evmRevert(
-              registry
-                .connect(zeroAddress)
-                .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-              'Pausable: paused',
-            )
-
-            await registry.connect(owner).unpause()
-
-            await registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(id, await keeper1.getAddress())
-          })
-        })
-
         it('returns true with pricing info if the target can execute', async () => {
           const newGasMultiplier = BigNumber.from(10)
           await registry.connect(owner).setConfig({

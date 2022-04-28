@@ -207,7 +207,7 @@ contract KeeperRegistry is
     uint32 gasLimit,
     address admin,
     bytes calldata checkData
-  ) external override onlyOwnerOrRegistrar whenNotPaused returns (uint256 id) {
+  ) external override onlyOwnerOrRegistrar returns (uint256 id) {
     id = uint256(keccak256(abi.encodePacked(blockhash(block.number - 1), address(this), s_storage.nonce)));
     _createUpkeep(id, target, gasLimit, admin, 0, checkData);
     s_storage.nonce++;
@@ -226,7 +226,6 @@ contract KeeperRegistry is
   function checkUpkeep(uint256 id, address from)
     external
     override
-    whenNotPaused
     cannotExecute
     returns (
       bytes memory performData,
@@ -732,7 +731,7 @@ contract KeeperRegistry is
     address admin,
     uint96 balance,
     bytes memory checkData
-  ) internal {
+  ) internal whenNotPaused {
     if (!target.isContract()) revert NotAContract();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
     s_upkeep[id] = Upkeep({
