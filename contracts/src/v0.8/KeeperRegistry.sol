@@ -65,7 +65,7 @@ contract KeeperRegistry is
   AggregatorV3Interface public immutable FAST_GAS_FEED;
 
   /**
-     * @notice versions:
+   * @notice versions:
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
@@ -86,10 +86,9 @@ contract KeeperRegistry is
   error OnlyActiveKeepers();
   error InsufficientFunds();
   error KeepersMustTakeTurns();
-  error ParameterLengthMismatch();
+  error ParameterLengthError();
   error OnlyCallableByOwnerOrAdmin();
   error OnlyCallableByLINKToken();
-  error TooFewKeepers();
   error InvalidPayee();
   error DuplicateEntry();
   error ValueNotChanged();
@@ -100,7 +99,6 @@ contract KeeperRegistry is
   error OnlyCallableByPayee();
   error OnlyCallableByProposedPayee();
   error GasLimitCanOnlyIncrease();
-  error CannotChangePayee();
   error OnlyCallableByAdmin();
   error OnlyCallableByOwnerOrRegistrar();
   error InvalidRecipient();
@@ -228,7 +226,6 @@ contract KeeperRegistry is
   function checkUpkeep(uint256 id, address from)
     external
     override
-    whenNotPaused
     cannotExecute
     returns (
       bytes memory performData,
@@ -260,7 +257,12 @@ contract KeeperRegistry is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData) external override returns (bool success) {
+  function performUpkeep(uint256 id, bytes calldata performData)
+    external
+    override
+    whenNotPaused
+    returns (bool success)
+  {
     return _performUpkeepWithParams(_generatePerformParams(msg.sender, id, performData, true));
   }
 
@@ -482,8 +484,7 @@ contract KeeperRegistry is
    * move payments which have been accrued
    */
   function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
-    if (keepers.length != payees.length) revert ParameterLengthMismatch();
-    if (keepers.length < 2) revert TooFewKeepers();
+    if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
     for (uint256 i = 0; i < s_keeperList.length; i++) {
       address keeper = s_keeperList[i];
       s_keeperInfo[keeper].active = false;
@@ -493,8 +494,9 @@ contract KeeperRegistry is
       KeeperInfo storage s_keeper = s_keeperInfo[keeper];
       address oldPayee = s_keeper.payee;
       address newPayee = payees[i];
-      if (newPayee == ZERO_ADDRESS) revert InvalidPayee();
-      if (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS) revert CannotChangePayee();
+      if (
+        (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
+      ) revert InvalidPayee();
       if (s_keeper.active) revert DuplicateEntry();
       s_keeper.active = true;
       if (newPayee != IGNORE_ADDRESS) {
@@ -729,7 +731,7 @@ contract KeeperRegistry is
     address admin,
     uint96 balance,
     bytes memory checkData
-  ) internal {
+  ) internal whenNotPaused {
     if (!target.isContract()) revert NotAContract();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
     s_upkeep[id] = Upkeep({
@@ -784,8 +786,7 @@ contract KeeperRegistry is
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
     uint256 total = ((weiForGas * (1e9) * (premium)) / (linkEth)) + (uint256(s_storage.flatFeeMicroLink) * (1e12));
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return uint96(total);
-    // LINK_TOTAL_SUPPLY < UINT96_MAX
+    return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
 
   /**
@@ -849,13 +850,6 @@ contract KeeperRegistry is
   }
 
   /**
-   * @dev ensures a upkeep is valid
-   */
-  function _validateUpkeep(uint256 id) private view {
-    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
-  }
-
-  /**
    * @dev ensures all required checks are passed before an upkeep is performed
    */
   function _prePerformUpkeep(
@@ -910,7 +904,7 @@ contract KeeperRegistry is
    * @dev ensures a upkeep is valid
    */
   modifier validUpkeep(uint256 id) {
-    _validateUpkeep(id);
+    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
     _;
   }
 
