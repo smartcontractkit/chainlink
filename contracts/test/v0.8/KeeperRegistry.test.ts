@@ -338,7 +338,7 @@ describe('KeeperRegistry', () => {
             await payee2.getAddress(),
             await owner.getAddress(),
           ]),
-        'CannotChangePayee()',
+        'InvalidPayee()',
       )
     })
   })

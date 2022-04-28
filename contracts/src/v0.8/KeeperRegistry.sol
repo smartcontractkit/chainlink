@@ -99,7 +99,6 @@ contract KeeperRegistry is
   error OnlyCallableByPayee();
   error OnlyCallableByProposedPayee();
   error GasLimitCanOnlyIncrease();
-  error CannotChangePayee();
   error OnlyCallableByAdmin();
   error OnlyCallableByOwnerOrRegistrar();
   error InvalidRecipient();
@@ -496,8 +495,7 @@ contract KeeperRegistry is
       KeeperInfo storage s_keeper = s_keeperInfo[keeper];
       address oldPayee = s_keeper.payee;
       address newPayee = payees[i];
-      if (newPayee == ZERO_ADDRESS) revert InvalidPayee();
-      if (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS) revert CannotChangePayee();
+      if ((newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)) revert InvalidPayee();
       if (s_keeper.active) revert DuplicateEntry();
       s_keeper.active = true;
       if (newPayee != IGNORE_ADDRESS) {
