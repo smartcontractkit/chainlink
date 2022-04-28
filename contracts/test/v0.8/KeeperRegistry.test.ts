@@ -237,7 +237,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress(), await keeper2.getAddress()],
             [await payee1.getAddress()],
           ),
-        'ParameterLengthMismatch()',
+        'ParameterLengthError()',
       )
       await evmRevert(
         registry
@@ -246,7 +246,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress()],
             [await payee1.getAddress(), await payee2.getAddress()],
           ),
-        'ParameterLengthMismatch()',
+        'ParameterLengthError()',
       )
     })
 
@@ -338,12 +338,31 @@ describe('KeeperRegistry', () => {
             await payee2.getAddress(),
             await owner.getAddress(),
           ]),
-        'CannotChangePayee()',
+        'InvalidPayee()',
       )
     })
   })
 
   describe('#registerUpkeep', () => {
+    context('and the registry is paused', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).pause()
+      })
+      it('reverts', async () => {
+        await evmRevert(
+          registry
+            .connect(owner)
+            .registerUpkeep(
+              zeroAddress,
+              executeGas,
+              await admin.getAddress(),
+              emptyBytes,
+            ),
+          'Pausable: paused',
+        )
+      })
+    })
+
     it('reverts if the target is not a contract', async () => {
       await evmRevert(
         registry
@@ -598,27 +617,6 @@ describe('KeeperRegistry', () => {
           await mock.setCanPerform(true)
         })
 
-        context('and the registry is paused', () => {
-          beforeEach(async () => {
-            await registry.connect(owner).pause()
-          })
-
-          it('reverts', async () => {
-            await evmRevert(
-              registry
-                .connect(zeroAddress)
-                .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-              'Pausable: paused',
-            )
-
-            await registry.connect(owner).unpause()
-
-            await registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(id, await keeper1.getAddress())
-          })
-        })
-
         it('returns true with pricing info if the target can execute', async () => {
           const newGasMultiplier = BigNumber.from(10)
           await registry.connect(owner).setConfig({
@@ -688,6 +686,19 @@ describe('KeeperRegistry', () => {
         registry.connect(keeper2).performUpkeep(id, '0x'),
         'InsufficientFunds()',
       )
+    })
+
+    context('and the registry is paused', () => {
+      beforeEach(async () => {
+        await registry.connect(owner).pause()
+      })
+
+      it('reverts', async () => {
+        await evmRevert(
+          registry.connect(keeper2).performUpkeep(id, '0x'),
+          'Pausable: paused',
+        )
+      })
     })
 
     context('when the registration is funded', () => {
@@ -2024,6 +2035,7 @@ describe('KeeperRegistry', () => {
         await registry.setPeerRegistryMigrationPermission(registry2.address, 1)
         await registry2.setPeerRegistryMigrationPermission(registry.address, 2)
       })
+
       it('migrates an upkeep', async () => {
         expect((await registry.getUpkeep(id)).balance).to.equal(toWei('100'))
         expect((await registry.getUpkeep(id)).checkData).to.equal(randomBytes)
