@@ -344,25 +344,6 @@ describe('KeeperRegistry', () => {
   })
 
   describe('#registerUpkeep', () => {
-    context('and the registry is paused', () => {
-      beforeEach(async () => {
-        await registry.connect(owner).pause()
-      })
-      it('reverts', async () => {
-        await evmRevert(
-          registry
-            .connect(owner)
-            .registerUpkeep(
-              zeroAddress,
-              executeGas,
-              await admin.getAddress(),
-              emptyBytes,
-            ),
-          'Pausable: paused',
-        )
-      })
-    })
-
     it('reverts if the target is not a contract', async () => {
       await evmRevert(
         registry
@@ -615,6 +596,27 @@ describe('KeeperRegistry', () => {
         beforeEach(async () => {
           await mock.setCanCheck(true)
           await mock.setCanPerform(true)
+        })
+
+        context('and the registry is paused', () => {
+          beforeEach(async () => {
+            await registry.connect(owner).pause()
+          })
+
+          it('reverts', async () => {
+            await evmRevert(
+              registry
+                .connect(zeroAddress)
+                .callStatic.checkUpkeep(id, await keeper1.getAddress()),
+              'Pausable: paused',
+            )
+
+            await registry.connect(owner).unpause()
+
+            await registry
+              .connect(zeroAddress)
+              .callStatic.checkUpkeep(id, await keeper1.getAddress())
+          })
         })
 
         it('returns true with pricing info if the target can execute', async () => {

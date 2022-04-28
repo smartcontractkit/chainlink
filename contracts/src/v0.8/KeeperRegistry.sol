@@ -227,6 +227,7 @@ contract KeeperRegistry is
     external
     override
     cannotExecute
+    whenNotPaused
     returns (
       bytes memory performData,
       uint256 maxLinkPayment,
@@ -731,7 +732,7 @@ contract KeeperRegistry is
     address admin,
     uint96 balance,
     bytes memory checkData
-  ) internal whenNotPaused {
+  ) internal {
     if (!target.isContract()) revert NotAContract();
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
     s_upkeep[id] = Upkeep({
