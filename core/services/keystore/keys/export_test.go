@@ -46,21 +46,21 @@ func TestKeyExportImport(t *testing.T) {
 	}
 }
 
-func runTestCase[T KeyType](t *testing.T) {
-	key, err := createKey[T]()
+func runTestCase[K KeyType](t *testing.T) {
+	key, err := createKey[K]()
 	require.NoError(t, err)
 
 	json, err := key.ToEncryptedJSON("password", utils.DefaultScryptParams)
 	require.NoError(t, err)
 	require.NotEmpty(t, json)
 
-	imported, err := decrypt[T](t, json, "password")
+	imported, err := decrypt[K](t, json, "password")
 	require.NoError(t, err)
 
 	require.Equal(t, key.String(), imported.String())
 }
 
-func createKey[T KeyType]() (ret T, err error) {
+func createKey[K KeyType]() (ret K, err error) {
 	switch r := any(&ret).(type) {
 	case *ethkey.KeyV2:
 		*r, err = ethkey.NewV2()
@@ -80,7 +80,7 @@ func createKey[T KeyType]() (ret T, err error) {
 	return
 }
 
-func decrypt[T KeyType](t *testing.T, keyJSON []byte, password string) (ret T, err error) {
+func decrypt[K KeyType](t *testing.T, keyJSON []byte, password string) (ret K, err error) {
 	switch r := any(&ret).(type) {
 	case *ethkey.KeyV2:
 		t.SkipNow()
