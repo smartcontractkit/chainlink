@@ -3,9 +3,11 @@ package models_test
 import (
 	"encoding/json"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -252,4 +254,249 @@ func TestNewInterval(t *testing.T) {
 	interval := models.NewInterval(duration)
 
 	require.Equal(t, duration, interval.Duration())
+}
+
+func TestSha256Hash_MarshalJSON_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	json, err := hash.MarshalJSON()
+	require.NoError(t, err)
+	require.NotEmpty(t, json)
+
+	var newHash models.Sha256Hash
+	err = newHash.UnmarshalJSON(json)
+	require.NoError(t, err)
+
+	require.Equal(t, hash, newHash)
+}
+
+func TestSha256Hash_Sha256HashFromHex(t *testing.T) {
+	t.Parallel()
+
+	_, err := models.Sha256HashFromHex("abczzz")
+	require.Error(t, err)
+
+	_, err = models.Sha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	require.NoError(t, err)
+
+	_, err = models.Sha256HashFromHex("f5bf259689b26f1374e6")
+	require.NoError(t, err)
+}
+
+func TestSha256Hash_String(t *testing.T) {
+	t.Parallel()
+
+	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	assert.Equal(t, "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5", hash.String())
+}
+
+func TestSha256Hash_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	hash := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
+	val, err := hash.Value()
+	require.NoError(t, err)
+
+	var newHash models.Sha256Hash
+	err = newHash.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, hash, newHash)
+}
+
+func TestAddressCollection_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	ac := models.AddressCollection{
+		common.HexToAddress(strings.Repeat("AA", 20)),
+		common.HexToAddress(strings.Repeat("BB", 20)),
+	}
+
+	val, err := ac.Value()
+	require.NoError(t, err)
+
+	var acNew models.AddressCollection
+	err = acNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, ac, acNew)
+}
+
+func TestAddressCollection_ToStrings(t *testing.T) {
+	t.Parallel()
+
+	hex1 := "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa"
+	hex2 := "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"
+
+	ac := models.AddressCollection{
+		common.HexToAddress(hex1),
+		common.HexToAddress(hex2),
+	}
+
+	acStrings := ac.ToStrings()
+	require.Len(t, acStrings, 2)
+	require.Equal(t, hex1, acStrings[0])
+	require.Equal(t, hex2, acStrings[1])
+}
+
+func TestInterval_IsZero(t *testing.T) {
+	t.Parallel()
+
+	i := models.NewInterval(0)
+	require.NotNil(t, i)
+	require.True(t, i.IsZero())
+
+	i = models.NewInterval(1)
+	require.NotNil(t, i)
+	require.False(t, i.IsZero())
+}
+
+func TestInterval_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	i := models.NewInterval(100)
+	require.NotNil(t, i)
+
+	val, err := i.Value()
+	require.NoError(t, err)
+
+	iNew := models.NewInterval(0)
+	err = iNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, i, iNew)
+}
+
+func TestInterval_MarshalText_UnmarshalText(t *testing.T) {
+	t.Parallel()
+
+	i := models.NewInterval(100)
+	require.NotNil(t, i)
+
+	txt, err := i.MarshalText()
+	require.NoError(t, err)
+
+	iNew := models.NewInterval(0)
+	err = iNew.UnmarshalText(txt)
+	require.NoError(t, err)
+
+	require.Equal(t, i, iNew)
+}
+
+func TestDuration_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	d := models.MustMakeDuration(100)
+	require.NotNil(t, d)
+
+	val, err := d.Value()
+	require.NoError(t, err)
+
+	dNew := models.MustMakeDuration(0)
+	err = dNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, d, dNew)
+}
+
+func TestDuration_MarshalJSON_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	d := models.MustMakeDuration(100)
+	require.NotNil(t, d)
+
+	json, err := d.MarshalJSON()
+	require.NoError(t, err)
+
+	dNew := models.MustMakeDuration(0)
+	err = dNew.UnmarshalJSON(json)
+	require.NoError(t, err)
+
+	require.Equal(t, d, dNew)
+}
+
+func TestDuration_MakeDurationFromString(t *testing.T) {
+	t.Parallel()
+
+	d, err := models.MakeDurationFromString("1s")
+	require.NoError(t, err)
+	require.Equal(t, 1*time.Second, d.Duration())
+
+	_, err = models.MakeDurationFromString("xyz")
+	require.Error(t, err)
+}
+
+func TestWebURL_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	u, err := url.Parse("https://chain.link")
+	require.NoError(t, err)
+
+	w := models.WebURL(*u)
+
+	val, err := w.Value()
+	require.NoError(t, err)
+
+	var wNew models.WebURL
+	err = wNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, w, wNew)
+}
+
+func TestJSON_Scan_Value(t *testing.T) {
+	t.Parallel()
+
+	js, err := models.ParseJSON([]byte(`{"foo":123}`))
+	require.NoError(t, err)
+
+	val, err := js.Value()
+	require.NoError(t, err)
+
+	var jsNew models.JSON
+	err = jsNew.Scan(val)
+	require.NoError(t, err)
+
+	require.Equal(t, js, jsNew)
+}
+
+func TestJSON_Bytes(t *testing.T) {
+	t.Parallel()
+
+	jsBytes := []byte(`{"foo":123}`)
+
+	js, err := models.ParseJSON(jsBytes)
+	require.NoError(t, err)
+
+	require.Equal(t, jsBytes, js.Bytes())
+}
+
+func TestJSON_MarshalJSON(t *testing.T) {
+	t.Parallel()
+
+	jsBytes := []byte(`{"foo":123}`)
+
+	js, err := models.ParseJSON(jsBytes)
+	require.NoError(t, err)
+
+	bs, err := js.MarshalJSON()
+	require.NoError(t, err)
+
+	require.Equal(t, jsBytes, bs)
+}
+
+func TestJSON_UnmarshalTOML(t *testing.T) {
+	t.Parallel()
+
+	jsBytes := []byte(`{"foo":123}`)
+
+	var js models.JSON
+	err := js.UnmarshalTOML(jsBytes)
+	require.NoError(t, err)
+	require.Equal(t, jsBytes, js.Bytes())
+
+	err = js.UnmarshalTOML(string(jsBytes))
+	require.NoError(t, err)
+	require.Equal(t, jsBytes, js.Bytes())
 }

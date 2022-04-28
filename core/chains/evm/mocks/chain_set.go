@@ -19,19 +19,27 @@ type ChainSet struct {
 	mock.Mock
 }
 
+func (_m *ChainSet) Show(id utils.Big) (types.Chain, error) {
+	panic("implement me")
+}
+
+func (_m *ChainSet) Index(offset, limit int) ([]types.Chain, int, error) {
+	panic("implement me")
+}
+
 // Add provides a mock function with given fields: ctx, id, config
-func (_m *ChainSet) Add(ctx context.Context, id *big.Int, config types.ChainCfg) (types.Chain, error) {
+func (_m *ChainSet) Add(ctx context.Context, id utils.Big, config types.ChainCfg) (types.Chain, error) {
 	ret := _m.Called(ctx, id, config)
 
 	var r0 types.Chain
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, types.ChainCfg) types.Chain); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, types.ChainCfg) types.Chain); ok {
 		r0 = rf(ctx, id, config)
 	} else {
 		r0 = ret.Get(0).(types.Chain)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, types.ChainCfg) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, types.ChainCfg) error); ok {
 		r1 = rf(ctx, id, config)
 	} else {
 		r1 = ret.Error(1)
@@ -85,18 +93,18 @@ func (_m *ChainSet) Close() error {
 }
 
 // Configure provides a mock function with given fields: ctx, id, enabled, config
-func (_m *ChainSet) Configure(ctx context.Context, id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+func (_m *ChainSet) Configure(ctx context.Context, id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error) {
 	ret := _m.Called(ctx, id, enabled, config)
 
 	var r0 types.Chain
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, bool, types.ChainCfg) types.Chain); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, utils.Big, bool, types.ChainCfg) types.Chain); ok {
 		r0 = rf(ctx, id, enabled, config)
 	} else {
 		r0 = ret.Get(0).(types.Chain)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *big.Int, bool, types.ChainCfg) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, utils.Big, bool, types.ChainCfg) error); ok {
 		r1 = rf(ctx, id, enabled, config)
 	} else {
 		r1 = ret.Error(1)
@@ -300,11 +308,11 @@ func (_m *ChainSet) Ready() error {
 }
 
 // Remove provides a mock function with given fields: id
-func (_m *ChainSet) Remove(id *big.Int) error {
+func (_m *ChainSet) Remove(id utils.Big) error {
 	ret := _m.Called(id)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
+	if rf, ok := ret.Get(0).(func(utils.Big) error); ok {
 		r0 = rf(id)
 	} else {
 		r0 = ret.Error(0)
