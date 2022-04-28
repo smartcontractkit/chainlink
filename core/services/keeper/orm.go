@@ -93,11 +93,15 @@ RETURNING *
 
 // BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID
 func (korm ORM) BatchDeleteUpkeepsForJob(jobID int32, upkeepIDs []utils.Big) (int64, error) {
+	strIds := []string{}
+	for _, upkeepID := range upkeepIDs {
+		strIds = append(strIds, upkeepID.String())
+	}
 	res, err := korm.q.Exec(`
 DELETE FROM upkeep_registrations WHERE registry_id IN (
 	SELECT id FROM keeper_registries WHERE job_id = $1
 ) AND upkeep_id = ANY($2)
-`, jobID, upkeepIDs)
+`, jobID, strIds)
 	if err != nil {
 		return 0, errors.Wrap(err, "BatchDeleteUpkeepsForJob failed to delete")
 	}
