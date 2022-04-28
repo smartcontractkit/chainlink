@@ -53,6 +53,7 @@ struct Config {
 struct State {
   uint32 nonce;
   uint96 ownerLinkBalance;
+  uint256 expectedLinkBalance;
   uint256 numUpkeeps;
 }
 
