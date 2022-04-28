@@ -86,10 +86,9 @@ contract KeeperRegistry is
   error OnlyActiveKeepers();
   error InsufficientFunds();
   error KeepersMustTakeTurns();
-  error ParameterLengthMismatch();
+  error ParameterLengthError();
   error OnlyCallableByOwnerOrAdmin();
   error OnlyCallableByLINKToken();
-  error TooFewKeepers();
   error InvalidPayee();
   error DuplicateEntry();
   error ValueNotChanged();
@@ -487,8 +486,7 @@ contract KeeperRegistry is
    * move payments which have been accrued
    */
   function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
-    if (keepers.length != payees.length) revert ParameterLengthMismatch();
-    if (keepers.length < 2) revert TooFewKeepers();
+    if (keepers.length != payees.length || keepers.length < 2) revert ParameterLengthError();
     for (uint256 i = 0; i < s_keeperList.length; i++) {
       address keeper = s_keeperList[i];
       s_keeperInfo[keeper].active = false;
@@ -854,13 +852,6 @@ contract KeeperRegistry is
   }
 
   /**
-   * @dev ensures a upkeep is valid
-   */
-  function _validateUpkeep(uint256 id) private view {
-    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
-  }
-
-  /**
    * @dev ensures all required checks are passed before an upkeep is performed
    */
   function _prePerformUpkeep(
@@ -915,7 +906,7 @@ contract KeeperRegistry is
    * @dev ensures a upkeep is valid
    */
   modifier validUpkeep(uint256 id) {
-    _validateUpkeep(id);
+    if (s_upkeep[id].maxValidBlocknumber <= block.number) revert UpkeepNotActive();
     _;
   }
 

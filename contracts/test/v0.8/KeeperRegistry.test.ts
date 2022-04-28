@@ -237,7 +237,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress(), await keeper2.getAddress()],
             [await payee1.getAddress()],
           ),
-        'ParameterLengthMismatch()',
+        'ParameterLengthError()',
       )
       await evmRevert(
         registry
@@ -246,7 +246,7 @@ describe('KeeperRegistry', () => {
             [await keeper1.getAddress()],
             [await payee1.getAddress(), await payee2.getAddress()],
           ),
-        'ParameterLengthMismatch()',
+        'ParameterLengthError()',
       )
     })
 
