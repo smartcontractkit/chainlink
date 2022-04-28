@@ -14,6 +14,7 @@ import "./interfaces/KeeperCompatibleInterface.sol";
 import "./interfaces/KeeperRegistryInterface.sol";
 import "./interfaces/MigratableKeeperRegistryInterface.sol";
 import "./interfaces/UpkeepTranscoderInterface.sol";
+import "./interfaces/ERC677ReceiverInterface.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -26,7 +27,8 @@ contract KeeperRegistry is
   ReentrancyGuard,
   Pausable,
   KeeperRegistryExecutableInterface,
-  MigratableKeeperRegistryInterface
+  MigratableKeeperRegistryInterface,
+  ERC677ReceiverInterface
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -63,7 +65,7 @@ contract KeeperRegistry is
   AggregatorV3Interface public immutable FAST_GAS_FEED;
 
   /**
-   * @notice versions:
+     * @notice versions:
    * - KeeperRegistry 1.2.0: allow funding within performUpkeep
    *                       : allow configurable registry maxPerformGas
    *                       : add function to let admin change upkeep gas limit
@@ -782,7 +784,8 @@ contract KeeperRegistry is
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
     uint256 total = ((weiForGas * (1e9) * (premium)) / (linkEth)) + (uint256(s_storage.flatFeeMicroLink) * (1e12));
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
+    return uint96(total);
+    // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
 
   /**
