@@ -27,21 +27,22 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrfv2_reverting_example"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -1063,7 +1064,7 @@ func configureSimChain(t *testing.T, app *cltest.TestApplication, ks map[string]
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
 	app.Chains.EVM.Configure(
 		testutils.Context(t),
-		big.NewInt(1337),
+		*utils.NewBigI(1337),
 		true,
 		types.ChainCfg{
 			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
