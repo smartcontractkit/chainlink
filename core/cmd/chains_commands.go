@@ -26,10 +26,6 @@ func chainCommand[C chains.Config, R presenters.ChainResource[C], P, P2 any](
 		panic(fmt.Errorf("chainID flag name must be 'id', got: %s", flagName))
 	}
 	lower := strings.ToLower(typ)
-	article := "a"
-	if strings.ContainsAny(lower[:1], "aeiouy") {
-		article = "an"
-	}
 	return cli.Command{
 		Name:  lower,
 		Usage: fmt.Sprintf("Commands for handling %s chains", typ),
@@ -42,17 +38,17 @@ func chainCommand[C chains.Config, R presenters.ChainResource[C], P, P2 any](
 			},
 			{
 				Name:   "delete",
-				Usage:  fmt.Sprintf("Delete %s %s chain", article, typ),
+				Usage:  fmt.Sprintf("Delete an existing %s chain", typ),
 				Action: client.RemoveChain,
 			},
 			{
 				Name:   "list",
-				Usage:  fmt.Sprintf("List all %s chains", typ),
+				Usage:  fmt.Sprintf("List all existing %s chains", typ),
 				Action: client.IndexChains,
 			},
 			{
 				Name:   "configure",
-				Usage:  fmt.Sprintf("Configure %s %s chain", article, typ),
+				Usage:  fmt.Sprintf("Configure an existing %s chain", typ),
 				Action: client.ConfigureChain,
 				Flags:  []cli.Flag{chainID},
 			},

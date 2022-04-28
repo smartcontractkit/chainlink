@@ -88,8 +88,6 @@ func (cc *chainsController[I, C, R]) Create(c *gin.Context) {
 	}
 
 	var request CreateChainRequest[I, C]
-	//TODo does this already handle utils.Big....
-
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
