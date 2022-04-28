@@ -495,7 +495,9 @@ contract KeeperRegistry is
       KeeperInfo storage s_keeper = s_keeperInfo[keeper];
       address oldPayee = s_keeper.payee;
       address newPayee = payees[i];
-      if ((newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)) revert InvalidPayee();
+      if (
+        (newPayee == ZERO_ADDRESS) || (oldPayee != ZERO_ADDRESS && oldPayee != newPayee && newPayee != IGNORE_ADDRESS)
+      ) revert InvalidPayee();
       if (s_keeper.active) revert DuplicateEntry();
       s_keeper.active = true;
       if (newPayee != IGNORE_ADDRESS) {
@@ -785,8 +787,7 @@ contract KeeperRegistry is
     uint256 premium = PPB_BASE + s_storage.paymentPremiumPPB;
     uint256 total = ((weiForGas * (1e9) * (premium)) / (linkEth)) + (uint256(s_storage.flatFeeMicroLink) * (1e12));
     if (total > LINK_TOTAL_SUPPLY) revert PaymentGreaterThanAllLINK();
-    return uint96(total);
-    // LINK_TOTAL_SUPPLY < UINT96_MAX
+    return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
 
   /**
