@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `LOG_FILE_MAX_SIZE` handling
-- Improved websocket subscription management
+- Improved websocket subscription management (fixes issues with multiple-primary-node failover from 1.3.x)
 - VRFv2 fixes and enhancements
 - UI support for `minContractPaymentLinkJuels`
 
