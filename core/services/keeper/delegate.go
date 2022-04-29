@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -62,23 +61,20 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 	if err != nil {
 		return nil, err
 	}
+	registryAddress := spec.KeeperSpec.ContractAddress
 
-	contractAddress := spec.KeeperSpec.ContractAddress
-	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
-		contractAddress.Address(),
-		chain.Client(),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
-	}
 	strategy := txmgr.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
-
 	orm := NewORM(d.db, d.logger, chain.Config(), strategy)
-
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
-		"registryAddress", contractAddress.Hex(),
+		"registryAddress", registryAddress.Hex(),
 	)
+
+	registryWrapper, err := NewRegistryWrapper(registryAddress, chain.Client())
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create keeper registry wrapper")
+	}
+	svcLogger.Info("Registry version is: ", registryWrapper.Version)
 
 	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
 	if spec.KeeperSpec.MinIncomingConfirmations != nil {
@@ -87,7 +83,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.ServiceCtx, err
 
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
 		Job:                      spec,
-		Contract:                 contract,
+		RegistryWrapper:          *registryWrapper,
 		ORM:                      orm,
 		JRM:                      d.jrm,
 		LogBroadcaster:           chain.LogBroadcaster(),

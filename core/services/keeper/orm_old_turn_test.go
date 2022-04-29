@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
@@ -47,9 +48,9 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 
 	// 3 out of 5 are eligible, check that ids are 0,1 or 2 but order is shuffled so can not use equals
 	require.Len(t, eligibleUpkeeps, 3)
-	assert.Less(t, eligibleUpkeeps[0].UpkeepID, int64(3))
-	assert.Less(t, eligibleUpkeeps[1].UpkeepID, int64(3))
-	assert.Less(t, eligibleUpkeeps[2].UpkeepID, int64(3))
+	assert.Equal(t, eligibleUpkeeps[0].UpkeepID.Cmp(utils.NewBigI(3)), -1)
+	assert.Equal(t, eligibleUpkeeps[1].UpkeepID.Cmp(utils.NewBigI(3)), -1)
+	assert.Equal(t, eligibleUpkeeps[2].UpkeepID.Cmp(utils.NewBigI(3)), -1)
 
 	// preloads registry data
 	assert.Equal(t, registry.ID, eligibleUpkeeps[0].RegistryID)
@@ -91,8 +92,8 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	assert.NoError(t, err)
 	// 2 out of 3 are eligible, check that ids are 0 or 1 but order is shuffled so can not use equals
 	assert.Len(t, eligibleUpkeeps, 2)
-	assert.Less(t, eligibleUpkeeps[0].UpkeepID, int64(2))
-	assert.Less(t, eligibleUpkeeps[1].UpkeepID, int64(2))
+	assert.Equal(t, eligibleUpkeeps[0].UpkeepID.Cmp(utils.NewBigI(2)), -1)
+	assert.Equal(t, eligibleUpkeeps[1].UpkeepID.Cmp(utils.NewBigI(2)), -1)
 }
 
 func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
@@ -188,7 +189,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 
 	nextID, err := orm.LowestUnsyncedID(registry.ID)
 	require.NoError(t, err)
-	require.Equal(t, int64(0), nextID)
+	require.Equal(t, utils.NewBigI(0), nextID)
 
 	upkeep := newUpkeep(registry, 0)
 	err = orm.UpsertUpkeep(&upkeep)
@@ -196,7 +197,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 
 	nextID, err = orm.LowestUnsyncedID(registry.ID)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), nextID)
+	require.Equal(t, utils.NewBigI(1), nextID)
 
 	upkeep = newUpkeep(registry, 3)
 	err = orm.UpsertUpkeep(&upkeep)
@@ -204,7 +205,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 
 	nextID, err = orm.LowestUnsyncedID(registry.ID)
 	require.NoError(t, err)
-	require.Equal(t, int64(4), nextID)
+	require.Equal(t, utils.NewBigI(4), nextID)
 }
 
 func TestKeeperDB_SetLastRunInfoForUpkeepOnJob(t *testing.T) {
