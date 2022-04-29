@@ -195,7 +195,7 @@ func NewLogger() (Logger, func() error) {
 		parseErrs = append(parseErrs, invalid)
 	}
 	if fileMaxSize == 0 || invalid != "" {
-		c.FileMaxSizeMB = 5120 * utils.MB // our default (env var) is 5120mb
+		c.FileMaxSizeMB = 5120 // our default (env var) is 5120mb
 		parseErrs = append(parseErrs, "LogFileMaxSize will default to 5120mb")
 	} else if fileMaxSize < utils.MB {
 		c.FileMaxSizeMB = 1 // 1Mb is the minimum accepted by logging backend
