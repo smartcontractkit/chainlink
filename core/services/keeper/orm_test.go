@@ -371,6 +371,20 @@ func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	require.Contains(t, upkeepIDs, utils.NewBig(big.NewInt(8)))
 }
 
+func TestKeeperDB_UpdateUpkeepLastKeeperIndex(t *testing.T) {
+	t.Parallel()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
+	registry, j := cltest.MustInsertKeeperRegistry(t, db, orm, ethKeyStore, 0, 1, 20)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+
+	require.NoError(t, orm.UpdateUpkeepLastKeeperIndex(j.ID, upkeep.UpkeepID, registry.FromAddress))
+
+	err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE id = $1`, upkeep.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), upkeep.LastKeeperIndex.Int64)
+}
+
 func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)

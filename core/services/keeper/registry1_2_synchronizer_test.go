@@ -36,9 +36,10 @@ var registryConfig1_2 = registry1_2.Config{
 }
 
 var registryState1_2 = registry1_2.State{
-	Nonce:            uint32(0),
-	OwnerLinkBalance: big.NewInt(1000000000000000000),
-	NumUpkeeps:       big.NewInt(0),
+	Nonce:               uint32(0),
+	OwnerLinkBalance:    big.NewInt(1000000000000000000),
+	ExpectedLinkBalance: big.NewInt(1000000000000000000),
+	NumUpkeeps:          big.NewInt(0),
 }
 
 var upkeepConfig1_2 = registry1_2.GetUpkeep{
